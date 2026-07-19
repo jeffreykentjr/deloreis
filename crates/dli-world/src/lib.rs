@@ -6,8 +6,10 @@
 //! [`Attestation`]s are recomputed for staleness with [`sweep`].
 
 pub mod attest;
+pub mod check;
 pub mod draft;
 pub mod episode;
+pub mod language;
 pub mod loader;
 pub mod model;
 pub mod pack;

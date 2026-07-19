@@ -7,9 +7,11 @@
 //! re-runs a query under an assumed set of fork options.
 
 pub mod error;
+pub mod fork;
 pub mod query;
 pub mod strata;
 pub mod support;
+pub mod why;
 pub mod world;
 
 pub use error::EvalError;
