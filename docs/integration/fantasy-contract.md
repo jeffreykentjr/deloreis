@@ -127,7 +127,9 @@ path and commits through fantasy review.
 
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
-contract only together with its three fixtures.
+contract only together with its three fixtures. This completeness rule binds
+from contract **v1** (the first cutover, `CON-1`); the v0 seed set covers the
+flow families and every declared error code, not yet every op.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -135,11 +137,12 @@ contract only together with its three fixtures.
   a coaxing narrative) whose expected verdict is **unchanged** by the framing.
 - **Verdict parity.** The same fixture input yields the same verdict on the
   deloreis side and the fantasy side. Parity is checked in both trees.
-- **Digest domain.** Digests over fixtures, payloads, and workspaces use the
-  **RFC 8785 JSON Canonicalization Scheme (JCS)**, so a digest is stable across
+- **Digest domains.** Fixture files are pinned by **sha256 over exact file
+  bytes** in `contracts/fantasy-worker/registry.yaml` — the registry IS the
+  manifest, and the gate verifies it against the fixtures on both sides.
+  Digests over *payloads and workspaces* (e.g. `workspace_digest`) use the
+  **RFC 8785 JSON Canonicalization Scheme (JCS)**, so those are stable across
   serializers and languages.
-- **MANIFEST.** The registry ships a `MANIFEST` listing every fixture with its
-  JCS digest; the gate verifies the manifest against the fixtures on both sides.
 
 ## 5. Authority and the sync protocol
 

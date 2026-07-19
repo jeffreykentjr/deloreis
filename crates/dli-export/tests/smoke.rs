@@ -25,8 +25,8 @@ fn profile_serializes_kebab_case() {
 }
 
 #[test]
-#[ignore = "enabled at EXPORT-1"]
+#[ignore = "enabled at EXP-1"]
 fn golden_ludii_export_matches() {
     // Once export() renders GDL, snapshot the emitted program + manifest.
-    todo!("EXPORT-1: golden Ludii GDL export")
+    todo!("EXP-1: golden Ludii GDL export")
 }

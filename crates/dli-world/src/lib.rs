@@ -19,15 +19,15 @@ use dli_eval::error::EvalError;
 
 /// Compile a pack into a status-gated world model.
 pub fn compile(_pack: &Pack) -> Result<WorldModel, EvalError> {
-    todo!("WORLD-1: compile documents, gating on ratification status")
+    todo!("FRONT-1: compile documents, gating on ratification status")
 }
 
 /// Recompute which stored attestations are stale against the current model.
 pub fn sweep(_store: &AttestationStore, _model: &WorldModel) -> Vec<Attestation> {
-    todo!("WORLD-1: return attestations whose sweep fingerprint no longer matches")
+    todo!("ATT-1: return attestations whose sweep fingerprint no longer matches")
 }
 
 /// Fact-check a draft payload against the world model.
 pub fn check_draft(_model: &WorldModel, _draft: &DraftPayload) -> Vec<DraftFinding> {
-    todo!("WORLD-1: classify each draft claim as supported/contradicted/unsupported")
+    todo!("CHECK-1: classify each draft claim as supported/contradicted/unsupported")
 }

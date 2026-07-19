@@ -48,8 +48,11 @@ Discipline (`decisions.md` DL-0011):
   judgment you cannot replay is not a verdict.
 - **The gate is offline and deterministic** — no network, ever, in a gating
   lane. The kernel calls no model and reads no clock.
-- **Doc examples compile.** Every fenced `.dli` example in the docs and the
-  reference cards is CI-compiled; a broken example fails the gate.
+- **Doc examples are gate-checked.** Every fenced `.dli` example in the docs
+  and the reference cards runs through the docs-oracle in CI; a failing example
+  fails the gate. Until the parser lands (`SURF-1`), the oracle is the keyword
+  probe classifier — line-shape validation, deliberately not a parse; it
+  upgrades to a full compile when the parser exists.
 - **Killed forms are registered, never deleted.** A retired keyword, operation,
   or name lands in the killed-form registry and the server refuses it, naming its
   successor.
@@ -89,6 +92,10 @@ Discipline (`decisions.md` DL-0011):
 
 ## 6. Integration
 
+- **Two ledgers, two prefixes.** `DL-nnnn` is this repo's decision ledger
+  (`docs/decisions.md`); `D-nnnn` is the consuming fantasy repo's ledger — the
+  authority lore citations point at. TPtH = *To Pleach the Hedgeway*, the
+  consuming audio-drama project.
 - `docs/integration/STATUS.md` is **single-writer, deloreis side**. Write only
   your own file; the fantasy mirror is theirs. The pair is the handshake.
 - **Never commit cross-repo.** deloreis does not write the fantasy tree, and

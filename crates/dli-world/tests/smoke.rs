@@ -22,9 +22,9 @@ fn draft_payload_round_trips() {
 }
 
 #[test]
-#[ignore = "enabled at WORLD-1"]
+#[ignore = "enabled at FRONT-1"]
 fn golden_check_draft_findings_match() {
     // Once compile + check_draft land, assert a draft over the saltmarket pack
     // produces the committed findings.
-    todo!("WORLD-1: golden compile + check_draft")
+    todo!("FRONT-1 + CHECK-1: golden compile + check_draft")
 }

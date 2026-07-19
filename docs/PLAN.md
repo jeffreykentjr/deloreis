@@ -78,11 +78,14 @@ they touch; they are not a lane of their own.
 - **DOCS-2** — The spec suite: `spec/00-overview.md`, the per-lane specs, and
   the design notes.
   *Needs:* DOCS-1. *Produces:* the buildable spec of each lane. *Oracle:* every
-  spec has frontmatter; every fenced example compiles under the gate.
+  spec has frontmatter; every fenced example passes the docs-oracle (the probe
+  classifier until SURF-1; a full compile after).
 - **EXT-A1** — *(external — author.)* The author's standing ruling queue filed
   as live ruling requests: the migration RQ batch and the Turning RQs.
   *Needs:* none. *Produces:* the queue the author rules against. *Oracle:* the
-  RQs are live under `docs/rulings/` and surfaced in the review queue.
+  RQs are live in the **consuming fantasy repo's** `docs/rulings/` and surfaced
+  in its review queue (that repo's convention — deloreis keeps a flat docs
+  tree, DL-0011).
 
 ### `core`
 
@@ -316,9 +319,12 @@ they touch; they are not a lane of their own.
   *Needs:* CON-1, ENG-2, FRONT-1. *Produces:* Door T. *Oracle:* the author-session
   golden fixture passes end to end; the framing-attack fixture leaves verdicts
   unchanged.
-- **AUTH-2** — The worked TPtH scenario against the pinned fantasy corpus.
-  *Needs:* AUTH-1, CHECK-1. *Produces:* the CP-10 handshake fixture. *Oracle:*
-  the `migration.md` worked scenario replays green.
+- **AUTH-2** — The worked TPtH (*To Pleach the Hedgeway*, the consuming
+  audio-drama project) scenario against the pinned fantasy corpus.
+  *Needs:* AUTH-1, CHECK-1, EXT-F2. *Produces:* the CP-10 handshake fixture — a
+  golden fixture encoding the `migration.md` §10 scenario against the vendored
+  corpus. *Oracle:* that fixture replays green (the seed `author-session`
+  fixture covers the tool flow only, over the example world).
 - **EXT-F3** — *(external — fantasy.)* The fantasy worker adapts to call `deloreis
   serve` (class-declared LLM calls, quote anchors, job wrapping, the digest
   check).
@@ -498,6 +504,10 @@ EXT-F5 (the runnable frontier), plus the deferred DEF-3 and DEF-4.
 
 ## The frontier
 
+The tables below are the DAG's **zero state** — the frontier as it stands
+before any node completes. For what is actually done in this tree, see
+"Current state" at the end of this section; the two are read together.
+
 **Six nodes are runnable at zero** — nothing must precede them:
 
 - Internal: **INFRA-1**, **DOCS-1**.
@@ -519,6 +529,23 @@ The ~10-wide plateau after CORE-1..3 is the plan's whole shape argument: once
 the AST, the evaluator, the verdict lattice, and the loader exist, eleven nodes
 across nine lanes are simultaneously unblocked. The build's rate from there is
 set by how many of them run at once, not by any single node's length.
+
+### Current state (as of the bootstrap commit)
+
+- **Done:** INFRA-1, DOCS-1, DOCS-2. CORE-1 is **partially** done: the AST
+  types and the schemars-derived schema exist and are gate-enforced; the
+  recursive-descent parser is a `todo!()` skeleton (the probe classifier stands
+  in for it — see the docs-oracle note below).
+- **Seeded ahead of the DAG:** CON-1's *artifacts* (the 41-op schemas, the
+  closed registry, the seed golden/negative/raw fixtures) were built at
+  bootstrap so the contract could be designed before the engine. CON-1's
+  *oracle* — verdict parity against a running server — remains blocked on
+  ENG-2; the `golden_dispatch` test stays `#[ignore]` until then, which is why
+  the ENG-2 → CON-1 edge stands. The per-op fixture-completeness rule
+  (contract §4) is likewise a CON-1/cutover obligation, not a seed-state fact:
+  the seed set covers the flow families, not every op.
+- **Everything else** is real types with `todo!()` behavior; each `#[ignore]`
+  test names the PLAN node that enables it.
 
 ## Milestones (node-sets, not dates)
 

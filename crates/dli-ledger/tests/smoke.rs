@@ -18,9 +18,9 @@ fn resource_kind_round_trips() {
 }
 
 #[test]
-#[ignore = "enabled at LEDGER-1"]
+#[ignore = "enabled at PRAC-2"]
 fn golden_turning_ledger_report_matches() {
     // The turning-practice ledger fixture becomes a real assertion once
     // check_ledger replays deltas.
-    todo!("LEDGER-1: golden check_ledger over the turning practice")
+    todo!("PRAC-2: golden check_ledger over the turning practice")
 }

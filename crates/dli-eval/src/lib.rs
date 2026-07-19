@@ -21,25 +21,25 @@ use dli_ast::ident::Ident;
 
 /// Lower an AST document into an evaluable world program.
 pub fn lower(_document: &Document) -> Result<World, EvalError> {
-    todo!("EVAL-1: lower declarations into ground facts, rules, and time structures")
+    todo!("CORE-2: lower declarations into ground facts, rules, and time structures")
 }
 
 /// Partition the world's rules into evaluation strata.
 pub fn stratify(_world: &World) -> Result<Strata, EvalError> {
-    todo!("EVAL-1: stratify on negation/aggregation dependency; reject cycles")
+    todo!("CORE-2: stratify on negation/aggregation dependency; reject cycles")
 }
 
 /// Compute the least fixpoint of the stratified program.
 pub fn fixpoint(_world: &World, _strata: &Strata) -> Result<World, EvalError> {
-    todo!("EVAL-1: semi-naive evaluation to a fixpoint, stratum by stratum")
+    todo!("CORE-2: semi-naive evaluation to a fixpoint, stratum by stratum")
 }
 
 /// Answer a query against a saturated world.
 pub fn query(_world: &World, _query: &Query) -> Result<Answer, EvalError> {
-    todo!("EVAL-1: match the goal and collect support-carrying answer rows")
+    todo!("CORE-2: match the goal and collect support-carrying answer rows")
 }
 
 /// Answer a query under an assumed set of fork options.
 pub fn fork_eval(_world: &World, _query: &Query, _assume: &[Ident]) -> Result<Answer, EvalError> {
-    todo!("EVAL-1: evaluate with the given hypotheses pinned true")
+    todo!("CORE-2: evaluate with the given hypotheses pinned true")
 }

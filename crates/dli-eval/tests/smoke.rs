@@ -13,9 +13,9 @@ fn empty_world_constructs() {
 }
 
 #[test]
-#[ignore = "enabled at EVAL-1"]
+#[ignore = "enabled at CORE-2"]
 fn golden_query_answer_matches() {
     // Once lowering and query land, assert a lowered saltmarket world answers
     // adjacency queries with the committed support formula.
-    todo!("EVAL-1: golden lower + query over saltmarket")
+    todo!("CORE-2: golden lower + query over saltmarket")
 }

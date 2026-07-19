@@ -43,5 +43,5 @@ pub fn export(
     _profile: ExportProfile,
     _valuation: &Valuation,
 ) -> ExportManifest {
-    todo!("EXPORT-1: render the profile and pin a reproducible manifest")
+    todo!("EXP-1: render the profile and pin a reproducible manifest")
 }

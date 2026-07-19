@@ -181,9 +181,7 @@ schemas.
 
 ```json
 → {"tool": "author.open", "args": {"fork": "ep9-cast"}}
-← {"workspace": "ep9-cast", "base": "3e1320a",
-   "findings": [], "rendered": [],
-   "workspace_digest": "jcs:sha256:0a2c…"}
+← {"workspace": "ep9-cast", "workspace_digest": "jcs:sha256:0a2c…"}
 ```
 
 **Add the character (proposed).** The tool returns a graded finding with repair
@@ -195,9 +193,9 @@ data — the name is not yet vetted — and the rendered canonical line.
             "provenance": {"kind": "proposed", "origin": "agent:factory/ep9-cast"}}}
 ← {"findings": [
      {"grade": "asserted", "severity": "warn", "code": "name.unvetted",
-      "message": "Tegwen has not been vetted against the name-space.",
-      "repair": {"kernel": "dli.name.check name=tegwen",
-                 "external": "run the fantasy external screen (ai-tics, collisions, homophones)"}}],
+      "message": "Tegwen has not been vetted against the name-space; the factory external screen (ai-tics, collisions, homophones) is a separate gate.",
+      "repair": {"kind": "run-check", "op": "dli.name.check",
+                 "params": {"name": "tegwen", "register": "cymric-fringe"}}}],
    "rendered": ["person tegwen \"Tegwen\"  proposed  agent:factory/ep9-cast"],
    "workspace_digest": "jcs:sha256:6b91…"}
 ```
@@ -205,13 +203,13 @@ data — the name is not yet vetted — and the rendered canonical line.
 **Vet the name (kernel half).**
 
 ```json
-→ {"op": "dli.name.check", "name": "tegwen", "register": "cymric-fringe",
-   "against": "ep9-cast"}
-← {"verdict": "ok", "grade": "checked",
-   "checks": {"intra-canon-unique": "pass", "aural-distinct": "pass",
-              "register-fit": "pass", "sayability": "pass"},
-   "note": "world-true only; the factory external screen is a separate gate"}
+→ {"op": "dli.name.check", "params": {"name": "tegwen", "register": "cymric-fringe"}}
+← {"ok": true, "findings": []}
 ```
+
+An empty findings list is the world-true pass (uniqueness, aural distinctness,
+register fit, sayability). The factory's external screen — ai-tics, collisions,
+homophones — is a separate, factory-side gate.
 
 **Add a fact and a relation.** Each returns its own findings, rendered line, and
 digest; the location is a real TPtH place (`gwern`).
@@ -240,19 +238,24 @@ findings, including the merely-possible status of everything proposed.
      "tegwen.trade = net-mender  proposed",
      "located_in(tegwen, gwern)  proposed"],
    "findings": [
-     {"grade": "asserted", "severity": "info", "code": "merely-possible",
+     {"grade": "asserted", "severity": "warn", "code": "merely-possible",
       "message": "3 proposed atoms — visible to shadow queries, excluded from every context pack and assertion until ruled."}],
    "workspace_digest": "jcs:sha256:1f77…"}
 ```
 
-**Materialize.** The tool returns `.dli` contents as **data**; the kernel writes
-nothing. The agent writes it to a fantasy-side staging path and commits through
+**Materialize.** The tool returns the `.dli` file lines as **data** in
+`rendered`; the kernel writes nothing. The agent chooses the fantasy-side path
+(here `lore/staging/ep9-cast.dli`), writes the lines, and commits through
 fantasy review.
 
 ```json
 → {"tool": "author.materialize", "args": {"workspace": "ep9-cast"}}
-← {"suggested_path": "lore/staging/ep9-cast.dli",
-   "contents": "pack ep9-cast\n\nperson tegwen \"Tegwen\"  proposed  agent:factory/ep9-cast\ntegwen.trade = net-mender  proposed\nlocated_in(tegwen, gwern)  proposed\n",
+← {"findings": [],
+   "rendered": [
+     "pack ep9-cast",
+     "person tegwen \"Tegwen\"  proposed  agent:factory/ep9-cast",
+     "tegwen.trade = net-mender  proposed",
+     "located_in(tegwen, gwern)  proposed"],
    "workspace_digest": "jcs:sha256:1f77…"}
 ```
 
@@ -260,3 +263,8 @@ The agent commits `lore/staging/ep9-cast.dli` on the fantasy side. If Tegwen
 should become ratified canon, promotion is a later `dli.fork.promote` →
 `docs/rulings/` ruling request, ruled by the author, per the standing SOP. The
 machine never wrote canon at any step.
+
+The seed golden fixture (`contracts/fantasy-worker/fixtures/golden/author-session-v1.json`)
+demonstrates this same tool flow against the example world; the fixture that
+encodes THIS scenario against the pinned TPtH corpus lands at `AUTH-2` (it
+needs the vendored corpus, `EXT-F2`) and becomes CP-10's replay evidence.

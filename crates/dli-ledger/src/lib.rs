@@ -77,5 +77,5 @@ pub fn check_ledger(
     _practices: &[PracticeDef],
     _entries: &[LedgerEntry],
 ) -> LedgerReport {
-    todo!("LEDGER-1: replay deltas per resource and flag law violations")
+    todo!("PRAC-2: replay deltas per resource and flag law violations")
 }
