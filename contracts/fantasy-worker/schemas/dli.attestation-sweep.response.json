@@ -17,56 +17,176 @@
   ],
   "$defs": {
     "Attestation": {
-      "description": "A recorded model answer to a question, with everything needed to decide\nwhether it is still current.",
+      "description": "A recorded model answer to a bounded question, carrying everything needed to\nreplay the question and decide whether the record is still current.\n\nThe record is replayable — serialize it, ship it, commit it — but the\njudgment is only weakly so. It is an evidence class that lives with the\ncorpus, machine-written and agent-committed, append-only per question.",
       "type": "object",
       "properties": {
         "answer": {
-          "description": "The recorded answer.",
+          "description": "The recorded answer, e.g. `yes`.",
           "type": "string"
+        },
+        "fingerprint": {
+          "description": "The content-fingerprint of what the judgment rested on, captured when the\nattestation was taken. Staleness is `fingerprint != current`\n([`Attestation::is_stale`]).",
+          "$ref": "#/$defs/ContentHash"
         },
         "model": {
-          "description": "The model that produced it.",
-          "type": "string"
+          "description": "The model that produced the judgment.",
+          "$ref": "#/$defs/ModelRef"
         },
         "params": {
-          "description": "The generation parameters (name to rendered value).",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "description": "The sampling parameters and consensus.",
+          "$ref": "#/$defs/Sampling"
         },
         "policy": {
-          "description": "The policy under which the attestation was taken.",
-          "type": "string"
+          "description": "The re-attestation policy.",
+          "$ref": "#/$defs/Policy"
         },
         "prompt": {
-          "description": "The prompt sent.",
-          "type": "string"
+          "description": "The prompt the question was posed under.",
+          "$ref": "#/$defs/PromptRef"
         },
         "question": {
-          "description": "The question posed.",
+          "description": "The bounded question this record answers.",
+          "$ref": "#/$defs/Question"
+        },
+        "rationale_hash": {
+          "description": "A `sha256:` hash of the model's rationale; the full text lives in the\nsweep manifest. Factory-supplied — stored and compared, never recomputed.",
           "type": "string"
         },
         "supersedes": {
-          "description": "A prior attestation this one supersedes, if any.",
+          "description": "The `rationale_hash` of the record this one supersedes, or `None` for the\nfirst answer to a question. Provenance metadata: the chain is retained\nand readable positionally in the [`AttestationStore`] regardless.",
           "type": [
             "string",
             "null"
           ]
         },
         "sweep": {
-          "description": "The sweep fingerprint the attestation was valid under.",
+          "description": "The sweep manifest that committed this record, e.g.\n`lab/campaign-082/runs/attest-0007.manifest.json`.",
           "type": "string"
         }
       },
       "required": [
         "question",
         "answer",
+        "rationale_hash",
         "model",
         "prompt",
         "params",
         "policy",
-        "sweep"
+        "sweep",
+        "fingerprint"
+      ]
+    },
+    "ContentHash": {
+      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection; it needs no cryptographic strength because the factory\nthat writes the store is trusted and the threat is accidental drift, not\nadversarial collision. It is deliberately distinct from the factory-supplied\n`sha256:` hashes carried in [`Attestation::rationale_hash`] and\n[`PromptRef::hash`], which the kernel only stores and compares, never\ncomputes. The type is format-agnostic: swapping the one-line body of\n[`fingerprint_facts`] for a `sha256` digest is the upgrade seam.",
+      "type": "string"
+    },
+    "ModelRef": {
+      "description": "The model that produced an attestation.",
+      "type": "object",
+      "properties": {
+        "as_of": {
+          "description": "The date the judgment was taken, e.g. `2026-07-19`.",
+          "type": "string"
+        },
+        "id": {
+          "description": "The model id, e.g. `claude-fable-5`. API aliases drift and models\ndeprecate — this is why the record is replayable but the judgment only\nweakly so, and why attested sits below tested.",
+          "type": "string"
+        },
+        "provider": {
+          "description": "The provider, e.g. `bedrock`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "id",
+        "as_of"
+      ]
+    },
+    "Policy": {
+      "description": "The re-attestation policy carried on a record.",
+      "type": "object",
+      "properties": {
+        "reattest": {
+          "description": "When to re-pose the question, e.g. `on-model-change`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reattest"
+      ]
+    },
+    "PromptRef": {
+      "description": "The prompt an attestation was posed under.",
+      "type": "object",
+      "properties": {
+        "hash": {
+          "description": "A `sha256:` hash of the rendered prompt, supplied by the factory.",
+          "type": "string"
+        },
+        "template": {
+          "description": "The template reference, e.g. `naming/register-basis@v3`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template",
+        "hash"
+      ]
+    },
+    "Question": {
+      "description": "The bounded question an attestation answers — a claim with a fact-of-the-\nmatter *outside* the repo (a register's real basis, homophone plausibility,\ntone-fit), exactly the kind of question to spend model time and zero author\ntime on.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The question class, e.g. `register-real-basis`.",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The world entity whose current content decides staleness, e.g. `enfys`.\nThe staleness anchor: when the world's facts about this subject change,\nthe attestation goes stale and joins the re-attestation queue.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "atom",
+        "subject"
+      ]
+    },
+    "Sampling": {
+      "description": "The sampling parameters, including consensus — recorded, but never able to\nlift the grade (spec §3: \"no amount of model consensus lifts the grade\").",
+      "type": "object",
+      "properties": {
+        "agreement": {
+          "description": "The agreement across samples, e.g. `3/3`. Three models agreeing is still\n`attested`; the grade changes only when the *procedure class* changes.",
+          "type": "string"
+        },
+        "max_tokens": {
+          "description": "The token ceiling.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "samples": {
+          "description": "How many samples were drawn.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "temperature": {
+          "description": "The sampling temperature, rendered (e.g. `0.0`). Held as a string so the\nrecord stays `Eq`/`Hash`-clean — it is committed evidence, not a number\nthe kernel does arithmetic on.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "temperature",
+        "max_tokens",
+        "samples",
+        "agreement"
       ]
     }
   }

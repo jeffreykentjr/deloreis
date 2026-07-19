@@ -49,7 +49,7 @@ pub fn parse_document(input: &str) -> (Document, Vec<Diagnostic>) {
     // Strip a leading UTF-8 BOM so it never lands inside the first token.
     let source = input.strip_prefix('\u{feff}').unwrap_or(input);
     let mut diags = lexical_diagnostics(source, file);
-    let records = assemble_records(&lines(source, file), file);
+    let records = assemble_records(&lines(source, file), file, &mut diags);
 
     let mut pack = None;
     let mut items: Vec<Item> = Vec::new();
@@ -263,7 +263,11 @@ struct Record {
 }
 
 /// Group prepared lines into logical records.
-fn assemble_records(lines: &[Line], file: FileId) -> Vec<Record> {
+///
+/// A braced block that runs off the end of the file without its closing `}` is
+/// diagnosed here as [`DiagClass::UnterminatedBlock`] rather than silently
+/// swallowing every following record into one runaway body (koan 4).
+fn assemble_records(lines: &[Line], file: FileId, diags: &mut Vec<Diagnostic>) -> Vec<Record> {
     let mut records = Vec::new();
     let mut i = 0;
     while i < lines.len() {
@@ -274,8 +278,15 @@ fn assemble_records(lines: &[Line], file: FileId) -> Vec<Record> {
         }
         i += 1;
         if raw_opens_brace(&head.raw) {
-            let (body, next) = collect_brace_body(head, lines, i, file);
+            let (body, next, terminated) = collect_brace_body(head, lines, i, file);
             i = next;
+            if !terminated {
+                diags.push(Diagnostic::new(
+                    DiagClass::UnterminatedBlock,
+                    "this block is opened with `{` and never closed — add the `}` that ends it.",
+                    head.span,
+                ));
+            }
             records.push(Record {
                 head_tokens: tokens_before_brace(&head.tokens),
                 head: head.clone(),
@@ -340,12 +351,16 @@ fn tokens_before_brace(tokens: &[Token]) -> Vec<Token> {
 }
 
 /// Collect the clauses inside a braced block starting on `head`'s line.
+///
+/// Returns the captured clauses, the index of the line after the block, and
+/// whether the block was actually closed — a `false` third field means the `{`
+/// ran off the end of the file with no matching `}`.
 fn collect_brace_body(
     head: &Line,
     lines: &[Line],
     start: usize,
     _file: FileId,
-) -> (Vec<Clause>, usize) {
+) -> (Vec<Clause>, usize, bool) {
     let mut body = Vec::new();
     let mut depth = 1i32;
     // The remainder of the header line after its first out-of-string `{`.
@@ -359,7 +374,7 @@ fn collect_brace_body(
         consume_brace_segment(&line.raw, line.span, &mut depth, &mut body);
         i += 1;
     }
-    (body, i)
+    (body, i, depth == 0)
 }
 
 /// Fold one physical segment of a braced block into `body`, tracking depth.

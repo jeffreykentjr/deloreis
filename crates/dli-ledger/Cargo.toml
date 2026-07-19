@@ -11,7 +11,7 @@ publish = false
 [dependencies]
 dli-ast.workspace = true
 dli-core.workspace = true
-dli-eval.workspace = true
+dli-syntax.workspace = true
 serde.workspace = true
 schemars.workspace = true
 

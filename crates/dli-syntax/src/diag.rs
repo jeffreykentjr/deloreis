@@ -128,11 +128,57 @@ impl MietteDiagnostic for Diagnostic {
     }
 }
 
+/// Render one diagnostic's caret block, optionally followed by aligned notes.
+///
+/// This is the deterministic ASCII primitive both [`render`] (the terse caret
+/// report) and the graded error ladder ([`crate::ladder::render`]) build on. A
+/// hand-rolled report — no color, no Unicode drawing — so the output is stable
+/// across terminals and platforms and can be pinned with insta snapshots.
+///
+/// The header reads `error[…]` or `warning[…]` per the class's severity. When
+/// `notes` is non-empty each entry renders as a `= {note}` line under a
+/// separator, gutter-aligned rustc/miette-style; the ladder passes its rungs
+/// here. With `notes` empty the output is exactly the caret block.
+#[must_use]
+pub fn render_block(source: &str, diag: &Diagnostic, notes: &[String]) -> String {
+    let (line_no, col, line_text) = locate(source, diag.span.start as usize);
+    let caret_len = usize::try_from(diag.span.end.saturating_sub(diag.span.start))
+        .unwrap_or(0)
+        .max(1);
+    let gutter = line_no.to_string();
+    let pad = " ".repeat(gutter.len());
+    let severity = if diag.class.is_error() {
+        "error"
+    } else {
+        "warning"
+    };
+
+    let mut lines: Vec<String> = vec![
+        format!("{severity}[{}]: {}", diag.class.code(), diag.message),
+        format!("{pad} --> line {line_no}:{}", col + 1),
+        format!("{pad} |"),
+        format!("{gutter} | {line_text}"),
+        format!(
+            "{pad} | {}{} {}",
+            " ".repeat(col),
+            "^".repeat(caret_len),
+            diag.class.label()
+        ),
+    ];
+    if !notes.is_empty() {
+        lines.push(format!("{pad} |"));
+        for note in notes {
+            lines.push(format!("{pad} = {note}"));
+        }
+    }
+    lines.join("\n")
+}
+
 /// Render diagnostics against their source into deterministic ASCII text.
 ///
-/// A hand-rolled report (no color, no Unicode drawing) so the output is stable
-/// across terminals and platforms and can be pinned with insta snapshots. The
-/// caret line points at the offending span.
+/// The terse report: each diagnostic's caret block, no ladder rungs. For the
+/// graded ladder (what a writer meets day to day, koan 9) use
+/// [`crate::ladder::render`].
 ///
 /// ```
 /// use dli_syntax::diag::{DiagClass, Diagnostic, render};
@@ -150,27 +196,11 @@ impl MietteDiagnostic for Diagnostic {
 /// ```
 #[must_use]
 pub fn render(source: &str, diagnostics: &[Diagnostic]) -> String {
-    let mut lines: Vec<String> = Vec::new();
-    for diag in diagnostics {
-        let (line_no, col, line_text) = locate(source, diag.span.start as usize);
-        let caret_len = usize::try_from(diag.span.end.saturating_sub(diag.span.start))
-            .unwrap_or(0)
-            .max(1);
-        let gutter = line_no.to_string();
-        let pad = " ".repeat(gutter.len());
-
-        lines.push(format!("error[{}]: {}", diag.class.code(), diag.message));
-        lines.push(format!("{pad} --> line {line_no}:{}", col + 1));
-        lines.push(format!("{pad} |"));
-        lines.push(format!("{gutter} | {line_text}"));
-        lines.push(format!(
-            "{pad} | {}{} {}",
-            " ".repeat(col),
-            "^".repeat(caret_len),
-            diag.class.label()
-        ));
-    }
-    let mut out = lines.join("\n");
+    let mut out = diagnostics
+        .iter()
+        .map(|diag| render_block(source, diag, &[]))
+        .collect::<Vec<_>>()
+        .join("\n");
     if !out.is_empty() {
         out.push('\n');
     }

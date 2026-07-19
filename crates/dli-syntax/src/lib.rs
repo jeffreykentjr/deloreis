@@ -14,6 +14,7 @@
 
 pub mod diag;
 pub mod format;
+pub mod ladder;
 pub mod lexer;
 pub mod parser;
 pub mod probe;

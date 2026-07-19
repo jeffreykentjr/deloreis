@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::conflicting-markers]: a claim carries one origin — `proposed` already set it; drop `ratified`.
+  --> line 1:25
+  |
+1 | place weir "W" proposed ratified d-1
+  |                         ^^^^^^^^ second marker
+  |
+  = what: two origin markers sit on one claim — its standing was already set by the first, and a second would make it ambiguous
+  = fix:  drop the second marker
+  = rule: a claim carries exactly one origin; the surface refuses a second rather than silently choosing between them  (koan 1 — claims come from somewhere; 01-syntax.md §1)

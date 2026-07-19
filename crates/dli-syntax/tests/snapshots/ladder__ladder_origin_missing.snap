@@ -1,0 +1,12 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+warning[dli::syntax::origin-missing]: this claim has no origin — end it with `proposed`, or cite a decision (`decided d-nnnn`).
+  --> line 1:7
+  |
+1 | place weir
+  |       ^^^^ no origin — is this proposed?
+  |
+  = what: this claim ends with no origin word, so the surface does not yet say where it comes from
+  = fix:  cite a decision (`decided d-nnnn`), or mark the claim `proposed`

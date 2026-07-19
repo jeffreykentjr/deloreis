@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::origin-required]: a `ratified` claim needs a decision behind it — cite `d-nnnn`, or mark it `proposed`.
+  --> line 1:23
+  |
+1 | place weir "The Weir" ratified
+  |                       ^^^^^^^^ needs a decision
+  |
+  = what: a ruling marker stands here (`ratified`, `decided`, `provisional`) but names no decision, so the claim is ruled true by nothing
+  = fix:  cite a decision (`decided d-nnnn`), or mark the claim `proposed`
+  = rule: a claim's authority is its origin — a status with nothing behind it is a claim from nowhere, which the grammar has no slot to hold  (koan 1 — claims come from somewhere; 01-syntax.md §1)

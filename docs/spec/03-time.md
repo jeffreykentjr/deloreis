@@ -78,6 +78,23 @@ contiguity** — within an episode, or an explicitly declared contiguous span �
 never as absolute positions joined across unrelated scenes, which would be a
 calendar through the back door.
 
+The four edge operations are pinned (ruling M6), so the wheel's laws are stated
+rather than accidental:
+
+- **`across` is the half-turn forward step, `floor(n/2)`.** On an **even** wheel
+  it is a true antipode and an involution (`across ∘ across = id`). On an **odd**
+  wheel there is no exact opposite spoke, so `across` is deliberately
+  *non-involutive* — `across ∘ across = pred` — because inventing an antipode the
+  ring does not have would be a lie, and the wheel does not lie about its shape.
+- **`distance` is directional** — the count of `succ` steps from one position to
+  another, with `distance(a,b) + distance(b,a) = n`. The symmetric shorter-arc
+  reading is a separate operation, **`separation`** (`= min(distance(a,b),
+  distance(b,a))`); the two are named apart so a timing check says which it means.
+- **A position index `≥ n` is read modulo `n`** — a documented normalization, not
+  an error, because a phase coordinate is a congruence class with no epoch. The
+  strict boundary is opt-in: a checked constructor rejects an out-of-range index
+  at the point a raw number enters, but a walk already underway never faults.
+
 ---
 
 ## 2. Fluents: facts acquire validity spans

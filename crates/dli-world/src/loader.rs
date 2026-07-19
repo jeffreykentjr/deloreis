@@ -23,9 +23,11 @@
 //!   reported (spec 02 §§2–3). This is the compiled gate the context-pack
 //!   builder relies on.
 //! - **Builds the evaluable core.** Ground `fact`s become status-gated
-//!   [`Fact`]s over the shared world interner, and wheels
-//!   are carried through, so the [`WorldModel`]'s `world` is fixpoint-ready with
-//!   its supports already gated.
+//!   [`Fact`]s over the shared world interner; `before`-orderings and era-order
+//!   chains populate the chronology and time-point table exactly as the
+//!   evaluator's lowering does; wheels are carried through — so the
+//!   [`WorldModel`]'s `world` is fixpoint-ready with its supports already gated
+//!   and its timeline live.
 //! - **Builds the entity and sort registry** and records what each pack
 //!   contributed.
 //!
@@ -52,7 +54,7 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, PackHeader, RuleDecl,
-    SortDecl, WheelDecl,
+    SortDecl, TimeClause, WheelDecl,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -63,6 +65,7 @@ use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_eval::EvalError;
 use dli_eval::world::{Fact, GroundAtom};
+use dli_time::chronology::TimePoint;
 use dli_time::wheel::Wheel;
 
 use crate::model::{
@@ -138,7 +141,9 @@ impl Loader {
                 ctx.process_decl(decl, &pack);
             }
         }
-        ctx.finish()
+        let mut outcome = ctx.finish();
+        outcome.world.language = crate::language::LanguageModel::from_documents(docs).model;
+        outcome
     }
 }
 
@@ -183,6 +188,22 @@ impl LoadCtx {
         self.wm.world.interner.intern(name)
     }
 
+    /// Intern an era/event name to a stable [`TimePoint`] in the time-point
+    /// table (kept distinct from the event-variable interner). Idempotent.
+    fn time_point(&mut self, name: &str) -> TimePoint {
+        TimePoint(self.wm.world.time_points.intern(name).0)
+    }
+
+    /// Add the consecutive precedence edges of an era-order chain
+    /// (`< a < b < c` becomes `a → b`, `b → c`).
+    fn add_order_chain(&mut self, chain: &[Ident]) {
+        for pair in chain.windows(2) {
+            let earlier = self.time_point(&pair[0].text);
+            let later = self.time_point(&pair[1].text);
+            self.wm.world.chronology.edges.push((earlier, later));
+        }
+    }
+
     fn process_decl(&mut self, decl: &Decl, pack: &str) {
         match decl {
             Decl::Entity(entity) => self.process_entity(entity, pack),
@@ -197,6 +218,13 @@ impl LoadCtx {
     }
 
     fn process_entity(&mut self, entity: &EntityDecl, pack: &str) {
+        // Lift an era-order chain (`< a < b < c`) onto the chronology exactly as
+        // the evaluator does, so the compiled world's timeline is not inert
+        // (defect F). Time points are interned in document order, matching
+        // `World::lower`'s `TimePoint` assignment.
+        if let Some(TimeClause::Order(chain)) = &entity.time {
+            self.add_order_chain(chain);
+        }
         let sort = entity.kind.keyword();
         let atom = AtomExpr {
             pred: Ident {
@@ -287,6 +315,11 @@ impl LoadCtx {
             before.earlier.span,
         );
         self.collect_entities(&atom);
+        // Record the precedence edge on the chronology (defect F): the compiled
+        // world must answer `precedes`/`as_of`, not carry inert time.
+        let earlier = self.time_point(&before.earlier.text);
+        let later = self.time_point(&before.later.text);
+        self.wm.world.chronology.edges.push((earlier, later));
         self.push_atom(atom, compiled, pack, before.earlier.span);
     }
 
@@ -414,11 +447,14 @@ impl LoadCtx {
                 PosBool::pos(var)
             }
         } else {
-            // A ledger claim is supported by any one of its cited decisions.
-            let mut acc = PosBool::FALSE;
+            // A ledger claim rests on ALL its cited decisions: superseding any
+            // one of them degrades the claim (ruling A), so the citations conjoin
+            // into a single monomial `{+D-1, …, +D-n}` — matching the evaluator's
+            // lowering. This is why independent bases are separate declarations.
+            let mut acc = PosBool::truth();
             for citation in &annotation.citations {
                 let var = self.intern(citation.id.text.trim());
-                acc = acc.or_(&PosBool::pos(var));
+                acc = acc.and_(&PosBool::pos(var));
             }
             acc
         };

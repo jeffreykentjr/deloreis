@@ -4,16 +4,24 @@
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, Document, FactDecl, PackHeader, RuleDecl, SortDecl};
+use dli_ast::decl::{
+    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, PackHeader, RuleDecl, SortDecl,
+    TimeClause,
+};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
-use dli_ast::term::{AtomExpr, Term};
+use dli_ast::term::{AtomExpr, Term, TimeRef};
 
 use dli_core::ann::{Status, Theory};
 use dli_core::valuation::Valuation;
 
+use dli_eval::query::{Query, QueryOpts};
+use dli_eval::world::World;
+use dli_time::chronology::{TemporalVerdict, TimePoint};
+
 use dli_world::loader::{Loader, example_docs};
 use dli_world::model::{LoadFinding, Provenance};
+use dli_world::pack::Pack;
 
 fn ident(text: &str) -> Ident {
     Ident::synthetic(text)
@@ -275,4 +283,139 @@ fn negative_dependency_cycle_is_a_load_finding() {
     // is not constructible as input. Un-ignore once rule-body negation exists and
     // RuleDecl -> typed world.rules lowering routes through World::define_rule.
     todo!("wire a negative-cycle document once structured rules + rule-body negation land")
+}
+
+// --- the compiled world's timeline is live (defect F) ------------------------
+
+fn time_point(world: &World, name: &str) -> TimePoint {
+    TimePoint(
+        u32::try_from(
+            world
+                .time_points
+                .names()
+                .iter()
+                .position(|candidate| candidate == name)
+                .expect("time point present"),
+        )
+        .expect("index fits"),
+    )
+}
+
+#[test]
+fn before_declarations_build_a_live_chronology() {
+    let docs = vec![doc(
+        "chron",
+        vec![Decl::Before(BeforeDecl {
+            earlier: ident("past"),
+            later: ident("future"),
+            provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+        })],
+    )];
+    let world = Loader::load(&docs).world.world;
+    let past = time_point(&world, "past");
+    let future = time_point(&world, "future");
+    assert_eq!(
+        world.chronology.precedes(past, future),
+        TemporalVerdict::Before
+    );
+    assert_eq!(
+        world.chronology.precedes(future, past),
+        TemporalVerdict::After
+    );
+}
+
+#[test]
+fn chronology_and_time_points_match_the_evaluator_lowering() {
+    // The loader must build the timeline byte-for-byte as `World::lower` does:
+    // era-order chains and `before`-decls, interned in document order.
+    let d = Document {
+        pack: Some(PackHeader {
+            name: ident("chron"),
+            span: Span::synthetic(),
+        }),
+        decls: vec![
+            Decl::Entity(EntityDecl {
+                kind: EntityKind::Era,
+                name: ident("first"),
+                label: None,
+                time: Some(TimeClause::Order(vec![
+                    ident("first"),
+                    ident("second"),
+                    ident("third"),
+                ])),
+                slots: Vec::new(),
+                provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+            }),
+            Decl::Before(BeforeDecl {
+                earlier: ident("dawn"),
+                later: ident("dusk"),
+                provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+            }),
+        ],
+    };
+    let loaded = Loader::load(std::slice::from_ref(&d)).world.world;
+    let lowered = World::lower(&d).expect("lowers");
+    assert_eq!(loaded.chronology, lowered.chronology, "chronology parity");
+    assert_eq!(
+        loaded.time_points.names(),
+        lowered.time_points.names(),
+        "time-point table parity"
+    );
+}
+
+#[test]
+fn as_of_filters_atoms_anchored_after_the_cutoff() {
+    // dawn -> dusk, plus a fact anchored to dusk. Before F the chronology was
+    // empty, so `strictly_after` was empty and as_of dropped nothing.
+    let lit = Decl::Fact(FactDecl {
+        atom: AtomExpr {
+            pred: ident("lit"),
+            args: vec![
+                Term::Sym(ident("lamp")),
+                Term::Time(TimeRef::Event(ident("dusk"))),
+            ],
+        },
+        triple: false,
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+    });
+    let docs = vec![doc(
+        "chron",
+        vec![
+            Decl::Before(BeforeDecl {
+                earlier: ident("dawn"),
+                later: ident("dusk"),
+                provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+            }),
+            lit,
+        ],
+    )];
+    let compiled = dli_world::compile(&Pack {
+        name: "chron".to_owned(),
+        documents: docs,
+    })
+    .expect("compiles");
+    let world = &compiled.model().world;
+    let goal = Query {
+        goal: AtomExpr {
+            pred: ident("lit"),
+            args: vec![Term::Var(ident("what")), Term::Var(ident("when"))],
+        },
+    };
+    let all = world
+        .query_with(&goal, &QueryOpts::default())
+        .expect("known pred");
+    assert_eq!(all.rows.len(), 1, "the anchored fact is present unfiltered");
+    let filtered = world
+        .query_with(
+            &goal,
+            &QueryOpts {
+                as_of: Some("dawn".to_owned()),
+                ..QueryOpts::default()
+            },
+        )
+        .expect("known pred");
+    assert!(
+        filtered.rows.is_empty(),
+        "as_of dawn must drop the dusk-anchored fact"
+    );
 }

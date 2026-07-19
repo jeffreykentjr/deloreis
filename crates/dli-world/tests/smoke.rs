@@ -1,8 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Smoke coverage for the world model.
 
+use dli_ast::ident::Ident;
+use dli_ast::term::{AtomExpr, Term};
+
 use dli_world::draft::{DraftMeta, DraftPayload};
 use dli_world::loader::{Loader, example_docs};
+use dli_world::pack::Pack;
+use dli_world::{check_draft, compile};
 
 #[test]
 fn draft_payload_round_trips() {
@@ -38,9 +43,52 @@ fn golden_compile_loads_saltmarket_clean() {
 }
 
 #[test]
-#[ignore = "enabled at CHECK-1"]
 fn golden_check_draft_findings_match() {
-    // The CHECK-1 half: once check_draft lands, assert a draft over the
-    // saltmarket pack produces the committed findings.
-    todo!("CHECK-1: golden check_draft over the compiled saltmarket world")
+    // The CHECK-1 half: a draft over the compiled saltmarket world produces the
+    // committed findings. The pack's `rings(tide-bell, saltmarket)` is proposed
+    // (shadow) lore, so a draft that states it as settled draws two findings — a
+    // fact-check `unsupported` (no certain fact) and a continuity
+    // `proposed-as-fact` — while the ratified `adjacent` claim is supported and
+    // stays silent.
+    let world = compile(&Pack {
+        name: "saltmarket".to_owned(),
+        documents: example_docs(),
+    })
+    .unwrap();
+
+    let claim = |pred: &str, args: &[&str]| AtomExpr {
+        pred: Ident::synthetic(pred),
+        args: args
+            .iter()
+            .map(|a| Term::Sym(Ident::synthetic(*a)))
+            .collect(),
+    };
+    let draft = DraftPayload {
+        meta: DraftMeta {
+            title: "the-door-after-rain".to_owned(),
+            pack: "saltmarket".to_owned(),
+            version: 1,
+        },
+        claims: vec![
+            claim("adjacent", &["saltmarket", "the-shallows"]), // ratified → supported, silent
+            claim("rings", &["tide-bell", "saltmarket"]),       // proposed → two findings
+        ],
+        ..DraftPayload::default()
+    };
+
+    let findings = check_draft(&world, &draft);
+    assert_eq!(findings.len(), 2, "{findings:?}");
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.claim == "rings(tide-bell, saltmarket)"),
+        "expected a fact-check finding for the proposed claim: {findings:?}"
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.claim == "continuity.proposed-as-fact"),
+        "expected a proposed-as-fact finding: {findings:?}"
+    );
+    assert!(findings.iter().all(|f| f.grade == dli_core::Grade::Checked));
 }

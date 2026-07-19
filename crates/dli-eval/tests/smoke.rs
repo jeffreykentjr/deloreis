@@ -2,7 +2,7 @@
 //! Smoke coverage for the evaluator: a hand-built saltmarket world, lowered,
 //! saturated, and queried. No parser is involved — the AST is built directly.
 
-use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
+use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, OptionClause, QuestionDecl,
     TimeClause,
@@ -331,6 +331,56 @@ fn c1_supersession_revalues_a_decided_fact() {
         .eval_under(&nu, &query(atom("d", vec![sym("x")])))
         .unwrap();
     assert!(answer.rows.is_empty());
+}
+
+#[test]
+fn a2_proposed_with_assumes_is_ratifiable() {
+    // `proposed p(x) assumes h-x` — the condition IS the bundle gate; there is
+    // no extra never-ruled proposal variable, so ruling h-x ratifies the claim.
+    let document = Document {
+        pack: None,
+        decls: vec![Decl::Fact(FactDecl {
+            atom: atom("p", vec![sym("x")]),
+            triple: false,
+            provenance: Some(Annotation {
+                marker: ProvenanceMarker::Proposed,
+                citations: Vec::new(),
+                condition: Some(CondExpr::Hyp(Ident::synthetic("h-x"))),
+                tags: Vec::new(),
+                span: Span::synthetic(),
+            }),
+        })],
+    };
+    let world = World::lower(&document).unwrap().fixpoint().unwrap();
+    // h-x open → a shadow, like any proposed claim.
+    assert_eq!(status_of(&world, "p", "x"), Some(Status::Possible));
+
+    let hyp = world
+        .interner
+        .names()
+        .iter()
+        .position(|n| n == "h-x")
+        .unwrap();
+    let hyp = Atom(u32::try_from(hyp).unwrap());
+    let goal = query(atom("p", vec![sym("x")]));
+
+    // Ruling the assumed hypothesis true ratifies the claim: Certain, not stuck.
+    let mut ruled = world.valuation.clone();
+    ruled.set(hyp, true);
+    assert_eq!(
+        world
+            .eval_under(&ruled, &goal)
+            .unwrap()
+            .rows
+            .first()
+            .map(|row| row.status),
+        Some(Status::Certain)
+    );
+
+    // Ruling it false kills the claim: Dead.
+    let mut denied = world.valuation.clone();
+    denied.set(hyp, false);
+    assert!(world.eval_under(&denied, &goal).unwrap().rows.is_empty());
 }
 
 #[test]

@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::stray-option]: an `option` belongs to a `question` or a `fork` — none is open above it.
+  --> line 1:1
+  |
+1 | option lonely
+  | ^^^^^^^^^^^^^ no question here
+  |
+  = what: an `option` stands here with no `question` or `fork` open above it, so it is an arm of no choice
+  = fix:  put it under a `question q-nnnn "…"` (or a `fork`) on the line above
+  = rule: an option is one arm of an undecided fork; without its question there is no debt for it to belong to, and a dangling option is a choice about nothing  (koan 5 — an open question is a debt; 01-syntax.md §3)

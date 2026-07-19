@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::unknown-keyword]: `zorble` is not a De Lore Is keyword — a declaration opens with a world word (era, place, person, thing, event, fact, question, …) or a relation like `pred(a, b)`.
+  --> line 1:1
+  |
+1 | zorble frobnicate
+  | ^^^^^^ not a keyword
+  |
+  = what: the line opens with a word the world has no keyword for, so it reads as no declaration at all
+  = fix:  open with a world word — era, place, person, thing, event, fact, question, … — or a named relation `pred(a, b)`
+  = rule: the keyword vocabulary is closed by design — the worldbuilder's own artifact names, no synonyms and no user-defined forms — so an unknown opener is a fault surfaced, never a silent extension  (koan 7 — one way to write it; 01-syntax.md §2)

@@ -1,0 +1,21 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: "ladder::render(source, &diags)"
+---
+error[dli::syntax::unterminated-string]: this string is never closed — add the closing ".
+  --> line 1:12
+  |
+1 | place weir "The Weir proposed
+  |            ^^^^^^^^^^^^^^^^^^ unclosed string
+  |
+  = what: a label's quote was opened and never closed, so the words after it are read as part of the label
+  = fix:  add the closing `"`
+  = rule: a run-on label would swallow the claims after it; closing the quote keeps each claim on its own line, where its blame and origin live  (koan 4 — nothing is silently dropped; 01-syntax.md §2)
+warning[dli::syntax::origin-missing]: this claim has no origin — end it with `proposed`, or cite a decision (`decided d-nnnn`).
+  --> line 1:7
+  |
+1 | place weir "The Weir proposed
+  |       ^^^^ no origin — is this proposed?
+  |
+  = what: this claim ends with no origin word, so the surface does not yet say where it comes from
+  = fix:  cite a decision (`decided d-nnnn`), or mark the claim `proposed`

@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::malformed]: `mara is a fisher` is not a slot fact — write `subject.slot = value`.
+  --> line 2:3
+  |
+2 |   mara is a fisher
+  |   ^^^^^^^^^^^^^^^^ cannot read this
+  |
+  = what: this record opens like a declaration but does not match the shape its keyword takes
+  = fix:  recast the line into the shape the message names
+  = rule: each keyword has exactly one shape; a record that does not fit is surfaced with the shape it should take, never guessed at and never dropped  (koan 4 — nothing is silently dropped; 01-syntax.md §4)

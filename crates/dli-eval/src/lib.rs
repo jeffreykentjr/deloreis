@@ -15,9 +15,11 @@ pub mod why;
 pub mod world;
 
 pub use error::EvalError;
-pub use query::{Answer, Query, QueryRow};
+pub use fork::{ForkDelta, ForkId, ForkStore, Preflight, RqDraft};
+pub use query::{Answer, Layer, Query, QueryOpts, QueryRow};
 pub use strata::Strata;
 pub use support::SupportIndex;
+pub use why::{Why, WhyNot, why_not};
 pub use world::World;
 
 use dli_ast::decl::Document;

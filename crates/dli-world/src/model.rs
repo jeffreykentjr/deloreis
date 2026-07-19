@@ -27,22 +27,6 @@ use dli_eval::world::World;
 use dli_ledger::{LedgerEntry, PracticeDef};
 use dli_time::wheel::Wheel;
 
-/// A diction register with its banned lexicon.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Register {
-    /// The register name.
-    pub name: String,
-    /// Words banned in this register (the allegory is structural, not lexical).
-    pub banned: Vec<String>,
-}
-
-/// The coined-term lexicon.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Lexicon {
-    /// The coined terms.
-    pub terms: Vec<String>,
-}
-
 /// A craft rule binding a principle to a register.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CraftRule {
@@ -310,10 +294,8 @@ impl LoadFinding {
 pub struct WorldModel {
     /// The evaluable world program (ground facts, rules, time structures).
     pub world: World,
-    /// Diction registers.
-    pub registers: Vec<Register>,
-    /// The coined-term lexicon.
-    pub lexicon: Lexicon,
+    /// The compiled language layer: dialects, name-parts, names, terms, bans.
+    pub language: crate::language::LanguageModel,
     /// Craft rules.
     pub craft_rules: Vec<CraftRule>,
     /// The season ledger.

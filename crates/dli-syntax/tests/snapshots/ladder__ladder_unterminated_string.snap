@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::unterminated-string]: this string is never closed — add the closing ".
+  --> line 1:12
+  |
+1 | place weir "The Weir proposed
+  |            ^^^^^^^^^^^^^^^^^^ unclosed string
+  |
+  = what: a label's quote was opened and never closed, so the words after it are read as part of the label
+  = fix:  add the closing `"`
+  = rule: a run-on label would swallow the claims after it; closing the quote keeps each claim on its own line, where its blame and origin live  (koan 4 — nothing is silently dropped; 01-syntax.md §2)

@@ -1,0 +1,13 @@
+---
+source: crates/dli-syntax/tests/ladder.rs
+expression: out
+---
+error[dli::syntax::unterminated-block]: this block is opened with `{` and never closed — add the `}` that ends it.
+  --> line 1:1
+  |
+1 | practice ward-form {
+  | ^^^^^^^^^^^^^^^^^^^^ unclosed block
+  |
+  = what: a braced block was opened with `{` and never closed, so it runs to the end of the file
+  = fix:  add the closing `}`
+  = rule: an unclosed block would swallow every following record into one runaway body; the boundary is required so nothing after it is lost unseen  (koan 4 — nothing is silently dropped; 01-syntax.md §2)

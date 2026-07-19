@@ -365,7 +365,7 @@ version = "0.1.0"
 dependencies = [
  "dli-ast",
  "dli-core",
- "dli-eval",
+ "dli-syntax",
  "schemars",
  "serde",
  "serde_json",
@@ -416,6 +416,7 @@ dependencies = [
  "dli-core",
  "dli-eval",
  "dli-ledger",
+ "dli-syntax",
  "dli-time",
  "schemars",
  "serde",

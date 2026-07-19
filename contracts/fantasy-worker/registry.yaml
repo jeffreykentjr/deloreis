@@ -17,7 +17,7 @@ cross_document_bindings:
   path_b: send.dli
 fixtures:
 - path: golden/attestation-sweep-v1.json
-  sha256: 05ebe5b33c014a945f94eb4c1ff8f842624741e08eddd1573f29c305f5c1d3e7
+  sha256: 8f500ce82fc06f60542ff4ddbf97732bce2a752061aa9b7467690b6bd6e0d6c4
 - path: golden/author-session-v1.json
   sha256: ee807f35c33f349b8b1e0206e4432835e45f228a0ad187bdd49df6ee8a75e3ad
 - path: golden/check-basic-v1.json

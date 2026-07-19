@@ -280,16 +280,24 @@ impl World {
         let Some(annotation) = annotation else {
             return Ann::supported(PosBool::FALSE);
         };
-        let base = match annotation.marker {
-            ProvenanceMarker::Proposed => {
+        let condition = annotation
+            .condition
+            .as_ref()
+            .map(|condition| lower_condition(condition, &mut self.interner));
+        let support = match annotation.marker {
+            // An explicit `assumes` condition IS the proposal's bundle gate — the
+            // one hypothesis variable a ruling ratifies. Only mint a fresh
+            // proposal variable when the claim carries no condition, which would
+            // otherwise leave it unratifiable.
+            ProvenanceMarker::Proposed => condition.unwrap_or_else(|| {
                 let name = format!("proposal#{proposal_seq}");
                 *proposal_seq += 1;
                 PosBool::pos(self.interner.intern(&name))
-            }
+            }),
             ProvenanceMarker::Decided
             | ProvenanceMarker::Ratified
             | ProvenanceMarker::Provisional => {
-                if annotation.citations.is_empty() {
+                let ledger = if annotation.citations.is_empty() {
                     PosBool::FALSE
                 } else {
                     let mut support = PosBool::truth();
@@ -299,12 +307,13 @@ impl World {
                         support = support.and_(&PosBool::pos(var));
                     }
                     support
+                };
+                // A ledger claim may still be gated on an open hypothesis.
+                match condition {
+                    Some(condition) => ledger.and_(&condition),
+                    None => ledger,
                 }
             }
-        };
-        let support = match &annotation.condition {
-            Some(condition) => base.and_(&lower_condition(condition, &mut self.interner)),
-            None => base,
         };
         Ann::supported(support)
     }
@@ -395,6 +404,9 @@ impl World {
                     grade: derived.grade,
                 },
                 status,
+                // Explanations are attached by `query_with` (the query lane),
+                // never by the base evaluator: a plain `query` carries none.
+                why: None,
             });
         }
         rows.sort_by(|a, b| a.atom.cmp(&b.atom));

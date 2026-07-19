@@ -14,6 +14,7 @@ dli-core.workspace = true
 dli-time.workspace = true
 dli-eval.workspace = true
 dli-ledger.workspace = true
+dli-syntax.workspace = true
 serde.workspace = true
 schemars.workspace = true
 

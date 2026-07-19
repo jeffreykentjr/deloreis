@@ -27,6 +27,13 @@
 #   validate             `fantasy validate`      — canon corpus validation.
 #   world-build [args]   `fantasy world build`   — compile the typed world model.
 #   factcheck <draft>    `fantasy factcheck …`   — claim-check a draft vs the world.
+#   name-vet <name…>     `fantasy name vet …`    — vet a name through the legacy
+#                        oracle, for a recorded kernel-vs-factory parity transcript
+#                        (LANG-2): the deloreis kernel owns only the WORLD-TRUE half
+#                        of this verdict (uniqueness/aural/register/banned); the
+#                        legacy oracle also runs the factory-side screens (AI-tics,
+#                        franchise collisions, homophones). Diffing the two is how a
+#                        cold agent confirms the split re-homed faithfully.
 #   Any trailing args after the subcommand are forwarded to the fantasy CLI.
 #
 # ENVIRONMENT
@@ -110,10 +117,14 @@ case "$cmd" in
     [[ $# -ge 1 ]] || die "factcheck needs a draft path: pinned-oracles.sh factcheck <draft>"
     run_fantasy factcheck "$@"
     ;;
+  name-vet)
+    [[ $# -ge 1 ]] || die "name-vet needs a name: pinned-oracles.sh name-vet <name> [args]"
+    run_fantasy name vet "$@"
+    ;;
   help | -h | --help)
-    sed -n '2,40p' "$0"
+    sed -n '2,48p' "$0"
     ;;
   *)
-    die "unknown subcommand '$cmd' (try: provision | info | validate | world-build | factcheck | help)"
+    die "unknown subcommand '$cmd' (try: provision | info | validate | world-build | factcheck | name-vet | help)"
     ;;
 esac
