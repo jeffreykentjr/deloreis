@@ -1,0 +1,21 @@
+[package]
+name = "dli-eval"
+description = "Deloreis Lore Interchange evaluator: lowering, stratification, fixpoint, query."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+dli-ast.workspace = true
+dli-core.workspace = true
+dli-time.workspace = true
+serde.workspace = true
+schemars.workspace = true
+miette.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

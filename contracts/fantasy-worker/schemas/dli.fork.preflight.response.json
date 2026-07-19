@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkPreflightResult",
+  "description": "`dli.fork.preflight` result: the ratification pre-flight scan.",
+  "type": "object",
+  "properties": {
+    "affected": {
+      "description": "The atoms the ratification would affect.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conflicts": {
+      "description": "Conflicts the candidate valuation would introduce.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "conflicts",
+    "affected"
+  ]
+}

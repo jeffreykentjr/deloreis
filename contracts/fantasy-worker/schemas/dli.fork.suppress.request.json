@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkSuppressParams",
+  "description": "`dli.fork.suppress` params.",
+  "type": "object",
+  "properties": {
+    "assumption": {
+      "description": "The assumption id to retract.",
+      "type": "string"
+    },
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork",
+    "assumption"
+  ]
+}

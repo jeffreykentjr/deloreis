@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CheckLedgerResult",
+  "description": "`dli.check-ledger` result.",
+  "type": "object",
+  "properties": {
+    "report": {
+      "description": "The ledger report.",
+      "$ref": "#/$defs/LedgerReport"
+    }
+  },
+  "required": [
+    "report"
+  ],
+  "$defs": {
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.",
+      "oneOf": [
+        {
+          "description": "Stated in canon, not yet checked against anything.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "Backed by a recorded model attestation.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Exercised by a passing test or oracle.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Machine-checked against the world model.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "LedgerReport": {
+      "description": "The result of checking a ledger: the violations found, if any.",
+      "type": "object",
+      "properties": {
+        "violations": {
+          "description": "Every law violation detected, in entry order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LedgerViolation"
+          }
+        }
+      },
+      "required": [
+        "violations"
+      ]
+    },
+    "LedgerViolation": {
+      "description": "A single detected law violation.",
+      "type": "object",
+      "properties": {
+        "entry": {
+          "description": "The index of the offending entry.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "grade": {
+          "description": "The grade at which the violation is asserted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable description.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry",
+        "message",
+        "grade"
+      ]
+    }
+  }
+}

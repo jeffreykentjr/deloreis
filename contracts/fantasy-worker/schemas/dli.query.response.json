@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueryResult",
+  "description": "`dli.query` result.",
+  "type": "object",
+  "properties": {
+    "citations": {
+      "description": "Supporting citations.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "grade": {
+      "description": "The grade.",
+      "$ref": "#/$defs/Grade"
+    },
+    "support": {
+      "description": "The support formula.",
+      "$ref": "#/$defs/PosBool"
+    }
+  },
+  "required": [
+    "support",
+    "grade",
+    "citations"
+  ],
+  "$defs": {
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.",
+      "oneOf": [
+        {
+          "description": "Stated in canon, not yet checked against anything.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "Backed by a recorded model attestation.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Exercised by a passing test or oracle.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Machine-checked against the world model.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "PosBool": {
+      "type": "object",
+      "properties": {
+        "monomials": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "monomials"
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "fixture": "negative/author-unknown-workspace",
+  "version": 1,
+  "note": "A reference to a workspace that does not exist is an unknown-doc error.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.status",
+    "params": { "workspace": "ws-does-not-exist" }
+  },
+  "expect_error": { "code": "unknown-doc" }
+}

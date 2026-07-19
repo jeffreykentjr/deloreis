@@ -1,0 +1,12 @@
+{
+  "fixture": "negative/unknown-op",
+  "version": 1,
+  "note": "An operation the contract does not define is rejected before dispatch.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "dli.frobnicate",
+    "params": {}
+  },
+  "expect_error": { "code": "unknown-op" }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorOpenParams",
+  "description": "`author.open` params. Exactly one of `pack` or `fork` names the mode:\nstaging over an existing pack, or fork-scoped exploration.",
+  "type": "object",
+  "properties": {
+    "fork": {
+      "description": "Open a fork-scoped workspace, named by its question.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pack": {
+      "description": "Stage over an existing pack.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

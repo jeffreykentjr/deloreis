@@ -1,0 +1,27 @@
+{
+  "fixture": "golden/export-ludii-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.export.run",
+        "params": { "document": "true-naming", "profile": "ludii-gdl" }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "manifest": {
+            "commit": "0000000000000000000000000000000000000000",
+            "layer": "ratified",
+            "valuation": "sha256:0000000000000000",
+            "profile_hash": "sha256:1111111111111111"
+          }
+        }
+      }
+    }
+  ]
+}

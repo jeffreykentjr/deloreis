@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AttestationSweepResult",
+  "description": "`dli.attestation-sweep` result.",
+  "type": "object",
+  "properties": {
+    "stale": {
+      "description": "The attestations now stale.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Attestation"
+      }
+    }
+  },
+  "required": [
+    "stale"
+  ],
+  "$defs": {
+    "Attestation": {
+      "description": "A recorded model answer to a question, with everything needed to decide\nwhether it is still current.",
+      "type": "object",
+      "properties": {
+        "answer": {
+          "description": "The recorded answer.",
+          "type": "string"
+        },
+        "model": {
+          "description": "The model that produced it.",
+          "type": "string"
+        },
+        "params": {
+          "description": "The generation parameters (name to rendered value).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "policy": {
+          "description": "The policy under which the attestation was taken.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The prompt sent.",
+          "type": "string"
+        },
+        "question": {
+          "description": "The question posed.",
+          "type": "string"
+        },
+        "supersedes": {
+          "description": "A prior attestation this one supersedes, if any.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sweep": {
+          "description": "The sweep fingerprint the attestation was valid under.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "answer",
+        "model",
+        "prompt",
+        "params",
+        "policy",
+        "sweep"
+      ]
+    }
+  }
+}

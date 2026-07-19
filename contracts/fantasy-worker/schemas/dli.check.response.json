@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CheckResult",
+  "description": "`dli.check` result.",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "description": "Findings, if any.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Finding"
+      }
+    },
+    "ok": {
+      "description": "Whether the document is clean.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok",
+    "findings"
+  ],
+  "$defs": {
+    "Finding": {
+      "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "A stable finding code.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The grade at which the finding is asserted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable message.",
+          "type": "string"
+        },
+        "repair": {
+          "description": "An optional structured repair suggestion."
+        },
+        "severity": {
+          "description": "The severity, which gates materialization.",
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "grade"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.",
+      "oneOf": [
+        {
+          "description": "Stated in canon, not yet checked against anything.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "Backed by a recorded model attestation.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Exercised by a passing test or oracle.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Machine-checked against the world model.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
+      "oneOf": [
+        {
+          "description": "Blocks `author.materialize`.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "Advisory; does not block materialization.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    }
+  }
+}

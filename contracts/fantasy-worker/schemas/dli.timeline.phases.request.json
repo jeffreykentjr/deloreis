@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelinePhasesParams",
+  "description": "`dli.timeline.phases` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    },
+    "episode": {
+      "description": "The episode to walk phases for.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document",
+    "episode"
+  ]
+}

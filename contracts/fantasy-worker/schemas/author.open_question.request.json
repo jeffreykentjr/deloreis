@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorOpenQuestionParams",
+  "description": "`author.open_question` params.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "The question id.",
+      "type": "string"
+    },
+    "prompt": {
+      "description": "The question prompt.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "id",
+    "prompt"
+  ]
+}

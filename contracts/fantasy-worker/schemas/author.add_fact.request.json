@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddFactParams",
+  "description": "`author.add_fact` params: an attribute-intent fact that renders\n`entity.key = value` (e.g. `mara.home = the-shallows`).",
+  "type": "object",
+  "properties": {
+    "entity": {
+      "description": "The entity the attribute is set on.",
+      "type": "string"
+    },
+    "key": {
+      "description": "The attribute key.",
+      "type": "string"
+    },
+    "provenance": {
+      "description": "The provenance of this addition.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "value": {
+      "description": "The attribute value.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "entity",
+    "key",
+    "value",
+    "provenance"
+  ],
+  "$defs": {
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for Door T (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            }
+          },
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    }
+  }
+}

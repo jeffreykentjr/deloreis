@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExportRunResult",
+  "description": "`dli.export.run` result.",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "description": "The export manifest.",
+      "$ref": "#/$defs/ExportManifest"
+    }
+  },
+  "required": [
+    "manifest"
+  ],
+  "$defs": {
+    "ExportManifest": {
+      "description": "Provenance for an exported artifact.",
+      "type": "object",
+      "properties": {
+        "commit": {
+          "description": "The source commit the export was built from.",
+          "type": "string"
+        },
+        "layer": {
+          "description": "The model layer exported (e.g. ratified-only).",
+          "type": "string"
+        },
+        "profile_hash": {
+          "description": "A hash of the export profile and its options.",
+          "type": "string"
+        },
+        "valuation": {
+          "description": "A fingerprint of the valuation the export was taken under.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit",
+        "layer",
+        "valuation",
+        "profile_hash"
+      ]
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExportRunParams",
+  "description": "`dli.export.run` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    },
+    "profile": {
+      "description": "The export profile.",
+      "$ref": "#/$defs/ExportProfile"
+    }
+  },
+  "required": [
+    "document",
+    "profile"
+  ],
+  "$defs": {
+    "ExportProfile": {
+      "description": "The export target.",
+      "oneOf": [
+        {
+          "description": "A context pack for downstream generation.",
+          "type": "string",
+          "const": "context-pack"
+        },
+        {
+          "description": "Printable reference cards.",
+          "type": "string",
+          "const": "cards"
+        },
+        {
+          "description": "Ludii Game Description Language for the simulator.",
+          "type": "string",
+          "const": "ludii-gdl"
+        }
+      ]
+    }
+  }
+}

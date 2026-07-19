@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VersionResult",
+  "description": "`dli.version` result.",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "description": "The contract name.",
+      "type": "string"
+    },
+    "contract_version": {
+      "description": "The contract version.",
+      "type": "string"
+    },
+    "server": {
+      "description": "The server version.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contract",
+    "contract_version",
+    "server"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkListParams",
+  "description": "`dli.fork.list` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

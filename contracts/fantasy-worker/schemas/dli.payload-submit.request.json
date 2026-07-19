@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PayloadSubmitParams",
+  "description": "`dli.payload-submit` params.",
+  "type": "object",
+  "properties": {
+    "payload": {
+      "description": "The draft payload to submit.",
+      "$ref": "#/$defs/DraftPayload"
+    }
+  },
+  "required": [
+    "payload"
+  ],
+  "$defs": {
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "Delta": {
+      "description": "A single resource change.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "description": "The signed change amount.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "resource": {
+          "description": "The resource affected.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "resource",
+        "amount"
+      ]
+    },
+    "DraftMeta": {
+      "description": "Draft metadata (the `payload/v1` header).",
+      "type": "object",
+      "properties": {
+        "pack": {
+          "description": "The pack this draft targets.",
+          "type": "string"
+        },
+        "title": {
+          "description": "The draft title.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The payload schema version.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "title",
+        "pack",
+        "version"
+      ]
+    },
+    "DraftPayload": {
+      "description": "A draft payload (`payload/v1`): everything a draft asserts and spends.",
+      "type": "object",
+      "properties": {
+        "beats": {
+          "description": "Beat identifiers.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "claims": {
+          "description": "The claims the draft asserts.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AtomExpr"
+          }
+        },
+        "deltas": {
+          "description": "Resource deltas the draft records.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Delta"
+          }
+        },
+        "lexicon": {
+          "description": "Coined lexicon terms introduced.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "meta": {
+          "description": "Draft metadata.",
+          "$ref": "#/$defs/DraftMeta"
+        },
+        "names": {
+          "description": "Proper names introduced (each must pass the naming oracle).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "promises": {
+          "description": "Promise-ledger entries opened or closed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proof_ledgers": {
+          "description": "Proof-ledger references.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scenes": {
+          "description": "Scene identifiers.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "meta",
+        "claims",
+        "deltas",
+        "scenes",
+        "beats",
+        "promises",
+        "proof_ledgers",
+        "names",
+        "lexicon"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier with its source span.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Where the identifier appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "text": {
+          "description": "The identifier text as written.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "span"
+      ]
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkPreflightParams",
+  "description": "`dli.fork.preflight` params.",
+  "type": "object",
+  "properties": {
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork"
+  ]
+}

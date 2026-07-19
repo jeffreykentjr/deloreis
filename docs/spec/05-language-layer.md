@@ -1,0 +1,269 @@
+---
+status: live
+verdict: "Names and words are world knowledge; the vet splits on whose world the ground truth is about."
+title: "The language layer: names and words as world knowledge"
+---
+
+# The language layer
+
+Names of people, places, and things — and the world's language generally — are
+world knowledge, and world knowledge lives in one fabric ([koan 10](../charter.md)).
+A register is a claim about a linguistic zone of the world: its phonotactics,
+its name grammars, its morpheme stock, every element carrying a gloss and a
+citation. A ratified name is canon. The language layer is therefore not a
+sibling tool bolted to the side of the fabric — it is packs in the fabric, under
+one semantics, statused and forkable like any other lore.
+
+The consuming repo's naming oracle splits along a **principled seam** rather than
+staying whole in the factory: the half whose ground truth is a fact about the
+*story's* world re-homes into the kernel as language packs and compile checks;
+the half whose ground truth is a fact about *ours* stays factory-side as a second
+screen. §3 draws that seam check by check.
+
+## 1. Registers as declarations
+
+Everything a register holds per linguistic zone becomes a pack, one-to-one — a
+residency change, not a redesign:
+
+```dli
+# syntax-pending: grammar unfrozen; AST is normative
+pack language
+
+register cymric-fringe  "the fringe tongue"  provisional D-0181 {
+  basis attested "Brythonic; medieval Welsh"   # an external-world claim — see §7
+  vowels a e i o u w y
+  endings -ys -wen -eth -air
+  foreign qu x z tion                          # clusters that mark a form as not-ours
+  cluster-max 2
+  stress penultimate
+  name-kind person.given = given-proto given-deutero | given-simple
+  name-kind place        = place-qualifier place-generic
+  morpheme en   "spirit"        role given-proto     ratified D-0134
+  morpheme fys  "arc, bow"      role given-deutero   ratified D-0134
+  morpheme wern "alder-marsh"   role place-generic   ratified D-0111
+  morpheme cors "bog, fen"      role place-qualifier ratified D-0111
+  }
+```
+
+Each morpheme is world lore with provenance — a cited fact about a tongue,
+statused and forkable like any fact. The phonotactic frame (vowels, endings,
+foreign-cluster markers, cluster ceiling, stress) and the name-kind slot
+grammars are world facts too: they are what the composed surface form is checked
+against.
+
+One thing does **not** migrate. The composition *weights* the consuming repo's
+generator uses — how often to try a dithematic name versus a simple one — are
+proposal policy, not world fact. They describe how a generator should sample the
+space; they say nothing about what the tongue *is*. Weights stay factory-side
+with the generator that samples them.
+
+## 2. Names as typed derivations
+
+A name declaration cites its register and its composition, and "register-true"
+stops being a reviewer's impression and becomes a **compile verdict**:
+
+```dli
+# syntax-pending: grammar unfrozen; AST is normative
+pack language
+
+name enfys "Enfys"  person.given in cymric-fringe
+  = given-proto en + given-deutero fys
+  bearer protagonist   ratified D-0134
+  # checked: the slot sequence matches a declared name-kind pattern; each
+  # morpheme exists in the register under the claimed role; the composed
+  # surface form passes the register's phonotactics
+```
+
+Three obligations compile together on every name:
+
+- **Slot sequence.** The sequence of morpheme roles must match one of the
+  register's declared `name-kind` patterns. `given-proto given-deutero` is a
+  legal `person.given`; a lone `given-deutero` is not.
+- **Role membership.** Each cited morpheme must exist in the named register
+  *under the role the name claims for it*. A morpheme declared `place-generic`
+  cannot fill a `given-proto` slot.
+- **Phonotactics.** The composed surface form must pass the register's frame —
+  its vowel inventory, cluster ceiling, ending set, and stress rule.
+
+A name that fails any of the three does not compile. Register-fit is no longer a
+note a reviewer writes; it is a verdict the gate produces, and it speaks the
+domain rather than the parser ([koan 9](../charter.md)):
+
+```text
+invalid: register-fit at name gwyneth — cluster 'th' after 'wyn' exceeds
+         cymric-fringe cluster-max 2; and 'given-simple' takes exactly one
+         morpheme, but two are cited. declared name-kinds for person.given:
+         [given-proto given-deutero] | [given-simple]
+```
+
+The failure names the register, the offending clusters, and the legal slot
+patterns — a writer meets a diagnosis in the world's terms, not a stack trace.
+
+## 3. The vet split, check by check
+
+The criterion for what re-homes into the kernel is **not**
+deterministic-versus-LLM — several checks that stay factory-side are pure
+lookups. The criterion is whose world the ground truth is about:
+
+> A check re-homes into the kernel **iff its ground truth is a fact about the
+> story's world**. It stays in the factory **iff its ground truth is a fact
+> about ours**.
+
+**In-kernel — world-true:**
+
+| Check | Why it is a fact about the story's world |
+|---|---|
+| Intra-canon uniqueness | a query over the name-space the kernel now owns; a colliding declaration fails `deloreis check` |
+| Fixed-token reuse | the same query surface; reserved tokens are canon facts |
+| Aural distinctness | the phonetic-key distance ported from the oracle's phonetics as a pure kernel primitive over the name-space |
+| Set distinctness | the same primitive over a declared set of names |
+| Register fit | it *is* the grammar check of §2 |
+| Gender morphology | a join of the name's morphemes' gender metadata against the bearer's canon facts — impossible while names and characters lived in different systems |
+| Sayability-tier caps | ruled world policy (D-0095) over the syllable structure the register already defines |
+| Banned vocabulary in names | against the in-runtime ban list (§4) |
+
+**Factory-side — world-safe:**
+
+| Check | Why it is a fact about our world |
+|---|---|
+| AI-tics | a screen against machine-generation tells; changes on research's schedule |
+| Pop / media / franchise collisions | knowledge of our culture, never cited to a ruling |
+| Homophones in English | a fact about English, not the tongue |
+| Anachronism | a screen against a modern-names list |
+| Portent clichés | a taste judgment about our genre expectations |
+| Deck-figure versus tarot | a fact about our tarot iconography |
+
+Every factory-side screen carries no diegetic status, changes on research's
+schedule rather than by ruling, can never be cited to a D-entry, and **must
+never gate assertability**. It is a second screen the consuming repo runs, not a
+condition on whether a name is canon.
+
+**Aural and set distinctness** deserve a word, because they are the checks that
+most clearly could not run before the merge. The phonetic-key distance primitive
+ports from the oracle's phonetics module as a **pure kernel primitive**: it maps
+a name to a phonetic key and measures distance between keys, so "these two names
+sound too alike" becomes a query over the name-space rather than an ear's
+impression. Aural distinctness runs a candidate against the whole name-space;
+set distinctness runs it against a declared set (a scene cast, a family, a
+region). The scene-scoped version is what the craft layer's `scene-name-clash`
+rule joins against ([06-craft-and-payloads](06-craft-and-payloads.md) §3) — a
+join possible only where naming data and cast lists share a kernel.
+
+**Pronounceability splits down its middle.** Cluster and syllable structure
+follow the register grammar and are checked in-kernel; the
+can-an-English-narrator-voice-it heuristic is audio-production knowledge about
+our world and stays factory-side.
+
+**Two-layer verdict composition.** The oracle's verdict becomes two-layered by
+design: a kernel verdict (world-true) and an external screen (world-safe). The
+consuming repo's `fantasy name vet` composes them — it asks the kernel whether
+the name is true to the world and asks its own screens whether the name is safe
+in ours, and reports both. Neither layer can overrule the other's ground truth,
+because they are ground truths about different worlds.
+
+## 4. The lexicon
+
+Diegetic terms are declarations with status and citations, and the allegory's
+lexical bans are *cited lexicon facts*:
+
+```dli
+# syntax-pending: grammar unfrozen; AST is normative
+pack language
+
+term hedgeway "the hedgeway"  ratified D-0143
+term the-plenty "the Plenty"  ratified D-0132
+
+banned machine   D-0056  "the allegory is structural, never lexical"
+banned algorithm D-0056  "the allegory is structural, never lexical"
+```
+
+The prose scanner stays a factory-side tool — scanning markdown is not world
+knowledge — but it consumes the *compiled* ban list instead of a private YAML,
+so there is one authoritative statement of what is banned and why, cited to the
+ruling that banned it. A ban is lore with provenance, not a config entry.
+
+The lexicon also feeds magic. The spoken-proof practice's `binder` sort draws
+from the lexicon's attested loan-word layer
+([04-practices](04-practices.md) §3): magic consumes language through an ordinary
+sort reference — `sort binder from lexicon.loan-words` — rather than through a
+convention that lives in two places. One fabric means the binder layer *is* the
+loan-word layer, not a copy of it.
+
+## 5. The agent-init flow
+
+The data that seeds a register comes from LLM and agent interaction — and it is
+world lore, so it enters like world lore: as a **proposal bundle under one
+hypothesis variable**, every clause carrying agent provenance by inheritance.
+Agents author through **Door T**, the semantic tools against the `deloreis`
+server (DL-0014; [11-agent-authoring](11-agent-authoring.md)); the surface below
+is the *materialized* rendering of what those tools produced, reviewed as
+surface before it is committed. No agent hand-writes the AST, and no agent edits
+canon — the bundle enters `proposed`, awaiting the author's ruling.
+
+```dli
+# syntax-pending: grammar unfrozen; AST is normative
+pack language
+
+hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"
+
+register cymric-fringe  proposed agent:factory/naming-run-0712  assumes h-cymric {
+  # inventory, patterns, morphemes — every clause inherits the bundle's
+  # hypothesis and the agent provenance
+  }
+
+name gwenair "Gwenair"  person.given in cymric-fringe  proposed
+  # support: H(h-cymric) — merely-possible: visible to shadow queries,
+  # structurally excluded from every context pack and every assertion
+
+ratify D-0195 { h-cymric := true }     # one valuation ratifies the bundle
+```
+
+**One hypothesis variable per bundle** means ratification is one authorial act.
+The clause grain the annotation algebra already carries
+([02-semantics](02-semantics.md)) gives **partial ratification for free**: ratify
+the register but reject two morphemes, and their variables valuate false — every
+name derived through them dies into lineage and lands in the killed-token
+register, per the standing kill discipline. Names composed from an unratified
+register are merely-possible *by construction* — no special case, just the same
+status-gating every proposed entity gets. A merely-possible name is visible to
+shadow queries and structurally excluded from every context pack and every
+assertion.
+
+## 6. The mirror dies
+
+The consuming repo's `ratified_names.yaml` is a hand-synced mirror of world
+knowledge — the very drift class this fabric exists to kill. It is **deleted as a
+source**. The compiled world *is* the name-space; anything a legacy consumer
+still needs comes from a query — `deloreis query name --layer certain --json` —
+which is a generated view of the compiled world, never a second writable copy of
+it.
+
+Calling this "one fewer propagation step" understates it: it is the removal of a
+standing context-poison vector that had a filename. The deletion is executed
+under the migration protocol ([integration/migration.md](../integration/migration.md)),
+at the naming-mirror checkpoint, after the shadow-read has proven the kernel
+reproduces the legacy vet's world-half verdicts.
+
+## 7. The attestation seam
+
+`basis attested "…"` and per-morpheme source URLs are claims about *our* world —
+"this pattern is Welsh-like," "this root is on this reference page" — not about
+the story's. They must not enter the annotation polynomials as if they were
+citations. Two rules bind at this seam, and
+[07-verdicts-and-llm-boundary](07-verdicts-and-llm-boundary.md) designs the
+machinery that enforces them:
+
+- **Attestation grades never feed assertability.** A register's real-basis is an
+  attestation ([07](07-verdicts-and-llm-boundary.md) §3): stored, graded,
+  replayable, and side-band on the checks that consume it — never a variable in a
+  support polynomial. A name can never become *certain* because a model believes
+  its basis is authentic.
+- **A register is ratifiable with its basis unverified.** The author ratifies the
+  *sound* — the phonotactics, the morphemes, the names that derive true to them —
+  not the scholarship. `basis attested` may be unanswered, or answered `no`, and
+  the register may still be ratified by a ruling. The scholarship is our-world
+  evidence about the work; it is never support for the world.
+
+This is the seam that keeps the language layer honest about which world each of
+its claims is about — the same distinction §3 draws for the vet, applied to the
+register's own provenance.

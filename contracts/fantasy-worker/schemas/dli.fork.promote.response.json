@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkPromoteResult",
+  "description": "`dli.fork.promote` result.",
+  "type": "object",
+  "properties": {
+    "rq_draft": {
+      "description": "The emitted ruling-request draft.",
+      "$ref": "#/$defs/RqDraft"
+    }
+  },
+  "required": [
+    "rq_draft"
+  ],
+  "$defs": {
+    "RqDraft": {
+      "description": "A ruling-request draft emitted by `dli.fork.promote`.",
+      "type": "object",
+      "properties": {
+        "affects": {
+          "description": "The atoms/sections the ruling affects.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ask": {
+          "description": "The question posed to the author.",
+          "type": "string"
+        },
+        "diff": {
+          "description": "The rendered consequence diff.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "description": "The evidence gathered for the ask.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "slug": {
+          "description": "The slug of the ruling-request.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug",
+        "ask",
+        "affects",
+        "diff",
+        "evidence"
+      ]
+    }
+  }
+}

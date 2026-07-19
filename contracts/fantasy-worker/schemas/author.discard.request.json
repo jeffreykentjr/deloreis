@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorDiscardParams",
+  "description": "`author.discard` params.",
+  "type": "object",
+  "properties": {
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace"
+  ]
+}

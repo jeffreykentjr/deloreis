@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkAddResult",
+  "description": "`dli.fork.add` result.",
+  "type": "object",
+  "properties": {
+    "delta": {
+      "description": "The resulting consequence delta.",
+      "$ref": "#/$defs/DiffDelta"
+    },
+    "ok": {
+      "description": "Whether the declarations were accepted into the fork.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok",
+    "delta"
+  ],
+  "$defs": {
+    "DiffDelta": {
+      "description": "A derived-consequence diff delta, shared by the fork mutation ops. Each field\nlists rendered atoms whose status changed relative to the fork's base.",
+      "type": "object",
+      "properties": {
+        "conflicts": {
+          "description": "Conflicts surfaced by the delta.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grade_changed": {
+          "description": "Atoms whose grade changed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "newly_certain": {
+          "description": "Atoms that became certain.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "newly_dead": {
+          "description": "Atoms that became dead (no longer derivable).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "newly_possible": {
+          "description": "Atoms that became merely possible.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "newly_certain",
+        "newly_possible",
+        "newly_dead",
+        "grade_changed",
+        "conflicts"
+      ]
+    }
+  }
+}

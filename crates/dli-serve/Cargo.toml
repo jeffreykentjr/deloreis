@@ -1,0 +1,26 @@
+[package]
+name = "dli-serve"
+description = "Deloreis Lore Interchange wire contract: envelope, ops, per-op schemas."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+dli-ast.workspace = true
+dli-core.workspace = true
+dli-eval.workspace = true
+dli-ledger.workspace = true
+dli-world.workspace = true
+dli-export.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddOptionParams",
+  "description": "`author.add_option` params.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "The option id.",
+      "type": "string"
+    },
+    "label": {
+      "description": "The option label.",
+      "type": "string"
+    },
+    "question": {
+      "description": "The question id this option belongs to.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "question",
+    "id",
+    "label"
+  ]
+}

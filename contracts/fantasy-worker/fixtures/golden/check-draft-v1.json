@@ -1,0 +1,40 @@
+{
+  "fixture": "golden/check-draft-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "payload": {
+            "meta": { "title": "the-door-after-rain", "pack": "saltmarket", "version": 1 },
+            "claims": [],
+            "deltas": [],
+            "scenes": ["scene-1"],
+            "beats": ["beat-1"],
+            "promises": [],
+            "proof_ledgers": [],
+            "names": ["mara"],
+            "lexicon": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "claim": "adjacent(saltmarket, the-shallows)",
+              "grade": "checked",
+              "message": "supported by the compiled world"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

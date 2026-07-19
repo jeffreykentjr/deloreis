@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CheckParams",
+  "description": "`dli.check` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id to check.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

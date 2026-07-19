@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorSupposeParams",
+  "description": "`author.suppose` params.",
+  "type": "object",
+  "properties": {
+    "hypotheses": {
+      "description": "The hypothesis ids to pin true.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "hypotheses"
+  ]
+}

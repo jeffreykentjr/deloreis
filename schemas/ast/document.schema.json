@@ -1,0 +1,880 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Document",
+  "description": "A parsed source document: an optional pack header plus its declarations.",
+  "type": "object",
+  "properties": {
+    "decls": {
+      "description": "The declarations in source order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Decl"
+      }
+    },
+    "pack": {
+      "description": "The pack header, if the document opens with one.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackHeader"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "decls"
+  ],
+  "$defs": {
+    "Annotation": {
+      "description": "Provenance attached to a lore-bearing declaration.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CitationRef"
+          }
+        },
+        "condition": {
+          "description": "Optional hypothesis condition under which the claim is asserted.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CondExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "span": {
+          "description": "Where the annotation appears in source.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "citations",
+        "span"
+      ]
+    },
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "AttestDecl": {
+      "description": "`attest <question>`.",
+      "type": "object",
+      "properties": {
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "question": {
+          "description": "The question being attested.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "question"
+      ]
+    },
+    "CitationRef": {
+      "description": "A reference to a decision-ledger entry, e.g. `D-0042`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The cited decision identifier.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "CondExpr": {
+      "description": "A boolean condition over named hypotheses that gates a claim.",
+      "oneOf": [
+        {
+          "description": "The named hypothesis holds.",
+          "type": "object",
+          "properties": {
+            "Hyp": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Hyp"
+          ]
+        },
+        {
+          "description": "Negation.",
+          "type": "object",
+          "properties": {
+            "Not": {
+              "$ref": "#/$defs/CondExpr"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Not"
+          ]
+        },
+        {
+          "description": "Conjunction of sub-conditions.",
+          "type": "object",
+          "properties": {
+            "And": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CondExpr"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "And"
+          ]
+        },
+        {
+          "description": "Disjunction of sub-conditions.",
+          "type": "object",
+          "properties": {
+            "Or": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CondExpr"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Or"
+          ]
+        }
+      ]
+    },
+    "CraftDecl": {
+      "description": "`craft <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The craft rule name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Decl": {
+      "description": "A top-level declaration.",
+      "oneOf": [
+        {
+          "description": "`use <target>` — import another pack's surface.",
+          "type": "object",
+          "properties": {
+            "Use": {
+              "$ref": "#/$defs/UseDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Use"
+          ]
+        },
+        {
+          "description": "`sort <name>` — declare an entity sort.",
+          "type": "object",
+          "properties": {
+            "Sort": {
+              "$ref": "#/$defs/SortDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sort"
+          ]
+        },
+        {
+          "description": "`fact <atom>` — assert a ground fact.",
+          "type": "object",
+          "properties": {
+            "Fact": {
+              "$ref": "#/$defs/FactDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Fact"
+          ]
+        },
+        {
+          "description": "`rule <name>: <head> :- <body>` — a derivation rule.",
+          "type": "object",
+          "properties": {
+            "Rule": {
+              "$ref": "#/$defs/RuleDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Rule"
+          ]
+        },
+        {
+          "description": "`fluent <name>` — a time-varying property.",
+          "type": "object",
+          "properties": {
+            "Fluent": {
+              "$ref": "#/$defs/FluentDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Fluent"
+          ]
+        },
+        {
+          "description": "`wheel <name>` — a cyclic time structure.",
+          "type": "object",
+          "properties": {
+            "Wheel": {
+              "$ref": "#/$defs/WheelDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Wheel"
+          ]
+        },
+        {
+          "description": "`fork <question>` — an open creative fork.",
+          "type": "object",
+          "properties": {
+            "Fork": {
+              "$ref": "#/$defs/ForkDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Fork"
+          ]
+        },
+        {
+          "description": "`practice <name>` — a resource-tracked practice.",
+          "type": "object",
+          "properties": {
+            "Practice": {
+              "$ref": "#/$defs/PracticeDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Practice"
+          ]
+        },
+        {
+          "description": "`register <name>` — a diction register.",
+          "type": "object",
+          "properties": {
+            "Register": {
+              "$ref": "#/$defs/RegisterDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Register"
+          ]
+        },
+        {
+          "description": "`lexeme <name>` — a coined term.",
+          "type": "object",
+          "properties": {
+            "Lexeme": {
+              "$ref": "#/$defs/LexemeDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Lexeme"
+          ]
+        },
+        {
+          "description": "`craft <name>` — a craft rule.",
+          "type": "object",
+          "properties": {
+            "Craft": {
+              "$ref": "#/$defs/CraftDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Craft"
+          ]
+        },
+        {
+          "description": "`draft <name>` — a draft payload binding.",
+          "type": "object",
+          "properties": {
+            "Draft": {
+              "$ref": "#/$defs/DraftDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Draft"
+          ]
+        },
+        {
+          "description": "`attest <question>` — an attestation request.",
+          "type": "object",
+          "properties": {
+            "Attest": {
+              "$ref": "#/$defs/AttestDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Attest"
+          ]
+        },
+        {
+          "description": "`export <profile>` — an export directive.",
+          "type": "object",
+          "properties": {
+            "Export": {
+              "$ref": "#/$defs/ExportDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Export"
+          ]
+        }
+      ]
+    },
+    "DraftDecl": {
+      "description": "`draft <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The draft name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ExportDecl": {
+      "description": "`export <profile>`.",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "description": "The export profile name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "profile"
+      ]
+    },
+    "FactDecl": {
+      "description": "`fact <atom>`.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The asserted atom.",
+          "$ref": "#/$defs/AtomExpr"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "atom"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "FluentDecl": {
+      "description": "`fluent <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The fluent name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ForkDecl": {
+      "description": "`fork <question>` with its options.",
+      "type": "object",
+      "properties": {
+        "options": {
+          "description": "The candidate options.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "question": {
+          "description": "The open question.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "question",
+        "options"
+      ]
+    },
+    "Ident": {
+      "description": "A named identifier with its source span.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Where the identifier appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "text": {
+          "description": "The identifier text as written.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "span"
+      ]
+    },
+    "LexemeDecl": {
+      "description": "`lexeme <name>` with its morphemes.",
+      "type": "object",
+      "properties": {
+        "morphemes": {
+          "description": "The morphemes composing the lexeme.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "name": {
+          "description": "The lexeme name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "morphemes"
+      ]
+    },
+    "PackHeader": {
+      "description": "A `pack <name>` header naming the document's pack.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The pack name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "PracticeDecl": {
+      "description": "`practice <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The practice name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "RegisterDecl": {
+      "description": "`register <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The register name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "RuleDecl": {
+      "description": "`rule <name>: <head> :- <body>`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The body atoms (conjunctive premises).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AtomExpr"
+          }
+        },
+        "head": {
+          "description": "The head atom the rule derives.",
+          "$ref": "#/$defs/AtomExpr"
+        },
+        "name": {
+          "description": "The rule name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "head",
+        "body"
+      ]
+    },
+    "SortDecl": {
+      "description": "`sort <name>`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The sort name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
+        }
+      ]
+    },
+    "UseDecl": {
+      "description": "`use <target>`.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        },
+        "target": {
+          "description": "The imported pack name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "target",
+        "span"
+      ]
+    },
+    "WheelDecl": {
+      "description": "`wheel <name>` with its ordered spokes.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The wheel name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spokes": {
+          "description": "The ordered spoke names around the wheel.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "spokes"
+      ]
+    }
+  }
+}

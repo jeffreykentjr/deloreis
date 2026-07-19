@@ -1,0 +1,18 @@
+# cargo-nextest configuration.
+#
+#   default - local `cargo nextest run`. Never fail-fast; a hung test is
+#             terminated after 4 * 30s so one wedged case cannot stall the run.
+#   ci      - the `gate` job's run. Same never-fail-fast policy, immediate final
+#             failure output, no retries, and a JUnit report for artifacts.
+
+[profile.default]
+fail-fast = false
+slow-timeout = { period = "30s", terminate-after = 4 }
+
+[profile.ci]
+fail-fast = false
+failure-output = "immediate-final"
+retries = 0
+
+[profile.ci.junit]
+path = "junit.xml"

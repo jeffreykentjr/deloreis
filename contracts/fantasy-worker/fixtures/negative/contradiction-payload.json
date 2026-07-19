@@ -1,0 +1,24 @@
+{
+  "fixture": "negative/contradiction-payload",
+  "version": 1,
+  "note": "A draft whose claims contradict the compiled projection is a contradiction finding.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "dli.check-draft",
+    "params": {
+      "payload": {
+        "meta": { "title": "contradiction", "pack": "saltmarket", "version": 1 },
+        "claims": [],
+        "deltas": [],
+        "scenes": ["scene-1"],
+        "beats": [],
+        "promises": [],
+        "proof_ledgers": [],
+        "names": [],
+        "lexicon": []
+      }
+    }
+  },
+  "expect_error": { "code": "contradiction" }
+}

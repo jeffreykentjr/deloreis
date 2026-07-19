@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkListResult",
+  "description": "`dli.fork.list` result.",
+  "type": "object",
+  "properties": {
+    "forks": {
+      "description": "The open fork question ids.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "forks"
+  ]
+}

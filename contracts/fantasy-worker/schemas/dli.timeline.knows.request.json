@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineKnowsParams",
+  "description": "`dli.timeline.knows` params.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "The position to evaluate knowledge at, if any.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

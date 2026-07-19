@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorOpenResult",
+  "description": "`author.open` result.",
+  "type": "object",
+  "properties": {
+    "workspace": {
+      "description": "The opened workspace id.",
+      "type": "string"
+    },
+    "workspace_digest": {
+      "description": "The initial workspace digest.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "workspace_digest"
+  ]
+}

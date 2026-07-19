@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# commit-msg — reject commit messages carrying AI-tool authorship markers.
+# Activate with: scripts/install-hooks.sh  (sets core.hooksPath = .githooks)
+
+set -euo pipefail
+
+MSG_FILE="$1"
+
+fail() {
+  echo "commit-msg: REJECTED — $1" >&2
+  echo "commit-msg: this repo keeps plain commit messages; no AI-authorship trailers." >&2
+  exit 1
+}
+
+# Co-Authored-By naming an AI tool.
+if grep -qiE '^Co-Authored-By:.*(claude|anthropic|openai|chatgpt|copilot|codex|kiro|gemini|cursor|windsurf|devin|aider|bot)' "$MSG_FILE"; then
+  fail "Co-Authored-By names an AI tool"
+fi
+
+# Session/trailer leakage.
+if grep -qiE '(Claude-Session:|session_[0-9a-zA-Z]{20,})' "$MSG_FILE"; then
+  fail "contains a Claude-Session / session-id trailer"
+fi
+
+# "generated with" on a line that also names a marker.
+if grep -qiE 'generated with.*(claude|anthropic|openai|chatgpt|copilot|codex|kiro|gemini|cursor|windsurf|devin|aider)' "$MSG_FILE"; then
+  fail "'generated with' names an AI tool"
+fi
+
+# The robot emoji.
+if grep -qF '🤖' "$MSG_FILE"; then
+  fail "contains the robot emoji"
+fi
+
+exit 0

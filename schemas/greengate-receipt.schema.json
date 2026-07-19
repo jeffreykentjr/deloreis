@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jeffreyksmithjr/deloreis/schemas/greengate-receipt.schema.json",
+  "title": "GreengateReceipt",
+  "description": "The receipt a gate run writes: what ran, on what toolchain, and the verdict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sha",
+    "toolchain",
+    "started_at",
+    "finished_at",
+    "commands",
+    "result",
+    "host",
+    "gate_list_digest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "greengate-receipt/v1"
+    },
+    "sha": {
+      "type": "string"
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "rustc_version"],
+      "properties": {
+        "channel": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["argv", "exit_code", "duration_s"],
+        "properties": {
+          "argv": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "exit_code": { "type": "integer" },
+          "duration_s": { "type": "number" }
+        }
+      }
+    },
+    "result": {
+      "type": "string",
+      "enum": ["green", "red"]
+    },
+    "host": {
+      "type": "string"
+    },
+    "gate_list_digest": {
+      "type": "string"
+    }
+  }
+}

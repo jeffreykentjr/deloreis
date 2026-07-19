@@ -1,0 +1,16 @@
+# syntax-pending: placeholder grammar, probe-compatible; AST is normative
+pack true-naming
+
+practice true-naming
+register plain
+lexeme saltwright
+morpheme salt
+morpheme wright
+
+craft show-the-cost
+principle name-earns-its-weight
+
+fact true-naming binds speaker-to-named
+fork what-does-a-name-cost
+option a-memory
+option a-year-of-service

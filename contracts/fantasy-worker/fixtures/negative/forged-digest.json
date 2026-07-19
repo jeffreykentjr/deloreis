@@ -1,0 +1,13 @@
+{
+  "fixture": "negative/forged-digest",
+  "version": 1,
+  "note": "A fabricated workspace digest that was never issued fails the fence check exactly as a stale one does; the server never trusts a caller-supplied fence it did not mint.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.materialize",
+    "params": { "workspace": "ws-1" },
+    "expected_digest": "jcs:forged-deadbeef"
+  },
+  "expect_error": { "code": "stale-fence" }
+}

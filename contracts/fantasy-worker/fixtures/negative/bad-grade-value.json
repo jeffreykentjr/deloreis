@@ -1,0 +1,25 @@
+{
+  "fixture": "negative/bad-grade-value",
+  "version": 1,
+  "note": "A grade outside the closed lattice (asserted/attested/tested/checked) is a schema violation; here a submitted finding carries grade 'platinum'.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "dli.payload-submit",
+    "params": {
+      "payload": {
+        "meta": { "title": "bad-grade", "pack": "saltmarket", "version": 1 },
+        "claims": [],
+        "deltas": [],
+        "scenes": [],
+        "beats": [],
+        "promises": [],
+        "proof_ledgers": [],
+        "names": [],
+        "lexicon": [],
+        "grade": "platinum"
+      }
+    }
+  },
+  "expect_error": { "code": "schema-violation" }
+}

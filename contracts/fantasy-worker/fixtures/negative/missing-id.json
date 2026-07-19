@@ -1,0 +1,11 @@
+{
+  "fixture": "negative/missing-id",
+  "version": 1,
+  "note": "A frame missing the required correlation id is a bad frame.",
+  "send": {
+    "dli": "0.1.0",
+    "op": "dli.check",
+    "params": { "document": "saltmarket" }
+  },
+  "expect_error": { "code": "bad-frame" }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NameCheckParams",
+  "description": "`dli.name.check` params.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "The proposed name.",
+      "type": "string"
+    },
+    "register": {
+      "description": "The register to vet against.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "register"
+  ]
+}

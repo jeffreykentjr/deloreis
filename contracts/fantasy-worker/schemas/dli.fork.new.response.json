@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkNewResult",
+  "description": "`dli.fork.new` result.",
+  "type": "object",
+  "properties": {
+    "fork": {
+      "description": "The new fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork"
+  ]
+}

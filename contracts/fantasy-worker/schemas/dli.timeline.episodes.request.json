@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineEpisodesParams",
+  "description": "`dli.timeline.episodes` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

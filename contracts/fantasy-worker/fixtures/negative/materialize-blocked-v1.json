@@ -1,0 +1,12 @@
+{
+  "fixture": "negative/materialize-blocked-v1",
+  "version": 1,
+  "note": "author.materialize on a workspace that still has error-severity findings open is refused with materialize-blocked; the blocking finding codes ride in the error data. Severity gates materialize (error blocks, warn passes) — orthogonal to grade.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.materialize",
+    "params": { "workspace": "ws-1" }
+  },
+  "expect_error": { "code": "materialize-blocked" }
+}

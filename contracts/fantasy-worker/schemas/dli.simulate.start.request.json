@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulateStartParams",
+  "description": "`dli.simulate.start` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    },
+    "seed": {
+      "description": "The RNG seed.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "turns": {
+      "description": "The number of turns to simulate.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "document",
+    "seed",
+    "turns"
+  ]
+}

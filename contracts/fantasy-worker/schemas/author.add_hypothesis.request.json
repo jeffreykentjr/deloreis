@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddHypothesisParams",
+  "description": "`author.add_hypothesis` params.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "The hypothesis id.",
+      "type": "string"
+    },
+    "statement": {
+      "description": "The hypothesis statement.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace",
+    "id",
+    "statement"
+  ]
+}

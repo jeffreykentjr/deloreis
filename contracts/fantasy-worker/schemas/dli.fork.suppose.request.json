@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkSupposeParams",
+  "description": "`dli.fork.suppose` params.",
+  "type": "object",
+  "properties": {
+    "assume": {
+      "description": "The option/event ids to assume true.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork",
+    "assume"
+  ]
+}

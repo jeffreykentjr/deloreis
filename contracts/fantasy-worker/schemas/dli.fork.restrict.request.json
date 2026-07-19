@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkRestrictParams",
+  "description": "`dli.fork.restrict` params.",
+  "type": "object",
+  "properties": {
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    },
+    "scope": {
+      "description": "The atoms the fork's valuation scope is restricted to.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "fork",
+    "scope"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkNewParams",
+  "description": "`dli.fork.new` params.",
+  "type": "object",
+  "properties": {
+    "base": {
+      "description": "The base fork to branch from, if any.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "document": {
+      "description": "The document id the fork is over.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

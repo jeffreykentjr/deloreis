@@ -1,0 +1,21 @@
+# syntax-pending: placeholder grammar, probe-compatible; AST is normative
+pack saltmarket
+
+era tideturn
+event the-long-drought
+
+place saltmarket
+place the-shallows
+place the-weir
+
+person mara
+person old-fen
+thing the-salt-ledger
+
+fact mara lives-in saltmarket
+adjacent(saltmarket, the-shallows)
+adjacent(the-shallows, the-weir)
+
+question who-keeps-the-ledger
+option old-fen
+option mara

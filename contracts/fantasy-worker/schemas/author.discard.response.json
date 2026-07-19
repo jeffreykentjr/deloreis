@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorDiscardResult",
+  "description": "`author.discard` result.",
+  "type": "object",
+  "properties": {
+    "discarded": {
+      "description": "Whether the workspace was discarded.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "discarded"
+  ]
+}

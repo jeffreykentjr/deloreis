@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineResult",
+  "description": "The shared result of the `dli.timeline.*` reports.",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "description": "The rendered findings for the requested report.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "findings"
+  ]
+}

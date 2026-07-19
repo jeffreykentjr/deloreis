@@ -1,0 +1,27 @@
+{
+  "fixture": "golden/query-support-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "adjacent(saltmarket, the-shallows)"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "support": { "monomials": [["+h.tide-year"]] },
+          "grade": "attested",
+          "citations": ["D-0042"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "fixture": "golden/author-session-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.open",
+        "params": { "pack": "saltmarket" }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": { "workspace": "ws-1", "workspace_digest": "jcs:0001" }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "author.add_entity",
+        "params": {
+          "workspace": "ws-1",
+          "kind": "person",
+          "id": "mara",
+          "name": "Mara",
+          "provenance": { "kind": "proposed", "origin": "session-fx01" }
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": ["person mara \"Mara\" proposed session-fx01"],
+          "workspace_digest": "jcs:0002"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "3",
+        "op": "author.add_entity",
+        "params": {
+          "workspace": "ws-1",
+          "kind": "place",
+          "id": "the-shallows",
+          "name": "The Shallows",
+          "provenance": { "kind": "proposed", "origin": "session-fx01" }
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": ["place the-shallows \"The Shallows\" proposed session-fx01"],
+          "workspace_digest": "jcs:0003"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "4",
+        "op": "author.add_fact",
+        "params": {
+          "workspace": "ws-1",
+          "entity": "mara",
+          "key": "home",
+          "value": "the-shallows",
+          "provenance": { "kind": "proposed", "origin": "session-fx01" }
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": ["mara.home = the-shallows proposed session-fx01"],
+          "workspace_digest": "jcs:0004"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "5",
+        "op": "author.diff",
+        "params": { "workspace": "ws-1" }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "rendered": [
+            "person mara \"Mara\" proposed session-fx01",
+            "place the-shallows \"The Shallows\" proposed session-fx01",
+            "mara.home = the-shallows proposed session-fx01"
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "6",
+        "op": "author.materialize",
+        "params": { "workspace": "ws-1" }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "6",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "pack saltmarket",
+            "person mara \"Mara\" proposed session-fx01",
+            "place the-shallows \"The Shallows\" proposed session-fx01",
+            "mara.home = the-shallows proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:0005"
+        }
+      }
+    }
+  ]
+}

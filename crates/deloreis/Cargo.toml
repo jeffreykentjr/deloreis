@@ -1,0 +1,25 @@
+[package]
+name = "deloreis"
+description = "Deloreis Lore Interchange command-line toolchain (spike scaffold)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+dli-ast.workspace = true
+dli-core.workspace = true
+dli-syntax.workspace = true
+dli-time.workspace = true
+dli-eval.workspace = true
+dli-ledger.workspace = true
+dli-world.workspace = true
+dli-export.workspace = true
+dli-serve.workspace = true
+clap.workspace = true
+miette = { workspace = true, features = ["fancy"] }
+
+[lints]
+workspace = true

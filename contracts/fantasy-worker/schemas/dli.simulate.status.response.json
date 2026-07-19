@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulateStatusResult",
+  "description": "`dli.simulate.status` result.",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "description": "The final manifest, present once the job is complete."
+    },
+    "status": {
+      "description": "The job status.",
+      "type": "string"
+    },
+    "trace": {
+      "description": "One line per simulated turn so far.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "status",
+    "trace"
+  ]
+}

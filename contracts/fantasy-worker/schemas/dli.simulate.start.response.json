@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulateStartResult",
+  "description": "`dli.simulate.start` result.",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "description": "The job id to poll.",
+      "type": "string"
+    },
+    "status": {
+      "description": "The initial job status.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "status"
+  ]
+}

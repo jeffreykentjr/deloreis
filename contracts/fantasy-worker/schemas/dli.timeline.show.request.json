@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineShowParams",
+  "description": "`dli.timeline.show` params.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "The position to show the timeline at, if any.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "document": {
+      "description": "The document id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document"
+  ]
+}

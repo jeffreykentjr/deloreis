@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CheckDraftResult",
+  "description": "`dli.check-draft` result.",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "description": "One finding per checked claim.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DraftFinding"
+      }
+    }
+  },
+  "required": [
+    "findings"
+  ],
+  "$defs": {
+    "DraftFinding": {
+      "description": "The outcome of fact-checking one draft claim.",
+      "type": "object",
+      "properties": {
+        "claim": {
+          "description": "The claim, rendered.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The grade at which it is supported.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable classification message.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim",
+        "grade",
+        "message"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.",
+      "oneOf": [
+        {
+          "description": "Stated in canon, not yet checked against anything.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "Backed by a recorded model attestation.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Exercised by a passing test or oracle.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Machine-checked against the world model.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    }
+  }
+}

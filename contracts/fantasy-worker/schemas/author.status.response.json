@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorStatusResult",
+  "description": "`author.status` result.",
+  "type": "object",
+  "properties": {
+    "rendered": {
+      "description": "The rendered workspace state.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "workspace_digest": {
+      "description": "The current workspace digest.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rendered",
+    "workspace_digest"
+  ]
+}

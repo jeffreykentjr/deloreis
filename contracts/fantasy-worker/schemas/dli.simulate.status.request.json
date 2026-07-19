@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulateStatusParams",
+  "description": "`dli.simulate.status` params.",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "description": "The job id.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id"
+  ]
+}

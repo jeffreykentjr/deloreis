@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AttestMissingResult",
+  "description": "`dli.attest.missing` result.",
+  "type": "object",
+  "properties": {
+    "questions": {
+      "description": "Question ids that lack a current attestation.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "questions"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkAddParams",
+  "description": "`dli.fork.add` params.",
+  "type": "object",
+  "properties": {
+    "declarations": {
+      "description": "The rendered proposed declarations to add.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork",
+    "declarations"
+  ]
+}

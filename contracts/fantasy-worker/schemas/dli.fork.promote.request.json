@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForkPromoteParams",
+  "description": "`dli.fork.promote` params.",
+  "type": "object",
+  "properties": {
+    "fork": {
+      "description": "The fork handle.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fork"
+  ]
+}

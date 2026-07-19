@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueryParams",
+  "description": "`dli.query` params.",
+  "type": "object",
+  "properties": {
+    "document": {
+      "description": "The document id to query.",
+      "type": "string"
+    },
+    "goal": {
+      "description": "The goal atom, rendered.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document",
+    "goal"
+  ]
+}

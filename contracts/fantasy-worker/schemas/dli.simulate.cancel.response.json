@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulateCancelResult",
+  "description": "`dli.simulate.cancel` result.",
+  "type": "object",
+  "properties": {
+    "status": {
+      "description": "The job status after cancellation.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ]
+}

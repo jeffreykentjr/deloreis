@@ -1,0 +1,68 @@
+authority: closed_fixture_registry
+contract: fantasy-worker
+contract_version: 0.1.0
+ci_command: cargo run -p xtask --locked -- fixtures
+digest:
+  algorithm: sha256
+  domain: exact file bytes
+rules:
+  unknown_fixture: fail
+  verdict_mismatch: fail
+cross_document_bindings:
+- rule: field_equality
+  path_a: expect.id
+  path_b: send.id
+- rule: field_equality
+  path_a: expect.dli
+  path_b: send.dli
+fixtures:
+- path: golden/attestation-sweep-v1.json
+  sha256: 05ebe5b33c014a945f94eb4c1ff8f842624741e08eddd1573f29c305f5c1d3e7
+- path: golden/author-session-v1.json
+  sha256: ee807f35c33f349b8b1e0206e4432835e45f228a0ad187bdd49df6ee8a75e3ad
+- path: golden/check-basic-v1.json
+  sha256: 0a36cf2b363cb9b343ab0149b132e2f12f63aa7c75378c931530e901c577456a
+- path: golden/check-draft-v1.json
+  sha256: 186b2901b610b9b3b55721b191f7ffe725d3fa29697bdfd403e4fdb1570396f2
+- path: golden/check-ledger-turning-v1.json
+  sha256: 5451715a3260645efc8e58bcea03ccc7f5d41961975b2beb78c091ed1ab4470e
+- path: golden/export-ludii-v1.json
+  sha256: 65abb0447c60bab4d93c6d18040e72480c989525c43bd7fd4a9fb10c02f49ebe
+- path: golden/fork-diff-v1.json
+  sha256: 890bab861b52456b014742349d297f91c98e38a6dc31109e97d1aeef21411999
+- path: golden/payload-submit-v1.json
+  sha256: f62b56dda56fe7d0462e70821fdea16cb224d35d7d0d360425ccc5bea5758075
+- path: golden/fork-preflight-v1.json
+  sha256: 664fd540127a69748a6b1bf6f24df50e6b24928b147ee11277012eaa23ff5ffc
+- path: golden/query-support-v1.json
+  sha256: 890e39068c11647467cbc6cad07541f30c92c3cc46a3742e409cb4095a4af722
+- path: golden/simulate-v1.json
+  sha256: 3784c752ae658013360031b53257895b5cedc0a226cbef154d440d7565cf54c3
+- path: negative/author-framing-attack.json
+  sha256: 414eb2fca16ad3ecde0e32df16ab9cb7ec38b4a6c5774f11740b7fae0bea0787
+- path: negative/author-unknown-workspace.json
+  sha256: d74c08a5f49faa294d854f02e128ec5f3c9c57c5394dc34ec9201252e124ff5e
+- path: negative/bad-grade-value.json
+  sha256: e985e10ceb4ea99e35542be14b5227b289fdce0d12e212684c34040116973f78
+- path: negative/contradiction-payload.json
+  sha256: c784dd50c5c73a5a698d325fc7a7f3eb4e3acb696d4b377b7875873199edf2d5
+- path: negative/killed-op-suppose.json
+  sha256: 5530766a39d62a322e2949692ff3ae6e84c7a39861494efcac1a90a45cf6b60e
+- path: negative/materialize-blocked-v1.json
+  sha256: 6b1422bb04c9c67aedb3e2225a65111456615a93c0fc743a93ef9fa273ac9d85
+- path: negative/forged-digest.json
+  sha256: 415a32f0840e0ac83d8862799341057f6c5d0443ee944e75a4fdc42fd24dac35
+- path: negative/missing-id.json
+  sha256: 3dabf9b34b853e371f90bbeeecffa3351ced09a081a81764ff6cadffa4f8c344
+- path: negative/params-schema-violation.json
+  sha256: fd7d4fd01e3665fd2a0939f2f09274cd9303b39e194e423bac020cdd826375ee
+- path: negative/stale-fence.json
+  sha256: c45ec80d73c4e215fdcfe3bd0d5851243e44e40d044261702b4be9346ab9a845
+- path: negative/unknown-op.json
+  sha256: 860a2adb421162c192e7b82c8dd3ef5b4cc1c3190985b60c624a52990cf263b4
+- path: raw/duplicate-key.raw
+  sha256: 3edc449c45529498d1aff7aef56e49160b9cbe05924a7ccab1924645bc37fe10
+- path: raw/partial-frame.raw
+  sha256: 4181060e6a94310ae659ab1c7a69839a6ea5862f54dc2eaebf3004ed0cfced4d
+- path: raw/stdout-noise.raw
+  sha256: be075d2e1bcf5bc0f4e9f40d868e76edf1ac7e8306e65c0cf806f72233064094
