@@ -19,6 +19,7 @@ schemars.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+serde_yaml_ng.workspace = true
 
 [lints]
 workspace = true

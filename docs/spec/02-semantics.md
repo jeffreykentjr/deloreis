@@ -222,7 +222,7 @@ additions run the incremental fixpoint.
 The operations:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 fork the-guild-raised-the-bell
   suppose q-0001 = guild
   add fact raised-by(tide-bell, guild)

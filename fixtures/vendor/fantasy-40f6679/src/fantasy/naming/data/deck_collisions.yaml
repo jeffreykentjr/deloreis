@@ -1,0 +1,97 @@
+# Divination-deck collision data (D-0146; oracular deck, task #47).
+#
+# Consumed ONLY by check_deck_figure, which fires only when a name is vetted with
+# role=deck-figure. Kept out of the global pipeline so ordinary places/concepts named
+# "the Tower" or "Death" don't trip — those read as tarot only as divination-deck figures.
+#
+# The world's own deck (cartomancer's taxonomy: the Turning / Grounds-Hands-Weathers /
+# folk-occupation faces) must PASS this; only real tarot Major Arcana and the famous
+# remap decks (Wildwood, Hallowquest, DruidCraft) FAIL/WARN.
+
+# --- exact-block: reads unmistakably as a published divination deck (FAIL) ---
+# The 22 classic Major Arcana (normalised: lowercased, leading "the " stripped). One-word
+# synonyms folded in (wheel = Wheel of Fortune).
+major_arcana:
+  - fool
+  - magician
+  - high priestess
+  - priestess
+  - empress
+  - emperor
+  - hierophant
+  - papess
+  - popess
+  - lovers
+  - chariot
+  - strength
+  - hermit
+  - wheel of fortune
+  - wheel
+  - justice
+  - hanged man
+  - death
+  - temperance
+  - devil
+  - tower
+  - star
+  - moon
+  - sun
+  - judgement
+  - judgment
+  - world
+
+# Famous remap decks whose coinages read as tarot just as fast (cartomancer's list).
+remap_figures:
+  # Wildwood
+  - green man
+  - green woman
+  - the green man
+  - the green woman
+  - hooded man
+  - the hooded man
+  - archer
+  - the archer
+  - wanderer
+  - the wanderer
+  - blasted oak
+  - the blasted oak
+  - shaman
+  - the shaman
+  - seer
+  - the seer
+  - ancestor
+  - the ancestor
+  - guardian
+  - the guardian
+  - world tree
+  - the world tree
+  # Hallowquest / Arthurian Hallows named figures
+  - sword maiden
+  - spear warrior
+  - sword warrior
+  - spear maiden
+  # DruidCraft / Sacred Circle named figures
+  - merlin
+
+# --- reskin patterns: transparent costume-changes of an Arcanum (WARN, fuzzy) ---
+# Case-insensitive; "the " optional. Deliberately narrow, and validated to raise ZERO
+# flags on cartomancer's taxonomy (e.g. "reaper" is NOT here — it is their harvest face;
+# only "grim reaper"/"pale rider" trip Death).
+reskin_patterns:
+  - pattern: '\b(?:the\s+)?(?:blasted|broken|falling|ruined|struck|lightning[- ]?struck)?\s*(tower|steeple|spire|turret|belfry|donjon|watchtower)\b'
+    reason: "reads as the Tower (XVI)"
+  - pattern: '\b(?:the\s+)?(?:hanged|hung|drowned|suspended|dangling|upside[- ]?down)\s+(?:man|one|woman|figure|fool)\b'
+    reason: "reads as the Hanged Man (XII)"
+  - pattern: '\b(?:the\s+)?(?:high|great|grand)\s+(?:priest|priestess)\b'
+    reason: "reads as the High Priestess (II) / Hierophant (V)"
+  - pattern: '\b(?:the\s+)?(?:grim\s+reaper|pale\s+rider)\b'
+    reason: "reads as Death (XIII)"
+
+# --- structure advisory (deck_structure_warnings, on a whole suit/court set) ---
+structure:
+  tarot_suits:
+    - [wands, cups, swords, pentacles]
+    - [wands, cups, swords, coins]
+  hallows: [sword, spear, grail, stone]
+  elements: [fire, water, air, earth]
+  court: [page, knight, queen, king]

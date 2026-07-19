@@ -1,0 +1,31 @@
+# Ratified proper names not (yet) held in a structured canon registry.
+#
+# Canon has a characters registry (canon/data/characters.yaml) but no places registry,
+# so ratified PLACE names live only in canon prose (canon/geography/regions.md). This
+# file mirrors those ratified names into the naming oracle's cast so the intra-canon
+# uniqueness + aural-distinctness check treats them as fixed members of the name-space
+# (a future proposal must not collide with, or sound like, a settled region). Keep in
+# sync with canon; this is a mirror, not the source of truth.
+#
+# The four region names + the starting valley + hub, ratified D-0101 / D-0108 / D-0111
+# (canon/geography/regions.md, "The ratified names").
+
+names:
+  - {name: Whitecombe, kind: region, decision: D-0111, note: the chalk uplands}
+  - {name: Corsbach, kind: region, decision: D-0111, note: the drowned lowlands}
+  - {name: Swartby, kind: region, decision: D-0111, note: the industrial crags}
+  - {name: Halspetra, kind: region, decision: D-0111, note: the salt fringes}
+  - {name: Gwern, kind: place, decision: D-0111, note: the starting-spoke valley}
+  - {name: Trefpen, kind: place, decision: D-0111, note: the hub settlement}
+  - {name: Enfys Livia, kind: person, decision: D-0134, note: the protagonist (given Enfys)}
+  - {name: Ranta Aalto, kind: person, decision: D-0132, note: the apprentice (address Aalto)}
+  - {name: Geir Ketilson, kind: person, decision: D-0132, note: the anchor}
+  - {name: Bramble, kind: creature, decision: D-0132, note: the hound's call-name}
+  - {name: Frithwed, kind: creature, decision: D-0132, note: the hound's treaty-formal name}
+  - {name: the Plenty, kind: concept, decision: D-0132, note: the imperial framework}
+  - {name: To Pleach the Hedgeway, kind: concept, decision: D-0143, note: THE SERIES TITLE}
+  - {name: the Turning, kind: concept, decision: D-0148, note: THE DECK — the world's oracular deck}
+  - {name: the Grounds, kind: concept, decision: D-0148, note: the Turning's suits}
+  - {name: the Hands, kind: concept, decision: D-0148, note: the Turning's courts (Taker/Keeper/Giver/Mender)}
+  - {name: the Weathers, kind: concept, decision: D-0148, note: the Turning's conditions ring}
+  - {name: the Reckoner, kind: concept, decision: D-0148, note: the Turning's hub leaf}

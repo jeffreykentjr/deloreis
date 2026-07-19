@@ -1,0 +1,577 @@
+schema_version: 1
+series:
+  id: to-pleach-the-hedgeway
+  label: To Pleach the Hedgeway
+  ordinal_range: {start: 1, end: 400}
+  planning_maturity: frame
+  readiness: &frame-readiness
+    canon: ready
+    craft: not-started
+    market: not-started
+    audio: not-started
+  artifact_links:
+    - {kind: decision, ref: D-0168, status: accepted}
+    - {kind: decision, ref: D-0208, status: accepted}
+    - {kind: canon, ref: canon/data/facts.yaml, status: accepted}
+    - {kind: craft, ref: docs/reference/structure-fractal-arcs.md, status: accepted}
+  review_state: approved
+
+target_episode_count: 400
+frame_basis:
+  - D-0168
+  - D-0208
+  - canon/data/facts.yaml
+  - docs/reference/structure-fractal-arcs.md
+
+active_planning_horizon:
+  arc_id: arc-01
+  ordinal_range: {start: 1, end: 14}
+
+acts:
+  - id: act-01
+    label: Act 1 — Sabotage / ki
+    ordinal_range: {start: 1, end: 50}
+    planning_maturity: horizon
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: arc-01
+        act_id: act-01
+        label: Arc 1 planning horizon
+        ordinal_range: {start: 1, end: 14}
+        planning_maturity: horizon
+        readiness: &horizon-readiness
+          canon: ready
+          craft: not-started
+          market: blocked
+          audio: not-started
+        artifact_links: &horizon-evidence
+          - {kind: decision, ref: D-0162, status: accepted}
+          - {kind: decision, ref: D-0168, status: accepted}
+          - {kind: craft, ref: docs/reference/structure-fractal-arcs.md, status: accepted}
+        review_state: pending
+      - id: act-01-reserve
+        act_id: act-01
+        allocation: reserve
+        label: Act 1 unallocated planning reserve
+        ordinal_range: {start: 15, end: 50}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-02
+    label: Act 2 — Sabotage / ki
+    ordinal_range: {start: 51, end: 100}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-02-reserve
+        act_id: act-02
+        allocation: reserve
+        label: Act 2 unallocated planning reserve
+        ordinal_range: {start: 51, end: 100}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-03
+    label: Act 3 — Sabotage / sho
+    ordinal_range: {start: 101, end: 150}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-03-reserve
+        act_id: act-03
+        allocation: reserve
+        label: Act 3 unallocated planning reserve
+        ordinal_range: {start: 101, end: 150}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-04
+    label: Act 4 — Sabotage / sho
+    ordinal_range: {start: 151, end: 200}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-04-reserve
+        act_id: act-04
+        allocation: reserve
+        label: Act 4 unallocated planning reserve
+        ordinal_range: {start: 151, end: 200}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-05
+    label: Act 5 — Breach / ten
+    ordinal_range: {start: 201, end: 250}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-05-reserve
+        act_id: act-05
+        allocation: reserve
+        label: Act 5 unallocated planning reserve
+        ordinal_range: {start: 201, end: 250}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-06
+    label: Act 6 — Breach / ten
+    ordinal_range: {start: 251, end: 300}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-06-reserve
+        act_id: act-06
+        allocation: reserve
+        label: Act 6 unallocated planning reserve
+        ordinal_range: {start: 251, end: 300}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-07
+    label: Act 7 — World after / ketsu
+    ordinal_range: {start: 301, end: 350}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-07-reserve
+        act_id: act-07
+        allocation: reserve
+        label: Act 7 unallocated planning reserve
+        ordinal_range: {start: 301, end: 350}
+        readiness: *frame-readiness
+        review_state: not-required
+  - id: act-08
+    label: Act 8 — World after / ketsu
+    ordinal_range: {start: 351, end: 400}
+    readiness: *frame-readiness
+    artifact_links:
+      - {kind: decision, ref: D-0168, status: accepted}
+      - {kind: decision, ref: D-0208, status: accepted}
+    review_state: approved
+    arcs:
+      - id: act-08-reserve
+        act_id: act-08
+        allocation: reserve
+        label: Act 8 unallocated planning reserve
+        ordinal_range: {start: 351, end: 400}
+        readiness: *frame-readiness
+        review_state: not-required
+
+# These are ordinal capacity records, not episode premises, titles, or beat claims.
+episode_slots:
+  - {id: episode-slot-001, ordinal: 1, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-002, ordinal: 2, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-003, ordinal: 3, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-004, ordinal: 4, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-005, ordinal: 5, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-006, ordinal: 6, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-007, ordinal: 7, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-008, ordinal: 8, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-009, ordinal: 9, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-010, ordinal: 10, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-011, ordinal: 11, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-012, ordinal: 12, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-013, ordinal: 13, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-014, ordinal: 14, act_id: act-01, arc_id: arc-01, planning_maturity: horizon, readiness: *horizon-readiness, artifact_links: *horizon-evidence}
+  - {id: episode-slot-015, ordinal: 15, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-016, ordinal: 16, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-017, ordinal: 17, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-018, ordinal: 18, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-019, ordinal: 19, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-020, ordinal: 20, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-021, ordinal: 21, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-022, ordinal: 22, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-023, ordinal: 23, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-024, ordinal: 24, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-025, ordinal: 25, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-026, ordinal: 26, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-027, ordinal: 27, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-028, ordinal: 28, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-029, ordinal: 29, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-030, ordinal: 30, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-031, ordinal: 31, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-032, ordinal: 32, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-033, ordinal: 33, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-034, ordinal: 34, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-035, ordinal: 35, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-036, ordinal: 36, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-037, ordinal: 37, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-038, ordinal: 38, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-039, ordinal: 39, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-040, ordinal: 40, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-041, ordinal: 41, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-042, ordinal: 42, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-043, ordinal: 43, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-044, ordinal: 44, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-045, ordinal: 45, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-046, ordinal: 46, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-047, ordinal: 47, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-048, ordinal: 48, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-049, ordinal: 49, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-050, ordinal: 50, act_id: act-01, arc_id: act-01-reserve}
+  - {id: episode-slot-051, ordinal: 51, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-052, ordinal: 52, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-053, ordinal: 53, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-054, ordinal: 54, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-055, ordinal: 55, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-056, ordinal: 56, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-057, ordinal: 57, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-058, ordinal: 58, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-059, ordinal: 59, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-060, ordinal: 60, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-061, ordinal: 61, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-062, ordinal: 62, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-063, ordinal: 63, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-064, ordinal: 64, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-065, ordinal: 65, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-066, ordinal: 66, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-067, ordinal: 67, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-068, ordinal: 68, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-069, ordinal: 69, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-070, ordinal: 70, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-071, ordinal: 71, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-072, ordinal: 72, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-073, ordinal: 73, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-074, ordinal: 74, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-075, ordinal: 75, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-076, ordinal: 76, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-077, ordinal: 77, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-078, ordinal: 78, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-079, ordinal: 79, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-080, ordinal: 80, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-081, ordinal: 81, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-082, ordinal: 82, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-083, ordinal: 83, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-084, ordinal: 84, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-085, ordinal: 85, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-086, ordinal: 86, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-087, ordinal: 87, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-088, ordinal: 88, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-089, ordinal: 89, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-090, ordinal: 90, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-091, ordinal: 91, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-092, ordinal: 92, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-093, ordinal: 93, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-094, ordinal: 94, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-095, ordinal: 95, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-096, ordinal: 96, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-097, ordinal: 97, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-098, ordinal: 98, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-099, ordinal: 99, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-100, ordinal: 100, act_id: act-02, arc_id: act-02-reserve}
+  - {id: episode-slot-101, ordinal: 101, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-102, ordinal: 102, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-103, ordinal: 103, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-104, ordinal: 104, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-105, ordinal: 105, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-106, ordinal: 106, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-107, ordinal: 107, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-108, ordinal: 108, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-109, ordinal: 109, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-110, ordinal: 110, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-111, ordinal: 111, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-112, ordinal: 112, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-113, ordinal: 113, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-114, ordinal: 114, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-115, ordinal: 115, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-116, ordinal: 116, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-117, ordinal: 117, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-118, ordinal: 118, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-119, ordinal: 119, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-120, ordinal: 120, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-121, ordinal: 121, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-122, ordinal: 122, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-123, ordinal: 123, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-124, ordinal: 124, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-125, ordinal: 125, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-126, ordinal: 126, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-127, ordinal: 127, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-128, ordinal: 128, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-129, ordinal: 129, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-130, ordinal: 130, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-131, ordinal: 131, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-132, ordinal: 132, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-133, ordinal: 133, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-134, ordinal: 134, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-135, ordinal: 135, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-136, ordinal: 136, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-137, ordinal: 137, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-138, ordinal: 138, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-139, ordinal: 139, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-140, ordinal: 140, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-141, ordinal: 141, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-142, ordinal: 142, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-143, ordinal: 143, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-144, ordinal: 144, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-145, ordinal: 145, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-146, ordinal: 146, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-147, ordinal: 147, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-148, ordinal: 148, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-149, ordinal: 149, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-150, ordinal: 150, act_id: act-03, arc_id: act-03-reserve}
+  - {id: episode-slot-151, ordinal: 151, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-152, ordinal: 152, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-153, ordinal: 153, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-154, ordinal: 154, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-155, ordinal: 155, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-156, ordinal: 156, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-157, ordinal: 157, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-158, ordinal: 158, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-159, ordinal: 159, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-160, ordinal: 160, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-161, ordinal: 161, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-162, ordinal: 162, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-163, ordinal: 163, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-164, ordinal: 164, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-165, ordinal: 165, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-166, ordinal: 166, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-167, ordinal: 167, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-168, ordinal: 168, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-169, ordinal: 169, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-170, ordinal: 170, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-171, ordinal: 171, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-172, ordinal: 172, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-173, ordinal: 173, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-174, ordinal: 174, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-175, ordinal: 175, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-176, ordinal: 176, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-177, ordinal: 177, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-178, ordinal: 178, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-179, ordinal: 179, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-180, ordinal: 180, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-181, ordinal: 181, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-182, ordinal: 182, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-183, ordinal: 183, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-184, ordinal: 184, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-185, ordinal: 185, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-186, ordinal: 186, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-187, ordinal: 187, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-188, ordinal: 188, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-189, ordinal: 189, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-190, ordinal: 190, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-191, ordinal: 191, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-192, ordinal: 192, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-193, ordinal: 193, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-194, ordinal: 194, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-195, ordinal: 195, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-196, ordinal: 196, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-197, ordinal: 197, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-198, ordinal: 198, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-199, ordinal: 199, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-200, ordinal: 200, act_id: act-04, arc_id: act-04-reserve}
+  - {id: episode-slot-201, ordinal: 201, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-202, ordinal: 202, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-203, ordinal: 203, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-204, ordinal: 204, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-205, ordinal: 205, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-206, ordinal: 206, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-207, ordinal: 207, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-208, ordinal: 208, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-209, ordinal: 209, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-210, ordinal: 210, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-211, ordinal: 211, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-212, ordinal: 212, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-213, ordinal: 213, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-214, ordinal: 214, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-215, ordinal: 215, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-216, ordinal: 216, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-217, ordinal: 217, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-218, ordinal: 218, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-219, ordinal: 219, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-220, ordinal: 220, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-221, ordinal: 221, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-222, ordinal: 222, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-223, ordinal: 223, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-224, ordinal: 224, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-225, ordinal: 225, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-226, ordinal: 226, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-227, ordinal: 227, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-228, ordinal: 228, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-229, ordinal: 229, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-230, ordinal: 230, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-231, ordinal: 231, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-232, ordinal: 232, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-233, ordinal: 233, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-234, ordinal: 234, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-235, ordinal: 235, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-236, ordinal: 236, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-237, ordinal: 237, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-238, ordinal: 238, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-239, ordinal: 239, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-240, ordinal: 240, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-241, ordinal: 241, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-242, ordinal: 242, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-243, ordinal: 243, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-244, ordinal: 244, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-245, ordinal: 245, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-246, ordinal: 246, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-247, ordinal: 247, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-248, ordinal: 248, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-249, ordinal: 249, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-250, ordinal: 250, act_id: act-05, arc_id: act-05-reserve}
+  - {id: episode-slot-251, ordinal: 251, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-252, ordinal: 252, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-253, ordinal: 253, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-254, ordinal: 254, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-255, ordinal: 255, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-256, ordinal: 256, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-257, ordinal: 257, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-258, ordinal: 258, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-259, ordinal: 259, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-260, ordinal: 260, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-261, ordinal: 261, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-262, ordinal: 262, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-263, ordinal: 263, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-264, ordinal: 264, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-265, ordinal: 265, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-266, ordinal: 266, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-267, ordinal: 267, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-268, ordinal: 268, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-269, ordinal: 269, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-270, ordinal: 270, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-271, ordinal: 271, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-272, ordinal: 272, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-273, ordinal: 273, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-274, ordinal: 274, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-275, ordinal: 275, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-276, ordinal: 276, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-277, ordinal: 277, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-278, ordinal: 278, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-279, ordinal: 279, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-280, ordinal: 280, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-281, ordinal: 281, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-282, ordinal: 282, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-283, ordinal: 283, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-284, ordinal: 284, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-285, ordinal: 285, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-286, ordinal: 286, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-287, ordinal: 287, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-288, ordinal: 288, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-289, ordinal: 289, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-290, ordinal: 290, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-291, ordinal: 291, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-292, ordinal: 292, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-293, ordinal: 293, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-294, ordinal: 294, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-295, ordinal: 295, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-296, ordinal: 296, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-297, ordinal: 297, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-298, ordinal: 298, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-299, ordinal: 299, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-300, ordinal: 300, act_id: act-06, arc_id: act-06-reserve}
+  - {id: episode-slot-301, ordinal: 301, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-302, ordinal: 302, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-303, ordinal: 303, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-304, ordinal: 304, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-305, ordinal: 305, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-306, ordinal: 306, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-307, ordinal: 307, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-308, ordinal: 308, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-309, ordinal: 309, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-310, ordinal: 310, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-311, ordinal: 311, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-312, ordinal: 312, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-313, ordinal: 313, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-314, ordinal: 314, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-315, ordinal: 315, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-316, ordinal: 316, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-317, ordinal: 317, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-318, ordinal: 318, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-319, ordinal: 319, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-320, ordinal: 320, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-321, ordinal: 321, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-322, ordinal: 322, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-323, ordinal: 323, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-324, ordinal: 324, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-325, ordinal: 325, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-326, ordinal: 326, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-327, ordinal: 327, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-328, ordinal: 328, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-329, ordinal: 329, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-330, ordinal: 330, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-331, ordinal: 331, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-332, ordinal: 332, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-333, ordinal: 333, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-334, ordinal: 334, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-335, ordinal: 335, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-336, ordinal: 336, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-337, ordinal: 337, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-338, ordinal: 338, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-339, ordinal: 339, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-340, ordinal: 340, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-341, ordinal: 341, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-342, ordinal: 342, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-343, ordinal: 343, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-344, ordinal: 344, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-345, ordinal: 345, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-346, ordinal: 346, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-347, ordinal: 347, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-348, ordinal: 348, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-349, ordinal: 349, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-350, ordinal: 350, act_id: act-07, arc_id: act-07-reserve}
+  - {id: episode-slot-351, ordinal: 351, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-352, ordinal: 352, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-353, ordinal: 353, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-354, ordinal: 354, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-355, ordinal: 355, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-356, ordinal: 356, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-357, ordinal: 357, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-358, ordinal: 358, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-359, ordinal: 359, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-360, ordinal: 360, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-361, ordinal: 361, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-362, ordinal: 362, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-363, ordinal: 363, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-364, ordinal: 364, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-365, ordinal: 365, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-366, ordinal: 366, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-367, ordinal: 367, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-368, ordinal: 368, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-369, ordinal: 369, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-370, ordinal: 370, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-371, ordinal: 371, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-372, ordinal: 372, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-373, ordinal: 373, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-374, ordinal: 374, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-375, ordinal: 375, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-376, ordinal: 376, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-377, ordinal: 377, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-378, ordinal: 378, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-379, ordinal: 379, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-380, ordinal: 380, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-381, ordinal: 381, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-382, ordinal: 382, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-383, ordinal: 383, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-384, ordinal: 384, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-385, ordinal: 385, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-386, ordinal: 386, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-387, ordinal: 387, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-388, ordinal: 388, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-389, ordinal: 389, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-390, ordinal: 390, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-391, ordinal: 391, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-392, ordinal: 392, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-393, ordinal: 393, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-394, ordinal: 394, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-395, ordinal: 395, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-396, ordinal: 396, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-397, ordinal: 397, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-398, ordinal: 398, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-399, ordinal: 399, act_id: act-08, arc_id: act-08-reserve}
+  - {id: episode-slot-400, ordinal: 400, act_id: act-08, arc_id: act-08-reserve}

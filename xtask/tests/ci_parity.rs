@@ -63,3 +63,24 @@ fn ci_workflow_matches_the_canonical_gate() {
     }
     assert!(saw_gate_job, "ci.yml has no `gate` job");
 }
+
+#[test]
+fn canonical_gate_carries_the_doc_hygiene_steps() {
+    let commands = xtask::gate::canonical_cargo_commands(true);
+    for expected in [
+        "cargo doc --workspace --no-deps --locked",
+        "cargo test --doc --workspace --locked",
+        "cargo run -p xtask --locked -- docgen --check",
+    ] {
+        assert!(
+            commands.iter().any(|command| command == expected),
+            "the canonical gate is missing the `{expected}` step"
+        );
+    }
+    // The book build is deliberately off-gate (external mdbook) yet allowed in
+    // CI's docs-oracle job.
+    assert!(
+        xtask::gate::AUX_CARGO_COMMANDS.contains(&"cargo run -p xtask --locked -- book"),
+        "the book build must be an allowed aux command for CI parity"
+    );
+}

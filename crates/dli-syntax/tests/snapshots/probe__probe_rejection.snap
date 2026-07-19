@@ -1,0 +1,10 @@
+---
+source: crates/dli-syntax/tests/probe.rs
+expression: errors
+---
+[
+    ProbeError {
+        line: 1,
+        token: "zorble",
+    },
+]

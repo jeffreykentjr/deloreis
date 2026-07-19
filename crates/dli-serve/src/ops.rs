@@ -7,6 +7,16 @@ use serde::{Deserialize, Serialize};
 /// is the contract and must never drift from the fixtures. The batch `dli.*`
 /// inventory tracks `docs/integration/fantasy-contract.md` §3.1; the `author.*`
 /// tools are Door T (§3.2).
+///
+/// The wire identifier is exactly the serde encoding, so it round-trips:
+///
+/// ```
+/// use dli_serve::Op;
+/// let wire = serde_json::to_string(&Op::Version).expect("serialize op");
+/// assert_eq!(wire, "\"dli.version\"");
+/// let back: Op = serde_json::from_str(&wire).expect("deserialize op");
+/// assert_eq!(back, Op::Version);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum Op {
     /// Report the contract and grammar versions.

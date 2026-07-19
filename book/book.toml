@@ -1,0 +1,10 @@
+[book]
+title = "De Lore Is"
+authors = ["De Lore Is contributors"]
+description = "The De Lore Is language, contract, and build — rendered from the repo's source docs."
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "rust"
+git-repository-url = "https://github.com/jeffreyksmithjr/deloreis"

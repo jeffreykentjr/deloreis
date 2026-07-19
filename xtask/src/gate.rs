@@ -14,7 +14,12 @@ pub const GATE_CI_INVOCATION: &str =
     "cargo run -p xtask --locked -- gate --ci --receipt out/greengate/ci";
 
 /// Cargo commands that may appear in CI jobs but are not gate steps.
-pub const AUX_CARGO_COMMANDS: &[&str] = &["cargo deny check advisories bans licenses sources"];
+pub const AUX_CARGO_COMMANDS: &[&str] = &[
+    "cargo deny check advisories bans licenses sources",
+    // The book build is non-gating (external `mdbook`) but runs in the
+    // docs-oracle CI job; keep it off-gate yet parity-allowed.
+    "cargo run -p xtask --locked -- book",
+];
 
 /// How a gate step is executed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,10 +41,23 @@ pub struct GateStep {
     pub argv: Vec<String>,
     /// How the step is executed.
     pub kind: StepKind,
+    /// Extra environment applied to a `Command` step (e.g. `RUSTDOCFLAGS`).
+    /// Not part of the argv, the receipt command line, or the parity check.
+    pub env: Vec<(&'static str, &'static str)>,
 }
 
 fn argv(parts: &[&str]) -> Vec<String> {
     parts.iter().map(|part| (*part).to_owned()).collect()
+}
+
+/// A `Command` step with no extra environment (the common case).
+fn command_step(label: &'static str, parts: &[&str]) -> GateStep {
+    GateStep {
+        label,
+        argv: argv(parts),
+        kind: StepKind::Command,
+        env: Vec::new(),
+    }
 }
 
 /// The canonical, ordered gate list. `ci` selects the nextest CI profile.
@@ -55,20 +73,18 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
             label: "preflight: toolchain 1.96.0",
             argv: argv(&["rustc", "-V"]),
             kind: StepKind::ToolchainAssert,
+            env: Vec::new(),
         },
         GateStep {
             label: "preflight: hooks path",
             argv: argv(&["git", "config", "--get", "core.hooksPath"]),
             kind: StepKind::HooksAssert,
+            env: Vec::new(),
         },
-        GateStep {
-            label: "rustfmt",
-            argv: argv(&["cargo", "fmt", "--all", "--check"]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "clippy",
-            argv: argv(&[
+        command_step("rustfmt", &["cargo", "fmt", "--all", "--check"]),
+        command_step(
+            "clippy",
+            &[
                 "cargo",
                 "clippy",
                 "--workspace",
@@ -77,34 +93,42 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "--",
                 "-D",
                 "warnings",
-            ]),
-            kind: StepKind::Command,
-        },
+            ],
+        ),
+        command_step("nextest", &nextest),
+        // Doc build: rustdoc warnings (broken intra-doc links, missing docs when
+        // the workspace lint is on) are errors. nextest skips doctests, so the
+        // doctest run below closes that hole.
         GateStep {
-            label: "nextest",
-            argv: argv(&nextest),
+            label: "doc build",
+            argv: argv(&["cargo", "doc", "--workspace", "--no-deps", "--locked"]),
             kind: StepKind::Command,
+            env: vec![("RUSTDOCFLAGS", "-D warnings")],
         },
-        GateStep {
-            label: "build",
-            argv: argv(&["cargo", "build", "--workspace", "--locked"]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "schema --check",
-            argv: argv(&[
+        command_step(
+            "doctests",
+            &["cargo", "test", "--doc", "--workspace", "--locked"],
+        ),
+        command_step("build", &["cargo", "build", "--workspace", "--locked"]),
+        command_step(
+            "schema --check",
+            &[
                 "cargo", "run", "-p", "xtask", "--locked", "--", "schema", "--check",
-            ]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "fixtures",
-            argv: argv(&["cargo", "run", "-p", "xtask", "--locked", "--", "fixtures"]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "docs-oracle",
-            argv: argv(&[
+            ],
+        ),
+        command_step(
+            "docgen --check",
+            &[
+                "cargo", "run", "-p", "xtask", "--locked", "--", "docgen", "--check",
+            ],
+        ),
+        command_step(
+            "fixtures",
+            &["cargo", "run", "-p", "xtask", "--locked", "--", "fixtures"],
+        ),
+        command_step(
+            "docs-oracle",
+            &[
                 "cargo",
                 "run",
                 "-p",
@@ -112,19 +136,16 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "--locked",
                 "--",
                 "docs-oracle",
-            ]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "loc",
-            argv: argv(&["cargo", "run", "-p", "xtask", "--locked", "--", "loc"]),
-            kind: StepKind::Command,
-        },
-        GateStep {
-            label: "cargo-deny",
-            argv: argv(&["cargo", "deny", "check", "bans", "licenses", "sources"]),
-            kind: StepKind::Command,
-        },
+            ],
+        ),
+        command_step(
+            "loc",
+            &["cargo", "run", "-p", "xtask", "--locked", "--", "loc"],
+        ),
+        command_step(
+            "cargo-deny",
+            &["cargo", "deny", "check", "bans", "licenses", "sources"],
+        ),
     ]
 }
 
@@ -225,8 +246,12 @@ fn execute_step(step: &GateStep) -> Result<i32> {
             }
         }
         StepKind::Command => {
-            let status = Command::new(&step.argv[0])
-                .args(&step.argv[1..])
+            let mut command = Command::new(&step.argv[0]);
+            command.args(&step.argv[1..]);
+            for (key, value) in &step.env {
+                command.env(key, value);
+            }
+            let status = command
                 .status()
                 .with_context(|| format!("spawning {}", step.argv.join(" ")))?;
             Ok(status.code().unwrap_or(1))

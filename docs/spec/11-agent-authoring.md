@@ -126,7 +126,7 @@ stands because these are known fields. Workspace digests are RFC 8785 JCS digest
 An `author.diff` for a two-fact workspace renders as canonical surface:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack tpth
 person mireth "Mireth"     proposed  session-7c9
 place saltmere "Saltmere"  proposed  session-7c9

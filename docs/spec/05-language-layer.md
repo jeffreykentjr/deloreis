@@ -26,7 +26,7 @@ Everything a register holds per linguistic zone becomes a pack, one-to-one — a
 residency change, not a redesign:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack language
 
 register cymric-fringe  "the fringe tongue"  provisional D-0181 {
@@ -63,7 +63,7 @@ A name declaration cites its register and its composition, and "register-true"
 stops being a reviewer's impression and becomes a **compile verdict**:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack language
 
 name enfys "Enfys"  person.given in cymric-fringe
@@ -167,7 +167,7 @@ Diegetic terms are declarations with status and citations, and the allegory's
 lexical bans are *cited lexicon facts*:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack language
 
 term hedgeway "the hedgeway"  ratified D-0143
@@ -201,7 +201,7 @@ surface before it is committed. No agent hand-writes the AST, and no agent edits
 canon — the bundle enters `proposed`, awaiting the author's ruling.
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack language
 
 hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"

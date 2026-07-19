@@ -1,0 +1,25 @@
+# Synthetic episode-zero. NOT a real episode — a test fixture built to trip every
+# continuity violation class against the real compiled world (no prior episodes):
+#   - facts_established anchor.gender=female  -> WORLD_CONTRADICTION (canon: male)
+#   - facts_established hound.orders-oldest-source=true -> PROPOSED_AS_FACT (shadow)
+#   - references the-glass-tower              -> UNKNOWN_ENTITY (undefined in canon)
+#   - promises: a debt closed but never opened -> PRIOR_CONTRADICTION
+episode: ep-0
+title: The Failing Ward-Knot
+order: 0
+
+facts_established:
+  - {entity: anchor, key: gender, value: female}
+  - {entity: hound, key: orders-oldest-source, value: true}
+
+references:
+  - the-glass-tower
+
+promises:
+  - id: unowed-debt
+    kind: debt
+    from_party: anchor
+    to_party: apprentice
+    opened: false
+    closed: true
+    note: closing a debt no earlier episode opened

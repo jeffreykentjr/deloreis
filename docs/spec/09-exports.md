@@ -199,7 +199,7 @@ A profile renders; it never defines content. The keep-stamped deck is a `variant
 declaration with status and citations, and the profile simply compiles it:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 # the keep-stamped deck is lore — a variant declaration, not a JSON hand-edit
 variant turning/keep-stamped
   cite D-0148

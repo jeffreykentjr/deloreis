@@ -7,6 +7,8 @@
 
 pub mod attest;
 pub mod draft;
+pub mod episode;
+pub mod loader;
 pub mod model;
 pub mod pack;
 

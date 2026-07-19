@@ -1,0 +1,122 @@
+# Timeline: eras in order, then events keyed to eras.
+# `offset` orders events within an era (not calendar years — the world has no ratified calendar).
+# Statuses per canon/SCHEMA.md; ratified/provisional entries cite a decision.
+
+eras:
+  - elder-cycles            # the deep past: repeated blooms and rots of civilization
+  - the-equilibrium         # the brutal balance before enclosure (this cycle's "phase 0")
+  - the-first-enclosure     # the original sin: hoarding formalized into false law
+  - the-long-creep          # generations of scaling extraction and erasure
+  - the-beleaguered-present # story time opens here
+  - the-sabotage            # act I of the planned macro-arc
+  - the-breach              # act II
+  - the-world-after         # act III and beyond
+  - the-narrators-era       # centuries later; the Thread-Reader's present
+
+events:
+  - id: prosperous-cycles
+    name: The elder cycles of bloom and rot
+    era: elder-cycles
+    offset: 0
+    status: ratified
+    decision: D-0040
+    summary: >
+      The world has been prosperous before — more craft, more plenty — and lost it,
+      more than once. Some cycles grew sustainably, some did not. This is not widely
+      known; the protagonist discovers it, and the narrator understands it but drips
+      it out obliquely. Human agency is what turns a cycle.
+    links: [cycles]
+
+  - id: the-old-balance
+    name: The equilibrium of reciprocity
+    era: the-equilibrium
+    offset: 0
+    status: provisional
+    decision: D-0072
+    summary: >
+      Survival as strict negotiation with the land: small spoken proofs to justify each
+      taking, lethal impartial consequences for imbalance. Hard, dangerous, stable.
+    links: [pre-history, wyrd-and-frith]
+
+  - id: first-storehouse-lie
+    name: The first storehouse lie
+    era: the-first-enclosure
+    offset: 0
+    status: provisional
+    decision: D-0072
+    summary: >
+      Keepers of communal surplus decline to redistribute after a hard winter, fence
+      the store, and commission the first false proof that tricks the land into
+      treating enclosed ground as separate from the ecosystem. The original sin is a
+      calculated economic choice, not a dark rite.
+    links: [pre-history, the-empire]
+
+  - id: breaking-of-the-stones
+    name: The breaking of the standing stones
+    era: the-long-creep
+    offset: 0
+    status: provisional
+    decision: D-0072
+    summary: >
+      Systematic destruction of the old landmark-bound axioms and purges of the
+      memory-keepers, erasing the population's ability to reason against enclosure.
+    links: [information-control, megaliths-and-leys]
+
+  - id: tithe-of-minds-sweeps
+    name: The Tithe of Minds
+    era: the-long-creep
+    offset: 1
+    status: provisional
+    decision: D-0072
+    summary: >
+      Recurring imperial sweeps conscripting gifted children from the periphery to
+      serve as living calculators, severing generational transmission of the old
+      knowledge.
+    links: [the-empire, information-control]
+
+  - id: protagonists-taking
+    name: The protagonist is taken and adopted in
+    era: the-long-creep
+    offset: 2
+    status: ratified
+    decision: D-0060
+    summary: >
+      Born outside the empire, taken young, raised inside its upper class — a foot in
+      both worlds. Her later rebellion is a return to a deeper identity.
+    links: [protagonist]
+
+  - id: apprentices-orphaning
+    name: The deletion of the apprentice's village
+    era: the-beleaguered-present
+    offset: 0
+    status: provisional
+    decision: D-0070
+    summary: >
+      The apprentice's community is erased by cold administrative arithmetic; the
+      apprentice alone survives. The mind of her parent/caregiver ends up among the
+      protagonist's absorbed identities — the hidden thread that later binds them.
+    links: [apprentice, protagonist]
+
+  - id: protagonists-defection
+    name: The protagonist's defection
+    era: the-beleaguered-present
+    offset: 1
+    status: provisional
+    decision: D-0072
+    summary: >
+      The break with the empire that turns its finest instrument into its most
+      dangerous dissident. Exact circumstances unsettled.
+    links: [protagonist]
+
+  - id: story-opening
+    name: The apprentice meets the protagonist
+    era: the-beleaguered-present
+    offset: 2
+    status: ratified
+    decision: D-0062
+    summary: >
+      The story begins with the apprentice; the protagonist meets her before the
+      anchor enters. The opening micro-problem is settled (D-0113): the apprentice
+      alone re-tying a failing storm-ward knot before the night tide, the protagonist
+      drawn in by that small competence.
+    links: [apprentice, structure]

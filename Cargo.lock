@@ -329,6 +329,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -339,8 +340,10 @@ dependencies = [
  "dli-core",
  "dli-time",
  "miette",
+ "proptest",
  "schemars",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -390,6 +393,8 @@ dependencies = [
  "dli-ast",
  "insta",
  "miette",
+ "proptest",
+ "serde_json",
  "thiserror",
 ]
 
@@ -415,6 +420,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
 ]
 
 [[package]]

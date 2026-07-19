@@ -2,12 +2,13 @@
 
 use std::collections::BTreeMap;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::atom::Atom;
 
 /// A (possibly partial) assignment of truth values to atoms.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Valuation(pub BTreeMap<Atom, bool>);
 
 impl Valuation {

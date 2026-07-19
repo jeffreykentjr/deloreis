@@ -1,0 +1,9 @@
+---
+source: crates/dli-syntax/tests/parse.rs
+expression: "render(source, &diags)"
+---
+error[dli::syntax::unknown-keyword]: `zorble` is not a De Lore Is keyword — a declaration opens with a world word (era, place, person, thing, event, fact, question, …) or a relation like `pred(a, b)`.
+  --> line 1:1
+  |
+1 | zorble frobnicate
+  | ^^^^^^ not a keyword

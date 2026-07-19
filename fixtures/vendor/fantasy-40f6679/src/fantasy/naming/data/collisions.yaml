@@ -1,0 +1,58 @@
+# Pop-culture collision table for the naming oracle (role-aware).
+#
+# The brief: "a small amount of collision research. e.g. a smuggler named Han, a young
+# swordsman named Luke" — proportionate, not paranoid. A name alone matching a famous
+# character WARNS; a name matching a famous character in the SAME role FAILS.
+#
+# Each entry: name, franchise, role (a coarse role tag matched against the vetted
+# name's `role`), and note. Role tags are loose keywords; the collision check treats a
+# vetted role as matching if any franchise role keyword is a substring of it (or vice
+# versa) — so role="young smuggler pilot" hits the "smuggler" tag.
+#
+# `famous` lists names so iconic that any use warrants a warning regardless of role.
+
+entries:
+  - {name: Han, franchise: Star Wars, role: smuggler, note: Han Solo — smuggler/pilot}
+  - {name: Luke, franchise: Star Wars, role: swordsman, note: Luke Skywalker — young swordsman/knight}
+  - {name: Leia, franchise: Star Wars, role: princess, note: Princess Leia — royal leader}
+  - {name: Rey, franchise: Star Wars, role: scavenger, note: Rey — scavenger/apprentice}
+  - {name: Frodo, franchise: Lord of the Rings, role: bearer, note: Frodo — ring-bearer/hobbit}
+  - {name: Sam, franchise: Lord of the Rings, role: gardener, note: Samwise — loyal companion}
+  - {name: Aragorn, franchise: Lord of the Rings, role: ranger, note: Aragorn — ranger-king}
+  - {name: Gandalf, franchise: Lord of the Rings, role: wizard, note: Gandalf — old wizard/mentor}
+  - {name: Bilbo, franchise: Lord of the Rings, role: burglar, note: Bilbo — burglar/hobbit}
+  - {name: Arya, franchise: Game of Thrones, role: assassin, note: Arya Stark — girl assassin}
+  - {name: Jon, franchise: Game of Thrones, role: commander, note: Jon Snow — bastard commander}
+  - {name: Tyrion, franchise: Game of Thrones, role: advisor, note: Tyrion — dwarf hand/advisor}
+  - {name: Daenerys, franchise: Game of Thrones, role: queen, note: Daenerys — exiled queen}
+  - {name: Geralt, franchise: The Witcher, role: monster-hunter, note: Geralt — witcher}
+  - {name: Ciri, franchise: The Witcher, role: apprentice, note: Ciri — hunted youth/heir}
+  - {name: Yennefer, franchise: The Witcher, role: sorceress, note: Yennefer — sorceress}
+  - {name: Kvothe, franchise: Kingkiller, role: student, note: Kvothe — gifted student/musician}
+  - {name: Vin, franchise: Mistborn, role: thief, note: Vin — street-thief/allomancer}
+  - {name: Kaladin, franchise: Stormlight, role: soldier, note: Kaladin — soldier/bodyguard}
+  - {name: Ged, franchise: Earthsea, role: wizard, note: Ged/Sparrowhawk — wizard}
+  - {name: Katniss, franchise: Hunger Games, role: archer, note: Katniss — archer/rebel}
+  - {name: Ellen, franchise: Alien, role: officer, note: Ripley — ship officer}
+  - {name: Neo, franchise: The Matrix, role: chosen-one, note: Neo — the One}
+  - {name: Bran, franchise: Game of Thrones, role: seer, note: Bran Stark — crippled seer (also a homophone trap)}
+
+# Names iconic enough to warn on regardless of role.
+famous:
+  - Frodo
+  - Gandalf
+  - Aragorn
+  - Voldemort
+  - Dumbledore
+  - Hermione
+  - Katniss
+  - Daenerys
+  - Gollum
+  - Sauron
+  - Skywalker
+  - Vader
+  - Yoda
+  - Legolas
+  - Gimli
+  - Boromir
+  - Galadriel

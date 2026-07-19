@@ -1,0 +1,9 @@
+---
+source: crates/dli-syntax/tests/parse.rs
+expression: "render(source, &diags)"
+---
+error[dli::syntax::origin-required]: a `ratified` claim needs a decision behind it — cite `d-nnnn`, or mark it `proposed`.
+  --> line 1:23
+  |
+1 | place weir "The Weir" ratified
+  |                       ^^^^^^^^ needs a decision

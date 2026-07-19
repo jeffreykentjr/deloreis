@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     let root = std::env::current_dir()?;
 
     let Some((command, rest)) = args.split_first() else {
-        eprintln!("usage: xtask <gate|schema|fixtures|docs-oracle|loc|hooks-check>");
+        eprintln!("usage: xtask <gate|schema|fixtures|docgen|docs-oracle|book|loc|hooks-check>");
         std::process::exit(2);
     };
 
@@ -25,6 +25,8 @@ fn main() -> Result<()> {
             }
         }
         "schema" => xtask::schema::run_schema(&root, has_flag(rest, "--check")),
+        "docgen" => xtask::docgen::run_docgen(&root, has_flag(rest, "--check")),
+        "book" => xtask::book::run_book(&root),
         "fixtures" => {
             let contract = root.join("contracts/fantasy-worker");
             let schemas = contract.join("schemas");

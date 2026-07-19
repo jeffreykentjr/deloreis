@@ -226,7 +226,7 @@ The chronology layer — the era spine, events and their before-facts, the inert
 narration vantage, the wheels, and fluents with spans:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack chronology
 
 era elder-cycles < the-equilibrium < the-first-enclosure
@@ -259,7 +259,7 @@ fluent gwern.water-status = enclosed since enclosure-of-the-parish-water  ratifi
 Ordering rules are declarations too — data the season checker reads, not code:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 order-rule full-team-floor       ratified D-0162
   : listener-has(configuration full-team) requires slot >= 10
 order-rule no-deep-time-act-one  ratified D-0168

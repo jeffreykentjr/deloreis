@@ -40,25 +40,25 @@
       ]
     },
     "Grade": {
-      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.",
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
       "oneOf": [
         {
-          "description": "Stated in canon, not yet checked against anything.",
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
           "type": "string",
           "const": "asserted"
         },
         {
-          "description": "Backed by a recorded model attestation.",
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
           "type": "string",
           "const": "attested"
         },
         {
-          "description": "Exercised by a passing test or oracle.",
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
           "type": "string",
           "const": "tested"
         },
         {
-          "description": "Machine-checked against the world model.",
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
           "type": "string",
           "const": "checked"
         }

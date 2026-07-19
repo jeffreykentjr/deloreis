@@ -8,6 +8,7 @@
 
 pub mod annot;
 pub mod canonical;
+pub mod clause;
 pub mod decl;
 pub mod doc;
 pub mod ident;
@@ -15,10 +16,14 @@ pub mod schema;
 pub mod span;
 pub mod term;
 
-pub use annot::{Annotation, CitationRef, CondExpr};
+pub use annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
+pub use clause::Clause;
 pub use decl::{
-    AttestDecl, CraftDecl, Decl, Document, DraftDecl, ExportDecl, FactDecl, FluentDecl, ForkDecl,
-    LexemeDecl, PackHeader, PracticeDecl, RegisterDecl, RuleDecl, SortDecl, UseDecl, WheelDecl,
+    AttestDecl, AttrDecl, BannedDecl, BeforeDecl, CraftDecl, Decl, Document, DraftDecl, EntityDecl,
+    EntityKind, ExportDecl, FactDecl, FluentDecl, ForkDecl, HypothesisDecl, LedgerDecl, LexemeDecl,
+    MorphemeDecl, NameDecl, NarrationDecl, OptionClause, OrderRuleDecl, PackHeader, PracticeDecl,
+    PrincipleDecl, QuestionDecl, RatifyDecl, RegisterDecl, RuleDecl, SortDecl, TermDecl,
+    TimeClause, UseDecl, VariantDecl, WheelDecl,
 };
 pub use doc::Doc;
 pub use ident::Ident;

@@ -4,6 +4,20 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A named cyclic calendar: an ordered ring of spokes.
+///
+/// Navigation is modular — `succ` and `pred` wrap around the ring:
+///
+/// ```
+/// use dli_time::{Wheel, WheelPos};
+/// let week = Wheel {
+///     name: "week".to_owned(),
+///     spokes: vec!["mon".to_owned(), "tue".to_owned(), "wed".to_owned()],
+/// };
+/// let mon = WheelPos { wheel: "week".to_owned(), index: 0 };
+/// assert_eq!(week.succ(&mon).index, 1);
+/// // pred of the first spoke wraps to the last.
+/// assert_eq!(week.pred(&mon).index, 2);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Wheel {
     /// The wheel's name.

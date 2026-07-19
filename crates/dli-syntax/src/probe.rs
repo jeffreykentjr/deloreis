@@ -1,10 +1,15 @@
-//! The gentle-subset probe.
+//! The gentle-subset probe — the pre-parser relic.
+//!
+//! This is *not* the parser and no longer backs the docs-oracle, which now runs
+//! the real [`crate::parse_document`]. The probe survives only because a sibling
+//! gate (`xtask`'s committed-examples test) still calls [`probe_source`]. Do not
+//! build new checks on it.
 //!
 //! A line is accepted when it is blank, a `#` comment, an indented continuation,
 //! opens with a known keyword, or is a relation fact of the form `pred(args)`.
 //! Everything else is rejected. This is deliberately not a parser: it is a
-//! coarse gate that lets the docs-oracle verify example snippets stay within the
-//! subset the eventual grammar will cover.
+//! coarse gate that let the docs-oracle verify example snippets stayed within
+//! the subset the eventual grammar would cover.
 
 use miette::Diagnostic;
 use thiserror::Error;

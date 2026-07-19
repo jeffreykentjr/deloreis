@@ -39,7 +39,7 @@
           }
         },
         "condition": {
-          "description": "Optional hypothesis condition under which the claim is asserted.",
+          "description": "Optional hypothesis condition under which the claim is asserted\n(`assumes <hyp>`).",
           "anyOf": [
             {
               "$ref": "#/$defs/CondExpr"
@@ -49,13 +49,26 @@
             }
           ]
         },
+        "marker": {
+          "description": "The leading provenance word.",
+          "$ref": "#/$defs/ProvenanceMarker"
+        },
         "span": {
           "description": "Where the annotation appears in source.",
           "$ref": "#/$defs/Span"
+        },
+        "tags": {
+          "description": "Further provenance tokens carried verbatim — an agent id, a session tag,\na scene cue. Retained so nothing on the line is dropped (koan 4).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
+        "marker",
         "citations",
+        "tags",
         "span"
       ]
     },
@@ -104,6 +117,100 @@
         "question"
       ]
     },
+    "AttrDecl": {
+      "description": "`<subject>.<attr> = <value>`.",
+      "type": "object",
+      "properties": {
+        "attr": {
+          "description": "The slot name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject": {
+          "description": "The entity the slot is about.",
+          "$ref": "#/$defs/Ident"
+        },
+        "value": {
+          "description": "The slot value.",
+          "$ref": "#/$defs/Term"
+        }
+      },
+      "required": [
+        "subject",
+        "attr",
+        "value"
+      ]
+    },
+    "BannedDecl": {
+      "description": "`banned <word> <d-id> \"<reason>\"`.",
+      "type": "object",
+      "properties": {
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "description": "The reason, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "word": {
+          "description": "The banned word.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "word"
+      ]
+    },
+    "BeforeDecl": {
+      "description": "`before <earlier> -> <later>`.",
+      "type": "object",
+      "properties": {
+        "earlier": {
+          "description": "The event that comes first.",
+          "$ref": "#/$defs/Ident"
+        },
+        "later": {
+          "description": "The event that comes after.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "earlier",
+        "later"
+      ]
+    },
     "CitationRef": {
       "description": "A reference to a decision-ledger entry, e.g. `D-0042`.",
       "type": "object",
@@ -115,6 +222,24 @@
       },
       "required": [
         "id"
+      ]
+    },
+    "Clause": {
+      "description": "One normalized interior line of a keyword-fronted block.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Where the clause appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "text": {
+          "description": "The clause text, whitespace-normalized.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "span"
       ]
     },
     "CondExpr": {
@@ -184,6 +309,13 @@
       "description": "`craft <name>`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
         "name": {
           "description": "The craft rule name.",
           "$ref": "#/$defs/Ident"
@@ -201,12 +333,91 @@
         }
       },
       "required": [
-        "name"
+        "name",
+        "body"
       ]
     },
     "Decl": {
-      "description": "A top-level declaration.",
+      "description": "A top-level declaration.\n\nThe gentle subset — [`Entity`](Decl::Entity), [`Attr`](Decl::Attr),\n[`Fact`](Decl::Fact), [`Question`](Decl::Question), [`Before`](Decl::Before),\n[`Hypothesis`](Decl::Hypothesis) — is fully typed. The expert tier keeps a\ntyped header and a captured [`Clause`] body.",
       "oneOf": [
+        {
+          "description": "`era|place|person|thing|event <name> [\"label\"] …` — a world entity.",
+          "type": "object",
+          "properties": {
+            "Entity": {
+              "$ref": "#/$defs/EntityDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Entity"
+          ]
+        },
+        {
+          "description": "`<subject>.<attr> = <value>` — a slot fact about an entity.",
+          "type": "object",
+          "properties": {
+            "Attr": {
+              "$ref": "#/$defs/AttrDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Attr"
+          ]
+        },
+        {
+          "description": "`<pred>(<args>)` or `fact <subj> <pred> <obj>` — a ground relation.",
+          "type": "object",
+          "properties": {
+            "Fact": {
+              "$ref": "#/$defs/FactDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Fact"
+          ]
+        },
+        {
+          "description": "`question <name> \"<prompt>\"` with its options.",
+          "type": "object",
+          "properties": {
+            "Question": {
+              "$ref": "#/$defs/QuestionDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Question"
+          ]
+        },
+        {
+          "description": "`before <earlier> -> <later>` — a timeline ordering.",
+          "type": "object",
+          "properties": {
+            "Before": {
+              "$ref": "#/$defs/BeforeDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Before"
+          ]
+        },
+        {
+          "description": "`hypothesis <name> \"<statement>\"` — a named speculative premise.",
+          "type": "object",
+          "properties": {
+            "Hypothesis": {
+              "$ref": "#/$defs/HypothesisDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Hypothesis"
+          ]
+        },
         {
           "description": "`use <target>` — import another pack's surface.",
           "type": "object",
@@ -234,20 +445,7 @@
           ]
         },
         {
-          "description": "`fact <atom>` — assert a ground fact.",
-          "type": "object",
-          "properties": {
-            "Fact": {
-              "$ref": "#/$defs/FactDecl"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Fact"
-          ]
-        },
-        {
-          "description": "`rule <name>: <head> :- <body>` — a derivation rule.",
+          "description": "`rule <name> …` — a derivation rule.",
           "type": "object",
           "properties": {
             "Rule": {
@@ -260,7 +458,7 @@
           ]
         },
         {
-          "description": "`fluent <name>` — a time-varying property.",
+          "description": "`fluent <name> = <value> …` — a time-varying property.",
           "type": "object",
           "properties": {
             "Fluent": {
@@ -273,7 +471,7 @@
           ]
         },
         {
-          "description": "`wheel <name>` — a cyclic time structure.",
+          "description": "`wheel <name>(<modulus>) = <spokes>` — a cyclic time structure.",
           "type": "object",
           "properties": {
             "Wheel": {
@@ -299,7 +497,7 @@
           ]
         },
         {
-          "description": "`practice <name>` — a resource-tracked practice.",
+          "description": "`practice <name> { … }` — a resource-tracked practice.",
           "type": "object",
           "properties": {
             "Practice": {
@@ -312,7 +510,7 @@
           ]
         },
         {
-          "description": "`register <name>` — a diction register.",
+          "description": "`register <name> { … }` — a diction register.",
           "type": "object",
           "properties": {
             "Register": {
@@ -335,6 +533,19 @@
           "additionalProperties": false,
           "required": [
             "Lexeme"
+          ]
+        },
+        {
+          "description": "`morpheme <name>` — a naming-layer morpheme.",
+          "type": "object",
+          "properties": {
+            "Morpheme": {
+              "$ref": "#/$defs/MorphemeDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Morpheme"
           ]
         },
         {
@@ -388,6 +599,123 @@
           "required": [
             "Export"
           ]
+        },
+        {
+          "description": "`name <name> \"<label>\" …` — a composed proper name.",
+          "type": "object",
+          "properties": {
+            "Name": {
+              "$ref": "#/$defs/NameDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Name"
+          ]
+        },
+        {
+          "description": "`term <name> \"<label>\"` — a coined lexicon term.",
+          "type": "object",
+          "properties": {
+            "Term": {
+              "$ref": "#/$defs/TermDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Term"
+          ]
+        },
+        {
+          "description": "`banned <word> <d-id> \"<reason>\"` — a banned in-world word.",
+          "type": "object",
+          "properties": {
+            "Banned": {
+              "$ref": "#/$defs/BannedDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Banned"
+          ]
+        },
+        {
+          "description": "`narration <role> <era>` — a narrative-vantage declaration.",
+          "type": "object",
+          "properties": {
+            "Narration": {
+              "$ref": "#/$defs/NarrationDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Narration"
+          ]
+        },
+        {
+          "description": "`variant <path>` — a lore variant of an artifact.",
+          "type": "object",
+          "properties": {
+            "Variant": {
+              "$ref": "#/$defs/VariantDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Variant"
+          ]
+        },
+        {
+          "description": "`ratify <d-id> { … }` — a hypothesis-bundle ratification.",
+          "type": "object",
+          "properties": {
+            "Ratify": {
+              "$ref": "#/$defs/RatifyDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Ratify"
+          ]
+        },
+        {
+          "description": "`order-rule <name> …` — an episode-ordering constraint.",
+          "type": "object",
+          "properties": {
+            "OrderRule": {
+              "$ref": "#/$defs/OrderRuleDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "OrderRule"
+          ]
+        },
+        {
+          "description": "`principle <name> …` — a craft principle.",
+          "type": "object",
+          "properties": {
+            "Principle": {
+              "$ref": "#/$defs/PrincipleDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Principle"
+          ]
+        },
+        {
+          "description": "`ledger <name> … { … }` — a casting proof ledger.",
+          "type": "object",
+          "properties": {
+            "Ledger": {
+              "$ref": "#/$defs/LedgerDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Ledger"
+          ]
         }
       ]
     },
@@ -395,6 +723,13 @@
       "description": "`draft <name>`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
         "name": {
           "description": "The draft name.",
           "$ref": "#/$defs/Ident"
@@ -412,13 +747,106 @@
         }
       },
       "required": [
-        "name"
+        "name",
+        "body"
+      ]
+    },
+    "EntityDecl": {
+      "description": "`era|place|person|thing|event <name> [\"label\"] [time] [provenance]`.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Which kind of entity this is.",
+          "$ref": "#/$defs/EntityKind"
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The entity name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slots": {
+          "description": "Indented slot facts written beneath the entity.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttrDecl"
+          }
+        },
+        "time": {
+          "description": "A temporal clause, if written.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeClause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "slots"
+      ]
+    },
+    "EntityKind": {
+      "description": "The five world-entity kinds.",
+      "oneOf": [
+        {
+          "description": "`era` — a named span of time.",
+          "type": "string",
+          "const": "Era"
+        },
+        {
+          "description": "`place` — a location.",
+          "type": "string",
+          "const": "Place"
+        },
+        {
+          "description": "`person` — a person.",
+          "type": "string",
+          "const": "Person"
+        },
+        {
+          "description": "`thing` — an artifact or object.",
+          "type": "string",
+          "const": "Thing"
+        },
+        {
+          "description": "`event` — a point on the timeline.",
+          "type": "string",
+          "const": "Event"
+        }
       ]
     },
     "ExportDecl": {
       "description": "`export <profile>`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
         "profile": {
           "description": "The export profile name.",
           "$ref": "#/$defs/Ident"
@@ -436,11 +864,12 @@
         }
       },
       "required": [
-        "profile"
+        "profile",
+        "body"
       ]
     },
     "FactDecl": {
-      "description": "`fact <atom>`.",
+      "description": "`<pred>(<args>)` or `fact <subj> <pred> <obj>`.",
       "type": "object",
       "properties": {
         "atom": {
@@ -457,10 +886,15 @@
               "type": "null"
             }
           ]
+        },
+        "triple": {
+          "description": "Whether the surface used the leading `fact` keyword (triple form).",
+          "type": "boolean"
         }
       },
       "required": [
-        "atom"
+        "atom",
+        "triple"
       ]
     },
     "FileId": {
@@ -470,11 +904,11 @@
       "minimum": 0
     },
     "FluentDecl": {
-      "description": "`fluent <name>`.",
+      "description": "`fluent <name> [= <value>] [time]`.",
       "type": "object",
       "properties": {
         "name": {
-          "description": "The fluent name.",
+          "description": "The fluent name (may be dotted, e.g. `gwern.water-status`).",
           "$ref": "#/$defs/Ident"
         },
         "provenance": {
@@ -487,6 +921,28 @@
               "type": "null"
             }
           ]
+        },
+        "time": {
+          "description": "A temporal clause, if written.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeClause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "description": "The value the fluent takes, if written.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Term"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -494,14 +950,21 @@
       ]
     },
     "ForkDecl": {
-      "description": "`fork <question>` with its options.",
+      "description": "`fork <question>` with its options and body.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "Any other captured body clauses (`suppose …`, `add fact …`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
         "options": {
           "description": "The candidate options.",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/Ident"
+            "$ref": "#/$defs/OptionClause"
           }
         },
         "provenance": {
@@ -522,7 +985,28 @@
       },
       "required": [
         "question",
-        "options"
+        "options",
+        "body"
+      ]
+    },
+    "HypothesisDecl": {
+      "description": "`hypothesis <name> \"<statement>\"`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The hypothesis name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "statement": {
+          "description": "The statement text, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
       ]
     },
     "Ident": {
@@ -541,6 +1025,35 @@
       "required": [
         "text",
         "span"
+      ]
+    },
+    "LedgerDecl": {
+      "description": "`ledger <name> … { … }`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The captured body clauses (`premise …`, `step …`, `spend …`, `close …`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "head": {
+          "description": "Remaining header tokens (`speaker protagonist in spoken-proof`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "description": "The ledger name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "name",
+        "head",
+        "body"
       ]
     },
     "LexemeDecl": {
@@ -575,12 +1088,136 @@
         "morphemes"
       ]
     },
-    "PackHeader": {
-      "description": "A `pack <name>` header naming the document's pack.",
+    "MorphemeDecl": {
+      "description": "`morpheme <name> [\"gloss\"] …`.",
       "type": "object",
       "properties": {
+        "gloss": {
+          "description": "The gloss, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head": {
+          "description": "Any remaining header tokens (`role given-proto`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "name": {
-          "description": "The pack name.",
+          "description": "The morpheme name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "head"
+      ]
+    },
+    "NameDecl": {
+      "description": "`name <name> [\"label\"] …` — a composed proper name.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The captured body clauses (composition, bearer).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "head": {
+          "description": "Remaining header tokens (`person.given in cymric-fringe`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "label": {
+          "description": "The rendered label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The name identifier.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "head",
+        "body"
+      ]
+    },
+    "NarrationDecl": {
+      "description": "`narration <role> <era>`.",
+      "type": "object",
+      "properties": {
+        "head": {
+          "description": "The header tokens (`vantage the-narrators-era`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "head"
+      ]
+    },
+    "OptionClause": {
+      "description": "`option <name> [implies <atom>]`.",
+      "type": "object",
+      "properties": {
+        "implies": {
+          "description": "The atom this option implies, if written.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtomExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "The option name.",
           "$ref": "#/$defs/Ident"
         }
       },
@@ -588,10 +1225,67 @@
         "name"
       ]
     },
-    "PracticeDecl": {
-      "description": "`practice <name>`.",
+    "OrderRuleDecl": {
+      "description": "`order-rule <name> …`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses (`: … requires …`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "name": {
+          "description": "The order-rule name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "body"
+      ]
+    },
+    "PackHeader": {
+      "description": "A `pack <name>` header naming the document's pack.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The pack name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "span": {
+          "description": "Source span of the header.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "name",
+        "span"
+      ]
+    },
+    "PracticeDecl": {
+      "description": "`practice <name> { … }`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
         "name": {
           "description": "The practice name.",
           "$ref": "#/$defs/Ident"
@@ -609,13 +1303,153 @@
         }
       },
       "required": [
-        "name"
+        "name",
+        "body"
+      ]
+    },
+    "PrincipleDecl": {
+      "description": "`principle <name> …`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "head": {
+          "description": "Remaining header tokens (`family plot mission pass`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "description": "The principle name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "head",
+        "body"
+      ]
+    },
+    "ProvenanceMarker": {
+      "description": "The leading provenance word a claim carries.\n\nA claim's *standing* is not stored (DL-0003: there is no status slot); it is\nderived from this marker together with the citations behind it. The marker\nrecords only where the claim came from — an agent's proposal or a ledger\nruling — and which register of ruling it was.",
+      "oneOf": [
+        {
+          "description": "`proposed` — an agent's claim, awaiting a ruling. Carries no citation.",
+          "type": "string",
+          "const": "Proposed"
+        },
+        {
+          "description": "`decided <d-id>` — grounded in a recorded decision.",
+          "type": "string",
+          "const": "Decided"
+        },
+        {
+          "description": "`ratified <d-id>` — a ratified ruling.",
+          "type": "string",
+          "const": "Ratified"
+        },
+        {
+          "description": "`provisional <d-id>` — a provisional ruling, open to revision.",
+          "type": "string",
+          "const": "Provisional"
+        }
+      ]
+    },
+    "QuestionDecl": {
+      "description": "`question <name> \"<prompt>\"` with its options.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The question name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "options": {
+          "description": "The candidate options.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptionClause"
+          }
+        },
+        "prompt": {
+          "description": "The prompt text, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "options"
+      ]
+    },
+    "RatifyDecl": {
+      "description": "`ratify <d-id> { … }`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The captured body clauses (`h-cymric := true`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "decision": {
+          "description": "The ratifying decision id.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "decision",
+        "body"
       ]
     },
     "RegisterDecl": {
-      "description": "`register <name>`.",
+      "description": "`register <name> [\"label\"] { … }`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "name": {
           "description": "The register name.",
           "$ref": "#/$defs/Ident"
@@ -633,23 +1467,27 @@
         }
       },
       "required": [
-        "name"
+        "name",
+        "body"
       ]
     },
     "RuleDecl": {
-      "description": "`rule <name>: <head> :- <body>`.",
+      "description": "`rule <name> …` — header plus captured body clauses.",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The body atoms (conjunctive premises).",
+          "description": "The captured body clauses (`: … requires …` or `:- …`).",
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AtomExpr"
+            "$ref": "#/$defs/Clause"
           }
         },
         "head": {
-          "description": "The head atom the rule derives.",
-          "$ref": "#/$defs/AtomExpr"
+          "description": "Header tokens after the name, before the body (e.g. `severity error`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "name": {
           "description": "The rule name.",
@@ -795,6 +1633,110 @@
         }
       ]
     },
+    "TermDecl": {
+      "description": "`term <name> \"<label>\"`.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "The rendered label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The term identifier.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "TimeClause": {
+      "description": "A temporal clause attached to an entity or fluent.",
+      "oneOf": [
+        {
+          "description": "`after <era>` — begins after the named era.",
+          "type": "object",
+          "properties": {
+            "After": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "After"
+          ]
+        },
+        {
+          "description": "`during <era>` — situated within the named era.",
+          "type": "object",
+          "properties": {
+            "During": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "During"
+          ]
+        },
+        {
+          "description": "`since <event>` — holds from the named event forward.",
+          "type": "object",
+          "properties": {
+            "Since": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Since"
+          ]
+        },
+        {
+          "description": "`until <event>` — holds up to the named event.",
+          "type": "object",
+          "properties": {
+            "Until": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Until"
+          ]
+        },
+        {
+          "description": "`< a < b < c` — an era precedence chain rooted at this entity.",
+          "type": "object",
+          "properties": {
+            "Order": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Ident"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Order"
+          ]
+        }
+      ]
+    },
     "TimeRef": {
       "description": "A reference to a named era or event on the timeline.",
       "oneOf": [
@@ -844,10 +1786,50 @@
         "span"
       ]
     },
-    "WheelDecl": {
-      "description": "`wheel <name>` with its ordered spokes.",
+    "VariantDecl": {
+      "description": "`variant <path>`.",
       "type": "object",
       "properties": {
+        "body": {
+          "description": "The captured body clauses.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "path": {
+          "description": "The variant path (`turning/keep-stamped`).",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "body"
+      ]
+    },
+    "WheelDecl": {
+      "description": "`wheel <name>(<modulus>) [= <spokes>]`.",
+      "type": "object",
+      "properties": {
+        "modulus": {
+          "description": "The wheel modulus, if written (`wheel tide(4)`).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
         "name": {
           "description": "The wheel name.",
           "$ref": "#/$defs/Ident"

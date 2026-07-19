@@ -1,0 +1,305 @@
+# Detection corpus — draft-target operators (EXT-F5)
+#
+# Ported from the fantasy mutation corpus at the pinned SHA. Each record seeds a
+# violation into a clean draft fixture and names the deloreis kernel check class
+# that must flag it. `base_draft` is the fantasy fixture the violation is
+# appended to (or edited). See README.md for the taxonomy and the kernel/factory
+# vet split (spec 05 §3).
+provenance:
+  source_repo: "To Pleach the Hedgeway (D-0143) — /home/jeff/Documents/scratch/fantasy"
+  pinned_sha: 40f66792229abf5d73d995a8167adc79152a64e7
+  source_files:
+    - src/fantasy/mutation/operators.py
+    - docs/reference/lore-engine-gate-coverage.md
+  target: draft
+  note: >-
+    Draft-target operators check a draft's claims against the compiled world
+    (contradiction), the compiled lexicon ban list, the naming layer, the craft
+    payload battery, or a factory-side screen (style / allegory explicitness).
+
+operators:
+  - operator: contradict-anchor-gender
+    description: State the Anchor is a woman (canon:male, D-0096).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The Anchor was an old woman now, and she was tired."
+    fantasy_gates: [factcheck]
+    contradicts: "anchor gender (male, D-0096)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: The claim contradicts the certain projection of the world.
+
+  - operator: contradict-protagonist-immortal
+    description: State the protagonist is immortal (rejected as her depth source, D-0067).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The protagonist was immortal, deathless as the deep stone."
+    fantasy_gates: [factcheck]
+    contradicts: "protagonist mortality (immortality rejected, D-0067)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: Asserts a claim the certain projection denies (a rejected-lore constraint).
+
+  - operator: contradict-hound-mundane
+    description: Settle the hound's open nature as an ordinary dog (Q-0006 is open).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: The hound is just a dog, nothing more."
+    fantasy_gates: [factcheck]
+    contradicts: "hound nature (Q-0006 open — asserting settles a tracked debt)"
+    expected_catch: [contradiction, assertability]
+    side: kernel
+    rationale: >-
+      Settling an open question in prose asserts merely-possible/undecided lore as
+      fact; the certain projection has no such fact, so it reads as a contradiction
+      against an open debt.
+
+  - operator: assert-auditor-identity
+    description: Give the protagonist the rejected 'Auditor' identity (D-0009).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The protagonist had once been an auditor of the order."
+    fantasy_gates: [factcheck]
+    contradicts: "protagonist identity (Auditor rejected, D-0009)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: A rejected-lore constraint denies the claim in the certain projection.
+
+  - operator: assert-demon-king
+    description: "Put a demon king atop the empire (rejected: it is a system, D-0010)."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The empire answered, in the end, to a demon king."
+    fantasy_gates: [factcheck]
+    contradicts: "empire nature (a system, not a person; demon-king rejected, D-0010)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: A rejected-lore constraint denies the claim.
+
+  - operator: assert-musical-magic
+    description: Make the magic musical/acoustic (rejected mechanic, D-0002).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The magic was musical: a harmonic resonance sung into the stone."
+    fantasy_gates: [factcheck]
+    contradicts: "magic mechanic (musical/acoustic rejected, D-0002)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: A rejected-lore constraint denies the claim.
+
+  - operator: assert-narrator-ticking-clock
+    description: Give the narrator's frame a ticking clock (rejected, D-0104).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: >-
+        [NARRATOR] The chronicle is running out of time; the threads must be read
+        before it is too late.
+    fantasy_gates: [factcheck]
+    contradicts: "narration frame (inert vantage; ticking clock rejected, D-0104)"
+    expected_catch: [contradiction]
+    side: kernel
+    rationale: >-
+      Stronger in deloreis: the narrator's era is inert by construction (spec 03
+      §1.iii, D-0104) — narration-frame dynamics are a type error, and premise
+      selection structurally excludes narrators-era facts from any cast pool.
+
+  - operator: modern-vocab-algorithm
+    description: Leak a banned technology word ('algorithm') into a scene.
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] The clerks fed the numbers to the algorithm and waited."
+    fantasy_gates: [allegory]
+    expected_catch: [lexicon-ban]
+    side: kernel
+    rationale: >-
+      `banned algorithm` is a cited lexicon fact (spec 05 §4); the allegory is
+      structural, never lexical, so the word fails the compiled ban scan in-kernel.
+
+  - operator: modern-vocab-carbon
+    description: Leak a modern-ecology word ('carbon') into dialogue.
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: The mines choke the whole valley with carbon and ash."
+    fantasy_gates: [allegory]
+    expected_catch: [lexicon-ban]
+    side: kernel
+    rationale: A modern-register term barred by the compiled lexicon ban list.
+
+  - operator: killed-name-elara
+    description: Use the killed AI-default name 'Elara' in a scene.
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: A trader named Elara came through the pass last spring."
+    fantasy_gates: [style, naming]
+    expected_catch: [killed-token]
+    also_factory: [style-slop]
+    side: kernel
+    rationale: >-
+      'Elara' is a registered killed token (AI-default name); the naming layer
+      refuses its return in-kernel. The factory style screen also flags it as an
+      AI-tic (spec 05 §3, factory-side) — a second, non-gating screen.
+
+  - operator: killed-name-silas
+    description: Use the AI-tic name 'Silas' (a documented naming reject) in a scene.
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: The bailiff Silas waved us through the checkpoint."
+    fantasy_gates: [naming]
+    expected_catch: [killed-token]
+    side: kernel
+    rationale: A registered killed token; the kernel refuses its return with a pointer to lineage.
+
+  - operator: killed-name-irondale
+    description: "Use the killed place-name 'Irondale' (Game-of-Thrones collision)."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: We came down through the town of Irondale before the rain."
+    fantasy_gates: [naming]
+    expected_catch: [killed-token]
+    side: kernel
+    rationale: A registered killed place-name; refused in-kernel.
+
+  - operator: killed-name-doom-wight
+    description: "Use the killed portent name 'Doom-wight' (simplistic doom-and-gloom)."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: The old folk still fear the Doom-wight out on the moor."
+    fantasy_gates: [naming]
+    expected_catch: [killed-token]
+    side: kernel
+    rationale: A registered killed portent name; refused in-kernel.
+
+  - operator: wrong-register-name
+    description: "Name a crags-region place in the imperial register ('Aquilium')."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "[NARRATOR] Beyond the ridge lay the crag-town of Aquilium, half in ruin."
+    fantasy_gates: [naming]
+    naming_probe: {name: Aquilium, kind: place, register: crags, tier: secondary}
+    expected_catch: [register-fit]
+    side: kernel
+    rationale: >-
+      Register-fit is a compile verdict (spec 05 §2): an imperial-register form in
+      a crags-region place fails the register's phonotactics / name-kind patterns.
+
+  - operator: slop-cluster
+    description: "Inject an AI-slop cluster: a default name, a not-X-but-Y, and a stock beat."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: >-
+        APPRENTICE: Elara felt her heart pound, and it was not fear, but something
+        else. Her voice was barely above a whisper.
+    fantasy_gates: [style]
+    expected_catch: [style-slop]
+    side: factory
+    kernel_gated: false
+    rationale: >-
+      An AI-slop screen is a fact about OUR world's machine-generation tells, not
+      the story's world; it stays factory-side and must never gate assertability
+      (spec 05 §3). PROOF-1 asserts no kernel catch here — it is a factory screen.
+
+  - operator: allegory-wink
+    description: "Have a character wink at the allegory ('the system is rigged')."
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: The whole system is rigged, and everyone knows it."
+    fantasy_gates: [allegory]
+    expected_catch: [allegory-explicitness]
+    side: factory
+    kernel_gated: false
+    rationale: >-
+      Allegory explicitness/winking is a coherence/taste judgment about our genre
+      expectations, not a story-world fact; it is a factory-side screen (spec 05
+      §3 principle), not a kernel assertability gate. Distinct from the compiled
+      lexical bans (modern-vocab-*), which ARE kernel facts.
+
+  - operator: crowd-scene-cast
+    description: Cram a fifth and sixth speaking voice into one scene (past the ear's limit).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: |
+        PROTAGONIST: We cross before the light is gone.
+
+        BAILIFF: Halt there. Show me your papers.
+
+        FERRYMAN: The toll is two coins a head, rain or no rain.
+
+        DROVER: The east road is under water past the mill.
+    fantasy_gates: [craft]
+    craft_check: cast_per_scene
+    expected_catch: [craft-payload]
+    catch_discriminant: cast-per-scene
+    side: kernel
+    rationale: >-
+      A craft payload/conformance finding (spec 06): the cast-per-scene rule joins
+      the scene's speaking voices against the ear's limit.
+
+  - operator: as-you-know-bob-leak
+    description: Inject maid-and-butler exposition (telling another what both already know).
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: "APPRENTICE: As you know, the empire taxes every ford between the hills."
+    fantasy_gates: [craft]
+    craft_check: as_you_know_bob
+    expected_catch: [craft-payload]
+    catch_discriminant: as-you-know-bob
+    side: kernel
+    rationale: A craft payload finding — exposition told to a character who already knows it.
+
+  - operator: ornate-tag-cluster
+    description: Swap a run of said/asked for murmured/hissed/growled, sinking the said-ratio.
+    base_draft: clean-dialogue.md
+    seeded_change:
+      kind: edits
+      edits:
+        - {from: "the girl said", to: "the girl whispered"}
+        - {from: "the old man said", to: "the old man growled"}
+        - {from: "the girl asked", to: "the girl hissed"}
+    fantasy_gates: [craft]
+    craft_check: said_tag_ratio
+    expected_catch: [craft-payload]
+    catch_discriminant: said-tag-ratio
+    side: kernel
+    rationale: A craft payload finding — ornate dialogue tags drop the said-ratio below the floor.
+
+  - operator: paraphrased-contradiction
+    description: Contradict the hound's open nature by paraphrase, matching no fact cue.
+    base_draft: clean-scene.md
+    seeded_change:
+      kind: append
+      text: >-
+        [NARRATOR] The hound was really no more than a clever herding beast, bred
+        and trained like any other on the fells.
+    fantasy_gates: [factcheck]
+    expected_catch: [contradiction]
+    side: kernel
+    kernel_gated: false
+    expected_miss: true
+    rationale: >-
+      The intended class is contradiction (the paraphrase denies the hound's open
+      nature), but the deterministic kernel cannot reach it — see miss_reason.
+    miss_reason: >-
+      The deterministic cue-miner only fires on a fact's surface cues; a paraphrase
+      outside the cue list slips past. Closing it needs the opt-in cross-family
+      semantic judge (--live), which never runs in CI. In deloreis the kernel is
+      offline and model-free by law, so the same paraphrase is a structural miss at
+      the gating layer; the semantic judge is a non-gating factory lane. This is the
+      one honest hole — carried as an xfail-strict analog, never hidden.

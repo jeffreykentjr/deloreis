@@ -34,7 +34,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: gate
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
       - run: cargo run -p xtask --locked -- docs-oracle
+      - run: cargo run -p xtask --locked -- book
 
   deny:
     runs-on: ubuntu-latest

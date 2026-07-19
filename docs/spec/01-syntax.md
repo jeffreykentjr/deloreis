@@ -89,9 +89,15 @@ records**. The commitments, stated once:
   a fact names its subject; a citation names its decision. Nothing is addressed
   by ordinal position in a list, so nothing breaks when a list is reordered or
   appended to.
-- **No significant whitespace.** Indentation is cosmetic (the formatter owns
-  it); it never changes meaning. A block's membership is lexical, not
-  positional.
+- **Indentation groups; it never nests deeply.** In the landed v0 grammar
+  (unfrozen; the AST is normative) a leading-indented line is a *continuation or
+  child* of the record above it — an entity's slots, a question's options, a
+  rule's body — so a dedent ends the group and does change which record a line
+  belongs to. Expert blocks are delimited by braces `{ … }` instead. The
+  formatter owns the canonical amount of indentation (leading whitespace is
+  otherwise insignificant, and a tab counts as one column); a writer types
+  loosely and saving normalizes it. This is the one shallow, one-level grouping
+  the language admits — never deep nesting, never a tree the eye must unwind.
 
 The grammar is kept **GBNF-expressible** — line-oriented, no significant
 whitespace, no context-sensitive layout — as a *cheap standing property*, not as
@@ -118,7 +124,7 @@ fiction writer or a tabletop designer. A complete first world fits in twenty
 lines of it:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack saltmarket
 
 era founding   "The Landing"      decided d-0001
@@ -321,12 +327,12 @@ The surface has three standing defenses against the definition, the examples,
 and the corpus drifting apart.
 
 **CI-compiled examples.** Every `.dli` example in every document in this suite,
-and in the skill, is wired into a compile harness: an example either compiles
-against the current grammar or the gate is red. Documentation cannot rot into
-showing forms the language no longer accepts, because a rotted example fails the
-build. (Until the parser lands, examples are marked syntax-pending and the AST
-is normative — the marker on the first line of every `.dli` block records
-exactly that.)
+and in the skill, is wired into a compile harness: an example either parses
+cleanly against the current grammar or the gate is red (the docs-oracle runs the
+real parser over every block). Documentation cannot rot into showing forms the
+language no longer accepts, because a rotted example fails the build. (The
+grammar is at v0 — unfrozen, with the AST normative; the marker on the first
+line of every `.dli` block records exactly that.)
 
 **The killed-form registry.** A surface form that is retired — a spelling the
 language once accepted and no longer does — is *registered*, not forgotten. The

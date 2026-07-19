@@ -126,7 +126,7 @@ which failures, which costs — is the practice's own declaration.
 The Concordance as a practice, from the ratified direction vocabulary:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack magic
 
 practice spoken-proof  ratified D-0146 D-0148 {
@@ -218,7 +218,7 @@ the first on every declared axis, hosts with zero kernel code. **True-naming**
 is that proof — fifteen declared lines, nothing in common with proof-magic:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack magic
 
 practice true-naming  proposed {        # a fixture, not canon: the arbitrariness proof
@@ -281,7 +281,7 @@ explicitly rather than searching for a derivation:
 A ledger is written as data and checked, never authored by the machine:
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack magic
 
 ledger e01-s04  speaker protagonist  in spoken-proof {

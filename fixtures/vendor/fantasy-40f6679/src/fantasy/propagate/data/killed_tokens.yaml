@@ -1,0 +1,79 @@
+# Killed-token registry — names/titles the ledger has VERDICT-killed.
+#
+# Seeded from canon/decisions.md rejections. Each token is a candidate the author
+# explicitly struck down (not merely a candidate that lost to a later ratification —
+# those "supersession-dead" candidates are handled by doc banners + INDEX.md, not here).
+# The staleness linter (`fantasy propagate check`) flags any of these presented as a LIVE
+# candidate in a `status: live` doc. Superseded/resolved/reference docs may mention them
+# freely (that is the guardrail corpus); the mutation operators, ai_tics.yaml, and
+# gate-coverage matrix that deliberately encode killed names for detection are code, not
+# docs/**, and are never scanned by this checker.
+#
+# match modes:
+#   word      case-insensitive, bounded by non-word/non-hyphen (default)
+#   phrase    multi-word; internal whitespace flexible; same boundaries as word
+#   substring case-insensitive, anywhere (use sparingly)
+#   regex     raw pattern
+#
+# scope is the human note: what the token was killed AS, so a reviewer can judge whether
+# a future re-use is genuinely the killed thing or an unrelated collision.
+
+killed:
+  # D-0097 — no simplistic-portent elements; element-level fictional-lore pass.
+  - {token: doom-wight, match: phrase, decision: D-0097, kind: name,
+     scope: hound name — simplistic doom-and-gloom portent element}
+  - {token: doom-ward, match: phrase, decision: D-0097, kind: name,
+     scope: hound name — simplistic doom-and-gloom portent element}
+  - {token: borg, match: word, decision: D-0097, kind: element,
+     scope: name-compound element — Star Trek direct hit despite Norse etymology}
+
+  # D-0098 — narrator concept-nouns-worn-as-names rejected.
+  - {token: Metod, match: word, decision: D-0098, kind: name,
+     scope: narrator name — bare sacral concept-noun (OE "fate") in a name costume}
+  - {token: Galdr, match: word, decision: D-0098, kind: name,
+     scope: narrator name — bare sacral concept-noun (ON "spell-chant")}
+
+  # D-0099 — imperial-framework name candidates rejected (Latin-blender, silly/clunky).
+  - {token: Censordo, match: word, decision: D-0099, kind: name,
+     scope: imperial framework — Latin-blender fusion}
+  - {token: Ratiocuria, match: word, decision: D-0099, kind: name,
+     scope: imperial framework — Latin-blender fusion}
+  - {token: Pondelex, match: word, decision: D-0099, kind: name,
+     scope: imperial framework — Latin-blender fusion}
+
+  # D-0101 — franchise-collision kill.
+  - {token: Irondale, match: word, decision: D-0101, kind: name,
+     scope: region name — Game-of-Thrones collision}
+
+  # D-0107 — series-title round-1 verdict.
+  - {token: Salt and Rust, match: phrase, decision: D-0107, kind: title,
+     scope: series title — fantasy cliche}
+
+  # D-0108 — batch-002 core-cast verdicts.
+  - {token: Audrey, match: word, decision: D-0108, kind: name,
+     scope: protagonist/core-cast given — Tiffany problem (authentic but reads modern)}
+  - {token: Edith, match: word, decision: D-0108, kind: name,
+     scope: core-cast given — reads grandmotherly}
+  - {token: Hilda, match: word, decision: D-0108, kind: name,
+     scope: core-cast given — reads grandmotherly}
+  - {token: Wynne, match: word, decision: D-0108, kind: name,
+     scope: core-cast given — audio-unclear (win/when homophone)}
+
+  # D-0129 — batch-003; the systematic Tiffany detector.
+  - {token: Marcia, match: word, decision: D-0129, kind: name,
+     scope: protagonist given — Tiffany problem (slipped the anachronism check)}
+
+  # D-0138 — series-title round-5 kills with mechanism.
+  - {token: Frankpledge, match: word, decision: D-0138, kind: title,
+     scope: series title — clunky; first syllable reads as the modern given "Frank"}
+  - {token: Handsel, match: word, decision: D-0138, kind: title,
+     scope: series title — fairy-tale homophone (Hansel)}
+  - {token: Colophon, match: word, decision: D-0138, kind: title,
+     scope: series title — clunky, mismatched, suspected AI-literary-vocabulary tic}
+  - {token: Riven and Rewoven, match: phrase, decision: D-0138, kind: title,
+     scope: series title — tropey/middle-grade in sound}
+
+  # Q-0015 — documented AI-tic naming reject (src/fantasy/naming/data/ai_tics.yaml);
+  # also double-booked in the seed session. Not a D-kill but a settled naming reject.
+  - {token: Silas, match: word, decision: Q-0015, kind: name,
+     scope: secondary-cast given — documented AI naming tic + seed double-booking}

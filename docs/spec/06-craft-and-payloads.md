@@ -159,7 +159,7 @@ claim that includes judge dimensions is honestly `attested` overall, and
 `deloreis report --min-grade` filters to what rides on stronger evidence.
 
 ```dli
-# syntax-pending: grammar unfrozen; AST is normative
+# grammar: v0 (unfrozen; AST normative)
 pack craft
 
 principle tryfail-before-triumph  family plot  mission pass

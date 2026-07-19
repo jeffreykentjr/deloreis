@@ -1,0 +1,197 @@
+# AI naming-tic blocklist for the naming oracle.
+#
+# The model that seeded this world has documented naming tics (it invented "Silas"
+# twice and reached for "the Iron Ledger"). This file encodes the community-documented
+# cluster of AI-overused names plus the structural "The [metal] [noun]" org formula.
+# Sources: docs/research/RR-003-naming.md section 3.
+#
+# - `names`: exact/near AI-favourite given names and surnames. An exact match FAILS;
+#   a fuzzy near-miss (edit distance / phonetic key) WARNS.
+# - `places`: AI-overused place names (exact FAIL, near WARN).
+# - `patterns`: regex rules (case-insensitive, matched against the whole name). A hit
+#   is a WARN for the structural cliche, FAIL for a verbatim seeded tic.
+#
+# The seed-session names (Silas, Kaelen, Oona, Cerys, Jorin, Iron Ledger, Glass Weald,
+# Rust Wastes, biome placeholders) are listed so the pipeline flags them as the
+# non-canonical inputs they are — they must pass vetting or be replaced (see WORKFLOW).
+
+# --- AI-favourite given names / surnames (community-documented) ---
+names:
+  # The flagship cluster (Namerology "Name of the Year"; Max Read "promptonyms")
+  - elara
+  - lyra
+  - kael
+  - kaelen
+  - kaelith
+  - silas
+  - thorne
+  - aris
+  - seraphina
+  - aria
+  - elian
+  - elias
+  - elena
+  - anya
+  - althea
+  - maeve
+  - nyx
+  - zephyr
+  - lyric
+  - nova
+  - luna
+  - sage
+  - eira
+  - isolde
+  - rowan
+  - ember
+  # Cornell/Hamilton-Mimno LLM default-name study (404media 2026): the "Elias Thorne"
+  # cluster appears in a huge share of AI stories across every major model. Elara/Thorne/
+  # Elias are already listed above; adding the study's other headliner.
+  # Sources: https://www.404media.co/elias-thorne-chatbots-llms-chatgpt-lighthouse-keeper-story/
+  #          https://arxiv.org/abs/2510.15061 (antislop: Elara measured 85,513x over human baseline)
+  - mara
+  # AI-loved surnames
+  - voss
+  - vex
+  - vance
+  - finch
+  - solis
+  - ashford
+  - blackwood
+  - thorn
+  # Seed-session names for this project (flagged as non-canonical inputs)
+  - oona
+  - cerys
+  - jorin
+
+# --- AI-overused place names ---
+places:
+  - whispering woods
+  - eldora
+  - eldoria
+  - erebus
+  - ravenwood
+  - the glass weald
+  - glass weald
+  - rust wastes
+  - the rust wastes
+
+# --- Structural / formulaic patterns ---
+patterns:
+  - id: metal-noun-org
+    regex: '^the (iron|silver|gold|golden|bronze|copper|obsidian|ashen|crimson|black|silent|ivory|jade|onyx) [a-z]+$'
+    verdict: warn
+    reason: >
+      The "The [metal/colour] [noun]" faction formula is a documented AI structural
+      cliche (the shape of "the Iron Ledger", "the Silver Hand"). Prefer an in-world
+      institutional noun in the imperial register (a Register, an Assize, a Curia).
+  - id: iron-ledger-verbatim
+    regex: '^the iron ledger$'
+    verdict: fail
+    reason: >
+      Verbatim seed-session coinage (provisional in canon, unratified as a title —
+      Q-0001). Must be replaced or explicitly ratified; not accepted as a raw name.
+  - id: empty-adjective-order
+    regex: '^the (ancient|sacred|holy|eternal|shadow|hidden|forgotten) (order|guild|brotherhood|covenant|circle|council)$'
+    verdict: warn
+    reason: >
+      "The [empty-adjective] [order-noun]" adds nothing the noun does not already
+      imply — a documented AI filler pattern. Ground the name in the register instead.
+  - id: apostrophe-shaker
+    regex: "^[a-z]+'[a-z]"
+    verdict: warn
+    reason: >
+      Apostrophe-shaker (TVTropes "Punctuation Shaker"). Use an apostrophe only for a
+      real glottal stop; it reads as fantasy filler and does not survive narration.
+
+# --- Simplistic-portent elements (D-0097) ---
+# Doom-and-gloom morphemes that read as adolescent when used in a name ("doom-wight").
+# Matched as substrings/tokens: FAIL at core-cast tier, WARN below. Deliberately EXCLUDES
+# real onomastic elements that merely sound ominous — "grim" (ON Grimr = mask/helmet),
+# "bane" (OE bana), and real fate-words like "orlog"/"wyrd" survive; those carry genuine
+# etymology, the cliches below carry only mood.
+portent_cliches:
+  - doom
+  - death
+  - dark
+  - shadow
+  - blood
+  - dread
+  - gloom
+  - grief
+  - sorrow
+  - despair
+  - wraith
+  - grave
+  - curse
+  - venom
+  - abyss
+  - void
+  - nightmare
+
+# --- The Tiffany problem (D-0108) ---
+# Names that read modern-American to today's ear and so fail to signal the pre-modern
+# fantasy genre — EVEN when historically authentic (Jo Walton's "Tiffany problem":
+# Tiffany = medieval Theophania; Audrey = Old English Aethelthryth). A core-cast name
+# must also signal the genre, so these FAIL at core-cast tier, WARN below. Curated to
+# modern-Anglo first names; genre-appropriate real names (Welsh Nia/Mair, Irish Aodh,
+# Norse Ketil) are deliberately NOT here. Extend as drafting surfaces new ones.
+anachronistic_names:
+  # The named exemplars (author + Jo Walton)
+  - tiffany
+  - audrey
+  - samantha
+  - chad
+  - shane
+  - wade
+  - gary
+  # Female, reads-modern
+  - brittany
+  - crystal
+  - megan
+  - jessica
+  - ashley
+  - amber
+  - heather
+  - courtney
+  - kayla
+  - whitney
+  - chelsea
+  - kimberly
+  - brooke
+  - madison
+  - mackenzie
+  - destiny
+  - tracy
+  - kelly
+  - tammy
+  - brandy
+  - misty
+  - dawn
+  - lindsay
+  - stacy
+  - wendy
+  - cindy
+  - tara
+  - shannon
+  # Male, reads-modern
+  - brandon
+  - kevin
+  - ryan
+  - cody
+  - dylan
+  - tyler
+  - brad
+  - todd
+  - scott
+  - kyle
+  - jason
+  - jared
+  - cole
+  - brett
+  - chase
+  - trevor
+  - wayne
+  - travis
+  - dustin
+  - randy

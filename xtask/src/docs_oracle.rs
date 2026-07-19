@@ -1,4 +1,9 @@
-//! The docs oracle: every fenced `dli` block and example stays in the subset.
+//! The docs oracle: every fenced `dli` block and example parses cleanly.
+//!
+//! This runs the real front end ([`dli_syntax::parse_document`]) over every
+//! `dli` block in the docs and skill and over every committed example. A block
+//! that produces any diagnostic fails the gate, so documentation cannot rot
+//! into showing forms the grammar no longer accepts (spec `01-syntax.md` §7).
 
 use std::path::Path;
 
@@ -61,21 +66,27 @@ pub fn run_docs_oracle(root: &Path) -> Result<()> {
         );
     }
 
+    // The gate fails on hard errors only. Advisory warnings (e.g. a marker-less
+    // claim, koan 5's proposed-first authoring) are surfaced to authors by the
+    // parser but never block the build.
     let mut failures: Vec<String> = Vec::new();
     for (label, content) in &units {
-        for error in dli_syntax::probe_source(content) {
-            failures.push(format!("{label}: {error}"));
+        let (_document, diagnostics) = dli_syntax::parse_document(content);
+        for diag in diagnostics {
+            if diag.class.is_error() {
+                failures.push(format!("{label}: [{}] {}", diag.class.code(), diag.message));
+            }
         }
     }
     if !failures.is_empty() {
         bail!(
-            "docs-oracle: probe rejected {} line(s):\n{}",
+            "docs-oracle: the parser rejected {} line(s):\n{}",
             failures.len(),
             failures.join("\n")
         );
     }
 
-    println!("docs-oracle: {} units in the gentle subset", units.len());
+    println!("docs-oracle: {} units parse without errors", units.len());
     Ok(())
 }
 

@@ -19,10 +19,9 @@ fn probe_accepts_keyword_lines_and_rejects_gibberish() {
 }
 
 #[test]
-#[ignore = "enabled at SURF-1"]
 fn probe_diagnostic_snapshot() {
-    // Once SURF-1 gives probe errors real spans, snapshot the rendered
-    // diagnostic report rather than the debug form.
+    // The probe is the demoted pre-parser relic; snapshot its rejection so its
+    // shape stays pinned for the one sibling gate that still calls it.
     let errors = probe_source("zorble frobnicate\n");
-    insta::assert_debug_snapshot!(errors);
+    insta::assert_debug_snapshot!("probe_rejection", errors);
 }

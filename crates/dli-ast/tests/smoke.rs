@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Smoke coverage for the AST crate.
 
-use dli_ast::annot::{Annotation, CitationRef};
+use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::decl::{Decl, Document, FactDecl, PackHeader, SortDecl};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -11,6 +11,7 @@ fn sample_document() -> Document {
     Document {
         pack: Some(PackHeader {
             name: Ident::synthetic("saltmarket"),
+            span: Span::synthetic(),
         }),
         decls: vec![
             Decl::Sort(SortDecl {
@@ -25,11 +26,14 @@ fn sample_document() -> Document {
                         Term::Sym(Ident::synthetic("saltmarket")),
                     ],
                 },
+                triple: false,
                 provenance: Some(Annotation {
+                    marker: ProvenanceMarker::Decided,
                     citations: vec![CitationRef {
                         id: Ident::synthetic("D-0042"),
                     }],
                     condition: None,
+                    tags: vec![],
                     span: Span::synthetic(),
                 }),
             }),

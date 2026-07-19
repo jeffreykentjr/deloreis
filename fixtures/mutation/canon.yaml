@@ -1,0 +1,183 @@
+# Detection corpus — canon-target operators (EXT-F5)
+#
+# Ported from the fantasy mutation corpus at the pinned SHA. Each record is a
+# DATA seed for wave-3 PROOF-1: one deliberate violation of a pristine world,
+# plus the deloreis kernel check class that must flag it. No Rust here.
+#
+# `fantasy_gates`/`fantasy_codes` are the SOURCE ground truth (which fantasy gate
+# caught it, with its validator/continuity/craft code). `expected_catch` is the
+# PROPOSED deloreis kernel check class PROOF-1 confirms against the real checks;
+# the mapping rationale and the taxonomy live in README.md.
+provenance:
+  source_repo: "To Pleach the Hedgeway (D-0143) — /home/jeff/Documents/scratch/fantasy"
+  pinned_sha: 40f66792229abf5d73d995a8167adc79152a64e7
+  source_files:
+    - src/fantasy/mutation/operators.py
+    - docs/reference/lore-engine-gate-coverage.md
+  target: canon
+  note: >-
+    Canon-target operators mutate a pristine copy of the vendored canon fixtures
+    (fixtures/vendor/) and assert a real gate catches the seeded violation.
+
+operators:
+  - operator: break-status-marker
+    description: Corrupt a ratified section's status marker so it no longer parses.
+    seeded_change:
+      kind: edit
+      file: canon/world/magic-system.md
+      from: "> status: ratified (D-0003)"
+      to: "> status: ratified D-0003"
+      note: Drops the parentheses so the marker no longer parses (status becomes None).
+    fantasy_gates: [validator, pack]
+    fantasy_codes: [V3]
+    pack_forbidden: "rigorous logical proof"
+    expected_catch: [provenance, assertability]
+    side: kernel
+    rationale: >-
+      A claim's standing derives from provenance; deloreis has no status slot in
+      the AST (spec 01 §1), so a status the parser cannot resolve to an origin
+      cannot stand, and the certain projection fails closed (assertability).
+
+  - operator: flip-proposed-to-ratified
+    description: Promote a proposed section to ratified with no decision citation.
+    seeded_change:
+      kind: edit
+      file: canon/characters/apprentice.md
+      from: "> status: proposed"
+      to: "> status: ratified"
+    fantasy_gates: [validator]
+    fantasy_codes: [V3]
+    expected_catch: [provenance]
+    side: kernel
+    rationale: >-
+      A bare `ratified` with no origin has nowhere to go and cannot parse
+      (koan 1, claims come from somewhere).
+
+  - operator: malformed-override-leak
+    description: >-
+      Smuggle a proposed subsection into a ratified pack via a malformed override;
+      the pack must fail closed and keep it out.
+    seeded_change:
+      kind: edit
+      file: canon/characters/anchor.md
+      from: "> status: proposed"
+      to: "> status: ratifed (D-0004)"
+      note: "'ratifed' is misspelled — the marker is malformed, not a valid promotion."
+    fantasy_gates: [validator, pack]
+    fantasy_codes: [V3]
+    pack_forbidden: "PROPOSED_TEXTURE_SECRET"
+    expected_catch: [provenance, assertability]
+    side: kernel
+    rationale: >-
+      Malformed provenance cannot resolve; the context-pack builder fails closed
+      and never lets proposed texture into the certain layer.
+
+  - operator: dangling-link
+    description: Add a [[wiki-link]] to an id that does not exist.
+    seeded_change:
+      kind: append
+      file: canon/premise/overview.md
+      text: "See also [[ghost-entity]] for context."
+    fantasy_gates: [validator]
+    fantasy_codes: [V5]
+    expected_catch: [reference]
+    side: kernel
+    rationale: A reference to an id the world does not define; `deloreis check` fails on the unresolved name.
+
+  - operator: duplicate-id
+    description: Introduce a second file claiming an already-used id.
+    seeded_change:
+      kind: write
+      file: canon/society/overview.md
+      text: |
+        ---
+        id: overview
+        title: Overview (dupe)
+        type: concept
+        status: ratified
+        ---
+
+        # Overview
+
+        ## Premise
+        > status: ratified (D-0001)
+
+        A dupe.
+      note: A second file claims id `overview`, colliding in the name-space.
+    fantasy_gates: [validator]
+    fantasy_codes: [V5]
+    expected_catch: [uniqueness]
+    side: kernel
+    rationale: >-
+      Intra-canon uniqueness is a query over the name-space the kernel owns
+      (spec 05 §3); a colliding declaration fails the check.
+
+  - operator: banned-word-into-diegetic
+    description: Leak a banned technology-register word into a diegetic in-world text.
+    seeded_change:
+      kind: append
+      file: canon/texts/koan.md
+      text: "The algorithm of the seasons never errs."
+    fantasy_gates: [validator]
+    fantasy_codes: [V8]
+    expected_catch: [lexicon-ban]
+    side: kernel
+    rationale: >-
+      The allegory's lexical bans are cited lexicon facts (spec 05 §4); `banned
+      algorithm` is compiled canon, and diegetic text carrying it fails the ban scan.
+
+  - operator: cite-resolved-question
+    description: Make a section cite an open-question id that has since been resolved.
+    seeded_change:
+      kind: edit
+      file: canon/characters/apprentice.md
+      from: "> status: ratified (D-0006)"
+      to: "> status: open-question (Q-0002)"
+      note: Cites a question id that is no longer open.
+    fantasy_gates: [validator]
+    fantasy_codes: [V4]
+    expected_catch: [citation]
+    side: kernel
+    rationale: A citation must point at a live question; citing a resolved/closed one is an invalid citation.
+
+  - operator: registry-file-desync
+    description: Delete a character's registry row while its canon file remains.
+    seeded_change:
+      kind: edit
+      file: canon/data/characters.yaml
+      from: |
+        - id: apprentice
+            name: The Apprentice (unnamed)
+            role: Orphaned girl; viewpoint character
+            status: ratified
+            decision: D-0006
+      to: ""
+      note: Removes the apprentice registry row; the canon file still declares it.
+    fantasy_gates: [validator]
+    fantasy_codes: [V7]
+    expected_catch: [registry-consistency]
+    side: kernel
+    rationale: >-
+      In deloreis the hand-synced mirror dies (spec 05 §6): the compiled world IS
+      the name-space, so this becomes a query-consistency check — a canon entity
+      with no backing declaration is a finding, not a desynced YAML row.
+
+  - operator: forged-promotion
+    description: >-
+      Promote a proposed section to ratified with a REAL but unauthorized D-ref:
+      grammar-valid and the D-id exists, but the decision never authorized THIS
+      section. Closed by V11 (section-granular affects provenance, D-0151).
+    seeded_change:
+      kind: edit
+      file: canon/characters/apprentice.md
+      from: "> status: proposed"
+      to: "> status: ratified (D-0006)"
+      note: D-0006 exists but its affects-set does not name this section.
+    fantasy_gates: [validator]
+    fantasy_codes: [V11]
+    expected_catch: [provenance]
+    side: kernel
+    rationale: >-
+      Section-granular affects provenance: a citation is valid only if the cited
+      decision's affects-set names the section (CLAUDE.md V11 discipline). A real
+      D-id that never authorized this section is a forged promotion, not canon.

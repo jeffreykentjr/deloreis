@@ -2,6 +2,7 @@
 //! Smoke coverage for the world model.
 
 use dli_world::draft::{DraftMeta, DraftPayload};
+use dli_world::loader::{Loader, example_docs};
 
 #[test]
 fn draft_payload_round_trips() {
@@ -22,9 +23,24 @@ fn draft_payload_round_trips() {
 }
 
 #[test]
-#[ignore = "enabled at FRONT-1"]
+fn golden_compile_loads_saltmarket_clean() {
+    // The FRONT-1 half of the original golden test: a hand-built pack fronts as
+    // a compiled world with zero findings and the expected shape.
+    let out = Loader::load(&example_docs());
+    assert!(
+        out.findings.is_empty(),
+        "golden pack must load clean: {:?}",
+        out.findings
+    );
+    assert_eq!(out.world.packs().len(), 1);
+    assert_eq!(out.world.entities().len(), 3);
+    assert_eq!(out.world.world.facts.len(), 2);
+}
+
+#[test]
+#[ignore = "enabled at CHECK-1"]
 fn golden_check_draft_findings_match() {
-    // Once compile + check_draft land, assert a draft over the saltmarket pack
-    // produces the committed findings.
-    todo!("FRONT-1 + CHECK-1: golden compile + check_draft")
+    // The CHECK-1 half: once check_draft lands, assert a draft over the
+    // saltmarket pack produces the committed findings.
+    todo!("CHECK-1: golden check_draft over the compiled saltmarket world")
 }

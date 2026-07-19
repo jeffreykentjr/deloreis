@@ -6,6 +6,8 @@
 //! oracle, the LOC budget, and the hooks check. The gate list here and the
 //! CI workflow are kept in lockstep by `tests/ci_parity.rs`.
 
+pub mod book;
+pub mod docgen;
 pub mod docs_oracle;
 pub mod fixtures;
 pub mod gate;
