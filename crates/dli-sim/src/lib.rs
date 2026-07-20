@@ -83,6 +83,7 @@ pub mod battery;
 pub mod checkpoint;
 pub mod manifest;
 pub mod rng;
+pub mod turning;
 
 pub use battery::{
     Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable, ResourceDraw,

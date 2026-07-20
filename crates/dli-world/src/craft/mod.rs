@@ -96,6 +96,7 @@
 //! only against the [`policy`](season::policy) thresholds, which sit well inside
 //! `u8`.
 
+pub mod kb;
 pub mod outline;
 pub mod season;
 

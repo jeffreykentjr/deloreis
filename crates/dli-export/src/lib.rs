@@ -6,6 +6,10 @@
 //! model layer, valuation, and a hash of the profile so an artifact is traceable
 //! back to exactly what produced it.
 
+pub mod articy;
+pub mod context_pack;
+pub mod games;
+pub mod profile;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

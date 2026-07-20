@@ -16,6 +16,7 @@ pub mod language;
 pub mod loader;
 pub mod model;
 pub mod pack;
+pub mod payload;
 
 pub use attest::{Attestation, AttestationStore};
 pub use check::{
