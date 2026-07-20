@@ -10,6 +10,7 @@ pub mod attest;
 pub mod check;
 pub mod draft;
 pub mod episode;
+pub mod episode_order;
 pub mod language;
 pub mod loader;
 pub mod model;

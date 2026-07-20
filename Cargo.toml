@@ -15,6 +15,7 @@ publish = false
 dli-ast = { path = "crates/dli-ast" }
 dli-core = { path = "crates/dli-core" }
 dli-syntax = { path = "crates/dli-syntax" }
+dli-sim = { path = "crates/dli-sim" }
 dli-time = { path = "crates/dli-time" }
 dli-eval = { path = "crates/dli-eval" }
 dli-ledger = { path = "crates/dli-ledger" }

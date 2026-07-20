@@ -17,6 +17,9 @@ pub mod blame;
 pub mod chronology;
 pub mod cycle;
 pub mod fluent;
+pub mod migrate;
+pub mod order_rules;
+pub mod slack;
 
 pub use blame::{BlamedEdge, CycleBlame};
 pub use chronology::{Chronology, TemporalVerdict, TimePoint};

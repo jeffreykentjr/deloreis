@@ -387,6 +387,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dli-sim"
+version = "0.1.0"
+dependencies = [
+ "dli-core",
+ "dli-ledger",
+ "dli-time",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dli-syntax"
 version = "0.1.0"
 dependencies = [
