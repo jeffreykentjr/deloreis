@@ -384,3 +384,38 @@ expensive as more world content and doctrine bake into the crates.
 
 **Revisit trigger.** The standalone release (the first non-TPtH world authored in
 dli); the boundary invariant becomes a gate check at that point if not before.
+
+## DL-0018 — Separation layout: a shipped craft library, a thin TPtH crate, a generic contract
+
+*Date: 2026-07-21*
+
+**Ruling.** Three layout forks under [DL-0017](#dl-0017--the-generaltpth-separation-engine-craft-doctrine-config-world-content), resolved by the author:
+
+1. **dli ships a generic craft-doctrine library.** The togglable packs
+   (Sanderson's laws, kishōtenketsu, MICE, tryfail-before-triumph) are curated
+   generic craft wisdom that ships **with the tool** so "turn craft on/off" works
+   out of the box; a project enables a subset. A world's own *selection and
+   configuration* of them (mission-filters, pillars, citations, thresholds) is
+   separate and, for TPtH, factory-produced under `worlds/tpth/craft/`.
+
+2. **TPtH code that is not yet pure data goes to a thin `crates/tpth/` crate
+   now.** The Turning's type vocabulary, its honest-vs-rigged study, and its
+   world-specific invariants move into a small TPtH world crate that depends on
+   the engine's generic seams — full modular separation immediately. Genericizing
+   the simulator so the whole Turning becomes pure data is a **follow-on**, not a
+   blocker.
+
+3. **The wire contract is renamed `fantasy-worker` → `dli-worker`.** The generic
+   contract owns the story-agnostic surface (schemas, registry, transport
+   fixtures); the fantasy factory becomes one **consumer profile** on top, keeping
+   the TPtH-payload conformance goldens as its own suite.
+
+**Rationale.** Each choice takes the fastest path to a clean, standalone-honest
+boundary without a large upfront refactor: a shipped starter library makes the
+craft feature demonstrable immediately; a thin world crate modularizes TPtH code
+now and defers the harder generics work; the rename makes the contract's already
+world-agnostic surface honest about it.
+
+**Revisit trigger.** Simulator genericization (fork 2's follow-on) may later empty
+`crates/tpth/` of the Turning code in favor of pure data; the craft library's pack
+set is revisited when a second world exercises it.

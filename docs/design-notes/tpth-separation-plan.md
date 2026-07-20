@@ -161,23 +161,20 @@ forks; each is an individually-verified step, not a big-bang.
 
 ---
 
-## Open forks for the author
+## Forks (resolved — [DL-0018](../decisions.md))
 
-1. **Craft-doctrine home.** Where do the togglable packs live, and does dli
-   **ship** a generic doctrine library (Sanderson, kishōtenketsu, MICE) with the
-   tool, or does each project supply its own? Recommendation: ship a small
-   curated generic library under `craft-doctrines/` that projects enable a subset
-   of — it makes "turn craft on/off" real out of the box.
-2. **TPtH code that is not yet pure data** (the Turning type vocabulary, the
-   study, world-specific invariants): a thin `crates/tpth/` world crate, or push
-   harder to genericize the sim so *everything* is data? Recommendation: a thin
-   `crates/tpth/` now (fast, fully modular), with sim-genericization as a
-   follow-on — don't block the separation on a hard generics refactor.
-3. **Contract rename** `fantasy-worker` → `dli-worker`: confirm the name and that
-   the fantasy factory becomes one consumer profile. (Low-risk; recommended.)
-4. **Neutral teaching world**: confirm a `hello-world.dli` (invented neutral
-   setting) as the engine's shipped example, with saltmarket demoted to
-   `worlds/tpth/`.
+1. **Craft-doctrine home.** ✅ **dli ships a generic craft library.** A curated
+   `craft-doctrines/` set of togglable packs ships with the tool; a project
+   enables a subset. TPtH's own selection/config is factory-produced under
+   `worlds/tpth/craft/`.
+2. **TPtH code not yet pure data.** ✅ **A thin `crates/tpth/` world crate now.**
+   The Turning type vocabulary, study, and world-specific invariants move there;
+   simulator genericization (everything-as-data) is a follow-on, not a blocker.
+3. **Contract rename.** ✅ **`fantasy-worker` → `dli-worker`.** Generic contract +
+   a fantasy consumer profile; TPtH-payload goldens become the fantasy suite.
+4. **Neutral teaching world.** A `hello-world.dli` (invented neutral setting)
+   becomes the engine's shipped example; saltmarket demotes to `worlds/tpth/`.
+   *(Confirmed direction; landed with the Phase-0 relocation.)*
 
 ---
 
