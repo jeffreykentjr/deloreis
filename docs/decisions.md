@@ -306,3 +306,81 @@ is cheap while the grammar is unfrozen and expensive after.
 
 **Revisit trigger.** The grammar freeze (SURF-4); after it, any surface change is
 a versioned canonical-to-canonical migration, not an edit.
+
+## DL-0017 — The general/TPtH separation: engine, craft-doctrine config, world content
+
+*Date: 2026-07-20*
+
+**Ruling.** De Lore Is ships as a general-purpose standalone tool; "To Pleach the
+Hedgeway" (TPtH) is **one** world authored in it. In the author's words: *"you
+need to begin to tease apart the general purpose aspects of dli that could be
+used with any story and the tpth ones. i will eventually be releasing dli as a
+general purpose standalone tool used by many different fictional worlds. now is
+the time to start to put the tpth stuff in a clearly organized modular
+location."* The repo separates into **three tiers**:
+
+1. **The engine** (the `dli-*` crates + the `deloreis` bin) — generic mechanism
+   only: the annotation algebra, the loader/checker/fork engine, the time model,
+   the practice **workbench**, the language **oracle**, the season-ledger rule
+   **engine** and KB-loader, the simulator, the export core, the server + Door T.
+   It is story-agnostic **and** doctrine-agnostic: it takes world content and
+   craft configuration **as data**. An engine crate's `src/` may not hardcode any
+   world's proper nouns, any project's craft doctrine, or any consumer's decision
+   ids (`D-nnnn`) outside a doc-example explicitly marked as illustrative.
+
+2. **Craft doctrine** — *"for all of the craft stuff, it needs to be differently
+   modular than the tpth stuff. basically a config of some sort of what sort of
+   things to turn on or off. e.g. sanderson's laws of magic, kishotenketsu, etc.
+   are all project specific. it doesnt correspond to a world but rather the
+   optional bits of writing craft the user chooses to enable."* Craft is a
+   **togglable module library** — generic, published craft wisdom (Sanderson's
+   laws, kishōtenketsu, MICE, tryfail-before-triumph) as principle-record packs a
+   **project** enables a subset of. It is **not** world content: kishōtenketsu is
+   a craft lens any world's project may turn on. The current 107-principle
+   `kb::PRINCIPLES` static is really *TPtH's chosen configuration* of these packs
+   (its mission-filters, the D-0128 pillars, `D-nnnn` citations), frozen into
+   engine Rust — it comes out.
+
+3. **World content** — one fictional world's lore: for TPtH, the Turning card
+   game, the Concordance / spoken-proof practice, the cymric-fringe dialect and
+   its names, the saltmarket corpus, the banned-vocabulary rationale, the
+   `D-nnnn` authorial ledger. It lives in a clearly organized modular location
+   and is loaded as data.
+
+**A project = a world + a selected set of craft-doctrine modules + config.** TPtH
+is one such project.
+
+**The factory owns the decision→record mapping.** *"the factory side code should
+be mostly responsible for mapping decisions to records in the craft kb."* The
+engine holds the generic craft-rule evaluator, the principle-record schema, and
+the KB loader; it consumes a craft KB as data. The act of **mapping a project's
+`D-nnnn` rulings into KB records** — which doctrines are on, the mission-filters,
+the pillars, the citations, the thresholds and rule severities — is a
+**factory-side** (consuming-repo) responsibility, not dli engine code. The
+engine never reads `canon/decisions.md`; the factory produces the config the
+engine loads.
+
+**Homes.** TPtH world content moves to a modular location (`worlds/tpth/` data
+tree, and a thin TPtH crate only where content cannot yet be pure data — e.g. the
+Turning's world-specific invariants/study). Craft-doctrine packs get their own
+togglable-module home, distinct from any world. The engine keeps only mechanism
+plus a **neutral generic teaching world** (no TPtH names) so a standalone user
+can learn the surface without absorbing one customer's lore. The wire contract is
+generic and gets a generic name (`dli-worker`), with the fantasy factory as one
+consumer profile.
+
+**Migration is incremental and gate-green at each step.** The full leak inventory
+and the ordered move/extraction DAG live in the migration plan (a design
+proposal); this entry is the authority the plan elaborates. Safe data-relocations
+land first; the code-extractions (the Turning genericization, the KB→data move,
+the season-rule parameterization, the contract rename, the doc split) follow as
+tracked, individually-verified steps.
+
+**Rationale.** A standalone dli must not assume TPtH lore or TPtH's craft
+choices; a new world's author supplies their own world data, selects their own
+craft doctrines, and — through their own factory — maps their own decisions into
+KB records. Teasing this apart is cheap now, while the engine is young, and grows
+expensive as more world content and doctrine bake into the crates.
+
+**Revisit trigger.** The standalone release (the first non-TPtH world authored in
+dli); the boundary invariant becomes a gate check at that point if not before.
