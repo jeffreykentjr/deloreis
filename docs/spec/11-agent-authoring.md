@@ -61,14 +61,14 @@ happens in a **workspace**: an in-memory staged layer over the compiled world.
 `author.open` creates a workspace and returns its id and digest. It opens in one
 of two modes:
 
-- `{"pack": "<name>"}` — stage over an existing pack. Additions accrue to that
-  pack's surface.
+- `{"scope": "<name>"}` — stage over an existing scope. Additions accrue to that
+  scope's surface.
 - `{"fork": "<question>"}` — open a fork-scoped workspace (koan 2: a fork is
   exploration over an unchanged store). Hypotheses and suppositions made here are
   fork-local and never leak into canon.
 
 ```json
-{ "op": "author.open", "params": { "pack": "tpth" } }
+{ "op": "author.open", "params": { "scope": "tpth" } }
 ```
 
 ```json
@@ -161,12 +161,10 @@ error }`. The examples below elide `dli`, `id`, and often the `workspace`
 param for brevity; only `params` and the salient part of the response are
 shown.
 
-**Provenance is required on every claim-bearing tool.** It takes one of three
-forms, and nothing an agent supplies mints authority (§5):
+**Provenance is required on every claim-bearing tool.** An agent (Door T)
+supplies one of **two** forms — `proposed` or `hypothesis` — and nothing an agent
+supplies mints authority (§5):
 
-```json
-{ "kind": "cited", "decisions": ["D-0104"] }
-```
 ```json
 { "kind": "proposed", "origin": "session-7c9" }
 ```
@@ -174,9 +172,15 @@ forms, and nothing an agent supplies mints authority (§5):
 { "kind": "hypothesis", "hyp": "coast-runs-north" }
 ```
 
-`cited` names decision-ledger entries in the **consuming** repo's ledger;
 `proposed` records an origin and asserts no ruling; `hypothesis` scopes the claim
 to a fork-local hyp variable.
+
+The third provenance form, `cited` (naming decision-ledger entries in the
+**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["D-0104"] }`), is
+**Door-H / human-only** (B1). An agent cannot mint a citation — a ruling lives in
+the ledger, not in a tool call (koan 3) — so a `cited` provenance supplied to any
+`author.*` tool is **refused** with the `provenance.cited-refused` finding. The
+agent proposes; the human confirms the citation in review.
 
 ### 3.1 `author.add_entity`
 
@@ -215,7 +219,7 @@ before-fact semantics, so it enters exclusively through `author.add_event`
       "repair": {
         "kind": "run-check",
         "op": "dli.name.check",
-        "params": { "name": "mireth", "register": "low-saltish" }
+        "params": { "name": "mireth", "dialect": "low-saltish" }
       }
     }
   ]
@@ -277,12 +281,12 @@ Provenance required.
 ```json
 { "op": "author.add_event",
   "params": { "id": "the-drowning", "era": "the-salt-years",
-    "provenance": { "kind": "cited", "decisions": ["D-0104"] } } }
+    "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ```
 
 ```json
 { "ok": true, "workspace_digest": "wd-04",
-  "rendered": ["event(the-drowning)", "  during(the-drowning, the-salt-years)", "  cite D-0104"],
+  "rendered": ["event(the-drowning)", "  during(the-drowning, the-salt-years)", "  proposed session-7c9"],
   "findings": [] }
 ```
 
@@ -295,12 +299,12 @@ that closes a cycle against existing order facts is an **error**-severity findin
 ```json
 { "op": "author.add_before",
   "params": { "earlier": "the-drowning", "later": "the-reclaiming",
-    "provenance": { "kind": "cited", "decisions": ["D-0104"] } } }
+    "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ```
 
 ```json
 { "ok": true, "workspace_digest": "wd-05",
-  "rendered": ["before(the-drowning, the-reclaiming)", "  cite D-0104"], "findings": [] }
+  "rendered": ["before(the-drowning, the-reclaiming)", "  proposed session-7c9"], "findings": [] }
 ```
 
 ### 3.6 `author.open_question`
@@ -342,20 +346,23 @@ a fork workspace, and limited to **one hyp variable per proposal bundle** — a
 bundle that needs two independent suppositions is two forks.
 
 ```json
-{ "op": "author.add_hypothesis", "params": { "id": "coast-runs-north" } }
+{ "op": "author.add_hypothesis", "params": { "id": "coast-runs-north", "statement": "The coast runs north." } }
 ```
 
 ```json
-{ "ok": true, "workspace_digest": "wd-08", "rendered": ["hypothesis coast-runs-north"], "findings": [] }
+{ "ok": true, "workspace_digest": "wd-08", "rendered": ["hypothesis coast-runs-north \"The coast runs north.\""], "findings": [] }
 ```
+
+`statement` is required — the hyp variable carries the claim it names, and the
+rendered form quotes it.
 
 ### 3.9 `author.suppose`
 
 Give a fork-local valuation to a minted hyp variable — or assume one option of
 an open question — setting it true or false within the fork. This is exploration
-over an unchanged store (koan 2): it asserts nothing in canon and adds no pack
+over an unchanged store (koan 2): it asserts nothing in canon and adds no scope
 surface. Its effect is visible as a derived-consequence diff, and its rendering
-lives inside the fork frame, not the pack.
+lives inside the fork frame, not the scope.
 
 ```json
 { "op": "author.suppose", "params": { "hyp": "coast-runs-north", "value": true } }
@@ -460,13 +467,16 @@ finding code):
 }
 ```
 
-On success it returns file contents as data — the machine never writes canon:
+On success it returns the rendered canonical `.dli` lines **as data** (in
+`rendered`) — the same `AuthorMutationResult` shape every mutating call returns;
+the machine never writes canon, and the caller writes these lines to its side and
+commits them through review:
 
 ```json
 {
   "ok": true,
   "workspace_digest": "wd-12",
-  "files": [{ "path": "tpth/mireth.dli", "contents": "scope tpth\n\nperson mireth \"Mireth\"     proposed  session-7c9\n" }],
+  "rendered": ["scope tpth", "person mireth \"Mireth\"     proposed  session-7c9"],
   "findings": []
 }
 ```
@@ -548,7 +558,7 @@ surface better than path quality — evidence, not a measured verdict here.
 
 ## 8. The worked TPtH scenario
 
-The end-to-end flow an agent runs — `author.open` a pack, `author.add_entity` the
+The end-to-end flow an agent runs — `author.open` a scope, `author.add_entity` the
 cast, `author.add_fact` their traits, `author.add_relation` their bonds,
 `author.diff` to see the canonical surface and its consequences, `author.materialize`
 to get file bytes, then fantasy-side review and ruling — is worked in full in

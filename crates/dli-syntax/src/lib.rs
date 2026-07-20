@@ -20,7 +20,7 @@ pub mod parser;
 pub mod probe;
 
 pub use diag::{DiagClass, Diagnostic, render};
-pub use format::format_document;
+pub use format::{format_document, format_source};
 pub use lexer::{Token, TokenKind, lex};
-pub use parser::{parse_clause_atom, parse_document};
+pub use parser::{LINE_OPEN_KEYWORDS, line_open_keywords, parse_clause_atom, parse_document};
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};

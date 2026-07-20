@@ -1,0 +1,24 @@
+{
+  "fixture": "golden/fork-new-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "fork": "fork-1"
+        }
+      }
+    }
+  ]
+}

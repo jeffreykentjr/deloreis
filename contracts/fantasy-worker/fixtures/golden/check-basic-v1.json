@@ -7,13 +7,18 @@
         "dli": "0.1.0",
         "id": "1",
         "op": "dli.check",
-        "params": { "document": "saltmarket" }
+        "params": {
+          "document": "saltmarket"
+        }
       },
       "expect": {
         "dli": "0.1.0",
         "id": "1",
         "ok": true,
-        "result": { "ok": true, "findings": [] }
+        "result": {
+          "ok": true,
+          "findings": []
+        }
       }
     }
   ]

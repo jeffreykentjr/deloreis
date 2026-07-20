@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/name-check-schema-violation",
+  "version": 1,
+  "note": "params omit every required field, violating the op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "dli.name.check",
+    "params": {}
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

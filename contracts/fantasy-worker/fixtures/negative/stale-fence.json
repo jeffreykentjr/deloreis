@@ -1,6 +1,16 @@
 {
   "fixture": "negative/stale-fence",
   "version": 1,
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
   "note": "A mutating call whose expected_digest no longer matches the workspace fence is refused so a stale caller never clobbers a moved fence.",
   "send": {
     "dli": "0.1.0",
@@ -11,9 +21,14 @@
       "entity": "mara",
       "key": "home",
       "value": "the-shallows",
-      "provenance": { "kind": "proposed", "origin": "session-fx01" }
+      "provenance": {
+        "kind": "proposed",
+        "origin": "session-fx01"
+      }
     },
     "expected_digest": "jcs:stale-0000"
   },
-  "expect_error": { "code": "stale-fence" }
+  "expect_error": {
+    "code": "stale-fence"
+  }
 }

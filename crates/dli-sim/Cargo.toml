@@ -16,5 +16,10 @@ serde.workspace = true
 schemars.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+# Fixture practices are built the honest way — parse `.dli` and compile — so
+# tests and doctests exercise the frozen PRAC-1 surface, not hand-built structs.
+dli-syntax.workspace = true
+
 [lints]
 workspace = true

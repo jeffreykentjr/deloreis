@@ -1,0 +1,824 @@
+id: act1.arc1
+title: The First Working Household
+episodes:
+  - id: arc1.ep01
+    title: The Wrong Fibre
+    hook_by_seconds: 25
+    ki: "Aalto works alone over a sick kinsman's bed, trying to re-tie a failing storm-ward before the night tide."
+    sho: "Enfys arrives because Aalto's failed knot still carries a cleaner argument than the keep-stamped cord can bear."
+    ten: "The ward failed because correct local craft was asked to hold in false material against a soured valley."
+    ketsu: "Aalto keeps Enfys breathing after the Archive overwhelms her; the first bond forms around mutual competence, not rescue."
+    scenes:
+      - id: arc1.ep01.s1
+        summary: "Aalto reties the failing storm-ward over the sick bed and hears the cord slip before the weather breaks."
+        speaking_cast: ["Aalto"]
+        advances: [plot, revelation]
+        silence_beat: true
+      - id: arc1.ep01.s2
+        summary: "Enfys arrives because the failed knot still shows a clean argument inside bad material."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot, relationship, revelation]
+      - id: arc1.ep01.s3
+        summary: "After the Archive overload, Aalto tends Enfys's breath and chooses competence over panic."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [relationship]
+        silence_beat: true
+    promises:
+      - id: arc1.ep01.promise.enfys_matters
+        kind: character
+        statement: "Enfys matters because she can read the clean argument inside the failed local craft."
+        made_in: arc1.ep01.s1
+        payoff_ref: arc1.ep01.s2
+      - id: arc1.ep01.promise.why_ward_failed
+        kind: mystery
+        statement: "The ward failed for a material and local reason that is not yet fully known."
+        made_in: cold-open
+        open_loop_carry: true
+      - id: arc1.ep01.promise.what_enfys_carries
+        kind: character
+        statement: "Enfys carries too much history in the Archive for her body to bear cleanly."
+        made_in: arc1.ep01.s3
+        open_loop_carry: true
+      - id: arc1.ep01.promise.household_formed
+        kind: umbrella
+        statement: "The opening will test whether a working household can form from competence rather than rescue."
+        made_in: arc1.ep01.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep01.mice.event
+        kind: event
+        open_beat: arc1.ep01.s1
+        close_beat: arc1.ep01.s3
+      - id: arc1.ep01.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep01.s2
+        close_beat: arc1.ep01.s2
+    tryfail_beats:
+      - id: arc1.ep01.try.1
+        attempt: "Seat the keep-stamped cord in the old ward logic."
+        outcome: "no-and"
+      - id: arc1.ep01.try.2
+        attempt: "Let Enfys read the failure before the ward collapses."
+        outcome: "yes-but"
+      - id: arc1.ep01.try.3
+        attempt: "Keep Enfys breathing after the Archive overwhelms her."
+        outcome: "yes-and"
+    loops_opened:
+      - first_night_survival
+      - why_the_ward_failed
+      - what_enfys_carries
+      - why_aalto_goes
+      - opening_household_formed
+    loops_closed: []
+    season_boundary: true
+
+  - id: arc1.ep02
+    title: A Bed Above Water
+    hook_by_seconds: 40
+    ki: "After the night tide, Aalto counts food, dry boards, useful cord, death-work, and the stranger asleep too still by the hearth."
+    sho: "Enfys wakes courteous and depleted, with brief slips of other voices and hands; the leaves steady her rather than answer Aalto."
+    ten: "Aalto stops reading Enfys as a failed rescuer and sees another damaged body that needs tending."
+    ketsu: "They bundle what can be carried toward Trefpen without calling the movement adoption."
+    scenes:
+      - id: arc1.ep02.s1
+        summary: "Aalto measures the flooded room, the food, and the dry height left after the night tide."
+        speaking_cast: ["Aalto"]
+        advances: [plot]
+        silence_beat: true
+      - id: arc1.ep02.s2
+        summary: "Enfys wakes with borrowed voices close under her own courtesy, and the leaves steady her hands."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [relationship, revelation]
+      - id: arc1.ep02.s3
+        summary: "Aalto packs only what can be carried and names Trefpen as shelter, not adoption."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot, relationship]
+    promises:
+      - id: arc1.ep02.promise.enfys_tended
+        kind: relationship
+        statement: "Aalto will tend Enfys as another damaged body, not as a failed authority."
+        made_in: arc1.ep02.s2
+        payoff_ref: arc1.ep02.s3
+      - id: arc1.ep02.promise.trefpen_shelter
+        kind: mystery
+        statement: "Trefpen may offer shelter, but the terms of that shelter are not yet known."
+        made_in: arc1.ep02.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep02.mice.milieu
+        kind: milieu
+        open_beat: arc1.ep02.s1
+        close_beat: arc1.ep02.s3
+      - id: arc1.ep02.mice.character
+        kind: character
+        open_beat: arc1.ep02.s2
+        close_beat: arc1.ep02.s2
+    tryfail_beats:
+      - id: arc1.ep02.try.1
+        attempt: "Count the house as if ordinary household arithmetic can still hold."
+        outcome: "no-and"
+      - id: arc1.ep02.try.2
+        attempt: "Ask Enfys for clean answers while she is still damaged."
+        outcome: "no-but"
+      - id: arc1.ep02.try.3
+        attempt: "Choose a carryable road plan instead of a total solution."
+        outcome: "yes-but"
+    loops_opened:
+      - enfys_must_be_tended
+      - trefpen_as_next_shelter
+      - road_to_trefpen
+    loops_closed:
+      - first_night_survival
+
+  - id: arc1.ep03
+    title: The Spring Below the Path
+    hook_by_seconds: 35
+    ki: "Before they can use the road, Aalto finds the spring cannot be trusted for drinking, carrying, or giving to Enfys."
+    sho: "Taste, silence, mud, and a sample vessel prove the wrongness before Enfys brings in cord and leaves."
+    ten: "The spring behaves like a shared source and a fenced holding at once, revealing an incompatible account in the land."
+    ketsu: "They leave the spring unhealed but legible: sample sealed, path marked, and the water case named as something to return to."
+    scenes:
+      - id: arc1.ep03.s1
+        summary: "Aalto finds the spring cannot be trusted for drink, carrying, or care."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot, revelation]
+      - id: arc1.ep03.s2
+        summary: "Taste, mud, silence, and a sample vessel establish wrongness before leaves enter."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [relationship, revelation]
+      - id: arc1.ep03.s3
+        summary: "They seal a sample, mark the path, and name the water case as something to return to."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot]
+        silence_beat: true
+    promises:
+      - id: arc1.ep03.promise.spring_legible
+        kind: mystery
+        statement: "The sour spring is materially unusable in a way that can be tracked later."
+        made_in: arc1.ep03.s1
+        payoff_ref: arc1.ep03.s3
+      - id: arc1.ep03.promise.gwern_water_wrong
+        kind: umbrella
+        statement: "Gwern's water problem is an Act 1 case, not an opening-arc cure."
+        made_in: arc1.ep03.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep03.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep03.s1
+        close_beat: arc1.ep03.s3
+      - id: arc1.ep03.mice.character
+        kind: character
+        open_beat: arc1.ep03.s2
+        close_beat: arc1.ep03.s2
+    tryfail_beats:
+      - id: arc1.ep03.try.1
+        attempt: "Treat the spring as usable road water despite the bad taste."
+        outcome: "no-and"
+      - id: arc1.ep03.try.2
+        attempt: "Read it through physical evidence before Enfys brings in leaves."
+        outcome: "yes-but"
+      - id: arc1.ep03.try.3
+        attempt: "Make the spring legible enough to return to it."
+        outcome: "yes-and"
+    loops_opened:
+      - gwern_water_wrong
+      - spring_sample_thread
+    loops_closed:
+      - enfys_must_be_tended
+
+  - id: arc1.ep04
+    title: Two Leaves for the Road
+    hook_by_seconds: 45
+    ki: "In a borrowed corner of Trefpen, a host grants shelter for one night only and forces the next-road choice."
+    sho: "Enfys lays two leaves as two practical roads with costs, while Aalto resists treating them as command."
+    ten: "The leaves expose the avoided question: what can be carried without becoming a burden, and what must be left without betrayal."
+    ketsu: "Aalto chooses the next road by hand: keep the borrowed hearth for the night, then carry the spring question into Trefpen."
+    scenes:
+      - id: arc1.ep04.s1
+        summary: "A borrowed-hearth host gives them a corner for one night, but no lasting standing."
+        speaking_cast: ["Aalto", "Enfys", "borrowed-hearth host"]
+        advances: [plot]
+      - id: arc1.ep04.s2
+        summary: "Enfys lays two leaves as practical choices, and Aalto resists treating either as command."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [relationship, revelation]
+      - id: arc1.ep04.s3
+        summary: "Aalto keeps the hearth for the night and chooses the next road as ordinary action."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot, relationship]
+    promises:
+      - id: arc1.ep04.promise.counsel_not_fate
+        kind: core
+        statement: "The Turning can frame practical choices without commanding either one."
+        made_in: arc1.ep04.s2
+        payoff_ref: arc1.ep04.s3
+      - id: arc1.ep04.promise.what_aalto_leaves
+        kind: character
+        statement: "Aalto's leaving must remain ethically active rather than cleanly solved."
+        made_in: arc1.ep04.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep04.mice.character
+        kind: character
+        open_beat: arc1.ep04.s1
+        close_beat: arc1.ep04.s3
+      - id: arc1.ep04.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep04.s2
+        close_beat: arc1.ep04.s2
+    tryfail_beats:
+      - id: arc1.ep04.try.1
+        attempt: "Take the borrowed hearth as a settled answer."
+        outcome: "no-and"
+      - id: arc1.ep04.try.2
+        attempt: "Ask the leaves to command the road."
+        outcome: "no-but"
+      - id: arc1.ep04.try.3
+        attempt: "Use the leaves to choose a next action without surrendering agency."
+        outcome: "yes-and"
+    loops_opened:
+      - turning_counsel_not_fate
+      - what_aalto_leaves
+    loops_closed:
+      - road_to_trefpen
+      - why_aalto_goes
+      - trefpen_as_next_shelter
+      - spring_sample_thread
+
+  - id: arc1.ep05
+    title: The Parish That Blamed the Wind
+    hook_by_seconds: 50
+    ki: "Trefpen offers safe explanations for the storm: bad rites, poor cord, unpaid tithe, a child's presumption, the wind."
+    sho: "A household ward case gives Enfys the first full counsel reading while Aalto listens for who each explanation protects."
+    ten: "Every neat answer clears the parish rolls and lays fault on someone hungry, widowed, young, or tired."
+    ketsu: "Aalto learns to distrust any account of shared harm that becomes tidy only after blaming the least powerful hand."
+    scenes:
+      - id: arc1.ep05.s1
+        summary: "A frightened ward-keeper brings a safe explanation that shifts fault onto weather and weakness."
+        speaking_cast: ["Aalto", "Enfys", "frightened ward-keeper"]
+        advances: [plot]
+      - id: arc1.ep05.s2
+        summary: "Enfys gives a counsel reading while Aalto listens for who the tidy account protects."
+        speaking_cast: ["Aalto", "Enfys", "frightened ward-keeper"]
+        advances: [revelation, relationship]
+      - id: arc1.ep05.s3
+        summary: "Aalto returns the local a better question instead of a verdict."
+        speaking_cast: ["Aalto", "Enfys", "frightened ward-keeper"]
+        advances: [plot, relationship]
+    promises:
+      - id: arc1.ep05.promise.blame_logic
+        kind: core
+        statement: "A tidy blame account protects power by naming the weakest hand as cause."
+        made_in: arc1.ep05.s1
+        payoff_ref: arc1.ep05.s3
+      - id: arc1.ep05.promise.ward_keeper_case
+        kind: character
+        statement: "The ward-keeper's fear may become later testimony or learning."
+        made_in: arc1.ep05.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep05.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep05.s1
+        close_beat: arc1.ep05.s3
+      - id: arc1.ep05.mice.character
+        kind: character
+        open_beat: arc1.ep05.s2
+        close_beat: arc1.ep05.s2
+    tryfail_beats:
+      - id: arc1.ep05.try.1
+        attempt: "Accept the parish's safe explanations as several possible causes."
+        outcome: "no-and"
+      - id: arc1.ep05.try.2
+        attempt: "Use a counsel reading to choose the least false explanation."
+        outcome: "yes-but"
+      - id: arc1.ep05.try.3
+        attempt: "Ask who benefits from the tidy account."
+        outcome: "yes-and"
+    loops_opened:
+      - who_benefits_from_blame
+      - ward_keeper_case
+    loops_closed:
+      - turning_counsel_not_fate
+
+  - id: arc1.ep06
+    title: The Cord-Store Measure
+    hook_by_seconds: 35
+    ki: "Aalto follows the bad fibre to Trefpen's licensed cord-store, where identical coils hang clean and cheap."
+    sho: "The seller argues stamped sameness as mercy while Aalto tests by hand, breath, salt, and weather-sense."
+    ten: "The best-looking cord passes the store's measure while failing the simplest seating test against weather."
+    ketsu: "A hidden scrap of true old fibre becomes more trustworthy than any official length."
+    scenes:
+      - id: arc1.ep06.s1
+        summary: "The licensed cord-seller presents clean sameness as mercy and proof."
+        speaking_cast: ["Aalto", "licensed cord-seller"]
+        advances: [plot]
+      - id: arc1.ep06.s2
+        summary: "Aalto tests the cord by hand, breath, salt, and weather-sense while the seller's confidence cracks."
+        speaking_cast: ["Aalto", "licensed cord-seller", "Enfys"]
+        advances: [revelation, relationship]
+      - id: arc1.ep06.s3
+        summary: "The old knot-worker's hidden scrap of true fibre gives Aalto a better measure."
+        speaking_cast: ["Aalto", "old knot-worker"]
+        advances: [plot, revelation]
+        silence_beat: true
+    promises:
+      - id: arc1.ep06.promise.false_material
+        kind: mystery
+        statement: "Lawful material can be built to pass a measure and fail the work."
+        made_in: arc1.ep06.s1
+        payoff_ref: arc1.ep06.s2
+      - id: arc1.ep06.promise.old_fibre_teaching
+        kind: relationship
+        statement: "Old fibre knowledge exists outside the licensed measure."
+        made_in: arc1.ep06.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep06.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep06.s1
+        close_beat: arc1.ep06.s3
+      - id: arc1.ep06.mice.character
+        kind: character
+        open_beat: arc1.ep06.s2
+        close_beat: arc1.ep06.s2
+    tryfail_beats:
+      - id: arc1.ep06.try.1
+        attempt: "Trust the store's stamped measure."
+        outcome: "no-and"
+      - id: arc1.ep06.try.2
+        attempt: "Prove the failure by ordinary hand tests."
+        outcome: "yes-but"
+      - id: arc1.ep06.try.3
+        attempt: "Accept hidden old fibre as better evidence than licensed sameness."
+        outcome: "yes-and"
+    loops_opened:
+      - old_fibre_teaching
+      - lawful_object_built_not_to_hold
+    loops_closed:
+      - who_benefits_from_blame
+
+  - id: arc1.ep07
+    title: The Missing Weathers
+    hook_by_seconds: 30
+    ki: "A clean keep-stamped Turning deck lies near the licensed measures, respectable and stiff."
+    sho: "Enfys uses it only for small choices, but every answer comes out blank-soothing beside her worn deck."
+    ten: "Aalto and Enfys count the leaves through and find the hard Weathers deliberately cut out."
+    ketsu: "The arc's midpoint turn lands: a tool for thought has been made unable to hold the question of debt."
+    scenes:
+      - id: arc1.ep07.s1
+        summary: "The licensed deck-owner presents a stiff keep-stamped deck as clean and respectable."
+        speaking_cast: ["Aalto", "Enfys", "licensed deck-owner"]
+        advances: [plot]
+      - id: arc1.ep07.s2
+        summary: "Enfys uses the deck for small choices and its answers soothe away every hard question."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [relationship, revelation]
+      - id: arc1.ep07.s3
+        summary: "Aalto and Enfys count the leaves and find the hard Weathers cut out."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [plot, revelation]
+        silence_beat: true
+    promises:
+      - id: arc1.ep07.promise.deck_cut
+        kind: mystery
+        statement: "The keep-stamped deck has been physically made unable to answer hard questions."
+        made_in: arc1.ep07.s1
+        payoff_ref: arc1.ep07.s3
+      - id: arc1.ep07.promise.false_curriculum
+        kind: core
+        statement: "The rigged deck is evidence of false curriculum that returns beyond the opening arc."
+        made_in: arc1.ep07.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep07.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep07.s1
+        close_beat: arc1.ep07.s3
+      - id: arc1.ep07.mice.character
+        kind: character
+        open_beat: arc1.ep07.s2
+        close_beat: arc1.ep07.s2
+    tryfail_beats:
+      - id: arc1.ep07.try.1
+        attempt: "Use the clean deck for harmless choices."
+        outcome: "yes-but"
+      - id: arc1.ep07.try.2
+        attempt: "Compare its answers to Enfys's worn deck."
+        outcome: "no-and"
+      - id: arc1.ep07.try.3
+        attempt: "Count the deck as a made object rather than a mystical verdict."
+        outcome: "yes-and"
+    loops_opened:
+      - maimed_deck_as_evidence
+      - enclosed_questions
+      - rigged_turning_as_false_curriculum
+      - what_else_has_false_material_harmed
+    loops_closed:
+      - lawful_object_built_not_to_hold
+
+  - id: arc1.ep08
+    title: Thorn in the Bramble
+    hook_by_seconds: 25
+    ki: "Aalto, alone, follows signs of trap, bad cord, and unnatural silence to the moor-edge brambles."
+    sho: "The trapped hound is hurt, dangerous, and no one's property; Aalto works by increments, leaving room for refusal."
+    ten: "Aalto understands that care owed to a wounded spirit does not purchase gratitude or rights."
+    ketsu: "The trap is opened and the thorn drawn, but Aalto leaves the bond unclaimed."
+    scenes:
+      - id: arc1.ep08.s1
+        summary: "Aalto follows bad cord, torn mud, and wrong silence to the moor-edge trap."
+        speaking_cast: ["Aalto"]
+        advances: [plot, revelation]
+      - id: arc1.ep08.s2
+        summary: "Aalto works near Bramble by increments, giving the hurt hound space to refuse."
+        speaking_cast: ["Aalto", "Bramble"]
+        advances: [relationship]
+        silence_beat: true
+      - id: arc1.ep08.s3
+        summary: "The trap opens and the thorn comes free, but Aalto leaves without claiming the bond."
+        speaking_cast: ["Aalto", "Bramble"]
+        advances: [plot, relationship]
+    promises:
+      - id: arc1.ep08.promise.consent_care
+        kind: relationship
+        statement: "Care can be owed without buying ownership or gratitude."
+        made_in: arc1.ep08.s1
+        payoff_ref: arc1.ep08.s3
+      - id: arc1.ep08.promise.bramble_nearness
+        kind: character
+        statement: "Bramble's nearness cannot become command."
+        made_in: arc1.ep08.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep08.mice.event
+        kind: event
+        open_beat: arc1.ep08.s1
+        close_beat: arc1.ep08.s3
+      - id: arc1.ep08.mice.character
+        kind: character
+        open_beat: arc1.ep08.s2
+        close_beat: arc1.ep08.s2
+    tryfail_beats:
+      - id: arc1.ep08.try.1
+        attempt: "Approach Bramble as a trapped animal to be handled."
+        outcome: "no-and"
+      - id: arc1.ep08.try.2
+        attempt: "Work near him by increments and leave refusal intact."
+        outcome: "yes-but"
+      - id: arc1.ep08.try.3
+        attempt: "Open the trap without closing a claim."
+        outcome: "yes-and"
+    loops_opened:
+      - bramble_nearness_not_command
+      - frith_knot_not_yet_sealed
+    loops_closed:
+      - what_else_has_false_material_harmed
+
+  - id: arc1.ep09
+    title: The Collar Offered
+    hook_by_seconds: 35
+    ki: "Aalto returns alone with cleaned cord, saved food, and a Frith-knot collar worked from the best fibre they possess."
+    sho: "The work is patient and silent: combing burrs, cleaning the wound, setting the collar down instead of fastening it."
+    ten: "Bramble steps away, circles, and only then lowers his own head through the collar."
+    ketsu: "The Bramble treaty begins on Bramble's terms; Aalto walks beside him without holding the loose end."
+    scenes:
+      - id: arc1.ep09.s1
+        summary: "Aalto returns with cleaned cord, saved food, and a collar made from the best fibre left."
+        speaking_cast: ["Aalto"]
+        advances: [plot]
+      - id: arc1.ep09.s2
+        summary: "Aalto tends burrs and wound, then sets the collar down instead of fastening it."
+        speaking_cast: ["Aalto", "Bramble"]
+        advances: [relationship]
+        silence_beat: true
+      - id: arc1.ep09.s3
+        summary: "Bramble chooses the collar and walks beside Aalto with the loose end untouched."
+        speaking_cast: ["Aalto", "Bramble"]
+        advances: [plot, relationship, revelation]
+    promises:
+      - id: arc1.ep09.promise.bramble_treaty
+        kind: relationship
+        statement: "Bramble's treaty begins only if Bramble chooses it."
+        made_in: arc1.ep09.s1
+        payoff_ref: arc1.ep09.s3
+      - id: arc1.ep09.promise.frithwed_deepens
+        kind: core
+        statement: "The Frith bond will deepen as method, not as mascot convenience."
+        made_in: arc1.ep09.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep09.mice.character
+        kind: character
+        open_beat: arc1.ep09.s1
+        close_beat: arc1.ep09.s3
+      - id: arc1.ep09.mice.event
+        kind: event
+        open_beat: arc1.ep09.s2
+        close_beat: arc1.ep09.s2
+    tryfail_beats:
+      - id: arc1.ep09.try.1
+        attempt: "Return with practical repair instead of a demand."
+        outcome: "yes-but"
+      - id: arc1.ep09.try.2
+        attempt: "Offer the collar without fastening it."
+        outcome: "no-but"
+      - id: arc1.ep09.try.3
+        attempt: "Let Bramble choose the collar on his own terms."
+        outcome: "yes-and"
+    loops_opened:
+      - bramble_senses_wrongness
+      - frithwed_name_deepens
+    loops_closed:
+      - bramble_nearness_not_command
+      - frith_knot_not_yet_sealed
+
+  - id: arc1.ep10
+    title: The House That Would Not Dry
+    hook_by_seconds: 30
+    ki: "Aalto, Enfys, and Bramble need one dry room before the night weather comes down."
+    sho: "Threshold, hinge, log, vellum, and waterline refuse in the same place while Enfys restores one cut Weather."
+    ten: "Animal consent, honest craft, and restored counsel all recoil at the same hidden claim through physical refusals."
+    ketsu: "The near-household gets one dry night, but a task Aalto cannot finish makes the missing practical hand audible."
+    scenes:
+      - id: arc1.ep10.s1
+        summary: "Aalto names the immediate want: one dry room before night weather."
+        speaking_cast: ["Aalto", "Enfys", "Bramble"]
+        advances: [plot]
+      - id: arc1.ep10.s2
+        summary: "Threshold, hinge, log, vellum, and waterline repeat Bramble's refusal."
+        speaking_cast: ["Aalto", "Enfys", "Bramble"]
+        advances: [revelation, relationship]
+      - id: arc1.ep10.s3
+        summary: "A restored Weather gives a small dry effect, and an unfinished task exposes the missing practical hand."
+        speaking_cast: ["Aalto", "Enfys", "Bramble"]
+        advances: [plot, revelation]
+    promises:
+      - id: arc1.ep10.promise.one_dry_night
+        kind: core
+        statement: "Bramble's refusal and restored Weather can make the hidden claim audible enough to win one dry night."
+        made_in: arc1.ep10.s1
+        payoff_ref: arc1.ep10.s3
+      - id: arc1.ep10.promise.household_needs_hand
+        kind: relationship
+        statement: "The near-household needs a practical intelligence not yet present."
+        made_in: arc1.ep10.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep10.mice.event
+        kind: event
+        open_beat: arc1.ep10.s1
+        close_beat: arc1.ep10.s3
+      - id: arc1.ep10.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep10.s2
+        close_beat: arc1.ep10.s2
+    tryfail_beats:
+      - id: arc1.ep10.try.1
+        attempt: "Warm and dry the outbuilding by ordinary household work."
+        outcome: "no-and"
+      - id: arc1.ep10.try.2
+        attempt: "Use a restored Weather and Bramble's refusal to find the same physical wrongness."
+        outcome: "yes-but"
+      - id: arc1.ep10.try.3
+        attempt: "Hold one dry night while admitting the household lacks the hand for the unfinished task."
+        outcome: "yes-and"
+    loops_opened:
+      - household_needs_hands
+      - restored_weather_will_answer
+    loops_closed:
+      - bramble_senses_wrongness
+      - maimed_deck_as_evidence
+      - enclosed_questions
+
+  - id: arc1.ep11
+    title: The Abandoned Repair-Shed
+    hook_by_seconds: 40
+    ki: "Bramble leads Aalto and Enfys to a hidden repair-shed full of rusted iron, old ash, and unlawful mending."
+    sho: "Aalto reads theft at first; Enfys recognizes repairs before she admits she recognizes the maker."
+    ten: "The most careful work hides where no owner or clerk would ever see it."
+    ketsu: "The absent repairer becomes the answer to the household's practical lack and the next promise of Enfys's debt."
+    scenes:
+      - id: arc1.ep11.s1
+        summary: "Bramble leads them to the repair-shed and its unlawful mending."
+        speaking_cast: ["Aalto", "Enfys", "Bramble"]
+        advances: [plot]
+      - id: arc1.ep11.s2
+        summary: "Aalto reads theft until hidden craft standards reveal careful care."
+        speaking_cast: ["Aalto", "Enfys"]
+        advances: [revelation, relationship]
+      - id: arc1.ep11.s3
+        summary: "Enfys admits she knows enough about the maker to be afraid of naming him."
+        speaking_cast: ["Aalto", "Enfys", "Bramble"]
+        advances: [plot, revelation]
+        silence_beat: true
+    promises:
+      - id: arc1.ep11.promise.hidden_repairs
+        kind: mystery
+        statement: "The shed's hidden repairs were made by someone whose care is criminalized."
+        made_in: arc1.ep11.s1
+        payoff_ref: arc1.ep11.s3
+      - id: arc1.ep11.promise.enfys_debt
+        kind: character
+        statement: "Enfys recognizes the repairer and carries a debt attached to him."
+        made_in: arc1.ep11.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep11.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep11.s1
+        close_beat: arc1.ep11.s3
+      - id: arc1.ep11.mice.character
+        kind: character
+        open_beat: arc1.ep11.s2
+        close_beat: arc1.ep11.s2
+    tryfail_beats:
+      - id: arc1.ep11.try.1
+        attempt: "Read the hidden shed as theft or trespass."
+        outcome: "no-and"
+      - id: arc1.ep11.try.2
+        attempt: "Read the repairs by craft standard instead."
+        outcome: "yes-but"
+      - id: arc1.ep11.try.3
+        attempt: "Let the absent repairer become the next needed answer."
+        outcome: "yes-and"
+    loops_opened:
+      - who_made_hidden_repairs
+      - enfys_knows_repairer
+    loops_closed:
+      - old_fibre_teaching
+
+  - id: arc1.ep12
+    title: Geir Ketilson
+    hook_by_seconds: 20
+    ki: "Geir catches the trespassers in his shed and wants the tool, the shed, and the trespass understood correctly before anyone moves."
+    sho: "Aalto answers through practical work; Enfys's courtesy grows too careful; Bramble's refusal keeps the room geography clear."
+    ten: "Recognition, cost, and a withheld accusation land in countable fragments before any backstory can take over."
+    ketsu: "The four stand in one place for the first time, not as forgiveness or family, but as need, competence, and withheld verdict."
+    scenes:
+      - id: arc1.ep12.s1
+        summary: "Geir catches the trespassers and names the tool, the shed, and the trespass before anyone moves."
+        speaking_cast: ["Aalto", "Enfys", "Bramble", "Geir"]
+        advances: [plot]
+      - id: arc1.ep12.s2
+        summary: "Aalto answers with practical work while Enfys's courtesy becomes too careful."
+        speaking_cast: ["Aalto", "Enfys", "Geir"]
+        advances: [relationship, revelation]
+      - id: arc1.ep12.s3
+        summary: "Recognition, cost, and withheld accusation become the first shelter Geir offers."
+        speaking_cast: ["Aalto", "Enfys", "Bramble", "Geir"]
+        advances: [plot, relationship, revelation]
+        silence_beat: true
+    promises:
+      - id: arc1.ep12.promise.geir_arrival
+        kind: relationship
+        statement: "Geir is the practical hand the household lacked before he is a backstory answer."
+        made_in: arc1.ep12.s1
+        payoff_ref: arc1.ep12.s3
+      - id: arc1.ep12.promise.withheld_verdict
+        kind: character
+        statement: "Geir's knowledge of Enfys is a withheld verdict, not a resolved forgiveness."
+        made_in: arc1.ep12.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep12.mice.event
+        kind: event
+        open_beat: arc1.ep12.s1
+        close_beat: arc1.ep12.s3
+      - id: arc1.ep12.mice.character
+        kind: character
+        open_beat: arc1.ep12.s2
+        close_beat: arc1.ep12.s2
+    tryfail_beats:
+      - id: arc1.ep12.try.1
+        attempt: "Move through the shed before Geir names what the work requires."
+        outcome: "no-and"
+      - id: arc1.ep12.try.2
+        attempt: "Meet Geir through practical competence instead of apology."
+        outcome: "yes-but"
+      - id: arc1.ep12.try.3
+        attempt: "Accept shelter with the verdict withheld rather than erased."
+        outcome: "yes-and"
+    loops_opened:
+      - geir_withheld_verdict_returns
+      - geir_may_be_household_hand
+    loops_closed:
+      - who_made_hidden_repairs
+      - enfys_knows_repairer
+      - household_needs_hands
+
+  - id: arc1.ep13
+    title: The Unseen Finish
+    hook_by_seconds: 50
+    ki: "Geir sets Aalto to mend a ward-frame whose truest work will be buried once closed."
+    sho: "Aalto wants visible usefulness; Geir insists on a perfect unseen finish while Enfys measures the next tide through restored leaves."
+    ten: "Aalto understands hidden beauty as a kept standard, not ornament: care proven where no one is watching."
+    ketsu: "The mended frame seats well enough to hold until the first shared working."
+    scenes:
+      - id: arc1.ep13.s1
+        summary: "Geir sets Aalto to a ward-frame whose best join will disappear when closed."
+        speaking_cast: ["Aalto", "Geir"]
+        advances: [plot, relationship]
+      - id: arc1.ep13.s2
+        summary: "Aalto wants visible usefulness while Enfys measures tide through restored leaves."
+        speaking_cast: ["Aalto", "Enfys", "Geir"]
+        advances: [relationship, revelation]
+      - id: arc1.ep13.s3
+        summary: "The unseen finish seats, teaching Aalto that hidden care is a standard."
+        speaking_cast: ["Aalto", "Enfys", "Geir"]
+        advances: [plot, revelation]
+    promises:
+      - id: arc1.ep13.promise.unseen_finish
+        kind: character
+        statement: "The hidden finish teaches Aalto a standard that can hold beyond visible usefulness."
+        made_in: arc1.ep13.s1
+        payoff_ref: arc1.ep13.s3
+      - id: arc1.ep13.promise.sour_spring_line
+        kind: umbrella
+        statement: "The sour spring line leads out of Arc 1 into Act 1's water and boundary case."
+        made_in: arc1.ep13.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep13.mice.character
+        kind: character
+        open_beat: arc1.ep13.s1
+        close_beat: arc1.ep13.s3
+      - id: arc1.ep13.mice.inquiry
+        kind: inquiry
+        open_beat: arc1.ep13.s2
+        close_beat: arc1.ep13.s2
+    tryfail_beats:
+      - id: arc1.ep13.try.1
+        attempt: "Make the mending visibly useful."
+        outcome: "yes-but"
+      - id: arc1.ep13.try.2
+        attempt: "Obey Geir's hidden standard without understanding it."
+        outcome: "no-but"
+      - id: arc1.ep13.try.3
+        attempt: "Seat the unseen finish as dignity no auditor can inspect."
+        outcome: "yes-and"
+    loops_opened:
+      - unseen_finish_shapes_aalto
+      - sour_spring_line_leads_onward
+    loops_closed:
+      - geir_may_be_household_hand
+      - restored_weather_will_answer
+
+  - id: arc1.ep14
+    title: The First Working Household
+    hook_by_seconds: 30
+    ki: "Storm signs gather again over Gwern, returning the arc to the failed ward's pattern."
+    sho: "Enfys gathers proof-fragments, Aalto carries timing and knot-work, Geir grounds the post, and Bramble refuses the sour line."
+    ten: "The opening disaster reframes as the first proof of their method: not an orphan saved by power, but a household made by distributed competence and consent."
+    ketsu: "They steady one local ward without curing Gwern; the hearth dries enough for breath, sleep, and shared food."
+    scenes:
+      - id: arc1.ep14.s1
+        summary: "Storm signs repeat the opening failure and bring the proof-fragments back to Gwern."
+        speaking_cast: ["Aalto", "Enfys", "Bramble", "Geir"]
+        advances: [plot, revelation]
+      - id: arc1.ep14.s2
+        summary: "Each household member carries a different premise: leaves, timing, grounded post, and threshold refusal."
+        speaking_cast: ["Aalto", "Enfys", "Bramble", "Geir"]
+        advances: [relationship, revelation]
+        silence_beat: true
+      - id: arc1.ep14.s3
+        summary: "The ward steadies locally and the hearth dries enough for food, breath, and sleep."
+        speaking_cast: ["Aalto", "Enfys", "Bramble", "Geir"]
+        advances: [plot, relationship]
+    promises:
+      - id: arc1.ep14.promise.first_household
+        kind: umbrella
+        statement: "The first working household forms through distributed competence and consent."
+        made_in: arc1.ep14.s1
+        payoff_ref: arc1.ep14.s3
+      - id: arc1.ep14.promise.method_tested
+        kind: core
+        statement: "The household method will be tested across Trefpen and Gwern rather than solved here."
+        made_in: arc1.ep14.s3
+        open_loop_carry: true
+    mice_threads:
+      - id: arc1.ep14.mice.event
+        kind: event
+        open_beat: arc1.ep14.s1
+        close_beat: arc1.ep14.s3
+      - id: arc1.ep14.mice.character
+        kind: character
+        open_beat: arc1.ep14.s2
+        close_beat: arc1.ep14.s2
+    tryfail_beats:
+      - id: arc1.ep14.try.1
+        attempt: "Repeat the opening ward repair as a stronger solo fix."
+        outcome: "no-and"
+      - id: arc1.ep14.try.2
+        attempt: "Join proof-fragments by each member's competence."
+        outcome: "yes-but"
+      - id: arc1.ep14.try.3
+        attempt: "Steady one ward while leaving Gwern's larger wrongness open."
+        outcome: "yes-and"
+    loops_opened:
+      - household_method_will_be_tested
+    loops_closed:
+      - why_the_ward_failed
+      - frithwed_name_deepens
+      - unseen_finish_shapes_aalto
+      - opening_household_formed

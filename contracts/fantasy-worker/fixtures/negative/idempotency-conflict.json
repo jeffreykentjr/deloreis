@@ -1,0 +1,15 @@
+{
+  "fixture": "negative/idempotency-conflict",
+  "version": 1,
+  "note": "An idempotency_key reused with a DIFFERENT payload is refused with `conflict` (not stale-fence, which means the digest moved). The precondition opens ws-1 and applies key K1 to entity `alpha`; the graded call reuses K1 for a different entity `beta`, so the key is bound to its first payload and the reuse conflicts.",
+  "precondition": [
+    { "dli": "0.1.0", "id": "pre-1", "op": "author.open", "params": { "scope": "saltmarket" } },
+    { "dli": "0.1.0", "id": "pre-2", "op": "author.add_entity", "params": { "workspace": "ws-1", "kind": "person", "id": "alpha", "name": "Alpha", "provenance": { "kind": "proposed", "origin": "o" } }, "idempotency_key": "K1" }
+  ],
+  "send": {
+    "dli": "0.1.0", "id": "1", "op": "author.add_entity",
+    "params": { "workspace": "ws-1", "kind": "person", "id": "beta", "name": "Beta", "provenance": { "kind": "proposed", "origin": "o" } },
+    "idempotency_key": "K1"
+  },
+  "expect_error": { "code": "conflict" }
+}

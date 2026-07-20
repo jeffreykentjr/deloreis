@@ -1,19 +1,27 @@
 {
   "fixture": "golden/simulate-v1",
   "version": 1,
+  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
         "dli": "0.1.0",
         "id": "1",
         "op": "dli.simulate.start",
-        "params": { "document": "true-naming", "seed": 42, "turns": 3 }
+        "params": {
+          "document": "true-naming",
+          "seed": 42,
+          "turns": 3
+        }
       },
       "expect": {
         "dli": "0.1.0",
         "id": "1",
         "ok": true,
-        "result": { "job_id": "job-1", "status": "started" }
+        "result": {
+          "job_id": "job-1",
+          "status": "started"
+        }
       }
     }
   ]

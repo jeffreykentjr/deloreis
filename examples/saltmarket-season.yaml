@@ -1,0 +1,59 @@
+# A worked SeasonOutline in the craft schema (CRAFT-1) — the season-scope
+# companion to examples/saltmarket-episodes.yaml. It deserializes through
+# dli_world::craft::outline::SeasonOutline and is checked by
+# dli_world::craft::season::check_season.
+#
+# Both episodes pass check_episode clean. At season scope the only finding is a
+# single outline.loop-never-closed warning: "will-the-household-hold" opens in
+# the finale and is a deliberate carry into the next season — the legacy
+# checker's expected end-of-season signal, not a defect. See the parity note in
+# crates/dli-world/src/craft/mod.rs.
+id: s01
+title: The Salt-Market Common
+promises:
+  - id: arc-household
+    kind: umbrella
+    statement: will these strangers become one working household
+    opened_in: arc-open
+    payoff_ref: s01e2
+episodes:
+  - id: s01e1
+    title: The Knot That Would Not Take
+    hook_by_seconds: 30
+    season_boundary: true            # the season opener waives close-a-loop
+    ki: the apprentice re-ties a souring storm-ward alone over a sick kinsman
+    sho: a stranger arrives because the failed knot still shows a clean argument
+    ten: the fault is the parish spring fouled upstream, a shared and human cause
+    ketsu: the two keep the kinsman breathing and a first trust is seated
+    scenes:
+      - {id: s1, summary: the knot slips before the weather breaks, speaking_cast: [Apprentice], advances: [plot, revelation], silence_beat: true}
+      - {id: s2, summary: the stranger reads the clean argument in bad material, speaking_cast: [Apprentice, Anchor], advances: [relationship]}
+    promises:
+      - {id: p-why-sour, kind: mystery, statement: why does the ward sour, made_in: cold-open, payoff_ref: s2}
+      - {id: p-adopt, kind: relationship, statement: will the anchor stay, made_in: s1, open_loop_carry: true}
+    mice_threads:
+      - {id: m-inquiry, kind: inquiry, open_beat: s1, close_beat: s2}
+    tryfail_beats:
+      - {id: t1, attempt: seat the salt-swollen cord, outcome: no-and}
+      - {id: t2, attempt: read the failure with the stranger, outcome: yes-and}
+    loops_opened: [who-fouls-the-spring]
+    loops_closed: []
+  - id: s01e2
+    title: A Floor Above the Water
+    hook_by_seconds: 40
+    ki: the pair carry the question of the fouled spring into the flooded byre
+    sho: the byre's occupants argue over whose rule governs a shared roof
+    ketsu: the spring's fouling is traced and named, and a household compact is spoken
+    ten: the enclosure upstream is a choice some person made, not a fate
+    scenes:
+      - {id: s1, summary: the fouling is traced to an upstream enclosure, speaking_cast: [Apprentice, Anchor], advances: [revelation, plot]}
+      - {id: s2, summary: the occupants speak a revisable compact, speaking_cast: [Apprentice, Anchor, Reeve], advances: [relationship]}
+    promises:
+      - {id: p-compact, kind: core, statement: will the byre govern itself, made_in: s1, payoff_ref: s2}
+    mice_threads:
+      - {id: m-milieu, kind: milieu, open_beat: s1, close_beat: s2}
+    tryfail_beats:
+      - {id: t1, attempt: name the enclosure aloud, outcome: yes-but}
+      - {id: t2, attempt: seat the spoken compact, outcome: yes-and}
+    loops_opened: [will-the-household-hold]
+    loops_closed: [who-fouls-the-spring]

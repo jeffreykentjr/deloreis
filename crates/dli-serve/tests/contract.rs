@@ -17,7 +17,7 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::ForkRestrict, "dli.fork.restrict"),
     (Op::ForkPreflight, "dli.fork.preflight"),
     (Op::ForkPromote, "dli.fork.promote"),
-    (Op::CheckLedger, "dli.check-ledger"),
+    (Op::CheckProof, "dli.check-proof"),
     (Op::CheckDraft, "dli.check-draft"),
     (Op::SimulateStart, "dli.simulate.start"),
     (Op::SimulateStatus, "dli.simulate.status"),
@@ -69,9 +69,25 @@ fn contract_schema_emission_covers_every_op() {
 }
 
 #[test]
-#[ignore = "enabled at SERVE-1"]
 fn golden_dispatch_matches() {
-    // Once dispatch is real, drive each golden fixture request through it and
-    // assert the response equals the fixture's expectation.
-    todo!("SERVE-1: golden request -> response dispatch")
+    // Drive a golden fixture request through the real dispatch and assert the
+    // response equals the fixture's expectation. The exhaustive multi-step and
+    // negative/raw replays live in `tests/dispatch.rs`; this is the contract-side
+    // smoke that the wire dispatch is live.
+    use dli_serve::author::store::Store;
+    use dli_serve::serve::respond;
+    use dli_serve::session::Sessions;
+    use serde_json::Value;
+
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../contracts/fantasy-worker/fixtures/golden/check-basic-v1.json");
+    let fixture: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let step = &fixture["steps"][0];
+
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let line = serde_json::to_string(&step["send"]).unwrap();
+    let response = respond(&line, &mut sessions, &mut store).expect("a frame is answered");
+    let got = serde_json::to_value(&response).unwrap();
+    assert_eq!(got, step["expect"]);
 }

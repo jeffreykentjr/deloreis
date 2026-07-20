@@ -55,12 +55,9 @@ pub enum Op {
     /// Emit a ruling-request draft from a fork.
     #[serde(rename = "dli.fork.promote")]
     ForkPromote,
-    /// Check a resource ledger.
-    // TODO(CON-1, wave 3): the surface-v1 pass renamed the proof-block keyword
-    // `ledger` → `proof`; the wire op name `dli.check-ledger` is a frozen contract
-    // shape and is deliberately left unchanged here. Rename it with the contract.
-    #[serde(rename = "dli.check-ledger")]
-    CheckLedger,
+    /// Check a diegetic proof block in a practice.
+    #[serde(rename = "dli.check-proof")]
+    CheckProof,
     /// Fact-check a draft.
     #[serde(rename = "dli.check-draft")]
     CheckDraft,
@@ -162,7 +159,7 @@ impl Op {
         Op::ForkRestrict,
         Op::ForkPreflight,
         Op::ForkPromote,
-        Op::CheckLedger,
+        Op::CheckProof,
         Op::CheckDraft,
         Op::SimulateStart,
         Op::SimulateStatus,

@@ -1,0 +1,36 @@
+{
+  "fixture": "golden/fork-add-v1",
+  "version": 1,
+  "expected_outcome": "gated",
+  "note": "dli.fork.add is capability-gated (engine not yet wired); this golden is the intended-contract shape and is excluded from the dispatch replay by serve_owned, like check-proof/export/simulate/timeline.",
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "declarations": [
+            "place breakwater \"The Breakwater\" proposed"
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "delta": {
+            "newly_certain": [],
+            "newly_possible": [],
+            "newly_dead": [],
+            "grade_changed": [],
+            "conflicts": []
+          }
+        }
+      }
+    }
+  ]
+}

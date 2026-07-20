@@ -39,7 +39,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use dli_ast::term::{AtomExpr, Term, TimeRef};
-use dli_core::ann::Status;
+use dli_core::ann::{Ann, Status};
+use dli_core::atom::{Atom, Interner};
 
 use super::{CompiledWorld, WorldFinding};
 use crate::model::{LoadFinding, LoadedAtom};
@@ -47,16 +48,25 @@ use crate::model::{LoadFinding, LoadedAtom};
 /// The world-internal continuity battery: the classes that check the compiled
 /// world against itself, needing no external draft.
 ///
-/// Surfaces the loader's fail-closed [`LoadFinding`]s (provenance, uniqueness) as
-/// [`WorldFinding`]s and emits `continuity.rejected-lore` for every certain fact
-/// that realizes a killed token. Findings are sorted by `(code, message)`.
+/// Surfaces the loader's fail-closed [`LoadFinding`]s (provenance, uniqueness) and
+/// the evaluator's lowering findings (a `citation.unknown-decision` forged-authority
+/// claim, `B1`) as [`WorldFinding`]s, and emits `continuity.rejected-lore` for
+/// every certain fact that realizes a killed token. Findings are sorted by
+/// `(code, message)`.
 #[must_use]
 pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     let mut out = Vec::new();
     for finding in world.model.findings() {
         out.push(load_finding_to_world(finding));
     }
+    for finding in &world.model.world.findings {
+        out.push(WorldFinding::error(
+            finding.code.clone(),
+            finding.message.clone(),
+        ));
+    }
     out.extend(certain_rejected_lore(world));
+    out.extend(chronology_cycle(world));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -65,6 +75,79 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// stable code and domain-spoken message (the two-channel error model).
 fn load_finding_to_world(finding: &LoadFinding) -> WorldFinding {
     WorldFinding::error(finding.code(), finding.message())
+}
+
+/// `continuity.chronology-cycle` when the era spine or the `before`-facts close
+/// a precedence loop: a run of ordering rulings that says an event precedes
+/// itself. The **same** cycle detection the event `before`-graph uses runs over
+/// the whole chronology (era-order edges included), so a contradictory era chain
+/// (`era a < b < a`) is a first-class finding — not silently accepted — and the
+/// finding is blamed on the exact edges and their declaring rulings.
+fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
+    let chronology = &world.model.world.chronology;
+    let Some(blame) = chronology.find_cycle(&world.model.chronology_anns) else {
+        return Vec::new();
+    };
+    let time_points = &world.model.world.time_points;
+    let interner = &world.model.world.interner;
+
+    let loop_render: Vec<String> = blame
+        .cycle
+        .iter()
+        .map(|edge| {
+            format!(
+                "{} -> {}",
+                point_name(time_points, edge.before),
+                point_name(time_points, edge.after)
+            )
+        })
+        .collect();
+
+    let mut citations: Vec<String> = Vec::new();
+    for edge in &blame.cycle {
+        if let Some(ann) = &edge.ann {
+            for citation in ann_citations(ann, interner) {
+                if !citations.contains(&citation) {
+                    citations.push(citation);
+                }
+            }
+        }
+    }
+
+    vec![
+        WorldFinding::error(
+            "continuity.chronology-cycle",
+            format!(
+                "the chronology contradicts itself: an ordering cycle over {} edge(s) — {}",
+                blame.cycle.len(),
+                loop_render.join(", ")
+            ),
+        )
+        .with_citations(citations),
+    ]
+}
+
+/// The name of a time point, or a stable `#index` fallback.
+fn point_name(time_points: &Interner, point: dli_time::chronology::TimePoint) -> String {
+    time_points
+        .resolve(Atom(point.0))
+        .map_or_else(|| format!("#{}", point.0), ToOwned::to_owned)
+}
+
+/// The decision variables an ordering ruling's support rests on, resolved to
+/// their citation names (`d-nnnn`) through the event-variable interner.
+fn ann_citations(ann: &Ann, interner: &Interner) -> Vec<String> {
+    let mut out = Vec::new();
+    for monomial in ann.support.monomials() {
+        for lit in monomial.lits() {
+            if let Some(name) = interner.resolve(lit.atom)
+                && !out.contains(&name.to_owned())
+            {
+                out.push(name.to_owned());
+            }
+        }
+    }
+    out
 }
 
 /// The claim-relative continuity battery over a set of asserted claims — the

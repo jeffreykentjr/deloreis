@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/version-schema-violation",
+  "version": 1,
+  "note": "params must be a JSON object; a non-object violates the op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "dli.version",
+    "params": "not-a-params-object"
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

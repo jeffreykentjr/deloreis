@@ -9,14 +9,24 @@
         "op": "dli.check-draft",
         "params": {
           "payload": {
-            "meta": { "title": "the-door-after-rain", "pack": "saltmarket", "version": 1 },
+            "meta": {
+              "title": "the-door-after-rain",
+              "scope": "saltmarket",
+              "version": 1
+            },
             "claims": [],
             "deltas": [],
-            "scenes": ["scene-1"],
-            "beats": ["beat-1"],
+            "scenes": [
+              "scene-1"
+            ],
+            "beats": [
+              "beat-1"
+            ],
             "promises": [],
-            "proof_ledgers": [],
-            "names": ["mara"],
+            "proofs": [],
+            "names": [
+              "mara"
+            ],
             "lexicon": []
           }
         }
@@ -26,13 +36,7 @@
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            {
-              "claim": "adjacent(saltmarket, the-shallows)",
-              "grade": "checked",
-              "message": "supported by the compiled world"
-            }
-          ]
+          "findings": []
         }
       }
     }

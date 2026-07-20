@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/version-mismatch",
+  "version": 1,
+  "note": "A well-formed frame that declares a contract version this build does not speak is refused with version-mismatch (refused class) \u2014 the envelope parsed cleanly, so it is not a bad-frame.",
+  "send": {
+    "dli": "9.9.9",
+    "id": "1",
+    "op": "dli.version",
+    "params": {}
+  },
+  "expect_error": {
+    "code": "version-mismatch"
+  }
+}

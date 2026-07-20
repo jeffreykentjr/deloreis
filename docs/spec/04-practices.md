@@ -50,11 +50,11 @@ are the closed vocabulary a practice declaration draws on; a practice that
 needs something outside this vocabulary is telling the workbench that the
 parameterization is incomplete, which is a finding worth having.
 
-**Typed finite kinds, including the cyclic `wheel`.** A practice declares its
+**Typed finite kinds, including the cyclic `cycle`.** A practice declares its
 own kinds — grounds, binders, roles — as ordinary finite kinds
-([01-syntax](01-syntax.md)). The cyclic `wheel` kind ([03-time](03-time.md),
+([01-syntax](01-syntax.md)). The cyclic `cycle` kind ([03-time](03-time.md),
 [koan 8](../charter.md)) is available on the same footing: tide, moon, and
-season are wheels, and so is the Turning's ring of twenty-nine leaves. A wheel
+season are cycles, and so is the Turning's ring of twenty-nine leaves. A cycle
 carries `succ`, `pred`, `across`, and `distance` and refuses `<`, sort order,
 and maximum — the same rank-refusing kind the timing checker and the game
 engine share.
@@ -80,7 +80,7 @@ fixed, small algebra — nothing else is a resource:
   along its declared order; nothing is spent, but the grade wears.
 
 **Side conditions over the scene projection.** A condition is a predicate over
-the world as projected into a scene: states that hold there, wheel phases in
+the world as projected into a scene: states that hold there, cycle phases in
 force, cast presence, consent facts, scope containment. Conditions are how a
 practice reaches into story-time and world-state without special-casing
 either — the timing of a casting, the standing of a witness, the boundary a
@@ -157,7 +157,7 @@ practice spoken-proof  ratified D-0146 D-0148 {
                            signals bodily-hit
   error mis-scope          refines L3 side-condition [scope] at close
   error bad-holder         refines L3 side-condition [holder-soundness]
-  error wrong-hour         refines L3 side-condition [timing] over wheel tide, moon
+  error wrong-hour         refines L3 side-condition [timing] over cycle tide, moon
   error coerced-party      refines L3 side-condition [consent] signals refusal
   error broken-chorus      refines L5 invalid-chain where chorus fails
   error overload           refines L6 resource-violation on strain signals collapse
@@ -177,7 +177,7 @@ refinement of one class. Fizzle and Rebound are both L2, split by the
 discriminant *absent* versus *contradicted*: a fizzle draws on a premise merely
 unestablished, a rebound on one the projection actively denies, and a rebound
 signals a bodily hit while a fizzle signals nothing. Wrong-hour is the timing
-side condition over the kernel's own wheels — the series-opening beat that a
+side condition over the kernel's own cycles — the series-opening beat that a
 ward can fail for being made at the wrong hour is one declared line, not a
 special case. Overload is the affine bound on `strain`. A ledger reading
 `in spoken-proof` speaks the story's language back:

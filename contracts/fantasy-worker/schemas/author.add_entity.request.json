@@ -9,7 +9,7 @@
       "type": "string"
     },
     "kind": {
-      "description": "The entity sort (person/place/thing/era).",
+      "description": "The entity kind (person/place/thing/era).",
       "$ref": "#/$defs/EntityKind"
     },
     "name": {
@@ -25,6 +25,7 @@
       "type": "string"
     }
   },
+  "additionalProperties": false,
   "required": [
     "workspace",
     "kind",
@@ -34,7 +35,7 @@
   ],
   "$defs": {
     "EntityKind": {
-      "description": "The closed entity sort for `author.add_entity`. Events are not entities —\nchronology points go through `author.add_event`.",
+      "description": "The closed entity kind for `author.add_entity`. Events are not entities —\nchronology points go through `author.add_event`.",
       "oneOf": [
         {
           "description": "A person.",
@@ -77,6 +78,7 @@
               "const": "cited"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "decisions"
@@ -95,6 +97,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "origin"
@@ -113,6 +116,7 @@
               "const": "hypothesis"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "hyp"

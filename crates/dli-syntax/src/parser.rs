@@ -253,6 +253,66 @@ pub fn parse_clause_atom(clause: &Clause) -> Option<AtomExpr> {
     None
 }
 
+/// Emit a `malformed` error if the record has unconsumed trailing tokens.
+///
+/// Nothing on a line may be silently dropped (koan 4): a declaration that read
+/// its structured fields but left junk behind is flagged — showing the shape it
+/// should have taken — rather than quietly discarding the surplus.
+fn expect_consumed(cur: &Cursor, diags: &mut Vec<Diagnostic>, shape: &str) {
+    if let Some(tok) = cur.peek() {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            format!("unexpected `{}` — {shape}", tok.text),
+            tok.span,
+        ));
+    }
+}
+
+/// The authoritative set of keywords a declaration line may open with — exactly
+/// what [`parse_document`] dispatches on. This is the single source of truth for
+/// the grammar reference; the demoted probe's `KEYWORDS` re-exports it, so the
+/// two can never drift.
+pub const LINE_OPEN_KEYWORDS: &[&str] = &[
+    "attest",
+    "banned",
+    "before",
+    "cycle",
+    "dialect",
+    "draft",
+    "era",
+    "event",
+    "export",
+    "fact",
+    "fork",
+    "hypothesis",
+    "kind",
+    "name",
+    "name-part",
+    "narration",
+    "option",
+    "person",
+    "place",
+    "practice",
+    "principle",
+    "proof",
+    "question",
+    "ratify",
+    "rule",
+    "scope",
+    "state",
+    "term",
+    "thing",
+    "use",
+    "variant",
+    "word",
+];
+
+/// The authoritative line-open keyword set (see [`LINE_OPEN_KEYWORDS`]).
+#[must_use]
+pub fn line_open_keywords() -> &'static [&'static str] {
+    LINE_OPEN_KEYWORDS
+}
+
 /// A parsed item before options are folded into their question or fork.
 enum Item {
     Decl(Decl),
@@ -675,6 +735,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 let mut relcur = Cursor::new(toks);
                 if let Some(atom) = parse_atom(&mut relcur) {
                     let provenance = parse_provenance(&mut relcur, diags);
+                    expect_consumed(
+                        &relcur,
+                        diags,
+                        "a relation reads `<pred>(<args>) [origin]`.",
+                    );
                     items.push(Item::Decl(Decl::Fact(FactDecl {
                         atom,
                         triple: false,
@@ -785,6 +850,11 @@ fn parse_entity(
     let label = cur.eat_string();
     let time = parse_time_clause(cur);
     let provenance = parse_provenance(cur, diags);
+    expect_consumed(
+        cur,
+        diags,
+        "an entity reads `<kind> <name> [\"label\"] [after|during …] [origin]`.",
+    );
     let slots = record
         .body
         .iter()
@@ -855,6 +925,11 @@ fn parse_attr(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Opti
     cur.bump();
     let value = cur.eat_term()?;
     let provenance = parse_provenance(cur, diags);
+    expect_consumed(
+        cur,
+        diags,
+        "a slot fact reads `<subject>.<slot> = <value> [origin]`.",
+    );
     Some(AttrDecl {
         subject,
         attr,
@@ -868,21 +943,33 @@ fn parse_fact_triple(
     diags: &mut Vec<Diagnostic>,
     span: Span,
 ) -> Option<FactDecl> {
-    let subject = cur.eat_ident()?;
+    const SHAPE: &str = "a `fact` reads `fact <subject> <relation> <object>`.";
+    let Some(subject) = cur.eat_ident() else {
+        diags.push(Diagnostic::new(DiagClass::Malformed, SHAPE, span));
+        return None;
+    };
     let Some(pred) = cur.eat_ident() else {
         diags.push(Diagnostic::new(
             DiagClass::Malformed,
-            "a `fact` reads `fact <subject> <relation> <object>`.",
+            format!("{SHAPE} the relation and object are missing"),
             span,
         ));
         return None;
     };
-    let object = cur.eat_term()?;
+    let Some(object) = cur.eat_term() else {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            format!("{SHAPE} the object is missing"),
+            span,
+        ));
+        return None;
+    };
     let atom = AtomExpr {
         pred,
         args: vec![Term::Sym(subject), object],
     };
     let provenance = parse_provenance(cur, diags);
+    expect_consumed(cur, diags, SHAPE);
     Some(FactDecl {
         atom,
         triple: true,
@@ -918,9 +1005,21 @@ fn parse_atom(cur: &mut Cursor) -> Option<AtomExpr> {
 // --- questions, forks, options -------------------------------------------
 
 fn parse_question(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) -> QuestionDecl {
-    let name = cur.eat_ident().unwrap_or_else(|| synthetic_ident(cur));
+    let name = cur.eat_ident().unwrap_or_else(|| {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a `question` reads `question <name> [\"<prompt>\"]` — the name is missing.",
+            cur.here(),
+        ));
+        synthetic_ident(cur)
+    });
     let prompt = cur.eat_string();
     let provenance = parse_provenance(cur, diags);
+    expect_consumed(
+        cur,
+        diags,
+        "a `question` reads `question <name> [\"<prompt>\"]`.",
+    );
     let options = record.body.iter().filter_map(parse_option_clause).collect();
     QuestionDecl {
         name,
@@ -950,7 +1049,11 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
     }
 }
 
-fn parse_option(cur: &mut Cursor, _diags: &mut [Diagnostic], _span: Span) -> Option<OptionClause> {
+fn parse_option(
+    cur: &mut Cursor,
+    diags: &mut Vec<Diagnostic>,
+    _span: Span,
+) -> Option<OptionClause> {
     let name = cur.eat_ident()?;
     let implies = if cur.peek_word_text() == Some("implies") {
         cur.bump();
@@ -958,6 +1061,11 @@ fn parse_option(cur: &mut Cursor, _diags: &mut [Diagnostic], _span: Span) -> Opt
     } else {
         None
     };
+    expect_consumed(
+        cur,
+        diags,
+        "an `option` reads `option <name> [implies <atom>]`.",
+    );
     Some(OptionClause { name, implies })
 }
 
@@ -993,6 +1101,11 @@ fn parse_before(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
         return None;
     };
     let provenance = parse_provenance(cur, diags);
+    expect_consumed(
+        cur,
+        diags,
+        "a `before` reads `before <earlier> -> <later> [origin]`.",
+    );
     Some(BeforeDecl {
         earlier,
         later,
@@ -1012,6 +1125,11 @@ fn parse_hypothesis(
         return None;
     };
     let statement = cur.eat_string();
+    expect_consumed(
+        cur,
+        diags,
+        "a `hypothesis` reads `hypothesis <name> \"<statement>\"`.",
+    );
     Some(HypothesisDecl { name, statement })
 }
 
@@ -1042,6 +1160,11 @@ fn parse_banned(cur: &mut Cursor, span: Span, diags: &mut Vec<Diagnostic>) -> Op
             span,
         })
     };
+    expect_consumed(
+        cur,
+        diags,
+        "a `banned` reads `banned <word> <d-id> \"<reason>\"`.",
+    );
     Some(BannedDecl {
         word,
         reason,

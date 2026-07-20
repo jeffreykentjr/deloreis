@@ -1,12 +1,41 @@
 {
   "fixture": "negative/materialize-blocked-v1",
   "version": 1,
-  "note": "author.materialize on a workspace that still has error-severity findings open is refused with materialize-blocked; the blocking finding codes ride in the error data. Severity gates materialize (error blocks, warn passes) — orthogonal to grade.",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "0.1.0",
+      "id": "pre-2",
+      "op": "author.add_relation",
+      "params": {
+        "workspace": "ws-1",
+        "relation": "serves",
+        "from": "mireth",
+        "to": "the-warden",
+        "provenance": {
+          "kind": "proposed",
+          "origin": "o"
+        }
+      }
+    }
+  ],
+  "note": "author.materialize on a workspace that still has error-severity findings open is refused with materialize-blocked; the blocking finding codes ride in the error data. Severity gates materialize (error blocks, warn passes) \u2014 orthogonal to grade.",
   "send": {
     "dli": "0.1.0",
     "id": "1",
     "op": "author.materialize",
-    "params": { "workspace": "ws-1" }
+    "params": {
+      "workspace": "ws-1"
+    }
   },
-  "expect_error": { "code": "materialize-blocked" }
+  "expect_error": {
+    "code": "materialize-blocked"
+  }
 }

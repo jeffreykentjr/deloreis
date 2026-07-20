@@ -1,0 +1,72 @@
+{
+  "fixture": "golden/author-add-before-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "0.1.0",
+      "id": "pre-2",
+      "op": "author.add_event",
+      "params": {
+        "id": "the-drowning",
+        "name": "The Drowning",
+        "provenance": {
+          "kind": "proposed",
+          "origin": "session-fx01"
+        },
+        "workspace": "ws-1"
+      }
+    },
+    {
+      "dli": "0.1.0",
+      "id": "pre-3",
+      "op": "author.add_event",
+      "params": {
+        "id": "the-reclaiming",
+        "name": "The Reclaiming",
+        "provenance": {
+          "kind": "proposed",
+          "origin": "session-fx01"
+        },
+        "workspace": "ws-1"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "before the-drowning -> the-reclaiming proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:dd5ef670aa161274d6f55c2d03b017d3cd45d6e84f9f0b28634e9236102ec04e"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.add_before",
+        "params": {
+          "earlier": "the-drowning",
+          "later": "the-reclaiming",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

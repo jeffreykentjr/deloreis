@@ -1,0 +1,222 @@
+{
+  "fixture": "golden/author-tegwen-v1",
+  "note": "The worked migration.md §10 scenario, self-contained over the EMPTY base so it is cold-replayable through respond() with no server-provided base (R3/H5): the location gwern is staged in-fork rather than assumed from canon, then a proposed character with a naming nudge, a fact, and a clean relation to gwern, the diff, and the materialized .dli lines as data. Nothing is ratified. (AUTH-2 replays §10 over the pinned corpus where gwern is a real base place.)",
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "workspace": "ws-1",
+          "workspace_digest": "jcs:sha256:607a3ada3df4bdbc31ff3cb09d4a186c73b69d8beb09a6f1a28130cf710e5686"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.open",
+        "params": {
+          "fork": "ep9-cast"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"gwern\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "gwern"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
+          "rendered": [
+            "place gwern \"Gwern\" proposed agent:factory/ep9-cast"
+          ],
+          "workspace_digest": "jcs:sha256:45446c4422a24ce0cf3da3195832345b5df979ac7ccba1d55e24fa7d5ee5c0c1"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "author.add_entity",
+        "params": {
+          "id": "gwern",
+          "kind": "place",
+          "name": "Gwern",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "agent:factory/ep9-cast"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"tegwen\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "tegwen"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
+          "rendered": [
+            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast"
+          ],
+          "workspace_digest": "jcs:sha256:563a633cb56c25c025150857d21ba5319c8ed001bb0cde347ff602f11105ecd3"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "3",
+        "op": "author.add_entity",
+        "params": {
+          "id": "tegwen",
+          "kind": "person",
+          "name": "Tegwen",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "agent:factory/ep9-cast"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "tegwen.trade = net-mender proposed agent:factory/ep9-cast"
+          ],
+          "workspace_digest": "jcs:sha256:42a26af5ad8150bccadc2fe2d59abc623022e140566a604c7557a9624467e928"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "4",
+        "op": "author.add_fact",
+        "params": {
+          "entity": "tegwen",
+          "key": "trade",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "agent:factory/ep9-cast"
+          },
+          "value": "net-mender",
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+          ],
+          "workspace_digest": "jcs:sha256:29cc5f3b96b33d4ae5560c86d18b37782934369eb8416cbff8a7f78eb540e74d"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "5",
+        "op": "author.add_relation",
+        "params": {
+          "from": "tegwen",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "agent:factory/ep9-cast"
+          },
+          "relation": "located_in",
+          "to": "gwern",
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "6",
+        "ok": true,
+        "result": {
+          "rendered": [
+            "place gwern \"Gwern\" proposed agent:factory/ep9-cast",
+            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast",
+            "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
+            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+          ]
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "6",
+        "op": "author.diff",
+        "params": {
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "7",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "scope ep9-cast",
+            "",
+            "place gwern \"Gwern\" proposed agent:factory/ep9-cast",
+            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast",
+            "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
+            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+          ],
+          "workspace_digest": "jcs:sha256:29cc5f3b96b33d4ae5560c86d18b37782934369eb8416cbff8a7f78eb540e74d"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "7",
+        "op": "author.materialize",
+        "params": {
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

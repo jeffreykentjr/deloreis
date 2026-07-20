@@ -200,9 +200,10 @@ impl WorldFinding {
 /// use dli_world::compile;
 /// use dli_world::pack::Pack;
 /// use dli_world::loader::example_docs;
+/// // `example_docs` declares the decisions it cites (`ratify`), so a clean world
+/// // reports nothing (B1: a citation to an undeclared decision would fail closed).
 /// let pack = Pack { name: "saltmarket".to_owned(), documents: example_docs() };
 /// let world = compile(&pack).expect("compiles");
-/// // The hand-built saltmarket pack is internally consistent.
 /// assert!(dli_world::check::run(&world).is_empty());
 /// ```
 #[must_use]

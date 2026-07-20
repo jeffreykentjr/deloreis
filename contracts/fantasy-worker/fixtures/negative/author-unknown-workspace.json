@@ -6,7 +6,11 @@
     "dli": "0.1.0",
     "id": "1",
     "op": "author.status",
-    "params": { "workspace": "ws-does-not-exist" }
+    "params": {
+      "workspace": "ws-does-not-exist"
+    }
   },
-  "expect_error": { "code": "unknown-doc" }
+  "expect_error": {
+    "code": "unknown-doc"
+  }
 }

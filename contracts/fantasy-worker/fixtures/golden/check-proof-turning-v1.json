@@ -1,0 +1,27 @@
+{
+  "fixture": "golden/check-proof-turning-v1",
+  "version": 1,
+  "expected_outcome": "gated",
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.check-proof",
+        "params": {
+          "document": "true-naming"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "report": {
+            "violations": []
+          }
+        }
+      }
+    }
+  ]
+}

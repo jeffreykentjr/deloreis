@@ -8,5 +8,7 @@
     "op": "dli.frobnicate",
     "params": {}
   },
-  "expect_error": { "code": "unknown-op" }
+  "expect_error": {
+    "code": "unknown-op"
+  }
 }

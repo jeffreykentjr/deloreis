@@ -6,16 +6,65 @@
       "send": {
         "dli": "0.1.0",
         "id": "1",
-        "op": "dli.fork.diff",
-        "params": { "fork": "fork-1" }
+        "op": "dli.fork.new",
+        "params": {
+          "document": "saltmarket"
+        }
       },
       "expect": {
         "dli": "0.1.0",
         "id": "1",
         "ok": true,
         "result": {
-          "newly_certain": [],
-          "newly_possible": ["adjacent(saltmarket, the-shallows)"],
+          "fork": "fork-1"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.fork.suppose",
+        "params": {
+          "fork": "fork-1",
+          "assume": [
+            "h.saltmarket#0"
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "newly_certain": [
+            "rings(tide-bell, saltmarket)"
+          ],
+          "newly_possible": [],
+          "newly_dead": [],
+          "grade_changed": [],
+          "conflicts": []
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "3",
+        "op": "dli.fork.diff",
+        "params": {
+          "fork": "fork-1"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "newly_certain": [
+            "rings(tide-bell, saltmarket)"
+          ],
+          "newly_possible": [],
           "newly_dead": [],
           "grade_changed": [],
           "conflicts": []

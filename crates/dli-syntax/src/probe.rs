@@ -15,52 +15,11 @@ use miette::Diagnostic;
 use thiserror::Error;
 
 /// The reserved keywords a line may open with.
-pub const KEYWORDS: &[&str] = &[
-    "scope",
-    "use",
-    "kind",
-    "fact",
-    "rule",
-    "state",
-    "cycle",
-    "when",
-    "fork",
-    "practice",
-    "proof",
-    "dialect",
-    "name",
-    "word",
-    "draft",
-    "attest",
-    "export",
-    "cite",
-    "hyp",
-    "era",
-    "event",
-    "before",
-    "place",
-    "person",
-    "thing",
-    "question",
-    "option",
-    "hypothesis",
-    "variant",
-    "name-part",
-    "term",
-    "banned",
-    "premise",
-    "step",
-    "spend",
-    "close",
-    "principle",
-    "adjacent",
-    "narration",
-    "ratify",
-    "decided",
-    "proposed",
-    "ratified",
-    "provisional",
-];
+///
+/// This mirrors the parser's authoritative set exactly — it *is*
+/// [`crate::parser::LINE_OPEN_KEYWORDS`] — so the probe and the grammar
+/// reference can never drift from the real dispatch (R3 H11).
+pub const KEYWORDS: &[&str] = crate::parser::LINE_OPEN_KEYWORDS;
 
 /// A line the probe could not place within the gentle subset.
 #[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]

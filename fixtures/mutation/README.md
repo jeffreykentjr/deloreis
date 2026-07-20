@@ -27,11 +27,43 @@ Refresh procedure and the pin rationale: `docs/design-notes/vendored-corpus.md`.
 | `episode.yaml` | episode-target | 4 |
 
 **33 operators total.** In the source engine, **32/33** are caught by ≥1 gate;
-**1** is a known hole (`paraphrased-contradiction`). For deloreis PROOF-1:
-**30** assert a positive kernel catch, **2** are factory-side screens with no
-kernel gate (`slop-cluster`, `allegory-wink` — `kernel_gated: false`), and **1**
-is the honest deterministic miss (`paraphrased-contradiction`, `expected_miss:
-true`, closable only by the non-gating semantic judge).
+**1** is a known hole (`paraphrased-contradiction`). The `expected_catch` field
+is the **proposed** end-state mapping onto the deloreis kernel; PROOF-1 (the
+`dli-world` `mutation_harness` suite) **verifies** it against the real gates and
+records the wave-3 answer in each record's `kernel_outcome:` block.
+
+**Verified wave-3 census** (`docs/design-notes/mutation-coverage.md` has the full
+operator×gate matrix):
+
+| `kernel_outcome.status` | count | meaning |
+|---|---|---|
+| `caught` | 22 | the expected kernel check fires with the right class |
+| `known-divergence` | 1 | the class *dissolves* in deloreis (`registry-file-desync` — no mirror to desync) |
+| `corpus-gap` | 3 | flagged as a defect, but the precise rejected-lore class needs a vendored constraint (`contradict-protagonist-immortal`, `assert-musical-magic`, `assert-narrator-ticking-clock` — D-0067/D-0002/D-0104) |
+| `factory` | 3 | correct no-catch: factory-side by law (`slop-cluster`, `allegory-wink`, **and `killed-name-elara`** — see below) |
+| `pending-gate` | 3 | the catching check lands in a later PLAN node (the three craft operators → CRAFT-2/PAY-2) |
+| `miss` | 1 | the honest deterministic hole (`paraphrased-contradiction`) |
+
+`cite-resolved-question` was a fourth `pending-gate` until the **B1
+citation-existence gate** landed: a citation to an id with no backing declaration
+(a resolved question is not a live ruling) now mints no authority — the claim fails
+closed and `citation.unknown-decision` is raised — so it flipped `pending-gate →
+caught`. A genuine detection gain from the security fix; the `xfail-strict` record
+did exactly what it was written to do.
+
+Two deviations from the proposed mapping the harness surfaced (findings, not
+silent fixes — migration.md §3):
+
+- **`killed-name-elara` is factory-side, not kernel.** Elara is not in the vendored
+  `killed_tokens.yaml`; it lives only in `ai_tics.yaml`, and ai-tics stay
+  factory-side by law (migration.md §2 work-list; spec 05 §3). Registry membership
+  — not "is it an AI-tic" — is the kernel/factory ground truth: `killed-name-silas`
+  re-homes to the kernel because Silas *is* in the registry (Q-0015).
+- **Three rejected-lore operators are `corpus-gap`s.** The vendored `constraints:`
+  section carries only `no-auditor-concept`/`no-singular-demon-king`/`no-monster-of-the-week`;
+  the D-0067/D-0002/D-0104 rejections are not vendored, so the kernel flags those
+  claims as *unsupported* (never silently passes them) but cannot cite the precise
+  rejection. Vendoring the missing constraints upgrades them to clean contradictions.
 
 ## Record shape
 

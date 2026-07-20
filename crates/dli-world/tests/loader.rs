@@ -329,7 +329,9 @@ fn before_declarations_build_a_live_chronology() {
 #[test]
 fn chronology_and_time_points_match_the_evaluator_lowering() {
     // The loader must build the timeline byte-for-byte as `World::lower` does:
-    // era-order chains and `before`-decls, interned in document order.
+    // era-order chains and `before`-decls, interned in document order. The chain
+    // is head-exclusive as the parser emits it (`era first < second < third` →
+    // name `first`, chain `[second, third]`); both lowerings prepend the head.
     let d = Document {
         scope: Some(ScopeHeader {
             name: ident("chron"),
@@ -340,11 +342,7 @@ fn chronology_and_time_points_match_the_evaluator_lowering() {
                 kind: EntityKind::Era,
                 name: ident("first"),
                 label: None,
-                time: Some(TimeClause::Order(vec![
-                    ident("first"),
-                    ident("second"),
-                    ident("third"),
-                ])),
+                time: Some(TimeClause::Order(vec![ident("second"), ident("third")])),
                 slots: Vec::new(),
                 provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
             }),
@@ -419,5 +417,28 @@ fn as_of_filters_atoms_anchored_after_the_cutoff() {
     assert!(
         filtered.rows.is_empty(),
         "as_of dawn must drop the dusk-anchored fact"
+    );
+}
+
+#[test]
+fn a_lone_era_reaches_the_timeline_even_with_no_edge() {
+    // A standalone era in no `before`-fact and no order chain must still be
+    // interned, so the timeline lists it (finding #3): interning happens at the
+    // declaration, not only at edge endpoints.
+    let docs = vec![doc(
+        "chron",
+        vec![Decl::Entity(EntityDecl {
+            kind: EntityKind::Era,
+            name: ident("first-tides"),
+            label: None,
+            time: None,
+            slots: Vec::new(),
+            provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+        })],
+    )];
+    let world = Loader::load(&docs).world.world;
+    assert!(
+        world.time_points.names().iter().any(|n| n == "first-tides"),
+        "a lone era must be interned into the time-point table"
     );
 }

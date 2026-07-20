@@ -34,6 +34,17 @@
 #                        legacy oracle also runs the factory-side screens (AI-tics,
 #                        franchise collisions, homophones). Diffing the two is how a
 #                        cold agent confirms the split re-homed faithfully.
+#   outline <file.yaml>  `fantasy craft outline …` — run the legacy outline checker
+#                        over a SeasonOutline/EpisodeOutline YAML, for the CRAFT-1
+#                        parity transcript: the deloreis craft checker
+#                        (dli_world::craft::season) ports every outline.py violation
+#                        code intact under the `outline.` family. Diffing the two
+#                        verdicts on the vendored real outline
+#                        (fixtures/vendor/fantasy-40f6679-craft/) is how a cold agent
+#                        confirms the port. With no path it defaults to that vendored
+#                        outline; extra flags (--packet, --material-worldbuilding)
+#                        forward to the CLI. `--codes` prints only the sorted
+#                        `[code]` list (what the parity diff compares).
 #   Any trailing args after the subcommand are forwarded to the fantasy CLI.
 #
 # ENVIRONMENT
@@ -121,10 +132,27 @@ case "$cmd" in
     [[ $# -ge 1 ]] || die "name-vet needs a name: pinned-oracles.sh name-vet <name> [args]"
     run_fantasy name vet "$@"
     ;;
+  outline)
+    # CRAFT-1 parity: run the legacy outline checker; default to the vendored
+    # real outline the dli-world craft checker is diffed against.
+    codes_only=false
+    if [[ "${1:-}" == "--codes" ]]; then codes_only=true; shift; fi
+    repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+    default_outline="$repo_root/fixtures/vendor/fantasy-40f6679-craft/lab/campaign-014-structure-development/ARC1-CRAFT-SIDECAR.yaml"
+    path="$default_outline"
+    if [[ $# -ge 1 && "${1:0:1}" != "-" ]]; then path="$1"; shift; fi
+    [[ -f "$path" ]] || die "outline path not found: $path"
+    if $codes_only; then
+      # Sorted [code] list — exactly what the parity diff compares.
+      run_fantasy craft outline "$path" "$@" | grep -oE '\[[a-z0-9-]+\]' | tr -d '[]' | sort
+    else
+      run_fantasy craft outline "$path" "$@"
+    fi
+    ;;
   help | -h | --help)
-    sed -n '2,48p' "$0"
+    awk 'NR>=2 && /^set -euo pipefail/{exit} NR>=2' "$0"
     ;;
   *)
-    die "unknown subcommand '$cmd' (try: provision | info | validate | world-build | factcheck | name-vet | help)"
+    die "unknown subcommand '$cmd' (try: provision | info | validate | world-build | factcheck | name-vet | outline | help)"
     ;;
 esac

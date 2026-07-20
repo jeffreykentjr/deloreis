@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 //! Schema-stability guard: the `Delta` and `LedgerReport` types are embedded in
-//! the committed `check-draft` and `check-ledger` contract schemas, whose
+//! the committed `check-draft` and `check-proof` contract schemas, whose
 //! descriptions schemars bakes from these types' doc comments. This test fails
 //! the moment one drifts, before `xtask schema --check` ever runs — so an
 //! innocent doc-comment edit cannot silently break the fantasy-worker contract.

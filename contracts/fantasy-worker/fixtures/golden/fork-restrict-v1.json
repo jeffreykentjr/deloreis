@@ -1,0 +1,76 @@
+{
+  "fixture": "golden/fork-restrict-v1",
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "fork": "fork-1"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "saltmarket"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "conflicts": [],
+          "grade_changed": [],
+          "newly_certain": [
+            "rings(tide-bell, saltmarket)"
+          ],
+          "newly_dead": [],
+          "newly_possible": []
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.fork.suppose",
+        "params": {
+          "assume": [
+            "h.saltmarket#0"
+          ],
+          "fork": "fork-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "conflicts": [],
+          "grade_changed": [],
+          "newly_certain": [],
+          "newly_dead": [],
+          "newly_possible": []
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "3",
+        "op": "dli.fork.restrict",
+        "params": {
+          "fork": "fork-1",
+          "scope": [
+            "rings(tide-bell, saltmarket)"
+          ]
+        }
+      }
+    }
+  ],
+  "version": 1
+}

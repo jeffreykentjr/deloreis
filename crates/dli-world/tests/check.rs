@@ -14,7 +14,9 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, ScopeHeader};
+use dli_ast::decl::{
+    Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader, TimeClause,
+};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -39,6 +41,16 @@ fn id(text: &str) -> Ident {
 
 fn ratified(cite: &str) -> Annotation {
     marker(ProvenanceMarker::Ratified, &[cite])
+}
+
+/// A `ratify <decision>` declaration — makes the decision a known one, so a
+/// citation to it carries authority (B1 defense-in-depth: a citation alone does
+/// not mint a decision's existence).
+fn ratify_decl(decision: &str) -> Decl {
+    Decl::Ratify(RatifyDecl {
+        decision: id(decision),
+        body: Vec::new(),
+    })
 }
 
 fn marker(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
@@ -80,11 +92,14 @@ fn pack(name: &str, decls: Vec<Decl>) -> Pack {
 }
 
 /// A small hand-built world: the anchor's gender is ratified, the hound's nature
-/// ratified, and a proposed origin sits in the shadow layer.
+/// ratified (both decisions declared, so a citation carries authority), and a
+/// proposed origin sits in the shadow layer.
 fn saltcast_world() -> CompiledWorld {
     compile(&pack(
         "cast",
         vec![
+            ratify_decl("D-0096"),
+            ratify_decl("D-0116"),
             fact("gender", &["anchor", "male"], Some(ratified("D-0096"))),
             fact(
                 "nature",
@@ -305,6 +320,7 @@ fn compile_unifies_the_two_lowerings_to_zero_status_divergence() {
     // A ratified (certain), a proposed (possible), and a no-provenance (dead)
     // fact — the three standings the R1 table names.
     let decls = vec![
+        ratify_decl("D-0096"),
         fact("gender", &["anchor", "male"], Some(ratified("D-0096"))),
         fact(
             "omen",
@@ -371,6 +387,8 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
             span: Span::synthetic(),
         }),
         decls: vec![
+            ratify_decl("D-1"),
+            ratify_decl("D-2"),
             fact(
                 "kept-by",
                 &["tide-bell", "guild"],
@@ -457,6 +475,83 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
         loaded_superseded,
         Status::Dead,
         "superseding one of two cited decisions degrades the AND-supported claim",
+    );
+}
+
+#[test]
+fn options_and_hypotheses_lower_without_status_divergence() {
+    // A question whose option implies a fact, plus a hypothesis (finding #1).
+    // The loader must lower the option-gated fact and intern the option and
+    // hypothesis variables — as `World::lower` lowers options — so a query sees
+    // the implied predicate and a fork can `suppose` the option.
+    let doc = Document {
+        scope: Some(ScopeHeader {
+            name: id("cast"),
+            span: Span::synthetic(),
+        }),
+        decls: vec![
+            ratify_decl("D-0096"),
+            fact("gender", &["anchor", "male"], Some(ratified("D-0096"))),
+            Decl::Question(dli_ast::decl::QuestionDecl {
+                name: id("who-keeps-the-ledger"),
+                prompt: None,
+                options: vec![
+                    dli_ast::decl::OptionClause {
+                        name: id("old-fen"),
+                        implies: Some(atom("keeps", &["ledger", "old-fen"])),
+                    },
+                    dli_ast::decl::OptionClause {
+                        name: id("mara"),
+                        implies: None,
+                    },
+                ],
+                provenance: None,
+            }),
+            Decl::Hypothesis(dli_ast::decl::HypothesisDecl {
+                name: id("the-guild-endures"),
+                statement: None,
+            }),
+        ],
+    };
+    let world = compile(&Pack {
+        name: "cast".to_owned(),
+        documents: vec![doc.clone()],
+    })
+    .expect("compiles");
+    let ev = World::lower(&doc)
+        .expect("lowers")
+        .fixpoint()
+        .expect("saturates");
+
+    // Valuations converge (only the cited decision is ruled; options and
+    // hypotheses stay open), and the option-implied fact is a shadow on both.
+    assert_eq!(
+        valuation_by_name(&world.model().world),
+        valuation_by_name(&ev),
+    );
+    let loaded = loaded_status(&world, "keeps", &["ledger", "old-fen"]);
+    assert_eq!(
+        loaded,
+        eval_status(&ev, "keeps", &["ledger", "old-fen"]),
+        "option-fact divergence",
+    );
+    assert_eq!(
+        loaded,
+        Status::Possible,
+        "an option-gated fact is a shadow until the option is ruled",
+    );
+
+    // The option variable is interned on both sides; the hypothesis variable is
+    // interned in the compiled world so a fork can `suppose` it.
+    let has = |w: &World, name: &str| w.interner.names().iter().any(|n| n == name);
+    assert!(
+        has(&world.model().world, "old-fen"),
+        "loader interns the option"
+    );
+    assert!(has(&ev, "old-fen"), "eval interns the option");
+    assert!(
+        has(&world.model().world, "the-guild-endures"),
+        "the compiled world interns the hypothesis variable",
     );
 }
 
@@ -547,9 +642,25 @@ fn map_kind(kind: &str) -> EntityKind {
 }
 
 /// Bridge the vendored `facts.yaml` into deloreis documents: entities become
-/// `entity` declarations, facts and relations become flat-triple `fact`s.
+/// `entity` declarations, facts and relations become flat-triple `fact`s, and
+/// every decision the corpus cites is declared with a `ratify` decl — the ledger
+/// mirror of `decisions.md`, so cited authority is real (B1) rather than minted by
+/// the citation alone.
 fn corpus_pack(facts: &FactsDoc) -> Pack {
     let mut decls: Vec<Decl> = Vec::new();
+    let mut decisions = std::collections::BTreeSet::new();
+    for row in &facts.entities {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for row in &facts.facts {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for row in &facts.relations {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for decision in &decisions {
+        decls.push(ratify_decl(decision));
+    }
     let mut seen = std::collections::BTreeSet::new();
     for entity in &facts.entities {
         if seen.insert(entity.id.clone()) {
@@ -829,5 +940,138 @@ fn killed_token_word_boundary_vs_substring() {
         make(MatchMode::Substring)
             .hit("the tidebells rang")
             .is_some()
+    );
+}
+
+// --- H8: era-spine cycle detection ------------------------------------------
+
+/// An era declaration `era name < c1 < c2 ...` as the parser emits it: the head
+/// is the entity name, the chain is head-*exclusive*.
+fn era(name: &str, chain: &[&str], cite: &str) -> Decl {
+    Decl::Entity(EntityDecl {
+        kind: EntityKind::Era,
+        name: id(name),
+        label: None,
+        time: Some(TimeClause::Order(chain.iter().map(|c| id(c)).collect())),
+        slots: Vec::new(),
+        provenance: Some(ratified(cite)),
+    })
+}
+
+#[test]
+fn a_contradictory_era_spine_is_a_first_class_cycle_finding() {
+    // H8: `era a < b < a` closes a precedence loop. The parser hands the loader
+    // the chain head-exclusive (name `a`, chain `[b, a]`); prepending the head
+    // makes both the a→b and b→a edges exist, so the SAME cycle detection the
+    // `before`-graph uses reports it — never the old silent clean exit.
+    let world = compile(&pack("h", vec![era("a", &["b", "a"], "d-0001")])).expect("compiles");
+    let cycles: Vec<_> = check::run(&world)
+        .into_iter()
+        .filter(|f| f.code == "continuity.chronology-cycle")
+        .collect();
+    assert_eq!(cycles.len(), 1, "exactly one chronology-cycle finding");
+    assert!(
+        cycles[0].message.contains("a -> b") && cycles[0].message.contains("b -> a"),
+        "blame names the closing edges: {}",
+        cycles[0].message
+    );
+    // The order is a ruling: the finding is blamed on the declaration behind it.
+    assert_eq!(cycles[0].citations, vec!["d-0001".to_owned()]);
+}
+
+#[test]
+fn a_two_chain_era_contradiction_is_caught_and_blamed_on_both_rulings() {
+    // The loop spans two declarations: `era a < b` (d-0001) + `era b < a`
+    // (d-0002). Neither chain is a cycle alone; together they contradict.
+    let world = compile(&pack(
+        "h",
+        vec![era("a", &["b"], "d-0001"), era("b", &["a"], "d-0002")],
+    ))
+    .expect("compiles");
+    let cycles: Vec<_> = check::run(&world)
+        .into_iter()
+        .filter(|f| f.code == "continuity.chronology-cycle")
+        .collect();
+    assert_eq!(cycles.len(), 1);
+    assert!(cycles[0].citations.contains(&"d-0001".to_owned()));
+    assert!(cycles[0].citations.contains(&"d-0002".to_owned()));
+}
+
+#[test]
+fn a_clean_era_spine_orders_its_head_and_raises_no_cycle() {
+    // Regression on the head-drop: `era first < second < third` must ORDER the
+    // head `first` (three consecutive edges, none dropped) and check clean.
+    let world = compile(&pack(
+        "h",
+        vec![era("first", &["second", "third"], "d-0001")],
+    ))
+    .expect("compiles");
+    assert!(
+        check::run(&world)
+            .iter()
+            .all(|f| f.code != "continuity.chronology-cycle"),
+        "a well-formed spine is not a cycle"
+    );
+    assert_eq!(world.model.world.chronology.edges.len(), 2);
+    assert!(world.model.world.chronology.find_cycle(&[]).is_none());
+    // The parallel ruling table stays in lock-step with the edges.
+    assert_eq!(
+        world.model.chronology_anns.len(),
+        world.model.world.chronology.edges.len()
+    );
+}
+
+// --- B1: forged-citation authority-mint --------------------------------------
+
+#[test]
+fn forged_citation_fails_closed_on_both_lowerings() {
+    // B1: a claim cites a decision the corpus never declares (no `ratify`). A
+    // citation alone must not mint authority — both lowerings leave the claim
+    // non-certain AND raise `citation.unknown-decision`, and `check::run` surfaces
+    // it. This is the test that proves the compile-side gate matches the eval side.
+    let built = pack(
+        "cast",
+        vec![
+            ratify_decl("D-0001"), // a real decision: the known set is non-empty
+            // D-9999 is cited but never declared — a forged authority claim.
+            fact("gender", &["anchor", "male"], Some(ratified("D-9999"))),
+        ],
+    );
+    let doc = built.documents[0].clone();
+    let world = compile(&built).expect("compiles");
+    let ev = World::lower(&doc)
+        .expect("lowers")
+        .fixpoint()
+        .expect("saturates");
+
+    // Non-certain on both sides.
+    assert_ne!(
+        loaded_status(&world, "gender", &["anchor", "male"]),
+        Status::Certain,
+        "compile side minted authority from a forged citation",
+    );
+    assert_ne!(
+        eval_status(&ev, "gender", &["anchor", "male"]),
+        Status::Certain,
+        "eval side minted authority from a forged citation",
+    );
+
+    // Both raise the forged-authority finding, and check::run surfaces it.
+    let forged = |findings: &[dli_eval::world::LowerFinding]| {
+        findings
+            .iter()
+            .any(|f| f.code == "citation.unknown-decision")
+    };
+    assert!(
+        forged(&world.model().world.findings),
+        "compile findings: {:?}",
+        world.model().world.findings
+    );
+    assert!(forged(&ev.findings), "eval findings: {:?}", ev.findings);
+    assert!(
+        check::run(&world)
+            .iter()
+            .any(|f| f.code == "citation.unknown-decision"),
+        "check::run must surface the forged-citation finding",
     );
 }

@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/author-add-option-schema-violation",
+  "version": 1,
+  "note": "params omit every required field, violating the op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.add_option",
+    "params": {}
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

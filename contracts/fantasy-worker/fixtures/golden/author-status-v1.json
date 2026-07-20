@@ -1,0 +1,35 @@
+{
+  "fixture": "golden/author-status-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "rendered": [],
+          "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.status",
+        "params": {
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

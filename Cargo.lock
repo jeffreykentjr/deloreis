@@ -289,6 +289,8 @@ dependencies = [
  "dli-time",
  "dli-world",
  "miette",
+ "serde",
+ "serde_yaml_ng",
 ]
 
 [[package]]
@@ -380,10 +382,12 @@ dependencies = [
  "dli-eval",
  "dli-export",
  "dli-ledger",
+ "dli-syntax",
  "dli-world",
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -392,6 +396,7 @@ version = "0.1.0"
 dependencies = [
  "dli-core",
  "dli-ledger",
+ "dli-syntax",
  "dli-time",
  "schemars",
  "serde",
@@ -414,7 +419,9 @@ dependencies = [
 name = "dli-time"
 version = "0.1.0"
 dependencies = [
+ "dli-ast",
  "dli-core",
+ "dli-syntax",
  "proptest",
  "schemars",
  "serde",

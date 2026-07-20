@@ -19,4 +19,8 @@ Every non-success return carries exactly one `code` from this closed set, and ea
 | `contradiction` | `finding` | a claim that contradicts the projection |
 | `stale-fence` | `refused` | `expected_digest` did not match the current fence |
 | `materialize-blocked` | `refused` | `author.materialize` called with error-class findings open |
+| `killed-form` | `refused` | a killed or renamed op/tool; the message names the successor |
+| `not-wired` | `refused` | a recognized op whose engine is not wired in this build (capability-gated) |
+| `version-mismatch` | `refused` | a well-formed frame declaring a contract version this build does not speak |
+| `conflict` | `refused` | an `idempotency_key` reused with a different payload (distinct from stale-fence) |
 | `internal` | `internal` | a server defect |

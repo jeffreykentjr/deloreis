@@ -4,6 +4,14 @@
   "description": "`dli.version` result.",
   "type": "object",
   "properties": {
+    "capabilities": {
+      "description": "The wire op names this build actually implements — capability negotiation\n(spec `10-serving.md` §2), so a consumer can degrade rather than call an op\nthe running build has not wired. Defaulted for N-1 payloads without it.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
     "contract": {
       "description": "The contract name.",
       "type": "string"

@@ -40,7 +40,7 @@ pub struct Finding {
 /// `kind`; origin tracking is load-bearing for Door T (nothing an agent supplies
 /// mints authority).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", rename_all = "lowercase")]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
 pub enum Provenance {
     /// Cited to one or more decisions: `{"kind":"cited","decisions":["D-0104"]}`.
     Cited {
@@ -57,4 +57,25 @@ pub enum Provenance {
         /// The hypothesis the material is conditioned on.
         hyp: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Provenance;
+
+    /// H2: an unknown field in a nested `provenance` object is rejected at
+    /// deserialize time, not silently dropped — the `deny_unknown_fields` on the
+    /// internally-tagged enum must enforce at runtime, not only in the schema.
+    #[test]
+    fn provenance_rejects_unknown_nested_fields() {
+        assert!(
+            serde_json::from_str::<Provenance>(r#"{"kind":"proposed","origin":"o"}"#).is_ok(),
+            "a well-formed provenance must deserialize"
+        );
+        assert!(
+            serde_json::from_str::<Provenance>(r#"{"kind":"proposed","origin":"o","evil":1}"#)
+                .is_err(),
+            "an unknown field inside provenance must be refused (H2 nested rejection)"
+        );
+    }
 }

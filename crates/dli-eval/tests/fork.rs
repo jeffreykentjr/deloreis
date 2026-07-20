@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, FactDecl, OptionClause, QuestionDecl};
+use dli_ast::decl::{Decl, Document, FactDecl, OptionClause, QuestionDecl, RatifyDecl};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -76,6 +76,13 @@ fn base_world() -> World {
     let document = Document {
         scope: None,
         decls: vec![
+            // A citation carries authority only if the corpus declares the
+            // decision, so d-weather must be ratified for weathered(gate) to be
+            // certain (defense-in-depth against forged citations, B1).
+            Decl::Ratify(RatifyDecl {
+                decision: Ident::synthetic("d-weather"),
+                body: Vec::new(),
+            }),
             decided_fact("weathered", vec![sym("gate")], "d-weather"),
             Decl::Question(QuestionDecl {
                 name: Ident::synthetic("who-keeps-the-ledger"),

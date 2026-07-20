@@ -1,0 +1,40 @@
+{
+  "fixture": "golden/author-open-question-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "question q-1 \"Who raised the Tide-Bell?\""
+          ],
+          "workspace_digest": "jcs:sha256:cefa65a2d94be7b7491cfa0988eaacfc28c0c15fd51f84b1f776b944a78f6985"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.open_question",
+        "params": {
+          "id": "q-1",
+          "prompt": "Who raised the Tide-Bell?",
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

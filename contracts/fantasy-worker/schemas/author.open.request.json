@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorOpenParams",
-  "description": "`author.open` params. Exactly one of `pack` or `fork` names the mode:\nstaging over an existing pack, or fork-scoped exploration.",
+  "description": "`author.open` params. Exactly one of `scope` or `fork` names the mode:\nstaging over an existing scope, or fork-scoped exploration.",
   "type": "object",
   "properties": {
     "fork": {
@@ -11,12 +11,13 @@
         "null"
       ]
     },
-    "pack": {
-      "description": "Stage over an existing pack.",
+    "scope": {
+      "description": "Stage over an existing scope.",
       "type": [
         "string",
         "null"
       ]
     }
-  }
+  },
+  "additionalProperties": false
 }

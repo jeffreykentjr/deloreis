@@ -98,12 +98,12 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             schema_for!(ForkPromoteResult),
         ),
         (
-            "dli.check-ledger.request".to_owned(),
-            schema_for!(CheckLedgerParams),
+            "dli.check-proof.request".to_owned(),
+            schema_for!(CheckProofParams),
         ),
         (
-            "dli.check-ledger.response".to_owned(),
-            schema_for!(CheckLedgerResult),
+            "dli.check-proof.response".to_owned(),
+            schema_for!(CheckProofResult),
         ),
         (
             "dli.check-draft.request".to_owned(),

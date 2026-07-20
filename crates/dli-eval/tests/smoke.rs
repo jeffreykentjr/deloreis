@@ -4,8 +4,8 @@
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
-    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, OptionClause, QuestionDecl,
-    TimeClause,
+    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, HypothesisDecl, OptionClause,
+    QuestionDecl, RatifyDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -57,13 +57,22 @@ fn provenance(marker: ProvenanceMarker, citations: &[&str]) -> Annotation {
     }
 }
 
-/// A `decided <decision>` fact — certain by default.
+/// A `decided <decision>` fact — certain when its decision is declared.
 fn decided_fact(pred: &str, args: Vec<Term>, decision: &str) -> Decl {
     fact(
         pred,
         args,
         Some(provenance(ProvenanceMarker::Decided, &[decision])),
     )
+}
+
+/// A `ratify <decision>` declaration — makes the decision a known one, so a
+/// citation to it carries authority.
+fn ratify(decision: &str) -> Decl {
+    Decl::Ratify(RatifyDecl {
+        decision: Ident::synthetic(decision),
+        body: Vec::new(),
+    })
 }
 
 /// An option `name implies <pred>(<args>)`.
@@ -80,6 +89,7 @@ fn saltmarket_document() -> Document {
     Document {
         scope: None,
         decls: vec![
+            ratify("d-saltmarket-map"),
             decided_fact(
                 "adjacent",
                 vec![sym("saltmarket"), sym("the-shallows")],
@@ -275,6 +285,8 @@ fn c1_provenance_gates_certainty() {
     let document = Document {
         scope: None,
         decls: vec![
+            ratify("d-0001"),
+            ratify("d-0002"),
             fact(
                 "p",
                 vec![sym("x")],
@@ -308,11 +320,14 @@ fn c1_provenance_gates_certainty() {
 fn c1_supersession_revalues_a_decided_fact() {
     let document = Document {
         scope: None,
-        decls: vec![fact(
-            "d",
-            vec![sym("x")],
-            Some(provenance(ProvenanceMarker::Decided, &["d-0001"])),
-        )],
+        decls: vec![
+            ratify("d-0001"),
+            fact(
+                "d",
+                vec![sym("x")],
+                Some(provenance(ProvenanceMarker::Decided, &["d-0001"])),
+            ),
+        ],
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
     assert_eq!(status_of(&world, "d", "x"), Some(Status::Certain));
@@ -331,6 +346,32 @@ fn c1_supersession_revalues_a_decided_fact() {
         .eval_under(&nu, &query(atom("d", vec![sym("x")])))
         .unwrap();
     assert!(answer.rows.is_empty());
+}
+
+#[test]
+fn b1_forged_citation_fails_closed_with_a_finding() {
+    // `decided p(x) cited d-9999` where nothing ratifies d-9999 — a forged (or
+    // typo'd) authority claim. The kernel must not mint certainty from it.
+    let document = Document {
+        scope: None,
+        decls: vec![decided_fact("p", vec![sym("x")], "d-9999")],
+    };
+    let world = World::lower(&document).unwrap();
+    // Lowering records the finding before any query.
+    assert!(world.findings.iter().any(|finding| {
+        finding.code == "citation.unknown-decision" && finding.message.contains("d-9999")
+    }));
+
+    let saturated = world.fixpoint().unwrap();
+    // The forged decision variable is left open, so the claim can only be a
+    // shadow — never certain — and the finding survives the fixpoint.
+    assert_eq!(status_of(&saturated, "p", "x"), Some(Status::Possible));
+    assert!(
+        saturated
+            .findings
+            .iter()
+            .any(|finding| finding.code == "citation.unknown-decision")
+    );
 }
 
 #[test]
@@ -384,6 +425,39 @@ fn a2_proposed_with_assumes_is_ratifiable() {
 }
 
 #[test]
+fn lower_interns_standalone_time_points_and_hypotheses() {
+    // A lone era in no ordering, and a declared-but-unreferenced hypothesis,
+    // must still enter their name tables so `timeline` and `fork suppose`
+    // resolve them — matching the compiled world's lowering.
+    let document = Document {
+        scope: None,
+        decls: vec![
+            Decl::Entity(EntityDecl {
+                kind: EntityKind::Era,
+                name: Ident::synthetic("first-tides"),
+                label: None,
+                time: None,
+                slots: Vec::new(),
+                provenance: None,
+            }),
+            Decl::Hypothesis(HypothesisDecl {
+                name: Ident::synthetic("coast-runs-north"),
+                statement: None,
+            }),
+        ],
+    };
+    let world = World::lower(&document).unwrap();
+    assert!(world.time_points.names().iter().any(|n| n == "first-tides"));
+    assert!(
+        world
+            .interner
+            .names()
+            .iter()
+            .any(|n| n == "coast-runs-north")
+    );
+}
+
+#[test]
 fn lower_populates_the_chronology() {
     let document = Document {
         scope: None,
@@ -408,12 +482,16 @@ fn lower_populates_the_chronology() {
         ],
     };
     let world = World::lower(&document).unwrap();
-    // One before-edge plus two consecutive order-chain edges.
-    assert_eq!(world.chronology.edges.len(), 3);
-    // Every era/event is interned as a resolvable time point.
+    // One before-edge plus three order-chain edges: the chain's declared head
+    // `the-ages` joins its members, so `[the-ages] ++ [first-age, second-age,
+    // third-age]` yields the-ages→first-age, first-age→second-age,
+    // second-age→third-age (H8: the head edge must not be dropped).
+    assert_eq!(world.chronology.edges.len(), 4);
+    // Every era/event — the declared head included — is a resolvable time point.
     for name in [
         "the-long-drought",
         "tideturn",
+        "the-ages",
         "first-age",
         "second-age",
         "third-age",

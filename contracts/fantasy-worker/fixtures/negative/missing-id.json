@@ -5,7 +5,11 @@
   "send": {
     "dli": "0.1.0",
     "op": "dli.check",
-    "params": { "document": "saltmarket" }
+    "params": {
+      "document": "saltmarket"
+    }
   },
-  "expect_error": { "code": "bad-frame" }
+  "expect_error": {
+    "code": "bad-frame"
+  }
 }

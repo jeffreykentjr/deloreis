@@ -1,0 +1,47 @@
+{
+  "fixture": "golden/author-suppose-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "fork": "exploration"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "hypothesis.unknown",
+              "grade": "checked",
+              "message": "No hypothesis \"coast-runs-north\" is staged in this workspace to suppose.",
+              "severity": "error"
+            }
+          ],
+          "rendered": [],
+          "workspace_digest": "jcs:sha256:304026e8c366fd79205ec574a697105f8badb4e17be8179da70cc41838025ad9"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.suppose",
+        "params": {
+          "hypotheses": [
+            "coast-runs-north"
+          ],
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

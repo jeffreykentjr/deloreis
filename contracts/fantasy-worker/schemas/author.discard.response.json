@@ -7,6 +7,13 @@
     "discarded": {
       "description": "Whether the workspace was discarded.",
       "type": "boolean"
+    },
+    "workspace_digest": {
+      "description": "The workspace digest after a single-declaration discard; absent when the\nwhole workspace was discarded.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "required": [

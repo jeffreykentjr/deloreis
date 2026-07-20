@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CheckLedgerParams",
-  "description": "`dli.check-ledger` params.",
+  "title": "CheckProofParams",
+  "description": "`dli.check-proof` params.",
   "type": "object",
   "properties": {
     "document": {

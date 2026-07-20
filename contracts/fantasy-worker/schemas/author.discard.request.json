@@ -4,11 +4,19 @@
   "description": "`author.discard` params.",
   "type": "object",
   "properties": {
+    "decl": {
+      "description": "The single staged declaration to discard, named by its rendered canonical\nline. Omit to discard the whole workspace.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "workspace": {
       "description": "The workspace id.",
       "type": "string"
     }
   },
+  "additionalProperties": false,
   "required": [
     "workspace"
   ]

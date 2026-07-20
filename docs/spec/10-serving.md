@@ -41,52 +41,59 @@ authoring tools are not re-specified.
 
 ## 2. The envelope
 
-Every request carries the operation, the contract version, a reference to the
-corpus, and the operation's arguments:
+Every request is one JSON object per line: the protocol tag, a correlation id,
+the operation, and the operation's params. A mutating `author.*` call may also
+carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"op": "dli.<name>", "contract_version": "1", "corpus": "<ref>", "args": {"…": "…"}}
+{"dli": "0.1.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
-Every response is either a result or a typed error, plus metadata:
+Every response echoes the protocol tag and id and is either a result or a typed
+error:
 
 ```json
-{
-  "ok": true,
-  "result": {"…": "…"},
-  "meta": {
-    "versions": {"contract": "1", "grammar": "…", "kernel": "…"},
-    "corpus": {"commit": "…", "digest": "…"},
-    "replay": "<judgment ref>"
-  }
-}
+{"dli": "0.1.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+```
+```json
+{"dli": "0.1.0", "id": "<correlation>", "ok": false,
+ "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
 An error response carries `"ok": false` and a **typed error** — a stable machine
-class plus a domain-spoken message (koan 9, errors are lore) — never a bare
-string.
+`code` from the closed registry (`integration/fantasy-contract.md` §9) plus a
+domain-spoken message (koan 9, errors are lore) — never a bare string. The
+normative envelope shape (fields, the two optional fences, unknown-fields-are-
+errors) is `integration/fantasy-contract.md` §2; this section is its
+semantics-side elaboration and agrees with it byte-for-byte.
 
 Two envelope properties are load-bearing:
 
 - **Responses are timestamp-free by design.** A response is a pure function of
-  the corpus digest, the contract version, and the arguments. Wall-clock time is
-  not part of that function, so it is not in the response; **the response is the
+  the corpus digest, the contract version, and the params. Wall-clock time is not
+  part of that function, so it is not in the response; **the response is the
   determinism domain.** Two runs against the same corpus digest produce
-  byte-identical results, which is what makes the `replay` judgment reference
-  meaningful and the gate reproducible.
+  byte-identical results — what makes replay meaningful and the gate reproducible.
 - **Findings sort by stable keys.** Any list of findings, conflicts, or diffs is
   ordered by stable keys (atom identity, cue location, rule id), never by
   discovery order, so diffs between runs are meaningful.
 
-The `versions` block is a **handshake**, not decoration. A consumer sends the
-`contract_version` it was built against; the worker answers with the contract,
-grammar, and kernel versions it is actually running. A consumer pinned to
-contract 1 talking to a worker that only speaks contract 2 gets a typed
-version-mismatch error, never a silently misinterpreted payload — the contract
-is vendored pinned and digest-checked on the consuming side (DL-0010), so a
-mismatch is a real deployment fact worth surfacing. Ops are **capability
-negotiated**: the worker advertises which ops it implements, so a consumer can
-degrade gracefully rather than call an op the running build does not yet wire.
+The version handshake rides `dli.version`, not the envelope: a consumer calls
+`dli.version` and reads the `contract`, `contract_version`, `server`, and
+`capabilities` the running build reports (the consumer pins the contract vendored
+and digest-checked, DL-0010). A frame that declares a contract version the build
+does not speak is refused with a typed `version-mismatch` error, never silently
+misinterpreted. Ops are **capability negotiated**: `dli.version`'s `capabilities`
+lists the wire op names the build actually implements, so a consumer degrades
+gracefully rather than calling an op the running build has not wired — an
+unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
+
+> **Future gap (not shipped at v0).** An earlier draft of this section described a
+> per-response `meta` block (versions, corpus commit/digest, a `replay` reference)
+> and an `{op, contract_version, corpus, args}` request shape. The v0 server emits
+> and accepts neither; the shipped wire is exactly the fields above. A
+> response-metadata block is a candidate for a later contract version, tracked
+> separately — it is not part of the current wire.
 
 ### 2.1 Typed errors
 
@@ -124,7 +131,7 @@ behavior. The inventory, by family:
 | `dli.simulate.start` | Start a checkpointed practice-simulation job | `04-practices.md` |
 | `dli.simulate.status` | Poll a job; a completed job's response carries the final manifest and verdicts | `04-practices.md` |
 | `dli.simulate.cancel` | Cancel a running job | — |
-| `dli.check-ledger` | Check a diegetic proof ledger against the scene projection | `04-practices.md` |
+| `dli.check-proof` | Check a diegetic proof against the scene projection | `04-practices.md` |
 | `dli.check-draft` | Run the merged payload battery over a draft | `06-craft-and-payloads.md` |
 | `dli.timeline.*` | `show`, `order`, `knows`, `episodes`, `phases` | `03-time.md` |
 | `dli.export.run` | Compile a target profile from the certain layer | `09-exports.md` |
@@ -133,9 +140,11 @@ behavior. The inventory, by family:
 | `dli.attestation-sweep` | Validate and record a sweep's attestation results | `07-verdicts-and-llm-boundary.md` |
 | `dli.payload-submit` | Submit a `payload/v1` document for checking and storage | `06-craft-and-payloads.md` |
 
-`dli.suppose` is a **killed form**, superseded by `dli.fork.suppose`; the server
-refuses it. `deloreis report --min-grade` is a CLI rendering over `dli.check`
-and `dli.query` results — it is not a worker op at v0.
+`dli.suppose` is a **killed form**, superseded by `dli.fork.suppose`, and
+`dli.check-ledger` is a killed form superseded by `dli.check-proof` (the
+surface-v1 rename of the proof-block keyword `ledger`→`proof`, DL-0016); the
+server refuses both, naming the successor. `deloreis report --min-grade` is a CLI
+rendering over `dli.check` and `dli.query` results — it is not a worker op at v0.
 
 Three worked scenarios ground the description below. All ride the JSON-Schema
 worker protocol; the consumer validates each payload against the op schema
@@ -218,8 +227,8 @@ An episode draft carries premise and conclusion cues in its production metadata.
 The consumer submits the formal encoding of the cues:
 
 ```json
-→ {"op": "dli.check_ledger", "scene": "e01-s04", "speaker": "protagonist",
-   "ledger": {"premises": ["…"], "steps": ["…"], "spends": ["p3"],
+→ {"op": "dli.check-proof", "scene": "e01-s04", "speaker": "protagonist",
+   "proof": {"premises": ["…"], "steps": ["…"], "spends": ["p3"],
      "close": {"atom": "holds(ward(door))", "expect": "holds"}}}
 ← {"verdict": "invalid",
    "errors": [{"class": "L2", "name": "premise-not-available", "at": "p2",
@@ -235,7 +244,7 @@ ways: a scene built on a character's flawed argument declares
 `"expect": "fails-at: L3"`, and a wrong argument that accidentally validates is
 as much a bug as a right one that fails. The consumer renders **three columns**
 for review — prose with cue lines highlighted, encoding, verdict — and the
-author approves the encoding or corrects the cues; approved ledgers commit with
+author approves the encoding or corrects the cues; approved proofs commit with
 the episode.
 
 ## 4. The write surface

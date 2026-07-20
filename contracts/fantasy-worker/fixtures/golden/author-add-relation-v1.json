@@ -1,0 +1,68 @@
+{
+  "fixture": "golden/author-add-relation-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "entity.unknown",
+              "grade": "checked",
+              "message": "No entity \"mireth\" is in scope. The claim is staged but cannot materialize until it exists.",
+              "repair": {
+                "candidates": [],
+                "kind": "resolve-entity"
+              },
+              "severity": "error"
+            },
+            {
+              "citations": [],
+              "code": "entity.unknown",
+              "grade": "checked",
+              "message": "No entity \"the-warden\" is in scope. The claim is staged but cannot materialize until it exists.",
+              "repair": {
+                "candidates": [],
+                "kind": "resolve-entity"
+              },
+              "severity": "error"
+            }
+          ],
+          "rendered": [
+            "serves(mireth, the-warden) proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:313122519c9f16e1dd079e53d83265f390562729ea13dcc15af4f655393018db"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.add_relation",
+        "params": {
+          "from": "mireth",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "relation": "serves",
+          "to": "the-warden",
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

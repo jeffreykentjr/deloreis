@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
+use dli_eval::query::Layer;
 use dli_export::{ExportManifest, ExportProfile};
 use dli_ledger::LedgerReport;
 use dli_world::attest::{Attestation, AttestationStore};
@@ -57,7 +58,7 @@ pub struct RqDraft {
     pub evidence: Vec<String>,
 }
 
-/// The closed entity sort for `author.add_entity`. Events are not entities —
+/// The closed entity kind for `author.add_entity`. Events are not entities —
 /// chronology points go through `author.add_event`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -99,6 +100,20 @@ pub struct QueryParams {
     pub document: String,
     /// The goal atom, rendered.
     pub goal: String,
+    /// The standing floor for the returned rows (`certain` | `possible` | `all`).
+    /// Absent means `all` — no floor. (`--layer`.)
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub layer: Option<Layer>,
+    /// Drop rows anchored strictly after this era or event. (`--as-of`.)
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub as_of: Option<String>,
+    /// Evaluate under a stored fork's valuation overlay, named by its handle; the
+    /// server resolves the handle to the overlay. (`--fork`.)
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub fork: Option<String>,
+    /// Attach the support antichain (`--why`) to every row.
+    #[serde(default)]
+    pub why: bool,
 }
 
 /// `dli.query` result.
@@ -251,18 +266,18 @@ pub struct ForkPromoteResult {
     pub rq_draft: RqDraft,
 }
 
-// -- dli.check-ledger --------------------------------------------------------
+// -- dli.check-proof ---------------------------------------------------------
 
-/// `dli.check-ledger` params.
+/// `dli.check-proof` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct CheckLedgerParams {
+pub struct CheckProofParams {
     /// The document id.
     pub document: String,
 }
 
-/// `dli.check-ledger` result.
+/// `dli.check-proof` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct CheckLedgerResult {
+pub struct CheckProofResult {
     /// The ledger report.
     pub report: LedgerReport,
 }
@@ -461,6 +476,11 @@ pub struct VersionResult {
     pub contract_version: String,
     /// The server version.
     pub server: String,
+    /// The wire op names this build actually implements — capability negotiation
+    /// (spec `10-serving.md` §2), so a consumer can degrade rather than call an op
+    /// the running build has not wired. Defaulted for N-1 payloads without it.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
 
 // -- dli.name.check ----------------------------------------------------------
@@ -470,8 +490,8 @@ pub struct VersionResult {
 pub struct NameCheckParams {
     /// The proposed name.
     pub name: String,
-    /// The register to vet against.
-    pub register: String,
+    /// The dialect to vet against.
+    pub dialect: String,
 }
 
 /// `dli.name.check` result.
@@ -501,13 +521,14 @@ pub struct AttestMissingResult {
 
 // -- author.open -------------------------------------------------------------
 
-/// `author.open` params. Exactly one of `pack` or `fork` names the mode:
-/// staging over an existing pack, or fork-scoped exploration.
+/// `author.open` params. Exactly one of `scope` or `fork` names the mode:
+/// staging over an existing scope, or fork-scoped exploration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorOpenParams {
-    /// Stage over an existing pack.
+    /// Stage over an existing scope.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub pack: Option<String>,
+    pub scope: Option<String>,
     /// Open a fork-scoped workspace, named by its question.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub fork: Option<String>,
@@ -526,6 +547,7 @@ pub struct AuthorOpenResult {
 
 /// `author.status` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorStatusParams {
     /// The workspace id.
     pub workspace: String,
@@ -544,6 +566,7 @@ pub struct AuthorStatusResult {
 
 /// `author.diff` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorDiffParams {
     /// The workspace id.
     pub workspace: String,
@@ -560,9 +583,14 @@ pub struct AuthorDiffResult {
 
 /// `author.discard` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorDiscardParams {
     /// The workspace id.
     pub workspace: String,
+    /// The single staged declaration to discard, named by its rendered canonical
+    /// line. Omit to discard the whole workspace.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub decl: Option<String>,
 }
 
 /// `author.discard` result.
@@ -570,12 +598,17 @@ pub struct AuthorDiscardParams {
 pub struct AuthorDiscardResult {
     /// Whether the workspace was discarded.
     pub discarded: bool,
+    /// The workspace digest after a single-declaration discard; absent when the
+    /// whole workspace was discarded.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub workspace_digest: Option<String>,
 }
 
 // -- author.materialize ------------------------------------------------------
 
 /// `author.materialize` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorMaterializeParams {
     /// The workspace id.
     pub workspace: String,
@@ -585,10 +618,11 @@ pub struct AuthorMaterializeParams {
 
 /// `author.add_entity` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddEntityParams {
     /// The workspace id.
     pub workspace: String,
-    /// The entity sort (person/place/thing/era).
+    /// The entity kind (person/place/thing/era).
     pub kind: EntityKind,
     /// The entity id.
     pub id: String,
@@ -603,6 +637,7 @@ pub struct AuthorAddEntityParams {
 /// `author.add_fact` params: an attribute-intent fact that renders
 /// `entity.key = value` (e.g. `mara.home = the-shallows`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddFactParams {
     /// The workspace id.
     pub workspace: String,
@@ -620,6 +655,7 @@ pub struct AuthorAddFactParams {
 
 /// `author.add_relation` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddRelationParams {
     /// The workspace id.
     pub workspace: String,
@@ -637,6 +673,7 @@ pub struct AuthorAddRelationParams {
 
 /// `author.add_event` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddEventParams {
     /// The workspace id.
     pub workspace: String,
@@ -652,6 +689,7 @@ pub struct AuthorAddEventParams {
 
 /// `author.add_before` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddBeforeParams {
     /// The workspace id.
     pub workspace: String,
@@ -667,6 +705,7 @@ pub struct AuthorAddBeforeParams {
 
 /// `author.open_question` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorOpenQuestionParams {
     /// The workspace id.
     pub workspace: String,
@@ -680,6 +719,7 @@ pub struct AuthorOpenQuestionParams {
 
 /// `author.add_option` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddOptionParams {
     /// The workspace id.
     pub workspace: String,
@@ -695,6 +735,7 @@ pub struct AuthorAddOptionParams {
 
 /// `author.add_hypothesis` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorAddHypothesisParams {
     /// The workspace id.
     pub workspace: String,
@@ -708,6 +749,7 @@ pub struct AuthorAddHypothesisParams {
 
 /// `author.suppose` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorSupposeParams {
     /// The workspace id.
     pub workspace: String,

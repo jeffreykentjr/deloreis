@@ -69,6 +69,39 @@ pub fn format_document(document: &Document) -> String {
     out
 }
 
+/// Parse `source` and render its canonical form, refusing if the parse produced
+/// any error-severity diagnostic.
+///
+/// This is the safe entry point for a `fmt` command. A document with a
+/// malformed line parses to an AST that has *dropped* that line, so rendering it
+/// would silently delete the author's text on save — the fmt path must refuse
+/// rather than destroy lore (koan 4, nothing silently dropped). Advisory
+/// warnings (e.g. a marker-less claim) do not block: such claims are captured in
+/// full and format losslessly.
+///
+/// Returns `Ok(canonical_text)` when the parse is error-free, or `Err(errors)`
+/// with the error-severity diagnostics that make a rewrite unsafe.
+///
+/// ```
+/// use dli_syntax::format_source;
+///
+/// assert!(format_source("place weir \"The Weir\" proposed\n").is_ok());
+/// // A malformed line would be dropped on a blind re-render, so fmt refuses.
+/// assert!(format_source("fact mara lives-in\n").is_err());
+/// ```
+pub fn format_source(source: &str) -> Result<String, Vec<crate::diag::Diagnostic>> {
+    let (document, diagnostics) = crate::parser::parse_document(source);
+    let errors: Vec<crate::diag::Diagnostic> = diagnostics
+        .into_iter()
+        .filter(|diag| diag.class.is_error())
+        .collect();
+    if errors.is_empty() {
+        Ok(format_document(&document))
+    } else {
+        Err(errors)
+    }
+}
+
 /// An alignment group key: rows with equal keys align together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RowKey {

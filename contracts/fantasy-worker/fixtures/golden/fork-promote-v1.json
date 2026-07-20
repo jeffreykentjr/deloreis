@@ -1,0 +1,81 @@
+{
+  "fixture": "golden/fork-promote-v1",
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "fork": "fork-1"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "saltmarket"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "conflicts": [],
+          "grade_changed": [],
+          "newly_certain": [
+            "rings(tide-bell, saltmarket)"
+          ],
+          "newly_dead": [],
+          "newly_possible": []
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.fork.suppose",
+        "params": {
+          "assume": [
+            "h.saltmarket#0"
+          ],
+          "fork": "fork-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "rq_draft": {
+            "affects": [
+              "rings(tide-bell, saltmarket)"
+            ],
+            "ask": "Ratify fork `fork-0`? 1 newly certain, 0 newly dead, 0 grade change(s), 0 conflict(s).",
+            "diff": [
+              "rings(tide-bell, saltmarket): possible \u2192 certain"
+            ],
+            "evidence": [
+              "suppose h.saltmarket#0 = true"
+            ],
+            "slug": "fork-0"
+          }
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "3",
+        "op": "dli.fork.promote",
+        "params": {
+          "fork": "fork-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

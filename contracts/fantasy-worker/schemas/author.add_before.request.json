@@ -21,6 +21,7 @@
       "type": "string"
     }
   },
+  "additionalProperties": false,
   "required": [
     "workspace",
     "earlier",
@@ -47,6 +48,7 @@
               "const": "cited"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "decisions"
@@ -65,6 +67,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "origin"
@@ -83,6 +86,7 @@
               "const": "hypothesis"
             }
           },
+          "additionalProperties": false,
           "required": [
             "kind",
             "hyp"

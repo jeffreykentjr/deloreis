@@ -17,9 +17,17 @@
         "id": "1",
         "ok": true,
         "result": {
-          "support": { "monomials": [["+h.tide-year"]] },
-          "grade": "attested",
-          "citations": ["D-0042"]
+          "support": {
+            "monomials": [
+              [
+                "+0"
+              ]
+            ]
+          },
+          "grade": "asserted",
+          "citations": [
+            "D-0001"
+          ]
         }
       }
     }

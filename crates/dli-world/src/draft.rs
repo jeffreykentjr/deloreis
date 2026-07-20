@@ -12,8 +12,8 @@ use dli_ledger::Delta;
 pub struct DraftMeta {
     /// The draft title.
     pub title: String,
-    /// The pack this draft targets.
-    pub pack: String,
+    /// The scope this draft targets.
+    pub scope: String,
     /// The payload schema version.
     pub version: u32,
 }
@@ -33,8 +33,8 @@ pub struct DraftPayload {
     pub beats: Vec<String>,
     /// Promise-ledger entries opened or closed.
     pub promises: Vec<String>,
-    /// Proof-ledger references.
-    pub proof_ledgers: Vec<String>,
+    /// Proof references (the in-practice proof blocks the draft closes).
+    pub proofs: Vec<String>,
     /// Proper names introduced (each must pass the naming oracle).
     pub names: Vec<String>,
     /// Coined lexicon terms introduced.

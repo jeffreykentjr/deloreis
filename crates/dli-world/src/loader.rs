@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl,
-    RuleDecl, ScopeHeader, TimeClause,
+    OptionClause, RuleDecl, ScopeHeader, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -195,12 +195,15 @@ impl LoadCtx {
     }
 
     /// Add the consecutive precedence edges of an era-order chain
-    /// (`< a < b < c` becomes `a → b`, `b → c`).
-    fn add_order_chain(&mut self, chain: &[Ident]) {
+    /// (`a < b < c` becomes `a → b`, `b → c`), each blamed on the era
+    /// declaration's ruling `ann`. The chain passed here is the *full* order,
+    /// head included (see [`process_entity`](LoadCtx::process_entity)).
+    fn add_order_chain(&mut self, chain: &[Ident], ann: &Ann) {
         for pair in chain.windows(2) {
             let earlier = self.time_point(&pair[0].text);
             let later = self.time_point(&pair[1].text);
             self.wm.world.chronology.edges.push((earlier, later));
+            self.wm.chronology_anns.push(ann.clone());
         }
     }
 
@@ -213,18 +216,46 @@ impl LoadCtx {
             Decl::Kind(kind) => self.process_kind(kind, pack),
             Decl::Rule(rule) => self.process_rule(rule, pack),
             Decl::Cycle(cycle) => self.process_cycle(cycle, pack),
+            // Questions and forks lower their options; a hypothesis interns its
+            // variable so a fork can `suppose` it. Matches `World::lower`.
+            Decl::Question(question) => self.process_options(&question.options, pack),
+            Decl::Fork(fork) => self.process_options(&fork.options, pack),
+            Decl::Hypothesis(hypothesis) => {
+                self.intern(&hypothesis.name.text);
+            }
             _ => {}
         }
     }
 
-    fn process_entity(&mut self, entity: &EntityDecl, pack: &str) {
-        // Lift an era-order chain (`< a < b < c`) onto the chronology exactly as
-        // the evaluator does, so the compiled world's timeline is not inert
-        // (defect F). Time points are interned in document order, matching
-        // `World::lower`'s `TimePoint` assignment.
-        if let Some(TimeClause::Order(chain)) = &entity.time {
-            self.add_order_chain(chain);
+    /// Lower a run of question/fork options: intern each option name as an event
+    /// variable, register the exclusivity family, and lower each `implies` atom
+    /// as an option-gated fact — exactly as `World::lower` does, so a query sees
+    /// the implied predicate and a fork can `suppose` the option variable.
+    fn process_options(&mut self, options: &[OptionClause], pack: &str) {
+        let mut family = Vec::with_capacity(options.len());
+        for option in options {
+            let var = self.intern(&option.name.text);
+            family.push(var);
+            if let Some(implied) = &option.implies {
+                let ann = Ann::supported(PosBool::pos(var));
+                self.wm.world.facts.push(Fact {
+                    atom: ground_atom(implied),
+                    ann: ann.clone(),
+                    grade: Grade::Asserted,
+                });
+                self.collect_entities(implied);
+                let compiled = Compiled {
+                    ann,
+                    kind: Provenance::Proposed,
+                    citations: Vec::new(),
+                };
+                self.push_atom(implied.clone(), compiled, pack, implied.pred.span);
+            }
         }
+        self.wm.world.theory.add_exclusive(family);
+    }
+
+    fn process_entity(&mut self, entity: &EntityDecl, pack: &str) {
         let sort = entity.kind.keyword();
         let atom = AtomExpr {
             pred: Ident {
@@ -241,6 +272,25 @@ impl LoadCtx {
             true,
             entity.name.span,
         );
+        // Lift the era-order chain onto the chronology exactly as the evaluator
+        // does (defect F), INCLUDING its declared head. The parser hands us the
+        // run *after* the entity name (`era a < b < c` → name `a`, chain
+        // `[b, c]`), so the full order is `[name] ++ chain`; dropping the head
+        // silently loses the `a → b` edge — and hides an `a < b < a` cycle (H8).
+        // Each edge is blamed on this declaration's ruling. Time points are
+        // interned in document order, matching `World::lower`'s assignment.
+        if let Some(TimeClause::Order(chain)) = &entity.time {
+            let ordered: Vec<Ident> = std::iter::once(entity.name.clone())
+                .chain(chain.iter().cloned())
+                .collect();
+            self.add_order_chain(&ordered, &compiled.ann);
+        }
+        // Intern every era/event point at its declaration (not only at edge
+        // endpoints), so a point in no `before`-fact or order chain still reaches
+        // the timeline — e.g. `timeline show` must list a lone era.
+        if matches!(entity.kind, EntityKind::Era | EntityKind::Event) {
+            self.time_point(&entity.name.text);
+        }
         self.entities
             .entry(entity.name.text.clone())
             .and_modify(|slot| {
@@ -316,10 +366,12 @@ impl LoadCtx {
         );
         self.collect_entities(&atom);
         // Record the precedence edge on the chronology (defect F): the compiled
-        // world must answer `precedes`/`as_of`, not carry inert time.
+        // world must answer `precedes`/`as_of`, not carry inert time. The edge's
+        // ruling rides parallel, so a `before`-cycle is blamed on it.
         let earlier = self.time_point(&before.earlier.text);
         let later = self.time_point(&before.later.text);
         self.wm.world.chronology.edges.push((earlier, later));
+        self.wm.chronology_anns.push(compiled.ann.clone());
         self.push_atom(atom, compiled, pack, before.earlier.span);
     }
 
@@ -567,6 +619,17 @@ impl LoadCtx {
             self.findings.push(LoadFinding::Unstratifiable { reason });
         }
 
+        // One malformation, one finding. A single declaration compiles several
+        // claims — an entity alongside its slots, an option alongside its
+        // implied fact — and an origin-less one can route more than one
+        // identically-keyed finding through `compile_ann`. Collapse findings
+        // that share a variant, declaration, pack, and span: an exact duplicate
+        // carries no new information. Distinct findings — even a second
+        // declaration of the same name at a *different* span — are all kept
+        // (charter koan 4: nothing silently dropped). First-seen order is
+        // preserved so the report stays deterministic.
+        dedup_findings(&mut self.findings);
+
         self.wm.entities = self
             .entities
             .into_iter()
@@ -578,6 +641,23 @@ impl LoadCtx {
             world: self.wm,
         }
     }
+}
+
+/// Collapse byte-identical load findings in place, preserving first-seen order.
+///
+/// Two findings with the same variant, declaration, pack, and span are the same
+/// finding reported twice; the second is redundant. Anything that differs — a
+/// second declaration of the same name at a *different* span, or a genuinely
+/// distinct malformation — is kept, so no finding is silently dropped. The
+/// finding set per load is small, so the linear membership scan is cheap.
+fn dedup_findings(findings: &mut Vec<LoadFinding>) {
+    let mut unique: Vec<LoadFinding> = Vec::with_capacity(findings.len());
+    for finding in std::mem::take(findings) {
+        if !unique.contains(&finding) {
+            unique.push(finding);
+        }
+    }
+    *findings = unique;
 }
 
 /// Render a term to its ground string form (a variable renders as its name).
@@ -607,7 +687,9 @@ fn decl_identity(decl: &Decl) -> Option<(&'static str, String, Span)> {
         Decl::Kind(s) => Some(("kind", s.name.text.clone(), s.name.span)),
         Decl::Question(q) => Some(("question", q.name.text.clone(), q.name.span)),
         Decl::Rule(r) => Some(("rule", r.name.text.clone(), r.name.span)),
-        Decl::State(f) => Some(("state", f.name.text.clone(), f.name.span)),
+        // `state` (a fluent) is deliberately multi-span: `state x.y = a until e`
+        // and `state x.y = b since e` are one fluent over disjoint spans, not a
+        // duplicate. Keyed out of the flat duplicate check (examples/saltmarket).
         Decl::Cycle(w) => Some(("cycle", w.name.text.clone(), w.name.span)),
         Decl::Dialect(r) => Some(("dialect", r.name.text.clone(), r.name.span)),
         Decl::Word(l) => Some(("word", l.name.text.clone(), l.name.span)),
@@ -677,6 +759,16 @@ pub fn example_docs() -> Vec<Document> {
             span: Span::synthetic(),
         }),
         decls: vec![
+            // The example world declares the decisions it cites, so a cited
+            // fact reads certain (a forged citation still fails closed — B1).
+            Decl::Ratify(dli_ast::decl::RatifyDecl {
+                decision: Ident::synthetic("D-0001"),
+                body: Vec::new(),
+            }),
+            Decl::Ratify(dli_ast::decl::RatifyDecl {
+                decision: Ident::synthetic("D-0002"),
+                body: Vec::new(),
+            }),
             Decl::Kind(KindDecl {
                 name: Ident::synthetic("place"),
                 provenance: Some(ratified("D-0001")),
@@ -756,5 +848,67 @@ mod tests {
         let cond = CondExpr::And(vec![hyp("a"), CondExpr::Not(Box::new(hyp("a")))]);
         let pos = ctx.cond_to_posbool(&cond, false).expect("compiles");
         assert!(pos.is_false());
+    }
+
+    use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, ScopeHeader};
+    use dli_ast::span::Span;
+
+    fn originless_place() -> Decl {
+        Decl::Entity(EntityDecl {
+            kind: EntityKind::Place,
+            name: Ident::synthetic("saltmarket"),
+            label: None,
+            time: None,
+            slots: Vec::new(),
+            provenance: None,
+        })
+    }
+
+    fn one_pack(decls: Vec<Decl>) -> Document {
+        Document {
+            scope: Some(ScopeHeader {
+                name: Ident::synthetic("saltmarket"),
+                span: Span::synthetic(),
+            }),
+            decls,
+        }
+    }
+
+    fn count_code(out: &super::LoadOutcome, code: &str) -> usize {
+        out.findings.iter().filter(|f| f.code() == code).count()
+    }
+
+    #[test]
+    fn single_originless_place_yields_one_missing_provenance() {
+        // A place with no provenance is one malformation; it must surface once,
+        // not once per compiled claim — the finding-dedup contract.
+        let out = super::Loader::load(&[one_pack(vec![originless_place()])]);
+        assert_eq!(
+            count_code(&out, "load.missing-provenance"),
+            1,
+            "one malformation, one finding: {:?}",
+            out.findings
+        );
+    }
+
+    #[test]
+    fn identical_findings_collapse_but_distinct_ones_survive() {
+        // Two origin-less declarations of the same name compile to byte-identical
+        // missing-provenance findings (same code, decl, pack, and span, since the
+        // synthetic spans coincide): they collapse to one. The distinct
+        // duplicate-declaration finding they also raise is untouched.
+        let out = super::Loader::load(&[one_pack(vec![originless_place(), originless_place()])]);
+        assert_eq!(
+            count_code(&out, "load.missing-provenance"),
+            1,
+            "byte-identical findings collapse to one: {:?}",
+            out.findings
+        );
+        assert_eq!(
+            count_code(&out, "load.duplicate-declaration"),
+            1,
+            "the distinct duplicate-declaration finding is kept: {:?}",
+            out.findings
+        );
     }
 }

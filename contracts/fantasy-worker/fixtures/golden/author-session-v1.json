@@ -1,100 +1,143 @@
 {
   "fixture": "golden/author-session-v1",
-  "version": 1,
   "steps": [
     {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "workspace": "ws-1",
+          "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+        }
+      },
       "send": {
         "dli": "0.1.0",
         "id": "1",
         "op": "author.open",
-        "params": { "pack": "saltmarket" }
-      },
-      "expect": {
-        "dli": "0.1.0",
-        "id": "1",
-        "ok": true,
-        "result": { "workspace": "ws-1", "workspace_digest": "jcs:0001" }
+        "params": {
+          "scope": "saltmarket"
+        }
       }
     },
     {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"mara\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "mara"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
+          "rendered": [
+            "person mara \"Mara\" proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:76d940cda5ca3c9ea7944da26994f27f5cf436bac7bbfbf8b93f47f4dfb2dc29"
+        }
+      },
       "send": {
         "dli": "0.1.0",
         "id": "2",
         "op": "author.add_entity",
         "params": {
-          "workspace": "ws-1",
-          "kind": "person",
           "id": "mara",
+          "kind": "person",
           "name": "Mara",
-          "provenance": { "kind": "proposed", "origin": "session-fx01" }
-        }
-      },
-      "expect": {
-        "dli": "0.1.0",
-        "id": "2",
-        "ok": true,
-        "result": {
-          "findings": [],
-          "rendered": ["person mara \"Mara\" proposed session-fx01"],
-          "workspace_digest": "jcs:0002"
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
         }
       }
     },
     {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"the-shallows\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "the-shallows"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
+          "rendered": [
+            "place the-shallows \"The Shallows\" proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:4b061d40f7a91423dee118d8863c2979d6267855fd7a50afb2b17e79d93d9e2c"
+        }
+      },
       "send": {
         "dli": "0.1.0",
         "id": "3",
         "op": "author.add_entity",
         "params": {
-          "workspace": "ws-1",
-          "kind": "place",
           "id": "the-shallows",
+          "kind": "place",
           "name": "The Shallows",
-          "provenance": { "kind": "proposed", "origin": "session-fx01" }
-        }
-      },
-      "expect": {
-        "dli": "0.1.0",
-        "id": "3",
-        "ok": true,
-        "result": {
-          "findings": [],
-          "rendered": ["place the-shallows \"The Shallows\" proposed session-fx01"],
-          "workspace_digest": "jcs:0003"
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
         }
       }
     },
     {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "mara.home = the-shallows proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:cb5d4696a5c778df0aea0c97fb611b881153cb67a248973c37b5c829b6de827f"
+        }
+      },
       "send": {
         "dli": "0.1.0",
         "id": "4",
         "op": "author.add_fact",
         "params": {
-          "workspace": "ws-1",
           "entity": "mara",
           "key": "home",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
           "value": "the-shallows",
-          "provenance": { "kind": "proposed", "origin": "session-fx01" }
-        }
-      },
-      "expect": {
-        "dli": "0.1.0",
-        "id": "4",
-        "ok": true,
-        "result": {
-          "findings": [],
-          "rendered": ["mara.home = the-shallows proposed session-fx01"],
-          "workspace_digest": "jcs:0004"
+          "workspace": "ws-1"
         }
       }
     },
     {
-      "send": {
-        "dli": "0.1.0",
-        "id": "5",
-        "op": "author.diff",
-        "params": { "workspace": "ws-1" }
-      },
       "expect": {
         "dli": "0.1.0",
         "id": "5",
@@ -106,15 +149,17 @@
             "mara.home = the-shallows proposed session-fx01"
           ]
         }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "5",
+        "op": "author.diff",
+        "params": {
+          "workspace": "ws-1"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.1.0",
-        "id": "6",
-        "op": "author.materialize",
-        "params": { "workspace": "ws-1" }
-      },
       "expect": {
         "dli": "0.1.0",
         "id": "6",
@@ -122,14 +167,24 @@
         "result": {
           "findings": [],
           "rendered": [
-            "pack saltmarket",
+            "scope saltmarket",
+            "",
             "person mara \"Mara\" proposed session-fx01",
             "place the-shallows \"The Shallows\" proposed session-fx01",
             "mara.home = the-shallows proposed session-fx01"
           ],
-          "workspace_digest": "jcs:0005"
+          "workspace_digest": "jcs:sha256:cb5d4696a5c778df0aea0c97fb611b881153cb67a248973c37b5c829b6de827f"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "6",
+        "op": "author.materialize",
+        "params": {
+          "workspace": "ws-1"
         }
       }
     }
-  ]
+  ],
+  "version": 1
 }

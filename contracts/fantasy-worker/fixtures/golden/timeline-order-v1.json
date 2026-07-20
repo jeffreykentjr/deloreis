@@ -1,0 +1,25 @@
+{
+  "fixture": "golden/timeline-order-v1",
+  "version": 1,
+  "expected_outcome": "gated",
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.timeline.order",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": []
+        }
+      }
+    }
+  ]
+}

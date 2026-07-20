@@ -4,17 +4,69 @@
   "description": "`dli.query` params.",
   "type": "object",
   "properties": {
+    "as_of": {
+      "description": "Drop rows anchored strictly after this era or event. (`--as-of`.)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "document": {
       "description": "The document id to query.",
       "type": "string"
     },
+    "fork": {
+      "description": "Evaluate under a stored fork's valuation overlay, named by its handle; the\nserver resolves the handle to the overlay. (`--fork`.)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "goal": {
       "description": "The goal atom, rendered.",
       "type": "string"
+    },
+    "layer": {
+      "description": "The standing floor for the returned rows (`certain` | `possible` | `all`).\nAbsent means `all` — no floor. (`--layer`.)",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Layer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "why": {
+      "description": "Attach the support antichain (`--why`) to every row.",
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [
     "document",
     "goal"
-  ]
+  ],
+  "$defs": {
+    "Layer": {
+      "description": "The standing floor a query answer is filtered to.\n\nA `Layer` is a **minimum-standing floor** on the answer rows: a row is kept\nwhen its [`Status`] is at least the floor. Because `Status` orders\n`Dead < Possible < Certain`, the layers nest — `Certain ⊆ Possible ⊆ All`:\n\n- [`Layer::Certain`] keeps only assertable rows (`Status::Certain`).\n- [`Layer::Possible`] keeps the shadow **and** the certain layer\n  (`Status::Possible` and `Status::Certain`). Possibility does not exclude\n  certainty: a certain claim is a fortiori possible.\n- [`Layer::All`] applies no floor — the default.\n\n**Dead atoms never appear in any layer.** A claim whose every monomial is\n`Θ`-unsatisfiable is fail-closed-excluded from the evaluated surface\n(`02-semantics.md` §3: \"excluded from every layer except the error report\").\nSo `Possible` and `All` return the same rows on today's query surface and\ndiffer only in declared intent; surfacing dead atoms is the error report's\njob, not a query layer's.",
+      "oneOf": [
+        {
+          "description": "Only assertable rows.",
+          "type": "string",
+          "const": "certain"
+        },
+        {
+          "description": "The shadow layer and the certain layer together.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "No standing floor.",
+          "type": "string",
+          "const": "all"
+        }
+      ]
+    }
+  }
 }

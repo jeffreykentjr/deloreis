@@ -1,0 +1,44 @@
+{
+  "fixture": "golden/author-add-event-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "event the-drowning \"The Drowning\" proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:e86cf55345eed1730610feeb49a7e016c0782c0a2389d90bac26da87c5fd1741"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.add_event",
+        "params": {
+          "id": "the-drowning",
+          "name": "The Drowning",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

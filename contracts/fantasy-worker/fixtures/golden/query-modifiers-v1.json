@@ -1,0 +1,21 @@
+{
+  "fixture": "golden/query-modifiers-v1",
+  "version": 1,
+  "note": "dli.query with the layer + why modifiers (H9). layer=certain filters the proposed (shadow) row out, so rings(tide-bell, saltmarket) has empty (false) support; why is accepted and routed but the frozen QueryResult carries no antichain field, so it does not change the result.",
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": { "document": "saltmarket", "goal": "rings(tide-bell, saltmarket)", "layer": "certain", "why": true }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": { "support": { "monomials": [] }, "grade": "asserted", "citations": [] }
+      }
+    }
+  ]
+}

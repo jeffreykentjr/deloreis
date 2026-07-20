@@ -88,8 +88,8 @@ fn the_turning_hosts_with_zero_findings() {
         Some(ResourceKind::AffineBounded),
         "the-turning's resource is affine-bounded"
     );
-    // It seats a timing failure on the document-declared wheel, which resolves.
-    assert!(def.wheels_in_scope.contains("turning-leaf"));
+    // It seats a timing failure on the document-declared cycle, which resolves.
+    assert!(def.cycles_in_scope.contains("turning-leaf"));
     // A declared finite sort with five figures.
     assert_eq!(def.sorts.len(), 1);
     assert_eq!(def.sorts[0].variants.len(), 5);
@@ -211,13 +211,13 @@ practice bad-sort proposed {
 }
 
 #[test]
-fn negative_unresolved_wheel_is_caught() {
-    // A timing failure seated on a wheel the document never declares.
+fn negative_unresolved_cycle_is_caught() {
+    // A timing failure seated on a cycle the document never declares.
     let findings = findings_of(
         "\
-pack magic
-practice bad-wheel proposed {
-  error wrong-phase refines L3 side-condition [timing] over wheel ghost-wheel
+scope magic
+practice bad-cycle proposed {
+  error wrong-phase refines L3 side-condition [timing] over cycle ghost-cycle
   cost temporal
 }
 ",
@@ -225,12 +225,46 @@ practice bad-wheel proposed {
     assert!(
         findings
             .iter()
-            .any(|f| f.code() == "practice.unresolved-wheel"),
+            .any(|f| f.code() == "practice.unresolved-cycle"),
         "got: {:?}",
         findings
             .iter()
             .map(PracticeFinding::code)
             .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn negative_retired_over_wheel_is_refused_with_its_successor() {
+    // DL-0016: a practice interior that seats a timing failure with the retired
+    // `over wheel` is refused with `over cycle`, and the reference still resolves
+    // (the kernel cycle `tide` is in scope) so nothing is silently dropped.
+    let findings = findings_of(
+        "\
+scope magic
+practice legacy proposed {
+  error wrong-hour refines L3 side-condition [timing] over wheel tide
+  cost temporal
+}
+",
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.code() == "practice.renamed-interior-form"),
+        "got: {:?}",
+        findings
+            .iter()
+            .map(PracticeFinding::code)
+            .collect::<Vec<_>>()
+    );
+    // The retired spelling is diagnosed, not misread as an unresolved cycle:
+    // `tide` is a kernel cycle and resolves.
+    assert!(
+        !findings
+            .iter()
+            .any(|f| f.code() == "practice.unresolved-cycle"),
+        "the reference must still resolve leniently"
     );
 }
 

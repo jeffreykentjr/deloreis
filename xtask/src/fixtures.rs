@@ -6,7 +6,7 @@ use std::path::Path;
 use anyhow::{Context, Result, anyhow, bail};
 use walkdir::WalkDir;
 
-use dli_serve::ErrorCode;
+use dli_serve::{ErrorCode, Op};
 
 use crate::jsonval::validate_json;
 
@@ -86,8 +86,144 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
             .with_context(|| format!("validating fixture {path}"))?;
     }
 
+    check_op_completeness(&fixtures_dir)?;
+
     println!("fixtures: {} files verified", found.len());
     Ok(())
+}
+
+/// Wire ops exempt from the per-op **framing** requirement (CON-1 oracle): those
+/// whose only string parameters are opaque handles/ids (`document`, `fork`,
+/// `workspace`, `job_id`), enums (`profile`), or structured payloads whose free
+/// text is quote-anchored separately (`payload`, `store`). A framing fixture is a
+/// golden-shaped call whose adversarial *free-text* string leaves the verdict
+/// unchanged; an op with no author-controlled free-text field has no such surface
+/// to frame — an injection string in a handle position is simply an unknown
+/// handle, which its negative fixture already covers. Every op NOT listed here
+/// must carry a framing fixture, so a newly added op fails the gate until it
+/// either gains one or is deliberately added to this list.
+const FRAMING_EXEMPT: &[&str] = &[
+    "dli.version",
+    "dli.check",
+    "dli.query",
+    "dli.fork.new",
+    "dli.fork.list",
+    "dli.fork.diff",
+    "dli.fork.suppose",
+    "dli.fork.suppress",
+    "dli.fork.restrict",
+    "dli.fork.preflight",
+    "dli.fork.promote",
+    "dli.check-proof",
+    "dli.check-draft",
+    "dli.simulate.start",
+    "dli.simulate.status",
+    "dli.simulate.cancel",
+    "dli.timeline.show",
+    "dli.timeline.order",
+    "dli.timeline.knows",
+    "dli.timeline.episodes",
+    "dli.timeline.phases",
+    "dli.export.run",
+    "dli.attest.missing",
+    "dli.attestation-sweep",
+    "dli.payload-submit",
+    "author.status",
+    "author.diff",
+    "author.discard",
+    "author.materialize",
+    "author.add_relation",
+    "author.add_before",
+    "author.suppose",
+];
+
+/// The CON-1 completeness oracle: *an op without golden + negative + framing
+/// fixtures does not exist.* Every wire op in [`Op::ALL`] must be covered by a
+/// golden fixture (a flow fixture covering it as one of its steps counts), a
+/// negative fixture, and a framing fixture — unless the op is in
+/// [`FRAMING_EXEMPT`]. Coverage is read from the `send.op` of each fixture under
+/// the `golden/`, `negative/`, and `framing/` directories.
+fn check_op_completeness(fixtures_dir: &Path) -> Result<()> {
+    let golden = ops_in_category(&fixtures_dir.join("golden"))?;
+    let negative = ops_in_category(&fixtures_dir.join("negative"))?;
+    let framing = ops_in_category(&fixtures_dir.join("framing"))?;
+
+    let mut missing: Vec<String> = Vec::new();
+    for &op in &Op::ALL {
+        let wire = wire_name(op);
+        if !golden.contains(&wire) {
+            missing.push(format!("{wire}: no golden fixture"));
+        }
+        if !negative.contains(&wire) {
+            missing.push(format!("{wire}: no negative fixture"));
+        }
+        if !framing.contains(&wire) && !FRAMING_EXEMPT.contains(&wire.as_str()) {
+            missing.push(format!(
+                "{wire}: no framing fixture (and not framing-exempt)"
+            ));
+        }
+    }
+    if !missing.is_empty() {
+        bail!(
+            "fixtures: CON-1 completeness — {} op(s) lack a required fixture:\n{}",
+            missing.len(),
+            missing.join("\n")
+        );
+    }
+    println!(
+        "fixtures: CON-1 op completeness OK ({} ops: golden+negative+framing)",
+        Op::ALL.len()
+    );
+    Ok(())
+}
+
+/// The set of wire op names appearing as a `send.op` in any fixture under `dir`
+/// (single-`send` fixtures and multi-step `steps` flow fixtures alike).
+fn ops_in_category(dir: &Path) -> Result<BTreeSet<String>> {
+    let mut ops = BTreeSet::new();
+    if !dir.is_dir() {
+        return Ok(ops);
+    }
+    for entry in WalkDir::new(dir).into_iter().filter_map(Result::ok) {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let value: serde_json::Value = serde_json::from_slice(&std::fs::read(path)?)
+            .with_context(|| format!("parsing {}", path.display()))?;
+        collect_ops(&value, &mut ops);
+    }
+    Ok(ops)
+}
+
+/// Insert every `send.op` this fixture drives — the one `send`, or each step's.
+fn collect_ops(value: &serde_json::Value, ops: &mut BTreeSet<String>) {
+    let op_of = |send: &serde_json::Value| {
+        send.get("op")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+    };
+    if let Some(steps) = value.get("steps").and_then(serde_json::Value::as_array) {
+        for step in steps {
+            if let Some(send) = step.get("send")
+                && let Some(op) = op_of(send)
+            {
+                ops.insert(op);
+            }
+        }
+    } else if let Some(send) = value.get("send")
+        && let Some(op) = op_of(send)
+    {
+        ops.insert(op);
+    }
+}
+
+/// The wire identifier for an op — its serde rename, the contract's name.
+fn wire_name(op: Op) -> String {
+    serde_json::to_value(op)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_default()
 }
 
 fn discover_fixture_files(fixtures_dir: &Path) -> BTreeSet<String> {

@@ -8,18 +8,24 @@
     "op": "dli.payload-submit",
     "params": {
       "payload": {
-        "meta": { "title": "bad-grade", "pack": "saltmarket", "version": 1 },
+        "meta": {
+          "title": "bad-grade",
+          "scope": "saltmarket",
+          "version": 1
+        },
         "claims": [],
         "deltas": [],
         "scenes": [],
         "beats": [],
         "promises": [],
-        "proof_ledgers": [],
+        "proofs": [],
         "names": [],
         "lexicon": [],
         "grade": "platinum"
       }
     }
   },
-  "expect_error": { "code": "schema-violation" }
+  "expect_error": {
+    "code": "schema-violation"
+  }
 }

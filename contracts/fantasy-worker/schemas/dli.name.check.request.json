@@ -4,17 +4,17 @@
   "description": "`dli.name.check` params.",
   "type": "object",
   "properties": {
-    "name": {
-      "description": "The proposed name.",
+    "dialect": {
+      "description": "The dialect to vet against.",
       "type": "string"
     },
-    "register": {
-      "description": "The register to vet against.",
+    "name": {
+      "description": "The proposed name.",
       "type": "string"
     }
   },
   "required": [
     "name",
-    "register"
+    "dialect"
   ]
 }

@@ -6,7 +6,11 @@
     "dli": "0.1.0",
     "id": "1",
     "op": "dli.check",
-    "params": { "documnet": "saltmarket" }
+    "params": {
+      "documnet": "saltmarket"
+    }
   },
-  "expect_error": { "code": "schema-violation" }
+  "expect_error": {
+    "code": "schema-violation"
+  }
 }

@@ -14,7 +14,7 @@
 //!    open resource vocabulary.
 //! 3. **Declarations resolve against the practice's sorts** — a role annotated
 //!    with a sort the practice does not declare (nor a primitive kind nor a
-//!    wheel), and a failure or law that cites a wheel not in scope, do not
+//!    cycle), and a failure or law that cites a cycle not in scope, do not
 //!    compile.
 //!
 //! # The interior grammar of a practice block
@@ -63,9 +63,9 @@ pub const PRIMITIVE_SORTS: &[&str] = &[
     "entity", "artifact", "place", "person", "thing", "event", "era",
 ];
 
-/// The kernel wheels every practice may seat a timing condition on, on the same
-/// footing as its own declared wheels (`docs/spec/03-time.md`; charter koan 8).
-pub const KERNEL_WHEELS: &[&str] = &["tide", "moon", "season"];
+/// The kernel cycles every practice may seat a timing condition on, on the same
+/// footing as its own declared cycles (`docs/spec/03-time.md`; charter koan 8).
+pub const KERNEL_CYCLES: &[&str] = &["tide", "moon", "season"];
 
 /// The interior keywords that open a practice-block form (§ module docs). A
 /// clause opening with any other word continues the form above it.
@@ -220,7 +220,7 @@ pub struct ConditionDef {
 }
 
 /// A declared diegetic failure, refining a structural class:
-/// `error wrong-turning refines L3 side-condition [timing] over wheel turning-leaf`.
+/// `error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ErrorClassDef {
     /// The failure name (the drama the scene voices).
@@ -235,8 +235,8 @@ pub struct ErrorClassDef {
     pub signal: Option<String>,
     /// The resource an `L6` failure spends against (`… on <resource>`).
     pub on_resource: Option<Ident>,
-    /// The wheels a timing failure is seated on (`… over wheel <w1>, <w2>`).
-    pub over_wheels: Vec<Ident>,
+    /// The cycles a timing failure is seated on (`… over cycle <w1>, <w2>`).
+    pub over_cycles: Vec<Ident>,
     /// Source span of the declaration.
     pub span: Span,
 }
@@ -256,8 +256,8 @@ pub struct EffectDef {
 ///
 /// Everything that distinguishes one practice from another lives here as data
 /// (charter koan 10); the generic checker and evaluator read this and nothing
-/// else. It is self-contained for [`check_practice`]: the wheels that were in
-/// scope at compile time are recorded on [`wheels_in_scope`](PracticeDef::wheels_in_scope)
+/// else. It is self-contained for [`check_practice`]: the cycles that were in
+/// scope at compile time are recorded on [`cycles_in_scope`](PracticeDef::cycles_in_scope)
 /// so reference resolution needs no further environment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PracticeDef {
@@ -283,49 +283,49 @@ pub struct PracticeDef {
     pub effects: Vec<EffectDef>,
     /// The currency vocabulary a casting may spend in.
     pub costs: Vec<Ident>,
-    /// The wheels in scope at compile time (kernel wheels plus those declared in
-    /// the document), against which wheel references are resolved.
-    pub wheels_in_scope: BTreeSet<String>,
+    /// The cycles in scope at compile time (kernel cycles plus those declared in
+    /// the document), against which cycle references are resolved.
+    pub cycles_in_scope: BTreeSet<String>,
     /// Source span of the declaration.
     pub span: Span,
 }
 
 /// The compile-time environment a practice resolves its references against.
 ///
-/// For PRAC-1 this is the set of wheels in scope — the kernel wheels plus every
-/// wheel the document declares. Build it with [`PracticeEnv::from_document`] so
-/// a practice that seats a timing failure on a document-declared wheel resolves.
+/// For PRAC-1 this is the set of cycles in scope — the kernel cycles plus every
+/// cycle the document declares. Build it with [`PracticeEnv::from_document`] so
+/// a practice that seats a timing failure on a document-declared cycle resolves.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PracticeEnv {
-    /// The wheel names in scope.
-    pub wheels: BTreeSet<String>,
+    /// The cycle names in scope.
+    pub cycles: BTreeSet<String>,
 }
 
 impl Default for PracticeEnv {
-    /// The base environment: the kernel wheels, and nothing document-specific.
+    /// The base environment: the kernel cycles, and nothing document-specific.
     fn default() -> Self {
         Self {
-            wheels: KERNEL_WHEELS.iter().map(|w| (*w).to_owned()).collect(),
+            cycles: KERNEL_CYCLES.iter().map(|w| (*w).to_owned()).collect(),
         }
     }
 }
 
 impl PracticeEnv {
-    /// An environment with only the kernel wheels in scope — equal to
+    /// An environment with only the kernel cycles in scope — equal to
     /// [`Default`], so the two never disagree.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// The environment for a document: the kernel wheels plus every wheel the
+    /// The environment for a document: the kernel cycles plus every cycle the
     /// document declares.
     #[must_use]
     pub fn from_document(doc: &Document) -> Self {
         let mut env = Self::default();
         for decl in &doc.decls {
             if let Decl::Cycle(w) = decl {
-                env.wheels.insert(w.name.text.clone());
+                env.cycles.insert(w.name.text.clone());
             }
         }
         env
@@ -367,7 +367,7 @@ pub enum PracticeFinding {
         span: Span,
     },
     /// A role is annotated with a sort the practice does not declare, that is not
-    /// a primitive kind, and is not a wheel in scope (obligation 3).
+    /// a primitive kind, and is not a cycle in scope (obligation 3).
     UnboundSort {
         /// The role whose sort does not resolve.
         role: String,
@@ -376,10 +376,10 @@ pub enum PracticeFinding {
         /// Source span.
         span: Span,
     },
-    /// A failure or law cites a wheel that is not in scope (obligation 3).
-    UnresolvedWheel {
-        /// The unresolved wheel name.
-        wheel: String,
+    /// A failure or law cites a cycle that is not in scope (obligation 3).
+    UnresolvedCycle {
+        /// The unresolved cycle name.
+        cycle: String,
         /// Where it was cited (`error wrong-turning`, `rule lay`, …).
         cited_by: String,
         /// Source span.
@@ -395,6 +395,21 @@ pub enum PracticeFinding {
         /// Source span.
         span: Span,
     },
+    /// A practice interior wrote a retired spelling; refuse it with its successor
+    /// (DL-0016; the killed-form discipline, charter koan 7). The interior grammar
+    /// mirrors the parser's top-level rule — an old word is never silently accepted
+    /// nor read as unknown, it is named against the word that replaced it. The
+    /// reference is still parsed leniently so nothing is dropped (koan 4).
+    RenamedInteriorForm {
+        /// The retired spelling as written (e.g. `over wheel`).
+        old: String,
+        /// The current spelling to write instead (e.g. `over cycle`).
+        new: String,
+        /// Where it was written (`error wrong-hour`, …).
+        used_by: String,
+        /// Source span.
+        span: Span,
+    },
 }
 
 impl PracticeFinding {
@@ -406,8 +421,9 @@ impl PracticeFinding {
             Self::MissingDiscriminant { .. } => "practice.missing-discriminant",
             Self::ResourceOutsideAlgebra { .. } => "practice.resource-outside-algebra",
             Self::UnboundSort { .. } => "practice.unbound-sort",
-            Self::UnresolvedWheel { .. } => "practice.unresolved-wheel",
+            Self::UnresolvedCycle { .. } => "practice.unresolved-cycle",
             Self::ErrorResourceUnknown { .. } => "practice.error-resource-unknown",
+            Self::RenamedInteriorForm { .. } => "practice.renamed-interior-form",
         }
     }
 
@@ -419,8 +435,9 @@ impl PracticeFinding {
             | Self::MissingDiscriminant { span, .. }
             | Self::ResourceOutsideAlgebra { span, .. }
             | Self::UnboundSort { span, .. }
-            | Self::UnresolvedWheel { span, .. }
-            | Self::ErrorResourceUnknown { span, .. } => *span,
+            | Self::UnresolvedCycle { span, .. }
+            | Self::ErrorResourceUnknown { span, .. }
+            | Self::RenamedInteriorForm { span, .. } => *span,
         }
     }
 
@@ -442,12 +459,12 @@ impl PracticeFinding {
             ),
             Self::UnboundSort { role, sort, .. } => format!(
                 "the role '{role}' is typed by sort '{sort}', which the practice does not \
-                 declare and is neither a primitive kind nor a wheel in scope"
+                 declare and is neither a primitive kind nor a cycle in scope"
             ),
-            Self::UnresolvedWheel {
-                wheel, cited_by, ..
+            Self::UnresolvedCycle {
+                cycle, cited_by, ..
             } => format!(
-                "{cited_by} is seated on the wheel '{wheel}', which is not in scope — \
+                "{cited_by} is seated on the cycle '{cycle}', which is not in scope — \
                  declare it, or import the layer that carries it"
             ),
             Self::ErrorResourceUnknown {
@@ -456,6 +473,9 @@ impl PracticeFinding {
                 "the resource-violation failure '{error}' spends against '{resource}', \
                  which the practice does not declare as a resource"
             ),
+            Self::RenamedInteriorForm {
+                old, new, used_by, ..
+            } => format!("{used_by} writes `{old}`, which was renamed — write `{new}`."),
         }
     }
 }
@@ -484,7 +504,7 @@ impl PracticeDef {
             errors: Vec::new(),
             effects: Vec::new(),
             costs: Vec::new(),
-            wheels_in_scope: env.wheels.clone(),
+            cycles_in_scope: env.cycles.clone(),
             span: decl.name.span,
         };
         for item in reassemble(&decl.body) {
@@ -524,16 +544,16 @@ impl PracticeDef {
     }
 
     /// The sorts a role annotation may resolve to: primitive kinds, this
-    /// practice's declared sorts, and the wheels in scope.
+    /// practice's declared sorts, and the cycles in scope.
     fn sort_scope(&self) -> BTreeSet<String> {
         let mut scope: BTreeSet<String> = PRIMITIVE_SORTS.iter().map(|s| (*s).to_owned()).collect();
         scope.extend(self.sorts.iter().map(|s| s.name.text.clone()));
-        scope.extend(self.wheels_in_scope.iter().cloned());
+        scope.extend(self.cycles_in_scope.iter().cloned());
         scope
     }
 }
 
-/// Compile every practice declared in a document against the document's wheels.
+/// Compile every practice declared in a document against the document's cycles.
 ///
 /// This is the workbench entry the acceptance gate drives: parse a `.dli` pack,
 /// compile each practice, and the result hosts generically — no per-practice
@@ -551,7 +571,7 @@ impl PracticeDef {
 ///   role reader : entity requires standing(reader)
 ///   resource spread : affine bounded nine-leaves
 ///   error overspread refines L6 resource-violation on spread signals scatter
-///   error wrong-turning refines L3 side-condition [timing] over wheel turning-leaf
+///   error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf
 ///   cost epistemic | social
 /// }
 /// ";
@@ -577,7 +597,7 @@ pub fn compile_practices(doc: &Document) -> Vec<PracticeDef> {
 /// Check a compiled practice for the well-formedness obligations of spec §6.
 ///
 /// Returns every finding, in a stable order (errors, then resources, then roles,
-/// then wheel references); an empty list is a well-formed practice. This is the
+/// then cycle references); an empty list is a well-formed practice. This is the
 /// compile-time gate that runs before any casting: a magic system that would
 /// need kernel support to host is caught here as a finding, not discovered in a
 /// casting later.
@@ -607,6 +627,17 @@ pub fn check_practice(def: &PracticeDef) -> Vec<PracticeFinding> {
 
     // Obligation 1: every error refines a structural class, with a discriminant.
     for err in &def.errors {
+        // The interior killed-form guard (DL-0016): a timing failure that seats
+        // itself with the retired `over wheel` is refused with its successor, the
+        // same discipline the parser applies to top-level keywords (koan 7).
+        if uses_retired_cycle_form(&err.discriminant) {
+            findings.push(PracticeFinding::RenamedInteriorForm {
+                old: "over wheel".to_owned(),
+                new: "over cycle".to_owned(),
+                used_by: format!("error {}", err.name.text),
+                span: err.span,
+            });
+        }
         match err.class {
             None => findings.push(PracticeFinding::ErrorRefinesNothing {
                 error: err.name.text.clone(),
@@ -659,11 +690,11 @@ pub fn check_practice(def: &PracticeDef) -> Vec<PracticeFinding> {
         }
     }
 
-    // Obligation 3b: every cited wheel is in scope.
-    for (wheel, cited_by, span) in wheel_references(def) {
-        if !def.wheels_in_scope.contains(&wheel) {
-            findings.push(PracticeFinding::UnresolvedWheel {
-                wheel,
+    // Obligation 3b: every cited cycle is in scope.
+    for (cycle, cited_by, span) in cycle_references(def) {
+        if !def.cycles_in_scope.contains(&cycle) {
+            findings.push(PracticeFinding::UnresolvedCycle {
+                cycle,
                 cited_by,
                 span,
             });
@@ -673,15 +704,15 @@ pub fn check_practice(def: &PracticeDef) -> Vec<PracticeFinding> {
     findings
 }
 
-/// Collect every wheel reference in a practice with where it was cited: an
-/// error's `over wheel …` clause, and any `phase(<wheel>)` in a rule or
+/// Collect every cycle reference in a practice with where it was cited: an
+/// error's `over cycle …` clause, and any `phase(<cycle>)` in a rule or
 /// condition body.
-fn wheel_references(def: &PracticeDef) -> Vec<(String, String, Span)> {
+fn cycle_references(def: &PracticeDef) -> Vec<(String, String, Span)> {
     let mut refs = Vec::new();
     for err in &def.errors {
-        for wheel in &err.over_wheels {
+        for cycle in &err.over_cycles {
             refs.push((
-                wheel.text.clone(),
+                cycle.text.clone(),
                 format!("error {}", err.name.text),
                 err.span,
             ));
@@ -689,14 +720,14 @@ fn wheel_references(def: &PracticeDef) -> Vec<(String, String, Span)> {
     }
     for rule in &def.rules {
         if let Some(body) = &rule.requires {
-            for wheel in phase_wheels(body) {
-                refs.push((wheel, format!("rule {}", rule.form.text), rule.span));
+            for cycle in phase_cycles(body) {
+                refs.push((cycle, format!("rule {}", rule.form.text), rule.span));
             }
         }
     }
     for cond in &def.conditions {
-        for wheel in phase_wheels(&cond.requires) {
-            refs.push((wheel, format!("condition {}", cond.name.text), cond.span));
+        for cycle in phase_cycles(&cond.requires) {
+            refs.push((cycle, format!("condition {}", cond.name.text), cond.span));
         }
     }
     refs
@@ -876,16 +907,7 @@ fn parse_error(body: &str, span: Span) -> Option<ErrorClassDef> {
     let on_resource = discriminant
         .split_once(" on ")
         .map(|(_, rest)| ident(first_word(rest), span));
-    let over_wheels = discriminant
-        .find("over wheel ")
-        .map(|at| {
-            discriminant[at + "over wheel ".len()..]
-                .split(',')
-                .map(|w| ident(first_word(w.trim()), span))
-                .filter(|i| !i.text.is_empty())
-                .collect()
-        })
-        .unwrap_or_default();
+    let over_cycles = parse_over_cycles(&discriminant, span);
     Some(ErrorClassDef {
         name: ident(name.trim(), span),
         refines_token: class_token.to_owned(),
@@ -893,9 +915,32 @@ fn parse_error(body: &str, span: Span) -> Option<ErrorClassDef> {
         discriminant,
         signal,
         on_resource,
-        over_wheels,
+        over_cycles,
         span,
     })
+}
+
+/// The `over cycle <c1>, <c2>` clause naming the cycles a timing failure is
+/// seated on. Both the current `over cycle` and the retired `over wheel` spelling
+/// are read so nothing is dropped (koan 4); the retired form is separately
+/// diagnosed by [`check_practice`] (DL-0016), so the reference resolves either way
+/// and the writer is still told to update it.
+fn parse_over_cycles(discriminant: &str, span: Span) -> Vec<Ident> {
+    for marker in ["over cycle ", "over wheel "] {
+        if let Some(at) = discriminant.find(marker) {
+            return discriminant[at + marker.len()..]
+                .split(',')
+                .map(|w| ident(first_word(w.trim()), span))
+                .filter(|i| !i.text.is_empty())
+                .collect();
+        }
+    }
+    Vec::new()
+}
+
+/// Whether a discriminant used the retired `over wheel` spelling (DL-0016).
+fn uses_retired_cycle_form(discriminant: &str) -> bool {
+    discriminant.contains("over wheel ") || discriminant.trim_end().ends_with("over wheel")
 }
 
 fn parse_effect(body: &str, span: Span) -> EffectDef {
@@ -930,24 +975,24 @@ fn named_head(head: &str, span: Span) -> (Ident, Vec<Ident>) {
     (ident(first_word(head), span), Vec::new())
 }
 
-/// The forward reference of `phase(<wheel>)` calls in a body, in order.
-fn phase_wheels(body: &str) -> Vec<String> {
-    let mut wheels = Vec::new();
+/// The forward reference of `phase(<cycle>)` calls in a body, in order.
+fn phase_cycles(body: &str) -> Vec<String> {
+    let mut cycles = Vec::new();
     let mut rest = body;
     while let Some(at) = rest.find("phase(") {
         let after = &rest[at + "phase(".len()..];
         if let Some(close) = after.find(')') {
             let inner = after[..close].trim();
-            let wheel = inner.split([',', ' ']).next().unwrap_or_default().trim();
-            if !wheel.is_empty() {
-                wheels.push(wheel.to_owned());
+            let cycle = inner.split([',', ' ']).next().unwrap_or_default().trim();
+            if !cycle.is_empty() {
+                cycles.push(cycle.to_owned());
             }
             rest = &after[close + 1..];
         } else {
             break;
         }
     }
-    wheels
+    cycles
 }
 
 /// Split a `a | b | c` list into its idents.

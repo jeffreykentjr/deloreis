@@ -19,6 +19,7 @@ provenance:
 
 operators:
   - operator: continuity-world-contradiction
+    kernel_outcome: {wave: 3, status: caught, code: factcheck.contradicted, gate: "check_draft() — the episode delta projected as a claim clashes with the certain layer", test: op_continuity_world_contradiction}
     description: An episode establishes a fact whose value contradicts assertable canon.
     seeded_change:
       kind: synthetic
@@ -34,6 +35,7 @@ operators:
       runs the continuity classes against that projection (spec 03 §4).
 
   - operator: continuity-prior-contradiction
+    kernel_outcome: {wave: 3, status: caught, code: continuity.prior-contradiction, gate: "continuity::prior_contradictions() over the episode fold's prior ledger", test: op_continuity_prior_contradiction}
     description: An episode changes a fact from a value that disagrees with the prior episode.
     seeded_change:
       kind: synthetic
@@ -50,6 +52,7 @@ operators:
       span (since/until) can legitimize the change — otherwise it is a finding.
 
   - operator: continuity-unknown-entity
+    kernel_outcome: {wave: 3, status: caught, code: continuity.unknown-entity, gate: "check_claims()", test: op_continuity_unknown_entity}
     description: An episode references an entity id canon does not define.
     seeded_change:
       kind: synthetic
@@ -63,6 +66,7 @@ operators:
     rationale: A reference to an id the world does not define — the same class as a dangling link, at the episode layer.
 
   - operator: continuity-proposed-as-fact
+    kernel_outcome: {wave: 3, status: caught, code: continuity.proposed-as-fact, gate: "check_claims()", test: op_continuity_proposed_as_fact}
     description: An episode asserts proposed/open-question shadow lore as established fact.
     seeded_change:
       kind: synthetic

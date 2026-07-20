@@ -10,9 +10,15 @@
 //! single casting against a compiled practice is the [`ledger`] seam (PRAC-2).
 
 pub mod ledger;
+pub mod ledger_check;
 pub mod practice;
+pub mod premise;
 pub mod resource;
 
 pub use ledger::{LedgerEntry, LedgerReport, LedgerViolation, check_ledger};
+pub use ledger_check::{
+    Expectation, ProofFinding, ProofForm, ProofReport, ProofVerdict, StepVerdict, check_proof,
+};
 pub use practice::PracticeDef;
+pub use premise::{PremiseStatus, SceneProjection, normalize_atom};
 pub use resource::{Delta, GradeDirection, ResourceKind};

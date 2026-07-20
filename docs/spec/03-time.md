@@ -156,6 +156,19 @@ And the `before`-facts **themselves carry annotations**, like any fact:
 level without leaking into it. One meta-time is preserved intact; story-time is
 object data with structure, never a second transaction dimension over the store.
 
+Because an order is a ruling, **precedence itself is read through standing.** The
+raw graph reachability — *is there a path of `before`-facts?* — is standing-blind:
+it answers `Before` for a merely-proposed edge exactly as for a ratified one. That
+is the wrong answer for any checker that must not let an unratified order harden a
+conclusion (the season slack, an anachronism verdict). So the standing-aware read
+returns one of three: **certain-order**, when every `before`-fact on the connecting
+path is certain; **possible-order**, when a path exists but rests on at least one
+proposed edge — it holds only if that ruling lands; and **unordered-under-uncertainty**,
+when no path relates the pair under any standing. A merely-proposed `before`-fact
+thus yields *possibly-before*, never a hard *before* — the same discipline the
+projection of §2 already applies to fluents, now applied to the order relation
+that anchors them.
+
 ---
 
 ## 4. What it unlocks: eight capabilities

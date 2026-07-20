@@ -10,6 +10,11 @@ publish = false
 
 [dependencies]
 dli-core.workspace = true
+# The order-rule compiler reads `rule … over order` decls (dli-ast) through the
+# one shared clause-atom parser (dli-syntax). Neither depends on dli-time, so
+# there is no cycle; the generic order/slack engine itself stays AST-free.
+dli-ast.workspace = true
+dli-syntax.workspace = true
 serde.workspace = true
 schemars.workspace = true
 

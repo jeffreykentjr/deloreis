@@ -1,0 +1,40 @@
+{
+  "fixture": "golden/author-add-hypothesis-v1",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "fork": "exploration"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "hypothesis coast-runs-north \"The coast runs north.\""
+          ],
+          "workspace_digest": "jcs:sha256:bbf3c7c4edb31256d0acccf60eba45f20b8888c7fd5b8657c89a01b3166fd1c8"
+        }
+      },
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.add_hypothesis",
+        "params": {
+          "id": "coast-runs-north",
+          "statement": "The coast runs north.",
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

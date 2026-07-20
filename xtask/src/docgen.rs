@@ -52,6 +52,14 @@ pub fn pages() -> Vec<DocPage> {
             path: "docs/reference-generated/error-codes.md",
             render: render_error_codes,
         },
+        DocPage {
+            path: "docs/reference-generated/grammar-keywords.md",
+            render: render_grammar_keywords,
+        },
+        DocPage {
+            path: "docs/reference-generated/cli.md",
+            render: render_cli,
+        },
     ]
 }
 
@@ -179,6 +187,26 @@ const ERROR_ROWS: &[(ErrorCode, &str, &str)] = &[
         "refused",
         "`author.materialize` called with error-class findings open",
     ),
+    (
+        ErrorCode::KilledForm,
+        "refused",
+        "a killed or renamed op/tool; the message names the successor",
+    ),
+    (
+        ErrorCode::NotWired,
+        "refused",
+        "a recognized op whose engine is not wired in this build (capability-gated)",
+    ),
+    (
+        ErrorCode::VersionMismatch,
+        "refused",
+        "a well-formed frame declaring a contract version this build does not speak",
+    ),
+    (
+        ErrorCode::Conflict,
+        "refused",
+        "an `idempotency_key` reused with a different payload (distinct from stale-fence)",
+    ),
     (ErrorCode::Internal, "internal", "a server defect"),
 ];
 
@@ -198,6 +226,133 @@ fn render_error_codes() -> String {
     out.push_str("|---|---|---|\n");
     for &(code, class, cause) in ERROR_ROWS {
         let _ = writeln!(out, "| `{}` | `{class}` | {cause} |", code.wire_name());
+    }
+    out
+}
+
+/// The reserved surface keywords, generated from
+/// [`dli_syntax::line_open_keywords`] — the parser's real line-open match arms,
+/// the single source of truth for what a declaration line may open with. This is
+/// the DL-0016 does-what-it-says surface; a wire/surface rename shows up here as a
+/// reviewable doc diff, exactly as `ops.md` does for the wire.
+fn render_grammar_keywords() -> String {
+    let mut keywords: Vec<&str> = dli_syntax::line_open_keywords().to_vec();
+    keywords.sort_unstable();
+    let count = keywords.len();
+    let mut out = header(&format!(
+        "The {count} reserved surface keywords a declaration line may open with, \
+         generated from dli_syntax::line_open_keywords() — the DL-0016 does-what-it-says surface."
+    ));
+    out.push_str("# Grammar keywords\n\n");
+    let _ = write!(
+        out,
+        "De Lore Is reserves **{count}** keywords: the words a declaration line may \
+         open with. This set is the surface-v1 vocabulary (`decisions.md` DL-0016, \
+         the does-what-it-says pass). A line that opens with anything else is a \
+         relation fact of the form `pred(args)` or a diagnostic. Retired spellings \
+         (for example `fluent`→`state`, `wheel`→`cycle`, the proof block \
+         `ledger`→`proof`, `sort`→`kind`) are **killed forms**: the parser refuses \
+         them with a renamed-to diagnostic rather than reading them as keywords.\n\n"
+    );
+    out.push_str("| Keyword |\n|---|\n");
+    for keyword in keywords {
+        let _ = writeln!(out, "| `{keyword}` |");
+    }
+    out
+}
+
+/// The `deloreis` CLI surface as `(command path, help line)`, mirroring the clap
+/// definitions in `crates/deloreis/src`. There is no lib target to derive from
+/// (the bin keeps its surface private and a build-dep on the bin is disallowed),
+/// so the table is declared here and kept honest by [`tests::cli_table_matches_source`],
+/// which fails if any help line drifts from the source.
+const CLI_COMMANDS: &[(&str, &str)] = &[
+    ("check", "Validate documents against the world model."),
+    ("query", "Query a saturated world."),
+    ("fmt", "Format documents into the one canonical surface."),
+    ("fork", "Inspect and evaluate forks over a workspace store."),
+    ("fork new", "Create a new fork over a corpus."),
+    ("fork list", "List the open forks and their base corpus."),
+    (
+        "fork diff",
+        "Show a fork's derived-consequence diff against the base.",
+    ),
+    (
+        "fork suppose",
+        "Suppose an option or event value in a fork.",
+    ),
+    ("fork add", "Add a proposed ground fact to a fork."),
+    ("fork suppress", "Retract a supposition from a fork."),
+    (
+        "fork restrict",
+        "Restrict a fork's presented consequences with a keep-stamp.",
+    ),
+    ("fork preflight", "Ratification pre-flight of a fork."),
+    ("fork promote", "Emit a ruling-request draft from a fork."),
+    ("preflight", "Run the ratification pre-flight over a fork."),
+    (
+        "timeline",
+        "Read the timeline: chronology and the episode fold.",
+    ),
+    (
+        "timeline show",
+        "Render the era/event partial order (optionally around a cursor).",
+    ),
+    (
+        "timeline order",
+        "The partial-order report: cycles and load-bearing unordered pairs.",
+    ),
+    (
+        "timeline knows",
+        "What a knower knows once the listener reaches a production slot.",
+    ),
+    (
+        "timeline episodes",
+        "Fold the season and check its production-order layout and open loops.",
+    ),
+    ("timeline phases", "The cyclic phases an episode pins."),
+    (
+        "check-proof",
+        "Check a diegetic proof block against a practice.",
+    ),
+    (
+        "check-draft",
+        "Fact-check a draft payload against the world model.",
+    ),
+    ("simulate", "Simulate a practice or game."),
+    ("name", "Vet a name — the kernel, world-true half."),
+    (
+        "name check",
+        "Vet a candidate name against the settled name-space.",
+    ),
+    ("export", "Export under a profile."),
+    ("report", "Render the findings report."),
+    ("serve", "Run the JSON-over-stdio worker."),
+];
+
+/// The `deloreis` command reference, from [`CLI_COMMANDS`]. The CLI is a rendering
+/// over the same engines the `dli.*` ops serve; this page is its man-page.
+fn render_cli() -> String {
+    let count = CLI_COMMANDS
+        .iter()
+        .filter(|(p, _)| !p.contains(' '))
+        .count();
+    let mut out = header(
+        "The deloreis CLI command reference, mirroring the clap surface in \
+         crates/deloreis/src (drift-guarded by a source-parity test).",
+    );
+    out.push_str("# CLI commands\n\n");
+    let _ = write!(
+        out,
+        "`deloreis` exposes **{count}** top-level subcommands; `fork`, `timeline`, \
+         and `name` carry nested subcommands. Each is a rendering over the same \
+         engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, \
+         `1` findings, `2` a usage or operational error (including an engine not \
+         yet frozen).\n\n"
+    );
+    out.push_str("| Command | Description |\n|---|---|\n");
+    for &(path, about) in CLI_COMMANDS {
+        let _ = writeln!(out, "| `deloreis {path}` | {about} |");
     }
     out
 }
@@ -257,5 +412,41 @@ mod tests {
                 page.path
             );
         }
+    }
+
+    /// Source-parity for the CLI page: no lib target to derive from and a build-dep
+    /// on the bin is disallowed, so the help table is declared data — this reads the
+    /// deloreis clap source and fails if any help line drifts, if the DL-0016
+    /// `check-proof` rename is absent, or if the killed `check-ledger` reappears.
+    #[test]
+    fn cli_table_matches_source() {
+        let src_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../crates/deloreis/src");
+        let mut source = String::new();
+        for entry in walkdir::WalkDir::new(&src_dir)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            if entry.path().extension().and_then(|e| e.to_str()) == Some("rs")
+                && let Ok(text) = std::fs::read_to_string(entry.path())
+            {
+                source.push_str(&text);
+            }
+        }
+        assert!(!source.is_empty(), "no deloreis CLI source found");
+        for &(path, about) in CLI_COMMANDS {
+            assert!(
+                source.contains(about),
+                "CLI help drifted for `{path}`: `{about}` not in deloreis source"
+            );
+        }
+        assert!(
+            source.contains("name = \"check-proof\""),
+            "the DL-0016 check-proof subcommand rename is not in the CLI source"
+        );
+        assert!(
+            !source.contains("name = \"check-ledger\""),
+            "the killed `check-ledger` subcommand name reappeared in the CLI source"
+        );
     }
 }

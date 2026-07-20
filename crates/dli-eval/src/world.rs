@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, OptionClause, TimeClause};
+use dli_ast::decl::{Decl, Document, EntityKind, OptionClause, TimeClause};
 use dli_ast::ident::Ident;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status, Theory};
@@ -103,6 +103,17 @@ pub struct Derived {
     pub grade: Grade,
 }
 
+/// A non-fatal finding raised during lowering. Lowering never fails on one —
+/// it fails the affected claim *closed* and records the finding here, so it can
+/// surface through `check` without blocking the rest of the world.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct LowerFinding {
+    /// The stable finding code, e.g. `citation.unknown-decision`.
+    pub code: String,
+    /// A human-readable message in the world's terms.
+    pub message: String,
+}
+
 /// A lowered, evaluable program together with its symbolic saturation.
 ///
 /// Before [`World::fixpoint`], `derived` and `support_index` are empty and the
@@ -124,6 +135,9 @@ pub struct World {
     pub derived: Vec<Derived>,
     /// Inverted index: event variable to the atoms whose support mentions it.
     pub support_index: BTreeMap<Atom, BTreeSet<GroundAtom>>,
+    /// Non-fatal findings raised during lowering (e.g. a citation naming a
+    /// decision the corpus never declares).
+    pub findings: Vec<LowerFinding>,
     /// The time-point name table: `TimePoint(i)` is the era/event named at
     /// index `i`. Distinct from `interner` (event variables) so the timeline
     /// namespace never collides with the support algebra's.
@@ -155,12 +169,27 @@ impl World {
     pub fn lower(document: &Document) -> Result<World, EvalError> {
         let mut world = World::new();
         let mut proposal_seq: u32 = 0;
+        // First pass: the authoritative decision set — the ids a `ratify` decl
+        // declares. Citing a decision asserts it exists; the kernel must not
+        // take that on faith, so a citation naming anything outside this set
+        // fails closed (its variable is never ruled true; see below).
+        let known_decisions: BTreeSet<&str> = document
+            .decls
+            .iter()
+            .filter_map(|decl| match decl {
+                Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
+                _ => None,
+            })
+            .collect();
         for decl in &document.decls {
             match decl {
                 Decl::Fact(fact) => {
                     let atom = ground_atom(&fact.atom)?;
-                    let ann =
-                        world.lower_fact_annotation(fact.provenance.as_ref(), &mut proposal_seq);
+                    let ann = world.lower_fact_annotation(
+                        fact.provenance.as_ref(),
+                        &mut proposal_seq,
+                        &known_decisions,
+                    );
                     world.facts.push(Fact {
                         atom,
                         ann,
@@ -180,8 +209,27 @@ impl World {
                 }
                 Decl::Entity(entity) => {
                     if let Some(TimeClause::Order(chain)) = &entity.time {
-                        world.add_order_chain(chain);
+                        // The parser hands us the chain AFTER the declared head
+                        // (`era a < b < c` → name `a`, chain `[b, c]`); the full
+                        // order is `[name] ++ chain`. Prepend the head so the
+                        // `a → b` edge is not dropped (a dropped head silently
+                        // loses ordering and hides an `a < b < a` cycle: H8).
+                        let ordered: Vec<Ident> = std::iter::once(entity.name.clone())
+                            .chain(chain.iter().cloned())
+                            .collect();
+                        world.add_order_chain(&ordered);
                     }
+                    // Intern the entity's own name after its chain, so a lone era
+                    // or event (in no `before` fact and no chain) still enters the
+                    // time-point table and chain members keep their edge index.
+                    if matches!(entity.kind, EntityKind::Era | EntityKind::Event) {
+                        world.time_point(&entity.name.text);
+                    }
+                }
+                Decl::Hypothesis(hypothesis) => {
+                    // Register a declared hypothesis as an event variable so a
+                    // fork can suppose it even when nothing references it yet.
+                    world.interner.intern(&hypothesis.name.text);
                 }
                 _ => {}
             }
@@ -276,6 +324,7 @@ impl World {
         &mut self,
         annotation: Option<&Annotation>,
         proposal_seq: &mut u32,
+        known_decisions: &BTreeSet<&str>,
     ) -> Ann {
         let Some(annotation) = annotation else {
             return Ann::supported(PosBool::FALSE);
@@ -303,7 +352,21 @@ impl World {
                     let mut support = PosBool::truth();
                     for citation in &annotation.citations {
                         let var = self.interner.intern(&citation.id.text);
-                        self.valuation.set(var, true);
+                        // Rule the decision true ONLY IF the corpus declares it.
+                        // An unknown citation is a forged (or typo'd) authority
+                        // claim: leave its variable open — so the fact can never
+                        // be certain — and record a finding for `check`.
+                        if known_decisions.contains(citation.id.text.as_str()) {
+                            self.valuation.set(var, true);
+                        } else {
+                            self.findings.push(LowerFinding {
+                                code: "citation.unknown-decision".to_owned(),
+                                message: format!(
+                                    "cited decision '{}' is not a declared decision",
+                                    citation.id.text
+                                ),
+                            });
+                        }
                         support = support.and_(&PosBool::pos(var));
                     }
                     support

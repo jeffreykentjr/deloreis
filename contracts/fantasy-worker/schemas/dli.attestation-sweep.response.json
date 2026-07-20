@@ -125,7 +125,7 @@
           "type": "string"
         },
         "template": {
-          "description": "The template reference, e.g. `naming/register-basis@v3`.",
+          "description": "The template reference, e.g. `naming/dialect-basis@v3`.",
           "type": "string"
         }
       },
@@ -135,7 +135,7 @@
       ]
     },
     "Question": {
-      "description": "The bounded question an attestation answers — a claim with a fact-of-the-\nmatter *outside* the repo (a register's real basis, homophone plausibility,\ntone-fit), exactly the kind of question to spend model time and zero author\ntime on.",
+      "description": "The bounded question an attestation answers — a claim with a fact-of-the-\nmatter *outside* the repo (a dialect's real basis, homophone plausibility,\ntone-fit), exactly the kind of question to spend model time and zero author\ntime on.",
       "type": "object",
       "properties": {
         "atom": {
@@ -143,7 +143,7 @@
           "type": "string"
         },
         "kind": {
-          "description": "The question class, e.g. `register-real-basis`.",
+          "description": "The question class, e.g. `dialect-real-basis`.",
           "type": "string"
         },
         "subject": {

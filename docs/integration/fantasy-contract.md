@@ -49,8 +49,8 @@ model utterance is one of four declared classes, or it does not enter.*
 
 | Op | Purpose | Returns |
 |---|---|---|
-| `dli.version` | Report the contract and grammar versions. | `{contract, grammar, digest_domain}` |
-| `dli.check` | Compile and check a pack or corpus. | graded findings + rendered lines |
+| `dli.version` | Report the contract/grammar versions and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
+| `dli.check` | Compile and check a scope or corpus. | graded findings + rendered lines |
 | `dli.query` | Query the compiled world (`--layer/--as-of/--fork/--why`). | atoms + support + rendered |
 | `dli.fork.new` | Create a fork. | fork handle |
 | `dli.fork.list` | List forks. | forks with base/assumes/counts |
@@ -61,7 +61,7 @@ model utterance is one of four declared classes, or it does not enter.*
 | `dli.fork.restrict` | Restrict a fork's valuation scope. | diff delta |
 | `dli.fork.preflight` | Ratification pre-flight: candidate valuation + conflict scan. | conflicts + affected atoms |
 | `dli.fork.promote` | Emit a ruling-request draft from a fork. | `rq_draft` (slug, ask, affects, diff, evidence) |
-| `dli.check-ledger` | Check a proof ledger `in <practice>`. | verdict + errors (structural classes) + grade |
+| `dli.check-proof` | Check a diegetic proof `in <practice>`. | verdict + errors (structural classes) + grade |
 | `dli.check-draft` | Run the full battery over a draft payload. | one merged report |
 | `dli.simulate.start` | Start a battery over a ruleset/delta. | `job_id` + status |
 | `dli.simulate.status` | Poll a battery. | progress, or final manifest + metrics + invariant verdicts |
@@ -79,7 +79,20 @@ model utterance is one of four declared classes, or it does not enter.*
 
 `dli.fork.suppose` **supersedes** `dli.suppose`, which is a **killed form** — it
 is registered as such and the server refuses it with a `refused` error naming
-the successor.
+the successor. `dli.check-proof` likewise **supersedes** `dli.check-ledger`,
+renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
+in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
+form the server refuses, naming its successor.
+
+**`dli.check-proof`'s result is transitional at v0.** The op is capability-gated
+this contract version (its engine is not wired), and its declared wire result is
+the thin violations report (`dli_ledger::LedgerReport`, `{report}`), not yet the
+rich per-step shape the Returns column above describes. The rich `ProofReport`
+(per-step structural-class verdicts, weakest-link grade, `fails-at`) lands as the
+result type together with the op's wiring and the scene-projection build. The
+doc-row-vs-schema divergence is therefore **declared**, not latent: read the
+committed `dli.check-proof.response` schema as the v0 shape and this row as the
+target.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -101,6 +114,12 @@ a gate. A finding's `code` is a **finding code** — dotted `family.item` form
 §9 error-code registry (which names transport/op failures, not lore verdicts).
 Each check family's finding codes are pinned by its fixtures as the family
 lands; `repair` carries the fix data; `citations` the support.
+
+**Provenance over Door T is `proposed` or `hypothesis` only** (B1). An agent
+cannot mint a citation — a ruling lives in the ledger, not a tool call — so a
+`cited` provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*`
+tool is refused with the `provenance.cited-refused` finding. Human authors cite
+through Door H; the agent proposes and the human confirms the citation in review.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
@@ -135,6 +154,24 @@ flow families and every declared error code, not yet every op.
 - **Negative** — a malformed or refused call and its expected error.
 - **Framing** — an adversarially framed call (a prompt-injection-shaped payload,
   a coaxing narrative) whose expected verdict is **unchanged** by the framing.
+- **Precondition.** A fixture whose call needs prior state — an opened workspace,
+  a created fork, staged entities — declares its setup as a `precondition` array
+  of send-frames, driven through the server **cold** before the fixture's own
+  frames and **not themselves asserted**. A single-frame `author.*` fixture, for
+  example, declares `[author.open {scope: …}]` so the harness-opened `ws-1` is
+  reproducible from the vendored contract rather than assumed by an in-repo
+  harness only.
+- **Expected outcome.** A fixture declares an `expected_outcome` so replay is
+  unambiguous: `replay` (the default — each frame's response equals its `expect`),
+  or `gated` (the op is capability-gated at this contract version and answers
+  `not-wired`; the golden body is the intended-contract shape the op will return
+  once wired — documentation, not a live assertion).
+- **Cold replay.** Every registered fixture — golden, negative, framing, and
+  author — is driven through the server **cold**, from a fresh session, with its
+  declared precondition, and the declared outcome is asserted (`fixture_replay` in
+  `dli-serve`, mirrored on the fantasy side). A fixture that pins a verdict the
+  running engine does not produce **fails the gate**: the manifest cannot silently
+  document a fiction.
 - **Verdict parity.** The same fixture input yields the same verdict on the
   deloreis side and the fantasy side. Parity is checked in both trees.
 - **Digest domains.** Fixture files are pinned by **sha256 over exact file
@@ -213,7 +250,7 @@ cause.
 
 | Class | Meaning | Example |
 |---|---|---|
-| `schema` | The call is malformed — an envelope or payload violation, an unknown field, a wrong type. | a `dli.check` payload missing `pack` |
+| `schema` | The call is malformed — an envelope or payload violation, an unknown field, a wrong type. | a `dli.check` payload missing `document` |
 | `refused` | The operation is refused by principle. | `export --write-back`; calling the killed `dli.suppose`; asserting proposed lore |
 | `finding` | A graded domain finding — the normal "your lore has a problem" path. | `attestation-missing`; a wrong-hour proof error; a `beat-unaccounted` conformance finding |
 | `internal` | A server defect. Never a lore verdict; always a bug to fix. | an evaluator panic |
@@ -235,6 +272,10 @@ closed set, and each code maps to a class:
 | `contradiction` | finding | a claim that contradicts the projection |
 | `stale-fence` | refused | `expected_digest` did not match the current fence |
 | `materialize-blocked` | refused | `author.materialize` called with error-class findings open; the blocking findings ride in the error data |
+| `killed-form` | refused | a killed or renamed op/tool (e.g. `dli.suppose`, `dli.check-ledger`); the message names the successor |
+| `not-wired` | refused | a recognized op whose engine is not wired in this build — capability-gated (see `dli.version` capabilities); permanent-until-wired, not a defect |
+| `version-mismatch` | refused | a well-formed frame declaring a contract version this build does not speak |
+| `conflict` | refused | an `idempotency_key` reused with a *different* payload — the key is bound to its first payload (distinct from `stale-fence`, which means the digest moved) |
 | `internal` | internal | a server defect |
 
 ## 10. Change control

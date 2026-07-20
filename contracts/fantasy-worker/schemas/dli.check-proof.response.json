@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CheckLedgerResult",
-  "description": "`dli.check-ledger` result.",
+  "title": "CheckProofResult",
+  "description": "`dli.check-proof` result.",
   "type": "object",
   "properties": {
     "report": {

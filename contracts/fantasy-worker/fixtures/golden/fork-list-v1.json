@@ -1,0 +1,44 @@
+{
+  "fixture": "golden/fork-list-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "fork": "fork-1"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.fork.list",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "forks": [
+            "fork-1"
+          ]
+        }
+      }
+    }
+  ]
+}

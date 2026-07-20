@@ -1,19 +1,23 @@
 {
-  "fixture": "golden/check-ledger-turning-v1",
+  "fixture": "golden/attest-missing-v1",
   "version": 1,
   "steps": [
     {
       "send": {
         "dli": "0.1.0",
         "id": "1",
-        "op": "dli.check-ledger",
-        "params": { "document": "true-naming" }
+        "op": "dli.attest.missing",
+        "params": {
+          "document": "saltmarket"
+        }
       },
       "expect": {
         "dli": "0.1.0",
         "id": "1",
         "ok": true,
-        "result": { "report": { "violations": [] } }
+        "result": {
+          "questions": []
+        }
       }
     }
   ]

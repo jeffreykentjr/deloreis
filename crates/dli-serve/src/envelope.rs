@@ -76,6 +76,21 @@ pub enum ErrorCode {
     /// `author.materialize` was called with error-class findings open; the
     /// blocking finding codes ride in the error data.
     MaterializeBlocked,
+    /// A killed or renamed op/tool: refused, with the message naming the
+    /// successor. Distinct from `unknown-op` (a form the contract never defined);
+    /// a killed form the contract once defined and deliberately retired.
+    KilledForm,
+    /// A recognized op whose engine is not wired in this build — capability-gated
+    /// (the wired set is advertised in `dli.version`'s `capabilities`). A
+    /// permanent-until-wired refusal, never a server defect.
+    NotWired,
+    /// A well-formed frame that declared a contract version this build does not
+    /// speak. Refused, not a bad frame — the envelope parsed cleanly.
+    VersionMismatch,
+    /// An `idempotency_key` was reused with a *different* payload. Distinct from
+    /// `stale-fence` (the digest moved): the key is bound to its first payload,
+    /// and a conflicting reuse is refused rather than silently replayed.
+    Conflict,
     /// An unexpected internal error.
     Internal,
 }
@@ -83,7 +98,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Every error code, in declaration order. The single source of truth for
     /// the closed code set (consumers derive their lists from this).
-    pub const ALL: [ErrorCode; 9] = [
+    pub const ALL: [ErrorCode; 13] = [
         ErrorCode::BadFrame,
         ErrorCode::UnknownOp,
         ErrorCode::SchemaViolation,
@@ -92,6 +107,10 @@ impl ErrorCode {
         ErrorCode::Contradiction,
         ErrorCode::StaleFence,
         ErrorCode::MaterializeBlocked,
+        ErrorCode::KilledForm,
+        ErrorCode::NotWired,
+        ErrorCode::VersionMismatch,
+        ErrorCode::Conflict,
         ErrorCode::Internal,
     ];
 
@@ -107,6 +126,10 @@ impl ErrorCode {
             ErrorCode::Contradiction => "contradiction",
             ErrorCode::StaleFence => "stale-fence",
             ErrorCode::MaterializeBlocked => "materialize-blocked",
+            ErrorCode::KilledForm => "killed-form",
+            ErrorCode::NotWired => "not-wired",
+            ErrorCode::VersionMismatch => "version-mismatch",
+            ErrorCode::Conflict => "conflict",
             ErrorCode::Internal => "internal",
         }
     }

@@ -8,5 +8,7 @@
     "op": "dli.suppose",
     "params": {}
   },
-  "expect_error": { "code": "unknown-op" }
+  "expect_error": {
+    "code": "killed-form"
+  }
 }

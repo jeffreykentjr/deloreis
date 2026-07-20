@@ -1,0 +1,56 @@
+{
+  "fixture": "golden/version-v1",
+  "version": 1,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "dli.version",
+        "params": {}
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "contract": "fantasy-worker",
+          "contract_version": "0.1.0",
+          "server": "deloreis 0.1.0",
+          "capabilities": [
+            "dli.version",
+            "dli.check",
+            "dli.query",
+            "dli.fork.new",
+            "dli.fork.list",
+            "dli.fork.diff",
+            "dli.fork.suppose",
+            "dli.fork.suppress",
+            "dli.fork.restrict",
+            "dli.fork.preflight",
+            "dli.fork.promote",
+            "dli.check-draft",
+            "dli.name.check",
+            "dli.attest.missing",
+            "dli.attestation-sweep",
+            "dli.payload-submit",
+            "author.open",
+            "author.status",
+            "author.diff",
+            "author.discard",
+            "author.materialize",
+            "author.add_entity",
+            "author.add_fact",
+            "author.add_relation",
+            "author.add_event",
+            "author.add_before",
+            "author.open_question",
+            "author.add_option",
+            "author.add_hypothesis",
+            "author.suppose"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -8,6 +8,20 @@
 # (d-0001..d-0009) — a solo writer's ledger, per 01-syntax §3.
 scope saltmarket
 
+# --- the world's ledger: the decisions its citations rest on ------------------
+# A solo writer's ledger (01-syntax §3). Every `decided d-000n` below cites one
+# of these; declaring them here is what lets the citation carry authority rather
+# than mint it (B1) — a citation to an undeclared decision fails closed.
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+ratify d-0008
+ratify d-0009
+
 # --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
 era first-tides < the-silting < the-drought-years < the-ledger-days   decided d-0001
 

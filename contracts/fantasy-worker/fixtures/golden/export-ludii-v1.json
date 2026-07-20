@@ -1,13 +1,17 @@
 {
   "fixture": "golden/export-ludii-v1",
   "version": 1,
+  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
         "dli": "0.1.0",
         "id": "1",
         "op": "dli.export.run",
-        "params": { "document": "true-naming", "profile": "ludii-gdl" }
+        "params": {
+          "document": "true-naming",
+          "profile": "ludii-gdl"
+        }
       },
       "expect": {
         "dli": "0.1.0",

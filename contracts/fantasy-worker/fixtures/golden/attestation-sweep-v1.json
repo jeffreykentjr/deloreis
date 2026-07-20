@@ -12,7 +12,7 @@
             "attestations": [
               {
                 "question": {
-                  "kind": "register-real-basis",
+                  "kind": "dialect-real-basis",
                   "atom": "name-basis(mara, saltmarket-common)",
                   "subject": "mara"
                 },
@@ -24,7 +24,7 @@
                   "as_of": "2026-07-19"
                 },
                 "prompt": {
-                  "template": "naming/register-basis@v3",
+                  "template": "naming/dialect-basis@v3",
                   "hash": "sha256:88d1"
                 },
                 "params": {
@@ -49,7 +49,38 @@
         "id": "1",
         "ok": true,
         "result": {
-          "stale": []
+          "stale": [
+            {
+              "question": {
+                "kind": "dialect-real-basis",
+                "atom": "name-basis(mara, saltmarket-common)",
+                "subject": "mara"
+              },
+              "answer": "yes",
+              "rationale_hash": "sha256:c41a",
+              "model": {
+                "provider": "bedrock",
+                "id": "example-model",
+                "as_of": "2026-07-19"
+              },
+              "prompt": {
+                "template": "naming/dialect-basis@v3",
+                "hash": "sha256:88d1"
+              },
+              "params": {
+                "temperature": "0.0",
+                "max_tokens": 400,
+                "samples": 3,
+                "agreement": "3/3"
+              },
+              "policy": {
+                "reattest": "on-model-change"
+              },
+              "supersedes": null,
+              "sweep": "lab/campaign-082/runs/attest-0007.manifest.json",
+              "fingerprint": "fnv1a64:0000000000000000"
+            }
+          ]
         }
       }
     }

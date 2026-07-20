@@ -14,7 +14,7 @@ fn draft_payload_round_trips() {
     let payload = DraftPayload {
         meta: DraftMeta {
             title: "the-door-after-rain".to_owned(),
-            pack: "saltmarket".to_owned(),
+            scope: "saltmarket".to_owned(),
             version: 1,
         },
         scenes: vec!["s1".to_owned(), "s2".to_owned()],
@@ -50,6 +50,8 @@ fn golden_check_draft_findings_match() {
     // fact-check `unsupported` (no certain fact) and a continuity
     // `proposed-as-fact` — while the ratified `adjacent` claim is supported and
     // stays silent.
+    // `example_docs` declares the decisions it cites (`ratify`), so its ratified
+    // facts carry authority and compile certain (B1).
     let world = compile(&Pack {
         name: "saltmarket".to_owned(),
         documents: example_docs(),
@@ -66,7 +68,7 @@ fn golden_check_draft_findings_match() {
     let draft = DraftPayload {
         meta: DraftMeta {
             title: "the-door-after-rain".to_owned(),
-            pack: "saltmarket".to_owned(),
+            scope: "saltmarket".to_owned(),
             version: 1,
         },
         claims: vec![

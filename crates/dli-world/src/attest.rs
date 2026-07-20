@@ -75,12 +75,12 @@ impl std::fmt::Display for QuestionKey {
 }
 
 /// The bounded question an attestation answers — a claim with a fact-of-the-
-/// matter *outside* the repo (a register's real basis, homophone plausibility,
+/// matter *outside* the repo (a dialect's real basis, homophone plausibility,
 /// tone-fit), exactly the kind of question to spend model time and zero author
 /// time on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Question {
-    /// The question class, e.g. `register-real-basis`.
+    /// The question class, e.g. `dialect-real-basis`.
     pub kind: String,
     /// The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.
     pub atom: String,
@@ -116,7 +116,7 @@ pub struct ModelRef {
 /// The prompt an attestation was posed under.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PromptRef {
-    /// The template reference, e.g. `naming/register-basis@v3`.
+    /// The template reference, e.g. `naming/dialect-basis@v3`.
     pub template: String,
     /// A `sha256:` hash of the rendered prompt, supplied by the factory.
     pub hash: String,
@@ -360,7 +360,7 @@ impl AttestFinding {
 /// use dli_world::attest::{require_attestation, AttestationStore, QuestionKey};
 ///
 /// let store = AttestationStore::new();
-/// let key = QuestionKey("register-real-basis::name-basis(enfys, welsh)".to_owned());
+/// let key = QuestionKey("dialect-real-basis::name-basis(enfys, welsh)".to_owned());
 /// let finding = require_attestation(&store, &key).unwrap_err();
 /// assert_eq!(finding.code(), "attest.missing");
 /// ```
@@ -412,7 +412,7 @@ pub struct RatifiedFact {
 ///
 /// let head = Attestation {
 ///     question: Question {
-///         kind: "register-real-basis".to_owned(),
+///         kind: "dialect-real-basis".to_owned(),
 ///         atom: "name-basis(enfys, welsh)".to_owned(),
 ///         subject: "enfys".to_owned(),
 ///     },
@@ -420,7 +420,7 @@ pub struct RatifiedFact {
 ///     rationale_hash: "sha256:c41a".to_owned(),
 ///     model: ModelRef { provider: "bedrock".to_owned(), id: "claude-fable-5".to_owned(),
 ///         as_of: "2026-07-19".to_owned() },
-///     prompt: PromptRef { template: "naming/register-basis@v3".to_owned(),
+///     prompt: PromptRef { template: "naming/dialect-basis@v3".to_owned(),
 ///         hash: "sha256:88d1".to_owned() },
 ///     params: Sampling { temperature: "0.0".to_owned(), max_tokens: 400, samples: 3,
 ///         agreement: "3/3".to_owned() },

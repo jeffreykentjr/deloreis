@@ -20,6 +20,8 @@ dli-export.workspace = true
 dli-serve.workspace = true
 clap.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+serde.workspace = true
+serde_yaml_ng.workspace = true
 
 [lints]
 workspace = true

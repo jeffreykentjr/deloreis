@@ -310,6 +310,18 @@ pub struct WorldModel {
     pub packs: BTreeMap<String, PackProvenance>,
     /// The load-time findings (charter koan 4: nothing silently dropped).
     pub findings: Vec<LoadFinding>,
+    /// The rulings behind the chronology edges, parallel to
+    /// `world.chronology.edges`: `chronology_anns[i]` is the annotation of the
+    /// declaration (an era-order chain or a `before`-fact) that pushed edge `i`.
+    ///
+    /// Kept beside the chronology rather than inside it, so the plain-graph
+    /// [`Chronology`](dli_time::chronology::Chronology) seam stays annotation-free;
+    /// [`find_cycle`](dli_time::chronology::Chronology::find_cycle) takes this
+    /// parallel slice to blame a precedence cycle on the rulings that closed it
+    /// (declaring an order is a ruling). `#[serde(default)]` so a world
+    /// serialized before this field round-trips.
+    #[serde(default)]
+    pub chronology_anns: Vec<Ann>,
 }
 
 impl WorldModel {

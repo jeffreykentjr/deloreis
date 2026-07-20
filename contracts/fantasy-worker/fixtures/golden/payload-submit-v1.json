@@ -9,15 +9,30 @@
         "op": "dli.payload-submit",
         "params": {
           "payload": {
-            "meta": { "title": "where-the-water-waits", "pack": "saltmarket", "version": 1 },
+            "meta": {
+              "title": "where-the-water-waits",
+              "scope": "saltmarket",
+              "version": 1
+            },
             "claims": [],
             "deltas": [],
-            "scenes": ["scene-1", "scene-2"],
-            "beats": ["beat-1"],
-            "promises": ["promise-1"],
-            "proof_ledgers": [],
-            "names": ["old-fen"],
-            "lexicon": ["saltwright"]
+            "scenes": [
+              "scene-1",
+              "scene-2"
+            ],
+            "beats": [
+              "beat-1"
+            ],
+            "promises": [
+              "promise-1"
+            ],
+            "proofs": [],
+            "names": [
+              "old-fen"
+            ],
+            "lexicon": [
+              "saltwright"
+            ]
           }
         }
       },
@@ -25,7 +40,10 @@
         "dli": "0.1.0",
         "id": "1",
         "ok": true,
-        "result": { "accepted": true, "findings": [] }
+        "result": {
+          "accepted": true,
+          "findings": []
+        }
       }
     }
   ]

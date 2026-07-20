@@ -19,6 +19,7 @@ provenance:
 
 operators:
   - operator: contradict-anchor-gender
+    kernel_outcome: {wave: 3, status: caught, code: factcheck.contradicted, gate: "check_draft()", test: op_contradict_anchor_gender, note: "certain fact gender(anchor, male) D-0096"}
     description: State the Anchor is a woman (canon:male, D-0096).
     base_draft: clean-scene.md
     seeded_change:
@@ -31,6 +32,7 @@ operators:
     rationale: The claim contradicts the certain projection of the world.
 
   - operator: contradict-protagonist-immortal
+    kernel_outcome: {wave: 3, status: corpus-gap, code: factcheck.unsupported, gate: "check_draft() flags it, but no rejected-lore citation", test: op_contradict_protagonist_immortal, note: "the vendored constraints: section carries only auditor/demon-king/monster-of-week; adding a D-0067 immortality guardrail upgrades this to a clean contradiction (migration.md §3 corpus-gap)"}
     description: State the protagonist is immortal (rejected as her depth source, D-0067).
     base_draft: clean-scene.md
     seeded_change:
@@ -43,6 +45,7 @@ operators:
     rationale: Asserts a claim the certain projection denies (a rejected-lore constraint).
 
   - operator: contradict-hound-mundane
+    kernel_outcome: {wave: 3, status: caught, code: continuity.proposed-as-fact, gate: "check_claims()", test: op_contradict_hound_mundane, note: "the hound's nature rests only on shadow (proposed) lore; asserting it settled is the assertability catch"}
     description: Settle the hound's open nature as an ordinary dog (Q-0006 is open).
     base_draft: clean-scene.md
     seeded_change:
@@ -58,6 +61,7 @@ operators:
       against an open debt.
 
   - operator: assert-auditor-identity
+    kernel_outcome: {wave: 3, status: caught, code: factcheck.contradicted, gate: "check_draft() via the C-store", test: op_assert_auditor_identity, note: "grounded in the vendored constraint no-auditor-concept (D-0009), compiled into the killed-token store"}
     description: Give the protagonist the rejected 'Auditor' identity (D-0009).
     base_draft: clean-scene.md
     seeded_change:
@@ -70,6 +74,7 @@ operators:
     rationale: A rejected-lore constraint denies the claim in the certain projection.
 
   - operator: assert-demon-king
+    kernel_outcome: {wave: 3, status: caught, code: factcheck.contradicted, gate: "check_draft() via the C-store", test: op_assert_demon_king, note: "grounded in the vendored constraint no-singular-demon-king (D-0010), compiled into the killed-token store as a phrase"}
     description: "Put a demon king atop the empire (rejected: it is a system, D-0010)."
     base_draft: clean-scene.md
     seeded_change:
@@ -82,6 +87,7 @@ operators:
     rationale: A rejected-lore constraint denies the claim.
 
   - operator: assert-musical-magic
+    kernel_outcome: {wave: 3, status: corpus-gap, code: factcheck.unsupported, gate: "check_draft() flags it, but no rejected-lore citation", test: op_assert_musical_magic, note: "no vendored constraint carries the D-0002 rejection; adding one upgrades this to a clean contradiction"}
     description: Make the magic musical/acoustic (rejected mechanic, D-0002).
     base_draft: clean-scene.md
     seeded_change:
@@ -94,6 +100,7 @@ operators:
     rationale: A rejected-lore constraint denies the claim.
 
   - operator: assert-narrator-ticking-clock
+    kernel_outcome: {wave: 3, status: corpus-gap, code: factcheck.unsupported, gate: "check_draft() flags it, but no rejected-lore citation", test: op_assert_narrator_ticking_clock, note: "no vendored constraint carries the D-0104 rejection; the corpus rationale notes deloreis is even stronger in principle (the narrator era is inert by construction), but that structural exclusion is a TIME-lane property, not a wave-3 CHECK-1 catch"}
     description: Give the narrator's frame a ticking clock (rejected, D-0104).
     base_draft: clean-scene.md
     seeded_change:
@@ -111,6 +118,7 @@ operators:
       selection structurally excludes narrators-era facts from any cast pool.
 
   - operator: modern-vocab-algorithm
+    kernel_outcome: {wave: 3, status: caught, code: name.banned-in-name, gate: "vet_candidate() against the compiled ban list", test: op_modern_vocab_algorithm}
     description: Leak a banned technology word ('algorithm') into a scene.
     base_draft: clean-scene.md
     seeded_change:
@@ -124,6 +132,7 @@ operators:
       structural, never lexical, so the word fails the compiled ban scan in-kernel.
 
   - operator: modern-vocab-carbon
+    kernel_outcome: {wave: 3, status: caught, code: name.banned-in-name, gate: "vet_candidate() against the compiled ban list", test: op_modern_vocab_carbon}
     description: Leak a modern-ecology word ('carbon') into dialogue.
     base_draft: clean-scene.md
     seeded_change:
@@ -135,6 +144,7 @@ operators:
     rationale: A modern-register term barred by the compiled lexicon ban list.
 
   - operator: killed-name-elara
+    kernel_outcome: {wave: 3, status: factory, code: null, gate: "no kernel catch — CORRECTION: side kernel→factory", test: op_killed_name_elara, note: "Elara is NOT in the vendored killed_tokens.yaml registry; it lives only in ai_tics.yaml, and ai-tics stay factory-side by law (migration.md §2 work-list; spec 05 §3). Contrast killed-name-silas: Silas IS in the registry (Q-0015), so it re-homes to the kernel. Registry membership — not 'is it an AI-tic' — is the ground truth for the kernel/factory line."}
     description: Use the killed AI-default name 'Elara' in a scene.
     base_draft: clean-scene.md
     seeded_change:
@@ -150,6 +160,7 @@ operators:
       AI-tic (spec 05 §3, factory-side) — a second, non-gating screen.
 
   - operator: killed-name-silas
+    kernel_outcome: {wave: 3, status: caught, code: killed-token, gate: "check_draft() over draft.names against the vendored killed registry", test: op_killed_name_silas, note: "Silas is in killed_tokens.yaml (Q-0015)"}
     description: Use the AI-tic name 'Silas' (a documented naming reject) in a scene.
     base_draft: clean-scene.md
     seeded_change:
@@ -161,6 +172,7 @@ operators:
     rationale: A registered killed token; the kernel refuses its return with a pointer to lineage.
 
   - operator: killed-name-irondale
+    kernel_outcome: {wave: 3, status: caught, code: killed-token, gate: "check_draft() over draft.names", test: op_killed_name_irondale, note: "Irondale is in killed_tokens.yaml (D-0101)"}
     description: "Use the killed place-name 'Irondale' (Game-of-Thrones collision)."
     base_draft: clean-scene.md
     seeded_change:
@@ -172,6 +184,7 @@ operators:
     rationale: A registered killed place-name; refused in-kernel.
 
   - operator: killed-name-doom-wight
+    kernel_outcome: {wave: 3, status: caught, code: killed-token, gate: "check_draft() over draft.names", test: op_killed_name_doom_wight, note: "doom-wight is in killed_tokens.yaml (D-0097), a phrase-mode token"}
     description: "Use the killed portent name 'Doom-wight' (simplistic doom-and-gloom)."
     base_draft: clean-scene.md
     seeded_change:
@@ -183,6 +196,7 @@ operators:
     rationale: A registered killed portent name; refused in-kernel.
 
   - operator: wrong-register-name
+    kernel_outcome: {wave: 3, status: caught, code: name.phonotactics, gate: "language::check() — register-fit is a compile verdict (05 §2)", test: op_wrong_register_name, note: "the imperial 'qu' cluster marks the surface as not of the crag tongue"}
     description: "Name a crags-region place in the imperial register ('Aquilium')."
     base_draft: clean-scene.md
     seeded_change:
@@ -197,6 +211,7 @@ operators:
       a crags-region place fails the register's phonotactics / name-kind patterns.
 
   - operator: slop-cluster
+    kernel_outcome: {wave: 3, status: factory, code: null, gate: "no kernel catch (correct) — an AI-slop screen is a machine-tell about OUR world (05 §3), factory-side by law", test: op_slop_cluster, note: "asserted as a no-catch so a future kernel that wrongly gated slop prose would fail here"}
     description: "Inject an AI-slop cluster: a default name, a not-X-but-Y, and a stock beat."
     base_draft: clean-scene.md
     seeded_change:
@@ -214,6 +229,7 @@ operators:
       (spec 05 §3). PROOF-1 asserts no kernel catch here — it is a factory screen.
 
   - operator: allegory-wink
+    kernel_outcome: {wave: 3, status: factory, code: null, gate: "no kernel catch (correct) — genre-taste judgment (05 §3 principle); no allegory.* kernel class exists", test: op_allegory_wink, note: "distinct from the compiled lexical bans (modern-vocab-*), which ARE kernel facts"}
     description: "Have a character wink at the allegory ('the system is rigged')."
     base_draft: clean-scene.md
     seeded_change:
@@ -230,6 +246,7 @@ operators:
       lexical bans (modern-vocab-*), which ARE kernel facts.
 
   - operator: crowd-scene-cast
+    kernel_outcome: {wave: 3, status: pending-gate, code: null, gate: "none at wave 3 — the craft payload/conformance battery lands at CRAFT-2/PAY-2 (wave 4)", test: op_crowd_scene_cast, note: "xfail-strict: WorldModel.craft_rules is empty and no craft.* finding class exists yet; the day CRAFT-2 lands a cast-per-scene rule, this flips"}
     description: Cram a fifth and sixth speaking voice into one scene (past the ear's limit).
     base_draft: clean-scene.md
     seeded_change:
@@ -252,6 +269,7 @@ operators:
       the scene's speaking voices against the ear's limit.
 
   - operator: as-you-know-bob-leak
+    kernel_outcome: {wave: 3, status: pending-gate, code: null, gate: "none at wave 3 — craft payload battery lands at CRAFT-2/PAY-2 (wave 4)", test: op_as_you_know_bob_leak, note: "xfail-strict pending the as-you-know-bob craft rule"}
     description: Inject maid-and-butler exposition (telling another what both already know).
     base_draft: clean-scene.md
     seeded_change:
@@ -265,6 +283,7 @@ operators:
     rationale: A craft payload finding — exposition told to a character who already knows it.
 
   - operator: ornate-tag-cluster
+    kernel_outcome: {wave: 3, status: pending-gate, code: null, gate: "none at wave 3 — craft payload battery lands at CRAFT-2/PAY-2 (wave 4)", test: op_ornate_tag_cluster, note: "xfail-strict pending the said-tag-ratio craft rule"}
     description: Swap a run of said/asked for murmured/hissed/growled, sinking the said-ratio.
     base_draft: clean-dialogue.md
     seeded_change:
@@ -281,6 +300,7 @@ operators:
     rationale: A craft payload finding — ornate dialogue tags drop the said-ratio below the floor.
 
   - operator: paraphrased-contradiction
+    kernel_outcome: {wave: 3, status: miss, code: null, gate: "no kernel catch (the honest deterministic hole)", test: op_paraphrased_contradiction, note: "xfail-strict: a cue-less paraphrase shares no symbol with the shadow slot, so the offline checker is structurally indistinguishable from legitimate new lore; the non-gating cross-family semantic judge is the only closer"}
     description: Contradict the hound's open nature by paraphrase, matching no fact cue.
     base_draft: clean-scene.md
     seeded_change:

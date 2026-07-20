@@ -23,7 +23,7 @@ The closed operation set: 41 operations. The wire name is each op's serde identi
 | 10 | `dli.fork.restrict` | `dli.fork.restrict.request.json` | `dli.fork.restrict.response.json` |
 | 11 | `dli.fork.preflight` | `dli.fork.preflight.request.json` | `dli.fork.preflight.response.json` |
 | 12 | `dli.fork.promote` | `dli.fork.promote.request.json` | `dli.fork.promote.response.json` |
-| 13 | `dli.check-ledger` | `dli.check-ledger.request.json` | `dli.check-ledger.response.json` |
+| 13 | `dli.check-proof` | `dli.check-proof.request.json` | `dli.check-proof.response.json` |
 | 14 | `dli.check-draft` | `dli.check-draft.request.json` | `dli.check-draft.response.json` |
 | 15 | `dli.simulate.start` | `dli.simulate.start.request.json` | `dli.simulate.start.response.json` |
 | 16 | `dli.simulate.status` | `dli.simulate.status.request.json` | `dli.simulate.status.response.json` |

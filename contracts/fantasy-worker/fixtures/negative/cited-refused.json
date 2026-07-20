@@ -1,0 +1,58 @@
+{
+  "fixture": "negative/cited-refused",
+  "version": 1,
+  "note": "An agent cannot mint a citation (B1): a `cited` provenance on any author.* tool is refused with an error-severity `provenance.cited-refused` finding and stages NOTHING (empty rendered), rather than accepting the claim. `cited` is Door-H/human-only; the repair points to `proposed`.",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.add_entity",
+        "params": {
+          "workspace": "ws-1",
+          "kind": "person",
+          "id": "mara",
+          "name": "Mara",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "D-0104"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "provenance.cited-refused",
+              "grade": "checked",
+              "message": "Door T authors `proposed` or `hypothesis` only; an agent cannot cite a ruling to mint canon authority. Citing a decision is a human act in review \u2014 resubmit with proposed provenance.",
+              "repair": {
+                "kind": "add-provenance",
+                "required": "proposed"
+              },
+              "severity": "error"
+            }
+          ],
+          "rendered": [],
+          "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+        }
+      }
+    }
+  ]
+}

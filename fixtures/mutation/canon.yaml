@@ -21,6 +21,7 @@ provenance:
 
 operators:
   - operator: break-status-marker
+    kernel_outcome: {wave: 3, status: caught, code: load.malformed-provenance, gate: "compile() fails the ledger marker closed; factcheck ≠ supported", test: op_break_status_marker}
     description: Corrupt a ratified section's status marker so it no longer parses.
     seeded_change:
       kind: edit
@@ -39,6 +40,7 @@ operators:
       cannot stand, and the certain projection fails closed (assertability).
 
   - operator: flip-proposed-to-ratified
+    kernel_outcome: {wave: 3, status: caught, code: load.malformed-provenance, gate: "compile() — a bare `ratified` with no ruling has nowhere to stand", test: op_flip_proposed_to_ratified}
     description: Promote a proposed section to ratified with no decision citation.
     seeded_change:
       kind: edit
@@ -54,6 +56,7 @@ operators:
       (koan 1, claims come from somewhere).
 
   - operator: malformed-override-leak
+    kernel_outcome: {wave: 3, status: caught, code: load.malformed-provenance, gate: "compile() fails the override closed; the proposed texture never reads certain (factcheck ≠ supported)", test: op_malformed_override_leak}
     description: >-
       Smuggle a proposed subsection into a ratified pack via a malformed override;
       the pack must fail closed and keep it out.
@@ -73,6 +76,7 @@ operators:
       and never lets proposed texture into the certain layer.
 
   - operator: dangling-link
+    kernel_outcome: {wave: 3, status: caught, code: continuity.unknown-entity, gate: "check_claims()", test: op_dangling_link, note: "canon wiki-link re-homes to a claim-level reference — the loader observes every symbol a fact names, so the honest dangling signal is a delta referencing an unobserved id (continuity module docs)"}
     description: Add a [[wiki-link]] to an id that does not exist.
     seeded_change:
       kind: append
@@ -85,6 +89,7 @@ operators:
     rationale: A reference to an id the world does not define; `deloreis check` fails on the unresolved name.
 
   - operator: duplicate-id
+    kernel_outcome: {wave: 3, status: caught, code: load.duplicate-declaration, gate: "compile() + check::run()", test: op_duplicate_id}
     description: Introduce a second file claiming an already-used id.
     seeded_change:
       kind: write
@@ -113,6 +118,7 @@ operators:
       (spec 05 §3); a colliding declaration fails the check.
 
   - operator: banned-word-into-diegetic
+    kernel_outcome: {wave: 3, status: caught, code: name.banned-in-name, gate: "language::check()", test: op_banned_word_into_diegetic, note: "the prose scanner stays factory-side (migration.md §2); the kernel owns the compiled ban list, which fires when the banned token enters structured lore (here, a compiled name)"}
     description: Leak a banned technology-register word into a diegetic in-world text.
     seeded_change:
       kind: append
@@ -127,6 +133,7 @@ operators:
       algorithm` is compiled canon, and diegetic text carrying it fails the ban scan.
 
   - operator: cite-resolved-question
+    kernel_outcome: {wave: 3, status: caught, code: citation.unknown-decision, gate: "compile() + check::run() — the B1 citation-existence gate", test: op_cite_resolved_question, note: "FLIPPED pending-gate → caught when B1 landed: a citation to an id with no `ratify`/decision declaration (a resolved question is not a live ruling) mints no authority — the claim fails closed and citation.unknown-decision is raised, matching expected_catch:[citation]. A genuine detection gain from the security fix."}
     description: Make a section cite an open-question id that has since been resolved.
     seeded_change:
       kind: edit
@@ -141,6 +148,7 @@ operators:
     rationale: A citation must point at a live question; citing a resolved/closed one is an invalid citation.
 
   - operator: registry-file-desync
+    kernel_outcome: {wave: 3, status: known-divergence, code: null, gate: "dissolved — the hand-synced mirror is deleted (migration.md §2); the compiled world IS the single registry, so there is nothing to desync", test: op_registry_file_desync, note: "the residual reference-integrity still fires: a claim on a genuinely-unobserved id is caught via continuity.unknown-entity"}
     description: Delete a character's registry row while its canon file remains.
     seeded_change:
       kind: edit
@@ -163,6 +171,7 @@ operators:
       with no backing declaration is a finding, not a desynced YAML row.
 
   - operator: forged-promotion
+    kernel_outcome: {wave: 3, status: caught, code: load.malformed-provenance, gate: "compile()", test: op_forged_promotion, note: "the strict V11 section-affects nuance has no deloreis analog (per-claim citation model — no sections, no affects-set); realized as a ratified claim stripped of its live ruling, which fails closed (mirrors the MIG-1 strip-decisions detection)"}
     description: >-
       Promote a proposed section to ratified with a REAL but unauthorized D-ref:
       grammar-valid and the D-id exists, but the decision never authorized THIS
