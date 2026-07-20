@@ -1,0 +1,41 @@
+{
+  "fixture": "golden/author-list-workspaces-v1",
+  "version": 1,
+  "note": "author.list_workspaces returns every open authoring workspace and its digest (base, mode, staged count).",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.list_workspaces",
+        "params": {}
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "workspaces": [
+            {
+              "base": "saltmarket",
+              "mode": "scope",
+              "staged": 0,
+              "workspace": "ws-1",
+              "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

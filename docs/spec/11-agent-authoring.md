@@ -31,9 +31,11 @@ There are two supported authoring doors, one per author population (`DL-0004`).
   it back. The agent never emits `.dli` text and never touches the AST directly.
 
 Door T speaks over two transports carrying the same tool surface: **JSON over
-stdio** (one JSON request per line, one JSON response per line) and **MCP** (each
-`author.*` tool registered as a provider tool with its own small request schema,
-natively enforced at the provider boundary). The op namespace is `author.*` for
+stdio** (`deloreis serve` — one JSON request per line, one JSON response per line)
+and **MCP** (`deloreis mcp` — each `author.*` tool registered as a provider tool
+with its own small request schema, natively enforced at the provider boundary, and
+called via JSON-RPC `tools/call`). Both entry points reach identical kernel paths;
+an agent picks whichever its harness speaks. The op namespace is `author.*` for
 the authoring tools and `dli.*` for the worker-protocol operations they invoke
 (for example `dli.name.check`, the naming oracle).
 
@@ -219,7 +221,7 @@ before-fact semantics, so it enters exclusively through `author.add_event`
       "repair": {
         "kind": "run-check",
         "op": "dli.name.check",
-        "params": { "name": "mireth", "dialect": "low-saltish" }
+        "params": { "name": "mireth" }
       }
     }
   ]
@@ -265,7 +267,7 @@ relation, but materialize refuses until the reference resolves.
       "code": "entity.unknown",
       "severity": "error",
       "grade": "checked",
-      "message": "No entity \"the-warden\" is in scope. The relation is staged but cannot materialize until it exists.",
+      "message": "No entity \"the-warden\" is in scope. The claim is staged but cannot materialize until it exists.",
       "citations": [],
       "repair": { "kind": "resolve-entity", "candidates": ["the-warder", "the-ward"] }
     }
@@ -309,33 +311,35 @@ that closes a cycle against existing order facts is an **error**-severity findin
 
 ### 3.6 `author.open_question`
 
-File an open question with its options as tracked debt (koan 5: an open question
-is a debt). The question and options are the fork surface; no claim is asserted
-by opening one.
+File an open question as tracked debt (koan 5: an open question is a debt).
+Opening a question asserts no claim — there is **no provenance** — and carries no
+options; options are added separately with `author.add_option`.
 
 ```json
 { "op": "author.open_question",
-  "params": { "id": "where-the-first-ward-stood", "options": ["saltmere", "oadby-fen"],
-    "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
+  "params": { "workspace": "ws-3f9a", "id": "where-the-first-ward-stood",
+    "prompt": "Where did the first ward stand?" } }
 ```
 
 ```json
 { "ok": true, "workspace_digest": "wd-06",
-  "rendered": ["question where-the-first-ward-stood", "  option saltmere", "  option oadby-fen"],
+  "rendered": ["question where-the-first-ward-stood \"Where did the first ward stand?\""],
   "findings": [] }
 ```
 
 ### 3.7 `author.add_option`
 
-Add one option to a question already open in the workspace.
+Add one option to a question already open in the workspace. `label` is stored as
+data; the rendered line is just `  option <id>`.
 
 ```json
 { "op": "author.add_option",
-  "params": { "question": "where-the-first-ward-stood", "option": "the-tidewall" } }
+  "params": { "workspace": "ws-3f9a", "question": "where-the-first-ward-stood",
+    "id": "the-tidewall", "label": "The Tidewall" } }
 ```
 
 ```json
-{ "ok": true, "workspace_digest": "wd-07", "rendered": ["  option(the-tidewall)"], "findings": [] }
+{ "ok": true, "workspace_digest": "wd-07", "rendered": ["  option the-tidewall"], "findings": [] }
 ```
 
 ### 3.8 `author.add_hypothesis`
@@ -358,17 +362,14 @@ rendered form quotes it.
 
 ### 3.9 `author.suppose`
 
-Give a fork-local valuation to a minted hyp variable — or assume one option of
-an open question — setting it true or false within the fork. This is exploration
-over an unchanged store (koan 2): it asserts nothing in canon and adds no scope
+Pin a set of minted hyp variables true within the fork. This is exploration over
+an unchanged store (koan 2): it asserts nothing in canon and adds no scope
 surface. Its effect is visible as a derived-consequence diff, and its rendering
-lives inside the fork frame, not the scope.
+lives inside the fork frame, not the scope. (Supposing an *option* of an open
+question is not implemented at v0 — only minted hypotheses.)
 
 ```json
-{ "op": "author.suppose", "params": { "hyp": "coast-runs-north", "value": true } }
-```
-```json
-{ "op": "author.suppose", "params": { "option": "rq-031/opt-b", "value": true } }
+{ "op": "author.suppose", "params": { "workspace": "ws-3f9a", "hypotheses": ["coast-runs-north"] } }
 ```
 
 ```json
@@ -381,7 +382,7 @@ lives inside the fork frame, not the scope.
       "code": "consequence.changed",
       "severity": "warn",
       "grade": "checked",
-      "message": "Under coast-runs-north, saltmere is derived north of oadby-fen. See author.diff for the consequence set.",
+      "message": "Under coast-runs-north, the derived-consequence set may move. See author.diff for the consequences.",
       "citations": []
     }
   ]
@@ -562,7 +563,10 @@ The end-to-end flow an agent runs — `author.open` a scope, `author.add_entity`
 cast, `author.add_fact` their traits, `author.add_relation` their bonds,
 `author.diff` to see the canonical surface and its consequences, `author.materialize`
 to get file bytes, then fantasy-side review and ruling — is worked in full in
-`docs/integration/migration.md` §10. Two PLAN nodes carry it: **AUTH-1** delivers
-the tool surface, the workspace engine, and the per-tool fixtures; **AUTH-2**
-replays the scenario against the pinned fantasy corpus and asserts the
-rendered-diff output a human would review.
+`docs/integration/migration.md` §10. The agent-facing playbook — the same flow as
+a call-by-call sequence of **engine-true** requests and responses, captured from
+the running worker — is `docs/cards/authoring-loop.md`; the loop and its error
+surface were validated live in `docs/design-notes/agent-authoring-validation.md`.
+Two PLAN nodes carry it: **AUTH-1** delivers the tool surface, the workspace
+engine, and the per-tool fixtures; **AUTH-2** replays the scenario against the
+pinned fantasy corpus and asserts the rendered-diff output a human would review.

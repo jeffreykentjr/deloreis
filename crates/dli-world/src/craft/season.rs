@@ -895,3 +895,951 @@ fn error(code: &str, where_: &str, message: impl Into<String>) -> WorldFinding {
 fn with_where(where_: &str, message: impl Into<String>) -> String {
     format!("{where_}: {}", message.into())
 }
+
+// =============================================================================
+// CRAFT-2 — the season-ledger craft-rule engine.
+//
+// The `CRAFT-1` battery above sees one outline at a time. The merge
+// ([06-craft-and-payloads](../../../../docs/spec/06-craft-and-payloads.md) §1)
+// makes beats, sliders, promises, and reveals **season-wide ledger rows**, so a
+// rule may *join across episodes* — the move that makes these checks possible at
+// all. [`check_season_rules`] runs the join battery over a [`CraftLedger`],
+// producing `craft.<rule>`-coded [`WorldFinding`]s that share the [`KernelRule`]
+// namespace with the knowledge base ([`super::kb`]), so every finding's governing
+// principle is recovered by `kb::why(finding.code)`.
+//
+// The ledger's beats reuse the payload schema's [`BeatKind`] and [`Magnitude`]
+// ([`crate::payload`]) — a season-wide [`LedgerBeat`] is a payload
+// [`BeatRow`](crate::payload::BeatRow) tagged with its production episode, which is
+// exactly what `PAY-2`'s merge produces. The beat's try/fail typing rides in
+// [`LedgerBeat::outcome`] (`Option<TryFailOutcome>`, filled by `PAY-2` from the
+// payload's outcome field); the earned-outcomes join reads spec §3's failure set
+// {yes-but, no-but, no-and} from it, and falls back to the coarse `fail` `kind`
+// when a payload carried no finer outcome, so the rule works at either fidelity.
+//
+// The evaluator is the same linear-scan shape as the story-time order-rules
+// (`dli_time::order_rules::check`): each rule is one or two passes over the ledger
+// rows, findings out in rule order. **Thresholds are policy data** (spec §4): every
+// numeric band lives in [`Thresholds`] as a D-citable leaf table and rides at
+// [`Severity::Warn`] until calibrated. The two structural verdicts the spec fixes —
+// the accomplishment-earned join (error) and the scene-name clash (error) — keep
+// their declared severity; they turn on the *shape* of the ledger, not a tunable
+// number.
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use super::kb::KernelRule;
+use super::outline::PromiseKind;
+
+// The season ledger's beats speak the payload schema's vocabulary — a
+// `LedgerBeat` is a `BeatRow` tagged with its episode. Re-exported so the craft
+// API is self-contained.
+pub use crate::payload::{BeatKind, Magnitude};
+
+/// One beat on the season ledger — a payload [`BeatRow`](crate::payload::BeatRow)
+/// tagged with the production episode it was merged from. The merge appends these
+/// in **production order**; [`CraftLedger::episodes`] carries the slot each
+/// `episode` sits at, so the join orders correctly across episodes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LedgerBeat {
+    /// The beat identifier.
+    pub id: String,
+    /// The production-order episode this beat sits in (an [`EpisodeMeta::id`]).
+    pub episode: String,
+    /// The scene the beat plays in.
+    pub scene: String,
+    /// Whether it is a try, a fail, or an accomplishment.
+    pub kind: BeatKind,
+    /// The thread the beat advances (season-wide identity).
+    pub thread: String,
+    /// The beat's magnitude.
+    pub magnitude: Magnitude,
+    /// The try/fail typing, when the extractor carried it. `PAY-2` fills it from
+    /// the payload's `outcome: Option<TryFailOutcome>` (spec §3's outcome set);
+    /// `None` degrades to reading [`kind`](Self::kind), so the join still works on
+    /// a payload that only records the coarse `try`/`fail`/`accomplishment` signal.
+    #[serde(default)]
+    pub outcome: Option<TryFailOutcome>,
+    /// Who acts (empty when unattributed) — for competence-consistency.
+    #[serde(default)]
+    pub by: String,
+    /// Whether the accomplishment was assisted (aid, for competence-consistency).
+    #[serde(default)]
+    pub assisted: bool,
+}
+
+/// A character's competence/proactivity/sympathy as a **state on the production
+/// axis** — one reading per episode (spec §3). The season checker reads these as
+/// fluents, unlike the per-outline slider ledger of `CRAFT-1`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SliderState {
+    /// The character.
+    pub character: String,
+    /// The episode this reading is as-of.
+    pub episode: String,
+    /// How much the character drives events.
+    pub proactivity: u8,
+    /// How capable the character is.
+    pub competence: u8,
+    /// How much the audience is drawn to the character.
+    pub sympathy: u8,
+}
+
+/// A promise as a season-ledger row: where it opens, the episodes that touch
+/// (advance) it, and where it closes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LedgerPromise {
+    /// The promise identifier.
+    pub id: String,
+    /// The kind of promise (mystery promises are the ones that can starve).
+    pub kind: PromiseKind,
+    /// The episode where the promise opens.
+    pub opened_in: String,
+    /// The episodes that advance the promise after it opens.
+    #[serde(default)]
+    pub touched_in: Vec<String>,
+    /// The episode where it pays off, if it does.
+    #[serde(default)]
+    pub closed_in: Option<String>,
+    /// Whether a finale-episode opening of this promise is a **declared carry**
+    /// (a finale may open only declared carries — promise-density).
+    #[serde(default)]
+    pub declared_carry: bool,
+}
+
+/// A scene as a season-ledger row: its speaking cast plus the marketability flags
+/// the clarity family reads (cold-open discipline, aural distinctness).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LedgerScene {
+    /// The scene identifier.
+    pub id: String,
+    /// The episode the scene sits in.
+    pub episode: String,
+    /// The speaking cast (joined with the confusability table for name clashes).
+    #[serde(default)]
+    pub cast: Vec<String>,
+    /// Whether the scene is the episode's cold open.
+    #[serde(default)]
+    pub cold_open: bool,
+    /// Whether a cold open opens a psychological loop (required of a cold open).
+    #[serde(default)]
+    pub opens_loop: bool,
+    /// The narrative act the scene sits in, when known.
+    #[serde(default)]
+    pub act: Option<u32>,
+    /// Whether the scene reaches into deep time (forbidden in a cold open's act 1).
+    #[serde(default)]
+    pub deep_time: bool,
+}
+
+/// A point at which the listener learns a fact — a row on the **listener ledger**
+/// (the distinguished knower on the production axis, spec §3), what makes reveal
+/// fairness checkable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Reveal {
+    /// The fact the listener learns.
+    pub fact: String,
+    /// The episode at which the listener learns it.
+    pub episode: String,
+}
+
+/// A kishōtenketsu turn (the *ten*): the episode it lands in, the fact it reframes
+/// the whole around, and whether it resolves a conflict (which a *ten* must not —
+/// the turn is a perspective shift, not a clash, D-0052).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Turn {
+    /// The episode the turn lands in.
+    pub episode: String,
+    /// The fact the turn reframes the arc around (must be on the listener ledger
+    /// early — reveal fair-play).
+    pub reframing_fact: String,
+    /// Whether the turn is a conflict-resolution beat (a *ten* must not be).
+    #[serde(default)]
+    pub resolves_conflict: bool,
+}
+
+/// The declared arc shape of an episode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ArcShape {
+    /// Kishōtenketsu — the four-beat turn (the mission's default, D-0052).
+    Kishotenketsu,
+    /// A three-act shape.
+    ThreeAct,
+    /// Any other declared shape.
+    Other,
+}
+
+/// Per-episode metadata on the production axis: the slot the listener meets it at
+/// and the marketability/clarity fields the season rules read.
+///
+/// Carries an `f64` (`ten_position`), so it is `PartialEq` but not `Eq`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EpisodeMeta {
+    /// The episode identifier (referenced by beats, sliders, scenes).
+    pub id: String,
+    /// The production slot — where the listener meets the episode (order key).
+    pub slot: u32,
+    /// The declared arc shape, when the episode declares one.
+    #[serde(default)]
+    pub arc_shape: Option<ArcShape>,
+    /// Where the *ten* lands, as a fraction of the episode `0.0..=1.0`
+    /// (arc-shape band conformance).
+    #[serde(default)]
+    pub ten_position: Option<f64>,
+    /// The orientation load the episode places on the listener (audio-load run).
+    #[serde(default)]
+    pub audio_load: Option<AudioLoad>,
+    /// The new named speakers introduced this episode (cast-introduction rate).
+    #[serde(default)]
+    pub introduced_names: Vec<String>,
+}
+
+/// The season-wide craft ledger the join rules run over — the merged first-class
+/// objects (spec §1). The payload pipeline (`PAY-2`) merges each draft's
+/// beats/reveals/etc. into one of these and calls [`check_season_rules`]; every
+/// field is public so it is built directly, like a `dli_time::SlotView`.
+///
+/// Named `CraftLedger` to stand apart from the world model's
+/// [`SeasonLedger`](crate::model::SeasonLedger), which is the loader's seasonal
+/// cycle + practices — a different object entirely.
+///
+/// Carries `EpisodeMeta` (which holds an `f64`), so it is `PartialEq` but not `Eq`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, default)]
+pub struct CraftLedger {
+    /// The episodes, carrying their production slots and marketability fields.
+    pub episodes: Vec<EpisodeMeta>,
+    /// The beats, in production order.
+    pub beats: Vec<LedgerBeat>,
+    /// The per-episode slider readings.
+    pub sliders: Vec<SliderState>,
+    /// The promise ledger.
+    pub promises: Vec<LedgerPromise>,
+    /// The scenes.
+    pub scenes: Vec<LedgerScene>,
+    /// The listener-ledger reveals.
+    pub reveals: Vec<Reveal>,
+    /// The kishōtenketsu turns.
+    pub turns: Vec<Turn>,
+    /// Name pairs the naming oracle scored **below the aural-distinctness floor**
+    /// ([05-language-layer](../../../../docs/spec/05-language-layer.md)). The global
+    /// distinctness check stays the oracle's; the scene-scoped join is the kernel's
+    /// (it holds both the confusability data and the scene casts). Stored
+    /// normalized (lexicographically ordered), matched order-insensitively.
+    pub confusable_pairs: BTreeSet<(String, String)>,
+}
+
+/// The calibratable policy thresholds the season rules read (spec §4) — every
+/// numeric band, one place, D-citable. Substituting a table is a data diff citing
+/// a ruling, never a code change. [`DEFAULT_THRESHOLDS`] ships uncalibrated, so the
+/// band rules ride at [`Severity::Warn`].
+///
+/// Carries `f64` bands, so it is `PartialEq` but not `Eq`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Thresholds {
+    /// A `>= major` accomplishment needs at least this many prior same-thread
+    /// failures (an error below it — the worked join).
+    pub major_prior_failures: usize,
+    /// A climax-class accomplishment needs at least this many (a warn below it).
+    pub climax_prior_failures: usize,
+    /// Below this competence, a major unassisted win needs an intervening growth
+    /// or price beat.
+    pub competence_floor: u8,
+    /// A turn's reframing fact must sit on the listener ledger at least this many
+    /// episodes before the turn.
+    pub reveal_lead_episodes: u32,
+    /// An open mystery untouched for this many consecutive episodes is starved.
+    pub mystery_starved_gap: usize,
+    /// A cold open may carry at most this many speaking voices.
+    pub cold_open_cast_ceiling: usize,
+    /// New named speakers per episode should sit within this inclusive band.
+    pub cast_introduction_band: (usize, usize),
+    /// The season named-cast budget, when set (total introductions ceiling).
+    pub season_cast_budget: Option<usize>,
+    /// A kishōtenketsu *ten* should land within this inclusive fraction band.
+    pub ten_position_band: (f64, f64),
+    /// No run of this many consecutive high-orientation-load episodes.
+    pub audio_high_run: usize,
+    /// Whether these thresholds are calibrated against the season-1 corpus. Ships
+    /// `false`; band findings ride at warn until it is `true` (spec §4).
+    pub calibrated: bool,
+}
+
+/// The default policy tables — uncalibrated, warn-severity bands (spec §4).
+///
+/// The numbers are the consuming repo's working values; each is owned by a ruling
+/// when calibrated. Until then this is the honest starting point, not canon law.
+pub const DEFAULT_THRESHOLDS: Thresholds = Thresholds {
+    major_prior_failures: 1,
+    climax_prior_failures: 2,
+    competence_floor: 5,
+    reveal_lead_episodes: 1,
+    mystery_starved_gap: 3,
+    cold_open_cast_ceiling: 2,
+    cast_introduction_band: (1, 3),
+    season_cast_budget: None,
+    ten_position_band: (0.55, 0.80),
+    audio_high_run: 3,
+    calibrated: false,
+};
+
+impl Default for Thresholds {
+    fn default() -> Self {
+        DEFAULT_THRESHOLDS
+    }
+}
+
+/// Run the season-ledger join battery over `ledger`, reading its numeric bands
+/// from `thresholds`. Findings come out in rule order: accomplishment-earned,
+/// yes-and-terminal, competence, reveal fair-play, mystery-starved, then the
+/// marketability/clarity family. Each finding is `craft.<rule>`-coded so its
+/// governing principle is recovered by [`super::kb::why`].
+///
+/// ```
+/// use dli_world::craft::season::{
+///     check_season_rules, BeatKind, CraftLedger, EpisodeMeta, LedgerBeat, Magnitude,
+///     DEFAULT_THRESHOLDS,
+/// };
+///
+/// // A major win on a thread that never failed — unearned.
+/// let ledger = CraftLedger {
+///     episodes: vec![EpisodeMeta { id: "e1".into(), slot: 1, arc_shape: None,
+///         ten_position: None, audio_load: None, introduced_names: vec![] }],
+///     beats: vec![LedgerBeat {
+///         id: "b1".into(), episode: "e1".into(), scene: "s1".into(),
+///         kind: BeatKind::Accomplishment, thread: "ward".into(),
+///         magnitude: Magnitude::Major, outcome: None, by: String::new(), assisted: false,
+///     }],
+///     ..CraftLedger::default()
+/// };
+/// let codes: Vec<_> = check_season_rules(&ledger, &DEFAULT_THRESHOLDS)
+///     .into_iter().map(|f| f.code).collect();
+/// assert!(codes.contains(&"craft.accomplishment-earned".to_owned()));
+/// ```
+#[must_use]
+pub fn check_season_rules(ledger: &CraftLedger, thresholds: &Thresholds) -> Vec<WorldFinding> {
+    let mut out = Vec::new();
+    let order = ProductionOrder::new(ledger);
+    check_accomplishment_earned(ledger, thresholds, &order, &mut out);
+    check_yes_and_terminal(ledger, &order, &mut out);
+    check_competence(ledger, thresholds, &order, &mut out);
+    check_reveal_fair_play(ledger, thresholds, &episode_slots(ledger), &mut out);
+    check_mystery_starved(ledger, thresholds, &mut out);
+    check_cold_open_discipline(ledger, thresholds, &mut out);
+    check_cast_introduction(ledger, thresholds, &mut out);
+    check_scene_name_clash(ledger, &mut out);
+    check_promise_density(ledger, &mut out);
+    check_arc_shape(ledger, thresholds, &mut out);
+    check_audio_load(ledger, thresholds, &mut out);
+    out
+}
+
+// -- production ordering ------------------------------------------------------
+
+/// The production-order key of each beat: `(episode slot, position in the beat
+/// vector)`. An episode with no declared slot sorts last (a large sentinel), so a
+/// malformed ledger degrades to ledger order rather than panicking.
+struct ProductionOrder {
+    /// Per-beat ordinal, parallel to `ledger.beats`.
+    ordinals: Vec<(u32, usize)>,
+}
+
+impl ProductionOrder {
+    fn new(ledger: &CraftLedger) -> Self {
+        let slots = episode_slots(ledger);
+        let ordinals = ledger
+            .beats
+            .iter()
+            .enumerate()
+            .map(|(i, b)| {
+                (
+                    slots.get(b.episode.as_str()).copied().unwrap_or(u32::MAX),
+                    i,
+                )
+            })
+            .collect();
+        Self { ordinals }
+    }
+
+    /// Whether beat `f` is produced strictly before beat `b` (both indices into
+    /// `ledger.beats`).
+    fn before(&self, f: usize, b: usize) -> bool {
+        self.ordinals[f] < self.ordinals[b]
+    }
+}
+
+/// The production slot of each episode id.
+fn episode_slots(ledger: &CraftLedger) -> HashMap<&str, u32> {
+    ledger
+        .episodes
+        .iter()
+        .map(|e| (e.id.as_str(), e.slot))
+        .collect()
+}
+
+/// The magnitude ladder as a rank (`payload::Magnitude` derives no `Ord`).
+fn mag_rank(m: Magnitude) -> u8 {
+    match m {
+        Magnitude::Minor => 0,
+        Magnitude::Major => 1,
+        Magnitude::Climax => 2,
+    }
+}
+
+// -- the join rules -----------------------------------------------------------
+
+/// Accomplishment-earned: a `>= major` accomplishment requires a prior same-thread
+/// failure (error if absent); a climax needs two (warn if only one).
+fn check_accomplishment_earned(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    order: &ProductionOrder,
+    out: &mut Vec<WorldFinding>,
+) {
+    for (bi, beat) in ledger.beats.iter().enumerate() {
+        if beat.kind != BeatKind::Accomplishment
+            || mag_rank(beat.magnitude) < mag_rank(Magnitude::Major)
+        {
+            continue;
+        }
+        let priors = ledger
+            .beats
+            .iter()
+            .enumerate()
+            .filter(|(fi, f)| f.thread == beat.thread && is_cost(f) && order.before(*fi, bi))
+            .count();
+        if priors < thresholds.major_prior_failures {
+            out.push(
+                craft_error(
+                    KernelRule::AccomplishmentEarned,
+                    &beat.id,
+                    format!(
+                        "a {} win on thread {:?} lands with no prior failure on that thread; a \
+                         triumph is earned by a cost paid first",
+                        magnitude_label(beat.magnitude),
+                        beat.thread
+                    ),
+                )
+                .with_citations(vec!["D-0128".to_owned()]),
+            );
+        } else if beat.magnitude == Magnitude::Climax && priors < thresholds.climax_prior_failures {
+            out.push(craft_warn(
+                KernelRule::AccomplishmentEarnedClimax,
+                &beat.id,
+                format!(
+                    "a climax-class win on thread {:?} rests on only {priors} prior failure; a \
+                     climax should be earned by at least {}",
+                    beat.thread, thresholds.climax_prior_failures
+                ),
+            ));
+        }
+    }
+}
+
+/// Yes-and is terminal per thread across the season (spec §3): once a thread lands
+/// its unqualified win — a `yes-and` outcome, or a climax accomplishment when the
+/// payload carried no finer outcome — a later beat re-opening it is an error.
+fn check_yes_and_terminal(
+    ledger: &CraftLedger,
+    order: &ProductionOrder,
+    out: &mut Vec<WorldFinding>,
+) {
+    // Earliest ordinal of an unqualified win, per thread.
+    let mut terminal: HashMap<&str, (u32, usize)> = HashMap::new();
+    for (i, beat) in ledger.beats.iter().enumerate() {
+        if is_terminal_win(beat) {
+            let ord = order.ordinals[i];
+            terminal
+                .entry(beat.thread.as_str())
+                .and_modify(|cur| {
+                    if ord < *cur {
+                        *cur = ord;
+                    }
+                })
+                .or_insert(ord);
+        }
+    }
+    for (i, beat) in ledger.beats.iter().enumerate() {
+        if let Some(win) = terminal.get(beat.thread.as_str())
+            && order.ordinals[i] > *win
+        {
+            out.push(craft_error(
+                KernelRule::YesAndTerminal,
+                &beat.id,
+                format!(
+                    "beat re-opens thread {:?} after its unqualified win; a yes-and is terminal \
+                     per thread across the season",
+                    beat.thread
+                ),
+            ));
+        }
+    }
+}
+
+/// Competence-consistency: a major unassisted win by an under-competent hand needs
+/// an intervening growth or price beat (warn); and a competence trajectory that
+/// never moves across the season reads arc-flat (warn).
+fn check_competence(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    order: &ProductionOrder,
+    out: &mut Vec<WorldFinding>,
+) {
+    let slots = episode_slots(ledger);
+    // Per-character competence readings in production-slot order.
+    let mut readings: HashMap<&str, Vec<(u32, u8)>> = HashMap::new();
+    for s in &ledger.sliders {
+        let slot = slots.get(s.episode.as_str()).copied().unwrap_or(u32::MAX);
+        readings
+            .entry(s.character.as_str())
+            .or_default()
+            .push((slot, s.competence));
+    }
+    for v in readings.values_mut() {
+        v.sort_unstable();
+    }
+
+    for (bi, beat) in ledger.beats.iter().enumerate() {
+        if beat.kind != BeatKind::Accomplishment
+            || mag_rank(beat.magnitude) < mag_rank(Magnitude::Major)
+            || beat.assisted
+            || beat.by.is_empty()
+        {
+            continue;
+        }
+        let character = beat.by.as_str();
+        let slot = slots
+            .get(beat.episode.as_str())
+            .copied()
+            .unwrap_or(u32::MAX);
+        let Some(competence) = competence_as_of(readings.get(character), slot) else {
+            continue;
+        };
+        if competence >= thresholds.competence_floor {
+            continue;
+        }
+        let grew = readings.get(character).is_some_and(|r| rises_by(r, slot));
+        let paid_price = ledger
+            .beats
+            .iter()
+            .enumerate()
+            .any(|(fi, f)| order.before(fi, bi) && f.by == beat.by && is_cost(f));
+        if !grew && !paid_price {
+            out.push(craft_warn(
+                KernelRule::CompetenceConsistency,
+                &beat.id,
+                format!(
+                    "{character} lands a major unassisted win at competence {competence} (below \
+                     {}) with no intervening growth, aid, or price beat",
+                    thresholds.competence_floor
+                ),
+            ));
+        }
+    }
+
+    // Arc-flat: a character whose competence never changes across >= 2 readings.
+    let mut flat: Vec<&str> = readings
+        .iter()
+        .filter(|(_, r)| r.len() >= 2 && r.iter().all(|(_, c)| *c == r[0].1))
+        .map(|(name, _)| *name)
+        .collect();
+    flat.sort_unstable();
+    for character in flat {
+        out.push(craft_warn(
+            KernelRule::CompetenceArcFlat,
+            character,
+            "competence never moves across the season; a flat trajectory reads as a character \
+             who does not grow",
+        ));
+    }
+}
+
+/// Reveal fair-play: a kishōtenketsu turn's reframing fact must sit on the listener
+/// ledger at least `reveal_lead_episodes` episodes before the turn.
+fn check_reveal_fair_play(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    slots: &HashMap<&str, u32>,
+    out: &mut Vec<WorldFinding>,
+) {
+    for turn in &ledger.turns {
+        let Some(&turn_slot) = slots.get(turn.episode.as_str()) else {
+            continue;
+        };
+        let lead = thresholds.reveal_lead_episodes;
+        let fair = ledger.reveals.iter().any(|r| {
+            r.fact == turn.reframing_fact
+                && slots
+                    .get(r.episode.as_str())
+                    .is_some_and(|&s| s + lead <= turn_slot)
+        });
+        if !fair {
+            out.push(craft_warn(
+                KernelRule::RevealFairPlay,
+                &turn.episode,
+                format!(
+                    "the turn reframes on {:?}, which the listener has not held for {lead} \
+                     episode(s) before the turn; kishōtenketsu is fair-play — the reframing fact \
+                     must be on the ledger early",
+                    turn.reframing_fact
+                ),
+            ));
+        }
+    }
+}
+
+/// Mystery-starved: an open mystery promise untouched for `mystery_starved_gap`
+/// consecutive season episodes.
+fn check_mystery_starved(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    out: &mut Vec<WorldFinding>,
+) {
+    let mut season_slots: Vec<u32> = ledger.episodes.iter().map(|e| e.slot).collect();
+    season_slots.sort_unstable();
+    let slots = episode_slots(ledger);
+
+    for promise in &ledger.promises {
+        if promise.kind != PromiseKind::Mystery {
+            continue;
+        }
+        let Some(&open_slot) = slots.get(promise.opened_in.as_str()) else {
+            continue;
+        };
+        let close_slot = promise
+            .closed_in
+            .as_deref()
+            .and_then(|e| slots.get(e).copied());
+        let mut touched: BTreeSet<u32> = BTreeSet::new();
+        touched.insert(open_slot);
+        for e in &promise.touched_in {
+            if let Some(&s) = slots.get(e.as_str()) {
+                touched.insert(s);
+            }
+        }
+        let window_end =
+            close_slot.unwrap_or_else(|| season_slots.last().copied().unwrap_or(open_slot));
+        let mut run = 0usize;
+        let mut worst = 0usize;
+        for &slot in &season_slots {
+            if slot <= open_slot || slot > window_end {
+                continue;
+            }
+            if touched.contains(&slot) {
+                run = 0;
+            } else {
+                run += 1;
+                worst = worst.max(run);
+            }
+        }
+        if worst >= thresholds.mystery_starved_gap {
+            out.push(craft_warn(
+                KernelRule::MysteryStarved,
+                &promise.id,
+                format!(
+                    "mystery promise goes untouched for {worst} consecutive episodes; an open \
+                     mystery starves the listener past {} episodes",
+                    thresholds.mystery_starved_gap
+                ),
+            ));
+        }
+    }
+}
+
+/// Cold-open discipline: a cold open must open a loop, carry cast within the
+/// ceiling, and hold no deep-time in act 1.
+fn check_cold_open_discipline(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    out: &mut Vec<WorldFinding>,
+) {
+    for scene in &ledger.scenes {
+        if !scene.cold_open {
+            continue;
+        }
+        if !scene.opens_loop {
+            out.push(craft_warn(
+                KernelRule::ColdOpenDiscipline,
+                &scene.id,
+                "cold open does not open a loop; a cold open must give the listener a reason to \
+                 lean in",
+            ));
+        }
+        if scene.cast.len() > thresholds.cold_open_cast_ceiling {
+            out.push(craft_warn(
+                KernelRule::ColdOpenDiscipline,
+                &scene.id,
+                format!(
+                    "cold open carries {} voices; keep it to <= {} so the ear can catch",
+                    scene.cast.len(),
+                    thresholds.cold_open_cast_ceiling
+                ),
+            ));
+        }
+        if scene.deep_time && scene.act.is_none_or(|a| a == 1) {
+            out.push(craft_warn(
+                KernelRule::ColdOpenDiscipline,
+                &scene.id,
+                "cold open reaches into deep time in act 1; orient the listener in the present \
+                 before opening history",
+            ));
+        }
+    }
+}
+
+/// Cast-introduction rate: new named speakers per episode within the band, and the
+/// season total within the named-cast budget when one is set.
+fn check_cast_introduction(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    out: &mut Vec<WorldFinding>,
+) {
+    let (lo, hi) = thresholds.cast_introduction_band;
+    let mut total = 0usize;
+    for ep in &ledger.episodes {
+        let n = ep.introduced_names.len();
+        total += n;
+        if n > hi {
+            out.push(craft_warn(
+                KernelRule::CastIntroductionRate,
+                &ep.id,
+                format!("{n} new named speakers this episode; the band tops out at {hi}"),
+            ));
+        }
+    }
+    if let Some(budget) = thresholds.season_cast_budget
+        && total > budget
+    {
+        out.push(craft_warn(
+            KernelRule::CastIntroductionRate,
+            "season",
+            format!("{total} named speakers introduced across the season; the budget is {budget}"),
+        ));
+    }
+    let _ = lo; // the lower band is advisory; a sparse episode is not a finding.
+}
+
+/// Scene-name clash: two names below the aural-distinctness floor may not share a
+/// scene (error — the one join only a kernel holding both naming data and casts can
+/// make; the global distinctness check stays the oracle's).
+fn check_scene_name_clash(ledger: &CraftLedger, out: &mut Vec<WorldFinding>) {
+    for scene in &ledger.scenes {
+        for i in 0..scene.cast.len() {
+            for j in (i + 1)..scene.cast.len() {
+                let pair = normalized_pair(&scene.cast[i], &scene.cast[j]);
+                if ledger.confusable_pairs.contains(&pair) {
+                    out.push(craft_error(
+                        KernelRule::SceneNameClash,
+                        &scene.id,
+                        format!(
+                            "names {:?} and {:?} sit below the aural-distinctness floor and share \
+                             this scene; they may coexist in the series but not in one scene",
+                            pair.0, pair.1
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// Promise-density bands: opens should exceed closes in the season's early half and
+/// the reverse late; a finale opens only declared carries.
+fn check_promise_density(ledger: &CraftLedger, out: &mut Vec<WorldFinding>) {
+    if ledger.episodes.is_empty() {
+        return;
+    }
+    let slots = episode_slots(ledger);
+    let mut sorted: Vec<u32> = ledger.episodes.iter().map(|e| e.slot).collect();
+    sorted.sort_unstable();
+    let midpoint = sorted[sorted.len() / 2];
+    let finale = *sorted.last().expect("nonempty");
+
+    let (mut early_open, mut early_close, mut late_open, mut late_close) = (0i32, 0i32, 0i32, 0i32);
+    for p in &ledger.promises {
+        if let Some(&s) = slots.get(p.opened_in.as_str()) {
+            if s < midpoint {
+                early_open += 1;
+            } else {
+                late_open += 1;
+            }
+            if s == finale && !p.declared_carry {
+                out.push(craft_warn(
+                    KernelRule::PromiseDensity,
+                    &p.id,
+                    "the finale opens a promise that is not a declared carry; a finale should pay \
+                     off, opening only what it deliberately carries on",
+                ));
+            }
+        }
+        if let Some(close) = &p.closed_in
+            && let Some(&s) = slots.get(close.as_str())
+        {
+            if s < midpoint {
+                early_close += 1;
+            } else {
+                late_close += 1;
+            }
+        }
+    }
+    if early_open <= early_close && (early_open + early_close) > 0 {
+        out.push(craft_warn(
+            KernelRule::PromiseDensity,
+            "season",
+            format!(
+                "the season's early half closes as many promises as it opens ({early_open} open / \
+                 {early_close} close); early episodes should open ahead of closing"
+            ),
+        ));
+    }
+    if late_open > late_close {
+        out.push(craft_warn(
+            KernelRule::PromiseDensity,
+            "season",
+            format!(
+                "the season's late half opens more than it closes ({late_open} open / \
+                 {late_close} close); late episodes should close ahead of opening"
+            ),
+        ));
+    }
+}
+
+/// Arc-shape conformance: a kishōtenketsu episode places its *ten* in the declared
+/// band, and the turn is not a conflict-resolution beat (D-0052).
+fn check_arc_shape(ledger: &CraftLedger, thresholds: &Thresholds, out: &mut Vec<WorldFinding>) {
+    let (lo, hi) = thresholds.ten_position_band;
+    for ep in &ledger.episodes {
+        if ep.arc_shape != Some(ArcShape::Kishotenketsu) {
+            continue;
+        }
+        if let Some(pos) = ep.ten_position
+            && (pos < lo || pos > hi)
+        {
+            out.push(craft_warn(
+                KernelRule::ArcShape,
+                &ep.id,
+                format!(
+                    "the ten lands at {pos:.2} of the episode; a kishōtenketsu turn belongs in \
+                     the {lo:.2}..{hi:.2} band"
+                ),
+            ));
+        }
+        if ledger
+            .turns
+            .iter()
+            .any(|t| t.episode == ep.id && t.resolves_conflict)
+        {
+            out.push(
+                craft_warn(
+                    KernelRule::ArcShape,
+                    &ep.id,
+                    "the ten resolves a conflict; the turn should be a perspective shift, not a \
+                     clash resolved",
+                )
+                .with_citations(vec!["D-0052".to_owned()]),
+            );
+        }
+    }
+}
+
+/// Audio-load trajectory: no run of `audio_high_run` consecutive high-load episodes.
+fn check_audio_load(ledger: &CraftLedger, thresholds: &Thresholds, out: &mut Vec<WorldFinding>) {
+    let mut sorted: Vec<&EpisodeMeta> = ledger.episodes.iter().collect();
+    sorted.sort_by_key(|e| e.slot);
+    let mut run = 0usize;
+    let mut run_start: Option<&str> = None;
+    for ep in sorted {
+        if ep.audio_load == Some(AudioLoad::High) {
+            if run == 0 {
+                run_start = Some(ep.id.as_str());
+            }
+            run += 1;
+            if run == thresholds.audio_high_run {
+                out.push(craft_warn(
+                    KernelRule::AudioLoadTrajectory,
+                    run_start.unwrap_or(ep.id.as_str()),
+                    format!(
+                        "{run} consecutive high-orientation-load episodes; the listener needs a \
+                         low-load episode to recover before the run reaches {}",
+                        thresholds.audio_high_run
+                    ),
+                ));
+            }
+        } else {
+            run = 0;
+            run_start = None;
+        }
+    }
+}
+
+// -- helpers ------------------------------------------------------------------
+
+/// The competence reading as of a production slot: the latest reading at or before
+/// it (the fluent's value at that point on the production axis).
+fn competence_as_of(readings: Option<&Vec<(u32, u8)>>, slot: u32) -> Option<u8> {
+    readings?.iter().rfind(|(s, _)| *s <= slot).map(|(_, c)| *c)
+}
+
+/// Whether a sorted reading trajectory rises at any point up to and including
+/// `slot` — an intervening growth beat, expressed as a competence increase.
+fn rises_by(readings: &[(u32, u8)], slot: u32) -> bool {
+    readings
+        .iter()
+        .take_while(|(s, _)| *s <= slot)
+        .zip(readings.iter().skip(1))
+        .any(|((_, prev), (_, next))| next > prev)
+}
+
+/// A name pair, normalized to lexicographic order for order-insensitive matching.
+fn normalized_pair(a: &str, b: &str) -> (String, String) {
+    if a <= b {
+        (a.to_owned(), b.to_owned())
+    } else {
+        (b.to_owned(), a.to_owned())
+    }
+}
+
+/// A beat that paid a cost the next win is earned by — a typed non-terminal
+/// outcome {yes-but, no-but, no-and}, or a `fail` beat (the payload's coarse
+/// signal when the finer outcome was not extracted). Spec §3's failure set, read
+/// through whichever fidelity the payload carried.
+fn is_cost(beat: &LedgerBeat) -> bool {
+    beat.kind == BeatKind::Fail
+        || matches!(
+            beat.outcome,
+            Some(TryFailOutcome::YesBut | TryFailOutcome::NoBut | TryFailOutcome::NoAnd)
+        )
+}
+
+/// A thread's terminal, unqualified win — a `yes-and` outcome, or a climax
+/// accomplishment when the payload carried no finer outcome (spec §3).
+fn is_terminal_win(beat: &LedgerBeat) -> bool {
+    matches!(beat.outcome, Some(TryFailOutcome::YesAnd))
+        || (beat.kind == BeatKind::Accomplishment && beat.magnitude == Magnitude::Climax)
+}
+
+fn magnitude_label(m: Magnitude) -> &'static str {
+    match m {
+        Magnitude::Minor => "minor",
+        Magnitude::Major => "major",
+        Magnitude::Climax => "climax",
+    }
+}
+
+fn craft_warn(rule: KernelRule, where_: &str, message: impl Into<String>) -> WorldFinding {
+    WorldFinding::warn(format!("craft.{}", rule.id()), with_where(where_, message))
+}
+
+fn craft_error(rule: KernelRule, where_: &str, message: impl Into<String>) -> WorldFinding {
+    WorldFinding::error(format!("craft.{}", rule.id()), with_where(where_, message))
+}

@@ -1,0 +1,46 @@
+{
+  "fixture": "golden/author-why-v1",
+  "version": 1,
+  "note": "author.why explains a staged atom's standing \u2014 the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
+  "precondition": [
+    {
+      "dli": "0.1.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "1",
+        "op": "author.why",
+        "params": {
+          "workspace": "ws-1",
+          "atom": "adjacent(saltmarket, the-shallows)"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "why_not": {
+            "atom": "adjacent(saltmarket, the-shallows)",
+            "blocking": [],
+            "closest": [],
+            "defeater": null,
+            "known": false,
+            "rendered": [
+              "unknown \u2014 no derivation for this atom"
+            ],
+            "status": "dead"
+          }
+        }
+      }
+    }
+  ]
+}

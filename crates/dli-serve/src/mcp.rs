@@ -28,7 +28,8 @@ pub fn run_mcp() -> std::io::Result<()> {
     let mut reader = stdin.lock();
     let mut out = stdout.lock();
     let mut sessions = Sessions::new();
-    let mut author = Store::default();
+    // The read-complete Door T store (base + staged), same as the stdio worker.
+    let mut author = crate::serve::author_store()?;
     let mut buf = Vec::new();
 
     loop {
@@ -116,7 +117,7 @@ fn tool_descriptors() -> Vec<Value> {
                 .unwrap_or_else(|| json!({ "type": "object" }));
             json!({
                 "name": wire,
-                "description": format!("The `{wire}` worker operation."),
+                "description": op.summary(),
                 "inputSchema": input_schema,
             })
         })

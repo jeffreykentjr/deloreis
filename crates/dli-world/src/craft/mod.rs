@@ -1,4 +1,5 @@
-//! The craft layer: the outline schema and its deterministic checker (`CRAFT-1`).
+//! The craft layer: the outline schema, its deterministic checker, the
+//! season-ledger join rules, and the principle knowledge base.
 //!
 //! The consuming repo's outline checker is a pure structural prover over typed
 //! data — the closest thing in that codebase to a kernel rule set — and its
@@ -11,10 +12,15 @@
 //! checker does for the world checks).
 //!
 //! `CRAFT-1` ports the *legacy structural battery* (the always-on and the
-//! packet-methodology and material-worldbuilding checks). The season-wide *join*
-//! rules the merge newly makes possible — accomplishment-earned,
-//! competence-consistency, reveal pacing — are `CRAFT-2`, which consumes these
-//! objects and the order-rule evaluator; they are not in this module.
+//! packet-methodology and material-worldbuilding checks) — [`season::check_episode`]
+//! and [`season::check_season`]. The season-wide *join* rules the merge newly makes
+//! possible — accomplishment-earned, competence-consistency, reveal pacing, and the
+//! marketability/clarity family — are `CRAFT-2` ([`season::check_season_rules`] over a
+//! [`season::CraftLedger`]), which consumes those objects in the same linear-scan
+//! shape as the story-time order-rules. The 79-entry principle knowledge base is
+//! `CRAFT-3` ([`kb`]); its findings share the [`kb::KernelRule`] namespace with the
+//! `CRAFT-2` rules, so every craft finding's governing principle is recovered by
+//! [`kb::why`].
 //!
 //! # The port census — legacy code → dotted family code
 //!
@@ -100,10 +106,18 @@ pub mod kb;
 pub mod outline;
 pub mod season;
 
+pub use kb::{
+    Binding, Checkable, Coverage, FactoryNs, Family, KbError, KernelRule, MissionFilter, Phase,
+    Principle, audit, by_id, checkable_debt, coverage, evaluate_judge, principles_binding, why,
+};
 pub use outline::{
     Advance, ArcPromise, AudioLoad, AudioPlan, CarryScope, CharacterSlider, EpisodeOutline,
     MaterialAssumptionLedger, MaterialUnknown, MiceKind, MiceThread, NarratorMode, NarratorTask,
     Promise, PromiseKind, Scene, SceneWork, SeasonOutline, SfxLoad, SfxSemanticLoad, TryFailBeat,
     TryFailOutcome,
 };
-pub use season::{CheckOptions, check_episode, check_season, worst_severity};
+pub use season::{
+    ArcShape, BeatKind, CheckOptions, CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat,
+    LedgerPromise, LedgerScene, Magnitude, Reveal, SliderState, Thresholds, Turn, check_episode,
+    check_season, check_season_rules, worst_severity,
+};

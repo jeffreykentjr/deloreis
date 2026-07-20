@@ -17,6 +17,7 @@ dli-ledger.workspace = true
 dli-syntax.workspace = true
 serde.workspace = true
 schemars.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

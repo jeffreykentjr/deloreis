@@ -136,7 +136,7 @@ through Door H; the agent proposes and the human confirms the citation in review
 | `author.open_question` | Open a question — a tracked debt. | yes |
 | `author.add_option` | Add an option to an open question. | yes |
 | `author.add_hypothesis` | Add a hypothesis variable (one per proposal bundle). | yes |
-| `author.suppose` | Assume a hypothesis or option within the workspace. | yes |
+| `author.suppose` | Pin minted hypotheses true within the workspace (fork-only). | yes |
 
 `author.materialize` returns the `.dli` contents as data; the kernel does not
 write the fantasy repo. The agent writes the contents to a fantasy-side staging

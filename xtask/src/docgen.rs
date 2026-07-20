@@ -60,6 +60,10 @@ pub fn pages() -> Vec<DocPage> {
             path: "docs/reference-generated/cli.md",
             render: render_cli,
         },
+        DocPage {
+            path: "docs/reference-generated/finding-families.md",
+            render: crate::finding_families::render,
+        },
     ]
 }
 
@@ -328,6 +332,7 @@ const CLI_COMMANDS: &[(&str, &str)] = &[
     ("export", "Export under a profile."),
     ("report", "Render the findings report."),
     ("serve", "Run the JSON-over-stdio worker."),
+    ("mcp", "Run the MCP tool transport over stdio"),
 ];
 
 /// The `deloreis` command reference, from [`CLI_COMMANDS`]. The CLI is a rendering

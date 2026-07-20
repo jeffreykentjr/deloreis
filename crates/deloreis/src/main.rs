@@ -7,7 +7,8 @@
 //! write-sloppy-save-canonical migrator; [`cmd::fork`] drives the fork store over
 //! a workspace cache; [`cmd::timeline`] reads the chronology and the episode
 //! fold; [`cmd::name`] runs the kernel vet half; [`cmd::report`] renders the
-//! findings report; [`cmd::serve`] delegates to the JSON worker loop. The engines
+//! findings report; [`cmd::serve`] delegates to the JSON worker loop and MCP
+//! transport. The engines
 //! that are not yet frozen (`check-proof`, `simulate`, `export`) answer with a
 //! typed honest not-yet rather than a guess or a panic.
 //!
@@ -60,6 +61,8 @@ enum Command {
     Report(cmd::report::ReportArgs),
     /// Run the JSON-over-stdio worker.
     Serve,
+    /// Run the MCP tool transport over stdio.
+    Mcp,
 }
 
 /// Route a parsed command to its handler, returning the verdict exit code.
@@ -78,6 +81,7 @@ fn run(command: Command) -> cmd::CmdResult {
         Command::Export(args) => cmd::drafts::run_export(&args),
         Command::Report(args) => cmd::report::run(&args),
         Command::Serve => cmd::serve::run(),
+        Command::Mcp => cmd::serve::run_mcp(),
     }
 }
 

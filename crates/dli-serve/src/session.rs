@@ -65,14 +65,7 @@ impl Sessions {
     /// panic.
     pub fn scope(&mut self, document: &str) -> Result<&mut Scope, ErrorCode> {
         if !self.scopes.contains_key(document) {
-            let documents = match document {
-                "saltmarket" => example_docs(),
-                _ => return Err(ErrorCode::UnknownDoc),
-            };
-            let pack = Pack {
-                name: document.to_owned(),
-                documents,
-            };
+            let pack = builtin_pack(document).ok_or(ErrorCode::UnknownDoc)?;
             let world = compile(&pack).map_err(ErrorCode::from)?;
             let forks = ForkStore::new(world.model.world.clone());
             self.scopes
@@ -107,5 +100,21 @@ impl Sessions {
             .filter(|(_, (doc, _))| doc == document)
             .map(|(handle, _)| handle.clone())
             .collect()
+    }
+}
+
+/// The built-in corpus pack for a doc-id, or `None` if the id is unknown. The v0
+/// resolver knows only `saltmarket` (the crate's canonical test world); pointing
+/// it at a corpus directory generalizes exactly this one function. It is the
+/// single source both the read surface ([`Sessions::scope`]) and the Door T store
+/// (`serve`'s `with_pack` construction) resolve a corpus through.
+#[must_use]
+pub fn builtin_pack(document: &str) -> Option<Pack> {
+    match document {
+        "saltmarket" => Some(Pack {
+            name: document.to_owned(),
+            documents: example_docs(),
+        }),
+        _ => None,
     }
 }

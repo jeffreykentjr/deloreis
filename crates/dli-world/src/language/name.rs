@@ -101,6 +101,31 @@ impl NameDef {
     pub fn roles(&self) -> Vec<String> {
         self.composition.iter().map(|c| c.role.clone()).collect()
     }
+
+    /// A trial [`NameDef`] over a bare candidate string in a named register — an
+    /// unprovenanced, uncomposed name whose surface *is* the candidate.
+    ///
+    /// The vet of a bare candidate ([`super::vet_candidate_in_dialect`]) can only
+    /// discharge the surface-only obligation — the register's phonotactic frame —
+    /// because slot-sequence and role-membership are claims about a *composition*
+    /// the candidate does not carry. This constructor exists for that vet; it is
+    /// deliberately not a compiled canon name (its provenance is
+    /// [`Provenance::Unprovenanced`], so it is unassertable by construction).
+    #[must_use]
+    pub fn trial(candidate: &str, register: &str) -> Self {
+        Self {
+            name: candidate.to_owned(),
+            label: Some(candidate.to_owned()),
+            kind: String::new(),
+            register: register.to_owned(),
+            composition: Vec::new(),
+            bearer: None,
+            ann: Ann::default(),
+            provenance: Provenance::Unprovenanced,
+            citations: Vec::new(),
+            span: Span::synthetic(),
+        }
+    }
 }
 
 /// A coined lexeme with its composition and status (05 §4).

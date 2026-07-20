@@ -142,11 +142,26 @@ pub enum Op {
     /// Suppose a set of hypotheses.
     #[serde(rename = "author.suppose")]
     AuthorSuppose,
+    /// Query the staged world (base + staged declarations).
+    #[serde(rename = "author.query")]
+    AuthorQuery,
+    /// Run the check battery over the staged world.
+    #[serde(rename = "author.check")]
+    AuthorCheck,
+    /// Blame/explanation for a staged atom.
+    #[serde(rename = "author.why")]
+    AuthorWhy,
+    /// The workspace's open findings, by severity.
+    #[serde(rename = "author.findings")]
+    AuthorFindings,
+    /// The open authoring workspaces and their digests.
+    #[serde(rename = "author.list_workspaces")]
+    AuthorListWorkspaces,
 }
 
 impl Op {
     /// Every operation, in wire order.
-    pub const ALL: [Op; 41] = [
+    pub const ALL: [Op; 46] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -188,5 +203,109 @@ impl Op {
         Op::AuthorAddOption,
         Op::AuthorAddHypothesis,
         Op::AuthorSuppose,
+        Op::AuthorQuery,
+        Op::AuthorCheck,
+        Op::AuthorWhy,
+        Op::AuthorFindings,
+        Op::AuthorListWorkspaces,
     ];
+
+    /// A one-line, role-bearing description of what the op does and when to reach
+    /// for it — the tool-**selection** text an agent reads when choosing among the
+    /// tools (the MCP `tools/list` description; the per-field schema documents
+    /// *how* to call it, this says *why*). Kept here, next to the wire names, so
+    /// the description cannot drift from the op it names.
+    #[must_use]
+    pub const fn summary(self) -> &'static str {
+        match self {
+            Op::Version => {
+                "Report the contract and grammar versions and this build's wired capabilities."
+            }
+            Op::Check => {
+                "Validate a loaded document: self-consistency findings over the compiled world."
+            }
+            Op::Query => "Query a saturated world for a goal atom's support, grade, and standing.",
+            Op::ForkNew => "Open a fork: an exploratory condition context over an unchanged world.",
+            Op::ForkList => "List the open forks over a document.",
+            Op::ForkDiff => "Show a fork's derived-consequence diff against the base ledger.",
+            Op::ForkSuppose => {
+                "Assume an option or event true within a fork and see what its consequences become."
+            }
+            Op::ForkAdd => {
+                "Add proposed declarations into a fork — fork-local exploration, never canon."
+            }
+            Op::ForkSuppress => "Retract an assumption from a fork.",
+            Op::ForkRestrict => "Restrict a fork's valuation scope to a set of atoms.",
+            Op::ForkPreflight => {
+                "Ratification pre-flight: the candidate valuation a fork implies and the conflicts it would introduce."
+            }
+            Op::ForkPromote => {
+                "Emit a ruling-request draft from a fork — the machine proposes, it never rules."
+            }
+            Op::CheckProof => "Check a diegetic proof block declared in a practice.",
+            Op::CheckDraft => {
+                "Fact-check a draft's claims against canon: supported / contradicted / unsupported."
+            }
+            Op::SimulateStart => "Start a simulation battery over a document.",
+            Op::SimulateStatus => "Poll a running simulation battery for its trace and manifest.",
+            Op::SimulateCancel => "Cancel a running simulation battery.",
+            Op::TimelineShow => "Show the timeline at a position.",
+            Op::TimelineOrder => "Report the partial order over the timeline.",
+            Op::TimelineKnows => "Who-knows-what matrix at a timeline position.",
+            Op::TimelineEpisodes => "Check episode ordering and report the slack in each slot.",
+            Op::TimelinePhases => "Phase-walk verdict for an episode.",
+            Op::ExportRun => "Run an export target under a profile.",
+            Op::NameCheck => "Vet a proposed name through the naming oracle before it enters lore.",
+            Op::AttestMissing => "List questions that lack a current attestation.",
+            Op::AttestationSweep => "Recompute which stored attestations have gone stale.",
+            Op::PayloadSubmit => "Submit a draft payload for acceptance checking.",
+            Op::AuthorOpen => {
+                "Open an authoring workspace over a scope or fork; returns its id and digest."
+            }
+            Op::AuthorStatus => {
+                "Summarize a workspace: its staged canonical surface and current digest."
+            }
+            Op::AuthorDiff => {
+                "Render the workspace's staged change as canonical .dli, with its findings and derived consequences."
+            }
+            Op::AuthorDiscard => "Drop a whole workspace, or one staged declaration.",
+            Op::AuthorMaterialize => {
+                "Return the workspace's .dli file bytes as data; refuses while any error-severity finding is open."
+            }
+            Op::AuthorAddEntity => {
+                "Introduce a person, place, thing, or era into the workspace, with provenance."
+            }
+            Op::AuthorAddFact => {
+                "Assert a keyed attribute value on an entity (entity.key = value), with provenance."
+            }
+            Op::AuthorAddRelation => {
+                "Assert a binary relation between two entities, with provenance."
+            }
+            Op::AuthorAddEvent => {
+                "Introduce a chronology event anchored to an era, with provenance."
+            }
+            Op::AuthorAddBefore => "Order one event before another, with provenance.",
+            Op::AuthorOpenQuestion => "File an open question with its options as tracked debt.",
+            Op::AuthorAddOption => "Add one option to a question already open in the workspace.",
+            Op::AuthorAddHypothesis => "Mint a fork-local hypothesis variable for supposition.",
+            Op::AuthorSuppose => {
+                "Suppose staged hypotheses true within a fork and see the consequences move."
+            }
+            Op::AuthorQuery => {
+                "Query the staged world (base + your in-progress work): what holds about an entity now."
+            }
+            Op::AuthorCheck => {
+                "Run the full check battery over the staged world — verify your whole draft before materialize."
+            }
+            Op::AuthorWhy => {
+                "Explain a staged claim's standing: why it is certain / possible / dead, the blocker, and its repair."
+            }
+            Op::AuthorFindings => {
+                "List the workspace's open findings by severity — what materialize would refuse on, and how to fix each."
+            }
+            Op::AuthorListWorkspaces => {
+                "List your open authoring workspaces and their digests, to recover context."
+            }
+        }
+    }
 }

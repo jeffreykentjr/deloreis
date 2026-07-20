@@ -135,6 +135,9 @@ const FRAMING_EXEMPT: &[&str] = &[
     "author.add_relation",
     "author.add_before",
     "author.suppose",
+    "author.check",
+    "author.findings",
+    "author.list_workspaces",
 ];
 
 /// The CON-1 completeness oracle: *an op without golden + negative + framing

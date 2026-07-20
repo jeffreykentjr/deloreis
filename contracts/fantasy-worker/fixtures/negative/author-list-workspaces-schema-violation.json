@@ -1,0 +1,16 @@
+{
+  "fixture": "negative/author-list-workspaces-schema-violation",
+  "version": 1,
+  "note": "author.list_workspaces takes no params; an unknown field violates the (deny-unknown-fields) op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.list_workspaces",
+    "params": {
+      "evil": 1
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

@@ -79,7 +79,7 @@ records**. The commitments, stated once:
   position relative to one another; a fact may precede the entity it is about.
   This is what makes nearly every edit an append or a one-line replacement, and
   what makes independent additions merge trivially in version control.
-- **A closed vocabulary of roughly twenty-five domain keywords.** No macros, no
+- **A closed vocabulary of roughly thirty domain keywords.** No macros, no
   synonyms, no positional shorthands, no user-defined syntactic forms. Each
   keyword is a worldbuilder's own artifact name — `era`, `place`, `person`,
   `thing`, `event`, `question`, `fact`, `rule`, `fork`, `cycle`, `ratify`, and

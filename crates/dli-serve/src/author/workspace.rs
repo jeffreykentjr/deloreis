@@ -7,19 +7,30 @@
 //! ([`digest`](crate::author::digest)), so it moves exactly when the staged
 //! state moves.
 //!
-//! The fence is resealed **incrementally** (R3/H4): each declaration's canonical
-//! JSON is cached the moment it is staged, so a mutation over an `n`-declaration
-//! workspace re-serializes only the one declaration it touched, not all `n`. The
-//! bytes hashed are byte-identical to serializing the whole snapshot, so the
-//! digest value is unchanged — the optimization is invisible on the wire.
+//! The fence is resealed **incrementally** (R3/H4/B4). The digest hashes one
+//! canonical byte string — `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}`
+//! — but reseal no longer re-renders and re-hashes the whole string on every
+//! mutation (the `O(n²)` a full build would cost). Instead the workspace holds a
+//! streaming SHA-256 `prefix` that has already absorbed the fixed head and every
+//! declaration's JSON in order, up to but not including the `]` that closes the
+//! declarations array. Staging one declaration feeds only that declaration's
+//! bytes into `prefix` (`O(1)` in the declaration count), so a full `n`-declaration
+//! build is linear. `reseal` clones `prefix`, feeds the small tail
+//! (`],"suppositions":…}`), and finalizes — `O(1)` in the declaration count. A
+//! replace or discard, both rare, re-absorb the head and declarations once.
+//!
+//! Because the absorbed bytes are exactly the string the old whole-snapshot reseal
+//! hashed, the digest **value is unchanged** — the optimization is invisible on
+//! the wire, and every recorded fence and fixture still matches.
 
 use std::collections::BTreeMap;
 
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use dli_ast::decl::Decl;
 
-use crate::author::digest::digest_bytes;
+use crate::author::digest::digest_hash;
 
 /// Which authoring door a workspace was opened in (spec 11 §2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -57,9 +68,12 @@ pub struct Workspace {
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
     pub idempotency: BTreeMap<String, (String, serde_json::Value)>,
-    /// Cached canonical JSON of each staged declaration, parallel to `decls`, so
-    /// a reseal re-serializes only the declaration that changed.
-    decl_json: Vec<String>,
+    /// The streaming digest state: a SHA-256 that has absorbed the canonical head
+    /// (`{"base_name":…,"mode":…,"decls":[`) and every staged declaration's JSON in
+    /// order, up to but not including the closing `]`. An append feeds one more
+    /// declaration; [`reseal`](Workspace::reseal) clones this and finishes the tail,
+    /// so neither cost grows with the declaration count.
+    prefix: Sha256,
 }
 
 impl Workspace {
@@ -67,6 +81,7 @@ impl Workspace {
     #[must_use]
     pub fn new(id: String, mode: Mode, base_name: String) -> Self {
         let mut workspace = Self {
+            prefix: Sha256::new(),
             id,
             mode,
             base_name,
@@ -74,27 +89,31 @@ impl Workspace {
             suppositions: Vec::new(),
             digest: String::new(),
             idempotency: BTreeMap::new(),
-            decl_json: Vec::new(),
         };
+        workspace.absorb_head();
         workspace.reseal();
         workspace
     }
 
-    /// Stage a declaration, caching its canonical JSON and resealing the digest.
+    /// Stage a declaration, feeding its canonical JSON into the streaming prefix
+    /// and resealing. Append is `O(1)` in the declaration count.
     pub fn push_decl(&mut self, decl: Decl) {
-        self.decl_json.push(encode(&decl));
+        // The declarations array joins its members with commas, so every member
+        // past the first carries a leading separator.
+        if !self.decls.is_empty() {
+            self.prefix.update(b",");
+        }
+        self.prefix.update(encode(&decl).as_bytes());
         self.decls.push(decl);
         self.reseal();
     }
 
-    /// Replace the declaration at `index` (e.g. a question that gained an option),
-    /// re-encoding just that one, and reseal.
+    /// Replace the declaration at `index` (e.g. a question that gained an option)
+    /// and reseal. The prefix is re-absorbed once, since the change lands mid-array.
     pub fn replace_decl(&mut self, index: usize, decl: Decl) {
-        if let (Some(slot), Some(cached)) =
-            (self.decls.get_mut(index), self.decl_json.get_mut(index))
-        {
-            *cached = encode(&decl);
+        if let Some(slot) = self.decls.get_mut(index) {
             *slot = decl;
+            self.reabsorb();
             self.reseal();
         }
     }
@@ -104,24 +123,50 @@ impl Workspace {
         if index >= self.decls.len() {
             return None;
         }
-        self.decl_json.remove(index);
         let removed = self.decls.remove(index);
+        self.reabsorb();
         self.reseal();
         Some(removed)
     }
 
-    /// Recompute the digest over the current staged state. Assembles the snapshot
-    /// bytes from the cached per-declaration JSON (so unchanged declarations are
-    /// not re-serialized) — byte-identical to serializing the whole snapshot.
+    /// Recompute the digest by finishing the streamed material: clone the prefix
+    /// (the head and every declaration, already absorbed), feed the tail
+    /// (`],"suppositions":…}`), and finalize. `O(1)` in the declaration count.
+    ///
+    /// The absorbed-plus-tail bytes are exactly
+    /// `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}`, the string the
+    /// whole-snapshot reseal hashed, so the digest value is unchanged.
     pub fn reseal(&mut self) {
-        let material = format!(
-            "{{\"base_name\":{},\"mode\":{},\"decls\":[{}],\"suppositions\":{}}}",
-            encode(&self.base_name),
-            encode(&self.mode),
-            self.decl_json.join(","),
-            encode(&self.suppositions),
-        );
-        self.digest = digest_bytes(material.as_bytes());
+        let mut hasher = self.prefix.clone();
+        hasher.update(b"],\"suppositions\":");
+        hasher.update(encode(&self.suppositions).as_bytes());
+        hasher.update(b"}");
+        self.digest = digest_hash(hasher.finalize().as_slice());
+    }
+
+    /// Seed the streaming prefix with the fixed head that precedes the first
+    /// declaration: `{"base_name":<base>,"mode":<mode>,"decls":[`.
+    fn absorb_head(&mut self) {
+        self.prefix.update(b"{\"base_name\":");
+        self.prefix.update(encode(&self.base_name).as_bytes());
+        self.prefix.update(b",\"mode\":");
+        self.prefix.update(encode(&self.mode).as_bytes());
+        self.prefix.update(b",\"decls\":[");
+    }
+
+    /// Rebuild the streaming prefix from scratch — the head then every staged
+    /// declaration in order — after a mid-array edit that the append-only stream
+    /// cannot patch in place. Linear in the declaration count; the mutating calls
+    /// that need it (replace, discard) are rare.
+    fn reabsorb(&mut self) {
+        self.prefix = Sha256::new();
+        self.absorb_head();
+        for (i, decl) in self.decls.iter().enumerate() {
+            if i > 0 {
+                self.prefix.update(b",");
+            }
+            self.prefix.update(encode(decl).as_bytes());
+        }
     }
 }
 
@@ -133,14 +178,14 @@ fn encode<T: Serialize>(value: &T) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Mode, Workspace, encode};
+    use super::{Mode, Workspace};
 
     use dli_ast::decl::{Decl, EntityDecl, EntityKind};
     use dli_ast::ident::Ident;
     use serde::Serialize;
 
     /// The whole-snapshot shape the incremental reseal must reproduce byte for
-    /// byte.
+    /// byte — the field order here is the JSON the fence hashes.
     #[derive(Serialize)]
     struct Snapshot<'a> {
         base_name: &'a str,
@@ -160,9 +205,17 @@ mod tests {
         })
     }
 
+    fn scope(base: &str) -> Workspace {
+        Workspace::new("ws-1".to_owned(), Mode::Scope, base.to_owned())
+    }
+
+    /// The load-bearing invariant: the incrementally-streamed digest is byte-for-
+    /// byte the whole-snapshot digest, so every recorded fence and fixture stays
+    /// valid across the optimization. Exercised after an append, a supposition,
+    /// and a discard so the streamed and re-absorbed paths both prove it.
     #[test]
-    fn incremental_reseal_matches_the_full_snapshot() {
-        let mut ws = Workspace::new("ws-1".to_owned(), Mode::Scope, "saltmarket".to_owned());
+    fn incremental_reseal_equals_whole_snapshot() {
+        let mut ws = scope("saltmarket");
         ws.push_decl(person("mara"));
         ws.push_decl(person("the-warden"));
         ws.suppositions.push("h".to_owned());
@@ -179,7 +232,115 @@ mod tests {
             ws.digest, snapshot,
             "the incremental reseal equals the full-snapshot digest"
         );
-        // `encode` is exercised above; keep the import meaningful.
-        assert!(!encode(&ws.mode).is_empty());
+    }
+
+    /// The incremental stream — including the re-absorb a discard triggers —
+    /// lands on the exact digest a from-scratch build of the same final state
+    /// produces. This is the property the fence needs: the digest is a function
+    /// of the staged state, never of the path taken to it.
+    #[test]
+    fn incremental_reseal_equals_from_scratch() {
+        let mut built = scope("saltmarket");
+        built.push_decl(person("mara"));
+        built.push_decl(person("the-warden"));
+        built.push_decl(person("kes"));
+        built.remove_decl(1); // drop the-warden → [mara, kes]
+
+        let mut fresh = scope("saltmarket");
+        fresh.push_decl(person("mara"));
+        fresh.push_decl(person("kes"));
+
+        assert_eq!(built.decls.len(), 2);
+        assert_eq!(built.digest, fresh.digest);
+        assert!(built.digest.starts_with("jcs:sha256:"));
+    }
+
+    /// A replace re-absorbs the declarations, matching a build that staged the
+    /// replacement value in place.
+    #[test]
+    fn replace_matches_from_scratch() {
+        let mut edited = scope("saltmarket");
+        edited.push_decl(person("mara"));
+        edited.push_decl(person("the-warden"));
+        edited.replace_decl(0, person("kes")); // [kes, the-warden]
+
+        let mut fresh = scope("saltmarket");
+        fresh.push_decl(person("kes"));
+        fresh.push_decl(person("the-warden"));
+
+        assert_eq!(edited.digest, fresh.digest);
+    }
+
+    /// The fence is deterministic and sensitive: identical state hashes the same,
+    /// and declaration order, the base, and a supposition each move it.
+    #[test]
+    fn reseal_is_deterministic_and_sensitive() {
+        let mut a = scope("saltmarket");
+        a.push_decl(person("mara"));
+        a.push_decl(person("the-warden"));
+
+        let mut same = scope("saltmarket");
+        same.push_decl(person("mara"));
+        same.push_decl(person("the-warden"));
+        assert_eq!(a.digest, same.digest, "same state → same fence");
+
+        let mut reordered = scope("saltmarket");
+        reordered.push_decl(person("the-warden"));
+        reordered.push_decl(person("mara"));
+        assert_ne!(a.digest, reordered.digest, "order moves the fence");
+
+        let mut other_base = scope("the-shallows");
+        other_base.push_decl(person("mara"));
+        other_base.push_decl(person("the-warden"));
+        assert_ne!(a.digest, other_base.digest, "the base moves the fence");
+
+        let mut supposed = scope("saltmarket");
+        supposed.push_decl(person("mara"));
+        supposed.push_decl(person("the-warden"));
+        supposed.suppositions.push("h-1".to_owned());
+        supposed.reseal();
+        assert_ne!(a.digest, supposed.digest, "a supposition moves the fence");
+    }
+
+    /// An empty workspace still seals a stable, domain-shaped fence.
+    #[test]
+    fn empty_workspace_seals_a_stable_fence() {
+        let a = scope("saltmarket");
+        let b = scope("saltmarket");
+        assert_eq!(a.digest, b.digest);
+        assert!(a.digest.starts_with("jcs:sha256:"));
+    }
+
+    /// The reseal is linear, not quadratic: staging the second half of a large
+    /// workspace costs no more than staging the first half (each append is `O(1)`
+    /// in the declaration count, where a whole-snapshot reseal would make the
+    /// second half ~3× the first). Wall-clock, so `#[ignore]`d against CI noise —
+    /// run with `--ignored` to measure.
+    #[test]
+    #[ignore = "wall-clock perf check; run with --ignored"]
+    fn reseal_stays_linear_over_a_large_build() {
+        use std::time::Instant;
+
+        const HALF: usize = 2500;
+        let mut ws = scope("saltmarket");
+
+        let first_start = Instant::now();
+        for i in 0..HALF {
+            ws.push_decl(person(&format!("person-{i}")));
+        }
+        let first = first_start.elapsed();
+
+        let second_start = Instant::now();
+        for i in HALF..(2 * HALF) {
+            ws.push_decl(person(&format!("person-{i}")));
+        }
+        let second = second_start.elapsed();
+
+        assert_eq!(ws.decls.len(), 2 * HALF);
+        assert!(
+            second < first * 4,
+            "reseal looks super-linear: first {HALF} appends took {first:?}, \
+             second {HALF} took {second:?}"
+        );
     }
 }

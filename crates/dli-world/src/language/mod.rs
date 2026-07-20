@@ -29,7 +29,9 @@ pub mod dialect;
 pub mod name;
 pub mod view;
 
-pub use derivation::{LangFinding, aural_clash, check_language, phonetic_key};
+pub use derivation::{
+    LangFinding, aural_clash, check_language, phonetic_key, vet_candidate_in_dialect,
+};
 pub use dialect::{
     BanDef, DialectDef, Gender, Hypothesis, LanguageModel, LanguageOutcome, NameKind, NamePartDef,
     Phonotactics, Stress, TermDef,

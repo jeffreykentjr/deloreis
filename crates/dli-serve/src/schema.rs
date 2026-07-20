@@ -329,5 +329,45 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.suppose.response".to_owned(),
             schema_for!(AuthorMutationResult),
         ),
+        (
+            "author.query.request".to_owned(),
+            schema_for!(AuthorQueryParams),
+        ),
+        (
+            "author.query.response".to_owned(),
+            schema_for!(AuthorQueryResult),
+        ),
+        (
+            "author.check.request".to_owned(),
+            schema_for!(AuthorCheckParams),
+        ),
+        (
+            "author.check.response".to_owned(),
+            schema_for!(AuthorCheckResult),
+        ),
+        (
+            "author.why.request".to_owned(),
+            schema_for!(AuthorWhyParams),
+        ),
+        (
+            "author.why.response".to_owned(),
+            schema_for!(AuthorWhyResult),
+        ),
+        (
+            "author.findings.request".to_owned(),
+            schema_for!(AuthorFindingsParams),
+        ),
+        (
+            "author.findings.response".to_owned(),
+            schema_for!(AuthorFindingsResult),
+        ),
+        (
+            "author.list_workspaces.request".to_owned(),
+            schema_for!(AuthorListWorkspacesParams),
+        ),
+        (
+            "author.list_workspaces.response".to_owned(),
+            schema_for!(AuthorListWorkspacesResult),
+        ),
     ]
 }

@@ -92,7 +92,7 @@ pub fn serve() -> io::Result<()> {
 /// underlying stream ends the loop.
 pub fn serve_io<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> io::Result<()> {
     let mut sessions = Sessions::new();
-    let mut author_store = author::store::Store::default();
+    let mut author_store = author_store()?;
     let mut buf = Vec::new();
 
     loop {
@@ -145,6 +145,17 @@ pub fn dispatch(
         return author::dispatch(request, author_store);
     }
     handlers::handle(request, sessions)
+}
+
+/// Construct the Door T store over the v0 built-in corpus, so the author read
+/// tools (`author.query`/`check`/`why`) evaluate `base + staged` — the base world
+/// the agent is authoring into, not the staged declarations alone (spec 11 §1). It
+/// resolves the pack through the same [`crate::session::builtin_pack`] the read
+/// surface uses, so the store base and the query scope never diverge.
+pub(crate) fn author_store() -> io::Result<author::store::Store> {
+    let pack = crate::session::builtin_pack("saltmarket")
+        .expect("the built-in saltmarket corpus is always present");
+    author::store::Store::with_pack(pack).map_err(io::Error::other)
 }
 
 // -- framing -----------------------------------------------------------------

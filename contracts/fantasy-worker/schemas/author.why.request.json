@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorWhyParams",
+  "description": "`author.why` params.",
+  "type": "object",
+  "properties": {
+    "atom": {
+      "description": "The atom to explain, rendered `pred(a, b)` (ground).",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "atom"
+  ]
+}

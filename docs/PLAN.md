@@ -171,7 +171,7 @@ they touch; they are not a lane of their own.
   *Needs:* CORE-2. *Produces:* declared practices (magic systems). *Oracle:*
   practice well-formedness holds; the `true-naming` fixture is the acceptance
   test (a second, structurally disjoint practice hosts with no kernel code).
-- **PRAC-2** — The ledger checker (`check-ledger in <practice>`): the premise-pool
+- **PRAC-2** — The ledger checker (`check-proof in <practice>`): the premise-pool
   projection (`certain ∩ known-by-speaker ∩ present`), the linear accounting,
   and the expected-verdict discipline.
   *Needs:* PRAC-1, TIME-2. *Produces:* diegetic proof verdicts. *Oracle:* the
@@ -308,7 +308,7 @@ they touch; they are not a lane of their own.
   golden/negative/framing fixtures pass; the envelope carries no timestamps and
   rejects unknown fields.
 - **CLI-1** — The `deloreis` CLI: `check`, `query`, `fmt`, `fork`, `preflight`,
-  `timeline`, `simulate`, `export`, `name`, `check-ledger`, `check-draft`,
+  `timeline`, `simulate`, `export`, `name`, `check-proof`, `check-draft`,
   `report`, `serve`. Later lanes extend the surface (`craft why` lands with the
   craft lane).
   *Needs:* CHECK-1. *Produces:* the command surface. *Oracle:* the man-page

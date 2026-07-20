@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorQueryResult",
+  "description": "`author.query` result: one row per match over the staged world, each carrying\nits support, grade, standing, and (when asked) its why-antichain.",
+  "type": "object",
+  "properties": {
+    "rows": {
+      "description": "The answer rows over the staged world.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/QueryRow"
+      }
+    }
+  },
+  "required": [
+    "rows"
+  ],
+  "$defs": {
+    "ClaimId": {
+      "description": "A claim identifier.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "PosBool": {
+      "type": "object",
+      "properties": {
+        "monomials": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "monomials"
+      ]
+    },
+    "QueryRow": {
+      "description": "One answer row: the matched ground atom, its variable bindings, the verdict\n(support and grade) for that binding, and the atom's status under the\nvaluation the query was evaluated in.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The matched ground atom, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "bindings": {
+          "description": "Variable name to bound-term rendering.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "description": "The atom's standing under the ambient valuation.",
+          "$ref": "#/$defs/Status"
+        },
+        "verdict": {
+          "description": "The support and grade for this binding.",
+          "$ref": "#/$defs/Verdict"
+        },
+        "why": {
+          "description": "The support antichain rendered for a reader, present only when the query\nasked for it ([`QueryOpts::why`]). Absent otherwise, so a plain query's\nwire form is unchanged.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Why"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "atom",
+        "bindings",
+        "verdict",
+        "status"
+      ]
+    },
+    "Status": {
+      "description": "A claim's three-valued standing under `(ν, Θ)`, derived — never stored.",
+      "oneOf": [
+        {
+          "description": "Every monomial is `Θ`-unsatisfiable: the claim holds in no admissible\nworld. (Whether this is rejection or mere supersession is a `C`\nquestion, outside the algebra.)",
+          "type": "string",
+          "const": "dead"
+        },
+        {
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved: the shadow layer.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "Some monomial holds on resolved events alone, with no fully-ruled\ndefeater: assertable.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "Verdict": {
+      "description": "The outcome of asking about a claim, carried over two orthogonal channels\nthat never entangle (`docs/spec/07-verdicts-and-llm-boundary.md` §1):\n\n- **support** — the positive-boolean formula over citations and assumptions:\n  *what the conclusion rests on* (`02-semantics.md`).\n- **grade** — *how the procedure stacked on that ground was verified.*\n\nThe channels are independent: a conclusion may rest on weak-authority\ncitations in the support channel and still be `checked` in the grade\nchannel, because grade rolls up over the procedure chain and never descends\ninto the citations. See [`Verdict::of_procedure`] for the worked answer to\nthe collapse worry.",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "Channel two: the strength of the establishing procedure.",
+          "$ref": "#/$defs/Grade"
+        },
+        "support": {
+          "description": "Channel one: the hypotheses under which the claim holds.",
+          "$ref": "#/$defs/PosBool"
+        }
+      },
+      "required": [
+        "support",
+        "grade"
+      ]
+    },
+    "Why": {
+      "description": "The positive explanation of an atom: its support antichain rendered for a\nreader.\n\nThe [`antichain`](Why::antichain) is the disjunction of minimal witnesses —\nthe same shape as [`crate::SupportIndex::why`], one inner vector of\n[`ClaimId`]s per minimal monomial of the support (sign is dropped, matching\nthat seam). [`rendered`](Why::rendered) is the parallel human line for each\nwitness, resolved to claim names through the world's interner; a negative\nliteral renders with a `not ` prefix, and the unconditional witness (the\nempty monomial) renders as `unconditional`.",
+      "type": "object",
+      "properties": {
+        "antichain": {
+          "description": "The disjunction of minimal witnesses, each a conjunction of claim ids.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ClaimId"
+            }
+          }
+        },
+        "rendered": {
+          "description": "The per-witness human rendering, index-aligned with `antichain`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "antichain",
+        "rendered"
+      ]
+    }
+  }
+}

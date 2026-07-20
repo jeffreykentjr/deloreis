@@ -54,7 +54,7 @@ repo:
 3. **A query engine** — `deloreis query` with `--layer/--as-of/--fork/--why`.
 4. **A fork manager** — `fork new/suppose/add/diff/promote`, `preflight`:
    what-if worlds as cheap, reviewable, diffable values.
-5. **A ledger checker for any declared practice** — `deloreis check-ledger in
+5. **A ledger checker for any declared practice** — `deloreis check-proof in
    <practice>`: the Concordance is the Hedgeway instance of a generic
    declarative-ledger checker.
 6. **A practice simulator** — `deloreis simulate`: batteries over any declared
@@ -64,7 +64,7 @@ repo:
    diegetic lexicon.
 
 **The ops, in one line each.** `check` (compile + check); `query` (read the
-compiled world); `fork` (create/suppose/add/diff/promote/preflight); `check-ledger`
+compiled world); `fork` (create/suppose/add/diff/promote/preflight); `check-proof`
 (a proof ledger in a practice); `check-draft` (the battery over a draft payload);
 `simulate` (batteries with metrics + invariants); `timeline`
 (show/order/knows/episodes/phases); `export` (one-way compiles to targets);

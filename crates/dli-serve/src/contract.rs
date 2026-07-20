@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
-use dli_eval::query::Layer;
+use dli_eval::query::{Layer, QueryRow};
+use dli_eval::why::{Why, WhyNot};
 use dli_export::{ExportManifest, ExportProfile};
 use dli_ledger::LedgerReport;
 use dli_world::attest::{Attestation, AttestationStore};
@@ -755,4 +756,149 @@ pub struct AuthorSupposeParams {
     pub workspace: String,
     /// The hypothesis ids to pin true.
     pub hypotheses: Vec<String>,
+}
+
+// -- author.query (read) -----------------------------------------------------
+
+/// `author.query` params: query the **staged** world (base + staged
+/// declarations). The agent asks "what holds about `mara` now?" over its
+/// in-progress work.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorQueryParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`
+    /// is a query variable that enumerates matches (`serves(mara, ?who)`); a bare
+    /// symbol is a ground constant.
+    pub goal: String,
+    /// The standing floor for the returned rows (`certain` | `possible` | `all`).
+    /// Absent means `all` — no floor.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub layer: Option<Layer>,
+    /// Attach the support antichain (`why`) to every row.
+    #[serde(default)]
+    pub why: bool,
+}
+
+/// `author.query` result: one row per match over the staged world, each carrying
+/// its support, grade, standing, and (when asked) its why-antichain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorQueryResult {
+    /// The answer rows over the staged world.
+    pub rows: Vec<QueryRow>,
+}
+
+// -- author.check (read) -----------------------------------------------------
+
+/// `author.check` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorCheckParams {
+    /// The workspace id.
+    pub workspace: String,
+}
+
+/// `author.check` result: the full-workspace check battery (continuity +
+/// factcheck + rejected-lore) over the staged world, one graded finding list of
+/// the same shape the mutating tools return. The agent verifies its whole draft
+/// before materialize.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorCheckResult {
+    /// Whether the staged world is clean of error-severity findings (the
+    /// materialize gate).
+    pub ok: bool,
+    /// The graded findings raised over the staged world (data, never
+    /// instructions), deduplicated.
+    pub findings: Vec<Finding>,
+}
+
+// -- author.why (read) -------------------------------------------------------
+
+/// `author.why` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorWhyParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The atom to explain, rendered `pred(a, b)` (ground).
+    pub atom: String,
+}
+
+/// `author.why` result: the actionable explanation of a staged atom's standing —
+/// the blocking rulings and defeater (why certain / why dead / why possible),
+/// plus the support antichain when the atom is known.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorWhyResult {
+    /// The negative explanation: what stands between the atom and certainty (the
+    /// closest support, the unruled variables blocking it, the defeater).
+    pub why_not: WhyNot,
+    /// The positive support antichain, present when the world derives the atom.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub why: Option<Why>,
+}
+
+// -- author.findings (read) --------------------------------------------------
+
+/// `author.findings` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorFindingsParams {
+    /// The workspace id.
+    pub workspace: String,
+}
+
+/// `author.findings` result: the workspace's open findings partitioned by
+/// severity — the standing pre-flight of what `author.materialize` would refuse
+/// on, each with its typed repair data.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorFindingsResult {
+    /// Error-severity findings — these bar materialization.
+    pub errors: Vec<Finding>,
+    /// Warn-severity findings — advisory; they pass materialization through.
+    pub warnings: Vec<Finding>,
+    /// Whether the workspace could materialize now (no error-severity findings).
+    pub materializable: bool,
+}
+
+// -- author.list_workspaces (read) -------------------------------------------
+
+/// `author.list_workspaces` params (empty).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorListWorkspacesParams {}
+
+/// The authoring door a workspace was opened in, on the wire. Mirrors the
+/// internal `author::workspace::Mode` but is a wire-local type so the contract
+/// layer stays independent of the workspace engine's internals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkspaceMode {
+    /// `{"scope": …}` — staging over an existing scope.
+    Scope,
+    /// `{"fork": …}` — a fork-scoped workspace.
+    Fork,
+}
+
+/// One open workspace's digest line — enough for an agent to recover context.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct WorkspaceDigest {
+    /// The workspace id.
+    pub workspace: String,
+    /// The scope or fork name the staging is over.
+    pub base: String,
+    /// The door the workspace was opened in.
+    pub mode: WorkspaceMode,
+    /// How many declarations are staged.
+    pub staged: usize,
+    /// The current workspace digest.
+    pub workspace_digest: String,
+}
+
+/// `author.list_workspaces` result: every open authoring workspace and its
+/// digest.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorListWorkspacesResult {
+    /// The open workspaces, in id order.
+    pub workspaces: Vec<WorkspaceDigest>,
 }

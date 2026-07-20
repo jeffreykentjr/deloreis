@@ -47,7 +47,12 @@
             "author.open_question",
             "author.add_option",
             "author.add_hypothesis",
-            "author.suppose"
+            "author.suppose",
+            "author.query",
+            "author.check",
+            "author.why",
+            "author.findings",
+            "author.list_workspaces"
           ]
         }
       }

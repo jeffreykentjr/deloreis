@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorWhyResult",
+  "description": "`author.why` result: the actionable explanation of a staged atom's standing —\nthe blocking rulings and defeater (why certain / why dead / why possible),\nplus the support antichain when the atom is known.",
+  "type": "object",
+  "properties": {
+    "why": {
+      "description": "The positive support antichain, present when the world derives the atom.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Why"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "why_not": {
+      "description": "The negative explanation: what stands between the atom and certainty (the\nclosest support, the unruled variables blocking it, the defeater).",
+      "$ref": "#/$defs/WhyNot"
+    }
+  },
+  "required": [
+    "why_not"
+  ],
+  "$defs": {
+    "ClaimId": {
+      "description": "A claim identifier.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Status": {
+      "description": "A claim's three-valued standing under `(ν, Θ)`, derived — never stored.",
+      "oneOf": [
+        {
+          "description": "Every monomial is `Θ`-unsatisfiable: the claim holds in no admissible\nworld. (Whether this is rejection or mere supersession is a `C`\nquestion, outside the algebra.)",
+          "type": "string",
+          "const": "dead"
+        },
+        {
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved: the shadow layer.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "Some monomial holds on resolved events alone, with no fully-ruled\ndefeater: assertable.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "Why": {
+      "description": "The positive explanation of an atom: its support antichain rendered for a\nreader.\n\nThe [`antichain`](Why::antichain) is the disjunction of minimal witnesses —\nthe same shape as [`crate::SupportIndex::why`], one inner vector of\n[`ClaimId`]s per minimal monomial of the support (sign is dropped, matching\nthat seam). [`rendered`](Why::rendered) is the parallel human line for each\nwitness, resolved to claim names through the world's interner; a negative\nliteral renders with a `not ` prefix, and the unconditional witness (the\nempty monomial) renders as `unconditional`.",
+      "type": "object",
+      "properties": {
+        "antichain": {
+          "description": "The disjunction of minimal witnesses, each a conjunction of claim ids.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ClaimId"
+            }
+          }
+        },
+        "rendered": {
+          "description": "The per-witness human rendering, index-aligned with `antichain`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "antichain",
+        "rendered"
+      ]
+    },
+    "WhyNot": {
+      "description": "The negative explanation of an atom that is not certain: what stands between\nit and assertability.\n\nProduced by [`why_not`]. When the atom is unknown (no derivation for it),\n[`known`](WhyNot::known) is false and the analysis fields are empty.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The atom under scrutiny, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "blocking": {
+          "description": "The unruled (open) variables of that closest witness: the rulings that,\nonce made, would carry the claim. Empty when nothing open blocks it (the\nobstacle is then a defeater, or the atom is dead).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClaimId"
+          }
+        },
+        "closest": {
+          "description": "The live support monomial closest to certainty — the fewest unruled\nvariables — as claim ids. Empty when the atom is unknown or every\nmonomial is dead.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClaimId"
+          }
+        },
+        "defeater": {
+          "description": "The defeater claim, if the atom rests on a defeasible default a ruling\nhas overridden or could override — blame.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "known": {
+          "description": "Whether the world derives this atom at all. False means unknown — absent\nfrom certain ∪ possible (`02-semantics.md` §4).",
+          "type": "boolean"
+        },
+        "rendered": {
+          "description": "The human rendering: the blocking rulings and the defeater, resolved to\nclaim names.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "description": "The atom's standing under the world's ambient valuation. `Dead` when\nunknown.",
+          "$ref": "#/$defs/Status"
+        }
+      },
+      "required": [
+        "atom",
+        "known",
+        "status",
+        "closest",
+        "blocking",
+        "rendered"
+      ]
+    }
+  }
+}

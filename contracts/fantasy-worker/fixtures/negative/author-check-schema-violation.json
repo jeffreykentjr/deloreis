@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/author-check-schema-violation",
+  "version": 1,
+  "note": "author.check params omit the required `workspace`, violating the op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.check",
+    "params": {}
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

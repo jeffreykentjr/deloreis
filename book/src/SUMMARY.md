@@ -33,3 +33,6 @@
 
 - [Wire operations](reference-ops.md)
 - [Wire error codes](reference-error-codes.md)
+- [Grammar keywords](reference-grammar-keywords.md)
+- [CLI commands](reference-cli.md)
+- [Finding families](reference-finding-families.md)

@@ -178,6 +178,20 @@ pub enum LangFinding {
         /// Source location.
         span: Span,
     },
+    /// The identifier mixes a Latin-looking form with a look-alike character from
+    /// another script — a homoglyph that could disguise one id as another.
+    Confusable {
+        /// The offending identifier.
+        name: String,
+        /// The confusable character it carries.
+        character: char,
+        /// The Latin letter that character mimics.
+        looks_like: char,
+        /// The script the confusable character actually belongs to.
+        script: String,
+        /// Source location.
+        span: Span,
+    },
 }
 
 impl LangFinding {
@@ -197,6 +211,7 @@ impl LangFinding {
             Self::GenderMorphology { .. } => "name.gender-morphology",
             Self::SayabilityCap { .. } => "name.sayability-cap",
             Self::BannedInName { .. } => "name.banned-in-name",
+            Self::Confusable { .. } => "name.confusable",
         }
     }
 
@@ -271,6 +286,16 @@ impl LangFinding {
                     "'{name}' carries the banned word '{word}' — the allegory is structural, never lexical (05 §4)"
                 )
             }
+            Self::Confusable {
+                name,
+                character,
+                looks_like,
+                script,
+                ..
+            } => format!(
+                "'{name}' carries the {script} character '{character}' (U+{:04X}) that mimics Latin '{looks_like}' — a mixed-script look-alike that could disguise this id as another",
+                *character as u32
+            ),
         }
     }
 
@@ -288,7 +313,8 @@ impl LangFinding {
             | Self::SetClash { span, .. }
             | Self::GenderMorphology { span, .. }
             | Self::SayabilityCap { span, .. }
-            | Self::BannedInName { span, .. } => *span,
+            | Self::BannedInName { span, .. }
+            | Self::Confusable { span, .. } => *span,
         }
     }
 
@@ -300,9 +326,10 @@ impl LangFinding {
     #[must_use]
     pub fn severity(&self) -> Severity {
         match self {
-            Self::AuralClash { .. } | Self::SetClash { .. } | Self::SayabilityCap { .. } => {
-                Severity::Warn
-            }
+            Self::AuralClash { .. }
+            | Self::SetClash { .. }
+            | Self::SayabilityCap { .. }
+            | Self::Confusable { .. } => Severity::Warn,
             _ => Severity::Error,
         }
     }
@@ -343,6 +370,63 @@ pub fn check_language(model: &LanguageModel) -> Vec<LangFinding> {
     findings
 }
 
+/// Vet a bare candidate string against a named register's **phonotactic frame** —
+/// the surface-only half of register-fit (05 §2).
+///
+/// The oracle's register-fit obligation has three parts: slot sequence, role
+/// membership, and phonotactics. The first two are claims about a name's
+/// *composition* — which morphemes fill which slots — and a bare candidate string
+/// carries no composition, so only the third, the register's phonotactic frame
+/// (foreign clusters, the consonant-cluster ceiling), is dischargeable over a
+/// bare candidate. This composes the candidate into a trial [`NameDef`](crate::language::NameDef)
+/// ([`NameDef::trial`](super::name::NameDef::trial)) and runs exactly that check;
+/// an unknown register is itself a register-fit failure.
+///
+/// Callers must disclose that the composition-dependent obligations were not run
+/// — the CLI's `name check --dialect` does. This is the deliberate, honest subset
+/// (05 §3): a check runs iff its ground truth is dischargeable over the input it
+/// is given.
+///
+/// ```
+/// use dli_world::language::{LanguageModel, vet_candidate_in_dialect};
+/// use dli_syntax::parse_document;
+///
+/// let src = "scope language\n\
+///            dialect cymric-fringe \"the fringe tongue\" ratified D-1 {\n\
+///            vowels a e i o u\n\
+///            foreign z\n\
+///            cluster-max 2\n\
+///            }\n";
+/// let (doc, _d) = parse_document(src);
+/// let model = LanguageModel::from_documents(&[doc]).model;
+/// // A pile-up of register-foreign consonants fails the frame.
+/// assert!(!vet_candidate_in_dialect(&model, "Zzgrbl", "cymric-fringe").is_empty());
+/// // A register-shaped candidate clears it.
+/// assert!(vet_candidate_in_dialect(&model, "Aelin", "cymric-fringe").is_empty());
+/// // An unknown register is a register-fit failure.
+/// assert!(vet_candidate_in_dialect(&model, "Aelin", "no-such").is_empty() == false);
+/// ```
+#[must_use]
+pub fn vet_candidate_in_dialect(
+    model: &LanguageModel,
+    candidate: &str,
+    dialect: &str,
+) -> Vec<LangFinding> {
+    let mut out = Vec::new();
+    let Some(register) = model.register(dialect) else {
+        out.push(LangFinding::RegisterFit {
+            name: candidate.to_owned(),
+            register: dialect.to_owned(),
+            reason: "the named register is not declared".to_owned(),
+            span: Span::synthetic(),
+        });
+        return out;
+    };
+    let trial = super::name::NameDef::trial(candidate, dialect);
+    phonotactics(&trial, register, &mut out);
+    out
+}
+
 /// The structural obligations on a single name (05 §2) plus the per-name
 /// world-true checks (banned, sayability, gender).
 ///
@@ -372,6 +456,9 @@ fn structural_checks(
         }
     }
     banned_and_sayability(model, name, out);
+    // The identifier is the authority-bearing token; screen it for a homoglyph
+    // that could disguise it as another id.
+    out.extend(confusable_findings(&name.name, name.span));
 }
 
 /// The slot sequence must match one of the register's `name-kind` patterns.
@@ -622,6 +709,112 @@ pub(crate) fn contains_banned(surface: &str, label: &str, model: &LanguageModel)
     })
 }
 
+/// Screen an identifier for mixed-script homoglyphs: a Latin-looking id carrying
+/// a look-alike character from another script — a Cyrillic `а` amid Latin letters
+/// — earns a WARN, because it could disguise one id as another and so quietly
+/// mint the wrong authority.
+///
+/// A wholly non-Latin name is legitimate worldbuilding and never flagged; the
+/// risk is the *mix*. This is a screen distinct from the free-text control-char
+/// refusal (which guards bidi/format forgery): homoglyphs are visible, legal
+/// characters, so they warn rather than refuse — escaping every non-ASCII letter
+/// would break non-Latin worldbuilding. The confusables table is a small,
+/// hand-picked set of the common Latin/Cyrillic/Greek look-alikes (Unicode TR39
+/// in spirit), deliberately not a full database or a heavyweight dependency.
+pub(crate) fn confusable_findings(id: &str, span: Span) -> Vec<LangFinding> {
+    let mut has_latin = false;
+    let mut suspects: Vec<(char, char, &'static str)> = Vec::new();
+    for c in id.chars() {
+        if is_latin_letter(c) {
+            has_latin = true;
+        } else if let Some((looks_like, script)) = confusable_prototype(c) {
+            suspects.push((c, looks_like, script));
+        }
+    }
+    if !has_latin {
+        return Vec::new();
+    }
+    suspects.sort_unstable();
+    suspects.dedup();
+    suspects
+        .into_iter()
+        .map(|(character, looks_like, script)| LangFinding::Confusable {
+            name: id.to_owned(),
+            character,
+            looks_like,
+            script: script.to_owned(),
+            span,
+        })
+        .collect()
+}
+
+/// Whether a character is a genuine Latin-script letter (ASCII or the accented
+/// Latin ranges) — so an accented worldbuilding name is Latin, not a confusable.
+fn is_latin_letter(c: char) -> bool {
+    if c.is_ascii_alphabetic() {
+        return true;
+    }
+    // Latin-1 Supplement and Latin Extended-A/B letters (é, ñ, ā, …).
+    matches!(c, '\u{00C0}'..='\u{024F}') && c.is_alphabetic()
+}
+
+/// The Latin letter a look-alike from another script mimics, with that script's
+/// name — the targeted homoglyphs an id-spoof leans on.
+fn confusable_prototype(c: char) -> Option<(char, &'static str)> {
+    Some(match c {
+        // Cyrillic → Latin (lowercase).
+        'а' => ('a', "Cyrillic"),
+        'е' => ('e', "Cyrillic"),
+        'о' => ('o', "Cyrillic"),
+        'р' => ('p', "Cyrillic"),
+        'с' => ('c', "Cyrillic"),
+        'у' => ('y', "Cyrillic"),
+        'х' => ('x', "Cyrillic"),
+        'і' => ('i', "Cyrillic"),
+        'ј' => ('j', "Cyrillic"),
+        'ѕ' => ('s', "Cyrillic"),
+        'ԁ' => ('d', "Cyrillic"),
+        'һ' => ('h', "Cyrillic"),
+        // Cyrillic → Latin (uppercase).
+        'А' => ('A', "Cyrillic"),
+        'В' => ('B', "Cyrillic"),
+        'Е' => ('E', "Cyrillic"),
+        'К' => ('K', "Cyrillic"),
+        'М' => ('M', "Cyrillic"),
+        'Н' => ('H', "Cyrillic"),
+        'О' => ('O', "Cyrillic"),
+        'Р' => ('P', "Cyrillic"),
+        'С' => ('C', "Cyrillic"),
+        'Т' => ('T', "Cyrillic"),
+        'Х' => ('X', "Cyrillic"),
+        'У' => ('Y', "Cyrillic"),
+        'І' => ('I', "Cyrillic"),
+        'Ј' => ('J', "Cyrillic"),
+        // Greek → Latin.
+        'ο' => ('o', "Greek"),
+        'α' => ('a', "Greek"),
+        'ρ' => ('p', "Greek"),
+        'ν' => ('v', "Greek"),
+        'τ' => ('t', "Greek"),
+        'υ' => ('u', "Greek"),
+        'κ' => ('k', "Greek"),
+        'Α' => ('A', "Greek"),
+        'Β' => ('B', "Greek"),
+        'Ε' => ('E', "Greek"),
+        'Η' => ('H', "Greek"),
+        'Ι' => ('I', "Greek"),
+        'Κ' => ('K', "Greek"),
+        'Μ' => ('M', "Greek"),
+        'Ν' => ('N', "Greek"),
+        'Ο' => ('O', "Greek"),
+        'Ρ' => ('P', "Greek"),
+        'Τ' => ('T', "Greek"),
+        'Υ' => ('Y', "Greek"),
+        'Χ' => ('X', "Greek"),
+        _ => return None,
+    })
+}
+
 /// The Levenshtein edit distance between two strings.
 fn levenshtein(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
@@ -725,5 +918,22 @@ mod tests {
         assert_eq!(syllable_count("halspetra"), 3);
         assert_eq!(syllable_count("gwern"), 1);
         assert_eq!(syllable_count("enfys"), 2);
+    }
+
+    #[test]
+    fn confusable_flags_mixed_script_only() {
+        let span = Span::synthetic();
+        // "p\u{0430}ypal" — the second letter is a Cyrillic 'а' amid Latin
+        // letters: a homoglyph that disguises this id as the Latin "paypal".
+        let spoof = confusable_findings("p\u{0430}ypal", span);
+        assert_eq!(spoof.len(), 1, "the mixed-script look-alike warns");
+        assert_eq!(spoof[0].code(), "name.confusable");
+        assert_eq!(spoof[0].severity(), Severity::Warn);
+        assert!(spoof[0].message().contains("Cyrillic"));
+        // A clean ASCII id, an accented-Latin id, and a wholly non-Latin
+        // (single-script) name are all legitimate — the risk is only the mix.
+        assert!(confusable_findings("paypal", span).is_empty());
+        assert!(confusable_findings("bj\u{00f6}rn", span).is_empty());
+        assert!(confusable_findings("\u{043e}\u{0440}\u{0435}", span).is_empty());
     }
 }

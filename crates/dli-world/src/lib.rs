@@ -29,6 +29,7 @@ pub use language::{
 };
 pub use model::{CraftRule, SeasonLedger, WorldModel};
 pub use pack::Pack;
+pub use payload::{Payload, PayloadFinding};
 
 use std::collections::BTreeSet;
 

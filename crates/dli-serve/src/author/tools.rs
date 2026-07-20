@@ -446,7 +446,10 @@ fn before_findings(before: &BeforeDecl, ws: &Workspace, base: &CompiledWorld) ->
 /// Every finding open over the whole workspace — the materialize gate reads its
 /// error-severity subset. Each declaration is re-checked against the *full*
 /// staged state, so a later-added target clears an earlier reference's block.
-fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+///
+/// The read tools (`author.findings`, `author.check`) reuse this so the standing
+/// aggregate is exactly what materialize refuses on.
+pub(super) fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = Vec::new();
     for decl in &ws.decls {
         out.extend(decl_findings(decl, ws, base));

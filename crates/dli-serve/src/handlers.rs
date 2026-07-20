@@ -107,7 +107,12 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorOpenQuestion
         | Op::AuthorAddOption
         | Op::AuthorAddHypothesis
-        | Op::AuthorSuppose => Err((
+        | Op::AuthorSuppose
+        | Op::AuthorQuery
+        | Op::AuthorCheck
+        | Op::AuthorWhy
+        | Op::AuthorFindings
+        | Op::AuthorListWorkspaces => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),

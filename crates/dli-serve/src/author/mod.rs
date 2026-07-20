@@ -30,6 +30,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod digest;
+pub mod reads;
 pub mod render;
 pub mod store;
 pub mod tools;
@@ -40,9 +41,10 @@ use serde_json::Value;
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
-    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorDiffParams,
-    AuthorDiscardParams, AuthorMaterializeParams, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorStatusParams, AuthorSupposeParams,
+    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorCheckParams,
+    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
+    AuthorMaterializeParams, AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -50,6 +52,9 @@ use crate::ops::Op;
 /// The Door T dispatch seam (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
+// A flat routing table over the closed op set — one arm per tool, so it runs long
+// by construction; splitting it would only scatter the table.
+#[allow(clippy::too_many_lines)]
 pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
     match request.op {
         Op::AuthorOpen => match parse::<AuthorOpenParams>(request) {
@@ -133,6 +138,34 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let params: AuthorSupposeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((params.workspace.clone(), tools::suppose(store, &params)))
+        }),
+        // The read/self-check tools (AUTH-2): each answers over the STAGED world
+        // (base + staged) and stages nothing, so they route through `read` — no
+        // idempotency caching, only the tool's result or a typed error.
+        Op::AuthorQuery => read(request, store, |store, request| {
+            let params: AuthorQueryParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), reads::query(store, &params)))
+        }),
+        Op::AuthorCheck => read(request, store, |store, request| {
+            let params: AuthorCheckParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), reads::check(store, &params)))
+        }),
+        Op::AuthorWhy => read(request, store, |store, request| {
+            let params: AuthorWhyParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), reads::why(store, &params)))
+        }),
+        Op::AuthorFindings => read(request, store, |store, request| {
+            let params: AuthorFindingsParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), reads::findings(store, &params)))
+        }),
+        // No workspace param, so no precheck: a store-level read of the open set.
+        Op::AuthorListWorkspaces => read(request, store, |store, request| {
+            let _params: AuthorListWorkspacesParams = parse(request)?;
+            Ok((String::new(), Ok(reads::list_workspaces(store))))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
         // ever receives `author.*`, so anything else is an unknown op here.

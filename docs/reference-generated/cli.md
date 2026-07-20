@@ -7,7 +7,7 @@ verdict: "The deloreis CLI command reference, mirroring the clap surface in crat
 
 # CLI commands
 
-`deloreis` exposes **13** top-level subcommands; `fork`, `timeline`, and `name` carry nested subcommands. Each is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error (including an engine not yet frozen).
+`deloreis` exposes **14** top-level subcommands; `fork`, `timeline`, and `name` carry nested subcommands. Each is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error (including an engine not yet frozen).
 
 | Command | Description |
 |---|---|
@@ -39,3 +39,4 @@ verdict: "The deloreis CLI command reference, mirroring the clap surface in crat
 | `deloreis export` | Export under a profile. |
 | `deloreis report` | Render the findings report. |
 | `deloreis serve` | Run the JSON-over-stdio worker. |
+| `deloreis mcp` | Run the MCP tool transport over stdio |

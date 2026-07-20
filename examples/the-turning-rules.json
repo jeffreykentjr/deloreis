@@ -1,0 +1,203 @@
+{
+  "deck_id": "turning-lowlands-honest",
+  "region": "lowlands",
+  "grounds": [
+    {
+      "id": "wood",
+      "name": "The Wood"
+    },
+    {
+      "id": "water",
+      "name": "The Water"
+    },
+    {
+      "id": "field",
+      "name": "The Field"
+    },
+    {
+      "id": "hearth",
+      "name": "The Hearth"
+    }
+  ],
+  "weathers": [
+    {
+      "id": "greening",
+      "name": "The Greening",
+      "kind": "reciprocal",
+      "ring_next": "rot",
+      "reciprocal": "rot",
+      "hard": false
+    },
+    {
+      "id": "rot",
+      "name": "The Rot",
+      "kind": "reciprocal",
+      "ring_next": "flood",
+      "reciprocal": "greening",
+      "hard": false
+    },
+    {
+      "id": "flood",
+      "name": "The Flood",
+      "kind": "reciprocal",
+      "ring_next": "dearth",
+      "reciprocal": "dearth",
+      "hard": false
+    },
+    {
+      "id": "dearth",
+      "name": "The Dearth",
+      "kind": "reciprocal",
+      "ring_next": "binding",
+      "reciprocal": "flood",
+      "hard": false
+    },
+    {
+      "id": "binding",
+      "name": "The Binding",
+      "kind": "reciprocal",
+      "ring_next": "loosing",
+      "reciprocal": "loosing",
+      "hard": false
+    },
+    {
+      "id": "loosing",
+      "name": "The Loosing",
+      "kind": "reciprocal",
+      "ring_next": "mending",
+      "reciprocal": "binding",
+      "hard": false
+    },
+    {
+      "id": "mending",
+      "name": "The Mending",
+      "kind": "reciprocal",
+      "ring_next": "sundering",
+      "reciprocal": "sundering",
+      "hard": false
+    },
+    {
+      "id": "sundering",
+      "name": "The Sundering",
+      "kind": "reciprocal",
+      "ring_next": "road",
+      "reciprocal": "mending",
+      "hard": true
+    },
+    {
+      "id": "road",
+      "name": "The Road",
+      "kind": "passage",
+      "ring_next": "bourn",
+      "reciprocal": null,
+      "hard": false
+    },
+    {
+      "id": "bourn",
+      "name": "The Bourn",
+      "kind": "passage",
+      "ring_next": "debt",
+      "reciprocal": null,
+      "hard": true
+    },
+    {
+      "id": "debt",
+      "name": "The Debt",
+      "kind": "passage",
+      "ring_next": "fallow",
+      "reciprocal": null,
+      "hard": true
+    },
+    {
+      "id": "fallow",
+      "name": "The Fallow",
+      "kind": "passage",
+      "ring_next": "greening",
+      "reciprocal": null,
+      "hard": false
+    }
+  ],
+  "figures": [
+    {
+      "id": "the-reaper",
+      "seat": {
+        "seat": "hand",
+        "role": "taker"
+      }
+    },
+    {
+      "id": "the-drover",
+      "seat": {
+        "seat": "hand",
+        "role": "keeper"
+      }
+    },
+    {
+      "id": "the-host",
+      "seat": {
+        "seat": "hand",
+        "role": "giver"
+      }
+    },
+    {
+      "id": "the-pleacher",
+      "seat": {
+        "seat": "hand",
+        "role": "mender"
+      }
+    },
+    {
+      "id": "the-keener",
+      "seat": {
+        "seat": "weather",
+        "weather": "sundering"
+      }
+    },
+    {
+      "id": "the-ferryman",
+      "seat": {
+        "seat": "weather",
+        "weather": "road"
+      }
+    },
+    {
+      "id": "the-gleaner",
+      "seat": {
+        "seat": "weather",
+        "weather": "fallow"
+      }
+    }
+  ],
+  "layouts": [
+    {
+      "name": "a-round",
+      "leaves_dealt": 3,
+      "requires_weathers": []
+    },
+    {
+      "name": "the-ford",
+      "leaves_dealt": 2,
+      "requires_weathers": []
+    },
+    {
+      "name": "the-whole-round",
+      "leaves_dealt": 7,
+      "requires_weathers": []
+    },
+    {
+      "name": "the-debt-square",
+      "leaves_dealt": 4,
+      "requires_weathers": [
+        "debt"
+      ]
+    }
+  ],
+  "reach": 6,
+  "provenance": {
+    "standing": "ratified",
+    "cites": [
+      "D-0147",
+      "D-0148"
+    ]
+  }
+}

@@ -24,8 +24,15 @@ fn saltmarket() -> PathBuf {
 }
 
 /// A fresh temp subdirectory for a test (per-binary, isolated).
+///
+/// `CARGO_TARGET_TMPDIR` is a *fixed* path that persists across runs (and
+/// greengate reuses a warm target), so any state a test writes here — e.g. the
+/// fork CLI's `<workspace>/.dli-cache/forks.yaml`, which `fork new` *appends*
+/// to — would otherwise leak into the next run and flake the suite. Removing the
+/// subdir first makes every test start from a clean, hermetic directory.
 fn tmp(sub: &str) -> PathBuf {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(sub);
+    fs::remove_dir_all(&dir).ok();
     fs::create_dir_all(&dir).unwrap();
     dir
 }

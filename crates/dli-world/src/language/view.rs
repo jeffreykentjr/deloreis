@@ -17,7 +17,7 @@ use dli_ast::span::Span;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::derivation::{LangFinding, aural_clash, contains_banned};
+use super::derivation::{LangFinding, aural_clash, confusable_findings, contains_banned};
 use super::dialect::LanguageModel;
 use super::name::NameDef;
 
@@ -161,6 +161,7 @@ pub fn vet_candidate(model: &LanguageModel, candidate: &str) -> Vec<LangFinding>
         });
     }
 
+    out.extend(confusable_findings(candidate, span));
     out
 }
 

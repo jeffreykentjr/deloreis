@@ -395,3 +395,41 @@ fn query_modifiers_layer_and_fork() {
         serde_json::json!({"monomials": [["+2"]]})
     );
 }
+
+#[test]
+fn author_reads_see_the_base_pack_not_just_staged() {
+    // Item 1: the Door T store is built with_pack, so a read tool evaluates
+    // base + staged — an agent that has staged nothing still sees the BASE facts
+    // of the pack it opened, which a staged-only (with_base/default) store would
+    // hide.
+    let pack = dli_serve::session::builtin_pack("saltmarket").expect("built-in corpus");
+    let mut store = Store::with_pack(pack).expect("saltmarket compiles");
+    let mut sessions = Sessions::new();
+
+    let open = send(
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"author.open","params":{"scope":"saltmarket"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(open.ok, "author.open over the saltmarket pack");
+    let workspace = open.result.unwrap()["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // Nothing staged; the ratified base fact must still be visible to the read.
+    let query = send(
+        &serde_json::json!({"dli":"0.1.0","id":"2","op":"author.query","params":{"workspace":workspace,"goal":"adjacent(saltmarket, the-shallows)","layer":"certain"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(query.ok, "author.query answers over base + staged");
+    let rows = query.result.unwrap()["rows"].as_array().unwrap().clone();
+    assert!(
+        rows.iter()
+            .any(|row| row["atom"] == "adjacent(saltmarket, the-shallows)"),
+        "the base pack's fact is visible to the read tool, not just staged decls: {rows:?}"
+    );
+}

@@ -9,35 +9,83 @@
 
 use std::collections::BTreeMap;
 
-use dli_world::CompiledWorld;
+use dli_ast::decl::Document;
+use dli_eval::error::EvalError;
+use dli_world::pack::Pack;
+use dli_world::{CompiledWorld, compile};
 
 use super::workspace::{Mode, Workspace};
 
 /// The workspace store: the shared compiled base plus every open workspace,
 /// keyed by id.
+///
+/// The store keeps both the **compiled** base (what mutation-time findings check
+/// against) and the base's **source documents** (`base_docs`), so a read tool can
+/// recompile the staged world — the base documents plus the workspace's staged
+/// declarations — through the one real [`compile`] loader (spec 11: the reads
+/// evaluate `base + staged`). A store built from only a compiled base
+/// ([`with_base`](Store::with_base)) carries no source, so its reads see the
+/// staged declarations alone; [`with_pack`](Store::with_pack) is the
+/// read-complete constructor the server fills from the session corpus.
 #[derive(Debug, Default)]
 pub struct Store {
     base: CompiledWorld,
+    base_docs: Vec<Document>,
     workspaces: BTreeMap<String, Workspace>,
     next_id: u32,
 }
 
 impl Store {
     /// A store over a given compiled base — the seam the server fills from the
-    /// session corpus.
+    /// session corpus. The base carries no re-compilable source, so read tools
+    /// over this store evaluate the staged declarations alone; prefer
+    /// [`with_pack`](Store::with_pack) when the source pack is available.
     #[must_use]
     pub fn with_base(base: CompiledWorld) -> Self {
         Self {
             base,
+            base_docs: Vec::new(),
             workspaces: BTreeMap::new(),
             next_id: 0,
         }
+    }
+
+    /// A store over a source pack: compile it for the mutation-time gate **and**
+    /// keep its documents, so the read tools recompile `base + staged` through the
+    /// real loader. This is the read-complete constructor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EvalError`] if the pack does not compile (an unstratifiable
+    /// program); malformed claims are never errors — they compile to fail-closed
+    /// findings.
+    pub fn with_pack(pack: Pack) -> Result<Self, EvalError> {
+        let base = compile(&pack)?;
+        Ok(Self {
+            base,
+            base_docs: pack.documents,
+            workspaces: BTreeMap::new(),
+            next_id: 0,
+        })
     }
 
     /// The compiled base every workspace stages over.
     #[must_use]
     pub fn base(&self) -> &CompiledWorld {
         &self.base
+    }
+
+    /// The base's source documents — the input a read tool recompiles together
+    /// with a workspace's staged declarations to evaluate `base + staged`. Empty
+    /// when the store was built from a compiled base alone.
+    #[must_use]
+    pub fn base_docs(&self) -> &[Document] {
+        &self.base_docs
+    }
+
+    /// Every open workspace, in id order.
+    pub fn workspaces(&self) -> impl Iterator<Item = &Workspace> {
+        self.workspaces.values()
     }
 
     /// Open a new empty workspace and return it. Ids are minted `ws-1`, `ws-2`, …

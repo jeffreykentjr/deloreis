@@ -40,11 +40,11 @@ pub fn digest_of<T: Serialize>(snapshot: &T) -> String {
     digest_bytes(&serde_json::to_vec(snapshot).unwrap_or_default())
 }
 
-/// Compute `jcs:sha256:<hex>` over raw bytes. The workspace fence uses this to
-/// hash a snapshot it assembles from cached per-declaration encodings, so a
-/// mutation never re-serializes the unchanged declarations (the incremental
-/// reseal — R3/H4); the bytes it hashes are byte-identical to
-/// [`digest_of`]'s snapshot encoding, so the digest value is unchanged.
+/// Compute `jcs:sha256:<hex>` over raw bytes. The workspace fence hashes the
+/// canonical `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}` string this
+/// way; it does so incrementally (a streaming SHA-256 that absorbs each staged
+/// declaration once — the incremental reseal, R3/H4/B4), but the bytes hashed are
+/// exactly this string, so the digest value is identical to hashing it whole.
 ///
 /// ```
 /// use dli_serve::author::digest::{digest_bytes, digest_of};
@@ -52,7 +52,14 @@ pub fn digest_of<T: Serialize>(snapshot: &T) -> String {
 /// ```
 #[must_use]
 pub fn digest_bytes(bytes: &[u8]) -> String {
-    let hash = Sha256::digest(bytes);
+    digest_hash(Sha256::digest(bytes).as_slice())
+}
+
+/// Render an already-computed SHA-256 hash as `jcs:sha256:<hex>` — the tail the
+/// incremental reseal shares with [`digest_bytes`] once it has finalized its
+/// streaming hasher, so both paths mint identically-shaped fences.
+#[must_use]
+pub fn digest_hash(hash: &[u8]) -> String {
     let mut out = String::with_capacity(DOMAIN.len() + hash.len() * 2);
     out.push_str(DOMAIN);
     for byte in hash {

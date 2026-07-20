@@ -9,6 +9,7 @@
 pub mod book;
 pub mod docgen;
 pub mod docs_oracle;
+pub mod finding_families;
 pub mod fixtures;
 pub mod gate;
 pub mod hooks;

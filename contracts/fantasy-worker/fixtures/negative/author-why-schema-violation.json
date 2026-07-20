@@ -1,0 +1,14 @@
+{
+  "fixture": "negative/author-why-schema-violation",
+  "version": 1,
+  "note": "author.why params omit the required fields, violating the op schema.",
+  "send": {
+    "dli": "0.1.0",
+    "id": "1",
+    "op": "author.why",
+    "params": {}
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

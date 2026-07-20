@@ -30,6 +30,10 @@ fixtures:
   sha256: 444208c11b0b63ecbe75178acad7b9266cd35e23d7e0490c5d1bdb7336f1536c
 - path: framing/author-open-question-framing.json
   sha256: 323d0f627400604b60b430fd9d8df1d388c94782f410b7bd2a571f8424b08750
+- path: framing/author-query-framing.json
+  sha256: ee75ada2b5e82e89b67bba43eca3bb9b5f3be80cfbcec3fce444789c88002f44
+- path: framing/author-why-framing.json
+  sha256: 241be3c6f6e085d00b25f41366d3039f7921dfef5f6575c742ba32657002f3ed
 - path: framing/fork-add-framing.json
   sha256: b93aad7b9285732b0adc07307096ea80eb048ad9965600bc3f4bc9cf08e62967
 - path: framing/name-check-framing.json
@@ -48,10 +52,18 @@ fixtures:
   sha256: f150ef8b55612e35832c11e813fae04b8df8191ed42940b92044bb2a3880f120
 - path: golden/author-add-relation-v1.json
   sha256: 7c37bb06607f8f80d363afe76fc10483ca31cc41c77d212436aa93cf1836710d
+- path: golden/author-check-v1.json
+  sha256: 1e4f544d36a20827de002aa1aa5961ec50917ba15a9fec0d58dbce5a338e2f5b
 - path: golden/author-discard-v1.json
   sha256: 4d63d8cb70dc0cb8029cfef89167c0bace04a9b254b11606222fadda1e691872
+- path: golden/author-findings-v1.json
+  sha256: c0ff17584a774758cd8fcab066ab8c821de3c10d035694f26338063a88cc4252
+- path: golden/author-list-workspaces-v1.json
+  sha256: d73f189550a61383bad1573ecdb1b0bed36c665d2a7b4d42117049b246a858a1
 - path: golden/author-open-question-v1.json
   sha256: 5b83e777d6060b704258f94712d686b1a9b12aa59b785c2e28e6dbc5818c2695
+- path: golden/author-query-v1.json
+  sha256: 098324ed98d85815e79921f4631e54b3b13b5b16defe474230090f36afad1ecb
 - path: golden/author-session-v1.json
   sha256: ce44612aa9a7cf51ddc2cc11d161c29e5a6e0cf30e16307a2c94653c75854c5c
 - path: golden/author-status-v1.json
@@ -60,6 +72,8 @@ fixtures:
   sha256: f964f89585b5c64da9dd8f15145691f26601613cc1a59d5de6b9f889ac1e74b7
 - path: golden/author-tegwen-v1.json
   sha256: f1858a4f1e5250d92ec68f81656ef2aaf4372926aaff3ab0d6f685c50bdf0355
+- path: golden/author-why-v1.json
+  sha256: 7b78c7cfd3f4241e5f9401607ddca4f56008654d606c8c2be92e84b3859dfe1e
 - path: golden/check-basic-v1.json
   sha256: 4e065818a4f10f887c1efe8ed273bec3f70521ef94c98d876f3611bfea05de34
 - path: golden/check-draft-v1.json
@@ -111,7 +125,7 @@ fixtures:
 - path: golden/timeline-show-v1.json
   sha256: 7c550819e3d0d5b0e004f8677c10d2d46b6ef7494f0423ecc1d574594537524b
 - path: golden/version-v1.json
-  sha256: 26a6e5039786e7bcfab8ca56d8c05de4bfb6da385948553dbdc47567cf0bebf5
+  sha256: 4feb8cce8ca9881b8efe46d70155a3cb24df7d09c03c2e9e4e5e4057be94e726
 - path: negative/attest-missing-schema-violation.json
   sha256: 7bf357a47ecd220bc342a8d87da6dbd2908ed0f1ba9f320edf4560935c464e2c
 - path: negative/attestation-sweep-schema-violation.json
@@ -128,18 +142,28 @@ fixtures:
   sha256: 55bda16469059de6846a69bd2c23f425c985ca9661822adcca259ee820f1072d
 - path: negative/author-add-relation-schema-violation.json
   sha256: 7fadf573711910131b19abc35089f141191cb7e5d27ac0d78dee311244909acd
+- path: negative/author-check-schema-violation.json
+  sha256: a7117679e12fc83fb010bb739a45005f4fa50cb2bbf74e0d9a6d345fe7d3dc5a
 - path: negative/author-diff-schema-violation.json
   sha256: cbabaf9cec0c075a3c0c4c9e78e79af994e4a0a49fa5eec786e55b120429525d
 - path: negative/author-discard-schema-violation.json
   sha256: de7d39d6ab35729d5bce31ceff3f4ed14e65119cadade3bb22c82d0e21a7eb44
+- path: negative/author-findings-unknown-workspace.json
+  sha256: bab15e4e57e779fe3a7d5712557db21d3780dee693467f77d390b0407ce482e8
+- path: negative/author-list-workspaces-schema-violation.json
+  sha256: 1f0f6757ab1e456f54bbc904d25a265bc2a24042772fe902602e2a7f5d4aac88
 - path: negative/author-open-question-schema-violation.json
   sha256: 355ad861badb3490ee950d232e25ec3d9b24e91d7c33880844c2bf3f09b8d5ba
 - path: negative/author-open-schema-violation.json
   sha256: fb141fae138b445228ab21e494006bfe22527fb37d732690e2c4b86732b8770f
+- path: negative/author-query-schema-violation.json
+  sha256: 1f91b0e5da47a6808f3834837ff186587ebf6c8ed3f1dc660566c35837045e02
 - path: negative/author-suppose-schema-violation.json
   sha256: 41869f4ed729f35e44470ec759fd85e35fd7e6973dc304797d17d0e3a0495a81
 - path: negative/author-unknown-workspace.json
   sha256: cc8deaebdda8672a813576241371c273e535db606d4f79a175eb2760ed10a43d
+- path: negative/author-why-schema-violation.json
+  sha256: af1ac1c98afe28dc4088c3ea20efc72340369af8ead97cacbc3c9b9dfe388b5d
 - path: negative/bad-grade-value.json
   sha256: 94c974904f77a0c8101a7204bb7177d7238d7e5ba2bfd07b79bc5de452b47e6e
 - path: negative/check-draft-schema-violation.json

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorListWorkspacesResult",
+  "description": "`author.list_workspaces` result: every open authoring workspace and its\ndigest.",
+  "type": "object",
+  "properties": {
+    "workspaces": {
+      "description": "The open workspaces, in id order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorkspaceDigest"
+      }
+    }
+  },
+  "required": [
+    "workspaces"
+  ],
+  "$defs": {
+    "WorkspaceDigest": {
+      "description": "One open workspace's digest line — enough for an agent to recover context.",
+      "type": "object",
+      "properties": {
+        "base": {
+          "description": "The scope or fork name the staging is over.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "The door the workspace was opened in.",
+          "$ref": "#/$defs/WorkspaceMode"
+        },
+        "staged": {
+          "description": "How many declarations are staged.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "workspace": {
+          "description": "The workspace id.",
+          "type": "string"
+        },
+        "workspace_digest": {
+          "description": "The current workspace digest.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspace",
+        "base",
+        "mode",
+        "staged",
+        "workspace_digest"
+      ]
+    },
+    "WorkspaceMode": {
+      "description": "The authoring door a workspace was opened in, on the wire. Mirrors the\ninternal `author::workspace::Mode` but is a wire-local type so the contract\nlayer stays independent of the workspace engine's internals.",
+      "oneOf": [
+        {
+          "description": "`{\"scope\": …}` — staging over an existing scope.",
+          "type": "string",
+          "const": "scope"
+        },
+        {
+          "description": "`{\"fork\": …}` — a fork-scoped workspace.",
+          "type": "string",
+          "const": "fork"
+        }
+      ]
+    }
+  }
+}

@@ -46,6 +46,11 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorAddOption, "author.add_option"),
     (Op::AuthorAddHypothesis, "author.add_hypothesis"),
     (Op::AuthorSuppose, "author.suppose"),
+    (Op::AuthorQuery, "author.query"),
+    (Op::AuthorCheck, "author.check"),
+    (Op::AuthorWhy, "author.why"),
+    (Op::AuthorFindings, "author.findings"),
+    (Op::AuthorListWorkspaces, "author.list_workspaces"),
 ];
 
 #[test]

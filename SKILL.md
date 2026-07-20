@@ -1,122 +1,265 @@
 ---
 name: deloreis
-description: Author De Lore Is (.dli) lore through Door T — the deloreis server's author.* semantic tools — reading the graded findings each call returns; raw .dli editing is a measured fallback only.
+description: Author De Lore Is (.dli) lore through Door T — the deloreis server's author.* tools — by naming intents and reading the graded findings each call returns. You never write .dli by hand; you self-check with the read tools before you materialize; nothing you supply mints canon.
 status: live
-verdict: "The v0 authoring skill: Door T is how agents author; the compile is the oracle; raw editing is discouraged; the gentle-subset card; provenance discipline."
+verdict: "The v0 authoring manual: author through tools, self-check before materialize, read the graded feedback, obey provenance discipline; raw .dli editing is a measured fallback and the gentle card is for reading your own rendered diffs."
 ---
 
-# Skill: authoring De Lore Is
+# Skill: authoring De Lore Is through Door T
 
-## 0. Scope
+## 0. The core law
 
-This skill is how an agent adds lore to a De Lore Is world. It covers the
-supported path (Door T), the fallback (raw `.dli` editing) and why to avoid it,
-and the gentle subset for the rare case you must read or write surface by hand.
-It does not cover ratification — the machine never writes canon; you produce
-proposals and evidence, and the author rules.
+You add lore to a De Lore Is world by **calling the `deloreis` server's `author.*`
+tools** and reading the graded findings each call returns. Four rules govern
+everything below, and they never bend:
 
-## 1. Door T is how you author
+1. **Author through tools, never text.** You name an intent — "add a person,"
+   "set a trait," "order this event before that one" — and the tool lowers it to
+   the world model, checks it, and renders it back. You do not type `.dli`
+   surface, and you do not touch the AST. Hand-editing `.dli` is a *measured
+   fallback* (§8), not a door.
+2. **Nothing you supply mints authority.** Every claim you add enters `proposed`
+   or is `hypothesis`-scoped. A ruling — the act that makes a claim *true* — lives
+   in the consuming repo's decision ledger and is a **human** act in review. You
+   propose; the author confirms.
+3. **You cannot cite.** The `cited` provenance form is Door-H / human-only (B1). A
+   `cited` provenance handed to any `author.*` tool is **refused** with the
+   `provenance.cited-refused` finding — nothing is staged. Resubmit as `proposed`.
+4. **The compile is the oracle, and it outranks this file.** The findings a tool
+   returns are the authority on whether your lore is well-formed and consistent.
+   If a finding disagrees with anything written here, the finding is right and
+   this file is stale.
 
-Author by talking to the `deloreis` server's `author.*` tools — never by typing
-`.dli` text. The shape of a session:
+You never need to read Rust or write `.dli` to author or self-check a world. The
+tools and their responses tell you everything: what you staged, what is wrong,
+and exactly how to fix it.
+
+## 1. The authoring loop, end to end
 
 ```
-author.open  →  author.add_* (entity / fact / relation / event / before /
-                 question / option / hypothesis / suppose)  →
-author.diff  →  author.materialize
+author.open                          open a workspace over a scope (or a fork)
+  → author.add_* …                   stage intents; each answers with findings
+  → self-verify                      author.diff / author.status  (+ the read
+                                     tools of §4) — read findings BEFORE you commit
+  → fix                              author.add_* the missing piece, or
+                                     author.discard a bad declaration
+  → author.materialize               get the .dli file bytes AS DATA
+  → commit through your own review   write the bytes to your repo and open a PR
 ```
 
-**Every mutating call returns three things, immediately:** graded **findings**
-(with repair data), the **rendered** canonical lines, and the **workspace
-digest**. Read the findings — they tell you exactly what is wrong and how to
-repair it (which check to run, which screen to pass). Do not guess and re-emit;
-the tool already told you.
+You reach the tools over a running `deloreis` server, on either of two
+transports carrying the identical tool surface: **`deloreis mcp`** registers every
+tool for MCP (call them with JSON-RPC `tools/list` then `tools/call`), and
+**`deloreis serve`** speaks the same tools as newline-delimited JSON over stdio.
+Pick whichever your harness speaks — the tools, findings, and rendered surface are
+the same on both.
 
-`author.materialize` returns `.dli` file contents **as data**. That output is
-what you commit — write it to your side's staging path and commit it through your
-own review. The kernel does not write your repo.
+Nothing you do touches disk or changes canon. All authoring happens in a
+**workspace**: an in-memory staged layer over the compiled world. `author.open`
+returns a workspace id (`ws-1`, `ws-2`, …) and a **workspace digest** (a
+`jcs:sha256:…` fence over the staged state). Every later call names the workspace
+in its params.
 
-Use `author.status` to see what is staged and `author.diff` to see the full
-rendered block plus every finding (including the merely-possible status of
-proposed atoms) before you materialize. Use `author.discard` to drop a bad
-staged declaration.
+**Every mutating call returns three things, immediately:**
 
-## 2. The compile is the oracle
+- **`findings`** — graded observations, each with a machine `code`, a
+  domain-spoken `message`, and typed `repair` data (§3). They tell you exactly
+  what is wrong and how to fix it.
+- **`rendered`** — the canonical `.dli` line(s) the call produced, the same
+  surface a human reviews.
+- **`workspace_digest`** — the new fence.
 
-`deloreis check` — and the findings the `author.*` tools return — are the
-authority on whether your lore is well-formed and consistent. **The compile
-outranks this file.** If a tool's finding disagrees with anything written here,
-the finding is right and this file is stale.
+Read the findings on every call. Do not guess and re-emit — the tool already told
+you. An ignored finding does not go away: it reappears in the next call's set and
+blocks materialize.
 
-## 3. Raw `.dli` editing is discouraged
+## 2. The tool surface
 
-Editing `.dli` files by hand is a **measured fallback**, not a supported door. It
-meets the same gate and the same graded errors — nothing is lost — but no tooling
-is built for it and **no reliability claim is made for it**. Prefer Door T. If
-you must edit surface directly, keep to the gentle subset below and let the
-formatter canonicalize on save.
+**The fourteen mutation tools** (each returns `{findings, rendered, workspace_digest}`):
 
-## 4. The gentle-subset card
+| Tool | Intent |
+|---|---|
+| `author.open` | Open a workspace: `{scope}` to stage over a scope, `{fork}` for fork-scoped exploration. |
+| `author.status` | The staged declarations + current digest (read-only). |
+| `author.diff` | The full rendered block of everything staged (read-only). |
+| `author.discard` | Drop one staged declaration (by its rendered line) or the whole workspace. |
+| `author.materialize` | Return the `.dli` file bytes **as data**; refuses if any error-severity finding is open. |
+| `author.add_entity` | Add a `person` / `place` / `thing` / `era`. Provenance required. |
+| `author.add_fact` | Set `entity.key = value`. Provenance required. |
+| `author.add_relation` | Assert `relation(from, to)`. Provenance required. |
+| `author.add_event` | Add a chronology event (an event is **not** an entity). Provenance required. |
+| `author.add_before` | Order `earlier` before `later`. Provenance required. |
+| `author.open_question` | Open a question — a tracked debt. `{id, prompt}`; no provenance (opening asserts nothing). |
+| `author.add_option` | Add an option `{question, id, label}` to a question already open here. |
+| `author.add_hypothesis` | Mint a hyp variable `{id, statement}` — fork workspaces only, one per bundle. |
+| `author.suppose` | Pin staged hypotheses true `{hypotheses:[…]}` and read the consequence shift. |
 
-Most of worldbuilding is declarations: entities, facts, relations, timeline,
-citations, `proposed`, and `question`. A first world in the gentle subset — the
-Saltmarket skeleton:
+**The five self-check read tools** let you interrogate the staged world *before*
+you materialize (§4). All are read-only and mutate nothing; each names a workspace
+in its params (except `author.list_workspaces`):
+
+| Tool | Params | Answers |
+|---|---|---|
+| `author.findings` | `{workspace}` | `{errors, warnings, materializable}` — your pre-flight: `errors` bar materialize, `warnings` pass, `materializable` is the go/no-go boolean. |
+| `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
+| `author.query` | `{workspace, goal, layer?, why?}` | `{rows}` — query the staged world; `goal` is a rendered atom, and an argument written `?` or `?who` is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). |
+| `author.why` | `{workspace, atom}` | `{why_not, why?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. |
+| `author.list_workspaces` | `{}` | `{workspaces:[{workspace, base, mode, staged, workspace_digest}]}` — context recovery across your open workspaces. |
+
+The whole loop closes through `author.*` alone: you never touch a `dli.*` batch op
+or a raw `.dli` file to author *or* self-check. (`author.diff` and `author.status`
+also return the full finding set and rendered surface, so any of them is a valid
+pre-flight.)
+
+## 3. Reading the graded feedback
+
+Each finding has two independent axes. Do not conflate them.
+
+- **`severity` gates materialize.** `error` blocks `author.materialize`; `warn`
+  passes through. This is the only gate. An `error` finding still *stages* the
+  claim — nothing is dropped — but you cannot materialize until the world is
+  consistent again.
+- **`grade` is evidence strength, never a gate.** The lattice is
+  `checked > tested > attested > asserted`. A `checked` finding is machine-derived
+  against the world model and authoritative; an `asserted` finding (e.g.
+  `name.unvetted`) is a bare policy note with nothing to re-run. No amount of
+  model agreement lifts a grade.
+
+**Repair data is typed — act on it without parsing prose.** A finding that has a
+mechanical next step carries it as structured data:
+
+- `{"kind":"run-check","op":"dli.name.check","params":{…}}` — the exact worker
+  call that clears the finding. (Note: `dli.name.check` also needs a `dialect`;
+  supply your scope's dialect if the repair omits it.)
+- `{"kind":"resolve-entity","candidates":[…]}` — the ids an unknown reference most
+  plausibly meant. An empty list means no near match: add the entity, or fix the
+  id.
+- `{"kind":"add-provenance","required":"proposed"}` — the provenance form to
+  resubmit with (you get this when you tried to `cite`).
+- `{"kind":"remove-control-chars","field":"…"}` — strip a control/bidi character
+  smuggled into that field.
+
+**The `workspace_digest` is your fence.** If you pass an `expected_digest` that
+does not match the workspace's current state, the call is refused with
+`stale-fence` (it names both digests and tells you to read `author.status`). Your
+view was stale; re-read before continuing.
+
+**Errors vs. findings — two different channels.** A malformed call (bad enum,
+missing field, unknown field, a `cited` provenance, a stale fence) is refused
+*whole* as a typed **wire error** (`schema-violation`, `stale-fence`,
+`materialize-blocked`, `unknown-doc`, …) and **stages nothing**. An
+**error-severity finding** is different: it stages the claim but bars materialize.
+Neither ever drops your input silently.
+
+## 4. Self-check BEFORE you materialize
+
+This is the discipline that keeps review cheap: never materialize a workspace you
+have not interrogated. The read path costs nothing and mutates nothing.
+
+- **`author.findings`** is your go/no-go pre-flight: `{errors, warnings,
+  materializable}`. If `materializable` is `true`, materialize will succeed;
+  otherwise the `errors` array is exactly what to fix, each with typed repair.
+- **`author.check`** runs the full battery over the staged world and returns
+  `{ok, findings}` — use it to catch a *contradiction* against the base (a
+  proposed fact that fights a certain one), not just local reference errors.
+- **`author.query`** proves a consequence before you commit to it: ask
+  `serves(mara, ?who)` and read the rows. A proposed claim comes back
+  `status:"possible"` — expected, since only a human ruling makes it certain.
+- **`author.why`** answers "why isn't this certain yet?" — `why_not` names the
+  blocking rulings and the defeater; `known:false` means the world derives no
+  such atom at all (you referenced something that isn't there).
+- **`author.diff`** / **`author.status`** render the whole staged block (and, for
+  `diff`, every open finding and the derived-consequence shift) — the surface a
+  human will review.
+- **`author.materialize`** is the last gate: it **refuses** with
+  `materialize-blocked` if any error-severity finding is open, naming the blocking
+  finding codes. A clean materialize returns the `.dli` bytes and an empty
+  `findings` array.
+
+## 5. When you are stuck, the tools answer
+
+You never have to guess or reach outside the tool surface:
+
+- **A finding carries its own repair.** Unknown entity → `resolve-entity`
+  candidates (or add it). Unvetted name → the `dli.name.check` call to run.
+  Missing/wrong provenance → the form to resubmit with. Control character → the
+  field to clean.
+- **`author.why`** explains why an atom is or is not derivable, and why a finding
+  fires — the blockers, named.
+- **A killed form names its successor.** A retired op, keyword, or name is refused
+  with the replacement in the message (for example `dli.suppose` is killed in
+  favor of `dli.fork.suppose`). Use the named successor; never reintroduce the old
+  form.
+- **A wire error names the fix in plain words.** `stale-fence` tells you to read
+  `author.status`; `materialize-blocked` lists the blocking codes; a bad enum
+  lists the valid values.
+
+## 6. Provenance discipline
+
+- **Everything you add enters `proposed` or is `hypothesis`-scoped**, carrying
+  your session origin. Only the author's ruling makes a thing true.
+- **A rename is a supersession, never an in-place edit.** The new name is ruled
+  in; the old name dies into lineage and the killed-form registry, with every
+  claim's history intact. There is no edit that changes the past quietly.
+- **An open question is a debt.** File it with `author.open_question`, surface it,
+  and never carry it in your head — a waiting decision lives in the world, not in
+  memory.
+
+## 7. Reading a rendered diff — the gentle `.dli` card (reference)
+
+Authoring is tools-only, but you **review your own rendered output**: `author.diff`
+and `author.materialize` return canonical `.dli` lines, and a human reviews the
+same surface. So you must be able to *read* `.dli` even though you never *write*
+it. Read it as notes, not English — **what parses is exactly what the surface
+shows** (`docs/cards/gentle-card.md` is the full one-page card).
+
+A materialized workspace — the exact bytes `author.materialize` hands back for a
+small cast:
 
 ```dli
 scope saltmarket
 
-era founding   "The Landing"      decided d-0001
-era now        "The Ninth Tide"   after founding
-
-place saltmarket   "Saltmarket"     decided d-0001
-place the-shallows "The Shallows"   decided d-0003
-place breakwater   "The Breakwater" proposed
-
-adjacent(saltmarket, the-shallows)  decided d-0003
+person mara "Mara of the Weirs" proposed session-7c9
+mara.trade = eel-fisher proposed session-7c9
+serves(mara, the-warden) proposed session-7c9
+person the-warden "The Warden" proposed session-7c9
 ```
+
+Read every claim's tail: `proposed session-7c9` says a proposal made in that
+session stands behind it — out of canon until a human rules. A question renders
+with its options indented one level, and asserts nothing:
 
 ```dli
-person mara "Mara of the Weirs"     decided d-0002
-  mara.trade = eel-fisher           decided d-0002
-  mara.home  = the-shallows         proposed
+scope saltmarket
 
-thing tide-bell "The Tide-Bell"     decided d-0004
-  tide-bell.kept-at = saltmarket    decided d-0004
+question who-raised-the-bell "Who raised the Tide-Bell?"
+  option guild
+  option marsh-folk
 ```
+
+Time is eras, events, and orderings — every line still ending in its origin:
 
 ```dli
-question q-0001 "Who raised the Tide-Bell?"
-  option guild      implies raised-by(tide-bell, guild)
-  option marsh-folk implies raised-by(tide-bell, marsh-folk)
+scope saltmarket
+
+era founding "The Landing" proposed session-7c9
+event the-drowning "The Drowning" proposed session-7c9
+event the-reclaiming "The Reclaiming" proposed session-7c9
+before the-drowning -> the-reclaiming proposed session-7c9
 ```
 
-Read it as notes, not as English: what parses is exactly what this card shows.
-Every claim ends in its origin — `decided d-nnnn` (a recorded ruling) or
-`proposed` (a claim awaiting one). A claim with no origin does not parse:
-*claims come from somewhere.* `breakwater` and `mara.home` are `proposed` — fine
-as notes, out of canon until decided.
+The worked call-by-call playbook that produces surfaces like these — every real
+request and response — is `docs/cards/authoring-loop.md`.
 
-## 5. The expert tier
+## 8. The expert tier and the measured fallback
 
-Rules, forks, cycles, practices (magic systems), proofs, dialects, and
-attestations are the expert tier — a second reference card, not this one. No
-expert-tier word appears on the gentle card. When you reach for them, read the
-lane's spec under `docs/spec/` and the charter's koans on the shape they take.
-
-## 6. Killed forms
-
-Retired keywords, operations, and names are registered and refused — the tool or
-compiler names the successor. If a finding says a form is killed, use the named
-replacement; do not reintroduce the old one. (For example, `dli.suppose` is
-killed in favor of `dli.fork.suppose`.)
-
-## 7. Provenance discipline
-
-- **Nothing you write mints authority.** Everything you add enters `proposed`,
-  carrying your agent provenance. Only the author's ruling makes a thing true.
-- **A rename is a supersession, never an in-place edit.** The new name is ruled
-  in; the old name dies into lineage and the killed-form registry, with every
-  claim's history intact. There is no edit that changes the past quietly.
-- **An open question is a debt.** File it (`author.open_question`), surface it,
-  and never carry it in your head — a waiting decision lives in the world, not in
-  memory.
+- **Expert tier.** Rules, forks with suppositions, cycles, practices (magic
+  systems), proofs, dialects, and attestations are a second reference card
+  (`docs/cards/expert-card.md`) and their lane specs under `docs/spec/`. Fork
+  authoring uses `author.open {fork}`, `author.add_hypothesis`, and
+  `author.suppose`; read the consequence shift in `author.diff`.
+- **Raw `.dli` editing is a measured fallback**, not a door. It meets the same
+  gate and the same graded findings — nothing is lost — but no tooling is built
+  for it and no reliability claim is made for it. Prefer Door T. If you must edit
+  surface by hand, keep to the gentle card and let the formatter canonicalize on
+  save. The authoring benchmark exists to *close* doors, not open them.
