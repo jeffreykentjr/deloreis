@@ -921,6 +921,15 @@ pub fn render() -> String {
          it), its severity, the machine-repair kind it carries (Door-T authoring findings \
          only), and what it means.\n\n",
     );
+    out.push_str(
+        "These finding codes are **disjoint** from the wire error-code registry (the 13 \
+         `ErrorCode` values in `error-codes.md`, per the fantasy-worker contract §3.2 / §9). \
+         The distinction is load-bearing: a wire error code says the *call* failed — it was \
+         malformed (`schema`), refused by principle (`refused`), or hit a server defect \
+         (`internal`); a finding code is a graded *domain* observation about the lore itself. \
+         A well-formed call over inconsistent lore returns findings, not an error. No code \
+         appears in both sets.\n\n",
+    );
     let _ = writeln!(
         out,
         "**{total} codes** across **{family_count} families** (plus the \
@@ -1144,6 +1153,27 @@ mod tests {
                 "resource sub-code `{}` not found in resource.rs",
                 code.code
             );
+        }
+    }
+
+    /// Finding codes and wire error codes are disjoint (contract §3.2/§9): a
+    /// finding is a graded domain observation, an `ErrorCode` is a failed call.
+    /// The page asserts this; this test makes it true against `ErrorCode::ALL`.
+    #[test]
+    fn finding_codes_disjoint_from_wire_error_codes() {
+        let wire: BTreeSet<&str> = dli_serve::ErrorCode::ALL
+            .iter()
+            .map(|c| c.wire_name())
+            .collect();
+        for family in FAMILIES {
+            for code in family.codes {
+                assert!(
+                    !wire.contains(code.code),
+                    "finding code `{}` collides with wire ErrorCode `{}` — they must stay disjoint",
+                    code.code,
+                    code.code
+                );
+            }
         }
     }
 

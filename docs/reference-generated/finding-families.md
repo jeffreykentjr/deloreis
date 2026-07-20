@@ -9,6 +9,8 @@ verdict: "The finding-code catalogue: 113 stable dotted `family.item` codes acro
 
 Every graded finding carries a stable, dotted `family.item` code (charter koan 9, *errors are lore*). The code is the contract a benchmark, a repair tool, or a downstream consumer matches on — it is stable across message wording. This page catalogues every code the system emits: its family (the check or tool that raises it), its severity, the machine-repair kind it carries (Door-T authoring findings only), and what it means.
 
+These finding codes are **disjoint** from the wire error-code registry (the 13 `ErrorCode` values in `error-codes.md`, per the fantasy-worker contract §3.2 / §9). The distinction is load-bearing: a wire error code says the *call* failed — it was malformed (`schema`), refused by principle (`refused`), or hit a server defect (`internal`); a finding code is a graded *domain* observation about the lore itself. A well-formed call over inconsistent lore returns findings, not an error. No code appears in both sets.
+
 **113 codes** across **9 families** (plus the `proof.resource-violation` sub-codes). A `family.item` code names its check battery in the family and the specific violation in the item. Two codes can share a stem across families — the naming vet's `name.register-fit` (a kernel warn) and Door T's `name.unvetted` (an authoring warn) are different findings from different surfaces.
 
 
