@@ -126,7 +126,7 @@ fn ladder_stacks_error_and_warning() {
 
 /// The gentle words a card line may open with, plus the provenance markers.
 const GENTLE_OPENERS: &[&str] = &[
-    "pack",
+    "scope",
     "era",
     "event",
     "before",
@@ -144,16 +144,17 @@ const GENTLE_OPENERS: &[&str] = &[
 
 /// Expert-tier words distinctive enough that they never occur in innocent
 /// gentle-card prose, so their mere presence is a contract breach.
+///
+/// The surface-v1 pass renamed `fluent`→`state` and `lexeme`→`word` into plain
+/// English words that DO occur in gentle prose, so they are deliberately not
+/// listed here — a keyword table cannot police them by spelling alone.
 const FORBIDDEN_EXPERT_WORDS: &[&str] = &[
     "practice",
-    "ledger",
-    "register",
-    "wheel",
+    "proof",
+    "dialect",
+    "cycle",
     "fork",
-    "fluent",
-    "morpheme",
-    "lexeme",
-    "order-rule",
+    "name-part",
     "ratify",
     "narration",
     "hypothesis",

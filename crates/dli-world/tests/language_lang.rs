@@ -70,11 +70,11 @@ fn slug(form: &str) -> String {
 
 /// Express the vendored register data as a `.dli` pack — the port under test.
 fn ported_registers_dli(registers: &Value) -> String {
-    let mut src = String::from("pack language\n");
+    let mut src = String::from("scope language\n");
     for (id, reg) in registers.as_mapping().expect("registers is a mapping") {
         let id = id.as_str().expect("register id");
         let label = reg.get("label").and_then(Value::as_str).unwrap_or(id);
-        src.push_str(&format!("register {id} \"{label}\" ratified D-PORT {{\n"));
+        src.push_str(&format!("dialect {id} \"{label}\" ratified D-PORT {{\n"));
 
         let ph = reg.get("phonotactics").expect("phonotactics");
         push_quoted_list(&mut src, "vowels", &strs(ph.get("vowels")));
@@ -119,7 +119,7 @@ fn ported_registers_dli(registers: &Value) -> String {
                 .map(|g| format!(" gender {g}"))
                 .unwrap_or_default();
             src.push_str(&format!(
-                "morpheme {} \"g\" role {role}{gender} ratified D-PORT\n",
+                "name-part {} \"g\" role {role}{gender} ratified D-PORT\n",
                 slug(form)
             ));
         }
@@ -278,15 +278,15 @@ fn composed_names_pass_register_fit_on_real_data() {
 fn off_register_composition_fails_the_kernel() {
     // A place name carrying a register-foreign cluster ('z' is foreign to the
     // fringe tongue) and a wrong-role morpheme both fail register-fit.
-    let src = "pack language\n\
-        register cymric-fringe \"fringe\" ratified D-1 {\n\
+    let src = "scope language\n\
+        dialect cymric-fringe \"fringe\" ratified D-1 {\n\
         vowels a e i o u w y\n\
         foreign qu x z tion\n\
         cluster-max 2\n\
         name-kind place = place-qualifier place-generic\n\
-        morpheme cors \"bog\" role place-qualifier ratified D-1\n\
-        morpheme wern \"marsh\" role place-generic ratified D-1\n\
-        morpheme zwed \"z-loan\" role place-generic ratified D-1\n\
+        name-part cors \"bog\" role place-qualifier ratified D-1\n\
+        name-part wern \"marsh\" role place-generic ratified D-1\n\
+        name-part zwed \"z-loan\" role place-generic ratified D-1\n\
         }\n\
         name bad \"Bad\" place in cymric-fringe = place-qualifier cors + place-generic zwed ratified D-1\n\
         name wrong \"Wrong\" place in cymric-fringe = place-generic cors + place-qualifier wern ratified D-1\n";
@@ -308,7 +308,7 @@ fn off_register_composition_fails_the_kernel() {
 /// Build a name-space model whose certain layer is the vendored ratified names.
 fn ratified_name_space() -> LanguageModel {
     let yaml: Value = serde_yaml_ng::from_str(&read(RATIFIED_YAML)).expect("parse ratified_names");
-    let mut dli = String::from("pack language\n");
+    let mut dli = String::from("scope language\n");
     for entry in yaml.get("names").and_then(Value::as_sequence).unwrap() {
         let name = entry.get("name").and_then(Value::as_str).unwrap();
         let kind = entry

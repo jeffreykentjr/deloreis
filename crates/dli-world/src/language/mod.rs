@@ -25,16 +25,16 @@
 //! the story's world.
 
 pub mod derivation;
+pub mod dialect;
 pub mod name;
-pub mod register;
 pub mod view;
 
 pub use derivation::{LangFinding, aural_clash, check_language, phonetic_key};
-pub use name::{Composition, LexemeDef, NameDef};
-pub use register::{
-    BanDef, Gender, Hypothesis, LanguageModel, LanguageOutcome, MorphemeDef, NameKind,
-    Phonotactics, RegisterDef, Stress, TermDef,
+pub use dialect::{
+    BanDef, DialectDef, Gender, Hypothesis, LanguageModel, LanguageOutcome, NameKind, NamePartDef,
+    Phonotactics, Stress, TermDef,
 };
+pub use name::{Composition, NameDef, WordDef};
 pub use view::{RatifiedName, certain_surfaces, ratified_names, vet_candidate, vet_in_set};
 
 /// Compile a set of parsed documents into the language registry and its

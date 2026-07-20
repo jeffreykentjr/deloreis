@@ -3,7 +3,7 @@
 //! A name declaration cites its register and its composition, so "register-true"
 //! stops being a reviewer's impression and becomes a compile verdict
 //! (05-language-layer §2). This module compiles a `name` declaration into a
-//! [`NameDef`] — a typed derivation — and a `lexeme` into a [`LexemeDef`]. The
+//! [`NameDef`] — a typed derivation — and a `lexeme` into a [`WordDef`]. The
 //! three obligations a name must discharge (slot sequence, role membership,
 //! phonotactics) are checked in [`super::derivation`]; here we only lift the
 //! surface into structure.
@@ -24,7 +24,7 @@
 //! `bearer x ratified D-1` are equivalent.
 
 use dli_ast::annot::Annotation;
-use dli_ast::decl::{LexemeDecl, NameDecl};
+use dli_ast::decl::{NameDecl, WordDecl};
 use dli_ast::span::Span;
 use dli_core::ann::Ann;
 use dli_syntax::{Token, TokenKind};
@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::Provenance;
 
-use super::register::{Compiler, clause_tokens, reparse_provenance};
+use super::dialect::{Compiler, clause_tokens, reparse_provenance};
 
 /// One composition step: a slot role filled by a named morpheme (05 §2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -110,10 +110,10 @@ impl NameDef {
 ///
 /// Note: the v0 surface parser captures only the lexeme's name and provenance;
 /// its `= <role> <morpheme>` composition and label are not yet surfaced by the
-/// front-end, so [`composition`](LexemeDef::composition) is populated only when
+/// front-end, so [`composition`](WordDef::composition) is populated only when
 /// the parser hands them over. This is a front-end seam, not a model limit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct LexemeDef {
+pub struct WordDef {
     /// The lexeme identifier.
     pub name: String,
     /// The rendered label, if surfaced.
@@ -188,18 +188,18 @@ pub(crate) fn compile_name(
     (def, Vec::new())
 }
 
-/// Compile a `lexeme` declaration into a [`LexemeDef`].
-pub(crate) fn compile_lexeme(compiler: &mut Compiler, decl: &LexemeDecl, pack: &str) -> LexemeDef {
+/// Compile a `lexeme` declaration into a [`WordDef`].
+pub(crate) fn compile_lexeme(compiler: &mut Compiler, decl: &WordDecl, pack: &str) -> WordDef {
     let (ann, provenance, citations) = compiler.compile_ann(decl.provenance.as_ref(), pack);
     let composition = decl
-        .morphemes
+        .name_parts
         .iter()
         .map(|m| Composition {
             role: String::new(),
             morpheme: m.text.clone(),
         })
         .collect();
-    LexemeDef {
+    WordDef {
         name: decl.name.text.clone(),
         label: None,
         register: None,

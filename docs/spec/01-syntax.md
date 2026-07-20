@@ -75,14 +75,14 @@ records**. The commitments, stated once:
   genuinely useful (an entity with its slots, a question with its options) the
   block is shallow and keyword-fronted — never deep nesting, never a tree the
   eye has to unwind.
-- **Order-insensitive within a pack.** Declarations do not depend on their
+- **Order-insensitive within a scope.** Declarations do not depend on their
   position relative to one another; a fact may precede the entity it is about.
   This is what makes nearly every edit an append or a one-line replacement, and
   what makes independent additions merge trivially in version control.
 - **A closed vocabulary of roughly twenty-five domain keywords.** No macros, no
   synonyms, no positional shorthands, no user-defined syntactic forms. Each
   keyword is a worldbuilder's own artifact name — `era`, `place`, `person`,
-  `thing`, `event`, `question`, `fact`, `rule`, `fork`, `wheel`, `ratify`, and
+  `thing`, `event`, `question`, `fact`, `rule`, `fork`, `cycle`, `ratify`, and
   their siblings. An unknown leading word is a parse error, not a silently
   tolerated extension.
 - **References by name, never by position.** A relation names its participants;
@@ -125,7 +125,7 @@ lines of it:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack saltmarket
+scope saltmarket
 
 era founding   "The Landing"      decided d-0001
 era now        "The Ninth Tide"   after founding
@@ -159,7 +159,7 @@ file recording what they chose and when. The full ratification procedure is
 house process; the *concept* the language enforces — a claim, and where it came
 from — costs a solo writer one word per line.
 
-**The expert tier lives on a second card.** Rules, forks, wheels, practices,
+**The expert tier lives on a second card.** Rules, forks, cycles, practices,
 ledgers, and the reasoning surface are all here. The commitment is strict:
 **no word from the expert tier appears on the first card.** A writer can work
 for a long time entirely in the gentle subset and be using the full
@@ -183,7 +183,7 @@ never speaks in compiler idiom. Not *"unbound identifier"* but:
 
 Not *"no Ord instance"* but:
 
-> *`sort` would put the leaves in a line, but the year is a wheel — there is no
+> *`sort` would put the leaves in a line, but the year is a cycle — there is no
 > first season.*
 
 Diagnostics carry a stable machine-readable class *and* a domain-spoken message

@@ -8,8 +8,8 @@ title: "The language layer: names and words as world knowledge"
 
 Names of people, places, and things — and the world's language generally — are
 world knowledge, and world knowledge lives in one fabric ([koan 10](../charter.md)).
-A register is a claim about a linguistic zone of the world: its phonotactics,
-its name grammars, its morpheme stock, every element carrying a gloss and a
+A dialect is a claim about a linguistic zone of the world: its phonotactics,
+its name grammars, its name-part stock, every element carrying a gloss and a
 citation. A ratified name is canon. The language layer is therefore not a
 sibling tool bolted to the side of the fabric — it is packs in the fabric, under
 one semantics, statused and forkable like any other lore.
@@ -22,14 +22,14 @@ screen. §3 draws that seam check by check.
 
 ## 1. Registers as declarations
 
-Everything a register holds per linguistic zone becomes a pack, one-to-one — a
+Everything a dialect holds per linguistic zone becomes a pack, one-to-one — a
 residency change, not a redesign:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack language
+scope language
 
-register cymric-fringe  "the fringe tongue"  provisional D-0181 {
+dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
   basis attested "Brythonic; medieval Welsh"   # an external-world claim — see §7
   vowels a e i o u w y
   endings -ys -wen -eth -air
@@ -38,14 +38,14 @@ register cymric-fringe  "the fringe tongue"  provisional D-0181 {
   stress penultimate
   name-kind person.given = given-proto given-deutero | given-simple
   name-kind place        = place-qualifier place-generic
-  morpheme en   "spirit"        role given-proto     ratified D-0134
-  morpheme fys  "arc, bow"      role given-deutero   ratified D-0134
-  morpheme wern "alder-marsh"   role place-generic   ratified D-0111
-  morpheme cors "bog, fen"      role place-qualifier ratified D-0111
+  name-part en   "spirit"        role given-proto     ratified D-0134
+  name-part fys  "arc, bow"      role given-deutero   ratified D-0134
+  name-part wern "alder-marsh"   role place-generic   ratified D-0111
+  name-part cors "bog, fen"      role place-qualifier ratified D-0111
   }
 ```
 
-Each morpheme is world lore with provenance — a cited fact about a tongue,
+Each name-part is world lore with provenance — a cited fact about a tongue,
 statused and forkable like any fact. The phonotactic frame (vowels, endings,
 foreign-cluster markers, cluster ceiling, stress) and the name-kind slot
 grammars are world facts too: they are what the composed surface form is checked
@@ -59,30 +59,30 @@ with the generator that samples them.
 
 ## 2. Names as typed derivations
 
-A name declaration cites its register and its composition, and "register-true"
+A name declaration cites its dialect and its composition, and "dialect-true"
 stops being a reviewer's impression and becomes a **compile verdict**:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack language
+scope language
 
 name enfys "Enfys"  person.given in cymric-fringe
   = given-proto en + given-deutero fys
   bearer protagonist   ratified D-0134
   # checked: the slot sequence matches a declared name-kind pattern; each
-  # morpheme exists in the register under the claimed role; the composed
-  # surface form passes the register's phonotactics
+  # name-part exists in the dialect under the claimed role; the composed
+  # surface form passes the dialect's phonotactics
 ```
 
 Three obligations compile together on every name:
 
-- **Slot sequence.** The sequence of morpheme roles must match one of the
-  register's declared `name-kind` patterns. `given-proto given-deutero` is a
+- **Slot sequence.** The sequence of name-part roles must match one of the
+  dialect's declared `name-kind` patterns. `given-proto given-deutero` is a
   legal `person.given`; a lone `given-deutero` is not.
-- **Role membership.** Each cited morpheme must exist in the named register
-  *under the role the name claims for it*. A morpheme declared `place-generic`
+- **Role membership.** Each cited name-part must exist in the named dialect
+  *under the role the name claims for it*. A name-part declared `place-generic`
   cannot fill a `given-proto` slot.
-- **Phonotactics.** The composed surface form must pass the register's frame —
+- **Phonotactics.** The composed surface form must pass the dialect's frame —
   its vowel inventory, cluster ceiling, ending set, and stress rule.
 
 A name that fails any of the three does not compile. Register-fit is no longer a
@@ -90,13 +90,13 @@ note a reviewer writes; it is a verdict the gate produces, and it speaks the
 domain rather than the parser ([koan 9](../charter.md)):
 
 ```text
-invalid: register-fit at name gwyneth — cluster 'th' after 'wyn' exceeds
+invalid: dialect-fit at name gwyneth — cluster 'th' after 'wyn' exceeds
          cymric-fringe cluster-max 2; and 'given-simple' takes exactly one
-         morpheme, but two are cited. declared name-kinds for person.given:
+         name-part, but two are cited. declared name-kinds for person.given:
          [given-proto given-deutero] | [given-simple]
 ```
 
-The failure names the register, the offending clusters, and the legal slot
+The failure names the dialect, the offending clusters, and the legal slot
 patterns — a writer meets a diagnosis in the world's terms, not a stack trace.
 
 ## 3. The vet split, check by check
@@ -118,8 +118,8 @@ lookups. The criterion is whose world the ground truth is about:
 | Aural distinctness | the phonetic-key distance ported from the oracle's phonetics as a pure kernel primitive over the name-space |
 | Set distinctness | the same primitive over a declared set of names |
 | Register fit | it *is* the grammar check of §2 |
-| Gender morphology | a join of the name's morphemes' gender metadata against the bearer's canon facts — impossible while names and characters lived in different systems |
-| Sayability-tier caps | ruled world policy (D-0095) over the syllable structure the register already defines |
+| Gender morphology | a join of the name's name-parts' gender metadata against the bearer's canon facts — impossible while names and characters lived in different systems |
+| Sayability-tier caps | ruled world policy (D-0095) over the syllable structure the dialect already defines |
 | Banned vocabulary in names | against the in-runtime ban list (§4) |
 
 **Factory-side — world-safe:**
@@ -150,7 +150,7 @@ rule joins against ([06-craft-and-payloads](06-craft-and-payloads.md) §3) — a
 join possible only where naming data and cast lists share a kernel.
 
 **Pronounceability splits down its middle.** Cluster and syllable structure
-follow the register grammar and are checked in-kernel; the
+follow the dialect grammar and are checked in-kernel; the
 can-an-English-narrator-voice-it heuristic is audio-production knowledge about
 our world and stays factory-side.
 
@@ -168,7 +168,7 @@ lexical bans are *cited lexicon facts*:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack language
+scope language
 
 term hedgeway "the hedgeway"  ratified D-0143
 term the-plenty "the Plenty"  ratified D-0132
@@ -182,16 +182,16 @@ knowledge — but it consumes the *compiled* ban list instead of a private YAML,
 so there is one authoritative statement of what is banned and why, cited to the
 ruling that banned it. A ban is lore with provenance, not a config entry.
 
-The lexicon also feeds magic. The spoken-proof practice's `binder` sort draws
+The lexicon also feeds magic. The spoken-proof practice's `binder` kind draws
 from the lexicon's attested loan-word layer
 ([04-practices](04-practices.md) §3): magic consumes language through an ordinary
-sort reference — `sort binder from lexicon.loan-words` — rather than through a
+kind reference — `kind binder from lexicon.loan-words` — rather than through a
 convention that lives in two places. One fabric means the binder layer *is* the
 loan-word layer, not a copy of it.
 
 ## 5. The agent-init flow
 
-The data that seeds a register comes from LLM and agent interaction — and it is
+The data that seeds a dialect comes from LLM and agent interaction — and it is
 world lore, so it enters like world lore: as a **proposal bundle under one
 hypothesis variable**, every clause carrying agent provenance by inheritance.
 Agents author through **Door T**, the semantic tools against the `deloreis`
@@ -202,12 +202,12 @@ canon — the bundle enters `proposed`, awaiting the author's ruling.
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack language
+scope language
 
 hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"
 
-register cymric-fringe  proposed agent:factory/naming-run-0712  assumes h-cymric {
-  # inventory, patterns, morphemes — every clause inherits the bundle's
+dialect cymric-fringe  proposed agent:factory/naming-run-0712  assumes h-cymric {
+  # inventory, patterns, name-parts — every clause inherits the bundle's
   # hypothesis and the agent provenance
   }
 
@@ -221,10 +221,10 @@ ratify D-0195 { h-cymric := true }     # one valuation ratifies the bundle
 **One hypothesis variable per bundle** means ratification is one authorial act.
 The clause grain the annotation algebra already carries
 ([02-semantics](02-semantics.md)) gives **partial ratification for free**: ratify
-the register but reject two morphemes, and their variables valuate false — every
+the dialect but reject two name-parts, and their variables valuate false — every
 name derived through them dies into lineage and lands in the killed-token
-register, per the standing kill discipline. Names composed from an unratified
-register are merely-possible *by construction* — no special case, just the same
+dialect, per the standing kill discipline. Names composed from an unratified
+dialect are merely-possible *by construction* — no special case, just the same
 status-gating every proposed entity gets. A merely-possible name is visible to
 shadow queries and structurally excluded from every context pack and every
 assertion.
@@ -246,24 +246,24 @@ reproduces the legacy vet's world-half verdicts.
 
 ## 7. The attestation seam
 
-`basis attested "…"` and per-morpheme source URLs are claims about *our* world —
+`basis attested "…"` and per-name-part source URLs are claims about *our* world —
 "this pattern is Welsh-like," "this root is on this reference page" — not about
 the story's. They must not enter the annotation polynomials as if they were
 citations. Two rules bind at this seam, and
 [07-verdicts-and-llm-boundary](07-verdicts-and-llm-boundary.md) designs the
 machinery that enforces them:
 
-- **Attestation grades never feed assertability.** A register's real-basis is an
+- **Attestation grades never feed assertability.** A dialect's real-basis is an
   attestation ([07](07-verdicts-and-llm-boundary.md) §3): stored, graded,
   replayable, and side-band on the checks that consume it — never a variable in a
   support polynomial. A name can never become *certain* because a model believes
   its basis is authentic.
-- **A register is ratifiable with its basis unverified.** The author ratifies the
-  *sound* — the phonotactics, the morphemes, the names that derive true to them —
+- **A dialect is ratifiable with its basis unverified.** The author ratifies the
+  *sound* — the phonotactics, the name-parts, the names that derive true to them —
   not the scholarship. `basis attested` may be unanswered, or answered `no`, and
-  the register may still be ratified by a ruling. The scholarship is our-world
+  the dialect may still be ratified by a ruling. The scholarship is our-world
   evidence about the work; it is never support for the world.
 
 This is the seam that keeps the language layer honest about which world each of
 its claims is about — the same distinction §3 draws for the vet, applied to the
-register's own provenance.
+dialect's own provenance.

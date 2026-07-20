@@ -9,19 +9,19 @@ use crate::ident::Ident;
 use crate::span::Span;
 use crate::term::{AtomExpr, Term};
 
-/// A parsed source document: an optional pack header plus its declarations.
+/// A parsed source document: an optional scope header plus its declarations.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Document {
-    /// The pack header, if the document opens with one.
-    pub pack: Option<PackHeader>,
+    /// The scope header, if the document opens with one.
+    pub scope: Option<ScopeHeader>,
     /// The declarations in source order.
     pub decls: Vec<Decl>,
 }
 
-/// A `pack <name>` header naming the document's pack.
+/// A `scope <name>` header naming what the document's claims are about.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct PackHeader {
-    /// The pack name.
+pub struct ScopeHeader {
+    /// The scope name.
     pub name: Ident,
     /// Source span of the header.
     pub span: Span,
@@ -47,28 +47,26 @@ pub enum Decl {
     Before(BeforeDecl),
     /// `hypothesis <name> "<statement>"` — a named speculative premise.
     Hypothesis(HypothesisDecl),
-    /// `use <target>` — import another pack's surface.
+    /// `use <target>` — import another scope's surface.
     Use(UseDecl),
-    /// `sort <name>` — declare an entity sort.
-    Sort(SortDecl),
-    /// `rule <name> …` — a derivation rule.
+    /// `kind <name>` — declare an entity kind.
+    Kind(KindDecl),
+    /// `rule <name> [over <domain>] …` — a checker rule (world, order, or season).
     Rule(RuleDecl),
-    /// `fluent <name> = <value> …` — a time-varying property.
-    Fluent(FluentDecl),
-    /// `wheel <name>(<modulus>) = <spokes>` — a cyclic time structure.
-    Wheel(WheelDecl),
+    /// `state <name> = <value> …` — a time-varying property.
+    State(StateDecl),
+    /// `cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.
+    Cycle(CycleDecl),
     /// `fork <question>` — an open creative fork.
     Fork(ForkDecl),
     /// `practice <name> { … }` — a resource-tracked practice.
     Practice(PracticeDecl),
-    /// `register <name> { … }` — a diction register.
-    Register(RegisterDecl),
-    /// `lexeme <name>` — a coined term.
-    Lexeme(LexemeDecl),
-    /// `morpheme <name>` — a naming-layer morpheme.
-    Morpheme(MorphemeDecl),
-    /// `craft <name>` — a craft rule.
-    Craft(CraftDecl),
+    /// `dialect <name> { … }` — a diction dialect.
+    Dialect(DialectDecl),
+    /// `word <name>` — a coined term.
+    Word(WordDecl),
+    /// `name-part <name>` — a naming-layer name-part.
+    NamePart(NamePartDecl),
     /// `draft <name>` — a draft payload binding.
     Draft(DraftDecl),
     /// `attest <question>` — an attestation request.
@@ -87,12 +85,36 @@ pub enum Decl {
     Variant(VariantDecl),
     /// `ratify <d-id> { … }` — a hypothesis-bundle ratification.
     Ratify(RatifyDecl),
-    /// `order-rule <name> …` — an episode-ordering constraint.
-    OrderRule(OrderRuleDecl),
     /// `principle <name> …` — a craft principle.
     Principle(PrincipleDecl),
-    /// `ledger <name> … { … }` — a casting proof ledger.
-    Ledger(LedgerDecl),
+    /// `proof <name> … { … }` — a casting proof block.
+    Proof(ProofDecl),
+}
+
+/// The domain a `rule` is enforced over, routing it to the right checker engine.
+///
+/// A rule with no domain is a world (derivation) rule; `over order` routes to the
+/// episode-ordering engine, `over season` to the season-ledger engine. The three
+/// forms unify the surface under one `rule` keyword (the domain is stated, not
+/// keyword-encoded).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RuleDomain {
+    /// `over order` — an episode-ordering constraint.
+    Order,
+    /// `over season` — a season-ledger (craft) rule.
+    Season,
+}
+
+impl RuleDomain {
+    /// The surface keyword this domain renders as after `over`.
+    #[must_use]
+    pub const fn keyword(self) -> &'static str {
+        match self {
+            Self::Order => "order",
+            Self::Season => "season",
+        }
+    }
 }
 
 /// The five world-entity kinds.
@@ -225,27 +247,31 @@ pub struct HypothesisDecl {
 /// `use <target>`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct UseDecl {
-    /// The imported pack name.
+    /// The imported scope name.
     pub target: Ident,
     /// Source span of the declaration.
     pub span: Span,
 }
 
-/// `sort <name>`.
+/// `kind <name>`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct SortDecl {
-    /// The sort name.
+pub struct KindDecl {
+    /// The kind name.
     pub name: Ident,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
 
-/// `rule <name> …` — header plus captured body clauses.
+/// `rule <name> [over <domain>] …` — header plus captured body clauses.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RuleDecl {
     /// The rule name.
     pub name: Ident,
-    /// Header tokens after the name, before the body (e.g. `severity error`).
+    /// The domain the rule is enforced over: `None` is a world rule, `over order`
+    /// an episode-ordering constraint, `over season` a season-ledger rule.
+    pub domain: Option<RuleDomain>,
+    /// Header tokens after the name (and any `over <domain>`), before the body
+    /// (e.g. `severity error`).
     pub head: Vec<String>,
     /// The captured body clauses (`: … requires …` or `:- …`).
     pub body: Vec<Clause>,
@@ -253,12 +279,12 @@ pub struct RuleDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `fluent <name> [= <value>] [time]`.
+/// `state <name> [= <value>] [time]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct FluentDecl {
-    /// The fluent name (may be dotted, e.g. `gwern.water-status`).
+pub struct StateDecl {
+    /// The state name (may be dotted, e.g. `gwern.water-status`).
     pub name: Ident,
-    /// The value the fluent takes, if written.
+    /// The value the state takes, if written.
     pub value: Option<Term>,
     /// A temporal clause, if written.
     pub time: Option<TimeClause>,
@@ -266,14 +292,14 @@ pub struct FluentDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `wheel <name>(<modulus>) [= <spokes>]`.
+/// `cycle <name>(<modulus>) [= <spokes>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct WheelDecl {
-    /// The wheel name.
+pub struct CycleDecl {
+    /// The cycle name.
     pub name: Ident,
-    /// The wheel modulus, if written (`wheel tide(4)`).
+    /// The cycle modulus, if written (`cycle tide(4)`).
     pub modulus: Option<i64>,
-    /// The ordered spoke names around the wheel.
+    /// The ordered spoke names around the cycle.
     pub spokes: Vec<Ident>,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
@@ -303,10 +329,10 @@ pub struct PracticeDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `register <name> ["label"] { … }`.
+/// `dialect <name> ["label"] { … }`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct RegisterDecl {
-    /// The register name.
+pub struct DialectDecl {
+    /// The dialect name.
     pub name: Ident,
     /// The display label, if written.
     pub label: Option<String>,
@@ -316,37 +342,26 @@ pub struct RegisterDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `lexeme <name>` with its morphemes.
+/// `word <name>` with its name-parts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct LexemeDecl {
-    /// The lexeme name.
+pub struct WordDecl {
+    /// The word name.
     pub name: Ident,
-    /// The morphemes composing the lexeme.
-    pub morphemes: Vec<Ident>,
+    /// The name-parts composing the word.
+    pub name_parts: Vec<Ident>,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
 
-/// `morpheme <name> ["gloss"] …`.
+/// `name-part <name> ["gloss"] …`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct MorphemeDecl {
-    /// The morpheme name.
+pub struct NamePartDecl {
+    /// The name-part name.
     pub name: Ident,
     /// The gloss, if written.
     pub gloss: Option<String>,
     /// Any remaining header tokens (`role given-proto`).
     pub head: Vec<String>,
-    /// Provenance annotation, if any.
-    pub provenance: Option<Annotation>,
-}
-
-/// `craft <name>`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct CraftDecl {
-    /// The craft rule name.
-    pub name: Ident,
-    /// The captured body clauses.
-    pub body: Vec<Clause>,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
@@ -448,17 +463,6 @@ pub struct RatifyDecl {
     pub body: Vec<Clause>,
 }
 
-/// `order-rule <name> …`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct OrderRuleDecl {
-    /// The order-rule name.
-    pub name: Ident,
-    /// The captured body clauses (`: … requires …`).
-    pub body: Vec<Clause>,
-    /// Provenance annotation, if any.
-    pub provenance: Option<Annotation>,
-}
-
 /// `principle <name> …`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PrincipleDecl {
@@ -472,10 +476,10 @@ pub struct PrincipleDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `ledger <name> … { … }`.
+/// `proof <name> … { … }`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct LedgerDecl {
-    /// The ledger name.
+pub struct ProofDecl {
+    /// The proof name.
     pub name: Ident,
     /// Remaining header tokens (`speaker protagonist in spoken-proof`).
     pub head: Vec<String>,

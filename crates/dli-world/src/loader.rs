@@ -53,8 +53,8 @@ use serde::{Deserialize, Serialize};
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, PackHeader, RuleDecl,
-    SortDecl, TimeClause, WheelDecl,
+    AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl,
+    RuleDecl, ScopeHeader, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -66,7 +66,7 @@ use dli_core::posbool::PosBool;
 use dli_eval::EvalError;
 use dli_eval::world::{Fact, GroundAtom};
 use dli_time::chronology::TimePoint;
-use dli_time::wheel::Wheel;
+use dli_time::cycle::Cycle;
 
 use crate::model::{
     EntityEntry, LoadFinding, LoadedAtom, PackProvenance, Provenance, SortEntry, WorldModel,
@@ -106,7 +106,7 @@ impl Loader {
         let mut ctx = LoadCtx::default();
         for doc in docs {
             let pack = doc
-                .pack
+                .scope
                 .as_ref()
                 .map_or_else(String::new, |header| header.name.text.clone());
             {
@@ -210,9 +210,9 @@ impl LoadCtx {
             Decl::Attr(attr) => self.process_attr(attr, pack, None),
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
-            Decl::Sort(sort) => self.process_sort(sort, pack),
+            Decl::Kind(kind) => self.process_kind(kind, pack),
             Decl::Rule(rule) => self.process_rule(rule, pack),
-            Decl::Wheel(wheel) => self.process_wheel(wheel, pack),
+            Decl::Cycle(cycle) => self.process_cycle(cycle, pack),
             _ => {}
         }
     }
@@ -323,12 +323,12 @@ impl LoadCtx {
         self.push_atom(atom, compiled, pack, before.earlier.span);
     }
 
-    fn process_sort(&mut self, sort: &SortDecl, pack: &str) {
-        let label = format!("sort '{}'", sort.name.text);
+    fn process_kind(&mut self, kind: &KindDecl, pack: &str) {
+        let label = format!("kind '{}'", kind.name.text);
         let compiled =
-            self.compile_ann(sort.provenance.as_ref(), &label, pack, true, sort.name.span);
+            self.compile_ann(kind.provenance.as_ref(), &label, pack, true, kind.name.span);
         self.wm.sorts.push(SortEntry {
-            name: sort.name.text.clone(),
+            name: kind.name.text.clone(),
             ann: compiled.ann,
             kind: compiled.kind,
             citations: compiled.citations,
@@ -344,23 +344,23 @@ impl LoadCtx {
         let _ = self.compile_ann(rule.provenance.as_ref(), &label, pack, true, rule.name.span);
     }
 
-    fn process_wheel(&mut self, wheel: &WheelDecl, pack: &str) {
-        self.wm.world.wheels.push(Wheel {
-            name: wheel.name.text.clone(),
-            spokes: wheel
+    fn process_cycle(&mut self, cycle: &CycleDecl, pack: &str) {
+        self.wm.world.cycles.push(Cycle {
+            name: cycle.name.text.clone(),
+            spokes: cycle
                 .spokes
                 .iter()
                 .map(|spoke| spoke.text.clone())
                 .collect(),
         });
-        if wheel.provenance.is_some() {
-            let label = format!("wheel '{}'", wheel.name.text);
+        if cycle.provenance.is_some() {
+            let label = format!("cycle '{}'", cycle.name.text);
             let _ = self.compile_ann(
-                wheel.provenance.as_ref(),
+                cycle.provenance.as_ref(),
                 &label,
                 pack,
                 false,
-                wheel.name.span,
+                cycle.name.span,
             );
         }
     }
@@ -604,23 +604,21 @@ fn ground_atom(atom: &AtomExpr) -> GroundAtom {
 fn decl_identity(decl: &Decl) -> Option<(&'static str, String, Span)> {
     match decl {
         Decl::Entity(e) => Some(("entity", e.name.text.clone(), e.name.span)),
-        Decl::Sort(s) => Some(("sort", s.name.text.clone(), s.name.span)),
+        Decl::Kind(s) => Some(("kind", s.name.text.clone(), s.name.span)),
         Decl::Question(q) => Some(("question", q.name.text.clone(), q.name.span)),
         Decl::Rule(r) => Some(("rule", r.name.text.clone(), r.name.span)),
-        Decl::Fluent(f) => Some(("fluent", f.name.text.clone(), f.name.span)),
-        Decl::Wheel(w) => Some(("wheel", w.name.text.clone(), w.name.span)),
-        Decl::Register(r) => Some(("register", r.name.text.clone(), r.name.span)),
-        Decl::Lexeme(l) => Some(("lexeme", l.name.text.clone(), l.name.span)),
-        Decl::Morpheme(m) => Some(("morpheme", m.name.text.clone(), m.name.span)),
-        Decl::Craft(c) => Some(("craft", c.name.text.clone(), c.name.span)),
+        Decl::State(f) => Some(("state", f.name.text.clone(), f.name.span)),
+        Decl::Cycle(w) => Some(("cycle", w.name.text.clone(), w.name.span)),
+        Decl::Dialect(r) => Some(("dialect", r.name.text.clone(), r.name.span)),
+        Decl::Word(l) => Some(("word", l.name.text.clone(), l.name.span)),
+        Decl::NamePart(m) => Some(("name-part", m.name.text.clone(), m.name.span)),
         Decl::Practice(p) => Some(("practice", p.name.text.clone(), p.name.span)),
         Decl::Fork(f) => Some(("fork", f.question.text.clone(), f.question.span)),
         Decl::Name(n) => Some(("name", n.name.text.clone(), n.name.span)),
         Decl::Term(t) => Some(("term", t.name.text.clone(), t.name.span)),
         Decl::Principle(p) => Some(("principle", p.name.text.clone(), p.name.span)),
         Decl::Hypothesis(h) => Some(("hypothesis", h.name.text.clone(), h.name.span)),
-        Decl::OrderRule(o) => Some(("order-rule", o.name.text.clone(), o.name.span)),
-        Decl::Ledger(l) => Some(("ledger", l.name.text.clone(), l.name.span)),
+        Decl::Proof(l) => Some(("proof", l.name.text.clone(), l.name.span)),
         _ => None,
     }
 }
@@ -674,12 +672,12 @@ pub fn example_docs() -> Vec<Document> {
     }
 
     vec![Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: Ident::synthetic("saltmarket"),
             span: Span::synthetic(),
         }),
         decls: vec![
-            Decl::Sort(SortDecl {
+            Decl::Kind(KindDecl {
                 name: Ident::synthetic("place"),
                 provenance: Some(ratified("D-0001")),
             }),

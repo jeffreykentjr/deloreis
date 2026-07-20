@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, PackHeader};
+use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -70,7 +70,7 @@ fn pack(name: &str, decls: Vec<Decl>) -> Pack {
     Pack {
         name: name.to_owned(),
         documents: vec![Document {
-            pack: Some(PackHeader {
+            scope: Some(ScopeHeader {
                 name: id(name),
                 span: Span::synthetic(),
             }),
@@ -314,7 +314,7 @@ fn compile_unifies_the_two_lowerings_to_zero_status_divergence() {
         fact("secret", &["anchor", "hidden"], None),
     ];
     let doc = Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: id("cast"),
             span: Span::synthetic(),
         }),
@@ -366,7 +366,7 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
         span: Span::synthetic(),
     };
     let doc = Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: id("cast"),
             span: Span::synthetic(),
         }),
@@ -580,7 +580,7 @@ fn corpus_pack(facts: &FactsDoc) -> Pack {
     Pack {
         name: "canon".to_owned(),
         documents: vec![Document {
-            pack: Some(PackHeader {
+            scope: Some(ScopeHeader {
                 name: id("canon"),
                 span: Span::synthetic(),
             }),

@@ -22,7 +22,7 @@ pub use check::{
 };
 pub use draft::{DraftFinding, DraftMeta, DraftPayload};
 pub use language::{
-    LangFinding, LanguageModel, LanguageOutcome, NameDef, RatifiedName, RegisterDef,
+    DialectDef, LangFinding, LanguageModel, LanguageOutcome, NameDef, RatifiedName,
 };
 pub use model::{CraftRule, SeasonLedger, WorldModel};
 pub use pack::Pack;

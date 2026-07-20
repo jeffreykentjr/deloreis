@@ -78,7 +78,7 @@ fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
 /// options each imply who keeps the ledger.
 fn saltmarket_document() -> Document {
     Document {
-        pack: None,
+        scope: None,
         decls: vec![
             decided_fact(
                 "adjacent",
@@ -154,7 +154,7 @@ fn empty_world_constructs() {
     let world = World::new();
     assert!(world.facts.is_empty());
     assert!(world.rules.is_empty());
-    assert!(world.wheels.is_empty());
+    assert!(world.cycles.is_empty());
     assert_eq!(world, World::default());
 }
 
@@ -273,7 +273,7 @@ fn support_index_answers_why_and_defeater() {
 #[test]
 fn c1_provenance_gates_certainty() {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![
             fact(
                 "p",
@@ -307,7 +307,7 @@ fn c1_provenance_gates_certainty() {
 #[test]
 fn c1_supersession_revalues_a_decided_fact() {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![fact(
             "d",
             vec![sym("x")],
@@ -338,7 +338,7 @@ fn a2_proposed_with_assumes_is_ratifiable() {
     // `proposed p(x) assumes h-x` — the condition IS the bundle gate; there is
     // no extra never-ruled proposal variable, so ruling h-x ratifies the claim.
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![Decl::Fact(FactDecl {
             atom: atom("p", vec![sym("x")]),
             triple: false,
@@ -386,7 +386,7 @@ fn a2_proposed_with_assumes_is_ratifiable() {
 #[test]
 fn lower_populates_the_chronology() {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![
             Decl::Before(BeforeDecl {
                 earlier: Ident::synthetic("the-long-drought"),

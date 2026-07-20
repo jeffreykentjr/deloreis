@@ -42,10 +42,10 @@ fn committed_examples_parse_clean() {
 
 /// The expert practice block from `docs/spec/04-practices.md`.
 const PRACTICE: &str = "\
-pack magic
+scope magic
 
 practice spoken-proof  ratified D-0146 D-0148 {
-  sort ground = water | field | ore | tide | hearth | boundary
+  kind ground = water | field | ore | tide | hearth | boundary
   role witness : entity    requires standing(witness), consent(witness)
   resource debt   : linear conserved
   rule ward-form(ground, fibre)  ratified D-0146 :- ...
@@ -56,7 +56,7 @@ practice spoken-proof  ratified D-0146 D-0148 {
 ";
 
 const TIME: &str = "\
-pack chronology
+scope chronology
 
 era elder-cycles < the-equilibrium < the-first-enclosure
     < the-long-creep < the-beleaguered-present < the-narrators-era
@@ -64,18 +64,18 @@ era elder-cycles < the-equilibrium < the-first-enclosure
 event first-storehouse-lie    during the-first-enclosure   provisional D-0072
 before breaking-of-the-stones -> tithe-of-minds-sweeps     provisional D-0072
 
-wheel tide(4) = ebb | slack | flood | high        ratified D-0146
-wheel moon(29)                                     ratified D-0148
+cycle tide(4) = ebb | slack | flood | high        ratified D-0146
+cycle moon(29)                                     ratified D-0148
 
-fluent gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
+state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
 ";
 
 const LANGUAGE: &str = "\
-pack language
+scope language
 
-register cymric-fringe  \"the fringe tongue\"  provisional D-0181 {
+dialect cymric-fringe  \"the fringe tongue\"  provisional D-0181 {
   vowels a e i o u w y
-  morpheme en   \"spirit\"        role given-proto     ratified D-0134
+  name-part en   \"spirit\"        role given-proto     ratified D-0134
   }
 
 name enfys \"Enfys\"  person.given in cymric-fringe
@@ -87,7 +87,7 @@ banned machine   D-0056  \"the allegory is structural, never lexical\"
 
 hypothesis h-cymric \"the western fringe speaks a Brythonic-shaped tongue\"
 
-register speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
+dialect speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
   inventory placeholder
   }
 
@@ -95,24 +95,24 @@ ratify D-0195 { h-cymric := true }
 ";
 
 const CRAFT: &str = "\
-pack craft
+scope craft
 
 principle tryfail-before-triumph  family plot  mission pass
   source sanderson  cites D-0128
   checkable deterministic -> accomplishment-earned
 
-rule accomplishment-earned severity error
+rule accomplishment-earned  over season  severity error
   : beat $b kind accomplishment magnitude >= major
     requires beat $f  thread($f) = thread($b)
 
-order-rule full-team-floor       ratified D-0162
+rule full-team-floor  over order  ratified D-0162
   : listener-has(configuration full-team) requires slot >= 10
 ";
 
-const LEDGER: &str = "\
-pack magic
+const PROOF: &str = "\
+scope magic
 
-ledger e01-s04  speaker protagonist  in spoken-proof {
+proof e01-s04  speaker protagonist  in spoken-proof {
   premise p1  holds(enfys, consent(household, door))  cited D-0113  cue \"line 112\"
   step   s1  instantiate ward-form  with ground = door, fibre = withy
   spend  p3
@@ -127,7 +127,7 @@ fn expert_blocks_parse_clean() {
         ("time", TIME),
         ("language", LANGUAGE),
         ("craft", CRAFT),
-        ("ledger", LEDGER),
+        ("proof", PROOF),
     ] {
         let (_doc, diags) = parse_document(source);
         let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();

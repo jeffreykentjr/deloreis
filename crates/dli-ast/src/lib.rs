@@ -19,11 +19,11 @@ pub mod term;
 pub use annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 pub use clause::Clause;
 pub use decl::{
-    AttestDecl, AttrDecl, BannedDecl, BeforeDecl, CraftDecl, Decl, Document, DraftDecl, EntityDecl,
-    EntityKind, ExportDecl, FactDecl, FluentDecl, ForkDecl, HypothesisDecl, LedgerDecl, LexemeDecl,
-    MorphemeDecl, NameDecl, NarrationDecl, OptionClause, OrderRuleDecl, PackHeader, PracticeDecl,
-    PrincipleDecl, QuestionDecl, RatifyDecl, RegisterDecl, RuleDecl, SortDecl, TermDecl,
-    TimeClause, UseDecl, VariantDecl, WheelDecl,
+    AttestDecl, AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document,
+    DraftDecl, EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, HypothesisDecl, KindDecl,
+    NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl, ProofDecl,
+    QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    UseDecl, VariantDecl, WordDecl,
 };
 pub use doc::Doc;
 pub use ident::Ident;

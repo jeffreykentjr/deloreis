@@ -3,7 +3,7 @@
 
 use dli_ast::annot::ProvenanceMarker;
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, TimeClause};
+use dli_ast::decl::{Decl, RuleDomain, TimeClause};
 use dli_ast::span::Span;
 use dli_ast::term::Term;
 use dli_syntax::diag::{DiagClass, Diagnostic};
@@ -16,7 +16,7 @@ fn errors(diags: &[Diagnostic]) -> Vec<&Diagnostic> {
 }
 
 const SALTMARKET_CARD: &str = "\
-pack saltmarket
+scope saltmarket
 
 era founding   \"The Landing\"      decided d-0001
 era now        \"The Ninth Tide\"   after founding
@@ -51,7 +51,7 @@ fn parses_the_saltmarket_card() {
         "unexpected errors: {:?}",
         errors(&diags)
     );
-    assert_eq!(doc.pack.as_ref().unwrap().name.text, "saltmarket");
+    assert_eq!(doc.scope.as_ref().unwrap().name.text, "saltmarket");
     // Two eras, three places, one relation fact.
     assert_eq!(doc.decls.len(), 6);
     assert!(matches!(doc.decls[0], Decl::Entity(_)));
@@ -284,10 +284,10 @@ fn conflicting_markers_diagnose() {
 
 #[test]
 fn a_leading_bom_is_stripped() {
-    // M7: a UTF-8 BOM must not fuse into the first token and lose the pack.
-    let source = "\u{feff}pack p\nplace weir \"W\" proposed\n";
+    // M7: a UTF-8 BOM must not fuse into the first token and lose the scope.
+    let source = "\u{feff}scope p\nplace weir \"W\" proposed\n";
     let (doc, _diags) = parse_document(source);
-    assert_eq!(doc.pack.as_ref().unwrap().name.text, "p");
+    assert_eq!(doc.scope.as_ref().unwrap().name.text, "p");
     assert_eq!(doc.decls.len(), 1);
 }
 
@@ -334,4 +334,111 @@ fn unknown_keyword_renders_in_the_domain() {
     let source = "zorble frobnicate\n";
     let (_doc, diags) = parse_document(source);
     insta::assert_snapshot!("unknown_keyword_rendered", render(source, &diags));
+}
+
+// --- the surface-v1 rename (DL-0016) --------------------------------------
+
+#[test]
+fn a_scope_header_names_the_scope() {
+    let (doc, diags) = parse_document("scope saltmarket\nplace weir \"W\" proposed\n");
+    assert!(errors(&diags).is_empty(), "{:?}", errors(&diags));
+    assert_eq!(doc.scope.as_ref().unwrap().name.text, "saltmarket");
+    assert_eq!(doc.decls.len(), 1);
+}
+
+#[test]
+fn every_retired_keyword_is_a_killed_form() {
+    // Each old spelling is refused with the word that replaced it — a
+    // RenamedKeyword diagnostic naming the successor, never a silent accept nor
+    // an unknown-keyword (koan 7).
+    for (old, successor) in [
+        ("pack", "scope"),
+        ("fluent", "state"),
+        ("wheel", "cycle"),
+        ("morpheme", "name-part"),
+        ("lexeme", "word"),
+        ("register", "dialect"),
+        ("sort", "kind"),
+        ("ledger", "proof"),
+        ("order-rule", "over order"),
+        ("craft", "over season"),
+    ] {
+        let source = format!("{old} thing\n");
+        let (_doc, diags) = parse_document(&source);
+        let renamed: Vec<_> = diags
+            .iter()
+            .filter(|d| d.class == DiagClass::RenamedKeyword)
+            .collect();
+        assert_eq!(
+            renamed.len(),
+            1,
+            "`{old}` should raise exactly one renamed-keyword diagnostic, got {diags:?}"
+        );
+        assert!(
+            renamed[0].message.contains(successor),
+            "`{old}` diagnostic must name `{successor}`: {}",
+            renamed[0].message
+        );
+        // A killed form is an error, never merely an unknown keyword.
+        assert!(renamed[0].class.is_error());
+        assert!(
+            !diags.iter().any(|d| d.class == DiagClass::UnknownKeyword),
+            "`{old}` must not read as an unknown keyword"
+        );
+    }
+}
+
+#[test]
+fn a_bare_rule_is_a_world_rule() {
+    let (doc, diags) = parse_document("rule ward-form ratified d-0146\n  : head :- body\n");
+    assert!(errors(&diags).is_empty(), "{:?}", errors(&diags));
+    let Decl::Rule(rule) = &doc.decls[0] else {
+        panic!("expected a rule");
+    };
+    assert_eq!(rule.domain, None, "a bare rule has no domain");
+}
+
+#[test]
+fn a_rule_over_order_carries_the_order_domain() {
+    let (doc, diags) = parse_document(
+        "rule full-team-floor over order ratified d-0162\n  : listener requires x\n",
+    );
+    assert!(errors(&diags).is_empty(), "{:?}", errors(&diags));
+    let Decl::Rule(rule) = &doc.decls[0] else {
+        panic!("expected a rule");
+    };
+    assert_eq!(rule.domain, Some(RuleDomain::Order));
+    assert_eq!(rule.name.text, "full-team-floor");
+    // `over order` is consumed, not left in the head.
+    assert!(!rule.head.iter().any(|t| t == "over" || t == "order"));
+}
+
+#[test]
+fn a_rule_over_season_carries_the_season_domain() {
+    let (doc, diags) =
+        parse_document("rule accomplishment-earned over season severity error\n  : beat $b\n");
+    assert!(errors(&diags).is_empty(), "{:?}", errors(&diags));
+    let Decl::Rule(rule) = &doc.decls[0] else {
+        panic!("expected a rule");
+    };
+    assert_eq!(rule.domain, Some(RuleDomain::Season));
+    assert_eq!(rule.head, vec!["severity".to_owned(), "error".to_owned()]);
+}
+
+#[test]
+fn a_rule_domain_round_trips_through_the_formatter() {
+    for source in [
+        "rule r over order ratified d-1\n",
+        "rule r over season severity error\n",
+        "rule r severity error\n",
+    ] {
+        let (doc, _) = parse_document(source);
+        let text = format_document(&doc);
+        let (doc2, diags) = parse_document(&text);
+        assert!(errors(&diags).is_empty(), "{text}: {:?}", errors(&diags));
+        let (Decl::Rule(a), Decl::Rule(b)) = (&doc.decls[0], &doc2.decls[0]) else {
+            panic!("expected rules");
+        };
+        assert_eq!(a.domain, b.domain, "domain lost in round-trip: {text}");
+    }
 }

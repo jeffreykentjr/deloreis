@@ -127,7 +127,7 @@ An `author.diff` for a two-fact workspace renders as canonical surface:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack tpth
+scope tpth
 person mireth "Mireth"     proposed  session-7c9
 place saltmere "Saltmere"  proposed  session-7c9
 ```
@@ -381,7 +381,7 @@ lives inside the fork frame, not the pack.
 }
 ```
 
-The **language-layer** tools (names, lexemes, registers, crafts) and the
+The **language-layer** tools (names, words, dialects, crafts) and the
 **ledger** tools follow their own spec documents' nodes and the same envelope and
 feedback contract. They are invoked in the `author.*` (authoring) and `dli.*`
 (worker-protocol, e.g. `dli.name.check`) namespaces; this document does not
@@ -466,7 +466,7 @@ On success it returns file contents as data — the machine never writes canon:
 {
   "ok": true,
   "workspace_digest": "wd-12",
-  "files": [{ "path": "tpth/mireth.dli", "contents": "pack tpth\n\nperson mireth \"Mireth\"     proposed  session-7c9\n" }],
+  "files": [{ "path": "tpth/mireth.dli", "contents": "scope tpth\n\nperson mireth \"Mireth\"     proposed  session-7c9\n" }],
   "findings": []
 }
 ```

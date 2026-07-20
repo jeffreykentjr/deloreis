@@ -18,6 +18,9 @@ use thiserror::Error;
 pub enum DiagClass {
     /// The line opened with a word that is not a De Lore Is keyword.
     UnknownKeyword,
+    /// The line opened with a keyword that was renamed by the surface-v1 pass
+    /// (e.g. `fluent` → `state`); the old spelling is a killed form.
+    RenamedKeyword,
     /// A ledger marker (`decided`/`ratified`/`provisional`) with no decision
     /// behind it.
     OriginRequired,
@@ -45,6 +48,7 @@ impl DiagClass {
     pub const fn code(self) -> &'static str {
         match self {
             Self::UnknownKeyword => "dli::syntax::unknown-keyword",
+            Self::RenamedKeyword => "dli::syntax::renamed-keyword",
             Self::OriginRequired => "dli::syntax::origin-required",
             Self::OriginMissing => "dli::syntax::origin-missing",
             Self::ConflictingMarkers => "dli::syntax::conflicting-markers",
@@ -61,6 +65,7 @@ impl DiagClass {
     pub const fn label(self) -> &'static str {
         match self {
             Self::UnknownKeyword => "not a keyword",
+            Self::RenamedKeyword => "renamed keyword",
             Self::OriginRequired => "needs a decision",
             Self::OriginMissing => "no origin — is this proposed?",
             Self::ConflictingMarkers => "second marker",

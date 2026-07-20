@@ -9,8 +9,8 @@
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, FluentDecl,
-    HypothesisDecl, OptionClause, PackHeader, QuestionDecl, TimeClause, WheelDecl,
+    AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl,
+    HypothesisDecl, OptionClause, QuestionDecl, ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -246,7 +246,7 @@ fn fluent() -> impl Strategy<Value = Decl> {
         provenance(),
     )
         .prop_map(|(name, value, time, provenance)| {
-            Decl::Fluent(FluentDecl {
+            Decl::State(StateDecl {
                 name,
                 value,
                 time,
@@ -263,7 +263,7 @@ fn wheel() -> impl Strategy<Value = Decl> {
         provenance(),
     )
         .prop_map(|(name, modulus, spokes, provenance)| {
-            Decl::Wheel(WheelDecl {
+            Decl::Cycle(CycleDecl {
                 name,
                 modulus,
                 spokes,
@@ -289,13 +289,13 @@ fn decl() -> impl Strategy<Value = Decl> {
 
 fn document() -> impl Strategy<Value = Document> {
     (
-        prop::option::of((0u32..5).prop_map(|n| PackHeader {
+        prop::option::of((0u32..5).prop_map(|n| ScopeHeader {
             name: Ident::synthetic(format!("p{n}")),
             span: Span::synthetic(),
         })),
         prop::collection::vec(decl(), 0..6),
     )
-        .prop_map(|(pack, decls)| Document { pack, decls })
+        .prop_map(|(scope, decls)| Document { scope, decls })
 }
 
 proptest! {

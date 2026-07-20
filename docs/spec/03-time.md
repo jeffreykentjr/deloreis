@@ -13,7 +13,7 @@ which a listener meets the material — is the listener's dimension; **story-tim
 *meta*-time, the ledger, and there is no calendar; story-time is object data with
 structure, not a second transaction dimension.
 
-The model has four separated components, a fluent layer for facts with validity
+The model has four separated components, a state layer for facts with validity
 spans, a disciplined composition with the annotation algebra of
 `02-semantics.md`, and a set of capabilities that fall out once the pieces are
 separated. It deliberately excludes metric time and the heavy temporal-logic
@@ -53,7 +53,7 @@ the spine; it never masquerades as it.
 **(iii) Narration-time — a second vantage, inert.** One distinguished point,
 `narration-now`, sits inside `the-narrators-era`, centuries out from
 story-present. It is **inert by construction** (D-0104): declaring an event in
-the narrator's era is a **type error**, no fluent dynamics exist there, and no
+the narrator's era is a **type error**, no state dynamics exist there, and no
 machinery accrues to it. What the vantage buys is the **knowledge asymmetry**:
 the narrator is retrospectively omniscient over story-present — their premise
 pool is the certain layer as-of `narration-now` — while cast knowledge is
@@ -64,12 +64,12 @@ them from any cast premise pool: a narrators-era fact can never be cast
 knowledge. That is the entire apparatus; the ruling forbids more, and the model
 agrees with the ruling.
 
-**(iv) Cyclic time — the wheels.** Tide, moon, and season are small **modular
-sorts**, orthogonal to the linear spine: `wheel tide(4)`, `wheel moon(29)`, the
-festival wheel. A wheel carries **succ, pred, across, distance** and refuses
+**(iv) Cyclic time — the cycles.** Tide, moon, and season are small **modular
+sorts**, orthogonal to the linear spine: `cycle tide(4)`, `cycle moon(29)`, the
+festival cycle. A cycle carries **succ, pred, across, distance** and refuses
 **`<`, sort, and max** — asking for the "greatest" season or sorting the moon's
 nights is a **type error**, not a silent tie-break (koan 8, *the wheel refuses
-rank*). The **wheel type lives once in the kernel**, shared by the game engine
+rank*). The **cycle type lives once in the kernel**, shared by the game engine
 (the Turning's `leaf(29)`, one leaf for each night of the moon) and by the timing
 checker — canon itself says the same turning that seats a ward runs the Turning's
 leaves. Crucially there is **no epoch**: phase coordinates are *local*
@@ -78,14 +78,14 @@ contiguity** — within an episode, or an explicitly declared contiguous span �
 never as absolute positions joined across unrelated scenes, which would be a
 calendar through the back door.
 
-The four edge operations are pinned (ruling M6), so the wheel's laws are stated
+The four edge operations are pinned (ruling M6), so the cycle's laws are stated
 rather than accidental:
 
-- **`across` is the half-turn forward step, `floor(n/2)`.** On an **even** wheel
+- **`across` is the half-turn forward step, `floor(n/2)`.** On an **even** cycle
   it is a true antipode and an involution (`across ∘ across = id`). On an **odd**
-  wheel there is no exact opposite spoke, so `across` is deliberately
+  cycle there is no exact opposite spoke, so `across` is deliberately
   *non-involutive* — `across ∘ across = pred` — because inventing an antipode the
-  ring does not have would be a lie, and the wheel does not lie about its shape.
+  ring does not have would be a lie, and the cycle does not lie about its shape.
 - **`distance` is directional** — the count of `succ` steps from one position to
   another, with `distance(a,b) + distance(b,a) = n`. The symmetric shorter-arc
   reading is a separate operation, **`separation`** (`= min(distance(a,b),
@@ -110,7 +110,7 @@ current corpus; a fact acquires a span only when a writer has a reason to give i
 one.
 
 The semantics is **event-calculus-shaped**: events initiate and terminate
-fluents, and inertia holds a fluent between its initiator and its terminator.
+states, and inertia holds a state between its initiator and its terminator.
 Because the event order is *partial*, projection is **cautious and
 three-valued**:
 
@@ -132,7 +132,7 @@ because the two claims hold over disjoint spans.
 ## 3. Composition with the annotation algebra
 
 Time goes in the atom; provenance stays the annotation; **they must not
-entangle.** A fluent is `atom × span`, and its **support** answers a strictly
+entangle.** A state is `atom × span`, and its **support** answers a strictly
 separate question: *which authorial events back this claim about that span.*
 
 The two kinds of indeterminacy are different in kind and must stay
@@ -176,7 +176,7 @@ dimensions, both on existing machinery.
    `the-beleaguered-present` — the current behavior, preserved. Scenes may override:
    a flashback scene carries its own anchor.
 2. **Facts with spans.** Per §2; the default rule makes migration free.
-3. **Who-knew-what-when.** `knowledge` rows become **knowledge fluents**
+3. **Who-knew-what-when.** `knowledge` rows become **knowledge states**
    initiated at the episode's story position; query `knows(who, fact) as-of
    <era | event | episode>`. The **listener** is a distinguished knower whose
    ledger runs on **production order** — which is exactly where the staging
@@ -201,7 +201,7 @@ dimensions, both on existing machinery.
    forbidden dynamics **by type** rather than by remembering.
 8. **Cyclic time checkable.** A timing premise resolves against the scene's phase
    bindings instead of being taken on faith: a ward requiring the slack tide,
-   spoken in a flood-bound scene, is a **checker error**; wheel-walk consistency
+   spoken in a flood-bound scene, is a **checker error**; cycle-walk consistency
    holds within declared contiguity; and phase arc continuity — the moon cannot
    jump mid-episode — comes free from the walk check.
 
@@ -214,7 +214,7 @@ over the same store:
 
 - an **era-lane timeline** — eras as lanes, events as points with their
   partial-order edges drawn (and unordered pairs *visibly* unordered),
-  episode and scene placements as markers, fluent spans as horizontal bars;
+  episode and scene placements as markers, state spans as horizontal bars;
 - a **two-track view** — the story-time track over the production-order track,
   in which a flashback is a **visible crossing edge** rather than an invisible
   convention;
@@ -240,11 +240,11 @@ world-state and every character's knowledge change. The subcommands:
 ## 6. Surface forms
 
 The chronology layer — the era spine, events and their before-facts, the inert
-narration vantage, the wheels, and fluents with spans:
+narration vantage, the cycles, and states with spans:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack chronology
+scope chronology
 
 era elder-cycles < the-equilibrium < the-first-enclosure
     < the-long-creep < the-beleaguered-present < the-narrators-era
@@ -262,13 +262,13 @@ before tithe-of-minds-sweeps  -> protagonists-taking       provisional D-0072
 narration vantage the-narrators-era
 # inert (D-0104): declaring an event in this era is error T2 [narration-dynamics]
 
-wheel tide(4) = ebb | slack | flood | high        ratified D-0146
-wheel moon(29)                                     ratified D-0148
-# the same cyclic sort as the Turning's leaf(29): succ/pred/across/distance
+cycle tide(4) = ebb | slack | flood | high        ratified D-0146
+cycle moon(29)                                     ratified D-0148
+# the same cyclic kind as the Turning's leaf(29): succ/pred/across/distance
 # exist; `<`, sort, max are type errors — no epoch, no calendar
 
-fluent gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
-fluent gwern.water-status = enclosed since enclosure-of-the-parish-water  ratified D-0114
+state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
+state gwern.water-status = enclosed since enclosure-of-the-parish-water  ratified D-0114
 # unanchored facts default to `since era(the-beleaguered-present)` — the
 # migration rule; the entire existing facts corpus is valid unchanged
 ```
@@ -277,11 +277,11 @@ Ordering rules are declarations too — data the season checker reads, not code:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-order-rule full-team-floor       ratified D-0162
+rule full-team-floor over order       ratified D-0162
   : listener-has(configuration full-team) requires slot >= 10
-order-rule no-deep-time-act-one  ratified D-0168
+rule no-deep-time-act-one over order  ratified D-0168
   : listener-learns(during elder-cycles _) requires act > 1
-order-rule payoff-after-reveal
+rule payoff-after-reveal over order
   : payoff($p) at slot $j requires reveal($p) at slot $i, $i < $j
 ```
 
@@ -310,7 +310,7 @@ episode e14 "The Drowned Field" order 14 {
 The model is deliberately narrow. Each exclusion answers a specific temptation.
 
 - **Metric time and calendars.** The world has no ratified calendar, and the
-  wheels' no-epoch rule keeps the back door shut. Time is qualitative by ruling,
+  cycles' no-epoch rule keeps the back door shut. Time is qualitative by ruling,
   not by omission.
 - **DatalogMTL / temporal Vadalog machinery.** That literature solves *metric*
   temporal reasoning and pays for it in complexity up to EXPSPACE-hardness. This

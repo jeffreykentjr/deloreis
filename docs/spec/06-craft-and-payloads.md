@@ -32,7 +32,7 @@ they are visible **season-wide** rather than one outline at a time:
   and a `magnitude`, anchored to a scene and a production slot.
 - **Scenes** — cast, presence (including off-mic), location, and phase
   observations.
-- **Sliders** — per-character competence and disposition, read as fluents on
+- **Sliders** — per-character competence and disposition, read as states on
   the production axis.
 - **Knowledge** — who knows what, initiated at the episode's story position,
   with the listener as a distinguished knower on the production axis.
@@ -65,9 +65,9 @@ Two ports change status rather than behavior. The `ten-reads-as-battle` regex
 ports as a lexicon-table rule (its combat wordlist becomes data) and is
 **demoted to a backstop** by the structural arc-shape rule in §3 — the regex no
 longer decides arc shape, it only catches what the structural rule misses. The
-magic-pedagogy prerequisite DAG becomes **kernel facts plus order-rules**: a
-working taught before its prerequisite is an ordering violation on the story
-axis, the same machinery as every other order-rule.
+magic-pedagogy prerequisite DAG becomes **kernel facts plus rules over order**:
+a working taught before its prerequisite is an ordering violation on the story
+axis, the same machinery as every other `rule … over order`.
 
 ## 3. Season-ledger rules
 
@@ -86,7 +86,7 @@ anchors, and the rule is a join.
   season*, not per outline: once a thread lands its unqualified win, it may not
   re-open for another.
 
-- **Competence-consistency.** Sliders are fluents on the production axis. A
+- **Competence-consistency.** Sliders are states on the production axis. A
   major unassisted accomplishment by a character whose competence as of that
   episode is below threshold requires an intervening growth, aid, or price beat
   — a **warn**. The legacy flat-slider check generalizes to arc-flat
@@ -102,7 +102,7 @@ anchors, and the rule is a join.
 
 - **Marketability and clarity.** Hook ≤ 60s ports as-is. Cold-open discipline:
   a cold open must open a loop, carry cast ≤ 2, and hold no deep-time in act 1
-  (a join with the `no-deep-time-act-one` order-rule). Cast-introduction rate:
+  (a join with the `no-deep-time-act-one` rule over order). Cast-introduction rate:
   new named speakers per episode inside a band, against a season named-cast
   budget. **Scene-scoped aural distinctness**: join the naming layer's
   confusability metric ([05-language-layer](05-language-layer.md)) with scene
@@ -160,13 +160,13 @@ claim that includes judge dimensions is honestly `attested` overall, and
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack craft
+scope craft
 
 principle tryfail-before-triumph  family plot  mission pass
   source sanderson  cites D-0128
   checkable deterministic -> accomplishment-earned
 
-rule accomplishment-earned severity error
+rule accomplishment-earned over season severity error
   : beat $b kind accomplishment magnitude >= major
     requires beat $f  thread($f) = thread($b),
              outcome($f) in {yes-but, no-but, no-and},
@@ -178,7 +178,7 @@ principle register-fit  family prose  mission adapted  cites D-0166
   checkable judge -> attest register-fit
   # consuming checks report grade attested (07-verdicts-and-llm-boundary §3)
 
-rule scene-name-clash severity error
+rule scene-name-clash over season severity error
   : scene $s casts $a, $b  where $a != $b
     requires aural-distance($a, $b) >= floor(scene)
   # joins the naming layer's confusability table with scene cast lists —

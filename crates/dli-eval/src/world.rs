@@ -22,7 +22,7 @@ use dli_core::posbool::PosBool;
 use dli_core::valuation::Valuation;
 use dli_core::verdict::Verdict;
 use dli_time::chronology::{Chronology, TimePoint};
-use dli_time::wheel::Wheel;
+use dli_time::cycle::Cycle;
 
 use crate::error::EvalError;
 use crate::query::{Answer, Query, QueryRow};
@@ -132,7 +132,7 @@ pub struct World {
     /// facts and era-order chains; the time subsystem reasons over it.
     pub chronology: Chronology,
     /// The cyclic calendars.
-    pub wheels: Vec<Wheel>,
+    pub cycles: Vec<Cycle>,
 }
 
 impl World {
@@ -143,7 +143,7 @@ impl World {
     }
 
     /// Lower a document into an evaluable program: ground facts, option-gated
-    /// facts, exclusivity families for questions and forks, and wheels. Event
+    /// facts, exclusivity families for questions and forks, and cycles. Event
     /// variables are interned as they are encountered.
     ///
     /// Derivation rules (`rule …`) are captured as expert-tier text clauses by
@@ -169,9 +169,9 @@ impl World {
                 }
                 Decl::Question(question) => world.lower_options(&question.options)?,
                 Decl::Fork(fork) => world.lower_options(&fork.options)?,
-                Decl::Wheel(wheel) => world.wheels.push(Wheel {
-                    name: wheel.name.text.clone(),
-                    spokes: wheel.spokes.iter().map(|s| s.text.clone()).collect(),
+                Decl::Cycle(cycle) => world.cycles.push(Cycle {
+                    name: cycle.name.text.clone(),
+                    spokes: cycle.spokes.iter().map(|s| s.text.clone()).collect(),
                 }),
                 Decl::Before(before) => {
                     let earlier = world.time_point(&before.earlier.text);

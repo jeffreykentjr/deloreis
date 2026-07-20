@@ -63,7 +63,7 @@ citations, `proposed`, and `question`. A first world in the gentle subset — th
 Saltmarket skeleton:
 
 ```dli
-pack saltmarket
+scope saltmarket
 
 era founding   "The Landing"      decided d-0001
 era now        "The Ninth Tide"   after founding
@@ -98,7 +98,7 @@ as notes, out of canon until decided.
 
 ## 5. The expert tier
 
-Rules, forks, wheels, practices (magic systems), ledgers, registers, and
+Rules, forks, cycles, practices (magic systems), proofs, dialects, and
 attestations are the expert tier — a second reference card, not this one. No
 expert-tier word appears on the gentle card. When you reach for them, read the
 lane's spec under `docs/spec/` and the charter's koans on the shape they take.

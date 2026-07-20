@@ -1,16 +1,16 @@
-//! Registers, morphemes, and the compiled language registry (`LANG-1`).
+//! Dialects, name-parts, and the compiled language registry (`LANG-1`).
 //!
-//! A **register** is a claim about a linguistic zone of the world: its
-//! phonotactics, its name grammars, and its stock of cited morphemes
+//! A **dialect** is a claim about a linguistic zone of the world: its
+//! phonotactics, its name grammars, and its stock of cited name-parts
 //! (05-language-layer §1). It is world knowledge, so it lives in the fabric like
 //! any other lore — statused, cited, and forkable. This module compiles the
-//! parsed surface (`register`, `morpheme`, `name`, `lexeme`, `term`, `banned`,
+//! parsed surface (`dialect`, `name-part`, `name`, `word`, `term`, `banned`,
 //! `hypothesis`, `ratify` declarations) into a typed [`LanguageModel`]: the
 //! name-space the kernel now owns.
 //!
-//! # The register-interior grammar (owned here)
+//! # The dialect-interior grammar (owned here)
 //!
-//! A register body is captured by the parser as normalized
+//! A dialect body is captured by the parser as normalized
 //! [`Clause`](dli_ast::clause::Clause) lines; this module structures each one.
 //! The recognized interior forms are:
 //!
@@ -22,17 +22,17 @@
 //! cluster-max <n>                            # the consonant-cluster ceiling
 //! stress <initial|penultimate|final>         # the stress rule
 //! name-kind <kind> = <role> <role> … [ | <role> … ]   # a slot grammar (alternatives split by `|`)
-//! morpheme <surface> ["gloss"] [role <role>] [gender <g>] <provenance>
+//! name-part <surface> ["gloss"] [role <role>] [gender <g>] <provenance>
 //! ```
 //!
-//! Everything a register holds is a residency change from the consuming repo's
+//! Everything a dialect holds is a residency change from the consuming repo's
 //! `registers.yaml`, not a redesign — one linguistic-zone profile becomes one
-//! pack (05 §1). The composition *weights* the legacy generator sampled do
+//! scope (05 §1). The composition *weights* the legacy generator sampled do
 //! **not** migrate: they are proposal policy, not world fact, and stay
 //! factory-side.
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, MorphemeDecl, RatifyDecl, RegisterDecl};
+use dli_ast::decl::{Decl, DialectDecl, Document, NamePartDecl, RatifyDecl};
 use dli_ast::span::{FileId, Span};
 use dli_core::ann::{Ann, Status, Theory};
 use dli_core::atom::{Atom, Interner};
@@ -44,7 +44,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::Provenance;
 
-use super::name::{LexemeDef, NameDef, compile_lexeme, compile_name};
+use super::name::{NameDef, WordDef, compile_lexeme, compile_name};
 
 /// The stress rule a register places on its surface forms.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -118,11 +118,11 @@ pub struct Phonotactics {
 /// A morpheme: a cited fact about a tongue, with its role and provenance.
 ///
 /// Each morpheme is world lore with provenance — statused and forkable like any
-/// fact (05 §1). Its [`ann`](MorphemeDef::ann) gates it: a `proposed` morpheme is
+/// fact (05 §1). Its [`ann`](NamePartDef::ann) gates it: a `proposed` morpheme is
 /// merely-possible until a ruling retires its hypothesis; a rejected one valuates
 /// false and every name derived through it dies into lineage (05 §5).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct MorphemeDef {
+pub struct NamePartDef {
     /// The surface form of the morpheme (e.g. `en`, `wern`).
     pub surface: String,
     /// The gloss, if written.
@@ -160,7 +160,7 @@ pub struct NameKind {
 
 /// A compiled register — a claim about a linguistic zone of the world (05 §1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct RegisterDef {
+pub struct DialectDef {
     /// The register name (e.g. `cymric-fringe`).
     pub name: String,
     /// The display label, if written.
@@ -175,7 +175,7 @@ pub struct RegisterDef {
     /// The name-kind slot grammars.
     pub name_kinds: Vec<NameKind>,
     /// The morphemes declared inside this register.
-    pub morphemes: Vec<MorphemeDef>,
+    pub morphemes: Vec<NamePartDef>,
     /// The `(P⁺, P⁻)` annotation gating the register.
     pub ann: Ann,
     /// How the register entered.
@@ -186,7 +186,7 @@ pub struct RegisterDef {
     pub span: Span,
 }
 
-impl RegisterDef {
+impl DialectDef {
     /// The name-kind grammar for `kind`, if the register declares one.
     #[must_use]
     pub fn name_kind(&self, kind: &str) -> Option<&NameKind> {
@@ -195,7 +195,7 @@ impl RegisterDef {
 
     /// The morpheme with `surface` filling `role`, searched within this register.
     #[must_use]
-    pub fn morpheme(&self, surface: &str, role: &str) -> Option<&MorphemeDef> {
+    pub fn morpheme(&self, surface: &str, role: &str) -> Option<&NamePartDef> {
         self.morphemes
             .iter()
             .find(|m| m.surface == surface && m.role == role)
@@ -262,14 +262,14 @@ pub struct LanguageModel {
     /// The valuation: every cited decision ruled true, plus `ratify` assignments.
     pub valuation: Valuation,
     /// The compiled registers.
-    pub registers: Vec<RegisterDef>,
+    pub registers: Vec<DialectDef>,
     /// Top-level, register-agnostic morphemes (the shared pool a name in any
     /// register may draw a loan-morpheme from).
-    pub morphemes: Vec<MorphemeDef>,
+    pub morphemes: Vec<NamePartDef>,
     /// The compiled names (typed derivations).
     pub names: Vec<NameDef>,
     /// The compiled lexemes.
-    pub lexemes: Vec<LexemeDef>,
+    pub lexemes: Vec<WordDef>,
     /// The compiled lexicon terms.
     pub terms: Vec<TermDef>,
     /// The compiled lexical bans.
@@ -281,7 +281,7 @@ pub struct LanguageModel {
 impl LanguageModel {
     /// The register named `name`, if compiled.
     #[must_use]
-    pub fn register(&self, name: &str) -> Option<&RegisterDef> {
+    pub fn register(&self, name: &str) -> Option<&DialectDef> {
         self.registers.iter().find(|r| r.name == name)
     }
 
@@ -293,7 +293,7 @@ impl LanguageModel {
         register: &str,
         surface: &str,
         role: &str,
-    ) -> Option<&MorphemeDef> {
+    ) -> Option<&NamePartDef> {
         self.register(register)
             .and_then(|r| r.morpheme(surface, role))
             .or_else(|| {
@@ -323,16 +323,16 @@ impl LanguageModel {
     /// use dli_world::language::LanguageModel;
     /// use dli_syntax::parse_document;
     ///
-    /// let src = "pack language\n\
-    ///            register fen \"the fen tongue\" ratified D-1 {\n\
+    /// let src = "scope language\n\
+    ///            dialect fen \"the fen tongue\" ratified D-1 {\n\
     ///            cluster-max 2\n\
     ///            name-kind place = place-qualifier place-generic\n\
-    ///            morpheme cors \"bog\" role place-qualifier ratified D-1\n\
-    ///            morpheme wern \"marsh\" role place-generic ratified D-1\n\
+    ///            name-part cors \"bog\" role place-qualifier ratified D-1\n\
+    ///            name-part wern \"marsh\" role place-generic ratified D-1\n\
     ///            }\n";
     /// let (doc, _diags) = parse_document(src);
     /// let out = LanguageModel::from_documents(&[doc]);
-    /// let reg = out.model.register("fen").expect("register compiled");
+    /// let reg = out.model.register("fen").expect("dialect compiled");
     /// assert_eq!(reg.morphemes.len(), 2);
     /// assert_eq!(reg.phonotactics.cluster_max, 2);
     /// ```
@@ -341,7 +341,7 @@ impl LanguageModel {
         let mut compiler = Compiler::default();
         for doc in docs {
             let pack = doc
-                .pack
+                .scope
                 .as_ref()
                 .map_or_else(String::new, |header| header.name.text.clone());
             for decl in &doc.decls {
@@ -376,8 +376,8 @@ pub(crate) struct Compiler {
 impl Compiler {
     fn process(&mut self, decl: &Decl, pack: &str) {
         match decl {
-            Decl::Register(reg) => self.register(reg, pack),
-            Decl::Morpheme(morph) => {
+            Decl::Dialect(reg) => self.register(reg, pack),
+            Decl::NamePart(morph) => {
                 let m = self.morpheme(morph, "", pack);
                 self.model.morphemes.push(m);
             }
@@ -386,7 +386,7 @@ impl Compiler {
                 self.findings.extend(findings);
                 self.model.names.push(def);
             }
-            Decl::Lexeme(lexeme) => {
+            Decl::Word(lexeme) => {
                 let ldef = compile_lexeme(self, lexeme, pack);
                 self.model.lexemes.push(ldef);
             }
@@ -425,9 +425,9 @@ impl Compiler {
         }
     }
 
-    fn register(&mut self, decl: &RegisterDecl, pack: &str) {
+    fn register(&mut self, decl: &DialectDecl, pack: &str) {
         let (ann, provenance, citations) = self.compile_ann(decl.provenance.as_ref(), pack);
-        let mut reg = RegisterDef {
+        let mut reg = DialectDef {
             name: decl.name.text.clone(),
             label: decl.label.clone(),
             basis: None,
@@ -450,7 +450,7 @@ impl Compiler {
     /// docs).
     fn register_clause(
         &mut self,
-        reg: &mut RegisterDef,
+        reg: &mut DialectDef,
         clause: &dli_ast::clause::Clause,
         pack: &str,
     ) {
@@ -483,9 +483,9 @@ impl Compiler {
                     reg.name_kinds.push(nk);
                 }
             }
-            "morpheme" => {
-                if let Some(morph) = reparse_morpheme(&clause.text) {
-                    let m = self.morpheme(&morph, &reg.name, pack);
+            "name-part" => {
+                if let Some(part) = reparse_name_part(&clause.text) {
+                    let m = self.morpheme(&part, &reg.name, pack);
                     reg.morphemes.push(m);
                 }
             }
@@ -493,12 +493,12 @@ impl Compiler {
         }
     }
 
-    /// Compile a [`MorphemeDecl`] into a [`MorphemeDef`] under `register`.
-    fn morpheme(&mut self, decl: &MorphemeDecl, register: &str, pack: &str) -> MorphemeDef {
+    /// Compile a [`NamePartDecl`] into a [`NamePartDef`] under `register`.
+    fn morpheme(&mut self, decl: &NamePartDecl, register: &str, pack: &str) -> NamePartDef {
         let role = head_value(&decl.head, "role").unwrap_or_default();
         let gender = head_value(&decl.head, "gender").and_then(|g| Gender::from_keyword(&g));
         let (ann, provenance, citations) = self.compile_ann(decl.provenance.as_ref(), pack);
-        MorphemeDef {
+        NamePartDef {
             surface: decl.name.text.clone(),
             gloss: decl.gloss.clone(),
             role,
@@ -712,13 +712,13 @@ fn parse_name_kind(rest: &[Token]) -> Option<NameKind> {
     })
 }
 
-/// Re-lift a `morpheme …` interior clause through the real parser, so its gloss,
+/// Re-lift a `name-part …` interior clause through the real parser, so its gloss,
 /// role/gender header, and provenance are typed exactly as the top-level parser
 /// would type them.
-fn reparse_morpheme(text: &str) -> Option<MorphemeDecl> {
+fn reparse_name_part(text: &str) -> Option<NamePartDecl> {
     let (doc, _diags) = parse_document(text);
     doc.decls.into_iter().find_map(|d| match d {
-        Decl::Morpheme(m) => Some(m),
+        Decl::NamePart(m) => Some(m),
         _ => None,
     })
 }
@@ -746,15 +746,15 @@ mod tests {
     #[test]
     fn register_phonotactics_and_name_kinds_compile() {
         let m = model(
-            "pack language\n\
-             register cymric \"fringe\" ratified D-1 {\n\
+            "scope language\n\
+             dialect cymric \"fringe\" ratified D-1 {\n\
              vowels a e i o u w y\n\
              endings -ys -wen\n\
              foreign qu x z\n\
              cluster-max 2\n\
              stress penultimate\n\
              name-kind person.given = given-proto given-deutero | given-simple\n\
-             morpheme en \"spirit\" role given-proto ratified D-1\n\
+             name-part en \"spirit\" role given-proto ratified D-1\n\
              }\n",
         );
         let reg = m.register("cymric").expect("compiled");
@@ -773,10 +773,10 @@ mod tests {
     #[test]
     fn ledger_morpheme_is_assertable_proposed_is_not() {
         let m = model(
-            "pack language\n\
-             register r \"r\" ratified D-1 {\n\
-             morpheme a \"a\" role given-simple ratified D-1\n\
-             morpheme b \"b\" role given-simple proposed agent:run assumes h-x\n\
+            "scope language\n\
+             dialect r \"r\" ratified D-1 {\n\
+             name-part a \"a\" role given-simple ratified D-1\n\
+             name-part b \"b\" role given-simple proposed agent:run assumes h-x\n\
              }\n",
         );
         let reg = m.register("r").expect("compiled");
@@ -792,10 +792,10 @@ mod tests {
     #[test]
     fn ratify_promotes_a_proposed_bundle() {
         let m = model(
-            "pack language\n\
+            "scope language\n\
              hypothesis h-x \"loan\"\n\
-             register r \"r\" ratified D-1 {\n\
-             morpheme b \"b\" role given-simple proposed agent:run assumes h-x\n\
+             dialect r \"r\" ratified D-1 {\n\
+             name-part b \"b\" role given-simple proposed agent:run assumes h-x\n\
              }\n\
              ratify D-9 { h-x := true }\n",
         );

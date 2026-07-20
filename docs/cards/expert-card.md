@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Expert-tier reference card"
-verdict: "The second card: the expert vocabulary — rules, forks, wheels, practices, ledgers, registers, fluents — in the same flat, one-claim-per-line shape as the first."
+verdict: "The second card: the expert vocabulary — rules, forks, cycles, practices, proofs, dialects, states — in the same flat, one-claim-per-line shape as the first."
 ---
 
 # The expert tier — reference card
@@ -20,43 +20,45 @@ language. Each lane has a full spec under `../spec/`; this card is the map.
 
 ---
 
-## Rules and order-rules — claims that check
+## Rules — claims that check
 
-A `rule` is a checkable constraint over the world; an `order-rule` constrains a
-timeline. Both carry a severity and their origin.
+A `rule` is a checkable constraint. A bare `rule` checks the world; `rule …
+over order` constrains a timeline; `rule … over season` is a season-ledger
+rule. All carry a severity and their origin — the domain is stated in the form,
+not encoded in a separate keyword.
 
 ```dli
-pack craft
+scope craft
 
-rule accomplishment-earned severity error
+rule accomplishment-earned  over season  severity error
   : beat $b kind accomplishment magnitude >= major
     requires beat $f  thread($f) = thread($b)
 
-order-rule full-team-floor       ratified D-0162
+rule full-team-floor  over order  ratified D-0162
   : listener-has(configuration full-team) requires slot >= 10
 ```
 
-## Fluents — facts that hold over an interval
+## States — facts that hold over an interval
 
-A `fluent` is a fact true across a stretch of time, until something ends it.
+A `state` is a fact true across a stretch of time, until something ends it.
 
 ```dli
-pack chronology
+scope chronology
 
-fluent gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
+state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
 ```
 
-## Wheels — cyclic time that refuses rank
+## Cycles — cyclic time that refuses rank
 
-A `wheel` is a cyclic sort: it has `succ`, `pred`, `across`, and `distance`, but
+A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but
 **no first, no largest, no `<`** (charter koan 8). Asking for the "greatest"
 season is a type error, not a silent tie-break.
 
 ```dli
-pack chronology
+scope chronology
 
-wheel tide(4) = ebb | slack | flood | high        ratified D-0146
-wheel moon(29)                                     ratified D-0148
+cycle tide(4) = ebb | slack | flood | high        ratified D-0146
+cycle moon(29)                                     ratified D-0148
 ```
 
 ## Forks — exploring an undecided world
@@ -66,7 +68,7 @@ store; nothing a fork does changes canon (koan 2). Its arms are `option`s, like
 a question's.
 
 ```dli
-pack saltmarket
+scope saltmarket
 
 fork what-does-a-name-cost
   option a-memory
@@ -75,15 +77,15 @@ fork what-does-a-name-cost
 
 ## Practices — magic systems as checked lore
 
-A `practice` is a magic system: sorts, roles, resources, rules, conditions,
+A `practice` is a magic system: kinds, roles, resources, rules, conditions,
 errors, and costs, captured in one shallow braced block. Its interior is
 captured verbatim and checked by its lane; nothing is dropped (koan 4).
 
 ```dli
-pack magic
+scope magic
 
 practice spoken-proof  ratified D-0146 D-0148 {
-  sort ground = water | field | ore | tide | hearth | boundary
+  kind ground = water | field | ore | tide | hearth | boundary
   role witness : entity    requires standing(witness), consent(witness)
   resource debt   : linear conserved
   rule ward-form(ground, fibre)  ratified D-0146 :- ...
@@ -93,15 +95,15 @@ practice spoken-proof  ratified D-0146 D-0148 {
   }
 ```
 
-## Ledgers — a scene's reasoning, step by step
+## Proofs — a scene's reasoning, step by step
 
-A `ledger` records a bounded piece of reasoning — a premise, the steps taken, a
+A `proof` records a bounded piece of reasoning — a premise, the steps taken, a
 spend, and what it closes — inside a practice.
 
 ```dli
-pack magic
+scope magic
 
-ledger e01-s04  speaker protagonist  in spoken-proof {
+proof e01-s04  speaker protagonist  in spoken-proof {
   premise p1  holds(enfys, consent(household, door))  cited D-0113  cue "line 112"
   step   s1  instantiate ward-form  with ground = door, fibre = withy
   spend  p3
@@ -109,19 +111,19 @@ ledger e01-s04  speaker protagonist  in spoken-proof {
   }
 ```
 
-## Registers and names — a constructed language
+## Dialects and names — a constructed language
 
-A `register` is a language variety with its inventory and morphemes; `name`
+A `dialect` is a language variety with its inventory and name-parts; `name`
 composes a proper name from parts; `term` and `banned` govern in-world
 vocabulary; a `hypothesis` conditions speculative claims, and `ratify` records
 the ruling that settles one.
 
 ```dli
-pack language
+scope language
 
-register cymric-fringe  "the fringe tongue"  provisional D-0181 {
+dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
   vowels a e i o u w y
-  morpheme en   "spirit"        role given-proto     ratified D-0134
+  name-part en   "spirit"        role given-proto     ratified D-0134
   }
 
 name enfys "Enfys"  person.given in cymric-fringe
@@ -133,7 +135,7 @@ banned machine   D-0056  "the allegory is structural, never lexical"
 
 hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"
 
-register speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
+dialect speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
   inventory placeholder
   }
 

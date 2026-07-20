@@ -16,11 +16,11 @@ and renames are cheap now, expensive after.
 
 | Construct | Form | Notes |
 |---|---|---|
-| Pack header | `pack <name>` | First line of a file; names the pack. |
+| Scope header | `scope <name>` | First line of a file; names the scope. |
 | Comment | `# …` | Whole-line only. |
 | Record | one declaration per line | Flat; order-insensitive between records. |
-| Continuation | leading indent under a header line | Groups child lines (entity slots, question options, rule bodies) into one record. **A dedent ends the group — indentation is currently load-bearing** (flagged in review; spec/01 §2 documents the v0 model). Tab counts as one column. |
-| Expert block | `keyword … { … }` … `}` | Brace-delimited interiors for `practice`, `ledger`, `register`, `ratify`. Braces inside string labels are plain text. |
+| Continuation | leading indent under a header line | Groups child lines (entity slots, question options, rule bodies) into one record. **A dedent ends the group — the parser is indent-tolerant and the formatter owns layout** (autoformat guarantee, DL-0016; spec/01 §2). Tab counts as one column. |
+| Expert block | `keyword … { … }` … `}` | Brace-delimited interiors for `practice`, `proof`, `dialect`, `ratify`. Braces inside string labels are plain text. |
 
 ## 2. Provenance (trails every claim-bearing line)
 
@@ -50,8 +50,8 @@ and renames are cheap now, expensive after.
 | `event` | `event <id> ["Label"] (after\|during\|since\|until) <anchor> [marker]` |
 | `fact` | `fact <subj> <pred> <obj> [marker]` (triple) — also the slot form `<entity>.<key> = <value>` and the relation form `<pred>(<a>, <b>)`, both bare (no `fact` keyword needed) |
 | `before` | `before <event-a> -> <event-b> [marker]` (declaring an order is a ruling) |
-| `use` | `use <pack>` |
-| `sort` | `sort <name> [= v1 \| v2 \| …]` |
+| `use` | `use <scope>` |
+| `kind` | `kind <name> [= v1 \| v2 \| …]` |
 | `narration` | `narration vantage <era>` (inert vantage; one per corpus) |
 
 ### Questions, forks, hypotheses
@@ -67,27 +67,25 @@ and renames are cheap now, expensive after.
 
 | Keyword | Line form(s) |
 |---|---|
-| `rule` | `rule <id> [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body (body clauses are captured text; atoms extracted via the one clause→atom bridge) |
-| `order-rule` | `order-rule <id> [marker]` + indented `: <clause> requires <clause>` |
+| `rule` | `rule <id> [over order\|season] [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body (body clauses are captured text; atoms extracted via the one clause→atom bridge). Bare = world rule; `over order` constrains a timeline; `over season` is a season-ledger rule |
 | `principle` | `principle <id> …` (craft KB; interior captured) |
-| `craft` | `craft <id> …` (season-ledger rule host; interior captured) |
 
 ### Time
 
 | Keyword | Line form(s) |
 |---|---|
-| `fluent` | `fluent <entity>.<key> = <value> (since\|until\|during) <anchor> [marker]` |
-| `wheel` | `wheel <name>(<spokes>) [= s1 \| s2 \| …] [marker]` (cyclic sort: succ/pred/across/distance; no epoch, no `<`) |
+| `state` | `state <entity>.<key> = <value> (since\|until\|during) <anchor> [marker]` |
+| `cycle` | `cycle <name>(<spokes>) [= s1 \| s2 \| …] [marker]` (cyclic kind: succ/pred/across/distance; no epoch, no `<`) |
 
 ### Practice (magic-system workbench, expert tier)
 
 `practice <id> [marker] { … }` — interior keywords, one per line:
-`use`, `sort`, `role` (`role <id> : <sort> requires <conds>`), `resource`
+`use`, `kind`, `role` (`role <id> : <kind> requires <conds>`), `resource`
 (`resource <id> : linear conserved | affine bounded <n> | graded monotone
 <dir>`), `rule` (`… :- <clauses>`), `condition`, `error` (`error <id> refines
 L1–L7 <discriminant> [where …]`), `effect`, `cost`.
 
-`ledger <id> speaker <who> in <practice> { … }` — interior:
+`proof <id> speaker <who> in <practice> { … }` — interior:
 `premise <id> <atom> cited d-NNNN [cue "…"]`, `step <id> instantiate <rule>
 with <bindings>`, `spend <premise>`, `close <atom> expect
 holds|fails-at <error>`.
@@ -96,10 +94,10 @@ holds|fails-at <error>`.
 
 | Keyword | Line form(s) |
 |---|---|
-| `register` | `register <id> [marker] { … }` (morphemes/weights interior) |
-| `morpheme` | `morpheme <id> …` (cited fact of the register) |
-| `lexeme` | `lexeme <id> …` |
-| `name` | `name <id> …` + composition children (typed derivation citing register + slots) |
+| `dialect` | `dialect <id> [marker] { … }` (name-parts/weights interior) |
+| `name-part` | `name-part <id> …` (cited fact of the dialect) |
+| `word` | `word <id> …` |
+| `name` | `name <id> …` + composition children (typed derivation citing dialect + slots) |
 | `term` | `term <id> …` (coined term) |
 | `banned` | `banned <token> …` (lexicon ban) |
 
@@ -116,9 +114,9 @@ holds|fails-at <error>`.
 ## 4. Typed vs captured
 
 Top-level line shapes, entity slots, facts (all three forms), provenance,
-time clauses, wheels, fluents, question/option/implies, before, and era
+time clauses, cycles, states, question/option/implies, before, and era
 chains are **fully typed** in the AST. The **interiors** of `rule` bodies,
-`practice`/`ledger`/`register`/`ratify` blocks are **captured clause text**
+`practice`/`proof`/`dialect`/`ratify` blocks are **captured clause text**
 (normalized, lossless, round-tripping); each owning subsystem structures its
 own interior, and `dli_syntax::parse_clause_atom` is the single bridge from
 clause text to typed atoms.
@@ -127,7 +125,7 @@ clause text to typed atoms.
 
 **Episodes** (production order, scenes, knowledge deltas) ride as data
 payloads (`examples/saltmarket-episodes.yaml`) until their surface form lands
-with the order-rules work (TIME-3).
+with the `rule … over order` work (TIME-3).
 
 ## 6. Where to look deeper
 
@@ -137,16 +135,17 @@ with the order-rules work (TIME-3).
 - `schemas/ast/document.schema.json` — the normative AST.
 - `examples/*.dli` — the living corpus (all gate-parsed).
 
-## 7. Open surface-review items (the author's live flags)
+## 7. Surface-review items — resolved by the surface-v1 pass (DL-0016)
 
-Filed 2026-07-19 from the author's first review pass; each is a rename/design
-call to make while the grammar is unfrozen:
+Filed 2026-07-19 from the author's first review pass; **all three were resolved
+by the does-what-it-says rename (DL-0016, 2026-07-20)**:
 
-1. **`pack`** — flagged as failing review (candidate renames welcome; touches
-   the file header and `use`).
-2. **`fluent`** — flagged as failing review (AI-planning jargon; a
-   writer-facing word wanted for "a value that holds for a span of
-   story-time").
-3. **Indentation as load-bearing** — flagged; the v0 model makes dedent
-   change meaning (spec/01 §2). Alternatives: explicit end-markers, braces
-   everywhere, or formatter-enforced canonical indent with parser tolerance.
+1. **`pack`** — **resolved: renamed to `scope`.** The header keyword and `use`
+   target both read `scope` now.
+2. **`fluent`** — **resolved: renamed to `state`.** The whole rename set landed
+   with it (`wheel`→`cycle`, `ledger`→`proof`, `morpheme`→`name-part`,
+   `lexeme`→`word`, `register`→`dialect`, `sort`→`kind`), and the rule family
+   unified under one `rule … over <domain>` keyword.
+3. **Indentation as load-bearing** — **resolved: the autoformat guarantee.**
+   The parser stays indent-tolerant; the formatter owns all layout, and no
+   diagnostic ever asks a writer to fix indentation (spec/01 §2).

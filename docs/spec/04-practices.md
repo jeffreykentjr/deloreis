@@ -9,7 +9,7 @@ title: "Practices: magic systems, games, and any declared law-set"
 A **practice** is a declared system of laws — a magic system, a divination
 game, a rhetorical proof discipline, a craft with rules — expressed entirely
 as data in the fabric. The kernel supplies one generic checker and one generic
-evaluator; a practice supplies the sorts it reasons over, the laws as annotated
+evaluator; a practice supplies the kinds it reasons over, the laws as annotated
 rules, the resources it spends, the side conditions its castings must satisfy,
 the ways it fails, and the currencies those failures and successes cost. From
 that declaration the kernel derives a checker for castings, proofs, readings,
@@ -28,7 +28,7 @@ that the practice's own declaration does not tell it.
 **A magic system is a practice with laws, and the laws are data.** The
 Concordance — the Spoken Proof that opens the series — is not a component of
 the kernel. It is the *spoken-proof instance* of a generic practice, one
-`.dli` pack among others. Nothing about grounds, binders, wards, debt, or the
+`.dli` scope among others. Nothing about grounds, binders, wards, debt, or the
 wrong-hour failure is written into any Rust type or evaluator branch. Point the
 same machinery at a wholly unrelated art — true-naming, a card game, a smith's
 temper-craft — and it runs with zero kernel change, because everything that
@@ -50,13 +50,13 @@ are the closed vocabulary a practice declaration draws on; a practice that
 needs something outside this vocabulary is telling the workbench that the
 parameterization is incomplete, which is a finding worth having.
 
-**Typed finite sorts, including the cyclic `wheel`.** A practice declares its
-own sorts — grounds, binders, roles — as ordinary finite sorts
-([01-syntax](01-syntax.md)). The cyclic `wheel` sort ([03-time](03-time.md),
+**Typed finite kinds, including the cyclic `wheel`.** A practice declares its
+own kinds — grounds, binders, roles — as ordinary finite kinds
+([01-syntax](01-syntax.md)). The cyclic `wheel` kind ([03-time](03-time.md),
 [koan 8](../charter.md)) is available on the same footing: tide, moon, and
 season are wheels, and so is the Turning's ring of twenty-nine leaves. A wheel
 carries `succ`, `pred`, `across`, and `distance` and refuses `<`, sort order,
-and maximum — the same rank-refusing sort the timing checker and the game
+and maximum — the same rank-refusing kind the timing checker and the game
 engine share.
 
 **Annotated facts and rules.** A practice's laws are annotated rules
@@ -80,7 +80,7 @@ fixed, small algebra — nothing else is a resource:
   along its declared order; nothing is spent, but the grade wears.
 
 **Side conditions over the scene projection.** A condition is a predicate over
-the world as projected into a scene: fluents that hold there, wheel phases in
+the world as projected into a scene: states that hold there, wheel phases in
 force, cast presence, consent facts, scope containment. Conditions are how a
 practice reaches into story-time and world-state without special-casing
 either — the timing of a casting, the standing of a witness, the boundary a
@@ -95,7 +95,7 @@ practice declares is a *refinement* of one of them:
 | L1 | unknown-form — the casting names a form the practice does not declare |
 | L2 | premise-not-available — a required premise is absent or contradicted in the projection |
 | L3 | side-condition — a declared condition fails (timing, consent, scope, soundness) |
-| L4 | bad-instantiation — a form is instantiated against arguments its sorts forbid |
+| L4 | bad-instantiation — a form is instantiated against arguments its kinds forbid |
 | L5 | invalid-chain — a step joins premises the law does not license |
 | L6 | resource-violation — a spend breaks the resource's algebra |
 | L7 | close-mismatch — the close does not follow from the accounted ledger |
@@ -118,7 +118,7 @@ scene, intersected with what the scene puts on stage. This one projection is
 the seam between a practice and the rest of the fabric, and it is where
 licensed ignorance becomes checkable (§3).
 
-Everything else — which sorts, which laws, which resources, which conditions,
+Everything else — which kinds, which laws, which resources, which conditions,
 which failures, which costs — is the practice's own declaration.
 
 ## 3. The spoken-proof instance, worked
@@ -127,13 +127,13 @@ The Concordance as a practice, from the ratified direction vocabulary:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack magic
+scope magic
 
 practice spoken-proof  ratified D-0146 D-0148 {
-  sort ground = water | field | ore | tide | hearth | boundary   # the Grounds
-  sort binder from lexicon.loan-words          # the Binder layer IS the lexicon's
+  kind ground = water | field | ore | tide | hearth | boundary   # the Grounds
+  kind binder from lexicon.loan-words          # the Binder layer IS the lexicon's
                                                # attested loan-words: magic consuming
-                                               # the language layer as an ordinary sort
+                                               # the language layer as an ordinary kind
   role witness : entity    requires standing(witness), consent(witness)
   role holder  : artifact  requires sound(holder)     # fiber, leaf, record, cord
   role seat    : place
@@ -219,19 +219,19 @@ is that proof — fifteen declared lines, nothing in common with proof-magic:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack magic
+scope magic
 
 practice true-naming  proposed {        # a fixture, not canon: the arbitrariness proof
   use language.registers                # its primitives ARE the naming layer (05-language-layer)
   resource acquaintance(name) : graded monotone whole > worn > husk
   rule invoke(bearer) requires
-      knows(caster, true-name(bearer)),                     # a knowledge fluent
+      knows(caster, true-name(bearer)),                     # a knowledge state
       acquaintance(true-name(bearer)) >= worn,
       derivation(true-name(bearer)) checks in register-of(bearer)
   effect invoke degrades acquaintance by 1     # speaking a name wears it
   condition unheard requires no witness within earshot
   error slipped-name   refines L4 bad-instantiation
-                       # a mispronunciation IS a failed register derivation
+                       # a mispronunciation IS a failed dialect derivation
   error stale-name     refines L2 where premise-outdated
                        # the bearer has changed since the name was learned
   error name-overheard refines L3 side-condition [unheard] signals degrade(+1)
@@ -241,11 +241,11 @@ practice true-naming  proposed {        # a fixture, not canon: the arbitrarines
 
 Nothing here resembles proof-magic. The resource is a graded-monotone decay,
 not a conserved linear multiset — nothing is spent, knowing only *wears*.
-Failure is degradation and staleness against fluents, not typed proof-step
+Failure is degradation and staleness against states, not typed proof-step
 errors. The premises are names known, not facts derived. And the practice
-consumes the language layer wholesale: a true-name is a register derivation, so
+consumes the language layer wholesale: a true-name is a dialect derivation, so
 a mispronunciation is literally a grammar error (L4), and learning a name is a
-knowledge fluent. Three layers — magic, language, and story-time — meet in
+knowledge state. Three layers — magic, language, and story-time — meet in
 fifteen declared lines and zero kernel code.
 
 That is [koan 10](../charter.md) demonstrated rather than argued. The one honest
@@ -254,7 +254,7 @@ adding a member to the resource algebra. Had it needed more than one new
 algebra member, the parameterization would have failed — which is exactly what
 makes this fixture load-bearing.
 
-**Standing role.** The true-naming pack is the workbench's acceptance test. It
+**Standing role.** The true-naming scope is the workbench's acceptance test. It
 is kept in the tree beside the mutation corpus and compiled by the gate: if a
 future kernel change makes true-naming require per-system code, the fixture
 stops compiling with zero kernel code and the regression is caught at the gate,
@@ -269,7 +269,7 @@ explicitly rather than searching for a derivation:
 
 - `premise` — an atom the casting rests on, drawn from the projection, with its
   cue and, where it is an observation, its source (`from-scene`, `observed`).
-- `instantiate` — bind a declared form's sorts to concrete arguments.
+- `instantiate` — bind a declared form's kinds to concrete arguments.
 - `chain` — join prior premises and steps by a named law to a conclusion.
 - `assume` — take a fork-local supposition, marked as such.
 - `spend` — draw a resource unit against a named premise or step.
@@ -282,9 +282,9 @@ A ledger is written as data and checked, never authored by the machine:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack magic
+scope magic
 
-ledger e01-s04  speaker protagonist  in spoken-proof {
+proof e01-s04  speaker protagonist  in spoken-proof {
   premise p1  holds(enfys, consent(household, door))  cited D-0113  cue "line 112"
   premise p2  hour(slack-tide)  from-scene  cue "line 118"
   premise p3  debt(1)  drawn-against p1
@@ -349,8 +349,8 @@ declarations, checked at compile time before any casting is run:
 - **Resources use only the closed algebra.** A `resource` whose kind is not
   `linear`, `linear conserved`, `affine bounded <cap>`, or `graded monotone
   <order>` is a compile error — there is no open resource vocabulary.
-- **Rules type-check against the practice's sorts.** A law that instantiates a
-  form against arguments outside the declared sorts, or references a role or
+- **Rules type-check against the practice's kinds.** A law that instantiates a
+  form against arguments outside the declared kinds, or references a role or
   condition the practice does not declare, fails to compile.
 
 A ledger gains one clause — `in <practice>` — and loses nothing: the same

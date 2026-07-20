@@ -23,7 +23,7 @@ const INDENT: &str = "  ";
 /// use dli_syntax::parser::parse_document;
 /// use dli_syntax::format::format_document;
 ///
-/// let (doc, diags) = parse_document("pack p\nplace weir \"The Weir\"  proposed\n");
+/// let (doc, diags) = parse_document("scope p\nplace weir \"The Weir\"  proposed\n");
 /// assert!(diags.is_empty());
 /// let text = format_document(&doc);
 /// // Formatting is idempotent.
@@ -33,9 +33,9 @@ const INDENT: &str = "  ";
 #[must_use]
 pub fn format_document(document: &Document) -> String {
     let mut out = String::new();
-    if let Some(pack) = &document.pack {
-        out.push_str("pack ");
-        out.push_str(&pack.name.text);
+    if let Some(scope) = &document.scope {
+        out.push_str("scope ");
+        out.push_str(&scope.name.text);
         out.push('\n');
         if !document.decls.is_empty() {
             out.push('\n');
@@ -221,21 +221,25 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             vec![line]
         }
         Decl::Use(u) => vec![format!("use {}", u.target.text)],
-        Decl::Sort(s) => {
-            let mut line = format!("sort {}", s.name.text);
+        Decl::Kind(s) => {
+            let mut line = format!("kind {}", s.name.text);
             append_provenance(&mut line, s.provenance.as_ref());
             vec![line.trim_end().to_owned()]
         }
         Decl::Rule(r) => {
             let mut header = format!("rule {}", r.name.text);
+            if let Some(domain) = r.domain {
+                header.push_str(" over ");
+                header.push_str(domain.keyword());
+            }
             append_head(&mut header, &r.head);
             append_provenance(&mut header, r.provenance.as_ref());
             let mut lines = vec![header.trim_end().to_owned()];
             lines.extend(clause_lines(&r.body));
             lines
         }
-        Decl::Fluent(fl) => {
-            let mut line = format!("fluent {}", fl.name.text);
+        Decl::State(fl) => {
+            let mut line = format!("state {}", fl.name.text);
             if let Some(value) = &fl.value {
                 line.push_str(" = ");
                 line.push_str(&render_term(value));
@@ -247,8 +251,8 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_provenance(&mut line, fl.provenance.as_ref());
             vec![line.trim_end().to_owned()]
         }
-        Decl::Wheel(w) => {
-            let mut line = format!("wheel {}", w.name.text);
+        Decl::Cycle(w) => {
+            let mut line = format!("cycle {}", w.name.text);
             if let Some(modulus) = w.modulus {
                 line.push('(');
                 line.push_str(&modulus.to_string());
@@ -270,21 +274,13 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             p.provenance.as_ref(),
             &p.body,
         ),
-        Decl::Register(r) => braced(
-            "register",
+        Decl::Dialect(r) => braced(
+            "dialect",
             &r.name.text,
             r.label.as_deref(),
             &[],
             r.provenance.as_ref(),
             &r.body,
-        ),
-        Decl::Craft(c) => braced(
-            "craft",
-            &c.name.text,
-            None,
-            &[],
-            c.provenance.as_ref(),
-            &c.body,
         ),
         Decl::Draft(d) => braced(
             "draft",
@@ -302,19 +298,19 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             e.provenance.as_ref(),
             &e.body,
         ),
-        Decl::Ledger(l) => braced("ledger", &l.name.text, None, &l.head, None, &l.body),
+        Decl::Proof(l) => braced("proof", &l.name.text, None, &l.head, None, &l.body),
         Decl::Ratify(r) => braced("ratify", &r.decision.text, None, &[], None, &r.body),
-        Decl::Lexeme(l) => {
-            let mut line = format!("lexeme {}", l.name.text);
-            for morph in &l.morphemes {
+        Decl::Word(l) => {
+            let mut line = format!("word {}", l.name.text);
+            for part in &l.name_parts {
                 line.push(' ');
-                line.push_str(&morph.text);
+                line.push_str(&part.text);
             }
             append_provenance(&mut line, l.provenance.as_ref());
             vec![line.trim_end().to_owned()]
         }
-        Decl::Morpheme(m) => {
-            let mut line = format!("morpheme {}", m.name.text);
+        Decl::NamePart(m) => {
+            let mut line = format!("name-part {}", m.name.text);
             if let Some(gloss) = &m.gloss {
                 line.push(' ');
                 line.push_str(&quote(gloss));
@@ -374,13 +370,6 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_provenance(&mut header, v.provenance.as_ref());
             let mut lines = vec![header.trim_end().to_owned()];
             lines.extend(clause_lines(&v.body));
-            lines
-        }
-        Decl::OrderRule(o) => {
-            let mut header = format!("order-rule {}", o.name.text);
-            append_provenance(&mut header, o.provenance.as_ref());
-            let mut lines = vec![header.trim_end().to_owned()];
-            lines.extend(clause_lines(&o.body));
             lines
         }
         Decl::Principle(p) => {

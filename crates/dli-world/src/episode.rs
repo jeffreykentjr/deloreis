@@ -62,7 +62,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use dli_ast::annot::Annotation;
-use dli_time::wheel::WheelPos;
+use dli_time::cycle::CyclePos;
 
 /// A reference to a cast entity (a character), by canonical name.
 #[derive(
@@ -100,7 +100,7 @@ pub struct QuestionRef(pub String);
 /// honestly-partial position pinned by [`after`](Self::after) /
 /// [`before`](Self::before) event constraints (there is no offset — an
 /// undeclared pair is unordered). It may also bind cyclic [`phases`](Self::phases)
-/// — a tide, a moon-night, a season — one [`WheelPos`] per relevant wheel.
+/// — a tide, a moon-night, a season — one [`CyclePos`] per relevant cycle.
 ///
 /// The [`Default`] (empty) anchor is *unanchored*: an unanchored episode follows
 /// its predecessor in the story-present, the current behavior preserved. A
@@ -113,8 +113,8 @@ pub struct EpisodeAnchor {
     pub after: Vec<EventRef>,
     /// Events this anchor falls strictly before (intra-era precedence).
     pub before: Vec<EventRef>,
-    /// Cyclic phase coordinates at this story point, one per wheel.
-    pub phases: Vec<WheelPos>,
+    /// Cyclic phase coordinates at this story point, one per cycle.
+    pub phases: Vec<CyclePos>,
 }
 
 impl EpisodeAnchor {
@@ -153,7 +153,7 @@ impl EpisodeAnchor {
 
     /// Bind a cyclic phase coordinate, builder-style.
     #[must_use]
-    pub fn with_phase(mut self, phase: WheelPos) -> Self {
+    pub fn with_phase(mut self, phase: CyclePos) -> Self {
         self.phases.push(phase);
         self
     }

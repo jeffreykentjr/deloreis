@@ -8,7 +8,7 @@ use dli_world::episode::{
     Scene, fold,
 };
 
-use dli_time::wheel::WheelPos;
+use dli_time::cycle::CyclePos;
 
 /// A scene that only introduces a fact and reveals it to the listener.
 fn reveal_scene(id: &str, fact: &str, anchor: Option<EpisodeAnchor>) -> Scene {
@@ -234,8 +234,8 @@ fn episode_round_trips_through_json() {
         production_order: 14,
         story_anchor: EpisodeAnchor::era("the-beleaguered-present")
             .after_event("e13")
-            .with_phase(WheelPos {
-                wheel: "tide".to_owned(),
+            .with_phase(CyclePos {
+                cycle: "tide".to_owned(),
                 index: 1,
             }),
         scenes: vec![reveal_scene(

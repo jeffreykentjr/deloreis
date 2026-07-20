@@ -102,7 +102,7 @@ fn atom_index(world: &World, name: &str) -> Atom {
 /// an open question whose options each imply who keeps the ledger.
 fn saltmarket_world() -> World {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![
             decided_fact(
                 "adjacent",
@@ -233,7 +233,7 @@ fn min_why_picks_the_smallest_witness() {
 fn why_not_on_a_proposed_fact_names_its_proposal_var() {
     // A `proposed` fact rests on a fresh open proposal variable.
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![fact(
             "keeps",
             vec![sym("mara"), sym("the-salt-ledger")],
@@ -396,7 +396,7 @@ fn fork_overlay_changes_answers_without_re_lowering() {
 /// A world with a two-era spine and one fact anchored in each era.
 fn timeline_world() -> World {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![
             Decl::Before(BeforeDecl {
                 earlier: Ident::synthetic("first-age"),

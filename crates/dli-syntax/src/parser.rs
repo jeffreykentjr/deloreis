@@ -16,11 +16,11 @@
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
-    AttrDecl, BannedDecl, BeforeDecl, CraftDecl, Decl, Document, DraftDecl, EntityDecl, EntityKind,
-    ExportDecl, FactDecl, FluentDecl, ForkDecl, HypothesisDecl, LedgerDecl, LexemeDecl,
-    MorphemeDecl, NameDecl, NarrationDecl, OptionClause, OrderRuleDecl, PackHeader, PracticeDecl,
-    PrincipleDecl, QuestionDecl, RatifyDecl, RegisterDecl, RuleDecl, SortDecl, TermDecl,
-    TimeClause, UseDecl, VariantDecl, WheelDecl,
+    AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document, DraftDecl,
+    EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, HypothesisDecl, KindDecl, NameDecl,
+    NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl, ProofDecl,
+    QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::{FileId, Span};
@@ -38,9 +38,9 @@ use crate::lexer::{Line, Token, TokenKind, lines};
 /// ```
 /// use dli_syntax::parser::parse_document;
 ///
-/// let (doc, diags) = parse_document("pack saltmarket\nplace weir \"The Weir\" proposed\n");
+/// let (doc, diags) = parse_document("scope saltmarket\nplace weir \"The Weir\" proposed\n");
 /// assert!(diags.is_empty());
-/// assert_eq!(doc.pack.unwrap().name.text, "saltmarket");
+/// assert_eq!(doc.scope.unwrap().name.text, "saltmarket");
 /// assert_eq!(doc.decls.len(), 1);
 /// ```
 #[must_use]
@@ -51,19 +51,24 @@ pub fn parse_document(input: &str) -> (Document, Vec<Diagnostic>) {
     let mut diags = lexical_diagnostics(source, file);
     let records = assemble_records(&lines(source, file), file, &mut diags);
 
-    let mut pack = None;
+    let mut scope = None;
     let mut items: Vec<Item> = Vec::new();
     for record in &records {
         let Some(first) = record.head.tokens.first() else {
             continue;
         };
-        if first.kind == TokenKind::Word && first.text == "pack" {
+        if first.kind == TokenKind::Word && first.text == "scope" {
             if let Some(name_tok) = record.head.tokens.get(1) {
-                pack = Some(PackHeader {
+                scope = Some(ScopeHeader {
                     name: ident_of(name_tok),
                     span: record.head.span,
                 });
             }
+            continue;
+        }
+        if first.kind == TokenKind::Word && first.text == "pack" {
+            // `pack` is a killed form — the header keyword is now `scope` (koan 7).
+            diags.push(renamed_keyword("pack", "scope", first.span));
             continue;
         }
         parse_record(record, &mut items, &mut diags);
@@ -71,7 +76,7 @@ pub fn parse_document(input: &str) -> (Document, Vec<Diagnostic>) {
 
     let decls = fold_options(items, &mut diags);
     check_origins(&decls, &mut diags);
-    (Document { pack, decls }, diags)
+    (Document { scope, decls }, diags)
 }
 
 /// Pre-lexing scan for lexical hazards that would otherwise lose text silently:
@@ -467,17 +472,19 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             Some(target) => items.push(Item::Decl(Decl::Use(UseDecl { target, span }))),
             None => missing_name(diags, "use", span),
         },
-        "sort" => match parse_simple_named(&mut cur, diags, span) {
+        "kind" => match parse_simple_named(&mut cur, diags, span) {
             Some((name, provenance)) => {
-                items.push(Item::Decl(Decl::Sort(SortDecl { name, provenance })));
+                items.push(Item::Decl(Decl::Kind(KindDecl { name, provenance })));
             }
-            None => missing_name(diags, "sort", span),
+            None => missing_name(diags, "kind", span),
         },
         "rule" => match cur.eat_ident() {
             Some(name) => {
+                let domain = parse_rule_domain(&mut cur);
                 let (head, provenance) = split_head_prov(&mut cur, diags);
                 items.push(Item::Decl(Decl::Rule(RuleDecl {
                     name,
+                    domain,
                     head,
                     body: record.body.clone(),
                     provenance,
@@ -485,14 +492,14 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             }
             None => missing_name(diags, "rule", span),
         },
-        "fluent" => {
-            if let Some(decl) = parse_fluent(&mut cur, diags, span) {
-                items.push(Item::Decl(Decl::Fluent(decl)));
+        "state" => {
+            if let Some(decl) = parse_state(&mut cur, diags, span) {
+                items.push(Item::Decl(Decl::State(decl)));
             }
         }
-        "wheel" => {
-            if let Some(decl) = parse_wheel(&mut cur, diags, span) {
-                items.push(Item::Decl(Decl::Wheel(decl)));
+        "cycle" => {
+            if let Some(decl) = parse_cycle(&mut cur, diags, span) {
+                items.push(Item::Decl(Decl::Cycle(decl)));
             }
         }
         "practice" => {
@@ -506,11 +513,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 })));
             }
         }
-        "register" => {
+        "dialect" => {
             if let Some((name, label, _head, body, provenance)) =
-                parse_named_block(&mut cur, record, diags, span, "register")
+                parse_named_block(&mut cur, record, diags, span, "dialect")
             {
-                items.push(Item::Decl(Decl::Register(RegisterDecl {
+                items.push(Item::Decl(Decl::Dialect(DialectDecl {
                     name,
                     label,
                     body,
@@ -518,40 +525,29 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 })));
             }
         }
-        "lexeme" => match parse_simple_named(&mut cur, diags, span) {
+        "word" => match parse_simple_named(&mut cur, diags, span) {
             Some((name, provenance)) => {
-                items.push(Item::Decl(Decl::Lexeme(LexemeDecl {
+                items.push(Item::Decl(Decl::Word(WordDecl {
                     name,
-                    morphemes: Vec::new(),
+                    name_parts: Vec::new(),
                     provenance,
                 })));
             }
-            None => missing_name(diags, "lexeme", span),
+            None => missing_name(diags, "word", span),
         },
-        "morpheme" => match cur.eat_ident() {
+        "name-part" => match cur.eat_ident() {
             Some(name) => {
                 let gloss = cur.eat_string();
                 let (head, provenance) = split_head_prov(&mut cur, diags);
-                items.push(Item::Decl(Decl::Morpheme(MorphemeDecl {
+                items.push(Item::Decl(Decl::NamePart(NamePartDecl {
                     name,
                     gloss,
                     head,
                     provenance,
                 })));
             }
-            None => missing_name(diags, "morpheme", span),
+            None => missing_name(diags, "name-part", span),
         },
-        "craft" => {
-            if let Some((name, _label, _head, body, provenance)) =
-                parse_named_block(&mut cur, record, diags, span, "craft")
-            {
-                items.push(Item::Decl(Decl::Craft(CraftDecl {
-                    name,
-                    body,
-                    provenance,
-                })));
-            }
-        }
         "draft" => {
             if let Some((name, _label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "draft")
@@ -639,17 +635,6 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             }))),
             None => missing_name(diags, "ratify", span),
         },
-        "order-rule" => match cur.eat_ident() {
-            Some(name) => {
-                let (_head, provenance) = split_head_prov(&mut cur, diags);
-                items.push(Item::Decl(Decl::OrderRule(OrderRuleDecl {
-                    name,
-                    body: record.body.clone(),
-                    provenance,
-                })));
-            }
-            None => missing_name(diags, "order-rule", span),
-        },
         "principle" => match cur.eat_ident() {
             Some(name) => {
                 let (head, provenance) = split_head_prov(&mut cur, diags);
@@ -662,17 +647,24 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             }
             None => missing_name(diags, "principle", span),
         },
-        "ledger" => match cur.eat_ident() {
+        "proof" => match cur.eat_ident() {
             Some(name) => {
                 let (head, _provenance) = split_head_prov(&mut cur, diags);
-                items.push(Item::Decl(Decl::Ledger(LedgerDecl {
+                items.push(Item::Decl(Decl::Proof(ProofDecl {
                     name,
                     head,
                     body: record.body.clone(),
                 })));
             }
-            None => missing_name(diags, "ledger", span),
+            None => missing_name(diags, "proof", span),
         },
+        _ if renamed_keyword_target(&keyword).is_some() => {
+            // A killed form: the surface has one current word for each thing, and
+            // an old spelling is refused with the word that replaced it (koan 7),
+            // never silently accepted nor read as an unknown keyword.
+            let target = renamed_keyword_target(&keyword).unwrap_or_default();
+            diags.push(renamed_keyword(&keyword, target, first.span));
+        }
         _ => {
             // Not a keyword. Two keyword-free surface forms are legal at top
             // level: a relation atom `pred(args)` and a slot fact
@@ -1057,11 +1049,11 @@ fn parse_banned(cur: &mut Cursor, span: Span, diags: &mut Vec<Diagnostic>) -> Op
     })
 }
 
-// --- fluents, wheels ------------------------------------------------------
+// --- states, cycles -------------------------------------------------------
 
-fn parse_fluent(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<FluentDecl> {
+fn parse_state(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<StateDecl> {
     let Some(name) = cur.eat_ident() else {
-        missing_name(diags, "fluent", span);
+        missing_name(diags, "state", span);
         return None;
     };
     let value = if cur.peek_kind() == Some(TokenKind::Equals) {
@@ -1072,7 +1064,7 @@ fn parse_fluent(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     };
     let time = parse_time_clause(cur);
     let provenance = parse_provenance(cur, diags);
-    Some(FluentDecl {
+    Some(StateDecl {
         name,
         value,
         time,
@@ -1080,9 +1072,9 @@ fn parse_fluent(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     })
 }
 
-fn parse_wheel(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<WheelDecl> {
+fn parse_cycle(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<CycleDecl> {
     let Some(name) = cur.eat_ident() else {
-        missing_name(diags, "wheel", span);
+        missing_name(diags, "cycle", span);
         return None;
     };
     let mut modulus = None;
@@ -1110,12 +1102,30 @@ fn parse_wheel(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Opt
         }
     }
     let provenance = parse_provenance(cur, diags);
-    Some(WheelDecl {
+    Some(CycleDecl {
         name,
         modulus,
         spokes,
         provenance,
     })
+}
+
+/// Read an optional `over <domain>` clause after a rule's name. Consumes the two
+/// tokens only when both `over` and a known domain (`order`/`season`) are present;
+/// otherwise the cursor is left untouched and the rule is a world rule.
+fn parse_rule_domain(cur: &mut Cursor) -> Option<RuleDomain> {
+    let rest = cur.remaining();
+    if rest.first().map(|t| t.text.as_str()) != Some("over") {
+        return None;
+    }
+    let domain = match rest.get(1).map(|t| t.text.as_str()) {
+        Some("order") => RuleDomain::Order,
+        Some("season") => RuleDomain::Season,
+        _ => return None,
+    };
+    cur.bump(); // `over`
+    cur.bump(); // the domain word
+    Some(domain)
 }
 
 // --- generic keyword blocks ----------------------------------------------
@@ -1314,6 +1324,35 @@ fn missing_name(diags: &mut Vec<Diagnostic>, keyword: &str, span: Span) {
         format!("`{keyword}` needs a name after it."),
         span,
     ));
+}
+
+/// The current spelling a retired keyword was renamed to, or `None` if `keyword`
+/// is not a killed form. Every word the surface-v1 naming pass retired lives here
+/// (DL-0016), so an old spelling is refused with the word that replaced it rather
+/// than read as an unknown keyword.
+fn renamed_keyword_target(keyword: &str) -> Option<&'static str> {
+    Some(match keyword {
+        "pack" => "scope",
+        "fluent" => "state",
+        "wheel" => "cycle",
+        "morpheme" => "name-part",
+        "lexeme" => "word",
+        "register" => "dialect",
+        "sort" => "kind",
+        "ledger" => "proof",
+        "order-rule" => "rule … over order",
+        "craft" => "rule … over season",
+        _ => return None,
+    })
+}
+
+/// A domain-spoken diagnostic that a retired keyword was renamed (koan 9).
+fn renamed_keyword(old: &str, new: &str, span: Span) -> Diagnostic {
+    Diagnostic::new(
+        DiagClass::RenamedKeyword,
+        format!("`{old}` was renamed — write `{new}`."),
+        span,
+    )
 }
 
 /// A cursor over a header token slice.

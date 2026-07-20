@@ -5,7 +5,7 @@
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
-    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, PackHeader, RuleDecl, SortDecl,
+    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl, RuleDecl, ScopeHeader,
     TimeClause,
 };
 use dli_ast::ident::Ident;
@@ -57,7 +57,7 @@ fn fact(pred: &str, args: &[&str], triple: bool, provenance: Option<Annotation>)
 }
 
 fn sort(name: &str, provenance: Option<Annotation>) -> Decl {
-    Decl::Sort(SortDecl {
+    Decl::Kind(KindDecl {
         name: ident(name),
         provenance,
     })
@@ -65,7 +65,7 @@ fn sort(name: &str, provenance: Option<Annotation>) -> Decl {
 
 fn doc(pack: &str, decls: Vec<Decl>) -> Document {
     Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: ident(pack),
             span: Span::synthetic(),
         }),
@@ -245,6 +245,7 @@ fn a_well_formed_rule_loads_totally_and_clean() {
     // does not lower the text body and `rule_count` stays 0 here.
     let rule = Decl::Rule(RuleDecl {
         name: ident("adjacency-symmetric"),
+        domain: None,
         head: Vec::new(),
         body: vec![Clause {
             text: "adjacent(A, B) :- adjacent(B, A)".to_owned(),
@@ -262,6 +263,7 @@ fn a_well_formed_rule_loads_totally_and_clean() {
 fn a_rule_without_provenance_is_a_finding() {
     let rule = Decl::Rule(RuleDecl {
         name: ident("adjacency-symmetric"),
+        domain: None,
         head: Vec::new(),
         body: Vec::new(),
         provenance: None,
@@ -329,7 +331,7 @@ fn chronology_and_time_points_match_the_evaluator_lowering() {
     // The loader must build the timeline byte-for-byte as `World::lower` does:
     // era-order chains and `before`-decls, interned in document order.
     let d = Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: ident("chron"),
             span: Span::synthetic(),
         }),

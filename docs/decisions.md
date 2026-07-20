@@ -275,3 +275,34 @@ not the language.
 
 **Revisit trigger.** Add a general scripting layer only if the repo goes
 polyglot.
+
+## DL-0016 — Surface v1 naming — the does-what-it-says pass
+
+*Date: 2026-07-20*
+
+**Ruling.** The surface keyword set is renamed so every reserved word says what
+the line does in the plainest word a working fiction writer already owns
+(`docs/surface-v1-naming.md`, status resolved). The rename set, approved in
+full: `fluent`→`state`, `wheel`→`cycle`, the in-practice proof block
+`ledger`→`proof`, `morpheme`→`name-part`, `lexeme`→`word`, `register`→`dialect`,
+`sort`→`kind`. The file header `pack` is renamed to `scope` (the header stays).
+The rule family **unifies** under one `rule` keyword with its domain stated in
+the form — `rule … over order` (was `order-rule`), `rule … over season` (was
+`craft`), and a bare `rule` for a world rule — retiring `order-rule` and `craft`
+as keywords. Indentation stays with an explicit **autoformat guarantee**: the
+parser is indent-tolerant, the formatter owns all layout, and no diagnostic ever
+asks a writer to fix indentation. Every retired word becomes a **killed form**:
+the parser refuses it with a domain-spoken *renamed-to* diagnostic
+(`error: `fluent` was renamed — write `state``) rather than accepting it or
+reading it as an unknown keyword.
+
+**Rationale.** The author's first surface review found the keyword terminology
+incoherent: `fluent`, `wheel`, `craft` are non-obvious; `morpheme`/`lexeme` are
+linguistics terms of art; `register` is borderline; `pack` is unjustified; the
+lone compound `order-rule` is out of character. The whole syntax should read
+"does what it says" — no terms of art on the writer path, and no fantasy flavor
+in the machinery (the flavor belongs to the world being described). The rename
+is cheap while the grammar is unfrozen and expensive after.
+
+**Revisit trigger.** The grammar freeze (SURF-4); after it, any surface change is
+a versioned canonical-to-canonical migration, not an edit.

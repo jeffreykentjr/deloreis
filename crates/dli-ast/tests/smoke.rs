@@ -2,19 +2,19 @@
 //! Smoke coverage for the AST crate.
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, FactDecl, PackHeader, SortDecl};
+use dli_ast::decl::{Decl, Document, FactDecl, KindDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 
 fn sample_document() -> Document {
     Document {
-        pack: Some(PackHeader {
+        scope: Some(ScopeHeader {
             name: Ident::synthetic("saltmarket"),
             span: Span::synthetic(),
         }),
         decls: vec![
-            Decl::Sort(SortDecl {
+            Decl::Kind(KindDecl {
                 name: Ident::synthetic("place"),
                 provenance: None,
             }),

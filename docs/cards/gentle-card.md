@@ -10,8 +10,8 @@ This is the first card, and for most worldbuilding it is the only one you need.
 It shows the **whole** gentle subset: entities, facts and relations, timeline
 points, questions, and the one word that says where a claim comes from. Read
 every line as notes, not as English — **what parses is exactly what this card
-shows** (spec `../spec/01-syntax.md` §4). There is no lenient dialect hiding
-behind it.
+shows** (spec `../spec/01-syntax.md` §4). There is no lenient variant grammar
+hiding behind it.
 
 The card supersedes `SKILL.md` §4 as the canonical statement of the gentle
 subset; where they differ, this card is right.
@@ -34,7 +34,7 @@ spacing and alignment are never yours to get right.
 
 The whole subset is these leading words and nothing else:
 
-- **`pack`** — opens a world (a namespace for its claims).
+- **`scope`** — opens a world (a namespace for its claims).
 - **`place`**, **`person`**, **`thing`** — the entities of the world.
 - **`era`**, **`event`**, **`before`** — points and orderings in time.
 - **`adjacent`** and other named relations — facts of the form `pred(a, b)`.
@@ -57,7 +57,7 @@ A complete small world fits in the gentle subset:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-pack saltmarket
+scope saltmarket
 
 era founding   "The Landing"      decided d-0001
 era now        "The Ninth Tide"   after founding

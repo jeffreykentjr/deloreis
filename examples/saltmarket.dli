@@ -2,11 +2,11 @@
 #
 # The saltmarket world — the shared test corpus every later lane checks against.
 # Gentle subset plus a chronology spine: an era spine (>=3 eras), events with a
-# before-fact and a deliberately UNORDERED pair, fluents with since/until (the
+# before-fact and a deliberately UNORDERED pair, states with since/until (the
 # two-era water-status case), an adjacency graph (>=6 edges), and a question with
 # options under a hypothesis. Provenance is this world's OWN decision list
 # (d-0001..d-0009) — a solo writer's ledger, per 01-syntax §3.
-pack saltmarket
+scope saltmarket
 
 # --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
 era first-tides < the-silting < the-drought-years < the-ledger-days   decided d-0001
@@ -55,9 +55,9 @@ thing the-salt-ledger "The Salt-Ledger" decided d-0007
 fact mara lives-in saltmarket          decided d-0006
 fact old-fen tends the-weir            decided d-0006
 
-# --- fluents: facts acquire validity spans (the two-era water-status case) ----
-fluent the-weir.water = common   until the-marsh-enclosure   decided d-0008
-fluent the-weir.water = enclosed since the-marsh-enclosure   decided d-0008
+# --- states: facts acquire validity spans (the two-era water-status case) ----
+state the-weir.water = common   until the-marsh-enclosure   decided d-0008
+state the-weir.water = enclosed since the-marsh-enclosure   decided d-0008
 # common UNTIL the enclosure and enclosed SINCE it: a pre-enclosure flashback
 # checks clean AND the present checks clean, because the two claims hold over
 # disjoint spans (03-time §2). No false contradiction between them.

@@ -160,6 +160,23 @@ pub fn ladder(class: DiagClass) -> Ladder {
                 spec: "01-syntax.md §2",
             },
         ),
+        DiagClass::RenamedKeyword => (
+            "the line opens with a keyword that was renamed — an old spelling the surface no \
+             longer carries, kept only as a killed form so the change is taught, not guessed at",
+            Repair::Recast {
+                into: "write the word the message names in its place",
+            },
+            Rule {
+                statement: "there is one current word for each thing the surface says; a retired \
+                            spelling is refused with the word that replaced it, never silently \
+                            accepted nor read as an unknown keyword",
+                koan: Koan {
+                    n: 7,
+                    name: "one way to write it",
+                },
+                spec: "01-syntax.md §2",
+            },
+        ),
         DiagClass::OriginRequired => (
             "a ruling marker stands here (`ratified`, `decided`, `provisional`) but names no \
              decision, so the claim is ruled true by nothing",

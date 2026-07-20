@@ -1,14 +1,14 @@
 # grammar: v0 (unfrozen; AST normative)
 #
-# cymric-fringe — the language-layer register pack of 05-language-layer §1-§5.
-# Names and words are world knowledge, so a register lives in the fabric like any
+# cymric-fringe — the language-layer dialect pack of 05-language-layer §1-§5.
+# Names and words are world knowledge, so a dialect lives in the fabric like any
 # other lore: statused and forkable. This pack shows BOTH provenances the layer
 # carries — cited (D-ref) canon and proposed (agent) candidates under a hypothesis
 # bundle — and the attestation seam that keeps them apart (§7).
-pack language
+scope language
 
-# --- the register as a declaration (05 §1) ------------------------------------
-register cymric-fringe  "the fringe tongue"  provisional D-0181 {
+# --- the dialect as a declaration (05 §1) ------------------------------------
+dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
   basis attested "Brythonic; medieval Welsh"   # an external-world claim — see §7
   vowels a e i o u w y
   endings -ys -wen -eth -air
@@ -17,43 +17,43 @@ register cymric-fringe  "the fringe tongue"  provisional D-0181 {
   stress penultimate
   name-kind person.given = given-proto given-deutero | given-simple
   name-kind place        = place-qualifier place-generic
-  morpheme en   "spirit"        role given-proto     ratified D-0134
-  morpheme fys  "arc, bow"      role given-deutero   ratified D-0134
-  morpheme wern "alder-marsh"   role place-generic   ratified D-0111
-  morpheme cors "bog, fen"      role place-qualifier ratified D-0111
+  name-part en   "spirit"        role given-proto     ratified D-0134
+  name-part fys  "arc, bow"      role given-deutero   ratified D-0134
+  name-part wern "alder-marsh"   role place-generic   ratified D-0111
+  name-part cors "bog, fen"      role place-qualifier ratified D-0111
   }
 
-# --- names as typed derivations: register-true is a compile verdict (05 §2) ---
+# --- names as typed derivations: dialect-true is a compile verdict (05 §2) ---
 name enfys "Enfys"  person.given in cymric-fringe
   = given-proto en + given-deutero fys
   bearer protagonist   ratified D-0134
-  # checked: slot sequence matches a name-kind pattern; each morpheme exists under
-  # its claimed role; the composed surface form passes the register's phonotactics.
+  # checked: slot sequence matches a name-kind pattern; each name-part exists under
+  # its claimed role; the composed surface form passes the dialect's phonotactics.
 
 name corswern "Corswern"  place in cymric-fringe
   = place-qualifier cors + place-generic wern
   bearer the-fen-parish   provisional D-0111
 
 # --- the lexicon: diegetic terms and the cited lexical bans (05 §4) -----------
-lexeme wernwater "wern-water"  = place-generic wern   provisional D-0111
+word wernwater "wern-water"  = place-generic wern   provisional D-0111
 term the-fringe "the Fringe"   provisional D-0181
 banned machine   D-0056  "the allegory is structural, never lexical"
 banned algorithm D-0056  "the allegory is structural, never lexical"
 
 # --- the agent-init flow: a proposal bundle under one hypothesis (05 §5) -------
-# candidate register data enters like world lore: proposed, under one hypothesis
+# candidate dialect data enters like world lore: proposed, under one hypothesis
 # variable, every clause carrying agent provenance by inheritance.
 hypothesis h-cymric-loans "the fringe tongue took a market-word from the trade tongue"
 
-morpheme lys "market, fair"  role place-qualifier  proposed agent:factory/naming-run-0712  assumes h-cymric-loans
+name-part lys "market, fair"  role place-qualifier  proposed agent:factory/naming-run-0712  assumes h-cymric-loans
 
 name gwenlys "Gwenlys"  place in cymric-fringe
   = place-qualifier lys + place-generic wern
   proposed agent:factory/naming-run-0712  assumes h-cymric-loans
-  # merely-possible BY CONSTRUCTION: composed through an unratified morpheme, so
+  # merely-possible BY CONSTRUCTION: composed through an unratified name-part, so
   # visible to shadow queries but structurally excluded from every context pack
-  # and every assertion until the bundle is ruled (05 §5). A rejected morpheme
-  # would valuate false and this name would die into the killed-token register.
+  # and every assertion until the bundle is ruled (05 §5). A rejected name-part
+  # would valuate false and this name would die into the killed-token dialect.
 
 ratify D-0195 { h-cymric-loans := true }   # one valuation ratifies the bundle
 
@@ -61,5 +61,5 @@ ratify D-0195 { h-cymric-loans := true }   # one valuation ratifies the bundle
 # `basis attested` above is a claim about OUR world (is this pattern Welsh-like?),
 # never support for the story's. It is graded and replayable but NEVER a variable
 # in a support polynomial: a name can never become certain because a model
-# believes its basis is authentic. The register is ratifiable with its basis
+# believes its basis is authentic. The dialect is ratifiable with its basis
 # unverified — the author ratifies the SOUND, not the scholarship.

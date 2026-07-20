@@ -12,8 +12,8 @@
 # dimension; `story_anchor` is the world's. A scene may carry its own
 # `scene_anchor` to cross into story-time — a flashback — so its facts land at the
 # earlier story-time while its reveals (listener knowledge_deltas) land at the
-# episode's production slot. Tide wheel: tide(4) = ebb(0) | slack(1) | flood(2) |
-# high(3); an anchor phase is a single position per wheel, not a walk.
+# episode's production slot. Tide cycle: tide(4) = ebb(0) | slack(1) | flood(2) |
+# high(3); an anchor phase is a single position per cycle, not a walk.
 
 - id: e01                       # "The First Weir"
   production_order: 1
@@ -22,7 +22,7 @@
     after: [the-first-weir]
     before: []
     phases:
-      - { wheel: tide, index: 0 }   # ebb
+      - { cycle: tide, index: 0 }   # ebb
   scenes:
     - id: s1
       cast: [old-fen]
@@ -47,7 +47,7 @@
     after: [the-long-drought]
     before: []
     phases:
-      - { wheel: tide, index: 1 }   # slack
+      - { cycle: tide, index: 1 }   # slack
   scenes:
     - id: s1
       cast: [mara, old-fen]
@@ -97,7 +97,7 @@
         after: [the-long-drought]
         before: [the-marsh-enclosure]   # before the enclosure: the water was still common
         phases:
-          - { wheel: tide, index: 2 }   # flood
+          - { cycle: tide, index: 2 }   # flood
       knowledge_deltas:
         - knower: Listener              # reveal lands at production slot 3...
           fact: the-weir-common

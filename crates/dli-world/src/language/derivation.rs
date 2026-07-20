@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::check::{Severity, WorldFinding};
 
-use super::register::{Gender, LanguageModel, RegisterDef};
+use super::dialect::{DialectDef, Gender, LanguageModel};
 
 /// The base vowels, always treated as vowels for cluster and syllable counting,
 /// independent of a register's characteristic vowel inventory.
@@ -375,7 +375,7 @@ fn structural_checks(
 }
 
 /// The slot sequence must match one of the register's `name-kind` patterns.
-fn slot_sequence(name: &super::name::NameDef, register: &RegisterDef, out: &mut Vec<LangFinding>) {
+fn slot_sequence(name: &super::name::NameDef, register: &DialectDef, out: &mut Vec<LangFinding>) {
     let roles = name.roles();
     let Some(name_kind) = register.name_kind(&name.kind) else {
         out.push(LangFinding::RegisterFit {
@@ -402,7 +402,7 @@ fn slot_sequence(name: &super::name::NameDef, register: &RegisterDef, out: &mut 
 fn role_membership(
     model: &LanguageModel,
     name: &super::name::NameDef,
-    register: &RegisterDef,
+    register: &DialectDef,
     out: &mut Vec<LangFinding>,
 ) {
     for step in &name.composition {
@@ -422,7 +422,7 @@ fn role_membership(
 }
 
 /// The composed surface form must pass the register's phonotactic frame.
-fn phonotactics(name: &super::name::NameDef, register: &RegisterDef, out: &mut Vec<LangFinding>) {
+fn phonotactics(name: &super::name::NameDef, register: &DialectDef, out: &mut Vec<LangFinding>) {
     let surface = name.surface();
     if let Some(cluster) = contains_foreign(&surface, &register.phonotactics.foreign) {
         out.push(LangFinding::Phonotactics {
@@ -457,7 +457,7 @@ fn phonotactics(name: &super::name::NameDef, register: &RegisterDef, out: &mut V
 fn gender_morphology(
     model: &LanguageModel,
     name: &super::name::NameDef,
-    register: &RegisterDef,
+    register: &DialectDef,
     out: &mut Vec<LangFinding>,
 ) {
     let mut male = false;
@@ -641,7 +641,7 @@ fn levenshtein(a: &str, b: &str) -> usize {
 
 /// The maximum run of consecutive consonants in a surface form, where a letter
 /// is a vowel iff it is a base vowel or a single-character vowel of the register.
-fn max_consonant_run(surface: &str, register: &RegisterDef) -> usize {
+fn max_consonant_run(surface: &str, register: &DialectDef) -> usize {
     let vowels = register_vowels(register);
     let mut max = 0;
     let mut run = 0;
@@ -658,7 +658,7 @@ fn max_consonant_run(surface: &str, register: &RegisterDef) -> usize {
 
 /// The set of characters that count as vowels for `register`: the base vowels
 /// plus any single-character vowel the register declares (e.g. Welsh `w`, `y`).
-fn register_vowels(register: &RegisterDef) -> std::collections::BTreeSet<char> {
+fn register_vowels(register: &DialectDef) -> std::collections::BTreeSet<char> {
     let mut set: std::collections::BTreeSet<char> = BASE_VOWELS.into_iter().collect();
     for v in &register.phonotactics.vowels {
         if let [c] = v.chars().collect::<Vec<_>>().as_slice() {

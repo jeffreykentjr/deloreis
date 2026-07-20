@@ -1,7 +1,7 @@
 //! Deloreis Lore Interchange time domain.
 //!
 //! Time is not a number line here. A [`chronology::Chronology`] is a partial
-//! precedence DAG over events; a [`wheel::Wheel`] is a cyclic calendar with
+//! precedence DAG over events; a [`cycle::Cycle`] is a cyclic calendar with
 //! modular navigation. Nothing in this crate is `Ord`: linear comparison of
 //! points would be a category error, so the type system refuses it. Two points
 //! are related through [`Chronology::precedes`] — which may answer
@@ -15,10 +15,10 @@
 
 pub mod blame;
 pub mod chronology;
+pub mod cycle;
 pub mod fluent;
-pub mod wheel;
 
 pub use blame::{BlamedEdge, CycleBlame};
 pub use chronology::{Chronology, TemporalVerdict, TimePoint};
+pub use cycle::{Cycle, CyclePos};
 pub use fluent::{FluentState, FluentTimeline, Holding, Projection, Span, TemporalCover};
-pub use wheel::{Wheel, WheelPos};

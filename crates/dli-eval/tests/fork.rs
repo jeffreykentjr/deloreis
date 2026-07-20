@@ -74,7 +74,7 @@ fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
 /// of the salt-ledger.
 fn base_world() -> World {
     let document = Document {
-        pack: None,
+        scope: None,
         decls: vec![
             decided_fact("weathered", vec![sym("gate")], "d-weather"),
             Decl::Question(QuestionDecl {

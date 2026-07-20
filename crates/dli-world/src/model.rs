@@ -25,7 +25,7 @@ use dli_core::ann::Ann;
 use dli_core::atom::{Atom, Interner};
 use dli_eval::world::World;
 use dli_ledger::{LedgerEntry, PracticeDef};
-use dli_time::wheel::Wheel;
+use dli_time::cycle::Cycle;
 
 /// A craft rule binding a principle to a register.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -36,11 +36,11 @@ pub struct CraftRule {
     pub register: String,
 }
 
-/// The season ledger: a seasonal wheel plus the practices tracked against it.
+/// The season ledger: a seasonal cycle plus the practices tracked against it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SeasonLedger {
-    /// The seasonal wheel, if one is defined.
-    pub season_wheel: Option<Wheel>,
+    /// The seasonal cycle, if one is defined.
+    pub season_cycle: Option<Cycle>,
     /// Practice definitions checked this season.
     pub practices: Vec<PracticeDef>,
     /// Recorded ledger entries.

@@ -2,36 +2,36 @@
 #
 # true-naming — the arbitrariness proof of 04-practices §4, completed: a practice
 # whose resource is graded-monotone DECAY (nothing spent, knowing only wears),
-# whose names are REGISTER-DERIVATIONS, and whose premises are KNOWLEDGE FLUENTS.
+# whose names are DIALECT-DERIVATIONS, and whose premises are KNOWLEDGE STATES.
 # Three layers — magic, language, and story-time — meet in one pack, zero kernel
 # code. Standing role: the workbench's acceptance test (04 §4).
-pack magic
+scope magic
 
 use language          # true-naming consumes the language layer wholesale
-use chronology        # ...and story-time, for the knowledge fluents
+use chronology        # ...and story-time, for the knowledge states
 
-# --- register-derived names: a true-name IS a register derivation (05 §2) ------
-register fen-tongue "the fen tongue"  proposed {
+# --- dialect-derived names: a true-name IS a dialect derivation (05 §2) ------
+dialect fen-tongue "the fen tongue"  proposed {
   vowels a e i o u y
   endings -a -en -eth
   cluster-max 2
   stress penultimate
   name-kind person.given = given-proto given-deutero
-  morpheme sae "still-water"      role given-proto    proposed
-  morpheme wen "one-who-tends"    role given-deutero  proposed
+  name-part sae "still-water"      role given-proto    proposed
+  name-part wen "one-who-tends"    role given-deutero  proposed
   }
 
 name saewen "Saewen"  person.given in fen-tongue
   = given-proto sae + given-deutero wen
   bearer the-marsh-child   proposed
-  # checked at compile: slot sequence matches a name-kind pattern, each morpheme
+  # checked at compile: slot sequence matches a name-kind pattern, each name-part
   # exists under its claimed role, the composed form passes the phonotactics.
-  # A mispronunciation is literally a register-derivation failure (L4 below).
+  # A mispronunciation is literally a dialect-derivation failure (L4 below).
 
-# --- knowledge fluents: knowing a name is a fact with a validity span ----------
+# --- knowledge states: knowing a name is a fact with a validity span ----------
 event the-naming-day   during the-beleaguered-present   proposed
-fluent knows.caster.saewen = true  since the-naming-day   proposed
-# learning a name is a knowledge fluent initiated when it is learned;
+state knows.caster.saewen = true  since the-naming-day   proposed
+# learning a name is a knowledge state initiated when it is learned;
 # query knows(caster, true-name(bearer)) as-of a scene (03-time §4).
 
 # --- the practice: graded-monotone decay (04 §4) ------------------------------
@@ -45,7 +45,7 @@ practice true-naming  proposed {
   effect invoke degrades acquaintance by 1     # speaking a name wears it
   condition unheard requires no witness within earshot
   error slipped-name   refines L4 bad-instantiation
-                       # a mispronunciation IS a failed register derivation
+                       # a mispronunciation IS a failed dialect derivation
   error stale-name     refines L2 where premise-outdated
                        # the bearer has changed since the name was learned
   error name-overheard refines L3 side-condition [unheard] signals degrade(+1)
@@ -53,7 +53,7 @@ practice true-naming  proposed {
   }
 
 # --- the craft the practice serves, and the open fork it leaves ---------------
-craft show-the-cost  proposed
+rule show-the-cost over season  proposed
 principle name-earns-its-weight  proposed
 
 fork what-does-a-name-cost

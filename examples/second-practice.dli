@@ -3,21 +3,21 @@
 # The Turning — a divination game on the moon's twenty-nine leaves, and the
 # SECOND arbitrariness proof (04-practices §4). It is structurally disjoint from
 # BOTH proof-magic (no conserved debt) AND true-naming (no graded decay, no
-# knowledge fluents): its resource is affine-bounded, its failures are wheel-phase
-# timing and spread overflow, and its premises are figures laid on a cyclic sort.
+# knowledge states): its resource is affine-bounded, its failures are wheel-phase
+# timing and spread overflow, and its premises are figures laid on a cyclic kind.
 # Three practices, one generic checker, zero per-system kernel code.
-pack magic
+scope magic
 
 use chronology        # the reading is seated on a wheel phase
 
 # the ring of twenty-nine leaves, one for each night of the moon (03-time §1.iv):
-# the SAME cyclic sort the timing checker shares. succ/pred/across/distance exist;
+# the SAME cyclic kind the timing checker shares. succ/pred/across/distance exist;
 # `<`, sort, and max are type errors — the wheel refuses rank (koan 8).
-wheel turning-leaf(29)   proposed
+cycle turning-leaf(29)   proposed
 
 practice the-turning  proposed {
   use chronology.wheels
-  sort figure = the-tide | the-weir | the-drowned | the-keeper | the-empty
+  kind figure = the-tide | the-weir | the-drowned | the-keeper | the-empty
   role reader  : entity   requires standing(reader)
   role querent : entity   requires consent(querent)
   resource spread : affine bounded nine-leaves    # a reading lays at most nine leaves
@@ -34,7 +34,7 @@ practice the-turning  proposed {
   }
 
 # A worked reading, checked as data (never authored by the machine):
-ledger reading-e02  reader old-fen  in the-turning {
+proof reading-e02  reader old-fen  in the-turning {
   premise q1  phase(turning-leaf) = the-ninth-leaf  from-scene  cue "line 40"
   step   s1  instantiate lay  with figure = the-weir, leaf = the-ninth-leaf
   step   s2  read the-weir

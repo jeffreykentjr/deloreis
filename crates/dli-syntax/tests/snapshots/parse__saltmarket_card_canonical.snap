@@ -2,7 +2,7 @@
 source: crates/dli-syntax/tests/parse.rs
 expression: format_document(&doc)
 ---
-pack saltmarket
+scope saltmarket
 
 era founding "The Landing"    decided d-0001
 era now      "The Ninth Tide" after founding

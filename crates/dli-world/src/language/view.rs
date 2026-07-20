@@ -18,8 +18,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::derivation::{LangFinding, aural_clash, contains_banned};
+use super::dialect::LanguageModel;
 use super::name::NameDef;
-use super::register::LanguageModel;
 
 /// One rendered entry of the ratified-names view — the mirror's successor row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -46,7 +46,7 @@ pub struct RatifiedName {
 /// use dli_world::language::{LanguageModel, ratified_names};
 /// use dli_syntax::parse_document;
 ///
-/// let src = "pack language\n\
+/// let src = "scope language\n\
 ///            name gwern \"Gwern\" place in lowlands ratified D-111\n\
 ///            name mist \"Mist\" place in lowlands proposed agent:run assumes h-x\n";
 /// let (doc, _d) = parse_document(src);
@@ -95,7 +95,7 @@ pub fn certain_surfaces(model: &LanguageModel) -> Vec<String> {
 /// use dli_world::language::{LanguageModel, vet_candidate};
 /// use dli_syntax::parse_document;
 ///
-/// let src = "pack language\n\
+/// let src = "scope language\n\
 ///            name gwern \"Gwern\" place in lowlands ratified D-111\n";
 /// let (doc, _d) = parse_document(src);
 /// let model = LanguageModel::from_documents(&[doc]).model;

@@ -54,7 +54,7 @@ proposed, what question is open, what depends on what. Success is a faithful
 read with no coaching. Example stimulus:
 
 ```dli
-pack saltmarket
+scope saltmarket
 
 place saltmarket   "Saltmarket"     decided d-0001
 place breakwater   "The Breakwater" proposed

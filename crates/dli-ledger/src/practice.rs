@@ -25,9 +25,9 @@
 //!
 //! ```text
 //! use <target>                                     # a consumed layer
-//! sort <name> = <v1> | <v2> | …                    # a declared finite sort
-//! sort <name> from <source>                        #   …or one drawn from a layer
-//! role <name> : <sort> [requires <conditions>]     # a cast role and its sort
+//! kind <name> = <v1> | <v2> | …                    # a declared finite kind
+//! kind <name> from <source>                        #   …or one drawn from a layer
+//! role <name> : <kind> [requires <conditions>]     # a cast role and its kind
 //! resource <name>[(<arg>)] : <kind …>              # a resource and its algebra law
 //! rule <form>(<args>) [requires <premises>]        # a law of the practice
 //! condition <name> requires <predicate …>          # a side condition
@@ -71,7 +71,7 @@ pub const KERNEL_WHEELS: &[&str] = &["tide", "moon", "season"];
 /// clause opening with any other word continues the form above it.
 const ITEM_KEYWORDS: &[&str] = &[
     "use",
-    "sort",
+    "kind",
     "role",
     "resource",
     "rule",
@@ -324,7 +324,7 @@ impl PracticeEnv {
     pub fn from_document(doc: &Document) -> Self {
         let mut env = Self::default();
         for decl in &doc.decls {
-            if let Decl::Wheel(w) = decl {
+            if let Decl::Cycle(w) = decl {
                 env.wheels.insert(w.name.text.clone());
             }
         }
@@ -499,7 +499,7 @@ impl PracticeDef {
         let body = item.text[item.keyword.len()..].trim();
         match item.keyword.as_str() {
             "use" => self.uses.push(body.to_owned()),
-            "sort" => self.sorts.push(parse_sort(body, span)),
+            "kind" => self.sorts.push(parse_sort(body, span)),
             "role" => {
                 if let Some(role) = parse_role(body, span) {
                     self.roles.push(role);
@@ -544,10 +544,10 @@ impl PracticeDef {
 /// use dli_ledger::practice::{compile_practices, check_practice};
 ///
 /// let src = "\
-/// pack magic
-/// wheel turning-leaf(29) proposed
+/// scope magic
+/// cycle turning-leaf(29) proposed
 /// practice the-turning proposed {
-///   sort figure = the-weir | the-drowned
+///   kind figure = the-weir | the-drowned
 ///   role reader : entity requires standing(reader)
 ///   resource spread : affine bounded nine-leaves
 ///   error overspread refines L6 resource-violation on spread signals scatter
@@ -588,7 +588,7 @@ pub fn compile_practices(doc: &Document) -> Vec<PracticeDef> {
 ///
 /// // A resource outside the closed algebra is caught.
 /// let src = "\
-/// pack magic
+/// scope magic
 /// practice broken proposed {
 ///   resource mana : quadratic wobble
 ///   cost epistemic
