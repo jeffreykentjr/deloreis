@@ -176,6 +176,8 @@ pub enum LangFinding {
         name: String,
         /// The banned word it contains.
         word: String,
+        /// The world's own reason for banning the word, when the ban declares one.
+        reason: Option<String>,
         /// Source location.
         span: Span,
     },
@@ -282,9 +284,14 @@ impl LangFinding {
             } => {
                 format!("'{name}' has {syllables} syllables, over the sayability-tier cap of {cap}")
             }
-            Self::BannedInName { name, word, .. } => {
-                format!("'{name}' carries the lexically-banned word '{word}' (05 §4)")
-            }
+            Self::BannedInName {
+                name, word, reason, ..
+            } => match reason {
+                Some(reason) => {
+                    format!("'{name}' carries the lexically-banned word '{word}': {reason} (05 §4)")
+                }
+                None => format!("'{name}' carries the lexically-banned word '{word}' (05 §4)"),
+            },
             Self::Confusable {
                 name,
                 character,
@@ -576,10 +583,11 @@ fn banned_and_sayability(
 ) {
     let surface = name.surface();
     let label = name.label.clone().unwrap_or_default().to_lowercase();
-    if let Some(word) = contains_banned(&surface, &label, model) {
+    if let Some((word, reason)) = contains_banned(&surface, &label, model) {
         out.push(LangFinding::BannedInName {
             name: name.name.clone(),
             word,
+            reason,
             span: name.span,
         });
     }
@@ -707,12 +715,17 @@ pub fn aural_clash(a: &str, b: &str) -> Option<String> {
     }
 }
 
-/// The banned lexicon word a name carries, if any (checks surface and label).
+/// The banned lexicon word a name carries, if any (checks surface and label),
+/// paired with the world's own reason for the ban when one is declared.
 #[must_use]
-pub(crate) fn contains_banned(surface: &str, label: &str, model: &LanguageModel) -> Option<String> {
+pub(crate) fn contains_banned(
+    surface: &str,
+    label: &str,
+    model: &LanguageModel,
+) -> Option<(String, Option<String>)> {
     model.bans.iter().find_map(|ban| {
         let word = ban.word.to_lowercase();
-        (surface.contains(&word) || label.contains(&word)).then_some(word)
+        (surface.contains(&word) || label.contains(&word)).then(|| (word, ban.reason.clone()))
     })
 }
 
@@ -942,5 +955,36 @@ mod tests {
         assert!(confusable_findings("paypal", span).is_empty());
         assert!(confusable_findings("bj\u{00f6}rn", span).is_empty());
         assert!(confusable_findings("\u{043e}\u{0440}\u{0435}", span).is_empty());
+    }
+
+    #[test]
+    fn banned_in_name_message_surfaces_the_world_reason() {
+        let span = Span::synthetic();
+        // When the world's ban carries its own justification, the finding speaks
+        // it — the reason is lore, not a hardcoded rationale.
+        let with_reason = LangFinding::BannedInName {
+            name: "Algorithm".to_owned(),
+            word: "algorithm".to_owned(),
+            reason: Some("technology register is barred in-world".to_owned()),
+            span,
+        };
+        assert_eq!(with_reason.code(), "name.banned-in-name");
+        let spoken = with_reason.message();
+        assert!(
+            spoken.contains("technology register is barred in-world"),
+            "the world's own ban reason must surface: {spoken}"
+        );
+        assert!(spoken.contains("'algorithm'"));
+        // With no declared reason, the generic form stands (no world-specific text).
+        let without_reason = LangFinding::BannedInName {
+            name: "Algorithm".to_owned(),
+            word: "algorithm".to_owned(),
+            reason: None,
+            span,
+        };
+        assert_eq!(
+            without_reason.message(),
+            "'Algorithm' carries the lexically-banned word 'algorithm' (05 §4)"
+        );
     }
 }

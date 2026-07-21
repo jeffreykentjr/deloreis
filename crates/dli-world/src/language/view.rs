@@ -153,10 +153,11 @@ pub fn vet_candidate(model: &LanguageModel, candidate: &str) -> Vec<LangFinding>
         }
     }
 
-    if let Some(word) = contains_banned(&cand_surface, &cand_norm, model) {
+    if let Some((word, reason)) = contains_banned(&cand_surface, &cand_norm, model) {
         out.push(LangFinding::BannedInName {
             name: candidate.to_owned(),
             word,
+            reason,
             span,
         });
     }
