@@ -16,7 +16,7 @@
 //! polynomials the fixpoint already computed and never re-derive anything.
 
 use dli_ast::term::{AtomExpr, Term, TimeRef};
-use dli_core::ann::{Status, Theory};
+use dli_core::ann::{Ann, Status, Theory};
 use dli_core::atom::{Atom, Interner, Rail};
 use dli_core::derivation::ClaimId;
 use dli_core::posbool::{Monomial, PosBool};
@@ -199,12 +199,20 @@ pub fn why_not(world: &World, atom: &AtomExpr) -> WhyNot {
         None => (Vec::new(), Vec::new()),
     };
 
-    let defeater = derived
-        .defeaters
-        .monomials()
-        .next()
-        .and_then(|m| m.lits().next())
-        .map(|lit| ClaimId(lit.atom.0));
+    // Blame reads the *conditioned* defeater — the poison riding on the atom's
+    // resolved-support (would-be-certain) monomials — never the atom-global pool.
+    // The pool ORs in poison from paths that never approached certainty, so keying
+    // the risk line on it warns "at risk" for an atom a clean independent path
+    // makes robustly certain (defect a). A robustly-certain atom — Certain yet
+    // `at_risk()` false — carries no blame to surface; a defeated Possible
+    // conclusion still names the premise that defeated its would-be-certain path.
+    let defeater = match status {
+        Status::Certain if !ann.at_risk(valuation, theory) => None,
+        Status::Certain | Status::Possible => {
+            first_claim(&certain_path_defeater(&ann, valuation, theory))
+        }
+        Status::Dead => None,
+    };
 
     let rendered = render_why_not(status, &blocking, defeater, &world.interner);
     WhyNot {
@@ -236,6 +244,31 @@ impl WhyNot {
 /// A monomial's literals as claim ids, sign dropped, in canonical order.
 fn claim_ids(monomial: &Monomial) -> Vec<ClaimId> {
     monomial.lits().map(|lit| ClaimId(lit.atom.0)).collect()
+}
+
+/// The first literal's claim id of a polynomial's first monomial, if any — the
+/// single blamed premise a why-not names.
+fn first_claim(poly: &PosBool) -> Option<ClaimId> {
+    poly.monomials()
+        .next()
+        .and_then(|m| m.lits().next())
+        .map(|lit| ClaimId(lit.atom.0))
+}
+
+/// The poison riding on the atom's resolved-support monomials — the conditioned
+/// defeater view (`docs/spec/02-semantics.md §4`): the OR of the defeater pinned
+/// to each support monomial that holds on resolved events alone. Open monomials
+/// contribute nothing, so poison from a path that never approached certainty is
+/// never blamed (the atom-global pool would); `FALSE` when no resolved-support
+/// monomial carries a defeater.
+fn certain_path_defeater(ann: &Ann, valuation: &Valuation, theory: &Theory) -> PosBool {
+    let mut acc = PosBool::FALSE;
+    for monomial in ann.support.monomials() {
+        if monomial.is_certain_under(valuation) && theory.respects(monomial) {
+            acc = acc.or_(ann.conditions.defeater_of(monomial));
+        }
+    }
+    acc
 }
 
 /// The open (unruled) literals' atoms of a monomial, as claim ids.

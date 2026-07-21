@@ -461,7 +461,7 @@ impl World {
                 .iter()
                 .filter(|rule| level_set.contains(rule.head.pred.text.as_str()))
                 .collect();
-            saturate_stratum(&mut relation, &level_rules, &self.valuation, &self.theory)?;
+            saturate_stratum(&mut relation, &level_rules, &self.theory)?;
         }
         let mut world = self.clone();
         world.derived = relation.into_values().collect();
@@ -583,7 +583,6 @@ impl World {
 fn saturate_stratum(
     relation: &mut BTreeMap<GroundAtom, Derived>,
     rules: &[&Rule],
-    valuation: &Valuation,
     theory: &Theory,
 ) -> Result<(), EvalError> {
     let mut worklist: VecDeque<GroundAtom> = relation.keys().cloned().collect();
@@ -594,7 +593,7 @@ fn saturate_stratum(
         if rule.body.iter().all(|lit| lit.negated) {
             let negatives: Vec<&AtomExpr> = rule.body.iter().map(|lit| &lit.atom).collect();
             let bindings = BTreeMap::new();
-            let poison = negative_poison(relation, &negatives, &bindings, valuation, theory)?;
+            let poison = negative_poison(relation, &negatives, &bindings, theory)?;
             let Ok(head) = ground_head(&rule.head, &bindings) else {
                 continue; // range restriction guarantees a ground head here
             };
@@ -608,7 +607,7 @@ fn saturate_stratum(
         let Some(delta_row) = relation.get(&delta).cloned() else {
             continue;
         };
-        let productions = fire_rules(relation, rules, &delta, &delta_row, valuation, theory)?;
+        let productions = fire_rules(relation, rules, &delta, &delta_row, theory)?;
         for (head, grade, cond) in productions {
             if let Some(head) = merge_into(relation, head, grade, &cond) {
                 worklist.push_back(head);
@@ -772,7 +771,6 @@ fn fire_rules(
     rules: &[&Rule],
     delta: &GroundAtom,
     delta_row: &Derived,
-    valuation: &Valuation,
     theory: &Theory,
 ) -> Result<Vec<Production>, EvalError> {
     let mut out = Vec::new();
@@ -818,7 +816,7 @@ fn fire_rules(
                 // block is a defeater condition the valuation can move both ways
                 // (`docs/spec/02-semantics.md §5`), so it un-blocks without a
                 // re-fixpoint.
-                let poison = negative_poison(relation, &negatives, &bindings, valuation, theory)?;
+                let poison = negative_poison(relation, &negatives, &bindings, theory)?;
                 let head = ground_head(&rule.head, &bindings)?;
                 let cond = cond.and_(&CondSupport::of_ann(&rule.ann)).poison(&poison);
                 out.push((head, Grade::weakest([grade, rule.grade]), cond));
@@ -829,21 +827,28 @@ fn fire_rules(
 }
 
 /// The negation poison for a rule body's negated literals against the current
-/// relation (`docs/spec/02-semantics.md §4`): the OR of every still-possible
-/// monomial of each `¬b`'s support `P⁺`, to be folded into the conclusion's
-/// defeater condition. A **certain** `b` is included too — its ruled monomial
-/// rides in as a defeater rather than dropping the derivation, so the block is
-/// representable as a support condition the valuation can move both ways (§5),
-/// un-blocking `b` without a re-fixpoint.
+/// relation (`docs/spec/02-semantics.md §4`): the OR of every **structurally
+/// admissible** monomial of each `¬b`'s support `P⁺`, to be folded into the
+/// conclusion's defeater condition.
 ///
-/// A `b` the relation never derives has support `FALSE`: nothing possible,
-/// nothing to poison — the standard "negation of an underived atom succeeds"
-/// cleanly, leaving the path clean.
+/// The poison is **valuation-neutral**: a monomial is included whenever it can be
+/// true under *some* valuation — `!is_contradictory()` and theory-respecting —
+/// never filtered by the base `ν`'s *liveness*. Baking the base valuation in would
+/// permanently drop a poison monomial whose support var is ruled false at fixpoint
+/// time, so a later fork re-supposing it true could never re-block; the defeater
+/// must move both ways under `eval_under` for evaluation to commute with
+/// specialization (§1). A **certain** `b` is likewise included — its monomial
+/// rides in as a defeater rather than dropping the derivation, un-blocking without
+/// a re-fixpoint (§5). Only a monomial that can NEVER be true under ANY valuation
+/// (contradictory or theory-forbidden) contributes nothing.
+///
+/// A `b` the relation never derives has support `FALSE`: nothing to poison — the
+/// standard "negation of an underived atom succeeds" cleanly, leaving the path
+/// clean.
 fn negative_poison(
     relation: &BTreeMap<GroundAtom, Derived>,
     negatives: &[&AtomExpr],
     bindings: &BTreeMap<String, String>,
-    valuation: &Valuation,
     theory: &Theory,
 ) -> Result<PosBool, EvalError> {
     let mut poison = PosBool::FALSE;
@@ -853,18 +858,12 @@ fn negative_poison(
             continue;
         };
         for monomial in row.support.monomials() {
-            if monomial_possible(monomial, valuation, theory) {
+            if !monomial.is_contradictory() && theory.respects(monomial) {
                 poison = poison.or_(&PosBool::conjunction(monomial.lits()));
             }
         }
     }
     Ok(poison)
-}
-
-/// Whether a monomial can still hold in some admissible world: not contradictory,
-/// no literal resolved against it, and exclusivity-respecting.
-fn monomial_possible(monomial: &Monomial, valuation: &Valuation, theory: &Theory) -> bool {
-    !monomial.is_contradictory() && monomial.is_live_under(valuation) && theory.respects(monomial)
 }
 
 /// Recursively join the remaining body atoms over the relation, accumulating the
