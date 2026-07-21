@@ -19,7 +19,8 @@ use dli_sim::turning::{ReadingInvariant, ReadingMetric, ReadingObservable};
 
 /// The committed export-facing fixture EXP-3 compiles against.
 fn fixture_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/the-turning-rules.json")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../worlds/tpth/turning/the-turning-rules.json")
 }
 
 // --- deck structure ---------------------------------------------------------
@@ -335,7 +336,7 @@ fn the_export_fixture_round_trips_to_the_canonical_deck() {
         std::fs::write(fixture_path(), &rendered).unwrap();
     }
     let committed = std::fs::read_to_string(fixture_path())
-        .expect("examples/the-turning-rules.json is committed");
+        .expect("worlds/tpth/turning/the-turning-rules.json is committed");
     let from_disk: Ruleset = serde_json::from_str(&committed).unwrap();
     assert_eq!(
         from_disk, canonical,

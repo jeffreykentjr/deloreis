@@ -12,10 +12,10 @@ fn bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_deloreis"))
 }
 
-/// The repo's committed `examples/` directory (absolute, so a recorded corpus
-/// path resolves regardless of the test process's working directory).
+/// The committed world packs under `worlds/tpth/packs/`, absolute so a recorded
+/// corpus path resolves regardless of the test process's working directory.
 fn examples() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/packs")
 }
 
 /// The shared saltmarket corpus.

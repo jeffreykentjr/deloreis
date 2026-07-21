@@ -689,7 +689,7 @@ fn decl_identity(decl: &Decl) -> Option<(&'static str, String, Span)> {
         Decl::Rule(r) => Some(("rule", r.name.text.clone(), r.name.span)),
         // `state` (a fluent) is deliberately multi-span: `state x.y = a until e`
         // and `state x.y = b since e` are one fluent over disjoint spans, not a
-        // duplicate. Keyed out of the flat duplicate check (examples/saltmarket).
+        // duplicate. Keyed out of the flat duplicate check (worlds/tpth/packs/saltmarket).
         Decl::Cycle(w) => Some(("cycle", w.name.text.clone(), w.name.span)),
         Decl::Dialect(r) => Some(("dialect", r.name.text.clone(), r.name.span)),
         Decl::Word(l) => Some(("word", l.name.text.clone(), l.name.span)),

@@ -738,9 +738,10 @@ fn vendored_arc1_matches_oracle_verdict() {
 fn committed_season_example_deserializes_and_checks() {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/saltmarket-season.yaml"
+        "/../../worlds/tpth/season/saltmarket-season.yaml"
     );
-    let yaml = std::fs::read_to_string(path).expect("examples/saltmarket-season.yaml exists");
+    let yaml =
+        std::fs::read_to_string(path).expect("worlds/tpth/season/saltmarket-season.yaml exists");
     let season: SeasonOutline =
         serde_yaml_ng::from_str(&yaml).expect("the committed example matches the schema");
     assert_eq!(season.episodes.len(), 2);

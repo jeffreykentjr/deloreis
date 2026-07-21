@@ -26,7 +26,7 @@ fn resource_kind_round_trips() {
 
 fn fixture(name: &str) -> String {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../../examples");
+    path.push("../../worlds/tpth/packs");
     path.push(name);
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
 }

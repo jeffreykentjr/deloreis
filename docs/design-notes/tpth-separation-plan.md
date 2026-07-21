@@ -133,9 +133,10 @@ additive docs (safe now). Later phases are code extractions gated on the open
 forks; each is an individually-verified step, not a big-bang.
 
 **Phase 0 — establish the location (safe now, no engine code changes)**
-- `DL-0017` + this plan + the `worlds/tpth/` and craft-doctrine homes (READMEs). *(this commit)*
-- Relocate the TPtH corpus: `examples/*` → `worlds/tpth/packs|turning|episodes|season/`, `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`, updating test path references. *(after the wave-4 payload tail lands, so in-flight tests keep their inputs)*
-- Add a neutral `examples/hello-world.dli` teaching world.
+- ✅ `DL-0017`/`DL-0018` + this plan + the `worlds/tpth/` home (README).
+- ✅ Relocate the TPtH example corpus: `examples/{saltmarket,cymric-fringe,true-naming,second-practice}.dli` → `worlds/tpth/packs/`, `the-turning-rules.json` → `worlds/tpth/turning/`, the episode/season yaml → `worlds/tpth/episodes|season/`; test path-helpers repointed.
+- ✅ Add a neutral `examples/hello-world.dli` teaching world (a generic river town, no TPtH lore) — now the only pack in `examples/`.
+- ⏳ Still to move (later, they live outside `examples/`): `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`, and the TPtH-payload contract goldens (with the `dli-worker` rename, Phase 2).
 
 **Phase 1 — the boundary guard**
 - Add a gate step: engine crate `src/` grep-denies a TPtH proper-noun set (saltmarket, cymric, enfys, the-debt-square, weather-debt, concordance, spoken-proof, pleach, hedgeway, `D-\d{4}`) outside lines marked `// doc-example`. Fails closed. This freezes the boundary and turns every remaining leak into a tracked, guard-visible debt.

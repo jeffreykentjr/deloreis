@@ -198,7 +198,7 @@ fn registers_port_one_to_one() {
 
 #[test]
 fn cymric_example_compiles_and_checks_clean() {
-    let doc = parse(&read("examples/cymric-fringe.dli"));
+    let doc = parse(&read("worlds/tpth/packs/cymric-fringe.dli"));
     let out = LanguageModel::from_documents(&[doc]);
     let model = out.model;
 

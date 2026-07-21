@@ -10,9 +10,9 @@ use dli_world::episode::{Episode, fold};
 fn example_yaml() -> String {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/saltmarket-episodes.yaml"
+        "/../../worlds/tpth/episodes/saltmarket-episodes.yaml"
     );
-    std::fs::read_to_string(path).expect("examples/saltmarket-episodes.yaml exists")
+    std::fs::read_to_string(path).expect("worlds/tpth/episodes/saltmarket-episodes.yaml exists")
 }
 
 #[test]
