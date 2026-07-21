@@ -1,27 +1,24 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Export coverage: the frozen wire types, the export core, and the worked
-//! card + Ludii export off the real Turning ruleset — the honest-vs-keep-stamped
-//! diff is the test (spec 09 §6).
+//! Export coverage: the frozen wire types, the export core, the shared keep-stamp
+//! visibility filter, and the generic context-pack and articy scaffolds. The
+//! world-specific card/Ludii render (the Turning) is exercised in the `tpth` crate;
+//! everything here is world-agnostic engine mechanism, tested on neutral profiles.
+
+use std::collections::BTreeMap;
 
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Ann;
 use dli_eval::fork::{KeepStamp, Visibility};
-use dli_sim::turning::Ruleset;
 use dli_world::compile;
 use dli_world::loader::example_docs;
 use dli_world::model::{LoadedAtom, Provenance};
 use dli_world::pack::Pack;
 
-use std::path::PathBuf;
-
-use dli_export::games::{
-    DifferentialStatus, compile_cards, compile_ludii, diff_decks, follow_edge_count,
-};
 use dli_export::profile::{
-    ExportOpts, ExportTarget, Registry, apply_keep_stamps, certain_atoms, export, export_with,
-    refuse_write_back,
+    ExportOpts, ExportTarget, ProfileSpec, ProvenanceMode, Registry, Selection, apply_keep_stamps,
+    certain_atoms, export, export_with, refuse_write_back,
 };
 use dli_export::{ExportError, ExportManifest, ExportProfile, export_wire};
 
@@ -33,16 +30,27 @@ fn saltmarket() -> dli_world::CompiledWorld {
     .expect("compiles")
 }
 
-/// The engine's neutral base catalog merged with the `tpth` world's export
-/// profiles, loaded from data (`worlds/tpth/export/profiles.json`) — the same
-/// `cards/lowlands@3`, `games/ludii@1`, `video/articy@1` that used to be hardcoded
-/// in `Registry::builtin`, now sourced from the world, not the kernel.
-fn tpth_registry() -> Registry {
-    let path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/export/profiles.json");
-    Registry::builtin().merge(
-        Registry::from_path(&path).expect("worlds/tpth/export/profiles.json loads and parses"),
-    )
+/// A neutral articy profile: a generic format selector with no world content — it
+/// names no sorts, relations, or region, exactly as the engine's base context-pack
+/// profile does. Enough to exercise the generic export mechanism (profile-hash
+/// stability, the articy scaffold map) without leaning on any world's card deck.
+fn neutral_articy_spec() -> ProfileSpec {
+    ProfileSpec {
+        target: ExportTarget::Articy,
+        name: "video/articy".to_owned(),
+        version: 1,
+        selects: Selection::default(),
+        renders: BTreeMap::new(),
+        carries_provenance: ProvenanceMode::DevMetadata,
+    }
+}
+
+/// The engine's neutral base catalog plus the neutral articy profile — two
+/// world-agnostic format selectors, no world data loaded from disk.
+fn neutral_registry() -> Registry {
+    Registry::builtin().merge(Registry {
+        profiles: vec![neutral_articy_spec()],
+    })
 }
 
 // -- the frozen wire contract ------------------------------------------------
@@ -124,7 +132,11 @@ fn context_pack_export_reads_the_certain_layer_and_pins_a_manifest() {
 #[test]
 fn a_profile_hash_is_stable_and_profile_specific() {
     let world = saltmarket();
-    let registry = tpth_registry();
+    let registry = neutral_registry();
+    // Two neutral, world-agnostic profiles — the engine's context-pack and a
+    // neutral articy scaffold. The profile hash digests the ProfileSpec, so it is
+    // deterministic per profile and distinct across profiles, with no world deck
+    // in the picture.
     let pack_hash = export_with(
         &registry,
         ExportTarget::ContextPack,
@@ -134,9 +146,9 @@ fn a_profile_hash_is_stable_and_profile_specific() {
     .unwrap()
     .manifest
     .profile_hash;
-    let cards_hash = export_with(
+    let articy_hash = export_with(
         &registry,
-        ExportTarget::Cards,
+        ExportTarget::Articy,
         &world,
         &ExportOpts::default(),
     )
@@ -156,7 +168,7 @@ fn a_profile_hash_is_stable_and_profile_specific() {
         .manifest
         .profile_hash
     );
-    assert_ne!(pack_hash, cards_hash);
+    assert_ne!(pack_hash, articy_hash);
 }
 
 #[test]
@@ -209,199 +221,6 @@ fn kept_present_never_hides() {
     assert_eq!(apply_keep_stamps(refs, &[stamp]).len(), 1);
 }
 
-// -- the worked card export (EXP-3, spec 09 §6) ------------------------------
-
-#[test]
-fn worked_card_export_honest_deck() {
-    let world = saltmarket();
-    let outcome = export_with(
-        &tpth_registry(),
-        ExportTarget::Cards,
-        &world,
-        &ExportOpts::default(),
-    )
-    .unwrap();
-    let deck = outcome.artifact.as_cards().expect("a card deck");
-
-    assert_eq!(deck.deck, "turning-lowlands-honest");
-    assert_eq!(deck.compiled_from.profile, "cards/lowlands@3");
-    assert_eq!(deck.compiled_from.variant, None);
-    assert_eq!(deck.leaf_count, 29);
-    assert!(deck.layouts.contains(&"the-debt-square".to_owned()));
-
-    // A Mender hand leaf carries the Pleacher and its cited provenance (spec 09 §6).
-    let mender = deck
-        .leaves
-        .iter()
-        .find(|leaf| leaf.role.as_deref() == Some("mender"))
-        .expect("a mender hand leaf");
-    assert_eq!(mender.figure.as_deref(), Some("the-pleacher"));
-    assert_eq!(
-        mender.meta.as_ref().map(|meta| meta.cited.clone()),
-        Some(vec!["D-0147".to_owned(), "D-0148".to_owned()])
-    );
-}
-
-#[test]
-fn worked_card_export_keep_stamped_diff_is_computed_not_asserted() {
-    let world = saltmarket();
-    let registry = tpth_registry();
-
-    let honest = export_with(
-        &registry,
-        ExportTarget::Cards,
-        &world,
-        &ExportOpts::default(),
-    )
-    .unwrap();
-    let honest = honest.artifact.as_cards().unwrap();
-
-    // The keep-stamped variant is lore (a variant selector); the ruleset cuts the
-    // hard Weathers, and the debt-square drops out of `available_layouts` by compile.
-    let keep_stamped = export_with(
-        &registry,
-        ExportTarget::Cards,
-        &world,
-        &ExportOpts {
-            variant: Some("keep-stamped".to_owned()),
-            ..ExportOpts::default()
-        },
-    )
-    .unwrap();
-    let keep_stamped = keep_stamped.artifact.as_cards().unwrap();
-
-    assert_eq!(keep_stamped.deck, "turning-lowlands-keep-stamped");
-    assert_eq!(
-        keep_stamped.compiled_from.variant.as_deref(),
-        Some("turning/keep-stamped")
-    );
-    assert_eq!(keep_stamped.leaf_count, 26);
-    assert!(!keep_stamped.layouts.contains(&"the-debt-square".to_owned()));
-
-    // The diff itself is the shippable artifact (spec 09 §6).
-    let diff = diff_decks(honest, keep_stamped);
-    assert_eq!(diff.leaf_count_before, 29);
-    assert_eq!(diff.leaf_count_after, 26);
-    assert_eq!(diff.layouts_removed, vec!["the-debt-square".to_owned()]);
-    // Exactly the three hard Weathers (the Debt, the Sundering, the Bourn) fall out.
-    assert_eq!(
-        diff.leaves_removed,
-        vec![
-            "weather-bourn".to_owned(),
-            "weather-debt".to_owned(),
-            "weather-sundering".to_owned(),
-        ]
-    );
-}
-
-#[test]
-fn worked_card_export_salt_fringe_regional_delta() {
-    let world = saltmarket();
-    let outcome = export_with(
-        &tpth_registry(),
-        ExportTarget::Cards,
-        &world,
-        &ExportOpts {
-            region: Some("salt-fringe".to_owned()),
-            ..ExportOpts::default()
-        },
-    )
-    .unwrap();
-    let deck = outcome.artifact.as_cards().unwrap();
-
-    assert_eq!(deck.deck, "turning-salt-fringe-honest");
-    // The Tide and the Catch re-suit Grounds; the moon-count holds (a re-suit).
-    assert_eq!(deck.leaf_count, 29);
-    let ground_names: Vec<&str> = deck
-        .leaves
-        .iter()
-        .filter(|leaf| leaf.layer == "ground")
-        .filter_map(|leaf| leaf.name.as_deref())
-        .collect();
-    assert!(ground_names.contains(&"The Tide"));
-    assert!(ground_names.contains(&"The Catch"));
-    // The Net-mender takes the Mender's face.
-    let mender = deck
-        .leaves
-        .iter()
-        .find(|leaf| leaf.role.as_deref() == Some("mender"))
-        .unwrap();
-    assert_eq!(mender.figure.as_deref(), Some("the-net-mender"));
-}
-
-// -- the Ludii L-GDL export (EXP-3, DL-0007) ---------------------------------
-
-#[test]
-fn ludii_export_is_a_structural_render_with_pending_differential() {
-    let world = saltmarket();
-    let outcome = export_with(
-        &tpth_registry(),
-        ExportTarget::LudiiGdl,
-        &world,
-        &ExportOpts::default(),
-    )
-    .unwrap();
-    let dli_export::ExportArtifact::LudiiGdl(gdl) = outcome.artifact else {
-        panic!("expected a Ludii export");
-    };
-
-    let honest = Ruleset::lowlands_honest();
-    // Every leaf and every available layout appears — a straight render.
-    for leaf in honest.leaves() {
-        assert!(
-            gdl.program.contains(&leaf.id()),
-            "leaf {} missing from L-GDL",
-            leaf.id()
-        );
-    }
-    for layout in honest.available_layouts() {
-        assert!(gdl.program.contains(&layout.name));
-    }
-    // The successor relation is enumerated, not computed.
-    assert!(follow_edge_count(&honest) > 0);
-    // The trace-agreement battery is a non-gating lab lane, recorded pending.
-    assert!(matches!(
-        gdl.differential,
-        DifferentialStatus::Pending { .. }
-    ));
-}
-
-#[test]
-fn compile_ludii_directly_renders_each_leaf() {
-    let registry = tpth_registry();
-    let spec = registry.default_for(ExportTarget::LudiiGdl).unwrap();
-    let gdl = compile_ludii(&Ruleset::lowlands_honest(), spec, "certain");
-    assert!(gdl.program.starts_with("(game \"turning-lowlands-honest\""));
-    assert_eq!(gdl.profile, "games/ludii@1");
-}
-
-// -- direct card compile off the ruleset -------------------------------------
-
-#[test]
-fn compile_cards_directly_matches_the_ruleset_counts() {
-    let registry = tpth_registry();
-    let spec = registry.default_for(ExportTarget::Cards).unwrap();
-    let honest = compile_cards(
-        &Ruleset::lowlands_honest(),
-        spec,
-        "certain",
-        &ExportOpts::default(),
-    );
-    let keep = compile_cards(
-        &Ruleset::keep_stamped(),
-        spec,
-        "certain",
-        &ExportOpts::default(),
-    );
-    assert_eq!(honest.leaf_count, 29);
-    assert_eq!(keep.leaf_count, 26);
-    // Ground emblems are surfaced but not part of the moon-count.
-    assert_eq!(
-        honest.leaves.iter().filter(|l| l.layer == "ground").count(),
-        4
-    );
-}
-
 // -- context-pack parity invariants (EXP-2) ----------------------------------
 
 #[test]
@@ -433,9 +252,8 @@ fn articy_scaffold_maps_knowledge_scopes_and_quests() {
         loaded_relation("promise", &["mend-the-weir"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
-    let registry = tpth_registry();
-    let spec = registry.default_for(ExportTarget::Articy).unwrap();
-    let export = dli_export::articy::compile_scaffold(spec, "certain", &refs);
+    let spec = neutral_articy_spec();
+    let export = dli_export::articy::compile_scaffold(&spec, "certain", &refs);
 
     assert!(export.pending);
     assert_eq!(export.entities.len(), 1);

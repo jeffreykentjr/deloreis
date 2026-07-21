@@ -40,7 +40,6 @@
 
 pub mod articy;
 pub mod context_pack;
-pub mod games;
 pub mod profile;
 
 use schemars::JsonSchema;

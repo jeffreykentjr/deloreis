@@ -38,7 +38,6 @@ use crate::ExportManifest;
 use crate::ExportProfile;
 use crate::articy::{self, ArticyExport};
 use crate::context_pack::{self, ContextPack};
-use crate::games::{self, CardDeck, LudiiExport};
 
 /// The export target family — the [`Registry`]'s key.
 ///
@@ -255,10 +254,6 @@ pub struct ExportOpts {
 pub enum ExportArtifact {
     /// A context pack (EXP-2) — the certain layer as prompt-injection blocks.
     ContextPack(ContextPack),
-    /// A card set (EXP-3, the §6 worked export) — the compiled deck.
-    Cards(CardDeck),
-    /// Ludii L-GDL (EXP-3) — the rendered program plus its differential status.
-    LudiiGdl(LudiiExport),
     /// Articy-shaped video-game JSON (EXP-4 scaffold).
     Articy(ArticyExport),
 }
@@ -269,16 +264,7 @@ impl ExportArtifact {
     pub fn as_context_pack(&self) -> Option<&ContextPack> {
         match self {
             Self::ContextPack(pack) => Some(pack),
-            _ => None,
-        }
-    }
-
-    /// The card deck, if this artifact is one.
-    #[must_use]
-    pub fn as_cards(&self) -> Option<&CardDeck> {
-        match self {
-            Self::Cards(deck) => Some(deck),
-            _ => None,
+            Self::Articy(_) => None,
         }
     }
 }
@@ -311,6 +297,15 @@ pub enum ExportError {
         /// The target that was requested.
         requested: ExportTarget,
     },
+    /// The requested target has no engine-side renderer: its renderer lives in a
+    /// world crate (the Turning's card/Ludii render moved out of the engine),
+    /// reached through that crate's own export entry point, never through this
+    /// generic export.
+    #[error(
+        "target {0:?} has no engine-side renderer; it is rendered by a world crate, \
+         through that crate's own export entry point"
+    )]
+    NoEngineRendererForTarget(ExportTarget),
     /// A write-back was requested. There is no import path — exports are one-way,
     /// absolutely (charter koan 1/3/10/11).
     #[error(
@@ -436,16 +431,14 @@ pub fn export_with(
         ExportTarget::ContextPack => {
             ExportArtifact::ContextPack(context_pack::build(spec, &layer, &visible))
         }
-        ExportTarget::Cards => {
-            let ruleset = games::ruleset_for(opts);
-            ExportArtifact::Cards(games::compile_cards(&ruleset, spec, &layer, opts))
-        }
-        ExportTarget::LudiiGdl => {
-            let ruleset = games::ruleset_for(opts);
-            ExportArtifact::LudiiGdl(games::compile_ludii(&ruleset, spec, &layer))
-        }
         ExportTarget::Articy => {
             ExportArtifact::Articy(articy::compile_scaffold(spec, &layer, &visible))
+        }
+        // The card/Ludii render is world content, not engine code: it lives in a
+        // world crate that builds its ruleset directly and needs no compiled
+        // world. Fail closed here.
+        ExportTarget::Cards | ExportTarget::LudiiGdl => {
+            return Err(ExportError::NoEngineRendererForTarget(target));
         }
     };
 

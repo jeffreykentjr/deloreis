@@ -1,6 +1,6 @@
 //! Export backend: the card/board and Ludii L-GDL game profiles (`EXP-3`).
 //!
-//! Both backends compile the **Turning ruleset** — `dli_sim::turning::Ruleset`,
+//! Both backends compile the **Turning ruleset** — `crate::turning::Ruleset`,
 //! rules-as-data with zero simulator state — so each is a *straight structural
 //! render*. That triviality is the DL-0007 proof point (spec 09 §5): if a compile
 //! ever needed to *compute* a relation rather than enumerate the ruleset's fields,
@@ -12,7 +12,7 @@
 //! **available** layouts to a card set. The crucial property: a layout is dealable
 //! iff its required Weathers are still present ([`Ruleset::available_layouts`]), so
 //! the keep-stamped deck — which cut the hard Weathers as a *lore* variant delta
-//! ([`Variant::keep_stamped`](dli_sim::turning::Variant::keep_stamped)) — loses
+//! ([`Variant::keep_stamped`](crate::turning::Variant::keep_stamped)) — loses
 //! `the-debt-square` **by the compile**, not by a profile author's hand. The
 //! honest-vs-keep-stamped [`diff_decks`] is that loss as a shippable artifact.
 //!
@@ -36,9 +36,14 @@ use std::fmt::Write as _;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use dli_sim::turning::{HandRole, Layer as RuleLayer, Leaf as RuleLeaf, Ruleset};
+use dli_sim::digest_json;
 
-use crate::profile::{ExportOpts, ProfileSpec, ProvenanceMode};
+use dli_export::ExportManifest;
+use dli_export::profile::{
+    ExportError, ExportOpts, ExportTarget, ProfileSpec, ProvenanceMode, Registry,
+};
+
+use crate::turning::{HandRole, Layer as RuleLayer, Leaf as RuleLeaf, Ruleset};
 
 /// Select the ruleset a set of options compiles: the salt-fringe regional deck,
 /// the keep-stamped variant, or the honest lowlands deck (the default). The
@@ -143,8 +148,8 @@ pub struct DeckDiff {
 /// second deck lost.
 ///
 /// ```
-/// use dli_sim::turning::Ruleset;
-/// use dli_export::games::{compile_cards, diff_decks};
+/// use tpth::turning::Ruleset;
+/// use tpth::export::{compile_cards, diff_decks};
 /// use dli_export::profile::{ExportOpts, Registry, ExportTarget};
 ///
 /// // The card profile is world data (worlds/tpth/export/profiles.json), not kernel.
@@ -411,4 +416,116 @@ pub fn layer_name(layer: RuleLayer) -> &'static str {
         RuleLayer::Weather => "weather",
         RuleLayer::Reckoner => "reckoner",
     }
+}
+
+// -- the world-side export dispatch (EXP-3) ---------------------------------
+
+/// The rendered Turning artifact: a compiled card deck or a Ludii L-GDL program.
+///
+/// Serialised untagged, so a consumer that pulls one out gets the target's own
+/// shape with no envelope — the world-crate counterpart of the engine's
+/// generic [`ExportArtifact`](dli_export::ExportArtifact) (whose card/Ludii
+/// variants moved out with this render, leaving the engine world-agnostic).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TurningArtifact {
+    /// A compiled card deck (the spec 09 §6 worked export).
+    Cards(CardDeck),
+    /// A Ludii L-GDL program plus its differential status (DL-0007).
+    LudiiGdl(LudiiExport),
+}
+
+impl TurningArtifact {
+    /// The card deck, if this artifact is one.
+    #[must_use]
+    pub fn as_cards(&self) -> Option<&CardDeck> {
+        match self {
+            Self::Cards(deck) => Some(deck),
+            Self::LudiiGdl(_) => None,
+        }
+    }
+
+    /// The Ludii export, if this artifact is one.
+    #[must_use]
+    pub fn as_ludii(&self) -> Option<&LudiiExport> {
+        match self {
+            Self::LudiiGdl(gdl) => Some(gdl),
+            Self::Cards(_) => None,
+        }
+    }
+}
+
+/// The outcome of a Turning export: the rendered artifact and the manifest that
+/// pins it to the exact ruleset state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TurningExport {
+    /// The rendered, target-shaped artifact.
+    pub artifact: TurningArtifact,
+    /// The provenance manifest pinning the artifact to the ruleset it compiled.
+    pub manifest: ExportManifest,
+}
+
+/// Render the Turning under a card or Ludii target, returning its artifact and
+/// manifest — the **world-side dispatch** the engine's generic export delegates
+/// here. It needs no `CompiledWorld`: the ruleset is built directly from `opts`
+/// (the whole point of the DL-0007 finding — the card/Ludii lane never read the
+/// compiled world).
+///
+/// The pipeline mirrors the engine's four-clause contract for the two Turning
+/// targets: resolve the [`ProfileSpec`] (the target's default, or
+/// [`ExportOpts::profile_name`]); pick the layer (`fork` under an
+/// [`ExportOpts::fork`] overlay, else `certain`); build the ruleset from the
+/// region/variant selectors ([`ruleset_for`]); render it structurally
+/// ([`compile_cards`] / [`compile_ludii`]); and pin an [`ExportManifest`] whose
+/// valuation digests the ruleset itself.
+///
+/// # Errors
+///
+/// [`ExportError::UnknownProfile`] / [`ExportError::NoDefaultProfile`] when no
+/// profile resolves, [`ExportError::ProfileTargetMismatch`] when a named profile
+/// is for a different target, and [`ExportError::NoEngineRendererForTarget`] for a
+/// non-Turning target (the context pack and articy scaffold are rendered
+/// engine-side, not here).
+pub fn run(
+    registry: &Registry,
+    target: ExportTarget,
+    opts: &ExportOpts,
+) -> Result<TurningExport, ExportError> {
+    let spec = match &opts.profile_name {
+        Some(name) => registry
+            .resolve(name)
+            .ok_or_else(|| ExportError::UnknownProfile(name.clone()))?,
+        None => registry
+            .default_for(target)
+            .ok_or(ExportError::NoDefaultProfile(target))?,
+    };
+    if spec.target != target {
+        return Err(ExportError::ProfileTargetMismatch {
+            name: spec.name.clone(),
+            found: spec.target,
+            requested: target,
+        });
+    }
+
+    let layer = if opts.fork.is_some() {
+        "fork"
+    } else {
+        "certain"
+    };
+    let ruleset = ruleset_for(opts);
+    let artifact = match target {
+        ExportTarget::Cards => TurningArtifact::Cards(compile_cards(&ruleset, spec, layer, opts)),
+        ExportTarget::LudiiGdl => TurningArtifact::LudiiGdl(compile_ludii(&ruleset, spec, layer)),
+        ExportTarget::ContextPack | ExportTarget::Articy => {
+            return Err(ExportError::NoEngineRendererForTarget(target));
+        }
+    };
+
+    let manifest = ExportManifest {
+        commit: opts.source_commit.clone(),
+        layer: layer.to_owned(),
+        valuation: digest_json(&ruleset),
+        profile_hash: digest_json(spec),
+    };
+    Ok(TurningExport { artifact, manifest })
 }

@@ -1,0 +1,23 @@
+[package]
+name = "tpth"
+description = "To Pleach the Hedgeway: the Turning oracular deck as a world crate over the De Lore Is engine."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+dli-core.workspace = true
+dli-sim.workspace = true
+dli-export.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

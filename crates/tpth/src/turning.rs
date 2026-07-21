@@ -48,10 +48,10 @@ use std::collections::BTreeSet;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::manifest::{
+use dli_sim::manifest::{
     InvariantOutcome, InvariantVerdict, MetricEstimate, RunManifest, digest_json,
 };
-use crate::rng::{SplitMix64, stream_value};
+use dli_sim::rng::{SplitMix64, stream_value};
 
 // ---------------------------------------------------------------------------
 // Provenance — the fork/ratify standing (mirrors `dli_ast::annot::ProvenanceMarker`)
@@ -374,7 +374,7 @@ impl Layout {
 /// [`Provenance`] the ratification path assigns.
 ///
 /// ```
-/// use dli_sim::turning::Ruleset;
+/// use tpth::turning::Ruleset;
 ///
 /// let deck = Ruleset::lowlands_honest();
 /// // A count from the world's own sky: 16 Hands + 12 Weathers + 1 Reckoner.
@@ -558,7 +558,7 @@ impl Ruleset {
     /// successor edges.
     ///
     /// ```
-    /// use dli_sim::turning::Ruleset;
+    /// use tpth::turning::Ruleset;
     ///
     /// let deck = Ruleset::lowlands_honest();
     /// let leaves = deck.leaves();
@@ -803,7 +803,7 @@ impl Ruleset {
     /// unassertable until ratified — exactly as a forked lore claim is.
     ///
     /// ```
-    /// use dli_sim::turning::{Ruleset, Variant};
+    /// use tpth::turning::{Ruleset, Variant};
     ///
     /// let honest = Ruleset::lowlands_honest();
     /// let proposed = honest.fork(&Variant::keep_stamped());
@@ -965,7 +965,7 @@ fn breach_moon_count(ruleset: &Ruleset) -> Option<String> {
 /// deliverable. An all-held result is a structurally sound deck.
 ///
 /// ```
-/// use dli_sim::turning::{enumerate_structural_invariants, Ruleset};
+/// use tpth::turning::{enumerate_structural_invariants, Ruleset};
 ///
 /// let verdicts = enumerate_structural_invariants(&Ruleset::lowlands_honest());
 /// assert_eq!(verdicts.len(), 4);
@@ -1106,7 +1106,7 @@ pub struct TurningBattery {
 
 impl TurningBattery {
     /// Deal reading `index`: play a legal reading from that reading's sub-stream,
-    /// [`stream_value(seed, index)`](crate::rng::stream_value). Each play picks
+    /// [`stream_value(seed, index)`](dli_sim::rng::stream_value). Each play picks
     /// uniformly among the legal moves, so the reading is a pure function of
     /// `(seed, index)` — a battery replays byte-for-byte.
     ///
@@ -1139,7 +1139,7 @@ impl TurningBattery {
     /// [`RunManifest`]: each metric a `tested`
     /// estimate with exact counts, each invariant a `checked` sweep with its
     /// earliest witnessing trial. The returned manifest satisfies
-    /// [`grades_are_honest`](crate::manifest::RunManifest::grades_are_honest).
+    /// [`grades_are_honest`](dli_sim::manifest::RunManifest::grades_are_honest).
     #[must_use]
     pub fn run(&self) -> RunManifest {
         let mut metric_stats = vec![(0i64, 0i64); self.metrics.len()];
@@ -1262,7 +1262,7 @@ impl StudyReport {
 /// mirrors — the rig discovered as data, never announced.
 ///
 /// ```
-/// use dli_sim::turning::honest_vs_rigged;
+/// use tpth::turning::honest_vs_rigged;
 ///
 /// let report = honest_vs_rigged(20_260_720, 400);
 /// assert!(report.shows_the_difference());

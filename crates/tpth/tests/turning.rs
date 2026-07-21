@@ -11,11 +11,11 @@
 
 use std::path::PathBuf;
 
-use dli_sim::turning::{
+use tpth::turning::{
     HandRole, Layer, Leaf, Reading, Ruleset, Standing, StructuralInvariant, TurningBattery,
     Variant, Verdict, enumerate_structural_invariants, honest_vs_rigged,
 };
-use dli_sim::turning::{ReadingInvariant, ReadingMetric, ReadingObservable};
+use tpth::turning::{ReadingInvariant, ReadingMetric, ReadingObservable};
 
 /// The committed export-facing fixture EXP-3 compiles against.
 fn fixture_path() -> PathBuf {
