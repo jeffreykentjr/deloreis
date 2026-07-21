@@ -88,6 +88,7 @@ practice oath-binding  proposed {
   role oathgiver : person   requires standing(oathgiver)
   resource boon   : linear conserved
   rule pledge(bond, oathgiver)
+  rule give-and-take
   condition witnessed requires witness within earshot
   error unowed         refines L2 premise-not-available where absent
   error wrong-moon     refines L3 side-condition [timing] over cycle moon
@@ -104,10 +105,12 @@ spend, and what it closes — inside a practice.
 scope camelot
 
 proof lancelots-oath  speaker lancelot  in oath-binding {
-  premise p1  standing(lancelot)  cited d-0007  cue "Lancelot comes to court"
-  premise p2  consent(arthur)     cited d-0006
+  premise p1  standing(lancelot)  cited d-0012  cue "Lancelot comes to court"
+  premise p2  consent(arthur)     cited d-0012
+  premise p3  boon(1)             drawn-against p1
   step   s1  instantiate pledge  with bond = fealty, oathgiver = lancelot
-  spend  p1
+  step   s2  chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)
+  spend  p3
   close  pledged(lancelot, fealty)  expect holds
   }
 ```

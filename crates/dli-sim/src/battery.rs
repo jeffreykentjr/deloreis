@@ -276,6 +276,21 @@ impl Battery {
                 ));
             }
         }
+        // A declared law whose cap never resolves is unenforceable: its sweep is
+        // deferred rather than checked, so name it here rather than let a
+        // per-resource invariant read as a silent held pass (charter koan 4).
+        for resource in &self.practice.resources {
+            if matches!(resource.kind, Some(ResourceKind::AffineBounded))
+                && self.resolve_cap(resource).is_none()
+            {
+                findings.push(format!(
+                    "resource '{}' declares an affine bound whose cap does not resolve to a \
+                     number (a symbolic cap with no binding in affine_caps); its law is deferred, \
+                     not enforced",
+                    resource.name.text
+                ));
+            }
+        }
         findings
     }
 
@@ -369,6 +384,51 @@ impl Battery {
             return Some(value);
         }
         self.affine_caps.get(decl.name.text.as_str()).copied()
+    }
+
+    /// Why a resource's law could not be enforced this run, or [`None`] if it was.
+    ///
+    /// This is exactly the `accounted = false` condition of
+    /// [`account_resource`](Self::account_resource): an `affine bounded` resource
+    /// whose symbolic cap never resolved to a number (no bare-integer cap and no
+    /// [`affine_caps`](Battery::affine_caps) binding), or a resource whose declared
+    /// law is outside the closed algebra. A law in either state was never applied,
+    /// so a sweep of it has nothing to check.
+    fn unenforced_reason(&self, decl: &ResourceDecl) -> Option<String> {
+        match decl.kind {
+            Some(ResourceKind::AffineBounded) if self.resolve_cap(decl).is_none() => Some(format!(
+                "resource '{}' declares an affine bound whose cap did not resolve to a number \
+                 (a symbolic cap with no binding), so its law was never enforced",
+                decl.name.text
+            )),
+            None => Some(format!(
+                "resource '{}' declares no law in the closed algebra, so nothing was enforced",
+                decl.name.text
+            )),
+            _ => None,
+        }
+    }
+
+    /// If sweeping `predicate` would report a *held* pass over a law that was never
+    /// actually enforced, the reason it must instead be reported **deferred**.
+    ///
+    /// Only a [`NeverViolated`](Invariant::NeverViolated) sweep can be deferred: it
+    /// reads the per-trial `violation`, which an unaccounted resource never sets,
+    /// so it would silently read as held. The balance invariants read a closing
+    /// balance that is always computed, and [`AllLawsHold`](Invariant::AllLawsHold)
+    /// ranges only over the laws that *were* enforced — both are genuinely checked.
+    /// Returns [`None`] for a genuinely-checkable law.
+    #[must_use]
+    pub fn deferred_reason(&self, predicate: &Invariant) -> Option<String> {
+        let Invariant::NeverViolated { resource } = predicate else {
+            return None;
+        };
+        let decl = self
+            .practice
+            .resources
+            .iter()
+            .find(|r| &r.name.text == resource)?;
+        self.unenforced_reason(decl)
     }
 }
 

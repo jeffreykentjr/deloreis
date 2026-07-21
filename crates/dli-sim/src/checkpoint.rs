@@ -18,7 +18,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::battery::Battery;
+use crate::battery::{Battery, InvariantSpec};
 use crate::manifest::{InvariantOutcome, InvariantVerdict, MetricEstimate, RunManifest};
 
 /// The earliest breach of one invariant: the witnessing trial and why.
@@ -96,12 +96,19 @@ impl InvariantAccum {
         }
     }
 
-    fn finalize(&self) -> InvariantVerdict {
+    fn finalize(&self, battery: &Battery, spec: &InvariantSpec) -> InvariantVerdict {
         let outcome = match &self.first_breach {
-            None => InvariantOutcome::Held,
             Some(breach) => InvariantOutcome::Violated {
                 trial: breach.trial,
                 detail: breach.detail.clone(),
+            },
+            // No breach was seen. A genuinely-checkable law with no breach *held*;
+            // but a law that was never enforced (an `affine bounded` cap that never
+            // resolved) cannot have held — its sweep checked nothing. Report that
+            // honestly as deferred, so an unenforced law never forges a held pass.
+            None => match battery.deferred_reason(&spec.predicate) {
+                Some(reason) => InvariantOutcome::Deferred { reason },
+                None => InvariantOutcome::Held,
             },
         };
         InvariantVerdict::new(self.invariant.clone(), outcome)
@@ -207,7 +214,8 @@ impl Checkpoint {
             invariants: self
                 .invariants
                 .iter()
-                .map(InvariantAccum::finalize)
+                .zip(&battery.invariants)
+                .map(|(accum, spec)| accum.finalize(battery, spec))
                 .collect(),
             checkpoint_lineage: self.lineage.clone(),
         };

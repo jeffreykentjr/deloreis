@@ -147,6 +147,16 @@ pub enum InvariantOutcome {
         /// A domain-spoken account of the breach.
         detail: String,
     },
+    /// The predicate's law was never enforced this run, so nothing was actually
+    /// swept — an `affine bounded` resource whose symbolic cap never resolved to a
+    /// number (or a resource with no declared law) can neither hold nor break. A
+    /// deferred outcome is reported honestly and MUST NOT read as a held pass: an
+    /// unenforced law that showed `held` would forge a verified grade
+    /// (`docs/spec/07-verdicts-and-llm-boundary.md` — grades are honest).
+    Deferred {
+        /// Why the law was not enforced (the unresolved-cap reason).
+        reason: String,
+    },
 }
 
 /// The verdict of one declared invariant over a run, graded [`Grade::Checked`].
@@ -189,10 +199,19 @@ impl InvariantVerdict {
         }
     }
 
-    /// Whether this invariant held.
+    /// Whether this invariant held. A deferred (unenforced) law never counts as
+    /// held — its law was not swept, so it made no verified pass.
     #[must_use]
     pub const fn held(&self) -> bool {
         matches!(self.outcome, InvariantOutcome::Held)
+    }
+
+    /// Whether this invariant was deferred — its law could not be enforced this
+    /// run (an unresolved affine cap), so the sweep had nothing to check. A
+    /// deferred verdict is honest about the gap; it is neither held nor violated.
+    #[must_use]
+    pub const fn deferred(&self) -> bool {
+        matches!(self.outcome, InvariantOutcome::Deferred { .. })
     }
 }
 

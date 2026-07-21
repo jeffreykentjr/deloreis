@@ -30,6 +30,7 @@ ratify d-0007
 ratify d-0008
 ratify d-0009   # the cyclic-time + ordering-rule extension
 ratify d-0010   # the lexical ban
+ratify d-0012   # lancelot's oath scene — the ground the worked proof rests on
 
 # --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
 era uthers-time < arthurs-reign < after-camlann   decided d-0001
@@ -95,6 +96,12 @@ thing excalibur  "Excalibur"          decided d-0008
 fact arthur   rules    camelot        decided d-0006
 fact merlin   counsels arthur         decided d-0006
 fact lancelot serves   arthur         decided d-0007
+
+# the certain ground the worked oath-binding proof (below) rests on: Lancelot's
+# standing at court and the king's consent are facts in the certain layer, so the
+# proof's premises seat in the pool rather than fizzle.
+standing(lancelot)   decided d-0012
+consent(arthur)      decided d-0012
 
 # --- states: facts acquire validity spans (the two-era sword case) ------------
 state excalibur.keeper = in-the-stone until the-sword-drawn   decided d-0008
@@ -207,17 +214,22 @@ practice oath-binding  proposed {
   }
 
 # --- a worked diegetic proof: one scene's reasoning, checked (04-practices §5) -
-# A `proof` records a bounded piece of reasoning inside a practice: premises with
-# their citations, the rule instantiated, the resource spent, and the atom it
-# closes on. Lancelot swears fealty to Arthur — two premises (his standing, the
-# king's consent) discharge the `pledge` rule, spend the boon, and close on the
-# vow. The interior is captured clause text, checked by the proof lane against
-# oath-binding, with zero kernel code.
+# A `proof` records a bounded piece of reasoning inside a practice: certain-layer
+# premises, a resource drawn against one of them, the rule instantiated, a chain
+# that concludes the close atom, the resource spent, and the atom it closes on.
+# Lancelot swears fealty to Arthur — his standing and the king's consent seat in
+# the pool; a boon is drawn against his standing; the `pledge` rule is
+# instantiated; a `give-and-take` chain concludes the vow; the boon is spent so
+# the linear-conserved debt balances to zero; and the close holds. The interior
+# is captured clause text, checked by the proof lane against oath-binding, with
+# zero kernel code.
 proof lancelots-oath  speaker lancelot  in oath-binding {
-  premise p1  standing(lancelot)  cited d-0007  cue "Lancelot comes to court"
-  premise p2  consent(arthur)     cited d-0006
+  premise p1  standing(lancelot)  cited d-0012  cue "Lancelot comes to court"
+  premise p2  consent(arthur)     cited d-0012
+  premise p3  boon(1)             drawn-against p1
   step   s1  instantiate pledge  with bond = fealty, oathgiver = lancelot
-  spend  p1
+  step   s2  chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)
+  spend  p3
   close  pledged(lancelot, fealty)  expect holds
   }
 

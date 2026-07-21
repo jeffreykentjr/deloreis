@@ -435,6 +435,15 @@ fn render_manifest(manifest: &RunManifest) -> i32 {
                     verdict.grade(),
                 );
             }
+            // An unenforced law (an unresolved affine cap) never swept anything, so
+            // it is honestly deferred — never "held [checked]", which would read as
+            // a verified pass. Not a breach: it does not fail the run.
+            InvariantOutcome::Deferred { reason } => {
+                outln!(
+                    "invariant  {}: deferred — {reason} (law not enforced, not checked)",
+                    verdict.invariant,
+                );
+            }
         }
     }
     let honesty = if manifest.grades_are_honest() {

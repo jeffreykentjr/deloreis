@@ -460,3 +460,116 @@ fn accounting_agrees_with_check_ledger() {
         }
     }
 }
+
+/// F3 honest-surfacing: an `affine bounded <symbolic-cap>` law whose cap never
+/// resolves to a number is *deferred* — it was never enforced — so its
+/// `never-violated` sweep must report deferred, NOT a held `[checked]` pass that
+/// would forge a verified grade. A conserved (`debt`-style) law in the same
+/// battery stays honestly graded, and binding the cap turns the same law
+/// genuinely checkable. The manifest remains grade-honest throughout.
+#[test]
+fn an_unresolved_affine_cap_law_is_deferred_not_held() {
+    let (doc, diags) = parse_document(
+        "scope magic\n\
+         practice oath-binding proposed {\n\
+           resource boon : linear conserved\n\
+           resource strain : affine bounded body-limit\n\
+           cost bodily\n\
+         }\n",
+    );
+    assert!(diags.is_empty(), "fixture parses: {diags:?}");
+    let practice = compile_practices(&doc).remove(0);
+
+    let invariants = vec![
+        InvariantSpec {
+            name: "boon-never-violated".to_owned(),
+            predicate: Invariant::NeverViolated {
+                resource: "boon".to_owned(),
+            },
+        },
+        InvariantSpec {
+            name: "strain-never-violated".to_owned(),
+            predicate: Invariant::NeverViolated {
+                resource: "strain".to_owned(),
+            },
+        },
+    ];
+    let base = Battery {
+        practice,
+        bounds: GenBounds {
+            max_steps: 6,
+            max_magnitude: 3,
+        },
+        seed: 7,
+        trials: 200,
+        metrics: Vec::new(),
+        invariants,
+        affine_caps: BTreeMap::new(),
+    };
+
+    // validate() names the unresolvable cap as a configuration finding.
+    let findings = base.validate();
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.contains("strain") && f.contains("cap")),
+        "validate must flag the unresolvable affine cap: {findings:?}"
+    );
+
+    let manifest = base.run();
+    // The two-kind honesty oracle still holds: a deferred outcome is not a forged
+    // grade — it is an honest "nothing was swept".
+    assert!(manifest.grades_are_honest(), "the manifest is still honest");
+
+    let strain = manifest
+        .invariants
+        .iter()
+        .find(|v| v.invariant == "strain-never-violated")
+        .expect("the strain sweep is present");
+    assert!(
+        strain.deferred(),
+        "strain's symbolic-cap law is deferred, got {:?}",
+        strain.outcome
+    );
+    assert!(!strain.held(), "a deferred law never counts as held");
+    let dli_sim::InvariantOutcome::Deferred { reason } = &strain.outcome else {
+        panic!("expected Deferred, got {:?}", strain.outcome);
+    };
+    assert!(
+        reason.contains("did not resolve"),
+        "the reason explains the unresolved cap: {reason}"
+    );
+
+    // The conserved law in the same run is genuinely graded — never deferred.
+    let boon = manifest
+        .invariants
+        .iter()
+        .find(|v| v.invariant == "boon-never-violated")
+        .expect("the boon sweep is present");
+    assert!(
+        !boon.deferred(),
+        "the conserved boon law is genuinely checked, not deferred"
+    );
+    assert_eq!(boon.grade(), Grade::Checked);
+
+    // Binding the cap resolves the law: no config finding, and the same sweep is
+    // now genuinely checkable rather than deferred.
+    let mut capped = base.clone();
+    capped.affine_caps = BTreeMap::from([("strain".to_owned(), 3)]);
+    assert!(
+        capped.validate().iter().all(|f| !f.contains("strain")),
+        "a bound cap resolves; no config finding remains"
+    );
+    let capped_strain = capped
+        .run()
+        .invariants
+        .iter()
+        .find(|v| v.invariant == "strain-never-violated")
+        .expect("the strain sweep is present")
+        .clone();
+    assert!(
+        !capped_strain.deferred(),
+        "a resolved cap is genuinely checked, not deferred"
+    );
+    assert_eq!(capped_strain.grade(), Grade::Checked);
+}
