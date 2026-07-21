@@ -2,7 +2,7 @@
 //!
 //! This crate is the single source of truth for the request/response envelope,
 //! the closed [`ops::Op`] set, and the per-op parameter and result schemas. The
-//! `fantasy-worker` contract fixtures are validated against exactly the schemas
+//! `dli-worker` contract fixtures are validated against exactly the schemas
 //! [`schema::contract_schemas`] emits, so a wire change here is a reviewable
 //! schema diff there. The serve loop and MCP adapter are the SERVE-1 milestone.
 

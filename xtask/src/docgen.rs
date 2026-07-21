@@ -134,7 +134,7 @@ fn render_ops() -> String {
         out,
         "The closed operation set: {count} operations. The wire name is each op's \
          serde identifier; its request and response payload schemas live under \
-         `contracts/fantasy-worker/schemas/`. The batch `dli.*` family and the \
+         `contracts/dli-worker/schemas/`. The batch `dli.*` family and the \
          `author.*` Door-T tools are one closed set.\n\n"
     );
     out.push_str("| # | Wire name | Request schema | Response schema |\n");

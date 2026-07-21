@@ -1,4 +1,4 @@
-//! SERVE-1 dispatch tests: the fantasy-worker fixtures are the oracle.
+//! SERVE-1 dispatch tests: the dli-worker fixtures are the oracle.
 //!
 //! Every golden fixture whose ops SERVE-1 dispatches replays through the real
 //! `respond` path (framing + routing + engine), threading session state across a
@@ -19,7 +19,7 @@ use dli_serve::session::Sessions;
 use serde_json::Value;
 
 fn fixtures_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/fantasy-worker/fixtures")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/dli-worker/fixtures")
 }
 
 /// The ops whose golden fixture replays in v0. Excluded: author.* (door-t) and

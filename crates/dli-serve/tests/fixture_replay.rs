@@ -20,7 +20,7 @@ use dli_serve::session::Sessions;
 use serde_json::Value;
 
 fn fixtures_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/fantasy-worker/fixtures")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/dli-worker/fixtures")
 }
 
 fn drive(frame: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {

@@ -11,7 +11,7 @@ fn stray_fixture_not_in_registry_fails() {
         line!()
     ));
     let _ = fs::remove_dir_all(&base);
-    let contract = base.join("contracts/fantasy-worker");
+    let contract = base.join("contracts/dli-worker");
     let golden = contract.join("fixtures/golden");
     let schemas = contract.join("schemas");
     fs::create_dir_all(&golden).unwrap();

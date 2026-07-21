@@ -1,8 +1,9 @@
-# fantasy-worker contract
+# dli-worker contract
 
-This directory is the **authority** for the wire contract between the `deloreis`
-engine and the fantasy production system. It is owned here and vendored by
-fantasy, pinned and digest-checked.
+This directory is the **authority** for the generic wire contract between the
+`deloreis` engine and any worker consumer — the fantasy production system is the
+first such consumer. It is owned here and vendored by consumers, pinned and
+digest-checked.
 
 ## Layout
 

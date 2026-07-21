@@ -7,7 +7,7 @@ verdict: "The 46-operation wire inventory, generated from dli_serve::Op::ALL: wi
 
 # Wire operations
 
-The closed operation set: 46 operations. The wire name is each op's serde identifier; its request and response payload schemas live under `contracts/fantasy-worker/schemas/`. The batch `dli.*` family and the `author.*` Door-T tools are one closed set.
+The closed operation set: 46 operations. The wire name is each op's serde identifier; its request and response payload schemas live under `contracts/dli-worker/schemas/`. The batch `dli.*` family and the `author.*` Door-T tools are one closed set.
 
 | # | Wire name | Request schema | Response schema |
 |---|---|---|---|

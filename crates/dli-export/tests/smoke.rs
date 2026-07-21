@@ -78,7 +78,7 @@ fn profile_serializes_kebab_case() {
 
 #[test]
 fn wire_manifest_has_exactly_the_frozen_fields() {
-    // The golden schema (contracts/fantasy-worker/schemas/dli.export.run.response)
+    // The golden schema (contracts/dli-worker/schemas/dli.export.run.response)
     // pins these four field names; `xtask schema --check` diffs it in the gate.
     let value = serde_json::to_value(ExportManifest::default()).unwrap();
     let keys: std::collections::BTreeSet<&str> = value

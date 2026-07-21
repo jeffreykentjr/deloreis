@@ -14,7 +14,7 @@
         "id": "1",
         "ok": true,
         "result": {
-          "contract": "fantasy-worker",
+          "contract": "dli-worker",
           "contract_version": "0.1.0",
           "server": "deloreis 0.1.0",
           "capabilities": [

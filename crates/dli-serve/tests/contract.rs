@@ -85,7 +85,7 @@ fn golden_dispatch_matches() {
     use serde_json::Value;
 
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../contracts/fantasy-worker/fixtures/golden/check-basic-v1.json");
+        .join("../../contracts/dli-worker/fixtures/golden/check-basic-v1.json");
     let fixture: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let step = &fixture["steps"][0];
 

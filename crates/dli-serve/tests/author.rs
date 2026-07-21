@@ -1137,7 +1137,7 @@ fn author_fixtures() -> Vec<(String, Value)> {
 
 /// The contract fixtures directory.
 fn fixtures_dir() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/fantasy-worker/fixtures")
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/dli-worker/fixtures")
 }
 
 /// Bless step: write the engine-true fixtures to disk (registration and

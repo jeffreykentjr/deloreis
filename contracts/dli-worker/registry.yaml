@@ -1,5 +1,5 @@
 authority: closed_fixture_registry
-contract: fantasy-worker
+contract: dli-worker
 contract_version: 0.1.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
@@ -125,7 +125,7 @@ fixtures:
 - path: golden/timeline-show-v1.json
   sha256: 7c550819e3d0d5b0e004f8677c10d2d46b6ef7494f0423ecc1d574594537524b
 - path: golden/version-v1.json
-  sha256: 4feb8cce8ca9881b8efe46d70155a3cb24df7d09c03c2e9e4e5e4057be94e726
+  sha256: eb8b3bc1588969428fbf937e0311edcfcb51ad8995f66f9fc1b92675211cd318
 - path: negative/attest-missing-schema-violation.json
   sha256: 7bf357a47ecd220bc342a8d87da6dbd2908ed0f1ba9f320edf4560935c464e2c
 - path: negative/attestation-sweep-schema-violation.json

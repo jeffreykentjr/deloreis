@@ -32,7 +32,7 @@
 //!
 //! [`ExportProfile`] and [`ExportManifest`] are the wire contract `dli-serve`
 //! serialises for `dli.export.run`; their JSON schema is pinned in
-//! `contracts/fantasy-worker/schemas/` and diffed by `xtask schema --check` in the
+//! `contracts/dli-worker/schemas/` and diffed by `xtask schema --check` in the
 //! gate. Their fields, variants, and doc comments are therefore **byte-frozen**
 //! here — the richer, growable structure (targets, profile data, options,
 //! artifacts) lives in [`profile`] and is layered *around* them, never *through*

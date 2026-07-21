@@ -130,7 +130,7 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
     Ok(ok_response(
         request,
         &VersionResult {
-            contract: "fantasy-worker".to_owned(),
+            contract: "dli-worker".to_owned(),
             contract_version: "0.1.0".to_owned(),
             server: concat!("deloreis ", env!("CARGO_PKG_VERSION")).to_owned(),
             capabilities: capabilities(),

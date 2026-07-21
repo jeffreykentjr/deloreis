@@ -923,7 +923,7 @@ pub fn render() -> String {
     );
     out.push_str(
         "These finding codes are **disjoint** from the wire error-code registry (the 13 \
-         `ErrorCode` values in `error-codes.md`, per the fantasy-worker contract §3.2 / §9). \
+         `ErrorCode` values in `error-codes.md`, per the dli-worker contract §3.2 / §9). \
          The distinction is load-bearing: a wire error code says the *call* failed — it was \
          malformed (`schema`), refused by principle (`refused`), or hit a server defect \
          (`internal`); a finding code is a graded *domain* observation about the lore itself. \

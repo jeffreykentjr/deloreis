@@ -16,7 +16,7 @@ pub fn run_schema(root: &Path, check: bool) -> Result<()> {
 
     for (name, schema) in dli_serve::schema::contract_schemas() {
         targets.push((
-            root.join(format!("contracts/fantasy-worker/schemas/{name}.json")),
+            root.join(format!("contracts/dli-worker/schemas/{name}.json")),
             serde_json::to_string_pretty(&schema)? + "\n",
         ));
     }

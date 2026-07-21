@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         "docgen" => xtask::docgen::run_docgen(&root, has_flag(rest, "--check")),
         "book" => xtask::book::run_book(&root),
         "fixtures" => {
-            let contract = root.join("contracts/fantasy-worker");
+            let contract = root.join("contracts/dli-worker");
             let schemas = contract.join("schemas");
             xtask::fixtures::run_fixtures(&contract, &schemas, has_flag(rest, "--update-digests"))
         }
