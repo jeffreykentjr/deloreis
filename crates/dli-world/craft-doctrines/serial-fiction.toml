@@ -1,0 +1,88 @@
+# serial-fiction doctrine pack (Phase-3 craft separation, Step 4).
+# Shipped generic craft principles: world-agnostic by construction,
+# authored from the KB classification. Real published frameworks only.
+pack = "serial-fiction"
+
+[[principles]]
+id = "episode-is-complete-kishotenketsu"
+family = "serial"
+statement = "Each installment carries its own complete shape so a listener is satisfied by the single episode before trusting the season. The self-contained shape is how serial trust is earned first."
+source = "Platt & Truant, Write. Publish. Repeat. (self-contained installments)."
+phases = ["outline"]
+checkable_kind = "none"
+
+[[principles]]
+id = "open-loop-discipline"
+family = "serial"
+statement = "Every installment opens at least one new psychological loop, a question, an unease, a thing withheld, that pulls the listener forward. A loop is not always a cliffhanger; it is any tension the mind wants closed."
+source = "Wildbow, Thoughts on Writing Serials; Platt & Truant (open loops); Eyal, Hooked."
+phases = ["outline", "generation"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "micro-pacing-every-installment"
+family = "serial"
+statement = "Every installment must do at least one of three things: advance the plot, change a relationship, or reveal a secret. An installment that does none is filler, however pretty."
+source = "Fox, Write to Market; Platt & Truant, Write. Publish. Repeat."
+phases = ["outline", "generation", "revision"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "promise-payoff-new-promise"
+family = "serial"
+statement = "The serial rhythm is a chain: each installment pays off an earlier promise and makes a fresh one, so the listener always carries an open expectation into the next drop. Close a loop, open a loop."
+source = "Platt & Truant, Write. Publish. Repeat.; Sanderson (promise/payoff at serial scale)."
+phases = ["outline"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "escalate-depth-not-pace"
+family = "serial"
+statement = "Long serials keep readers by escalation of intensity and stakes across the run."
+source = "Wildbow, Worm/Pact (escalation as autopilot)."
+phases = ["outline", "generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "reader-breathing-room"
+family = "serial"
+statement = "Give characters calm scenes to breathe between intensities. A serial that never lets up exhausts its audience and flattens its own peaks; the quiet scenes are what make the loud ones register."
+source = "Wildbow, Thoughts on Writing Serials (the lesson of Pact's over-escalation)."
+phases = ["outline", "generation"]
+checkable_kind = "none"
+
+[[principles]]
+id = "first-three-episodes-compression"
+family = "serial"
+statement = "The opening installments carry the heaviest load: establish voice, promise, and the world's rules fast enough that a listener commits. Front-load the hooks and the distinct textures; a slow first drop loses the audience before the shape can pay off."
+source = "Fox, Launch to Market; Platt & Truant; streaming-pilot craft."
+phases = ["outline"]
+checkable_kind = "none"
+
+[[principles]]
+id = "multiple-pov-loop-management"
+family = "serial"
+statement = "With more than one viewpoint, track a loop ledger per thread so no strand goes cold. Cutting away from a POV should leave its loop open; coming back should advance it, or the listener stops caring about the neglected thread."
+source = "Wildbow (multi-arc interludes); multi-POV rotation craft."
+phases = ["outline"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "modular-world-generates-arcs"
+family = "serial"
+statement = "A serial sustains hundreds of installments only if the world can spin up a fresh arc from its own parts. Each new region or faction is a ready spoke; the structure supplies stories without the author inventing an escalating threat."
+source = "Wildbow (world-as-engine)."
+phases = ["outline", "lore-decision"]
+checkable_kind = "none"
+
+[[principles]]
+id = "cold-open-is-a-tone-promise"
+family = "serial"
+statement = "The cold open is a promise of tone: a small, oblique microcosm of the installment whose meaning clicks into place only as it plays. It sets the contract the installment must honor."
+source = "Dune epigraphs; cold-open-as-tone-promise craft."
+phases = ["outline", "generation"]
+checkable_kind = "none"

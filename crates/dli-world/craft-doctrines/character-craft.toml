@@ -1,0 +1,77 @@
+# character-craft doctrine pack (Phase-3 craft separation, Step 4).
+# Shipped generic craft principles: world-agnostic by construction,
+# authored from the KB classification. Real published frameworks only.
+pack = "character-craft"
+
+[[principles]]
+id = "three-sliders"
+family = "character"
+statement = "A character's hold on the audience runs on three dials: proactivity (do they pursue a goal), competence (are they good at something), and sympathy (do we like or understand them). A character high on even one dial engages; high on none goes flat."
+source = "Sanderson, BYU Creative Writing Lectures (the three sliders)."
+phases = ["outline", "generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "slider-ledger-per-major-character"
+family = "character"
+statement = "For outline and packet review, track every major character's proactivity, competence, and sympathy as explicit numbers with compensation notes. The point is not arithmetic precision; it is forcing the reviewer to name which dial carries the audience's investment."
+source = "Sanderson, BYU Creative Writing Lectures (three sliders and compensation)."
+phases = ["outline", "revision"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "slider-compensation"
+family = "character"
+statement = "A deficit on one dial is bought back by a surplus on another: an unlikeable character reads if hyper-competent and driven (the Sherlock trick). When a character feels wrong, the fix is usually to raise a different dial, not to soften the flaw."
+source = "Sanderson, BYU Creative Writing Lectures (compensation)."
+phases = ["generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "proactivity-as-investigation"
+family = "character"
+statement = "Proactive characters pursue a goal and take action toward it, which is what makes an audience invest in the journey."
+source = "Sanderson, BYU Creative Writing Lectures (proactivity)."
+phases = ["outline", "generation"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "competence-reads-cold"
+family = "character"
+statement = "Competence engages an audience through a kind of wish-fulfillment: we like watching someone who is very good at a thing."
+source = "Sanderson, BYU Creative Writing Lectures (competence)."
+phases = ["generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "sympathy-through-jeopardy-and-care"
+family = "character"
+statement = "Sympathy grows when a character is placed in undeserved difficulty, shows care for someone else, or is good at something we respect. It is earned in the first minutes and spent across the arc."
+source = "Sanderson, BYU Creative Writing Lectures (likeability/sympathy)."
+phases = ["generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "want-versus-need"
+family = "character"
+statement = "A character consciously wants one thing and unconsciously needs another; the arc closes the gap. The want drives the plot's surface, the need drives the deeper turn."
+source = "Truby, The Anatomy of Story (desire vs need)."
+phases = ["outline", "generation"]
+checkable_kind = "none"
+
+[[principles]]
+id = "contrasting-temperament-cast"
+family = "character"
+statement = "An ensemble reads clearest when built by contrasting temperament: sense against sensibility against dry irony. Contrast lets a listener tell characters apart by how they meet the same trouble."
+source = "Austen; Bronte (contrasting-temperament ensembles)."
+phases = ["outline", "lore-decision"]
+checkable_kind = "none"
+
+[[principles]]
+id = "agency-never-victimhood"
+family = "character"
+statement = "A character in a cruel world is never staged as a victim for spectacle. Even the most vulnerable figure stays an agent: exact, stubborn, running the numbers, and probing the rules so as not to be cheated."
+source = "Portis, True Grit (Mattie Ross)."
+phases = ["generation", "revision"]
+checkable_kind = "judge"

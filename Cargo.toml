@@ -26,6 +26,7 @@ dli-serve = { path = "crates/dli-serve" }
 # External deps.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "0.8"
 schemars = { version = "1", features = ["derive"] }
 thiserror = "2"
 miette = "7"

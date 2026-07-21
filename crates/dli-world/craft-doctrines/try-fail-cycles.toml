@@ -1,0 +1,39 @@
+# try-fail-cycles doctrine pack (Phase-3 craft separation, Step 4).
+# Shipped generic craft principles: world-agnostic by construction,
+# authored from the KB classification. Real published frameworks only.
+pack = "try-fail-cycles"
+
+[[principles]]
+id = "causality-therefore-but"
+family = "plot"
+statement = "Beats should connect with 'therefore' and 'but', never 'and then'. If two adjacent beats can be reordered without breaking the story, the causal spine is missing and the scene is a list."
+source = "Stone & Parker's 'therefore/but' rule; McKee, Story (progressive causality)."
+phases = ["outline", "generation", "revision"]
+checkable_kind = "judge"
+
+[[principles]]
+id = "tryfail-yes-but-no-and"
+family = "plot"
+statement = "A try/fail cycle answers the character's attempt with 'yes-but' (they succeed and a new problem opens) or 'no-and' (they fail and it worsens). These cycles are the engine of the middle; 'yes-and' only ends a thread."
+source = "Card, How to Write SF&F; Kowal, MICE Quotient (try-fail cycles); Writing Excuses."
+phases = ["outline", "generation"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "yes-and-is-terminal"
+family = "plot"
+statement = "A 'yes-and' outcome (clean success that also opens good fortune) resolves a thread and should appear only at a thread's close. A 'yes-and' in the middle deflates tension by handing the character an unearned win."
+source = "Card/Kowal try-fail cycles."
+phases = ["outline", "revision"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "tryfail-count-three"
+family = "plot"
+statement = "Roughly three attempts before a turn reads as earned: too few feels easy, too many feels padded. The count is a heuristic, not a rule; the test is whether each attempt teaches the character something the next one uses."
+source = "Folk-tale rule of three; Writing Excuses (try-fail pacing)."
+phases = ["outline"]
+checkable_kind = "none"
+default_params = { tryfail_count = 3 }

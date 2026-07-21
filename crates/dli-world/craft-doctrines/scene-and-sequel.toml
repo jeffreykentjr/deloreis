@@ -1,0 +1,21 @@
+# scene-and-sequel doctrine pack (Phase-3 craft separation, Step 4).
+# Shipped generic craft principles: world-agnostic by construction,
+# authored from the KB classification. Real published frameworks only.
+pack = "scene-and-sequel"
+
+[[principles]]
+id = "scene-goal-conflict-outcome"
+family = "plot"
+statement = "A scene of action runs goal, conflict, outcome: the viewpoint character wants something, meets resistance, and leaves in a changed position. In packet review, ledger the goal/conflict/disaster chain explicitly so a quiet scene still has mechanical movement rather than mood alone."
+source = "Swain, Techniques of the Selling Writer (scene/sequel); Bickham."
+phases = ["outline", "generation"]
+checkable_kind = "deterministic-kernel"
+kernel_rule = "check-outline"
+
+[[principles]]
+id = "sequel-reaction-dilemma-decision"
+family = "plot"
+statement = "Between scenes of action sit sequels: the character reacts, faces a dilemma, and decides. Sequels are where a meditative story does its real work, and they have a shape, so a quiet scene is never shapeless."
+source = "Swain, Techniques of the Selling Writer (sequel structure)."
+phases = ["outline", "generation"]
+checkable_kind = "none"

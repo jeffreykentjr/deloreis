@@ -123,3 +123,7 @@ pub use season::{
     EpisodeMeta, EpisodePolicy, LedgerBeat, LedgerPromise, LedgerScene, Magnitude, Reveal,
     SliderState, Thresholds, Turn, check_episode, check_season, check_season_rules, worst_severity,
 };
+
+// Step 4 (craft separation): the shipped generic doctrine library.
+pub use kb::{CheckableKind, DoctrineFamily, DoctrinePack, DoctrinePrinciple, Scalar};
+pub use load::doctrines;

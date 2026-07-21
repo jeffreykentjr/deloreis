@@ -38,7 +38,7 @@
 //! a mission-specific pillar overrides generic advice.
 
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use dli_core::grade::Grade;
 use schemars::JsonSchema;
@@ -431,6 +431,157 @@ impl Principle {
             Family::Pillar => "pillar",
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// The shipped generic doctrine library (Phase-3 craft separation, Step 4).
+//
+// These types are the *shipped* half of the DL-0018 seam: the world-agnostic
+// craft doctrine dli ships (`craft-doctrines/*.toml`), authored from the KB
+// classification. They are world-agnostic **by construction** — no mission
+// filter, no citation, no binding symbol, and a [`DoctrineFamily`] that has no
+// pillar variant — so world (TPtH) content physically cannot ride on them
+// (design §1.1/§2.4). The compiled [`PRINCIPLES`] corpus below stays the source
+// of truth this step; composing packs + world config into it is a later step.
+// ---------------------------------------------------------------------------
+
+/// A generic default parameter value carried by a shipped [`DoctrinePrinciple`] —
+/// a world may override it in its craft config (design §1.1). Deliberately small:
+/// the tunables in the corpus are counts, ratios, flags, and short labels
+/// (e.g. `said_tag_ratio = 0.85`, `cast_per_scene = 4`, `tryfail_count = 3`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum Scalar {
+    /// A boolean flag.
+    Bool(bool),
+    /// An integer count.
+    Int(i64),
+    /// A real-valued ratio or threshold.
+    Float(f64),
+    /// A short textual value.
+    Text(Cow<'static, str>),
+}
+
+/// The KIND of check a shipped doctrine principle invites — not a bound symbol.
+///
+/// The runtime [`Binding`] names a concrete kernel rule, factory battery, or judge
+/// dimension; the shipped record keeps only the *kind*, because the concrete symbol
+/// (a factory battery name, a judge-dimension name) is world-supplied config, not
+/// generic doctrine (design §1.1/§2.4). The one exception is the kernel rule, which
+/// is an engine battery from a closed set and therefore ships in
+/// [`DoctrinePrinciple::kernel_rule`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum CheckableKind {
+    /// Declaration-only: no check, surfaced by brief/phase queries.
+    None,
+    /// A deterministic in-engine kernel rule; the rule is named in
+    /// [`DoctrinePrinciple::kernel_rule`].
+    DeterministicKernel,
+    /// A deterministic prose check that stays factory-side (spec §6); its symbol is
+    /// world config.
+    DeterministicProse,
+    /// A judge dimension, consumed as an attestation; the dimension name is world
+    /// config.
+    Judge,
+}
+
+/// The doctrine axis of a shipped principle — [`Family`] minus [`Family::Pillar`].
+///
+/// A pillar is a *world-chosen* precedence tier (D-0128 for one world), never a
+/// doctrine axis, so the shipped record cannot name it: this enum simply has no
+/// pillar variant, making `Family::Pillar` unrepresentable in the shipped library
+/// **by construction** (design §1.1/§2.4). It composes into a runtime [`Family`] via
+/// [`DoctrineFamily::family`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum DoctrineFamily {
+    /// Plot: promises, causality, try/fail, arc shape.
+    Plot,
+    /// Character: sliders, interiority, voice.
+    Character,
+    /// World: material grounding, magic pedagogy.
+    World,
+    /// Prose: sentence craft, abstraction, said-ratio.
+    Prose,
+    /// Serial: open loops, micro-pacing, installment discipline.
+    Serial,
+    /// Audio: narrator/SFX load, aural distinctness, performability.
+    Audio,
+}
+
+impl DoctrineFamily {
+    /// The runtime [`Family`] this doctrine axis composes into (never
+    /// [`Family::Pillar`]).
+    #[must_use]
+    pub fn family(self) -> Family {
+        match self {
+            Self::Plot => Family::Plot,
+            Self::Character => Family::Character,
+            Self::World => Family::World,
+            Self::Prose => Family::Prose,
+            Self::Serial => Family::Serial,
+            Self::Audio => Family::Audio,
+        }
+    }
+}
+
+/// A shipped, world-agnostic craft principle — the data form of the generic
+/// doctrine library (design §1.1).
+///
+/// This is the type the `craft-doctrines/*.toml` packs deserialize into. It is
+/// world-agnostic **by construction**: it has no `mission_filter` field, no
+/// citation field, and no binding-symbol field, and its [`family`](Self::family) is
+/// a [`DoctrineFamily`] (which has no pillar variant), so world content physically
+/// cannot ride on it — the generic/config boundary is compiler-checked, not
+/// review-checked (design §2.4). A CI lint additionally forbids world tokens in
+/// [`statement`](Self::statement) and [`source`](Self::source).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct DoctrinePrinciple {
+    /// The stable pack-namespaced slug (shared with the runtime [`Principle`] id).
+    pub id: Cow<'static, str>,
+    /// The pack this principle ships in; stamped from the pack file on load.
+    #[serde(default)]
+    pub pack: Cow<'static, str>,
+    /// The doctrine axis (never a pillar).
+    pub family: DoctrineFamily,
+    /// The principle, stated world-agnostically.
+    pub statement: Cow<'static, str>,
+    /// A real, attributed published framework — never a world citation.
+    pub source: Cow<'static, str>,
+    /// The production phases it bears on.
+    pub phases: Cow<'static, [Phase]>,
+    /// The KIND of check it invites (not a bound symbol).
+    pub checkable_kind: CheckableKind,
+    /// The engine kernel rule it binds, present only for
+    /// [`CheckableKind::DeterministicKernel`] (from the closed [`KernelRule`] set).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kernel_rule: Option<KernelRule>,
+    /// Generic default parameters a world may override.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub default_params: BTreeMap<Cow<'static, str>, Scalar>,
+}
+
+impl DoctrinePrinciple {
+    /// The runtime [`Family`] this shipped principle composes into.
+    #[must_use]
+    pub fn family(&self) -> Family {
+        self.family.family()
+    }
+}
+
+/// A shipped, togglable pack of world-agnostic [`DoctrinePrinciple`]s (design §1.1).
+///
+/// Packs are fine-grained on purpose; a world's craft config enables them
+/// individually or by coarse group. The `save-the-cat` pack ships as a declared,
+/// **empty** stub (the corpus has no beat-sheet principle to fabricate).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct DoctrinePack {
+    /// The pack name (e.g. `prose-craft`, `audio-drama`).
+    pub pack: Cow<'static, str>,
+    /// The principles this pack ships, in pack order (empty for a declared stub).
+    #[serde(default)]
+    pub principles: Vec<DoctrinePrinciple>,
 }
 
 /// The ported knowledge base: every principle, in corpus order.
@@ -1969,6 +2120,19 @@ impl Kb<'static> {
         Self {
             principles: PRINCIPLES,
         }
+    }
+
+    /// The shipped generic doctrine set — every [`DoctrinePrinciple`] across the
+    /// embedded `craft-doctrines/*.toml` packs, flattened in pack-declaration order
+    /// (design §1.1/§4). This is the world-agnostic library dli ships; a world's
+    /// craft config composes it into the runtime corpus in a later step. `builtin()`
+    /// remains the source of truth until that step flips it.
+    #[must_use]
+    pub fn doctrines() -> Vec<DoctrinePrinciple> {
+        super::load::doctrines()
+            .into_iter()
+            .flat_map(|pack| pack.principles)
+            .collect()
     }
 }
 

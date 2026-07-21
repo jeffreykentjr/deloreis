@@ -1,0 +1,6 @@
+# save-the-cat doctrine pack (Phase-3 craft separation, Step 4).
+# Declared EMPTY stub: the author named Snyder's beat sheet, but the corpus
+# has no beat-sheet principle, so this pack ships empty until one is authored.
+# Do not fabricate a beat-sheet principle here.
+pack = "save-the-cat"
+principles = []

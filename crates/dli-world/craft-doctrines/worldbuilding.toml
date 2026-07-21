@@ -1,0 +1,20 @@
+# worldbuilding doctrine pack (Phase-3 craft separation, Step 4).
+# Shipped generic craft principles: world-agnostic by construction,
+# authored from the KB classification. Real published frameworks only.
+pack = "worldbuilding"
+
+[[principles]]
+id = "iceberg-worldbuilding"
+family = "world"
+statement = "Show a fraction of what you have built and imply the rest. The felt depth of a world comes from the sense that the visible detail rests on a much larger unseen mass. Withheld lore is load-bearing."
+source = "Sanderson (iceberg principle); Hemingway (theory of omission)."
+phases = ["lore-decision", "generation"]
+checkable_kind = "none"
+
+[[principles]]
+id = "world-as-plot-engine"
+family = "world"
+statement = "Build the world modularly so it generates arcs on demand: each region, faction, and rule is a socket a new spoke can plug into. A world designed this way answers 'what happens next' from its own structure."
+source = "Wildbow (modular worldbuilding); Sanderson (world as plot engine)."
+phases = ["lore-decision", "outline"]
+checkable_kind = "none"
