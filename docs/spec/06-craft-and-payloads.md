@@ -128,10 +128,12 @@ statused declarations the author owns.
 
 ## 5. The knowledge base as policy data
 
-The 79-principle knowledge base ports as `principle` declarations with every
-field intact — `{id, family, statement, source, mission_filter, tension_note,
-resolution, phases, checkable, check_ref}`. Its invariants stop being test
-assertions and become **compile rules**:
+The knowledge base ports as `principle` declarations with every field intact —
+`{id, family, statement, source, mission_filter, tension_note, resolution,
+phases, checkable, check_ref}` — **107 principles** in the pinned corpus (the
+doctrine's round-number *79* names the documented subset; the table, not the
+number, is the source of truth). Its invariants stop being test assertions and
+become **compile rules**:
 
 - a `tension` requires a `resolution`;
 - a `checkable` principle that binds a nonexistent rule is a **compile error** —
