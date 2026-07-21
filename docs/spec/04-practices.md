@@ -25,14 +25,15 @@ that the practice's own declaration does not tell it.
 
 ## 1. The claim, precisely
 
-**A magic system is a practice with laws, and the laws are data.** The
-Concordance — the Spoken Proof that opens the series — is not a component of
-the kernel. It is the *spoken-proof instance* of a generic practice, one
-`.dli` scope among others. Nothing about grounds, binders, wards, debt, or the
-wrong-hour failure is written into any Rust type or evaluator branch. Point the
-same machinery at a wholly unrelated art — true-naming, a card game, a smith's
-temper-craft — and it runs with zero kernel change, because everything that
-distinguishes one practice from another lives in the practice's declaration.
+**A magic system is a practice with laws, and the laws are data.** A
+spoken-enchantment practice, a vow discipline, a card game — none is a component
+of the kernel. Each is one *practice instance* of a generic machine, one `.dli`
+scope among others. Nothing about a practice's own kinds, its resources, its side
+conditions, or its timing failure is written into any Rust type or evaluator
+branch. Point the same machinery at a wholly unrelated art — a true-naming
+enchantment, a card game, a smith's temper-craft — and it runs with zero kernel
+change, because everything that distinguishes one practice from another lives in
+the practice's declaration.
 
 This is [koan 10 — one fabric](../charter.md) enforced at the level of magic:
 a practice is ordinary lore, so the whole existing apparatus applies to it for
@@ -51,10 +52,10 @@ needs something outside this vocabulary is telling the workbench that the
 parameterization is incomplete, which is a finding worth having.
 
 **Typed finite kinds, including the cyclic `cycle`.** A practice declares its
-own kinds — grounds, binders, roles — as ordinary finite kinds
+own kinds — bonds, grounds, roles — as ordinary finite kinds
 ([01-syntax](01-syntax.md)). The cyclic `cycle` kind ([03-time](03-time.md),
 [koan 8](../charter.md)) is available on the same footing: tide, moon, and
-season are cycles, and so is the Turning's ring of twenty-nine leaves. A cycle
+season are cycles, and so is any rankless wheel of a game's turns. A cycle
 carries `succ`, `pred`, `across`, and `distance` and refuses `<`, sort order,
 and maximum — the same rank-refusing kind the timing checker and the game
 engine share.
@@ -121,144 +122,131 @@ licensed ignorance becomes checkable (§3).
 Everything else — which kinds, which laws, which resources, which conditions,
 which failures, which costs — is the practice's own declaration.
 
-## 3. The spoken-proof instance, worked
+## 3. A conserved-resource practice, worked
 
-The Concordance as a practice, from the ratified direction vocabulary:
+A vow is a practice with laws. **Oath-binding** — a public-domain "a boon owed
+must balance" — declares a `linear conserved` resource and the failures that
+attend it, entirely as data:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope magic
+scope camelot
 
-practice spoken-proof  ratified D-0146 D-0148 {
-  kind ground = water | field | ore | tide | hearth | boundary   # the Grounds
-  kind binder from lexicon.loan-words          # the Binder layer IS the lexicon's
-                                               # attested loan-words: magic consuming
-                                               # the language layer as an ordinary kind
-  role witness : entity    requires standing(witness), consent(witness)
-  role holder  : artifact  requires sound(holder)     # fiber, leaf, record, cord
-  role seat    : place
-
-  resource debt   : linear conserved
-  # THE conservation law, declared: no ledger step mints or burns debt.
-  # A casting may reveal, assign, redistribute, release — the multiset balances
-  # across every close, or the ledger does not check.
-  resource strain : affine bounded body-limit(caster)   # Overload's substrate
-
-  rule ward-form(ground, fibre)  ratified D-0146 :- ...
-  rule give-and-take             ratified D-0146 :- ...
-
-  condition seated requires phase(tide) in allowed-hours(rule),
-                            scope(claim) within scope(consent)
-  condition chorus requires each voice in chain has standing, trust(voice, next)
-
-  # the nine failure modes, each refining a structural class:
-  error fizzle             refines L2 premise-not-available where absent
-  error rebound            refines L2 premise-not-available where contradicted
-                           signals bodily-hit
-  error mis-scope          refines L3 side-condition [scope] at close
-  error bad-holder         refines L3 side-condition [holder-soundness]
-  error wrong-hour         refines L3 side-condition [timing] over cycle tide, moon
-  error coerced-party      refines L3 side-condition [consent] signals refusal
-  error broken-chorus      refines L5 invalid-chain where chorus fails
-  error overload           refines L6 resource-violation on strain signals collapse
-  error licensed-ignorance refines L2 where available-in(licensed-pool)
-                           and contradicted-in(certain)
-
-  cost bodily | cognitive | material | temporal | social | epistemic
-     | scope | opportunity
+practice oath-binding  proposed {
+  use chronology.cycles                        # the pledge seats its hour on the moon
+  kind bond = fealty | troth | ransom
+  role oathgiver  : person   requires standing(oathgiver)
+  role oathholder : person   requires consent(oathholder)
+  resource boon   : linear conserved           # a boon owed must balance — the debt law
+  resource strain : affine bounded body-limit  # the swearer's body caps the draw
+  rule pledge(bond, oathgiver)
+  rule give-and-take                           # every boon revealed, assigned, or released balances
+  condition witnessed requires witness within earshot
+  error unowed        refines L2 premise-not-available where absent
+                      # a pledge drawn on a boon never granted
+  error forsworn      refines L2 premise-not-available where contradicted signals dishonour
+                      # a boon the ledger contradicts recoils on the swearer
+  error wrong-moon    refines L3 side-condition [timing] over cycle moon
+                      # the same oath, sworn at the wrong turn of the moon
+  error overpledged   refines L6 resource-violation on strain signals collapse
+                      # pledging more strain than the body-limit allows
+  error hollow-vow    refines L2 where available-in(licensed-pool) and contradicted-in(certain)
+                      # seats-and-lies: true against a licensed pool, false against the certain
+  cost social | bodily | material | epistemic
   }
 ```
 
 Three design beats carry the weight of the whole approach.
 
-**Refinements, not a parallel taxonomy.** The nine diegetic failures are not a
+**Refinements, not a parallel taxonomy.** The declared failures are not a
 second error system bolted beside the checker's seven classes — each is a
-refinement of one class. Fizzle and Rebound are both L2, split by the
-discriminant *absent* versus *contradicted*: a fizzle draws on a premise merely
-unestablished, a rebound on one the projection actively denies, and a rebound
-signals a bodily hit while a fizzle signals nothing. Wrong-hour is the timing
-side condition over the kernel's own cycles — the series-opening beat that a
-ward can fail for being made at the wrong hour is one declared line, not a
-special case. Overload is the affine bound on `strain`. A ledger reading
-`in spoken-proof` speaks the story's language back:
+refinement of one class. Unowed and Forsworn are both L2, split by the
+discriminant *absent* versus *contradicted*: an unowed pledge draws on a boon
+never granted, a forsworn one on a boon the ledger actively contradicts, and
+forsworn signals dishonour while unowed signals nothing. Wrong-moon is the timing
+side condition over the kernel's own cycles — an oath that fails for being sworn
+at the wrong turn of the moon is one declared line, not a special case.
+Overpledged is the affine bound on `strain`. A ledger reading `in oath-binding`
+speaks the story's language back:
 
 ```text
-invalid: wrong-hour (L3 [timing] at s2) — tide is flood in e01-s04;
-         ward-form allows slack
+invalid: wrong-moon (L3 [timing] at s2) — the moon is at the wane in the pledge;
+         the oath allows only the waxing turn
 ```
 
-and a scene that declares `expect fails-at wrong-hour` reads as drama, not
+and a scene that declares `expect fails-at wrong-moon` reads as drama, not
 plumbing.
 
 **Licensed ignorance is the failure only this kernel can state.** It is a
-provenance failure: the proof validates against a *licensed pool* — a deck with
-its Weathers removed, an archive with rows struck — while its conclusion is
-contradicted in the *certain* projection. The checker states it as a
-**differential between two premise pools**: certain, and the licensed subset.
-The verdict is "seats and lies" — the soothing-but-false result that powers the
-rigged-deck reading. A proof checker without an annotation layer beneath it
-cannot even express the two pools, let alone diff them; here it is one declared
-error refining L2 with the discriminant *available-in(licensed-pool) and
-contradicted-in(certain)*.
+provenance failure: the vow validates against a *licensed pool* — a set of
+premises with certain facts withheld — while its conclusion is contradicted in
+the *certain* projection. The checker states it as a **differential between two
+premise pools**: certain, and the licensed subset. The verdict is "seats and
+lies" — an oath true against what the swearer is licensed to know and false
+against what is certain (oath-binding's `hollow-vow`). A proof checker without an
+annotation layer beneath it cannot even express the two pools, let alone diff
+them; here it is one declared error refining L2 with the discriminant
+*available-in(licensed-pool) and contradicted-in(certain)*.
 
 **Cost vocabulary is typed; the cost schedule is proposed lore.** The `cost`
-line fixes the *currencies* a casting may spend in — bodily, cognitive,
-material, temporal, social, epistemic, scope, opportunity — so a ledger records
-spends by kind and the craft layer can ask what an episode's magic cost and in
-which currencies. What it does not fix is the cost *schedule*: how much strain a
-given chain draws is a rule set that enters as `proposed` lore only when the
-author rules it. The workbench holds the slot open with a typed vocabulary and
-declines to invent the numbers — the schedule is reserved extension work, and a
-practice with no schedule yet still checks everything else.
+line fixes the *currencies* a casting may spend in — social, bodily, material,
+epistemic — so a ledger records spends by kind and the craft layer can ask what
+an episode's magic cost and in which currencies. What it does not fix is the cost
+*schedule*: how much strain a given pledge draws is a rule set that enters as
+`proposed` lore only when the author rules it. The workbench holds the slot open
+with a typed vocabulary and declines to invent the numbers — the schedule is
+reserved extension work, and a practice with no schedule yet still checks
+everything else.
 
 ## 4. The arbitrariness proof
 
 A practice is only a genuine parameterization if a second system, disjoint from
-the first on every declared axis, hosts with zero kernel code. **True-naming**
-is that proof — fifteen declared lines, nothing in common with proof-magic:
+the first on every declared axis, hosts with zero kernel code. **Merlin's craft**
+is that proof — a spoken enchantment with nothing in common with a conserved-debt
+vow:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope magic
+scope camelot
 
-practice true-naming  proposed {        # a fixture, not canon: the arbitrariness proof
+practice merlins-craft  proposed {      # the arbitrariness proof: nothing in common with oath-binding
   use language.registers                # its primitives ARE the naming layer (05-language-layer)
-  resource acquaintance(name) : graded monotone whole > worn > husk
-  rule invoke(bearer) requires
+  resource breath(word) : graded monotone full > spent > silent
+  rule speak(bearer) requires
       knows(caster, true-name(bearer)),                     # a knowledge state
-      acquaintance(true-name(bearer)) >= worn,
+      breath(true-name(bearer)) >= spent,
       derivation(true-name(bearer)) checks in register-of(bearer)
-  effect invoke degrades acquaintance by 1     # speaking a name wears it
+  effect speak degrades breath by 1     # a word spoken thins the breath behind it
   condition unheard requires no witness within earshot
-  error slipped-name   refines L4 bad-instantiation
+  error mis-spoken     refines L4 bad-instantiation
                        # a mispronunciation IS a failed dialect derivation
   error stale-name     refines L2 where premise-outdated
                        # the bearer has changed since the name was learned
-  error name-overheard refines L3 side-condition [unheard] signals degrade(+1)
-  cost social | epistemic
+  error word-overheard refines L3 side-condition [unheard] signals degrade(+1)
+  cost vital | epistemic
   }
 ```
 
-Nothing here resembles proof-magic. The resource is a graded-monotone decay,
-not a conserved linear multiset — nothing is spent, knowing only *wears*.
-Failure is degradation and staleness against states, not typed proof-step
-errors. The premises are names known, not facts derived. And the practice
+Nothing here resembles a conserved-debt vow. The resource is a graded-monotone
+decay, not a conserved linear multiset — nothing is spent, the breath only
+*wears*. Failure is degradation and staleness against states, not typed
+proof-step errors. The premises are names known, not boons owed. And the practice
 consumes the language layer wholesale: a true-name is a dialect derivation, so
 a mispronunciation is literally a grammar error (L4), and learning a name is a
-knowledge state. Three layers — magic, language, and story-time — meet in
-fifteen declared lines and zero kernel code.
+knowledge state. Three layers — magic, language, and story-time — meet in a
+dozen declared lines and zero kernel code.
 
 That is [koan 10](../charter.md) demonstrated rather than argued. The one honest
-cost the fixture exacts is `graded monotone`: hosting true-naming required
+cost this practice exacts is `graded monotone`: hosting merlins-craft required
 adding a member to the resource algebra. Had it needed more than one new
 algebra member, the parameterization would have failed — which is exactly what
-makes this fixture load-bearing.
+makes this example load-bearing.
 
-**Standing role.** The true-naming scope is the workbench's acceptance test. It
-is kept in the tree beside the mutation corpus and compiled by the gate: if a
-future kernel change makes true-naming require per-system code, the fixture
-stops compiling with zero kernel code and the regression is caught at the gate,
-not in review.
+**Standing role.** The camelot scope is the workbench's acceptance test. It
+ships as [`examples/camelot.dli`](../../examples/camelot.dli) and is compiled by
+the gate: if a future kernel change makes merlins-craft require per-system code,
+the example stops compiling with zero kernel code and the regression is caught at
+the gate, not in review.
 
 ## 5. Ledger checking
 
@@ -282,16 +270,15 @@ A ledger is written as data and checked, never authored by the machine:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope magic
+scope camelot
 
-proof e01-s04  speaker protagonist  in spoken-proof {
-  premise p1  holds(enfys, consent(household, door))  cited D-0113  cue "line 112"
-  premise p2  hour(slack-tide)  from-scene  cue "line 118"
-  premise p3  debt(1)  drawn-against p1
-  step   s1  instantiate ward-form  with ground = door, fibre = withy
-  step   s2  chain from p1, s1  by give-and-take  conclusion bound(ward, door)
-  spend  p3
-  close  holds(ward(door))  expect holds
+proof scene-04  speaker merlin  in merlins-craft {
+  premise p1  knows(merlin, true-name(the-enchanter))  cited d-0006  cue "line 112"
+  premise p2  breath(true-name(the-enchanter))  from-scene  cue "line 118"
+  step   s1  instantiate speak  with bearer = the-enchanter
+  step   s2  chain from p1, s1  by speak  conclusion named(the-enchanter)
+  spend  p2
+  close  named(the-enchanter)  expect holds
   }
 ```
 
@@ -301,14 +288,14 @@ the steps, does the **linear accounting** over every resource named in the
 practice, and matches the close against the declared expectation:
 
 ```text
-invalid: L2 premise-not-available at p2 — hour(slack-tide) is not established
-         in e01-s04; last established hour is high-water
+invalid: L2 premise-not-available at p2 — breath(true-name(the-enchanter)) is
+         spent in scene-04; the caster has no breath left to speak the name
          (episode-01, facts_established); cue "line 118"
 expected: holds   got: blocked   grade: checked
 ```
 
 **The expected verdict cuts both ways.** A scene built on a character's flawed
-argument declares `expect fails-at wrong-hour`, and the checker confirms the
+argument declares `expect fails-at stale-name`, and the checker confirms the
 casting fails at the declared step for the declared reason. A wrong argument
 that *accidentally validates* is as much a bug as a right one that fails — the
 `fails-at` expectation is xfail-for-drama, and a silent success where the story
@@ -329,7 +316,7 @@ two languages touch at exactly two points, and nowhere else:
    multiplies its premises' polynomials — so a proof's validity degrades
    automatically when a premise later loses support, with no re-run.
 
-Frith conservation is therefore a fold invariant plus the checker's
+Conservation is therefore a fold invariant plus the checker's
 resource-multiset bookkeeping — an affine discipline as a side condition, not a
 linear type theory bolted onto the surface language.
 
@@ -354,5 +341,12 @@ declarations, checked at compile time before any casting is run:
   condition the practice does not declare, fails to compile.
 
 A ledger gains one clause — `in <practice>` — and loses nothing: the same
-ledger checker serves the Concordance, true-naming, and the Turning, because
+ledger checker serves oath-binding, merlins-craft, and any declared game, because
 the practice it runs against is data all the way down.
+
+---
+
+**Worldbook.** The Concordance — the spoken-proof practice with its
+linear-conserved debt, its nine failure modes, licensed-ignorance and the
+rigged-deck reading, the e01-s04 proof ledger, and Frith conservation — lives in
+[the TPtH worldbook · The Concordance](../worlds/tpth/concordance.md).

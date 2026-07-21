@@ -56,16 +56,15 @@ target consumes and how each renders; it holds no logic beyond selection and
 renaming:
 
 ```yaml
-# cards/lowlands@3 — a profile is data, not a code fork
+# cards/french-deck@1 — a profile is data, not a code fork
 target: cards
-version: 3
+version: 1
 selects:
-  sorts: [ground, hand, weather, reckoner]
-  relations: [rides-figure, ring-next]
+  sorts: [card]
+  relations: [run-successor]
 renders:
-  hand: {id: "{role}-{ground}", keep: [role, ground, figure]}
-  weather: {id: "weather-{name}", keep: [name, ring_next]}
-carries_provenance: dev-metadata   # cited D-entries as meta.cited; stripped for ship
+  card: {id: "{rank}-of-{suit}", keep: [rank, suit, name]}
+carries_provenance: dev-metadata   # cited decisions as meta.cited; stripped for ship
 ```
 
 Every emitted artifact carries a manifest that ties it to the exact canon state
@@ -74,7 +73,7 @@ diagnosis:
 
 ```json
 {"compiled_from": {"commit": "3e1320a", "layer": "certain",
-  "valuation": "ledger@head", "profile": "cards/lowlands@3"}}
+  "valuation": "ledger@head", "profile": "cards/french-deck@1"}}
 ```
 
 **One-way, absolutely.** No export is ever read back as authority. A change
@@ -119,21 +118,22 @@ are stable, documented, and someone else's problem to execute. The boundary,
 stated exactly: **rules-as-lore live in the kernel; play-runtimes live outside,
 fed by exports.**
 
-The Turning engine is in-kernel not because the fabric is a game platform but
-because the Turning's rules are ratified canon whose invariants are checked lore
-claims (koan 10). A video game consumes exports; it does not call the kernel at
-runtime. If a Ludii- or GDL-shaped need ever arrives, it arrives as an export
-profile — never as kernel growth.
+The french-deck engine is in-kernel not because the fabric is a game platform but
+because its rules are ratified canon whose invariants are checked lore claims
+(koan 10). A video game consumes exports; it does not call the kernel at runtime.
+If a Ludii- or GDL-shaped need ever arrives, it arrives as an export profile —
+never as kernel growth.
 
 ## 5. The GDL proof point (DL-0007)
 
 One committed exception exists as a proof point. While the fabric will not
 become a game description language, the soundness bar is adopted: the dli-hosted
-Turning rules must be **trivially and soundly exportable** to a relevant GDL.
+french-deck rules must be **trivially and soundly exportable** to a relevant GDL.
 
-A `games/ludii` export profile compiles the Turning's declared ruleset — deck
-structure, legal-move relations, terminal conditions, variant deltas — to
-Ludii's **L-GDL**, chosen over Stanford GDL because Ludii natively models card
+A `games/french-deck-ludii` export profile compiles the french-deck's declared
+ruleset — deck structure, legal-move relations, terminal conditions, variant
+deltas — to Ludii's **L-GDL**, chosen over Stanford GDL because Ludii natively
+models card
 and board games and ships a maintained runtime. Soundness is verified
 **differentially**: the `deloreis` simulator and the Ludii runtime replay the
 same seeded positions, and their legal-move sets and terminal verdicts must
@@ -160,81 +160,75 @@ to export.
 
 ## 6. A worked card export
 
-Canon in: the deck anatomy from D-0148 — four Grounds, sixteen Hands, twelve
-Weathers in a closed ring, the Reckoner: twenty-nine leaves; region-variable
-Ground sets; folk-figures riding Hands by region; and the keep-stamped variant
-with the hard Weathers cut. Profile `cards/lowlands`, honest deck. Output,
-abridged:
+Canon in: the deck anatomy from the french-deck ruleset — four suits, thirteen
+ranks, fifty-two cards; the run-successor ordering; and the two dealing layouts (a
+five-card run and the full thirteen-card suit). Profile `cards/french-deck`,
+standard deck. Output, abridged:
 
 ```json
 {
-  "deck": "turning-lowlands-honest",
-  "compiled_from": {"commit": "…", "layer": "certain", "profile": "cards/lowlands@3"},
-  "leaf_count": 29,
-  "leaves": [
-    {"id": "ground-hearth", "layer": "ground", "name": "The Hearth"},
-    {"id": "hand-mender-field", "layer": "hand", "role": "mender",
-     "ground": "field", "figure": "the-pleacher",
-     "meta": {"cited": ["D-0147", "D-0148"]}},
-    {"id": "weather-debt", "layer": "weather", "name": "The Debt",
-     "ring_next": "weather-fallow"},
-    {"id": "reckoner", "layer": "reckoner", "name": "The Reckoner"}
+  "deck": "french-deck-standard",
+  "compiled_from": {"commit": "…", "layer": "certain", "profile": "cards/french-deck@1"},
+  "card_count": 52,
+  "cards": [
+    {"id": "ace-of-spades", "suit": "spades", "rank": "ace", "name": "Ace of Spades",
+     "meta": {"cited": ["DL-0017", "DL-0018"]}},
+    {"id": "seven-of-hearts", "suit": "hearts", "rank": "seven", "name": "Seven of Hearts",
+     "run_successor": "eight-of-hearts"},
+    {"id": "king-of-clubs", "suit": "clubs", "rank": "king", "name": "King of Clubs"}
   ],
-  "layouts": ["a-round", "the-whole-round", "the-ford", "the-debt-square"]
+  "layouts": ["a-run", "the-full-suit"]
 }
 ```
 
-Three recompiles of the same profile demonstrate the variant machinery doing
-real work:
+A recompile of the same profile demonstrates the variant machinery doing real
+work:
 
-- The **salt-fringe deck** compiles under the regional delta — the Tide and the
-  Catch replacing Grounds, the Net-mender taking the Mender's face.
-- The **keep-stamped deck** compiles under the D-0148 variant delta to
-  twenty-six leaves, and its `layouts` list loses `the-debt-square`, because the
-  reading the licensed decks cannot deal falls out of the compile rather than
-  being hand-maintained.
+- The **piquet deck** compiles under the low-card delta — the twos through sixes
+  cut from the ruleset — to thirty-two cards, and its `layouts` list loses
+  `the-full-suit`, because the thirteen-card layout the shortened deck cannot deal
+  falls out of the compile rather than being hand-maintained.
 
 The variant is **lore, not a profile edit** — koan 10's worked export decision.
-A profile renders; it never defines content. The keep-stamped deck is a `variant`
+A profile renders; it never defines content. The piquet deck is a `variant`
 declaration with status and citations, and the profile simply compiles it:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-# the keep-stamped deck is lore — a variant declaration, not a JSON hand-edit
-variant turning/keep-stamped
-  cite D-0148
+# the piquet deck is lore — a variant declaration, not a JSON hand-edit
+variant french-deck/piquet
+  cite d-0018
   proposed
-  practice the-turning
+  practice french-deck
 ```
 
-The keep-stamped recompile, abridged, shows the loss falling out of the compile:
+The piquet recompile, abridged, shows the loss falling out of the compile:
 
 ```json
 {
-  "deck": "turning-lowlands-keep-stamped",
+  "deck": "french-deck-piquet",
   "compiled_from": {"commit": "…", "layer": "certain",
-    "profile": "cards/lowlands@3", "variant": "turning/keep-stamped"},
-  "leaf_count": 26,
-  "layouts": ["a-round", "the-whole-round", "the-ford"]
+    "profile": "cards/french-deck@1", "variant": "french-deck/piquet"},
+  "card_count": 32,
+  "layouts": ["a-run"]
 }
 ```
 
-`the-debt-square` is absent not because a profile author deleted it but because
-the leaves it reads were cut by the variant delta, so the layout no longer
-compiles. The diff between the honest and keep-stamped exports is itself a
-compiled artifact:
+`the-full-suit` is absent not because a profile author deleted it but because the
+cards it reads were cut by the variant delta, so the layout no longer compiles.
+The diff between the standard and piquet exports is itself a compiled artifact:
 
 ```text
-- "leaf_count": 29                          + "leaf_count": 26
-- "layouts": [… "the-debt-square"]          + "layouts": [ (no the-debt-square) ]
+- "card_count": 52                          + "card_count": 32
+- "layouts": [… "the-full-suit"]            + "layouts": [ (no the-full-suit) ]
 ```
 
-That diff is the allegory, shippable as data — what the licensed decks cannot
-deal, computed rather than asserted. The consumer's problems remain the
+That diff is the variant machinery, shippable as data — what the shortened deck
+cannot deal, computed rather than asserted. The consumer's problems remain the
 consumer's — art, layout, rules-text styling; canon's contribution is names,
-structure, figure assignments, variant deltas, and provenance. Because every
-output carries its manifest (§2), a wrong card in any of the three recompiles is
-diagnosable to a profile bug or a canon state, never a mystery.
+structure, variant deltas, and provenance. Because every output carries its
+manifest (§2), a wrong card in either recompile is diagnosable to a profile bug or
+a canon state, never a mystery.
 
 ## 7. What this does not promise
 
@@ -249,3 +243,10 @@ diagnosable to a profile bug or a canon state, never a mystery.
 - **Generality is a compiler surface, not an essay.** Every future generality
   claim is a claim about a profile, testable per target. Export targets earn
   maintained profiles only from demonstrated consumers (DL-0002).
+
+---
+
+**Worldbook.** The worked Turning card export — the deck anatomy (D-0148), the
+cards/lowlands profile, the honest / salt-fringe / keep-stamped recompiles,
+`the-debt-square` falling out of the variant delta, and the Ludii differential —
+lives in [the TPtH worldbook · The Turning export](../worlds/tpth/turning-export.md).

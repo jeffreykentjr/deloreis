@@ -163,9 +163,9 @@ The consumer lists forks, opens one, and requests the derived-consequence diff:
 → {"op": "dli.fork.diff", "fork": "ep7-planning"}
 ← {"newly_certain": [],
    "newly_possible": [
-     {"atom": "reachable(gwern, glass-weald)",
-      "support": [{"cites": ["D-0119"], "assumes": ["RQ-031(b)", "P-214"]}],
-      "rendered": "possible — D-0119, assuming RQ-031(b) and P-214"}],
+     {"atom": "reachable(camelot, avalon)",
+      "support": [{"cites": ["d-0005"], "assumes": ["RQ-031(b)", "P-214"]}],
+      "rendered": "possible — d-0005, assuming RQ-031(b) and P-214"}],
    "newly_dead": [], "grade_changed": [], "conflicts": []}
 ```
 
@@ -177,9 +177,9 @@ the exact pair of sources — resolves or accepts, then proposes for ratificatio
 
 ```json
 → {"op": "dli.fork.promote", "fork": "ep7-planning"}
-← {"rq_draft": {"slug": "hedge-road-and-weald",
-    "ask": "Adopt RQ-031(b) + the P-214 Glass Weald bundle?",
-    "affects": ["canon/geography/regions.md#The Glass Weald", "…"],
+← {"rq_draft": {"slug": "road-to-avalon",
+    "ask": "Adopt RQ-031(b) + the P-214 Avalon bundle?",
+    "affects": ["canon/geography/regions.md#Avalon", "…"],
     "diff": {"…": "the full derived-consequence diff"},
     "evidence": ["campaign-077"]}}
 ```

@@ -151,7 +151,7 @@ Bindings follow the principle's checkability:
 Every craft finding cites its principle; every principle cites its source and
 its mission-filter resolution. `deloreis craft why <finding>` renders the
 statement, the tension, and the resolution in place — and the **pillars win**
-(D-0128) where a mission-specific pillar overrides generic advice. Coverage
+(d-0001) where a mission-specific pillar overrides generic advice. Coverage
 becomes a query: the principles whose checkability is `none` or `judge` are the
 standing **checkable-debt report** — the roadmap of rules not yet written, kept
 honest rather than hidden.
@@ -165,7 +165,7 @@ claim that includes judge dimensions is honestly `attested` overall, and
 scope craft
 
 principle tryfail-before-triumph  family plot  mission pass
-  source sanderson  cites D-0128
+  source sanderson  cites d-0001
   checkable deterministic -> accomplishment-earned
 
 rule accomplishment-earned over season severity error
@@ -175,8 +175,8 @@ rule accomplishment-earned over season severity error
              produced-before($f, $b)
   # season-wide join over the beat ledger; the old checker saw one outline
 
-principle register-fit  family prose  mission adapted  cites D-0166
-  tension "generic 'strong voice' advice; the hedge register wins"
+principle register-fit  family prose  mission adapted  cites d-0002
+  tension "generic 'strong voice' advice; the chronicle register wins"
   checkable judge -> attest register-fit
   # consuming checks report grade attested (07-verdicts-and-llm-boundary §3)
 
@@ -227,23 +227,23 @@ meta:
     beats:  {model: claude-fable-5, prompt: "sha256:b41c…"}
     claims: {model: claude-fable-5, prompt: "sha256:77e0…"}
 claims:                                # factcheck atoms
-  - {atom: "holds(enfys, consent(household, door))",
-     quote: "the house had said yes to her, in its way", line: 112}
+  - {atom: "knows(merlin, true-name(the-enchanter))",
+     quote: "he knew the old name, and the shape of its saying", line: 112}
 deltas:                                # knowledge / possession / location / injury
-  - {kind: knowledge, who: apprentice, fact: ward-needs-consent, scene: s04, line: 129}
+  - {kind: knowledge, who: arthur, fact: names-bind-power, scene: s04, line: 129}
 scenes:
-  - {id: s04, cast: [enfys, apprentice], location: gwern-threshold,
-     phases: {tide: slack}, off_mic: [anchor]}
+  - {id: s04, cast: [merlin, arthur], location: camelot,
+     phases: {season: spring}, off_mic: [morgan]}
 beats:
-  - {id: b7, scene: s04, kind: accomplishment, thread: ward-the-door,
-     magnitude: minor, by: enfys, assisted: false,
-     quote: "the withy held", line: 131}
+  - {id: b7, scene: s04, kind: accomplishment, thread: speak-the-name,
+     magnitude: minor, by: merlin, assisted: false,
+     quote: "the word held", line: 131}
 promises:
-  opened: [{id: p-hound, kind: mystery, quote: "something four-legged kept…", line: 44}]
+  opened: [{id: p-sword, kind: mystery, quote: "something waited in the stone…", line: 44}]
   closed: []
 proof_ledgers:
   - scene: s04
-    ledger: {premises: ["…"], steps: ["…"], close: {atom: "holds(ward(door))", expect: holds}}
+    ledger: {premises: ["…"], steps: ["…"], close: {atom: "named(the-enchanter)", expect: holds}}
 names: {introduced: []}
 lexicon: {banned_hits: [], register_tokens: 61}   # deterministic scans ride along
 ```
@@ -329,3 +329,10 @@ proof ledger or contradicts episode 5's claim surfaces in the next
 delivered at both altitudes — outline objects natively, drafts via their shadows
 — with a model needed exactly **once per draft revision, never once per
 question**.
+
+---
+
+**Worldbook.** TPtH's craft configuration — the D-0128 pillars that win over
+generic advice, the D-0166 hedge-register tension, the ten-reads-as-battle
+lexicon, and the episode-01 payload (Enfys / the door-ward) — lives in
+[the TPtH worldbook · Craft](../worlds/tpth/craft.md).

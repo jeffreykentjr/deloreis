@@ -27,21 +27,17 @@ residency change, not a redesign:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope language
+scope camelot
 
-dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
-  basis attested "Brythonic; medieval Welsh"   # an external-world claim — see §7
-  vowels a e i o u w y
-  endings -ys -wen -eth -air
-  foreign qu x z tion                          # clusters that mark a form as not-ours
+dialect old-speech "the old speech"  proposed {
+  basis attested "Old Welsh / Brythonic"       # an external-world claim — see §7
+  vowels a e i o u y
+  endings -a -oc -wen
   cluster-max 2
   stress penultimate
-  name-kind person.given = given-proto given-deutero | given-simple
-  name-kind place        = place-qualifier place-generic
-  name-part en   "spirit"        role given-proto     ratified D-0134
-  name-part fys  "arc, bow"      role given-deutero   ratified D-0134
-  name-part wern "alder-marsh"   role place-generic   ratified D-0111
-  name-part cors "bog, fen"      role place-qualifier ratified D-0111
+  name-kind person.given = given-proto given-deutero
+  name-part myr "sea"           role given-proto    proposed
+  name-part din "fastness"      role given-deutero  proposed
   }
 ```
 
@@ -64,11 +60,11 @@ stops being a reviewer's impression and becomes a **compile verdict**:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope language
+scope camelot
 
-name enfys "Enfys"  person.given in cymric-fringe
-  = given-proto en + given-deutero fys
-  bearer protagonist   ratified D-0134
+name myrdin "Myrdin"  person.given in old-speech
+  = given-proto myr + given-deutero din
+  bearer the-enchanter   proposed
   # checked: the slot sequence matches a declared name-kind pattern; each
   # name-part exists in the dialect under the claimed role; the composed
   # surface form passes the dialect's phonotactics
@@ -90,10 +86,10 @@ note a reviewer writes; it is a verdict the gate produces, and it speaks the
 domain rather than the parser ([koan 9](../charter.md)):
 
 ```text
-invalid: dialect-fit at name gwyneth — cluster 'th' after 'wyn' exceeds
-         cymric-fringe cluster-max 2; and 'given-simple' takes exactly one
-         name-part, but two are cited. declared name-kinds for person.given:
-         [given-proto given-deutero] | [given-simple]
+invalid: dialect-fit at name gwrthdin — cluster 'rthd' exceeds old-speech
+         cluster-max 2; and 'given-proto given-deutero' takes exactly two
+         name-parts, but three are cited. declared name-kinds for person.given:
+         [given-proto given-deutero]
 ```
 
 The failure names the dialect, the offending clusters, and the legal slot
@@ -119,7 +115,7 @@ lookups. The criterion is whose world the ground truth is about:
 | Set distinctness | the same primitive over a declared set of names |
 | Register fit | it *is* the grammar check of §2 |
 | Gender morphology | a join of the name's name-parts' gender metadata against the bearer's canon facts — impossible while names and characters lived in different systems |
-| Sayability-tier caps | ruled world policy (D-0095) over the syllable structure the dialect already defines |
+| Sayability-tier caps | ruled world policy (d-0010) over the syllable structure the dialect already defines |
 | Banned vocabulary in names | against the in-runtime ban list (§4) |
 
 **Factory-side — world-safe:**
@@ -131,7 +127,7 @@ lookups. The criterion is whose world the ground truth is about:
 | Homophones in English | a fact about English, not the tongue |
 | Anachronism | a screen against a modern-names list |
 | Portent clichés | a taste judgment about our genre expectations |
-| Deck-figure versus tarot | a fact about our tarot iconography |
+| Court-card versus tarot | a fact about our tarot iconography |
 
 Every factory-side screen carries no diegetic status, changes on research's
 schedule rather than by ruling, can never be cited to a D-entry, and **must
@@ -168,13 +164,11 @@ lexical bans are *cited lexicon facts*:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope language
+scope camelot
 
-term hedgeway "the hedgeway"  ratified D-0143
-term the-plenty "the Plenty"  ratified D-0132
+term round-table "the Round Table"  decided d-0004
 
-banned machine   D-0056  "the allegory is structural, never lexical"
-banned algorithm D-0056  "the allegory is structural, never lexical"
+banned cannon d-0010 "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
 ```
 
 The prose scanner stays a factory-side tool — scanning markdown is not world
@@ -182,12 +176,12 @@ knowledge — but it consumes the *compiled* ban list instead of a private YAML,
 so there is one authoritative statement of what is banned and why, cited to the
 ruling that banned it. A ban is lore with provenance, not a config entry.
 
-The lexicon also feeds magic. The spoken-proof practice's `binder` kind draws
-from the lexicon's attested loan-word layer
-([04-practices](04-practices.md) §3): magic consumes language through an ordinary
-kind reference — `kind binder from lexicon.loan-words` — rather than through a
-convention that lives in two places. One fabric means the binder layer *is* the
-loan-word layer, not a copy of it.
+The language layer also feeds magic. A spoken-enchantment practice draws its
+primitives straight from it — merlins-craft's true-names are dialect derivations
+checked in the speaker's register ([04-practices](04-practices.md) §4): magic
+consumes language through an ordinary reference rather than through a convention
+that lives in two places. One fabric means the magic layer reads the language
+layer, not a copy of it.
 
 ## 5. The agent-init flow
 
@@ -202,20 +196,21 @@ canon — the bundle enters `proposed`, awaiting the author's ruling.
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope language
+scope camelot
 
-hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"
+hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
 
-dialect cymric-fringe  proposed agent:factory/naming-run-0712  assumes h-cymric {
+name-part tal "brow, high"  role given-proto  proposed agent:factory/naming-run-0714  assumes h-old-loan
   # inventory, patterns, name-parts — every clause inherits the bundle's
   # hypothesis and the agent provenance
-  }
 
-name gwenair "Gwenair"  person.given in cymric-fringe  proposed
-  # support: H(h-cymric) — merely-possible: visible to shadow queries,
+name taldin "Taldin"  person.given in old-speech
+  = given-proto tal + given-deutero din
+  proposed agent:factory/naming-run-0714  assumes h-old-loan
+  # support: H(h-old-loan) — merely-possible: visible to shadow queries,
   # structurally excluded from every context pack and every assertion
 
-ratify D-0195 { h-cymric := true }     # one valuation ratifies the bundle
+ratify d-0011 { h-old-loan := true }     # one valuation ratifies the bundle
 ```
 
 **One hypothesis variable per bundle** means ratification is one authorial act.
@@ -267,3 +262,10 @@ machinery that enforces them:
 This is the seam that keeps the language layer honest about which world each of
 its claims is about — the same distinction §3 draws for the vet, applied to the
 dialect's own provenance.
+
+---
+
+**Worldbook.** The TPtH language layer — the cymric-fringe dialect, the name
+Enfys, the hedgeway/the-plenty lexicon and the banned machine/algorithm rationale,
+the cymric agent-init bundle, and the "is Enfys Welsh?" attestation seam — lives
+in [the TPtH worldbook · Language](../worlds/tpth/language.md).

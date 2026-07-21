@@ -6,7 +6,7 @@ verdict: "agents author through tools, never text; every call answers with grade
 
 # Agent authoring — Door T
 
-The coding agents that build *To Pleach the Hedgeway* do not write `.dli`
+The coding agents that build a world do not write `.dli`
 surface text. They operate a curated set of semantic tools against a running
 `deloreis` server. Every tool call answers immediately with graded findings, the
 rendered canonical surface of what it staged, and a workspace digest. A human
@@ -129,9 +129,9 @@ An `author.diff` for a two-fact workspace renders as canonical surface:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope tpth
-person mireth "Mireth"     proposed  session-7c9
-place saltmere "Saltmere"  proposed  session-7c9
+scope camelot
+person galahad "Galahad"   proposed  session-7c9
+place logres "Logres"      proposed  session-7c9
 ```
 
 Every rendered string in this document — in `rendered` arrays and materialized
@@ -178,7 +178,7 @@ supplies mints authority (§5):
 to a fork-local hyp variable.
 
 The third provenance form, `cited` (naming decision-ledger entries in the
-**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["D-0104"] }`), is
+**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["d-0001"] }`), is
 **Door-H / human-only** (B1). An agent cannot mint a citation — a ruling lives in
 the ledger, not in a tool call (koan 3) — so a `cited` provenance supplied to any
 `author.*` tool is **refused** with the `provenance.cited-refused` finding. The

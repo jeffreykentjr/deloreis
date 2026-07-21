@@ -41,12 +41,12 @@ before-closure), exercised under CI; consistency is cycle detection, and a cycle
 is reported as **blame** — the exact before-facts that close the loop.
 
 **(ii) Narrative structure — its own layer.** Acts and arcs are **not eras.**
-The sabotage, the breach, the world-after are narrative-layer objects (four acts,
-a couple hundred episodes; the kishōtenketsu labels attach *here*), each
+The opening act, the turn, the world-after are narrative-layer objects (a handful
+of acts, a couple hundred episodes; the kishōtenketsu labels attach *here*), each
 **referencing** a chronological anchor rather than *being* one. This is precisely
 why those act-shaped "eras" sit empty of events in a flattened model — they were
-never chronology. When acts are planned in earnest, their macro events (the
-sabotage succeeding, the breach opening) enter *chronology* as events, and may,
+never chronology. When acts are planned in earnest, their macro events (an act's
+climax landing, a reveal breaking) enter *chronology* as events, and may,
 **by ruling**, initiate genuinely new world eras. Narrative structure references
 the spine; it never masquerades as it.
 
@@ -257,45 +257,42 @@ narration vantage, the cycles, and states with spans:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope chronology
+scope camelot
 
-era elder-cycles < the-equilibrium < the-first-enclosure
-    < the-long-creep < the-beleaguered-present < the-narrators-era
+era uthers-time < arthurs-reign < after-camlann   decided d-0001
 # acts are NOT eras — narrative structure lives in its own layer and
 # references chronology; the spine gains eras only by ruling
 
-event first-storehouse-lie    during the-first-enclosure   provisional D-0072
-event protagonists-taking     during the-long-creep        ratified    D-0060
-event breaking-of-the-stones  during the-long-creep        provisional D-0072
-before breaking-of-the-stones -> tithe-of-minds-sweeps     provisional D-0072
-before tithe-of-minds-sweeps  -> protagonists-taking       provisional D-0072
-# no `offset`; an undeclared pair is honestly unordered:
-# happens-before(x, y) may answer `unordered`
+event the-sword-drawn         during uthers-time     decided d-0002
+event the-round-table-founded during arthurs-reign   decided d-0002
+event the-grail-quest         during arthurs-reign   decided d-0003
+event the-battle-of-camlann   during arthurs-reign   proposed
+before the-round-table-founded -> the-battle-of-camlann   decided d-0003
+# no `offset`; the-grail-quest shares arthurs-reign with the-round-table-founded
+# and no before-fact orders them, so happens-before(x, y) answers `unordered`
 
-narration vantage the-narrators-era
-# inert (D-0104): declaring an event in this era is error T2 [narration-dynamics]
+narration vantage after-camlann
+# inert: declaring an event in this vantage era is a type error [narration-dynamics]
 
-cycle tide(4) = ebb | slack | flood | high        ratified D-0146
-cycle moon(29)                                     ratified D-0148
-# the same cyclic kind as the Turning's leaf(29): succ/pred/across/distance
-# exist; `<`, sort, max are type errors — no epoch, no calendar
+cycle moon(29)                                        decided d-0009
+cycle season(4) = spring | summer | autumn | winter   decided d-0009
+# a rankless wheel: succ/pred/across/distance exist; `<`, sort, max are type
+# errors — no epoch, no calendar
 
-state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
-state gwern.water-status = enclosed since enclosure-of-the-parish-water  ratified D-0114
-# unanchored facts default to `since era(the-beleaguered-present)` — the
-# migration rule; the entire existing facts corpus is valid unchanged
+state excalibur.keeper = in-the-stone until the-sword-drawn   decided d-0008
+state excalibur.keeper = the-king     since the-sword-drawn   decided d-0008
+# an interregnum flashback checks clean AND the reign checks clean — the two
+# claims hold over disjoint spans; unanchored facts default to the present era
 ```
 
 Ordering rules are declarations too — data the season checker reads, not code:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-rule full-team-floor over order       ratified D-0162
-  : listener-has(configuration full-team) requires slot >= 10
-rule no-deep-time-act-one over order  ratified D-0168
-  : listener-learns(during elder-cycles _) requires act > 1
-rule payoff-after-reveal over order
-  : payoff($p) at slot $j requires reveal($p) at slot $i, $i < $j
+rule uthers-time-held-back over order   decided d-0009
+  : listener-learns(during uthers-time _) requires act > 1
+# a floor on when the deepest era may first be shown, held as data the season
+# checker reads rather than as code — inert until an episode order binds it
 ```
 
 An episode binds a production `order` and a story-time `at` anchor separately, and
@@ -305,13 +302,13 @@ anchoring it adds is shown here for the two-dimension picture (the anchoring
 keywords sit in the episode block, not among the top-level chronology keywords):
 
 ```text
-episode e14 "The Drowned Field" order 14 {
-  at the-beleaguered-present after e13      # default if omitted: follows prior
-  phase tide := ebb -> slack                # a walk, checked; not a timestamp
+episode e12 "The Last Battle" order 12 {
+  at after-camlann after e11                # default if omitted: follows prior
+  phase season := autumn -> winter          # a walk, checked; not a timestamp
   scene s3 flashback {
-    at the-long-creep after protagonists-taking before tithe-of-minds-sweeps
+    at arthurs-reign after the-round-table-founded before the-battle-of-camlann
     # s3's world checks run against state-at(this anchor), not the fold head;
-    # its reveals still land at production slot 14 on the listener ledger
+    # its reveals still land at production slot 12 on the listener ledger
   }
 }
 ```
@@ -342,3 +339,10 @@ The model is deliberately narrow. Each exclusion answers a specific temptation.
 - **Narration-time dynamics.** The ticking narrator's clock is rejected, and the
   model makes that rejection **structural**: one inert vantage, a knowledge
   asymmetry, and nothing else, ever.
+
+---
+
+**Worldbook.** The worked TPtH chronology — the elder-cycles→the-narrators-era
+spine, the water/enclosure fluent (D-0114), the inert narration frame (D-0104),
+and the Turning's leaf(29) — lives in
+[the TPtH worldbook · Time](../worlds/tpth/time.md).

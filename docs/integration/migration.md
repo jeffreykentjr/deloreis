@@ -5,6 +5,13 @@ verdict: "The plan for re-homing lore from fantasy into deloreis: scope and assu
 
 # Migration: fantasy → deloreis
 
+> **A worked integration: the fantasy factory.** This migration is one worked
+> consumer's path onto the generic `dli-worker` contract — how the fantasy factory
+> re-homes its lore into a `deloreis` kernel. The shadow-read harness, the
+> three-phase source migration, and the per-check flip rule are the general shape
+> any consumer follows; the fantasy specifics (its Python gates, its YAML sources)
+> are this instance.
+
 How lore moves from the fantasy repository's Python gates and YAML sources into
 the De Lore Is kernel — safely, one check at a time, with the legacy oracle
 standing beside the kernel until the kernel has earned the check.

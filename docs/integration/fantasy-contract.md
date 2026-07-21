@@ -5,6 +5,14 @@ verdict: "The deloreis ↔ fantasy worker contract: parties, transport, the dli.
 
 # The fantasy-worker contract
 
+> **A worked integration: the fantasy factory.** This is one consumer of the
+> generic `dli-worker` contract — the fantasy repository's audio-drama factory,
+> the first tree to wire itself to a `deloreis` server. The contract *shape*
+> (parties, transport, the `dli.*`/`author.*` inventories, the closed fixture
+> registry, versioning) is generic and engine-owned; the fantasy factory is the
+> worked instance that exercises it. A second consumer would wire to the same
+> contract, not a new one.
+
 This document defines the boundary between **De Lore Is** and the **fantasy**
 repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) and
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
