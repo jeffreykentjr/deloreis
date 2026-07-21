@@ -1,0 +1,15 @@
+{
+  "name": "french-deck/piquet",
+  "game_id": "french-deck-piquet",
+  "ops": [
+    { "op": "cut-axis-value", "axis": "rank", "value": "two" },
+    { "op": "cut-axis-value", "axis": "rank", "value": "three" },
+    { "op": "cut-axis-value", "axis": "rank", "value": "four" },
+    { "op": "cut-axis-value", "axis": "rank", "value": "five" },
+    { "op": "cut-axis-value", "axis": "rank", "value": "six" }
+  ],
+  "provenance": {
+    "standing": "proposed",
+    "cites": ["DL-0018"]
+  }
+}

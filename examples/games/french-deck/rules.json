@@ -59,7 +59,9 @@
     {
       "name": "the-full-suit",
       "cards_dealt": 13,
-      "requires_cards": []
+      "requires_cards": [
+        "two-of-spades"
+      ]
     }
   ],
   "verdict": {

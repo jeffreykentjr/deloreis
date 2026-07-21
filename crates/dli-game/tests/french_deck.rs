@@ -19,7 +19,9 @@ use dli_export::profile::{ExportOpts, ExportTarget, Registry};
 use dli_game::battery::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_game::binding::GameBindings;
 use dli_game::export::{self, follow_edge_count};
-use dli_game::model::{AttrValue, Reading, Ruleset, Verdict, enumerate_structural_invariants};
+use dli_game::model::{
+    AttrValue, Reading, Ruleset, Variant, Verdict, enumerate_structural_invariants,
+};
 
 /// The exemplar's rules, baked in at compile time from the shipped example — the
 /// north star of `Ruleset::from_rules`: a whole game loads from data.
@@ -30,6 +32,11 @@ const FRENCH_DECK_RULES: &str = include_str!("../../../examples/games/french-dec
 const FRENCH_DECK_PROFILES: &str =
     include_str!("../../../examples/games/french-deck/profiles.json");
 
+/// The shipped piquet variant delta — the public-domain analogue of the Turning's
+/// keep-stamped fork: cutting the low ranks forecloses a layout by the compile.
+const FRENCH_DECK_PIQUET: &str =
+    include_str!("../../../examples/games/french-deck/variants/piquet.json");
+
 fn french_deck() -> Ruleset {
     Ruleset::from_rules(FRENCH_DECK_RULES).expect("the shipped french-deck rules parse")
 }
@@ -37,6 +44,10 @@ fn french_deck() -> Ruleset {
 fn french_deck_registry() -> Registry {
     serde_json::from_str::<Registry>(FRENCH_DECK_PROFILES)
         .expect("the shipped french-deck profiles parse as a Registry")
+}
+
+fn piquet_variant() -> Variant {
+    serde_json::from_str(FRENCH_DECK_PIQUET).expect("the shipped piquet variant parses")
 }
 
 // -- the deck is exactly a standard 52-card deck -----------------------------
@@ -53,6 +64,55 @@ fn enumerates_exactly_fifty_two_distinct_cards() {
     assert!(ids.iter().any(|id| id == "king-of-clubs"));
     // The template renders `{rank}-of-{suit}` for every card.
     assert!(ids.iter().all(|id| id.contains("-of-")));
+}
+
+// -- the piquet variant fork cuts to 32 cards and drops the full suit --------
+
+#[test]
+fn piquet_fork_cuts_to_thirty_two_cards_and_drops_the_full_suit() {
+    let standard = french_deck();
+    // The full 52-card deck can deal the full 13-card suit.
+    assert_eq!(standard.cards().len(), 52);
+    assert!(
+        standard.layout("the-full-suit").is_some(),
+        "the standard deck deals the full suit"
+    );
+
+    // Forking the piquet delta yields a *proposed* ruleset (a variant is a claim
+    // awaiting a ruling) whose deck already reflects the cut.
+    let piquet = standard.fork(&piquet_variant());
+    assert!(!piquet.is_assertable(), "a forked variant is proposed");
+    assert_eq!(piquet.game_id, "french-deck-piquet");
+
+    // Cutting ranks 2..6 leaves 8 ranks x 4 suits = a 32-card piquet deck.
+    assert_eq!(piquet.cards().len(), 32, "8 ranks x 4 suits");
+    assert_eq!(piquet.card_count(), 32);
+    assert!(
+        piquet.card_ids().iter().all(|id| !id.starts_with("two-of-")
+            && !id.starts_with("three-of-")
+            && !id.starts_with("four-of-")
+            && !id.starts_with("five-of-")
+            && !id.starts_with("six-of-")),
+        "the low ranks are gone"
+    );
+    assert!(piquet.card_ids().iter().any(|id| id == "seven-of-spades"));
+    assert!(piquet.card_ids().iter().any(|id| id == "ace-of-clubs"));
+
+    // The-full-suit reads `two-of-spades`, which the cut removed, so it falls out
+    // of the compile — the public-domain analogue of the keep-stamped deck losing
+    // the-debt-square (09-exports §6). The loss is a compile result, not a hand edit.
+    assert!(
+        piquet.layout("the-full-suit").is_none(),
+        "the full suit is foreclosed by the cut"
+    );
+    assert!(
+        piquet
+            .available_layouts()
+            .iter()
+            .all(|layout| layout.name != "the-full-suit")
+    );
+    // A run is still dealable — it requires no cut card.
+    assert!(piquet.layout("a-run").is_some());
 }
 
 // -- the ranked/linear straight-flush run relation ---------------------------
