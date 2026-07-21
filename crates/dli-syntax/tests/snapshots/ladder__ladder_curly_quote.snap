@@ -2,7 +2,7 @@
 source: crates/dli-syntax/tests/ladder.rs
 expression: out
 ---
-error[dli::syntax::curly-quote]: that is a curly quote — write labels with straight quotes, like "Saltmarket".
+error[dli::syntax::curly-quote]: that is a curly quote — write labels with straight quotes, like "Camelot".
   --> line 1:12
   |
 1 | place weir “The Weir” proposed
@@ -11,7 +11,7 @@ error[dli::syntax::curly-quote]: that is a curly quote — write labels with str
   = what: a curly (smart) quote appears where a label's straight-quoted text belongs — the artifact an editor leaves when it auto-replaces quotes
   = fix:  replace the curly quote with a straight `"`
   = rule: there is one way to write a label — straight quotes — so the canonical surface never turns on a character an editor might substitute unseen  (koan 7 — one way to write it; 01-syntax.md §1)
-error[dli::syntax::curly-quote]: that is a curly quote — write labels with straight quotes, like "Saltmarket".
+error[dli::syntax::curly-quote]: that is a curly quote — write labels with straight quotes, like "Camelot".
   --> line 1:23
   |
 1 | place weir “The Weir” proposed

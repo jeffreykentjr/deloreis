@@ -47,6 +47,7 @@ const WORLD_TOKENS: &[&str] = &[
 /// file, tracked as debt with a removal note. A flagged line in `file` is exempt
 /// only if EVERY world token it names is in `tokens`; a leak of any *other* token
 /// in the same file still fails the guard.
+#[allow(dead_code)] // the tracked-debt allowlist mechanism; ALLOWLIST is currently EMPTY — the engine is fully TPtH-free
 struct Allow {
     /// Repo-relative path (forward slashes).
     file: &'static str,
@@ -60,12 +61,7 @@ struct Allow {
 /// `FORBIDDEN_WORLD_TOKENS` (the anti-leak lint corpus) is NOT listed — it lives
 /// inside `#[cfg(test)] mod doctrine_tests`, so the test-code exclusion already
 /// covers it; those tokens are the needles the lint screens for, not content.
-const ALLOWLIST: &[Allow] = &[Allow {
-    file: "crates/dli-syntax/src/parser.rs",
-    tokens: &["saltmarket"],
-    note: "the curly-quote diagnostic uses \"Saltmarket\" as its example label — \
-           genericize the example to a neutral label.",
-}];
+const ALLOWLIST: &[Allow] = &[];
 
 /// One real-code leak: a forbidden token in a real (non-comment, non-test) line.
 struct Leak {

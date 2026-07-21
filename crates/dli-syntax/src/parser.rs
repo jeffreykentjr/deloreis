@@ -123,7 +123,7 @@ fn lexical_diagnostics(source: &str, file: FileId) -> Vec<Diagnostic> {
                 let end = crate::lexer::to_u32(i + c.len_utf8());
                 diags.push(Diagnostic::new(
                     DiagClass::CurlyQuote,
-                    "that is a curly quote — write labels with straight quotes, like \"Saltmarket\".",
+                    "that is a curly quote — write labels with straight quotes, like \"Camelot\".",
                     Span {
                         file,
                         start: at,
