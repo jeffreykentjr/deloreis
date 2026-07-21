@@ -108,7 +108,7 @@ pub enum NarratorMode {
     Windowpane,
     /// A frame narrator.
     Frame,
-    /// A tale-host narrator (forbidden by D-0176).
+    /// A tale-host narrator (a host-narrator ban is world policy).
     Host,
 }
 
@@ -216,22 +216,10 @@ impl MaterialUnknown {
         Self::RitualObligation,
     ];
 
-    /// The categories a material-worldbuilding review requires an answer or an
-    /// explicit unknown for (every category except [`RitualObligation`](Self::RitualObligation),
-    /// which stays optional — the legacy `_MATERIAL_REQUIRED_FIELDS`).
-    pub const REQUIRED: [MaterialUnknown; 11] = [
-        Self::SeasonTimePressure,
-        Self::StapleDependency,
-        Self::WaterDependency,
-        Self::FuelDependency,
-        Self::ShelterDependency,
-        Self::LaborGroup,
-        Self::Source,
-        Self::Transport,
-        Self::Storage,
-        Self::FailurePoint,
-        Self::Institution,
-    ];
+    // Which categories a material-worldbuilding review requires is world policy,
+    // not schema: it lives in the world's material catalog
+    // (`craft::config::MaterialCatalog`, default `DEFAULT_MATERIAL_CATALOG`), which
+    // the checker loops. `ALL` above stays — it is the enum's own variant list.
 
     /// The `snake_case` ledger field name (the legacy wire spelling).
     #[must_use]
@@ -377,7 +365,8 @@ pub struct AudioPlan {
     pub sfx_semantic_load: SfxSemanticLoad,
     /// The load-bearing tasks the narrator carries.
     pub narrator_tasks: Vec<NarratorTask>,
-    /// Whether the narrator addresses the audience directly (forbidden by D-0176).
+    /// Whether the narrator addresses the audience directly (a policy-forbidden
+    /// framing).
     pub direct_address: bool,
 }
 

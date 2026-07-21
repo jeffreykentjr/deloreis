@@ -102,6 +102,7 @@
 //! only against the [`policy`](season::policy) thresholds, which sit well inside
 //! `u8`.
 
+pub mod config;
 pub mod kb;
 pub mod load;
 pub mod outline;

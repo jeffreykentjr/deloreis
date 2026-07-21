@@ -1026,7 +1026,7 @@ fn scrape_code_fields(source: &str) -> BTreeSet<String> {
 #[cfg(test)]
 fn scrape_outline(source: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
-    for kw in ["warn(", "error(", "report_duplicates("] {
+    for kw in ["warn(", "error(", "report_duplicates(", "push_disposition("] {
         let mut rest = source;
         while let Some(i) = rest.find(kw) {
             let after = &rest[i + kw.len()..];
