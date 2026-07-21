@@ -78,7 +78,7 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 | The saltmarket world built in Rust | `dli-world/src/loader.rs::example_docs()` (`#[doc(hidden)] pub`, **ships in the lib**, served at runtime) | Replace with a **neutral** generic toy world loaded from a bundled `.dli` fixture; the real saltmarket lives in `worlds/tpth/`. |
 | Saltmarket as the only servable corpus | `dli-serve/src/session.rs::builtin_pack` | Parameterize over a corpus directory (the doc-comment already says so); ship TPtH packs as one corpus. |
 | Export game-backend bound to the Turning | `dli-export/src/games.rs` (entire module, `use dli_sim::turning::*`) | Move to `crates/tpth/` export, or define a generic deck/ruleset render target the TPtH ruleset feeds. Downstream of the Turning genericization. |
-| Concrete export profiles as Rust literals | `dli-export/src/profile.rs::Registry::builtin` (cards/lowlands@3, games/ludii@1, video/articy@1) | Become data: a loader reads profiles from a file; engine keeps a neutral example profile. Makes "a profile is data, not a code fork" literally true. |
+| ✅ Concrete export profiles as Rust literals | `dli-export/src/profile.rs::Registry::builtin` (cards/lowlands@3, games/ludii@1, video/articy@1) | ✅ **Done (b5dd94b):** the TPtH catalog moved to `worlds/tpth/export/profiles.json`, loaded by the registry; `builtin()` keeps only the neutral context-pack profile. |
 
 ### B. Craft doctrine hardcoded in engine code (HARD → Tier 2 / factory config)
 
@@ -90,7 +90,7 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 | `D-nnnn` citations + host-narrator ban emitted from check code | `dli-world/src/craft/season.rs` `with_citations("D-0179"/…)`, `NarratorMode::Host→error`, `is_canon_ref`/`is_research_ref` | Carry citation + severity as world-supplied metadata on each rule/threshold. |
 | The material-planning taxonomy | `dli-world/src/craft/outline.rs::MaterialUnknown` (closed 12-category enum, D-0128/D-0056) | World-supplied category set (`material-categories.yaml`), or move the whole opt-in review to the TPtH craft config. |
 | Kishōtenketsu baked into the outline schema | `dli-world/src/craft/outline.rs::EpisodeOutline.{ki,sho,ten,ketsu}` + battle-scan of `ten` | Arc-shape-specific fields/checks become a world-selected arc module; the generic `ArcShape` enum stays. |
-| Sayability cap + `D-0095` in the naming vet | `dli-world/src/language/derivation.rs::SAYABILITY_CAP` (const 6) + `LangFinding::SayabilityCap` message printing `(D-0095)` | Per-dialect `sayability-max <n>` clause (sibling of `cluster-max`), loaded into `Phonotactics`; drop the hardcoded `D-0095`. |
+| ✅ Sayability cap + `D-0095` in the naming vet | `dli-world/src/language/derivation.rs::SAYABILITY_CAP` (const 6) + `LangFinding::SayabilityCap` message printing `(D-0095)` | ✅ **Done (b5dd94b):** per-dialect `sayability-max <n>` clause added (loaded into `Phonotactics`); cap is now a generic default; `D-0095` dropped; TPtH's cap lives in `cymric-fringe.dli`. |
 | Banned-in-name message hardcodes the allegory rationale | `dli-world/src/language/derivation.rs::LangFinding::BannedInName` | ✅ message genericized (drops the TPtH allegory rationale, keeps the dli-spec ref); ⏳ still to surface `BanDef.reason` (already carried) as a follow-on. |
 
 ### C. Data + contract (mostly clean; relocate / rename)
@@ -126,7 +126,7 @@ residues remain:
 
 | Leak | Location | Move |
 |---|---|---|
-| **HARD:** ambient TPtH cycles in real logic | `dli-ledger/src/practice.rs:66` `KERNEL_CYCLES = ["tide","moon","season"]` — seeds every practice's cycle scope, so `tide` resolves in *any* world undeclared (presumes a coastal setting; these are D-0146/D-0148 canon) | Parameterize: ambient cycles become config on `PracticeEnv`, engine default **empty**; `tide/moon/season` move to a TPtH time pack (`worlds/tpth/time/cycles.dli`). `from_document` already absorbs declared cycles. |
+| ✅ **HARD:** ambient TPtH cycles in real logic | `dli-ledger/src/practice.rs:66` `KERNEL_CYCLES = ["tide","moon","season"]` — seeded every practice's cycle scope, so `tide` resolved in *any* world undeclared | ✅ **Done (b5dd94b):** `PracticeEnv` ambient cycles now **empty** (derive `Default`); cycles must be declared; `tide/moon/season` moved to `worlds/tpth/time/cycles.dli`. |
 | Contract-frozen diegetic name | `ledger_check.rs` `ProofFinding::WrongHour` / `proof.wrong-hour` — TPtH's "hour" in a frozen seam | Rename to neutral `WrongPhase` / `proof.wrong-phase` as a deliberate contract migration (schema regen). Low priority; rides with the `dli-worker` work. |
 | Un-externalized practice | the Concordance / spoken-proof practice exists only inline in `tests/proof.rs`, not as a `.dli` pack like the other two | Commit it as `worlds/tpth/practices/spoken-proof.dli` (couples to the `KERNEL_CYCLES` fix, since it uses `tide/slack`). |
 
@@ -150,11 +150,12 @@ forks; each is an individually-verified step, not a big-bang.
 - Add a gate step: engine crate `src/` grep-denies a TPtH proper-noun set (saltmarket, cymric, enfys, the-debt-square, weather-debt, concordance, spoken-proof, pleach, hedgeway, `D-\d{4}`) outside lines marked `// doc-example`. Fails closed. This freezes the boundary and turns every remaining leak into a tracked, guard-visible debt.
 
 **Phase 2 — the clean code extractions (each its own commit)**
-- Sayability cap → per-dialect `sayability-max`; drop `D-0095` (small).
-- Banned-in-name message → generic + `BanDef.reason` (small).
-- `loader.rs::example_docs` → neutral toy from a bundled fixture; `session.rs::builtin_pack` → corpus-dir (medium).
-- `profile.rs::Registry::builtin` → data-loaded profiles (medium).
-- Contract rename `fantasy-worker` → `dli-worker` + consumer profile (medium; touches registry + fixtures).
+- ✅ Sayability cap → per-dialect `sayability-max`; drop `D-0095` (b5dd94b).
+- ✅ Banned-in-name message → generic (2cd5878); ⏳ surface `BanDef.reason` (follow-on).
+- ✅ `KERNEL_CYCLES` ambient cycles → empty default + `worlds/tpth/time/cycles.dli` (b5dd94b).
+- ✅ `profile.rs::Registry::builtin` → data-loaded profiles from `worlds/tpth/export/profiles.json` (b5dd94b).
+- ⏳ `loader.rs::example_docs` → a **PD example world** (not a bare toy — see *The generic corpus* below); `session.rs::builtin_pack` → corpus-dir.
+- ⏳ Contract rename `fantasy-worker` → `dli-worker` + consumer profile (touches registry + fixtures).
 
 **Phase 3 — craft to config (gated on fork A + the factory)**
 - Extract `kb::PRINCIPLES` → generic `craft-doctrines/*` packs + a factory-produced `worlds/tpth/craft/principles.yaml`; engine queries take `&[Principle]`.
@@ -167,6 +168,44 @@ forks; each is an individually-verified step, not a big-bang.
 
 **Phase 5 — docs split**
 - Engine manual on the neutral world; the TPtH worldbook companion; reposition `integration/` as a worked consumer integration.
+
+---
+
+## The generic corpus (author's direction, 2026-07-21)
+
+The standalone tool should ship example worlds drawn from **public-domain
+literature and real games**, not TPtH content and not just a bare invented toy —
+recognizable worlds prove dli's generality and give the sim/practice/export
+features real non-TPtH exemplars. The current `examples/hello-world.dli`
+(rivertown) is a placeholder to be superseded.
+
+**The hard constraint is copyright.** Rules and ideas are not copyrightable;
+fictional-world *content* is. So:
+- **Real games with traditional rules — safe.** A **tarot** ruleset (Marseille /
+  Rider-Waite are public domain) is the natural generic oracular-card-game
+  exemplar — same ruleset/sim/Ludii-export machinery as the Turning, which
+  becomes "one instance of the generic thing." (Bridge, go, hanafuda also work.)
+- **Public-domain literature — safe.** Sherlock Holmes, Arthurian legend,
+  Norse/Greek myth, Alice, Oz, Grimm, Frankenstein, Dracula — rich, famous
+  lore/character/continuity to teach the lore engine, time model, and naming
+  oracle on, with zero legal exposure.
+- **Living authors' worlds as bundled content — avoid** (Mistborn, Middle-earth
+  as shipped *data* = IP risk). Use PD equivalents or lightly-original homages.
+- **Craft doctrine is the exception that's fine.** Sanderson's *Laws of Magic*,
+  kishōtenketsu, MICE, save-the-cat are published *craft advice*; citing them as
+  named, attributed principles in the `craft-doctrines/` library (Tier 2, DL-0018)
+  is standard and legally clean — distinct from shipping any author's world.
+
+**Proposed shipped corpus:** a **tarot** ruleset (sim/export exemplar), a
+**public-domain literary world** (Arthurian or Sherlock — lore/time/naming
+exemplar), a small **myth-based or original practice** (magic-workbench exemplar),
+and the **craft-doctrines library** citing the real published laws/frameworks.
+
+**How it threads the DAG:** the tarot exemplar pairs with Phase 4 (Turning →
+`crates/tpth/`, generic card-game example stays in `examples/`); the craft
+library is Phase 3's Tier-2 target; the PD literary world supersedes
+`hello-world.dli` and becomes `example_docs`/`builtin_pack`'s default (Phase 2's
+`loader`/`serve` item). Authoring these PD worlds is its own tracked strand.
 
 ---
 
