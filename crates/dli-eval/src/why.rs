@@ -16,7 +16,7 @@
 //! polynomials the fixpoint already computed and never re-derive anything.
 
 use dli_ast::term::{AtomExpr, Term, TimeRef};
-use dli_core::ann::{Ann, Status, Theory};
+use dli_core::ann::{Status, Theory};
 use dli_core::atom::{Atom, Interner, Rail};
 use dli_core::derivation::ClaimId;
 use dli_core::posbool::{Monomial, PosBool};
@@ -180,7 +180,7 @@ pub fn why_not(world: &World, atom: &AtomExpr) -> WhyNot {
 
     let valuation = &world.valuation;
     let theory = &world.theory;
-    let ann = Ann::new(derived.support.clone(), derived.defeaters.clone());
+    let ann = derived.ann();
     let status = ann.status(valuation, theory);
 
     // The live monomial nearest certainty: the fewest unruled literals, ties

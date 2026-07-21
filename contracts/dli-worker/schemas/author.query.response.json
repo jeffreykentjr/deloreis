@@ -115,12 +115,12 @@
           "const": "dead"
         },
         {
-          "description": "Some monomial is `Θ`-satisfiable but none is resolved: the shadow layer.",
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved-and-undefeated: the\nshadow layer.",
           "type": "string",
           "const": "possible"
         },
         {
-          "description": "Some monomial holds on resolved events alone, with no fully-ruled\ndefeater: assertable.",
+          "description": "Some monomial holds on resolved events alone, with that monomial's own\ndefeater not fully ruled: assertable.",
           "type": "string",
           "const": "certain"
         }

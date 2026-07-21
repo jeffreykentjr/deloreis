@@ -248,6 +248,34 @@ impl PosBool {
         self.0.iter().any(|m| m.is_certain_under(valuation))
     }
 
+    /// A **sound** (syntactic, not complete) entailment test: whether every model
+    /// of `self` is a model of `other`. It holds when each monomial of `self` is
+    /// subsumed by some monomial of `other` — then that conjunction entails the
+    /// more-general disjunct, hence `other`. `FALSE` entails everything (the
+    /// vacuous case), which is why a clean (defeater-`FALSE`) derivation path
+    /// absorbs a subsumed poisoned one (`docs/spec/02-semantics.md §4`).
+    ///
+    /// Sound but incomplete: it performs no resolution, so it may answer `false`
+    /// where entailment in fact holds. Callers use it only to *narrow* — never to
+    /// assert a claim — so a missed entailment merely keeps a redundant monomial,
+    /// never drops a needed one.
+    ///
+    /// ```
+    /// use dli_core::atom::{Atom, Lit};
+    /// use dli_core::posbool::PosBool;
+    /// let general = PosBool::pos(Atom(0));
+    /// let specific = PosBool::conjunction([Lit::pos(Atom(0)), Lit::pos(Atom(1))]);
+    /// assert!(specific.implies(&general)); // {+0,+1} ⟹ {+0}
+    /// assert!(!general.implies(&specific)); // {+0} does not entail {+0,+1}
+    /// assert!(PosBool::FALSE.implies(&general)); // FALSE ⟹ anything
+    /// ```
+    #[must_use]
+    pub fn implies(&self, other: &PosBool) -> bool {
+        self.0
+            .iter()
+            .all(|mine| other.0.iter().any(|theirs| theirs.subsumes(mine)))
+    }
+
     /// The De Morgan complement, returned in absorptive DNF. Negating the
     /// support of a merely-possible premise is how a defeater polynomial is
     /// formed (see the negation regime in the semantics spec).

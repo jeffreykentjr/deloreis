@@ -16,7 +16,7 @@ use dli_ast::decl::{Decl, Document, EntityKind, OptionClause, TimeClause};
 use dli_ast::ident::Ident;
 use dli_ast::literal::BodyLiteral;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
-use dli_core::ann::{Ann, Status, Theory};
+use dli_core::ann::{Ann, DefeaterConditions, Status, Theory};
 use dli_core::atom::{Atom, Interner};
 use dli_core::grade::Grade;
 use dli_core::posbool::{Monomial, PosBool};
@@ -104,10 +104,27 @@ pub struct Derived {
     pub atom: GroundAtom,
     /// Its support polynomial `P⁺`.
     pub support: PosBool,
-    /// Its defeater polynomial `P⁻`.
+    /// Its atom-global defeater polynomial `P⁻`: the OR of every support
+    /// monomial's defeater, kept for blame and citation. Which support monomial
+    /// each defeater poisons lives in [`Derived::conditions`].
     pub defeaters: PosBool,
+    /// The defeater conditioned per support monomial (`docs/spec/02-semantics.md
+    /// §4`): the sound view that `status` reads. Empty (and omitted from the wire
+    /// form) for every positive-only atom, so positive datalog is byte-identical.
+    #[serde(default, skip_serializing_if = "DefeaterConditions::is_empty")]
+    pub conditions: DefeaterConditions,
     /// Its grade.
     pub grade: Grade,
+}
+
+impl Derived {
+    /// This row's annotation, carrying the per-monomial defeater conditions so
+    /// `status`/`at_risk` evaluate the sound per-path defeat, not the atom-global
+    /// pool. This is the seam every query and fork status read crosses.
+    #[must_use]
+    pub fn ann(&self) -> Ann {
+        Ann::conditioned(self.support.clone(), self.conditions.clone())
+    }
 }
 
 /// A non-fatal finding raised during lowering. Lowering never fails on one —
@@ -479,7 +496,7 @@ impl World {
             if !unify(&query.goal, &derived.atom, &mut bindings) {
                 continue;
             }
-            let ann = Ann::new(derived.support.clone(), derived.defeaters.clone());
+            let ann = derived.ann();
             let status = ann.status(valuation, &self.theory);
             if status == Status::Dead {
                 continue;
@@ -543,13 +560,8 @@ impl World {
     fn seed_relation(&self) -> BTreeMap<GroundAtom, Derived> {
         let mut relation: BTreeMap<GroundAtom, Derived> = BTreeMap::new();
         for fact in &self.facts {
-            merge_into(
-                &mut relation,
-                fact.atom.clone(),
-                &fact.ann.support,
-                fact.grade,
-                &fact.ann.defeaters,
-            );
+            let cond = CondSupport::of_ann(&fact.ann);
+            merge_into(&mut relation, fact.atom.clone(), fact.grade, &cond);
         }
         relation
     }
@@ -582,17 +594,12 @@ fn saturate_stratum(
         if rule.body.iter().all(|lit| lit.negated) {
             let negatives: Vec<&AtomExpr> = rule.body.iter().map(|lit| &lit.atom).collect();
             let bindings = BTreeMap::new();
-            let Some(neg_defeaters) =
-                negative_guard(relation, &negatives, &bindings, valuation, theory)?
-            else {
-                continue; // a negated literal is certain → blocked
-            };
+            let poison = negative_poison(relation, &negatives, &bindings, valuation, theory)?;
             let Ok(head) = ground_head(&rule.head, &bindings) else {
                 continue; // range restriction guarantees a ground head here
             };
-            let support = rule.ann.support.clone();
-            let defeaters = rule.ann.defeaters.or_(&neg_defeaters);
-            if let Some(head) = merge_into(relation, head, &support, rule.grade, &defeaters) {
+            let cond = CondSupport::of_ann(&rule.ann).poison(&poison);
+            if let Some(head) = merge_into(relation, head, rule.grade, &cond) {
                 worklist.push_back(head);
             }
         }
@@ -602,8 +609,8 @@ fn saturate_stratum(
             continue;
         };
         let productions = fire_rules(relation, rules, &delta, &delta_row, valuation, theory)?;
-        for (head, support, grade, defeaters) in productions {
-            if let Some(head) = merge_into(relation, head, &support, grade, &defeaters) {
+        for (head, grade, cond) in productions {
+            if let Some(head) = merge_into(relation, head, grade, &cond) {
                 worklist.push_back(head);
             }
         }
@@ -611,10 +618,154 @@ fn saturate_stratum(
     Ok(())
 }
 
+/// A support polynomial together with its **per-monomial** defeater conditions —
+/// the working form the fixpoint threads so a negated premise poisons only the
+/// derivation path it rode in on (`docs/spec/02-semantics.md §4`), never the atom
+/// as a whole. Every monomial of `support` maps to a defeater (`FALSE` for a
+/// clean path); [`CondSupport::defeater_of`] reads it. For a positive-only
+/// derivation every defeater is `FALSE`, so `and_`/`or_` reduce to the plain
+/// [`PosBool`] lattice operations and positive datalog is byte-identical.
+#[derive(Debug, Clone)]
+struct CondSupport {
+    support: PosBool,
+    conditions: DefeaterConditions,
+}
+
+impl CondSupport {
+    /// The conditioned support carried by an annotation.
+    fn of_ann(ann: &Ann) -> CondSupport {
+        CondSupport {
+            support: ann.support.clone(),
+            conditions: ann.conditions.clone(),
+        }
+    }
+
+    /// The conditioned support of a saturated row.
+    fn of_row(row: &Derived) -> CondSupport {
+        CondSupport {
+            support: row.support.clone(),
+            conditions: row.conditions.clone(),
+        }
+    }
+
+    /// The defeater pinned to a support monomial (`FALSE` for a clean path).
+    fn defeater_of(&self, monomial: &Monomial) -> PosBool {
+        self.conditions.defeater_of(monomial).clone()
+    }
+
+    /// Rebuild from a monomial→defeater map, dropping the dominated monomials.
+    fn from_map(map: BTreeMap<Monomial, PosBool>) -> CondSupport {
+        let kept = absorb_conditioned(map);
+        let mut support = BTreeSet::new();
+        let mut conditions = DefeaterConditions::new();
+        for (monomial, defeater) in kept {
+            support.insert(monomial.clone());
+            conditions.set(monomial, defeater);
+        }
+        CondSupport {
+            support: PosBool(support),
+            conditions,
+        }
+    }
+
+    /// The monomial→defeater map for this support (every monomial present, clean
+    /// ones mapping to `FALSE`).
+    fn to_map(&self) -> BTreeMap<Monomial, PosBool> {
+        self.support
+            .monomials()
+            .map(|monomial| (monomial.clone(), self.defeater_of(monomial)))
+            .collect()
+    }
+
+    /// Conjunction (rule-body join): cross-product the monomials, and a product
+    /// path is defeated when *either* parent path is — so its defeater is the OR
+    /// of the two parents'. When one product arises two ways, the paths disjoin,
+    /// so their defeaters conjoin (`AND`): the clean way protects it.
+    fn and_(&self, other: &CondSupport) -> CondSupport {
+        let mut map: BTreeMap<Monomial, PosBool> = BTreeMap::new();
+        for left in self.support.monomials() {
+            let left_def = self.defeater_of(left);
+            for right in other.support.monomials() {
+                let mut lits = left.0.clone();
+                lits.extend(right.0.iter().copied());
+                let product = Monomial(lits);
+                if product.is_contradictory() {
+                    continue;
+                }
+                let defeater = left_def.or_(&other.defeater_of(right));
+                map.entry(product)
+                    .and_modify(|existing| *existing = existing.and_(&defeater))
+                    .or_insert(defeater);
+            }
+        }
+        CondSupport::from_map(map)
+    }
+
+    /// Disjunction (merge of two derivations of one head): union the monomials; a
+    /// monomial reached both ways is defeated only when *both* defeaters are, so
+    /// they conjoin (`AND`) — a clean way makes the monomial clean. A monomial on
+    /// one side only keeps that side's defeater.
+    fn or_(&self, other: &CondSupport) -> CondSupport {
+        let mut map = self.to_map();
+        for (monomial, defeater) in other.to_map() {
+            map.entry(monomial)
+                .and_modify(|existing| *existing = existing.and_(&defeater))
+                .or_insert(defeater);
+        }
+        CondSupport::from_map(map)
+    }
+
+    /// Fold a negation poison into **every** monomial's defeater: the negated
+    /// premise defeats the whole derivation regardless of which support monomial
+    /// carried it. A `FALSE` poison (an absent or dead negated premise) is a
+    /// no-op, so an untouched path stays clean.
+    fn poison(&self, poison: &PosBool) -> CondSupport {
+        if poison.is_false() {
+            return self.clone();
+        }
+        let mut map = self.to_map();
+        for defeater in map.values_mut() {
+            *defeater = defeater.or_(poison);
+        }
+        // Poisoning preserves the monomial set and every subsumption relation, so
+        // no re-absorption is needed.
+        let mut conditions = DefeaterConditions::new();
+        for (monomial, defeater) in &map {
+            conditions.set(monomial.clone(), defeater.clone());
+        }
+        CondSupport {
+            support: self.support.clone(),
+            conditions,
+        }
+    }
+}
+
+/// Reduce a monomial→defeater map to its sound antichain: drop a monomial `m2`
+/// when a more-general monomial `m1` covers it *and* `m1`'s defeater entails
+/// `m2`'s (`d1 ⟹ d2`), so `m1`'s contribution dominates `m2`'s. With every
+/// defeater `FALSE` this is exactly plain [`PosBool`] absorption, so a
+/// positive-only support is byte-identical. Contradictory monomials drop out.
+fn absorb_conditioned(map: BTreeMap<Monomial, PosBool>) -> BTreeMap<Monomial, PosBool> {
+    let live: Vec<(Monomial, PosBool)> = map
+        .into_iter()
+        .filter(|(monomial, _)| !monomial.is_contradictory())
+        .collect();
+    let mut kept = BTreeMap::new();
+    for (i, (monomial, defeater)) in live.iter().enumerate() {
+        let dominated = live.iter().enumerate().any(|(j, (other, other_def))| {
+            j != i && other.subsumes(monomial) && other_def.implies(defeater)
+        });
+        if !dominated {
+            kept.insert(monomial.clone(), defeater.clone());
+        }
+    }
+    kept
+}
+
 /// Fire every rule against a changed atom `delta`, joining the other *positive*
 /// body atoms over the full relation and then applying the negated literals as a
-/// certain-layer guard, and collect the head atoms they produce.
-type Production = (GroundAtom, PosBool, Grade, PosBool);
+/// certain-layer poison, and collect the head atoms they produce.
+type Production = (GroundAtom, Grade, CondSupport);
 
 fn fire_rules(
     relation: &BTreeMap<GroundAtom, Derived>,
@@ -626,7 +777,7 @@ fn fire_rules(
 ) -> Result<Vec<Production>, EvalError> {
     let mut out = Vec::new();
     for rule in rules {
-        // Only positive literals trigger and join; negated literals filter.
+        // Only positive literals trigger and join; negated literals poison.
         let positives: Vec<&AtomExpr> = rule
             .body
             .iter()
@@ -657,76 +808,57 @@ fn fire_rules(
                 relation,
                 &rest,
                 bindings,
-                delta_row.support.clone(),
+                CondSupport::of_row(delta_row),
                 delta_row.grade,
-                delta_row.defeaters.clone(),
             );
-            for (bindings, support, grade, defeaters) in solutions {
+            for (bindings, grade, cond) in solutions {
                 // Negation last: every positive atom has bound the negated
-                // literals' variables (range restriction), so each grounds.
-                let Some(neg_defeaters) =
-                    negative_guard(relation, &negatives, &bindings, valuation, theory)?
-                else {
-                    continue; // a negated literal is certain → the derivation is blocked
-                };
+                // literals' variables (range restriction), so each grounds. A
+                // certain negated premise now poisons rather than blocks — the
+                // block is a defeater condition the valuation can move both ways
+                // (`docs/spec/02-semantics.md §5`), so it un-blocks without a
+                // re-fixpoint.
+                let poison = negative_poison(relation, &negatives, &bindings, valuation, theory)?;
                 let head = ground_head(&rule.head, &bindings)?;
-                out.push((
-                    head,
-                    support.and_(&rule.ann.support),
-                    Grade::weakest([grade, rule.grade]),
-                    defeaters.or_(&rule.ann.defeaters).or_(&neg_defeaters),
-                ));
+                let cond = cond.and_(&CondSupport::of_ann(&rule.ann)).poison(&poison);
+                out.push((head, Grade::weakest([grade, rule.grade]), cond));
             }
         }
     }
     Ok(out)
 }
 
-/// Apply a rule's negated body literals against the certain layer (`docs/spec/02-semantics.md
-/// §4`). Returns `None` when the derivation is **blocked** — some `¬b` whose `b`
-/// is *certain* under `(ν, Θ)`. Otherwise returns `Some(defeaters)`: the
-/// **poison**, the OR of every still-possible (open-variable) monomial of each
-/// `b`'s support `P⁺`, folded into the conclusion's `P⁻` so a future ruling that
-/// makes `b` certain surfaces as an at-risk defeat rather than negation-as-failure.
+/// The negation poison for a rule body's negated literals against the current
+/// relation (`docs/spec/02-semantics.md §4`): the OR of every still-possible
+/// monomial of each `¬b`'s support `P⁺`, to be folded into the conclusion's
+/// defeater condition. A **certain** `b` is included too — its ruled monomial
+/// rides in as a defeater rather than dropping the derivation, so the block is
+/// representable as a support condition the valuation can move both ways (§5),
+/// un-blocking `b` without a re-fixpoint.
 ///
-/// A `b` the relation never derives has support `FALSE`: not certain, nothing to
-/// poison — the standard "negation of an underived atom succeeds" cleanly.
-fn negative_guard(
+/// A `b` the relation never derives has support `FALSE`: nothing possible,
+/// nothing to poison — the standard "negation of an underived atom succeeds"
+/// cleanly, leaving the path clean.
+fn negative_poison(
     relation: &BTreeMap<GroundAtom, Derived>,
     negatives: &[&AtomExpr],
     bindings: &BTreeMap<String, String>,
     valuation: &Valuation,
     theory: &Theory,
-) -> Result<Option<PosBool>, EvalError> {
-    let mut defeaters = PosBool::FALSE;
+) -> Result<PosBool, EvalError> {
+    let mut poison = PosBool::FALSE;
     for neg in negatives {
         let ground = ground_head(neg, bindings)?;
         let Some(row) = relation.get(&ground) else {
             continue;
         };
-        // A certain b blocks: `not b` cannot fire when b holds on resolved events.
-        if row
-            .support
-            .monomials()
-            .any(|m| monomial_certain(m, valuation, theory))
-        {
-            return Ok(None);
-        }
-        // Otherwise poison: fold b's still-possible monomials into the defeaters.
         for monomial in row.support.monomials() {
             if monomial_possible(monomial, valuation, theory) {
-                defeaters = defeaters.or_(&PosBool::conjunction(monomial.lits()));
+                poison = poison.or_(&PosBool::conjunction(monomial.lits()));
             }
         }
     }
-    Ok(Some(defeaters))
-}
-
-/// Whether a monomial holds on resolved events alone and respects exclusivity —
-/// the per-monomial certainty test (mirrors `dli_core::ann`, which keeps it
-/// private).
-fn monomial_certain(monomial: &Monomial, valuation: &Valuation, theory: &Theory) -> bool {
-    monomial.is_certain_under(valuation) && theory.respects(monomial)
+    Ok(poison)
 }
 
 /// Whether a monomial can still hold in some admissible world: not contradictory,
@@ -736,17 +868,16 @@ fn monomial_possible(monomial: &Monomial, valuation: &Valuation, theory: &Theory
 }
 
 /// Recursively join the remaining body atoms over the relation, accumulating the
-/// conjunction of their supports, the weakest-link grade, and their defeaters.
+/// conjunction of their conditioned supports and the weakest-link grade.
 fn join_body(
     relation: &BTreeMap<GroundAtom, Derived>,
     remaining: &[&AtomExpr],
     bindings: BTreeMap<String, String>,
-    support: PosBool,
+    cond: CondSupport,
     grade: Grade,
-    defeaters: PosBool,
-) -> Vec<(BTreeMap<String, String>, PosBool, Grade, PosBool)> {
+) -> Vec<(BTreeMap<String, String>, Grade, CondSupport)> {
     let Some((atom, rest)) = remaining.split_first() else {
-        return vec![(bindings, support, grade, defeaters)];
+        return vec![(bindings, grade, cond)];
     };
     let mut out = Vec::new();
     for row in relation.values() {
@@ -759,45 +890,45 @@ fn join_body(
                 relation,
                 rest,
                 next,
-                support.and_(&row.support),
+                cond.and_(&CondSupport::of_row(row)),
                 Grade::weakest([grade, row.grade]),
-                defeaters.or_(&row.defeaters),
             ));
         }
     }
     out
 }
 
-/// Merge a derived support into the relation. Grade and defeaters fold on
-/// *every* merge — a verdict must not depend on the order derivations arrive —
-/// while the atom is re-enqueued only when its support strictly grew (support
-/// is the termination measure).
+/// Merge a conditioned derivation into the relation. Grade and defeater
+/// conditions fold on *every* merge — a verdict must not depend on the order
+/// derivations arrive — while the atom is re-enqueued only when its support
+/// strictly changed (support is the termination measure). The atom-global
+/// `defeaters` is kept as the OR of the conditions for blame and citation.
 fn merge_into(
     relation: &mut BTreeMap<GroundAtom, Derived>,
     atom: GroundAtom,
-    support: &PosBool,
     grade: Grade,
-    defeaters: &PosBool,
+    cond: &CondSupport,
 ) -> Option<GroundAtom> {
     if let Some(row) = relation.get_mut(&atom) {
-        // Fold grade and defeaters regardless of whether support grows, so a
-        // stronger-grade derivation with dominated support still lifts the grade.
         row.grade = Grade::join_alt([row.grade, grade]);
-        row.defeaters = row.defeaters.or_(defeaters);
-        let merged = row.support.or_(support);
-        if merged == row.support {
-            return None;
+        let merged = CondSupport::of_row(row).or_(cond);
+        let changed = merged.support != row.support;
+        row.support = merged.support;
+        row.defeaters = merged.conditions.atom_global();
+        row.conditions = merged.conditions;
+        if changed {
+            return Some(atom);
         }
-        row.support = merged;
-        return Some(atom);
+        return None;
     }
     relation.insert(
         atom.clone(),
         Derived {
             atom: atom.clone(),
-            support: support.clone(),
+            support: cond.support.clone(),
+            defeaters: cond.conditions.atom_global(),
+            conditions: cond.conditions.clone(),
             grade,
-            defeaters: defeaters.clone(),
         },
     );
     Some(atom)
@@ -1012,32 +1143,40 @@ mod tests {
         merge_into(
             &mut asserted_first,
             atom.clone(),
-            &PosBool::truth(),
             Grade::Asserted,
-            &PosBool::FALSE,
+            &CondSupport {
+                support: PosBool::truth(),
+                conditions: DefeaterConditions::new(),
+            },
         );
         merge_into(
             &mut asserted_first,
             atom.clone(),
-            &PosBool::pos(Atom(0)),
             Grade::Checked,
-            &PosBool::FALSE,
+            &CondSupport {
+                support: PosBool::pos(Atom(0)),
+                conditions: DefeaterConditions::new(),
+            },
         );
 
         let mut checked_first = BTreeMap::new();
         merge_into(
             &mut checked_first,
             atom.clone(),
-            &PosBool::pos(Atom(0)),
             Grade::Checked,
-            &PosBool::FALSE,
+            &CondSupport {
+                support: PosBool::pos(Atom(0)),
+                conditions: DefeaterConditions::new(),
+            },
         );
         merge_into(
             &mut checked_first,
             atom.clone(),
-            &PosBool::truth(),
             Grade::Asserted,
-            &PosBool::FALSE,
+            &CondSupport {
+                support: PosBool::truth(),
+                conditions: DefeaterConditions::new(),
+            },
         );
 
         // Support is TRUE (absorbs {+0}); grade is the join (Checked) both ways.

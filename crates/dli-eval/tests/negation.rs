@@ -136,12 +136,15 @@ fn possible_negated_literal_poisons_the_conclusion() {
     );
 }
 
-// --- (b) a certain b blocks the derivation ----------------------------------
+// --- (b) a certain b defeats the derivation (a reversible block) -------------
 
 #[test]
-fn certain_negated_literal_blocks_the_conclusion() {
-    // base(x) certain, b(x) certain. `not b($x)` tests against the certain layer,
-    // b(x) holds there, so the rule does not fire: risky(x) is never derived.
+fn certain_negated_literal_defeats_the_conclusion_reversibly() {
+    // base(x) certain, b(x) certain. `not b($x)` tests against the certain layer:
+    // b(x) holds there, so risky(x) is NOT assertable. But the block is a
+    // *defeater condition* on risky's support monomial, not the absence of a row
+    // (`docs/spec/02-semantics.md §4/§5`): risky is derived, present, and merely
+    // Possible — and revaluing b false un-blocks it with no re-fixpoint.
     let document = Document {
         scope: None,
         decls: vec![
@@ -172,16 +175,36 @@ fn certain_negated_literal_blocks_the_conclusion() {
         .unwrap();
     let world = world.fixpoint().unwrap();
 
-    assert!(
-        derived_row(&world, "risky").is_none(),
-        "a certain b blocks the derivation entirely"
+    let risky = derived_row(&world, "risky").expect("a certain b defeats but does not drop risky");
+    assert_eq!(
+        risky.ann().status(&world.valuation, &world.theory),
+        Status::Possible,
+        "a certain b defeats risky to merely-possible"
     );
     let goal = dli_eval::Query {
         goal: atom("risky", vec![sym("x")]),
     };
-    assert!(
-        world.query(&goal).unwrap().rows.is_empty(),
-        "risky(x) answers nothing when b is certain"
+    let rows = world.query(&goal).unwrap().rows;
+    assert_eq!(rows.len(), 1, "risky(x) is present (defeated, not absent)");
+    assert_eq!(rows[0].status, Status::Possible);
+
+    // Supersede b (revalue its decision variable false) WITHOUT a re-fixpoint:
+    // the block lifts and risky becomes Certain — the valuation moves it both
+    // ways across the fork/eval seam.
+    let b_var = world
+        .interner
+        .names()
+        .iter()
+        .position(|n| n == "d-b")
+        .expect("d-b is an interned decision variable");
+    let mut superseded = world.clone();
+    superseded
+        .valuation
+        .set(dli_core::atom::Atom(u32::try_from(b_var).unwrap()), false);
+    assert_eq!(
+        superseded.query(&goal).unwrap().rows[0].status,
+        Status::Certain,
+        "revaluing b false un-blocks risky with no re-fixpoint"
     );
 }
 

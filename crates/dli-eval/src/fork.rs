@@ -732,7 +732,7 @@ impl ForkStore {
 fn standings(world: &World, nu: &Valuation) -> BTreeMap<GroundAtom, (Status, Grade)> {
     let mut out = BTreeMap::new();
     for derived in &world.derived {
-        let ann = Ann::new(derived.support.clone(), derived.defeaters.clone());
+        let ann = derived.ann();
         let status = ann.status(nu, &world.theory);
         out.insert(derived.atom.clone(), (status, derived.grade));
     }
