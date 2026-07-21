@@ -606,6 +606,19 @@ impl Ruleset {
         }
     }
 
+    /// Like `follows`, but dispatched against a precomputed deck so a batch of
+    /// candidate checks (as in `legal_moves`) reuses one deck build instead of
+    /// rebuilding it per call. Behaviour is identical to `follows`.
+    fn follows_in(&self, prev: &str, next: &str, deck: &[Card]) -> bool {
+        match &self.moves {
+            MoveRule::Free => true,
+            MoveRule::CyclicReach { reach } => Self::cyclic_follows_in(prev, next, *reach, deck),
+            MoveRule::Ascending { axis, step, same } => {
+                self.ascending_follows_in(prev, next, axis, *step, same, deck)
+            }
+        }
+    }
+
     /// The legal plays from a reading's current state, in wheel order. The opening
     /// play is free; every later play must `follows` the last-laid card and must
     /// not repeat a laid card. Undealt (hub) cards are never plays.
@@ -617,11 +630,15 @@ impl Ruleset {
             .filter(|layer| layer.dealt)
             .map(|layer| layer.id.as_str())
             .collect();
-        let playable: Vec<String> = self
-            .leaves()
-            .into_iter()
+        // Build the deck once and thread it through every candidate's follow
+        // check. `follows` rebuilds the whole deck on each call, so checking it
+        // per playable card would rebuild the deck O(n) times per query; the
+        // hoisted `follows_in` reuses this single build.
+        let deck = self.leaves();
+        let playable: Vec<String> = deck
+            .iter()
             .filter(|card| dealt.contains(card.layer.as_str()))
-            .map(|card| card.id)
+            .map(|card| card.id.clone())
             .collect();
         match reading.laid.last() {
             None => playable
@@ -630,7 +647,7 @@ impl Ruleset {
                 .collect(),
             Some(last) => playable
                 .into_iter()
-                .filter(|id| !reading.holds(id) && self.follows(last, id))
+                .filter(|id| !reading.holds(id) && self.follows_in(last, id, &deck))
                 .collect(),
         }
     }
@@ -807,14 +824,19 @@ impl Ruleset {
 
     /// `CyclicReach`: `next` is within `reach` steps forward of `prev` on the wheel.
     fn cyclic_follows(&self, prev: &str, next: &str, reach: u32) -> bool {
-        let wheel = self.card_ids();
-        let count = wheel.len();
+        Self::cyclic_follows_in(prev, next, reach, &self.leaves())
+    }
+
+    /// `CyclicReach` against a precomputed deck. The wheel is the deck's ids in
+    /// enumeration order, so position lookups match `card_ids()` exactly.
+    fn cyclic_follows_in(prev: &str, next: &str, reach: u32, deck: &[Card]) -> bool {
+        let count = deck.len();
         if count == 0 {
             return false;
         }
         let (Some(from), Some(to)) = (
-            wheel.iter().position(|id| id == prev),
-            wheel.iter().position(|id| id == next),
+            deck.iter().position(|card| card.id == prev),
+            deck.iter().position(|card| card.id == next),
         ) else {
             return false;
         };
@@ -832,7 +854,20 @@ impl Ruleset {
         step: Option<u32>,
         same: &[String],
     ) -> bool {
-        let cards = self.cards();
+        self.ascending_follows_in(prev, next, axis_id, step, same, &self.cards())
+    }
+
+    /// `Ascending` against a precomputed deck, so a batch of candidate checks
+    /// reuses one `cards()` build. Behaviour is identical to `ascending_follows`.
+    fn ascending_follows_in(
+        &self,
+        prev: &str,
+        next: &str,
+        axis_id: &str,
+        step: Option<u32>,
+        same: &[String],
+        cards: &[Card],
+    ) -> bool {
         let (Some(prev_card), Some(next_card)) = (
             cards.iter().find(|card| card.id == prev),
             cards.iter().find(|card| card.id == next),
@@ -979,4 +1014,118 @@ pub(crate) fn render_template(template: &str, bindings: &BTreeMap<String, String
     }
     out.push_str(rest);
     out
+}
+
+#[cfg(test)]
+mod hoist_equivalence {
+    //! Proof that hoisting the deck build out of `legal_moves`' inner loop is
+    //! behaviour-identical: the private `follows_in` (deck threaded in) must
+    //! agree with the public `follows` (deck rebuilt per call) for every ordered
+    //! pair of card ids, on both an `Ascending` and a `CyclicReach` deck. Being a
+    //! child of `model`, this module can reach the private helper directly.
+
+    use super::{Reading, Ruleset};
+
+    const ASCENDING_RULES: &str = r#"{
+      "game_id": "asc", "region": "sample",
+      "axes": [
+        { "id": "suit", "values": [ { "id": "s", "name": "S" }, { "id": "t", "name": "T" } ] },
+        { "id": "rank", "values": [ { "id": "a", "name": "A" }, { "id": "b", "name": "B" } ] }
+      ],
+      "layers": [{ "id": "card", "axes": ["suit", "rank"], "id_template": "{rank}-{suit}", "dealt": true }],
+      "ordering": "layer-product",
+      "moves": { "rule": "ascending", "axis": "rank", "step": 1, "same": ["suit"] },
+      "layouts": [{ "name": "run", "cards_dealt": 2 }],
+      "verdict": { "verdict": "completed" },
+      "invariants": [{ "invariant": "deck-is-a-set" }, { "invariant": "count-matches" }],
+      "decorations": [],
+      "provenance": { "standing": "ratified", "cites": ["D-0001"] }
+    }"#;
+
+    const CYCLIC_RULES: &str = r#"{
+      "game_id": "cyc", "region": "sample",
+      "axes": [{ "id": "pos", "values": [
+        { "id": "x", "name": "X" }, { "id": "y", "name": "Y" }, { "id": "z", "name": "Z" }] }],
+      "layers": [{ "id": "card", "axes": ["pos"], "id_template": "card-{pos}", "dealt": true }],
+      "ordering": "layer-product",
+      "moves": { "rule": "cyclic-reach", "reach": 1 },
+      "layouts": [{ "name": "ring", "cards_dealt": 3 }],
+      "verdict": { "verdict": "completed" },
+      "invariants": [{ "invariant": "deck-is-a-set" }, { "invariant": "count-matches" }, { "invariant": "closed-ring" }],
+      "decorations": [],
+      "provenance": { "standing": "ratified", "cites": ["D-0001"] }
+    }"#;
+
+    /// `follows_in` (hoisted deck) matches `follows` (per-call rebuild) over every
+    /// ordered pair — the exhaustive behaviour-identity check.
+    fn assert_follows_agree(rules: &str) {
+        let deck = Ruleset::from_rules(rules).expect("rules parse");
+        let cards = deck.cards();
+        let hoisted = deck.leaves();
+        for prev in &cards {
+            for next in &cards {
+                assert_eq!(
+                    deck.follows(&prev.id, &next.id),
+                    deck.follows_in(&prev.id, &next.id, &hoisted),
+                    "follows/follows_in disagree on {} -> {}",
+                    prev.id,
+                    next.id,
+                );
+            }
+        }
+    }
+
+    fn reading(layout: &str, cards_dealt: u32, laid: &[&str]) -> Reading {
+        Reading {
+            layout: layout.to_owned(),
+            cards_dealt,
+            laid: laid.iter().map(|id| (*id).to_owned()).collect(),
+        }
+    }
+
+    #[test]
+    fn follows_in_matches_follows_ascending() {
+        assert_follows_agree(ASCENDING_RULES);
+    }
+
+    #[test]
+    fn follows_in_matches_follows_cyclic() {
+        assert_follows_agree(CYCLIC_RULES);
+    }
+
+    #[test]
+    fn ascending_legal_moves_and_terminal_unchanged() {
+        let deck = Ruleset::from_rules(ASCENDING_RULES).expect("rules parse");
+        assert_eq!(
+            deck.cards()
+                .iter()
+                .map(|c| c.id.clone())
+                .collect::<Vec<_>>(),
+            vec!["a-s", "b-s", "a-t", "b-t"],
+        );
+        let open = reading("run", 2, &[]);
+        assert_eq!(deck.legal_moves(&open).len(), 4);
+        assert!(!deck.is_terminal(&open));
+
+        let after_as = reading("run", 2, &["a-s"]);
+        assert_eq!(deck.legal_moves(&after_as), vec!["b-s".to_owned()]);
+        assert!(!deck.is_terminal(&after_as));
+
+        let filled = reading("run", 2, &["a-s", "b-s"]);
+        assert!(deck.is_terminal(&filled));
+    }
+
+    #[test]
+    fn cyclic_legal_moves_and_terminal_unchanged() {
+        let deck = Ruleset::from_rules(CYCLIC_RULES).expect("rules parse");
+        let open = reading("ring", 3, &[]);
+        assert_eq!(deck.legal_moves(&open).len(), 3);
+
+        let after_x = reading("ring", 3, &["card-x"]);
+        assert_eq!(deck.legal_moves(&after_x), vec!["card-y".to_owned()]);
+
+        // Reach 1 wraps: from card-z the only forward step is card-x.
+        let after_z = reading("ring", 3, &["card-z"]);
+        assert_eq!(deck.legal_moves(&after_z), vec!["card-x".to_owned()]);
+    }
 }
