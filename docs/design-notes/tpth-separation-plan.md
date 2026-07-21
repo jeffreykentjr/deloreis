@@ -69,6 +69,12 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 
 ### A. World content hardcoded in engine code (HARD)
 
+> **Status:** the **Turning** rows (deck, type vocabulary, study, invariants,
+> export-backend) are ✅ **RESOLVED** — Phase 4 (`a65077a`) moved the whole
+> Turning to `crates/tpth/`. The **profile-registry** row is ✅ done (Phase 2,
+> `b5dd94b`). Still ⏳: the saltmarket world built in Rust (`loader.rs::example_docs`)
+> and `session.rs::builtin_pack` — folded into the PD-example-worlds effort.
+
 | Leak | Location | Move |
 |---|---|---|
 | The entire lowlands Turning deck as Rust | `dli-sim/src/turning.rs` `lowlands_grounds/canonical_weathers/lowlands_figures/canonical_layouts`, `Ruleset::{lowlands_honest,keep_stamped,salt_fringe}`, `Variant::*` | → `worlds/tpth/turning/*.json` (the types already derive Serde+JsonSchema; `examples/the-turning-rules.json` is already the serialization). Load via a generic `Ruleset::from_rules`. |
@@ -168,9 +174,9 @@ forks; each is an individually-verified step, not a big-bang.
 - ✅ Step 1 (`Kb` handle + config-as-argument) · ✅ Step 2 (`Cow`/serde data-loadable records) · ✅ Step 3 (season/outline policy → `config.rs`) · ✅ Step 4 (shipped `craft-doctrines/` library, 83 records) · ✅ Step 5 (author `worlds/tpth/craft/` + `apply()` + round-trip golden + flip source + strip the TPtH const; `dli-world` tests moved to `worlds/example`).
 - **Step 6 — the factory interface (spec; implemented fantasy-side, not here).** The engine LOADS `worlds/tpth/craft/*` as data and `validate()`s it; it never reads a decision ledger. The **factory** (fantasy repo) produces those files by mapping `D-nnnn` rulings → `PrincipleOverlay`/`WorldPrinciple` records — a `fantasy craft compile` step wired into the fantasy gate, regenerating `worlds/tpth/craft/*` idempotently. The record shapes in `dli-world::craft::worldcfg` (`CraftConfig`/`PrincipleOverlay`/`WorldPrinciple`) are the versioned contract; the round-trip golden (`apply == 107`) is the acceptance test the factory output must satisfy.
 
-**Phase 4 — the Turning (gated on fork B)**
-- Turning instance → `worlds/tpth/turning/*.json` behind a generic `Ruleset::from_rules`.
-- Genericize or relocate the Turning type vocabulary + study + invariants; repoint `dli-export/games.rs`.
+**Phase 4 — the Turning — ✅ DONE (commits `a65077a`/`2ca7129`; design: `tpth-turning-extraction.md`)**
+- ✅ Per DL-0018 fork B, the **whole Turning moved to a thin `crates/tpth/` world crate** (types + instance + study + invariants + the card/Ludii export): `dli-sim/src/turning.rs` → `tpth/src/turning.rs`; `dli-export/src/games.rs` → `tpth/src/export.rs` (+ a world-side `tpth::export::run`). `dli-sim` is now SIM-1-only; `dli-export` is the generic export core (drops its `dli-sim` dep), keeps the generic `Cards`/`LudiiGdl` format targets failing closed via `NoEngineRendererForTarget`. **No wire/contract change** — the card export never read the compiled world (fake coupling), and the only live consumers were the moved tests. Boundary proof: no engine crate references `tpth`, no Turning literals remain in `dli-sim`/`dli-export` `src/`.
+- Follow-on (deferred, DL-0018): genericize the `Ruleset` so the Turning becomes pure data loaded from `worlds/tpth/turning/*.json` (the sim-parameterization fork).
 
 **Phase 5 — docs split**
 - Engine manual on the neutral world; the TPtH worldbook companion; reposition `integration/` as a worked consumer integration.
