@@ -17,6 +17,7 @@ pub mod loader;
 pub mod model;
 pub mod pack;
 pub mod payload;
+pub mod scene_projection;
 
 pub use attest::{Attestation, AttestationStore};
 pub use check::{

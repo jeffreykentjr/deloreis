@@ -419,3 +419,30 @@ world-agnostic surface honest about it.
 **Revisit trigger.** Simulator genericization (fork 2's follow-on) may later empty
 `crates/tpth/` of the Turning code in favor of pure data; the craft library's pack
 set is revisited when a second world exercises it.
+
+## DL-0019 — Rename the timing finding code `proof.wrong-hour` → `proof.wrong-phase`
+
+*Date: 2026-07-21*
+
+**Ruling.** The kernel proof-checker's L3 timing finding is renamed from
+`proof.wrong-hour` / `ProofFinding::WrongHour` to `proof.wrong-phase` /
+`WrongPhase`. "Phase" is the neutral, cross-world term for a position within a
+cyclic coordinate (spec `03-time.md §1` speaks of "cyclic phase"); "hour" was a
+TPtH-flavored word that leaked into a generic engine finding code. This renames
+**only the kernel finding code** — a world's own diegetic error name (e.g.
+`error wrong-hour refines L3` in TPtH's `spoken-proof`, or `wrong-moon` in
+camelot) is world content and is untouched; the two are decoupled at
+`failed_at()`/`refining_error()`.
+
+**Rationale.** Pre-authorized by the TPtH/general separation
+([DL-0017](#dl-0017--the-generaltpth-separation-engine-craft-doctrine-config-world-content),
+[DL-0018](#dl-0018--separation-layout-a-shipped-craft-library-a-thin-tpth-crate-a-generic-contract))
+as "a deliberate contract migration" — the engine's finding codes must be
+story-agnostic. The finding code appears in no fixture or schema, so the migration
+is a lockstep change of the `code()` string, the docgen source, and the
+regenerated `finding-families.md` (the `families_are_covered_against_source` test
+holds documented == emitted). No wire/registry regeneration is required.
+
+**Revisit trigger.** None; the neutral term is stable. Any future world wanting an
+"hour"-flavored timing error declares it as its own diegetic error name, never as
+the kernel code.

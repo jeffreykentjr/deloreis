@@ -372,10 +372,10 @@ const FAMILIES: &[Family] = &[
                 meaning: "a premise is denied by the certain projection — the casting rebounds (L2, contradicted).",
             },
             Code {
-                code: "proof.wrong-hour",
+                code: "proof.wrong-phase",
                 severity: "error",
                 repair: "—",
-                meaning: "a step runs at the wrong cyclic hour (L3, timing).",
+                meaning: "a step runs at the wrong cyclic phase (L3, timing).",
             },
             Code {
                 code: "proof.bad-instantiation",

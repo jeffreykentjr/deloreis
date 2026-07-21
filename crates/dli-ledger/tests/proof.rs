@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! The PRAC-2 acceptance oracle (`docs/spec/04-practices.md` §3, §5): the
-//! spoken-proof worked scene checks clean; wrong-hour is an L3 timing error;
+//! spoken-proof worked scene checks clean; wrong-phase is an L3 timing error;
 //! fizzle is L2-absent; overload is the L6 affine bound; a flawed argument that
 //! accidentally validates is a caught bug; and a premise's grade rolls up
 //! weakest-link over the procedure chain.
@@ -85,10 +85,11 @@ proof e01-s04 speaker protagonist in spoken-proof {
     assert_eq!(report.speaker.as_deref(), Some("protagonist"));
 }
 
-/// Wrong-hour: the same ward, spoken in a flood-bound scene, fails at L3 timing —
-/// the series-opening beat. The declared `fails-at wrong-hour` is confirmed.
+/// Wrong-phase: the same ward, spoken in a flood-bound scene, fails at L3 timing —
+/// the series-opening beat. The declared `fails-at wrong-hour` (the practice's own
+/// diegetic error name) is confirmed against the `proof.wrong-phase` kernel code.
 #[test]
-fn wrong_hour_is_an_l3_timing_error() {
+fn wrong_phase_is_an_l3_timing_error() {
     let proof = "\
 proof e01-flood speaker protagonist in spoken-proof {
   premise p1 holds(enfys, consent(household, door)) cited D-0113
@@ -116,7 +117,7 @@ proof e01-flood speaker protagonist in spoken-proof {
         .findings
         .iter()
         .find_map(|f| match f {
-            ProofFinding::WrongHour {
+            ProofFinding::WrongPhase {
                 cycle,
                 required,
                 actual,
@@ -134,7 +135,7 @@ proof e01-flood speaker protagonist in spoken-proof {
             .iter()
             .find(|f| f.class() == Some(StructuralClass::L3))
             .map(ProofFinding::code),
-        Some("proof.wrong-hour")
+        Some("proof.wrong-phase")
     );
 }
 
@@ -273,6 +274,47 @@ fn has(report: &ProofReport, code: &str) -> bool {
     report.findings.iter().any(|f| f.code() == code)
 }
 
+/// The report is a frozen wire seam (`SERVE-1` / PAY-2): it serializes, round-trips
+/// through serde exactly, and yields a JSON schema. This exercises every tagged
+/// report enum — `ProofFinding` (internally tagged on `finding`), `ProofVerdict`
+/// and `Expectation` (externally tagged), and `ProofForm` — on the wrong-phase
+/// scene, whose report carries an L3 failure, a `WrongPhase` finding, and a
+/// `fails-at` expectation.
+#[test]
+fn the_proof_report_is_a_serde_and_schema_wire_seam() {
+    let proof = "\
+proof e01-flood speaker protagonist in spoken-proof {
+  premise p1 holds(enfys, consent(household, door)) cited D-0113
+  premise p2 phase(tide, slack) from-scene
+  step s1 instantiate ward-form with ground = door, fibre = withy
+  close bound(ward, door) expect fails-at wrong-hour
+}";
+    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "flood");
+    let report = check(proof, &scene);
+
+    // Serialize, then round-trip back to an equal value.
+    let json = serde_json::to_string(&report).expect("ProofReport serializes");
+    let back: ProofReport = serde_json::from_str(&json).expect("ProofReport round-trips");
+    assert_eq!(report, back, "the report must survive a serde round-trip");
+
+    // The kernel finding code rides the `finding` tag as kebab-case `wrong-phase`;
+    // the practice's diegetic error name `wrong-hour` rides the `fails-at`
+    // expectation — the two channels stay distinct on the wire.
+    assert!(
+        json.contains("\"finding\":\"wrong-phase\""),
+        "ProofFinding is internally tagged on `finding`: {json}"
+    );
+    assert!(
+        json.contains("\"fails-at\":\"wrong-hour\""),
+        "Expectation is externally tagged with kebab-case variants: {json}"
+    );
+
+    // The JSON schema derives for the whole report.
+    let schema = serde_json::to_value(schemars::schema_for!(ProofReport))
+        .expect("ProofReport has a JSON schema");
+    assert!(schema.is_object(), "schema_for!(ProofReport) is an object");
+}
+
 // --- R3 regression coverage -------------------------------------------------
 
 /// H6: a breach of `debt` must not borrow `strain`'s `overload` error just because
@@ -381,8 +423,8 @@ proof e01-spoke speaker protagonist in spoken-proof {
         messages(&report)
     );
     assert!(
-        !has(&report, "proof.wrong-hour"),
-        "an invalid spoke is not a wrong hour"
+        !has(&report, "proof.wrong-phase"),
+        "an invalid spoke is not a wrong phase"
     );
     assert!(matches!(
         report.verdict,

@@ -104,7 +104,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 | `proof.unknown-form` | error | — | the form is not declared by this practice (L1). |
 | `proof.premise-absent` | error | — | a premise is not established in the scene — the casting fizzles (L2, absent). |
 | `proof.premise-contradicted` | error | — | a premise is denied by the certain projection — the casting rebounds (L2, contradicted). |
-| `proof.wrong-hour` | error | — | a step runs at the wrong cyclic hour (L3, timing). |
+| `proof.wrong-phase` | error | — | a step runs at the wrong cyclic phase (L3, timing). |
 | `proof.bad-instantiation` | error | — | a form is instantiated with ill-typed arguments (L4). |
 | `proof.invalid-chain` | error | — | a chain step does not follow from its cited premises (L5). |
 | `proof.resource-violation` | error | — | the ledger breaches a resource law (L6) — see the resource sub-codes below. |

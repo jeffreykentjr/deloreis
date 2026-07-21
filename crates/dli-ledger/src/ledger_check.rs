@@ -16,7 +16,7 @@
 //! - **L2 premise-not-available** — a premise is *absent* (fizzle) or
 //!   *contradicted* (rebound) in the scene projection.
 //! - **L3 side-condition** — a timing premise is seated at the wrong phase of a
-//!   cycle (wrong-hour), the series-opening beat.
+//!   cycle (wrong-phase), the series-opening beat.
 //! - **L4 bad-instantiation** — a form is bound against arguments its declared
 //!   parameters forbid.
 //! - **L5 invalid-chain** — a step joins premises by a law the practice does not
@@ -31,6 +31,9 @@
 //! not a silent success.
 
 use std::collections::{BTreeMap, BTreeSet};
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use dli_ast::clause::Clause;
 use dli_ast::decl::ProofDecl;
@@ -74,7 +77,8 @@ const PREMISE_MODIFIERS: &[&str] = &[
 ];
 
 /// Which proof form a [`StepVerdict`] records.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProofForm {
     /// `premise <l> <atom> …` — an atom the casting rests on.
     Premise,
@@ -99,7 +103,7 @@ pub enum ProofForm {
 }
 
 /// One step's verdict in a checked proof.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct StepVerdict {
     /// The step's label (`p1`, `s2`), or the keyword for an unlabeled form.
     pub label: String,
@@ -114,7 +118,8 @@ pub struct StepVerdict {
 }
 
 /// What the checker made of the close, before the expectation is weighed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 pub enum ProofVerdict {
     /// The close follows from the accounted ledger; nothing fired.
     Holds,
@@ -131,7 +136,13 @@ pub enum ProofVerdict {
 }
 
 /// The verdict a proof declares it expects at its close (`docs/spec/04` §5).
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Externally tagged (`rename_all` only, no internal `tag`): the `FailsAt` and
+/// `Unknown` newtype variants wrap a bare `String`, which serde's internal
+/// tagging cannot merge a tag into — so this enum keeps serde's default
+/// (external) representation, unlike the struct/unit-only [`ProofFinding`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 pub enum Expectation {
     /// `expect holds` — the casting should reach its close cleanly.
     Holds,
@@ -152,7 +163,12 @@ pub enum Expectation {
 /// Two-channel like every load finding (charter koan 9): a stable machine
 /// [`code`](ProofFinding::code) and a domain-spoken
 /// [`message`](ProofFinding::message).
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Internally tagged on `finding` (the house style for the fabric's data-carrying
+/// finding enums — cf. `PracticeFinding` and `LoadFinding`): every variant is a
+/// struct or unit variant, so the tag merges cleanly.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "finding", rename_all = "kebab-case")]
 pub enum ProofFinding {
     /// L1 — a step names a form the practice does not declare.
     UnknownForm {
@@ -175,8 +191,8 @@ pub enum ProofFinding {
         /// The premise atom, as written.
         atom: String,
     },
-    /// L3 (*timing*) — a timing premise seated at the wrong phase: wrong-hour.
-    WrongHour {
+    /// L3 (*timing*) — a timing premise seated at the wrong phase: wrong-phase.
+    WrongPhase {
         /// The premise label.
         label: String,
         /// The cycle whose phase was wrong.
@@ -275,7 +291,7 @@ impl ProofFinding {
         Some(match self {
             Self::UnknownForm { .. } => StructuralClass::L1,
             Self::PremiseAbsent { .. } | Self::PremiseContradicted { .. } => StructuralClass::L2,
-            Self::WrongHour { .. } => StructuralClass::L3,
+            Self::WrongPhase { .. } => StructuralClass::L3,
             Self::BadInstantiation { .. } | Self::UnknownSpoke { .. } => StructuralClass::L4,
             Self::InvalidChain { .. } => StructuralClass::L5,
             Self::ResourceViolation { .. } | Self::InvalidSpend { .. } => StructuralClass::L6,
@@ -294,7 +310,7 @@ impl ProofFinding {
             Self::UnknownForm { .. } => "proof.unknown-form",
             Self::PremiseAbsent { .. } => "proof.premise-absent",
             Self::PremiseContradicted { .. } => "proof.premise-contradicted",
-            Self::WrongHour { .. } => "proof.wrong-hour",
+            Self::WrongPhase { .. } => "proof.wrong-phase",
             Self::BadInstantiation { .. } => "proof.bad-instantiation",
             Self::InvalidChain { .. } => "proof.invalid-chain",
             Self::ResourceViolation { .. } => "proof.resource-violation",
@@ -323,7 +339,7 @@ impl ProofFinding {
                 "{label}: '{atom}' is denied by the certain projection — the casting rebounds \
                  (L2, contradicted)"
             ),
-            Self::WrongHour {
+            Self::WrongPhase {
                 label,
                 cycle,
                 required,
@@ -332,7 +348,7 @@ impl ProofFinding {
                 let is = actual.as_deref().unwrap_or("not established");
                 format!(
                     "{label}: {cycle} is {is} in the scene; the casting requires {required} \
-                     — wrong-hour (L3, timing)"
+                     — wrong-phase (L3, timing)"
                 )
             }
             Self::BadInstantiation { form, binding, at } => format!(
@@ -392,7 +408,7 @@ impl ProofFinding {
 /// verdict — the declared expectation was met — while
 /// [`findings`](ProofReport::findings), [`verdict`](ProofReport::verdict), and
 /// [`grade`](ProofReport::grade) carry the why, the where, and the strength.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ProofReport {
     /// The proof's name.
     pub proof: Ident,
@@ -769,8 +785,8 @@ type PremiseEffect = (
 
 /// Check a timing premise `phase(<cycle>, <spoke>)`: an undeclared spoke is a
 /// bad instantiation (L4), caught *before* the phase comparison — a phase the
-/// cycle cannot reach would otherwise read as merely the wrong hour. A spoke in
-/// force holds; any other established (or unestablished) phase is wrong-hour (L3).
+/// cycle cannot reach would otherwise read as merely the wrong phase. A spoke in
+/// force holds; any other established (or unestablished) phase is wrong-phase (L3).
 fn timing_effect(
     premise: &Premise,
     cycle: &str,
@@ -803,7 +819,7 @@ fn timing_effect(
         (
             false,
             format!("{cycle} is not {spoke}"),
-            Some(ProofFinding::WrongHour {
+            Some(ProofFinding::WrongPhase {
                 label: premise.label.clone(),
                 cycle: cycle.to_owned(),
                 required: spoke.to_owned(),
@@ -1287,7 +1303,7 @@ fn parse_expectation(verdict: &str) -> Expectation {
 fn failed_at(practice: &PracticeDef, finding: &ProofFinding) -> ProofVerdict {
     let class = finding.class().unwrap_or(StructuralClass::L7);
     let (error, at) = match finding {
-        ProofFinding::WrongHour { label, cycle, .. } => {
+        ProofFinding::WrongPhase { label, cycle, .. } => {
             (refining_error(practice, class, Some(cycle)), label.clone())
         }
         ProofFinding::ResourceViolation { resource, at, .. } => {
