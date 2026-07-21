@@ -37,7 +37,7 @@
 //! internally consistent). A harness that only ever reports agreement is a null
 //! oracle (`migration.md` §3), so the `detects_*` tests seed the data-layer
 //! analogues of three named corpus operators
-//! (`fixtures/mutation/canon.yaml`) and assert each one turns the clean
+//! (`worlds/tpth/mutation/canon.yaml`) and assert each one turns the clean
 //! cross-check into a finding. The zero above counts as parity only because the
 //! same derivation demonstrably *catches* seeded divergence.
 
@@ -58,7 +58,7 @@ use dli_core::valuation::Valuation;
 
 const PINNED_FACTS_YAML: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../fixtures/vendor/fantasy-40f6679/canon/data/facts.yaml"
+    "/../../worlds/tpth/vendor/fantasy-40f6679/canon/data/facts.yaml"
 );
 
 /// The facts.yaml the replay reads. Defaults to the pinned vendored snapshot;
@@ -374,7 +374,7 @@ fn pristine_facts_have_zero_status_disagreements() {
 
 // ---------------------------------------------------------------------------
 // Detection proven separately: the data-layer analogues of three named corpus
-// operators (fixtures/mutation/canon.yaml) must each become a finding.
+// operators (worlds/tpth/mutation/canon.yaml) must each become a finding.
 // ---------------------------------------------------------------------------
 
 #[test]

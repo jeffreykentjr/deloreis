@@ -2,7 +2,7 @@
 //! Language-layer integration and parity oracles (`LANG-1`/`LANG-2`).
 //!
 //! Offline and deterministic: the parity tests read the vendored corpus
-//! (`fixtures/vendor/…/registers.yaml`, `ratified_names.yaml`) from the repo,
+//! (`worlds/tpth/vendor/…/registers.yaml`, `ratified_names.yaml`) from the repo,
 //! never the network. They prove three things the language layer must hold:
 //!
 //! 1. **Port 1:1** — every vendored register, expressed as `.dli` and compiled
@@ -40,9 +40,9 @@ fn parse(src: &str) -> Document {
 }
 
 const REGISTERS_YAML: &str =
-    "fixtures/vendor/fantasy-40f6679/src/fantasy/naming/data/registers.yaml";
+    "worlds/tpth/vendor/fantasy-40f6679/src/fantasy/naming/data/registers.yaml";
 const RATIFIED_YAML: &str =
-    "fixtures/vendor/fantasy-40f6679/src/fantasy/naming/data/ratified_names.yaml";
+    "worlds/tpth/vendor/fantasy-40f6679/src/fantasy/naming/data/ratified_names.yaml";
 
 fn strs(value: Option<&Value>) -> Vec<String> {
     value

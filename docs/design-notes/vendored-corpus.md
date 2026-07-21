@@ -21,7 +21,7 @@ evidence, never re-argued here.
 Three self-provided artifacts, all cut from **one pinned commit** of the fantasy
 repository and living under `deloreis` ownership:
 
-1. **The corpus snapshot** — `fixtures/vendor/fantasy-40f6679/`. A `git archive`
+1. **The corpus snapshot** — `worlds/tpth/vendor/fantasy-40f6679/`. A `git archive`
    of the pinned tree, carrying:
    - `canon/**` — the whole story bible (49 files: characters, geography, society,
      narrative, world, texts, and `canon/data/**` — `characters.yaml`,
@@ -33,7 +33,7 @@ repository and living under `deloreis` ownership:
 
    63 files total. `MANIFEST.txt` in that directory carries the pinned SHA, a
    per-file sha256, and a top-level tree hash (sha256 over the sorted per-file
-   lines). It verifies `sha256sum -c`–style: `cd fixtures/vendor/fantasy-40f6679
+   lines). It verifies `sha256sum -c`–style: `cd worlds/tpth/vendor/fantasy-40f6679
    && sha256sum -c MANIFEST.txt` (the `#` header lines are ignored by `sha256sum`).
 
 2. **The pinned oracles** — `scripts/pinned-oracles.sh`. A lab-side, **non-gating**
@@ -44,10 +44,10 @@ repository and living under `deloreis` ownership:
    legacy engine on identical inputs. It is **never** part of `cargo xtask gate`:
    the deloreis gate is deterministic, offline, and model-free.
 
-3. **The detection corpus** — `fixtures/mutation/{canon,draft,episode}.yaml`.
+3. **The detection corpus** — `worlds/tpth/mutation/{canon,draft,episode}.yaml`.
    The fantasy mutation-operator catalogue (33 operators) ported to DATA seeds for
    PROOF-1: each operator's seeded change plus the deloreis kernel check class that
-   must flag it. Index and taxonomy in `fixtures/mutation/README.md`.
+   must flag it. Index and taxonomy in `worlds/tpth/mutation/README.md`.
 
 ## The pin
 
@@ -62,7 +62,7 @@ The pin is a **commit**, resolved once with `git -C <fantasy> rev-parse
 origin/main` and recorded. The fantasy tree is a shared, live checkout that other
 agents dirty; vendoring from the committed object at a pinned SHA — never from the
 working tree — is what makes the snapshot reproducible. The same SHA is the
-default in `scripts/pinned-oracles.sh` and in every `fixtures/mutation/*.yaml`
+default in `scripts/pinned-oracles.sh` and in every `worlds/tpth/mutation/*.yaml`
 provenance block, so the corpus, the oracles, and the detection seeds all speak
 about one identical world.
 
@@ -91,7 +91,7 @@ The pin is deliberate; refresh is a decision, not a drift. To advance it:
 1. **Re-pin.** `git -C <fantasy> rev-parse origin/main` → the new SHA; record it.
 2. **Re-archive.** `git -C <fantasy> archive <new-sha> canon episodes
    src/fantasy/naming/data src/fantasy/propagate/data/killed_tokens.yaml | tar -x
-   -C fixtures/vendor/fantasy-<new-short>/`.
+   -C worlds/tpth/vendor/fantasy-<new-short>/`.
 3. **Regenerate `MANIFEST.txt`** (pinned SHA + per-file sha256 + tree hash) and
    verify `sha256sum -c`.
 4. **Re-port the detection corpus** if `src/fantasy/mutation/operators.py` or the

@@ -5,7 +5,7 @@ verdict: "PROOF-1's operator×gate coverage matrix and MIG-2's shadow-read state
 
 # Mutation coverage (PROOF-1) and the shadow-read state (MIG-2)
 
-The mutation detection corpus (`fixtures/mutation/{canon,draft,episode}.yaml`,
+The mutation detection corpus (`worlds/tpth/mutation/{canon,draft,episode}.yaml`,
 EXT-F5) ports the fantasy repo's 33 seeded-violation operators at pinned SHA
 `40f66792229abf5d73d995a8167adc79152a64e7`. Each record carries the fantasy gate
 that caught it (`fantasy_gates` — the **oracle-side** ground truth, immutable) and

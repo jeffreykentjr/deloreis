@@ -17,7 +17,7 @@ provenance:
   target: canon
   note: >-
     Canon-target operators mutate a pristine copy of the vendored canon fixtures
-    (fixtures/vendor/) and assert a real gate catches the seeded violation.
+    (worlds/tpth/vendor/) and assert a real gate catches the seeded violation.
 
 operators:
   - operator: break-status-marker

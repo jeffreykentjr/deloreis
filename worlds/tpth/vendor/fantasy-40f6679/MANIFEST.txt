@@ -7,7 +7,7 @@
 # file-count: 63
 # tree-hash-sha256: 92c343e72b408a8b149f105d0e7dd5fd1e02534dd7a38fe9f18830b5b70f5d1d
 #   tree-hash = sha256 over the sorted '<sha256>  <path>' lines below (this header excluded)
-# verify: cd fixtures/vendor/fantasy-40f6679 && sha256sum -c MANIFEST.txt
+# verify: cd worlds/tpth/vendor/fantasy-40f6679 && sha256sum -c MANIFEST.txt
 #
 bf2536d678e7d3498d44c44832856cfd560672407f0c66852d5587adee897844  canon/SCHEMA.md
 c9beee6f161b755569d8c28529c9750ca8eecf5decf94142a964f6b2260d8d4c  canon/characters/anchor.md

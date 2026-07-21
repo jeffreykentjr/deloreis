@@ -5,7 +5,7 @@
 //! `check_season` produce are the codes the dli-world craft checker must produce,
 //! under the `outline.` family. Two tests go further and pin the port against the
 //! *live* oracle: the vendored real season outline
-//! (`fixtures/vendor/fantasy-40f6679-craft/`) and the committed example
+//! (`worlds/tpth/vendor/fantasy-40f6679-craft/`) and the committed example
 //! (`examples/saltmarket-season.yaml`), whose verdicts are captured from
 //! `fantasy craft outline` run at the pinned SHA.
 
@@ -708,7 +708,7 @@ fn vendored_arc1_matches_oracle_verdict() {
     // warnings, one per season-carry loop, and nothing else.
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../fixtures/vendor/fantasy-40f6679-craft/",
+        "/../../worlds/tpth/vendor/fantasy-40f6679-craft/",
         "lab/campaign-014-structure-development/ARC1-CRAFT-SIDECAR.yaml"
     );
     let yaml = std::fs::read_to_string(path).expect("vendored ARC1 sidecar exists");

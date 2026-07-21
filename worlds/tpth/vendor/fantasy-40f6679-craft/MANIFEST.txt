@@ -7,11 +7,11 @@
 #   CRAFT-1 parity input. Loads through both the legacy oracle (fantasy craft outline)
 #   and the dli-world craft checker; the two verdicts' codes must correspond.
 # generated-by: git show <pinned-sha>:<path> (byte-identical to the committed blob)
-# note: a SEPARATE manifest from the sealed fixtures/vendor/fantasy-40f6679/MANIFEST.txt
+# note: a SEPARATE manifest from the sealed worlds/tpth/vendor/fantasy-40f6679/MANIFEST.txt
 #   (that snapshot is hash-pinned and must not be touched — CRAFT-1 additions live here).
 # file-count: 1
 # tree-hash-sha256: b64348b93390582d7dbda9d3eff66c4bc2a837c1def88e5f0faa330218b9a4fd
 #   tree-hash = sha256 over the sorted '<sha256>  <path>' lines below (this header excluded)
-# verify: cd fixtures/vendor/fantasy-40f6679-craft && sha256sum -c MANIFEST.txt
+# verify: cd worlds/tpth/vendor/fantasy-40f6679-craft && sha256sum -c MANIFEST.txt
 #
 948ec62aeef47dcc85ebaab8e4e7f5e8304a74ed5f753c5b1d6ceb52234821db  lab/campaign-014-structure-development/ARC1-CRAFT-SIDECAR.yaml

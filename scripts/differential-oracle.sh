@@ -26,7 +26,7 @@
 #                 classes and the KNOWN scope gap (oracle = whole canon;
 #                 mig1_replay = facts.yaml only) recorded, never papered over.
 #   D. DETECT   — detection proven separately from parity: for three named
-#                 operators (fixtures/mutation/canon.yaml), apply the data-layer
+#                 operators (worlds/tpth/mutation/canon.yaml), apply the data-layer
 #                 analogue to a TEMP copy of facts.yaml and re-run OUR side,
 #                 asserting the clean read-through turns into a finding.
 #
@@ -50,9 +50,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 ORACLE="$SCRIPT_DIR/pinned-oracles.sh"
-VENDOR="$REPO_ROOT/fixtures/vendor/fantasy-40f6679"
+VENDOR="$REPO_ROOT/worlds/tpth/vendor/fantasy-40f6679"
 FACTS="$VENDOR/canon/data/facts.yaml"
-MUT="$REPO_ROOT/fixtures/mutation/canon.yaml"
+MUT="$REPO_ROOT/worlds/tpth/mutation/canon.yaml"
 PINNED_SHA="$(sed -n 's/^# pinned-sha: //p' "$VENDOR/MANIFEST.txt" | head -1)"
 OUT="$REPO_ROOT/out/differential"
 RUN_TS="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -206,7 +206,7 @@ rule "PHASE C: divergence report"
   echo "# Differential-oracle run — $RUN_TS"
   echo
   echo "- pinned SHA: \`$PINNED_SHA\`"
-  echo "- corpus: \`fixtures/vendor/fantasy-40f6679\` (facts.yaml + full canon)"
+  echo "- corpus: \`worlds/tpth/vendor/fantasy-40f6679\` (facts.yaml + full canon)"
   echo "- harness: \`scripts/differential-oracle.sh\` (lab-side, non-gating)"
   echo
   echo "## Verdicts"
@@ -220,7 +220,7 @@ rule "PHASE C: divergence report"
   echo
   echo "## Detection (proven separately from parity)"
   echo
-  echo "Operators mirror the named seeds in \`fixtures/mutation/canon.yaml\` (EXT-F5)."
+  echo "Operators mirror the named seeds in \`worlds/tpth/mutation/canon.yaml\` (EXT-F5)."
   echo
   echo "$DETECT_CAUGHT of $DETECT_TOTAL seeded operators caught by the kernel read-through:"
   echo

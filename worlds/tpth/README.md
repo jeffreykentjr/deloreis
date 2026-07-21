@@ -15,8 +15,8 @@ supplies its own directory like this one.
 | `turning/` | The Turning card game as **data** — `lowlands.json` + `keep-stamped` / `salt-fringe` variant deltas, loaded by the generic simulator. | pending Turning extraction (Phase 4) |
 | `episodes/`, `season/` | Episode and season payloads over the world. | migrating from `examples/` |
 | `craft/` | TPtH's **craft configuration** — which craft-doctrine packs are enabled, mission-filters, the D-0128 pillars, thresholds, the no-battle-ten lexicon, material categories. **Produced by the factory** (the consuming repo maps `D-nnnn` rulings → records); dli only loads it. | pending craft extraction (Phase 3) |
-| `vendor/` | The pinned fantasy-repo snapshot, digest-isolated — provenance and regression corpus. | migrating from `fixtures/vendor/` |
-| `mutation/` | The detection corpus (seeded-violation fixtures). | migrating from `fixtures/mutation/` |
+| `vendor/` | The pinned fantasy-repo snapshot, digest-isolated — provenance and regression corpus. | moved from `fixtures/vendor/` |
+| `mutation/` | The detection corpus (seeded-violation fixtures). | moved from `fixtures/mutation/` |
 | `contract/` | TPtH-payload conformance fixtures (goldens carrying saltmarket / mara / tegwen). | migrating from `contracts/` |
 
 ## What does NOT live here

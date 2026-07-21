@@ -3,8 +3,8 @@
 //! unified lowering (zero Loader-vs-eval status divergence), and shadow parity
 //! against the pinned oracle over the vendored corpus.
 //!
-//! Offline and deterministic: the parity test reads `fixtures/vendor` and
-//! `fixtures/vendor/.../killed_tokens.yaml` from the repo, never the network and
+//! Offline and deterministic: the parity test reads `worlds/tpth/vendor` and
+//! `worlds/tpth/vendor/.../killed_tokens.yaml` from the repo, never the network and
 //! never `uv`. The pinned-oracle run itself ("canon OK: 0 violations") is recorded
 //! out of band; this test asserts *our* side reproduces it.
 
@@ -601,7 +601,7 @@ struct FactRow {
 }
 
 fn vendor_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/vendor/fantasy-40f6679")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-40f6679")
 }
 
 fn render_value(value: &serde_yaml_ng::Value) -> String {

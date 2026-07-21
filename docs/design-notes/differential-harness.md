@@ -81,7 +81,7 @@ incomplete (investigate); `3` blocked (dli-world did not compile this cycle).
 ## Detection, proven separately from parity
 
 The three seeded operators mirror the named seeds in
-`fixtures/mutation/canon.yaml` (EXT-F5), re-expressed against `facts.yaml`
+`worlds/tpth/mutation/canon.yaml` (EXT-F5), re-expressed against `facts.yaml`
 because no corpus operator targets that file directly:
 
 | operator | corpus analogue | the seeded change | why our side catches it |

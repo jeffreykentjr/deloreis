@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! PROOF-1 — the mutation harness: seeded-violation operators × the real gates.
 //!
-//! For every operator in `fixtures/mutation/{canon,draft,episode}.yaml` this suite
+//! For every operator in `worlds/tpth/mutation/{canon,draft,episode}.yaml` this suite
 //! applies the operator's **deloreis-analog** mutation in memory and runs the REAL
 //! wave-3 kernel gate over it — [`compile`] + [`check::run`], [`check_draft`],
 //! [`check::continuity`], [`check::factcheck`], or the language battery
@@ -14,7 +14,7 @@
 //! typed declarations, drafts of typed claims), never prose. So each operator is
 //! re-realized as the structured-lore mutation whose ground truth is a fact about
 //! the *story's* world (spec 05 §3, the vet split) — exactly the mapping
-//! `fixtures/mutation/README.md` proposes. This suite is where that proposed
+//! `worlds/tpth/mutation/README.md` proposes. This suite is where that proposed
 //! mapping is *verified* against the real checks; the outcomes it records are the
 //! honest wave-3 answer, and `docs/design-notes/mutation-coverage.md` is their
 //! written-up matrix.
@@ -145,7 +145,7 @@ fn draft(claims: Vec<AtomExpr>, names: &[&str]) -> DraftPayload {
 // ===========================================================================
 
 fn vendor_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/vendor/fantasy-40f6679")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-40f6679")
 }
 
 #[derive(Debug, Deserialize)]
@@ -409,7 +409,7 @@ fn draft_messages(findings: &[dli_world::draft::DraftFinding]) -> Vec<String> {
 }
 
 // ===========================================================================
-// CANON operators (fixtures/mutation/canon.yaml) — 9.
+// CANON operators (worlds/tpth/mutation/canon.yaml) — 9.
 // ===========================================================================
 
 /// `break-status-marker` → provenance + assertability (CAUGHT). Strip the citation
@@ -651,7 +651,7 @@ fn op_forged_promotion() {
 }
 
 // ===========================================================================
-// DRAFT operators (fixtures/mutation/draft.yaml) — 20.
+// DRAFT operators (worlds/tpth/mutation/draft.yaml) — 20.
 // ===========================================================================
 
 /// `contradict-anchor-gender` → contradiction (CAUGHT). A draft asserting the
@@ -1017,7 +1017,7 @@ fn op_paraphrased_contradiction() {
 }
 
 // ===========================================================================
-// EPISODE operators (fixtures/mutation/episode.yaml) — 4.
+// EPISODE operators (worlds/tpth/mutation/episode.yaml) — 4.
 // ===========================================================================
 
 /// `continuity-world-contradiction` → contradiction (CAUGHT). An episode delta sets
@@ -1141,7 +1141,7 @@ struct OperatorRecord {
 }
 
 fn fixture_operator_ids() -> BTreeSet<String> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/mutation");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/mutation");
     let mut ids = BTreeSet::new();
     for file in ["canon.yaml", "draft.yaml", "episode.yaml"] {
         let text = std::fs::read_to_string(root.join(file)).expect("read fixture");

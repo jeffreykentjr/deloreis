@@ -7,7 +7,7 @@
 #   pristine checkout of the consuming fantasy repo at one pinned SHA and
 #   exposes its `uv run fantasy ...` oracles as subcommands, so the deloreis
 #   kernel can be dual-run / parity-checked against the legacy engine on the
-#   SAME pinned inputs the vendored corpus (fixtures/vendor/) was cut from.
+#   SAME pinned inputs the vendored corpus (worlds/tpth/vendor/) was cut from.
 #
 #   This is NOT part of `cargo xtask gate`. The deloreis gate is deterministic,
 #   offline, and model-free (CLAUDE.md §3); this script clones another repo and
@@ -19,7 +19,7 @@
 #   tree is a shared live checkout that other agents dirty; archiving from the
 #   committed object at the pinned SHA is what makes this reproducible. The
 #   pinned SHA is the same one recorded in
-#   fixtures/vendor/fantasy-40f6679/MANIFEST.txt and docs/design-notes/vendored-corpus.md.
+#   worlds/tpth/vendor/fantasy-40f6679/MANIFEST.txt and docs/design-notes/vendored-corpus.md.
 #
 # SUBCOMMANDS
 #   provision            Materialize + `uv sync` the pinned checkout (idempotent).
@@ -40,7 +40,7 @@
 #                        (dli_world::craft::season) ports every outline.py violation
 #                        code intact under the `outline.` family. Diffing the two
 #                        verdicts on the vendored real outline
-#                        (fixtures/vendor/fantasy-40f6679-craft/) is how a cold agent
+#                        (worlds/tpth/vendor/fantasy-40f6679-craft/) is how a cold agent
 #                        confirms the port. With no path it defaults to that vendored
 #                        outline; extra flags (--packet, --material-worldbuilding)
 #                        forward to the CLI. `--codes` prints only the sorted
@@ -138,7 +138,7 @@ case "$cmd" in
     codes_only=false
     if [[ "${1:-}" == "--codes" ]]; then codes_only=true; shift; fi
     repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-    default_outline="$repo_root/fixtures/vendor/fantasy-40f6679-craft/lab/campaign-014-structure-development/ARC1-CRAFT-SIDECAR.yaml"
+    default_outline="$repo_root/worlds/tpth/vendor/fantasy-40f6679-craft/lab/campaign-014-structure-development/ARC1-CRAFT-SIDECAR.yaml"
     path="$default_outline"
     if [[ $# -ge 1 && "${1:0:1}" != "-" ]]; then path="$1"; shift; fi
     [[ -f "$path" ]] || die "outline path not found: $path"
