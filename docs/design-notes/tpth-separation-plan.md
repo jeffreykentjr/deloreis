@@ -82,6 +82,13 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 
 ### B. Craft doctrine hardcoded in engine code (HARD → Tier 2 / factory config)
 
+> ✅ **RESOLVED — Phase 3 complete (Steps 1–5, commits `1d0511b`→`c2d3098`).** Every
+> row below is landed: the engine ships a generic `craft-doctrines/` library (83
+> records) + the mechanism; TPtH's overlays/pillars/policies/thresholds/lexicon/
+> material-catalog/arc-shape are **data in `worlds/tpth/craft/`**; the 1512-line
+> TPtH-fused const is gone; `apply(config, packs)` reconstructs the 107
+> field-for-field (round-trip golden). Design: `craft-separation-design.md`.
+
 | Leak | Location | Move |
 |---|---|---|
 | The 107-principle KB | `dli-world/src/craft/kb.rs::PRINCIPLES` (general craft fused with TPtH mission-filters, D-0128 pillars, `D-nnnn` sources, Enfys/Aalto/Turning-named principles, factory/judge binding names) | Split: the **generic** principle records → `craft-doctrines/*` packs; the **TPtH configuration** (which packs, mission-filters, pillars, citations) → `worlds/tpth/craft/principles.yaml`, **produced by the factory**. `by_id/coverage/checkable_debt/why/evaluate_judge` take a world-supplied `&[Principle]`. |
@@ -157,10 +164,9 @@ forks; each is an individually-verified step, not a big-bang.
 - ⏳ `loader.rs::example_docs` → a **PD example world** (not a bare toy — see *The generic corpus* below); `session.rs::builtin_pack` → corpus-dir.
 - ⏳ Contract rename `fantasy-worker` → `dli-worker` + consumer profile (touches registry + fixtures).
 
-**Phase 3 — craft to config (gated on fork A + the factory)**
-- Extract `kb::PRINCIPLES` → generic `craft-doctrines/*` packs + a factory-produced `worlds/tpth/craft/principles.yaml`; engine queries take `&[Principle]`.
-- Parameterize `season.rs` (battle-lexicon, thresholds, citations, material-categories, arc-shape) as world/project config.
-- The factory-side decision→record mapping is built in the consuming (fantasy) repo, not here.
+**Phase 3 — craft to config — ✅ DONE (Steps 1–5; Step 6 = the factory-interface spec)**
+- ✅ Step 1 (`Kb` handle + config-as-argument) · ✅ Step 2 (`Cow`/serde data-loadable records) · ✅ Step 3 (season/outline policy → `config.rs`) · ✅ Step 4 (shipped `craft-doctrines/` library, 83 records) · ✅ Step 5 (author `worlds/tpth/craft/` + `apply()` + round-trip golden + flip source + strip the TPtH const; `dli-world` tests moved to `worlds/example`).
+- **Step 6 — the factory interface (spec; implemented fantasy-side, not here).** The engine LOADS `worlds/tpth/craft/*` as data and `validate()`s it; it never reads a decision ledger. The **factory** (fantasy repo) produces those files by mapping `D-nnnn` rulings → `PrincipleOverlay`/`WorldPrinciple` records — a `fantasy craft compile` step wired into the fantasy gate, regenerating `worlds/tpth/craft/*` idempotently. The record shapes in `dli-world::craft::worldcfg` (`CraftConfig`/`PrincipleOverlay`/`WorldPrinciple`) are the versioned contract; the round-trip golden (`apply == 107`) is the acceptance test the factory output must satisfy.
 
 **Phase 4 — the Turning (gated on fork B)**
 - Turning instance → `worlds/tpth/turning/*.json` behind a generic `Ruleset::from_rules`.
