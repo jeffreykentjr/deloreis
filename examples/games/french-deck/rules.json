@@ -1,0 +1,84 @@
+{
+  "game_id": "french-deck",
+  "region": "standard",
+  "axes": [
+    {
+      "id": "suit",
+      "values": [
+        { "id": "spades", "name": "Spades" },
+        { "id": "hearts", "name": "Hearts" },
+        { "id": "diamonds", "name": "Diamonds" },
+        { "id": "clubs", "name": "Clubs" }
+      ]
+    },
+    {
+      "id": "rank",
+      "values": [
+        { "id": "ace", "name": "Ace" },
+        { "id": "two", "name": "Two" },
+        { "id": "three", "name": "Three" },
+        { "id": "four", "name": "Four" },
+        { "id": "five", "name": "Five" },
+        { "id": "six", "name": "Six" },
+        { "id": "seven", "name": "Seven" },
+        { "id": "eight", "name": "Eight" },
+        { "id": "nine", "name": "Nine" },
+        { "id": "ten", "name": "Ten" },
+        { "id": "jack", "name": "Jack" },
+        { "id": "queen", "name": "Queen" },
+        { "id": "king", "name": "King" }
+      ]
+    }
+  ],
+  "layers": [
+    {
+      "id": "card",
+      "axes": [
+        "suit",
+        "rank"
+      ],
+      "id_template": "{rank}-of-{suit}",
+      "dealt": true
+    }
+  ],
+  "ordering": "layer-product",
+  "moves": {
+    "rule": "ascending",
+    "axis": "rank",
+    "step": 1,
+    "same": [
+      "suit"
+    ]
+  },
+  "layouts": [
+    {
+      "name": "a-run",
+      "cards_dealt": 5,
+      "requires_cards": []
+    },
+    {
+      "name": "the-full-suit",
+      "cards_dealt": 13,
+      "requires_cards": []
+    }
+  ],
+  "verdict": {
+    "verdict": "completed"
+  },
+  "invariants": [
+    {
+      "invariant": "deck-is-a-set"
+    },
+    {
+      "invariant": "count-matches"
+    }
+  ],
+  "decorations": [],
+  "provenance": {
+    "standing": "ratified",
+    "cites": [
+      "DL-0017",
+      "DL-0018"
+    ]
+  }
+}

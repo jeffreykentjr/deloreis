@@ -1,0 +1,44 @@
+{
+  "profiles": [
+    {
+      "target": "cards",
+      "name": "cards/french-deck",
+      "version": 1,
+      "selects": {
+        "sorts": [
+          "card"
+        ],
+        "relations": [
+          "run-successor"
+        ]
+      },
+      "renders": {
+        "card": {
+          "id": "{rank}-of-{suit}",
+          "keep": [
+            "rank",
+            "suit",
+            "name"
+          ]
+        }
+      },
+      "carries_provenance": "dev-metadata"
+    },
+    {
+      "target": "ludii-gdl",
+      "name": "games/french-deck-ludii",
+      "version": 1,
+      "selects": {
+        "sorts": [
+          "card"
+        ],
+        "relations": [
+          "legal-move",
+          "terminal"
+        ]
+      },
+      "renders": {},
+      "carries_provenance": "stripped"
+    }
+  ]
+}
