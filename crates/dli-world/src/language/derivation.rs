@@ -282,9 +282,7 @@ impl LangFinding {
                 "'{name}' has {syllables} syllables, over the sayability-tier cap of {cap} (D-0095)"
             ),
             Self::BannedInName { name, word, .. } => {
-                format!(
-                    "'{name}' carries the banned word '{word}' — the allegory is structural, never lexical (05 §4)"
-                )
+                format!("'{name}' carries the lexically-banned word '{word}' (05 §4)")
             }
             Self::Confusable {
                 name,

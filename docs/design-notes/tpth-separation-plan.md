@@ -91,7 +91,7 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 | The material-planning taxonomy | `dli-world/src/craft/outline.rs::MaterialUnknown` (closed 12-category enum, D-0128/D-0056) | World-supplied category set (`material-categories.yaml`), or move the whole opt-in review to the TPtH craft config. |
 | Kishōtenketsu baked into the outline schema | `dli-world/src/craft/outline.rs::EpisodeOutline.{ki,sho,ten,ketsu}` + battle-scan of `ten` | Arc-shape-specific fields/checks become a world-selected arc module; the generic `ArcShape` enum stays. |
 | Sayability cap + `D-0095` in the naming vet | `dli-world/src/language/derivation.rs::SAYABILITY_CAP` (const 6) + `LangFinding::SayabilityCap` message printing `(D-0095)` | Per-dialect `sayability-max <n>` clause (sibling of `cluster-max`), loaded into `Phonotactics`; drop the hardcoded `D-0095`. |
-| Banned-in-name message hardcodes the allegory rationale | `dli-world/src/language/derivation.rs::LangFinding::BannedInName` | Genericize the message; surface `BanDef.reason` (already carried). |
+| Banned-in-name message hardcodes the allegory rationale | `dli-world/src/language/derivation.rs::LangFinding::BannedInName` | ✅ message genericized (drops the TPtH allegory rationale, keeps the dli-spec ref); ⏳ still to surface `BanDef.reason` (already carried) as a follow-on. |
 
 ### C. Data + contract (mostly clean; relocate / rename)
 
@@ -117,12 +117,20 @@ not change — only the fenced examples and a handful of framing sentences move.
 
 ### E. dli-ledger (practice workbench)
 
-The practice **workbench** (`PracticeDef`, the closed resource algebra, L1–L7
-classes, `check_practice`/`check_proof`, `SceneProjection`, the premise pool) is
-generic; a magic system "is a practice with laws." The Concordance / spoken-proof
-/ true-naming practices are **data** (`examples/true-naming.dli`,
-`second-practice.dli`) → move to `worlds/tpth/packs/`. *(Region re-audited
-separately; update this section if a hardcoded practice leak surfaces.)*
+The **cleanest region**: the practice workbench (`PracticeDef`, the closed
+resource algebra, L1–L7 classes, `check_practice`/`check_proof`,
+`SceneProjection`, the premise pool) is fully generic — proof-magic, true-naming,
+and the Turning all run the identical code path, and practices are loaded as data.
+`true-naming.dli` / `second-practice.dli` are already relocated (Phase 0). Three
+residues remain:
+
+| Leak | Location | Move |
+|---|---|---|
+| **HARD:** ambient TPtH cycles in real logic | `dli-ledger/src/practice.rs:66` `KERNEL_CYCLES = ["tide","moon","season"]` — seeds every practice's cycle scope, so `tide` resolves in *any* world undeclared (presumes a coastal setting; these are D-0146/D-0148 canon) | Parameterize: ambient cycles become config on `PracticeEnv`, engine default **empty**; `tide/moon/season` move to a TPtH time pack (`worlds/tpth/time/cycles.dli`). `from_document` already absorbs declared cycles. |
+| Contract-frozen diegetic name | `ledger_check.rs` `ProofFinding::WrongHour` / `proof.wrong-hour` — TPtH's "hour" in a frozen seam | Rename to neutral `WrongPhase` / `proof.wrong-phase` as a deliberate contract migration (schema regen). Low priority; rides with the `dli-worker` work. |
+| Un-externalized practice | the Concordance / spoken-proof practice exists only inline in `tests/proof.rs`, not as a `.dli` pack like the other two | Commit it as `worlds/tpth/practices/spoken-proof.dli` (couples to the `KERNEL_CYCLES` fix, since it uses `tide/slack`). |
+
+Module doc "the Concordance-class engine" is doc-only (genericize on release).
 
 ---
 
