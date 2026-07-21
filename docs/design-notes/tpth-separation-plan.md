@@ -6,6 +6,19 @@ verdict: "dli is the generic engine; craft is togglable project config; TPtH is 
 
 # The general / TPtH separation
 
+> ## ✅ COMPLETE (2026-07-21)
+> The separation is done end to end. The engine (`dli-*` + `dli-game` +
+> `deloreis`) is **provably story-agnostic** — the boundary CI guard passes with
+> an **empty allowlist** (zero TPtH tokens in engine real code; the build fails if
+> that regresses). TPtH is cleanly modularized as **`crates/tpth`** (a thin world
+> crate) + **`worlds/tpth/`** (all its data: packs, turning, craft config,
+> practices, episodes, vendor, mutation). Two public-domain teaching worlds ship
+> (`examples/camelot.dli` Arthurian; `examples/games/french-deck/` a 52-card
+> game), and the docs teach the tool generically with TPtH as a `docs/worlds/tpth/`
+> worldbook. **Phases 0–5 all landed, every step gate-green.** What remains is
+> optional polish (the `expert-card.md` genericization; wiring the `simulate`/
+> `export` CLI stubs; a `Ruleset::cards()` memoization perf).
+
 **Authority: [DL-0017](../decisions.md).** This note elaborates that ruling into
 a concrete leak inventory and an ordered migration DAG. The ledger wins if they
 ever disagree.
@@ -178,8 +191,9 @@ forks; each is an individually-verified step, not a big-bang.
 - ✅ Per DL-0018 fork B, the **whole Turning moved to a thin `crates/tpth/` world crate** (types + instance + study + invariants + the card/Ludii export): `dli-sim/src/turning.rs` → `tpth/src/turning.rs`; `dli-export/src/games.rs` → `tpth/src/export.rs` (+ a world-side `tpth::export::run`). `dli-sim` is now SIM-1-only; `dli-export` is the generic export core (drops its `dli-sim` dep), keeps the generic `Cards`/`LudiiGdl` format targets failing closed via `NoEngineRendererForTarget`. **No wire/contract change** — the card export never read the compiled world (fake coupling), and the only live consumers were the moved tests. Boundary proof: no engine crate references `tpth`, no Turning literals remain in `dli-sim`/`dli-export` `src/`.
 - ✅ **Follow-on DONE (sim-genericization; design: `sim-genericization.md`):** a generic `crates/dli-game` engine (parameterized `Ruleset` — axes/layers/moves/layouts/invariants as data; neutral vocabulary) now hosts the Turning as **data + a thin binding** (`crates/tpth` 1469→301 lines, golden-guarded byte-identical) loaded from `worlds/tpth/turning/*.json`, and a **standard 52-card game** (`examples/games/french-deck/`) ships as a generic instance — the ranked-run complement to the Turning's rankless wheel. Commits `c993298` (engine), `7f3a045` (Turning migration), `6dc426b` (52-card game). Remaining niceties: wire the `deloreis simulate`/`export` CLI stubs to `dli-game`; memoize `Ruleset::cards()` (a per-call rebuild — a perf, not correctness, item).
 
-**Phase 5 — docs split**
-- Engine manual on the neutral world; the TPtH worldbook companion; reposition `integration/` as a worked consumer integration.
+**Phase 5 — docs split — ✅ DONE (`499e198`; design: `docs-split.md`)**
+- ✅ Specs 03/04/05/06/09 (+ light 10/11) re-illustrated on the shipped generic worlds (`camelot.dli`, `french-deck`); the worked TPtH instances moved to a new **`docs/worlds/tpth/`** worldbook (6 chapters, mdBook-wired); `integration/` reframed as "a worked integration: the fantasy factory" (one consumer of the generic `dli-worker` contract). Machinery prose unchanged; docs-oracle 43 units parse.
+- Remaining nicety (non-blocking): genericize `docs/cards/expert-card.md` (a sibling pass, flagged).
 
 ---
 
