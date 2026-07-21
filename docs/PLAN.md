@@ -285,15 +285,20 @@ they touch; they are not a lane of their own.
   *Needs:* SURF-1, SURF-2, SURF-3, BENCH-1. *Produces:* the frozen surface.
   *Oracle:* the AST schema is frozen; the surface tasks pass; the human-writer
   probe has run before the freeze.
-- **BENCH-1** — The authoring benchmark harness: two doors × models, the two
-  demoted conditions as arms, pass defined by the real gate's verdict.
+- **BENCH-1** — *(deferred.)* The authoring benchmark harness: two doors × models,
+  the two demoted conditions as arms, pass defined by the real gate's verdict.
   *Needs:* CORE-2, SURF-1. *Produces:* the benchmark rig. *Oracle:* the pass
-  criterion is the gate verdict; reference examples are CI-compiled.
-- **BENCH-2** — The two-door benchmark run and report: Door H (surface) and Door
-  T (tools) as the primary arms, raw text editing and raw AST emission as demoted
-  arms.
+  criterion is the gate verdict; reference examples are CI-compiled. *Flip
+  condition (DL-0022):* built when the human-writer probe (`docs/cards/probe-protocol.md`)
+  is prioritized and a live-LLM door-decision run is authorized — Bedrock-only,
+  hard spend cap, CI-quarantined. See `design-notes/bench-deferral.md`.
+- **BENCH-2** — *(deferred.)* The two-door benchmark run and report: Door H
+  (surface) and Door T (tools) as the primary arms, raw text editing and raw AST
+  emission as demoted arms.
   *Needs:* BENCH-1, AUTH-1, SERVE-1. *Produces:* a verdict about which door to
-  keep shut. *Oracle:* the report yields a door decision, never a menu.
+  keep shut. *Oracle:* the report yields a door decision, never a menu. *Flip
+  condition (DL-0022):* runs after BENCH-1 lands; gates SURF-4 (the grammar
+  freeze). See `design-notes/bench-deferral.md`.
 
 ### `serve`
 

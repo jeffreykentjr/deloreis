@@ -507,3 +507,28 @@ camelot fixtures — a lane-local resolver extension, not a contract change.
 builtin demo resolver is replaced by the passed world; `simulate` becomes
 asynchronous if a cross-process job store lands (today it runs synchronously and
 `status`/`cancel` read/drop an in-session job).
+
+## DL-0022 — Defer the authoring benchmark (BENCH-1 / BENCH-2)
+
+*Date: 2026-07-21*
+
+**Ruling.** BENCH-1 (the authoring-benchmark rig) and BENCH-2 (the two-door run
+that yields the "which door to keep shut" verdict) are **deferred** — parked, not
+dropped. No rig code, no run. The engine build is otherwise complete (the core,
+plateau, integration, and stretch lanes, the separation, and now the CLI/serve
+wiring and rule-body negation all landed and gate-green), so the door-decision
+benchmark is the remaining dli-internal piece — and it is not pure engine work.
+
+**Rationale.** Two reasons it waits. (1) It informs SURF-4 (the grammar-gate
+freeze), which the plan holds open pending the **human-writer probe** — the
+author's own act; running the benchmark before that probe would freeze a surface
+on machine evidence alone. (2) It is **live-LLM** work: non-gating, CI-quarantined,
+and requiring an authorized run with a hard spend cap (Bedrock-only, proven
+`flukeball-bedrock`; never OpenRouter/xAI). Deferring keeps the engine's offline
+credential-free gate intact and avoids spend on a verdict the author is not yet
+ready to consume.
+
+**Flip condition.** Build BENCH-1 then run BENCH-2 when BOTH the human-writer
+probe is prioritized AND a live-LLM door-decision run is authorized with a spend
+cap. Details: `design-notes/bench-deferral.md`; the PLAN nodes are marked
+`*(deferred.)*`.
