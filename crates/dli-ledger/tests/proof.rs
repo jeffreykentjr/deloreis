@@ -5,6 +5,8 @@
 //! accidentally validates is a caught bug; and a premise's grade rolls up
 //! weakest-link over the procedure chain.
 
+use std::path::PathBuf;
+
 use dli_ast::decl::Decl;
 use dli_core::grade::Grade;
 use dli_ledger::ProofReport;
@@ -13,27 +15,25 @@ use dli_ledger::practice::{StructuralClass, compile_practices};
 use dli_ledger::premise::SceneProjection;
 use dli_syntax::parse_document;
 
-/// The spoken-proof practice (the Concordance), declared once for every scene.
-const PRACTICE: &str = "\
-scope magic
-cycle tide(4) = ebb | slack | flood | high  proposed
-practice spoken-proof proposed {
-  kind ground = door | field | ore
-  resource debt : linear conserved
-  resource strain : affine bounded body-limit
-  rule ward-form(ground, fibre)
-  rule give-and-take
-  error fizzle refines L2 premise-not-available where absent
-  error rebound refines L2 premise-not-available where contradicted signals bodily-hit
-  error wrong-hour refines L3 side-condition [timing] over cycle tide
-  error overload refines L6 resource-violation on strain signals collapse
-  cost bodily | material
-}";
+/// Load a committed `TPtH` practice pack from `worlds/tpth/practices/`, mirroring
+/// the acceptance suite's `fixture` helper. The spoken-proof practice (the
+/// Concordance) is DATA, not an inline const: every scene below is checked
+/// against the very `.dli` pack the gate ships.
+fn fixture(name: &str) -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../../worlds/tpth/practices");
+    path.push(name);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+}
 
-/// Compile the practice with `proof_block` appended and check the proof against
-/// `scene`.
+/// Compile the spoken-proof practice with `proof_block` appended and check the
+/// proof against `scene`. The practice — its `scope`, the `tide` cycle its
+/// timing seats on, and the practice block — is loaded from the committed
+/// `worlds/tpth/practices/spoken-proof.dli` pack, then the scene's proof is
+/// parsed in the same document so it resolves against it.
 fn check(proof_block: &str, scene: &SceneProjection) -> ProofReport {
-    let src = format!("{PRACTICE}\n{proof_block}\n");
+    let practice_src = fixture("spoken-proof.dli");
+    let src = format!("{practice_src}\n{proof_block}\n");
     let (doc, diags) = parse_document(&src);
     assert!(diags.is_empty(), "parsed with diagnostics: {diags:?}");
     let practices = compile_practices(&doc);
