@@ -21,6 +21,7 @@ use dli_ast::term::{AtomExpr, Term};
 
 use dli_core::grade::Grade;
 
+use dli_world::craft::kb::Kb;
 use dli_world::craft::outline::{
     EpisodeOutline, Scene as OutlineScene, TryFailBeat, TryFailOutcome,
 };
@@ -452,7 +453,7 @@ fn outline_conformance_cast_diff_states_both_readings() {
         ..EpisodeOutline::default()
     };
 
-    let findings = outline_conformance(&payload, &outline);
+    let findings = outline_conformance(&payload, &outline, &Kb::builtin());
 
     let unaccounted = finding(&findings, "outline.cast-unaccounted").expect("aled is unaccounted");
     assert!(

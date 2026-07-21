@@ -107,7 +107,7 @@ pub mod outline;
 pub mod season;
 
 pub use kb::{
-    Binding, Checkable, Coverage, FactoryNs, Family, KbError, KernelRule, MissionFilter, Phase,
+    Binding, Checkable, Coverage, FactoryNs, Family, Kb, KbError, KernelRule, MissionFilter, Phase,
     Principle, audit, by_id, checkable_debt, coverage, evaluate_judge, principles_binding, why,
 };
 pub use outline::{
@@ -117,7 +117,7 @@ pub use outline::{
     TryFailOutcome,
 };
 pub use season::{
-    ArcShape, BeatKind, CheckOptions, CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat,
-    LedgerPromise, LedgerScene, Magnitude, Reveal, SliderState, Thresholds, Turn, check_episode,
-    check_season, check_season_rules, worst_severity,
+    ArcShape, BeatKind, CheckOptions, CraftLedger, DEFAULT_EPISODE_POLICY, DEFAULT_THRESHOLDS,
+    EpisodeMeta, EpisodePolicy, LedgerBeat, LedgerPromise, LedgerScene, Magnitude, Reveal,
+    SliderState, Thresholds, Turn, check_episode, check_season, check_season_rules, worst_severity,
 };

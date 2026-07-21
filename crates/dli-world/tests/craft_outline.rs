@@ -20,7 +20,14 @@ use dli_world::craft::outline::{
     Promise, PromiseKind, Scene, SceneWork, SeasonOutline, SfxLoad, SfxSemanticLoad, TryFailBeat,
     TryFailOutcome,
 };
-use dli_world::craft::season::{CheckOptions, check_episode, check_season, worst_severity};
+use dli_world::craft::season::{
+    CheckOptions, DEFAULT_EPISODE_POLICY, EpisodePolicy, check_episode, check_season,
+    worst_severity,
+};
+
+/// The default outline policy (= the legacy `policy::` consts), passed to every
+/// `check_episode`/`check_season` call so behavior is byte-identical.
+const POLICY: &EpisodePolicy = &DEFAULT_EPISODE_POLICY;
 
 // -- helpers ------------------------------------------------------------------
 
@@ -214,9 +221,13 @@ fn material_ledger() -> MaterialAssumptionLedger {
 
 #[test]
 fn clean_episode_passes() {
-    assert!(check_episode(&clean_episode(), CheckOptions::default()).is_empty());
+    assert!(check_episode(&clean_episode(), CheckOptions::default(), POLICY).is_empty());
     assert_eq!(
-        worst_severity(&check_episode(&clean_episode(), CheckOptions::default())),
+        worst_severity(&check_episode(
+            &clean_episode(),
+            CheckOptions::default(),
+            POLICY
+        )),
         None
     );
 }
@@ -227,14 +238,14 @@ fn packet_methodology_ledgers_pass_clean() {
         require_methodology: true,
         material_worldbuilding: false,
     };
-    assert!(check_episode(&clean_episode(), opts).is_empty());
+    assert!(check_episode(&clean_episode(), opts, POLICY).is_empty());
 }
 
 #[test]
 fn material_ledger_is_optional_outside_opt_in_review() {
     let ep = clean_episode();
     assert!(!has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "no-material-assumption-ledger"
     ));
     let opts = CheckOptions {
@@ -242,7 +253,7 @@ fn material_ledger_is_optional_outside_opt_in_review() {
         material_worldbuilding: true,
     };
     assert!(has(
-        &check_episode(&ep, opts),
+        &check_episode(&ep, opts, POLICY),
         "no-material-assumption-ledger"
     ));
 }
@@ -260,7 +271,7 @@ fn material_review_accepts_sourced_answers_and_explicit_unknowns() {
         require_methodology: false,
         material_worldbuilding: true,
     };
-    let findings = check_episode(&ep, opts);
+    let findings = check_episode(&ep, opts, POLICY);
     assert!(!has(&findings, "material-assumption-incomplete"));
     assert!(!has(&findings, "unsupported-material-assumption"));
 }
@@ -276,7 +287,7 @@ fn material_review_warns_on_incomplete_and_unsupported_assertions() {
         require_methodology: false,
         material_worldbuilding: true,
     };
-    let findings = check_episode(&ep, opts);
+    let findings = check_episode(&ep, opts, POLICY);
     assert!(has(&findings, "material-assumption-incomplete"));
     assert!(has(&findings, "unsupported-material-assumption"));
 }
@@ -294,7 +305,7 @@ fn promise_needs_payoff_or_carry_not_both() {
         open_loop_carry: true,
     }];
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "promise-payoff-xor-carry"
     ));
 
@@ -308,7 +319,7 @@ fn promise_needs_payoff_or_carry_not_both() {
         open_loop_carry: false,
     }];
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "promise-payoff-xor-carry"
     ));
 }
@@ -318,7 +329,7 @@ fn dangling_payoff_is_an_error() {
     let mut ep = clean_episode();
     ep.promises[0].payoff_ref = Some("s99".to_owned());
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "dangling-payoff"
     ));
 }
@@ -333,7 +344,7 @@ fn packet_mode_requires_new_methodology_ledgers() {
         require_methodology: true,
         material_worldbuilding: false,
     };
-    let findings = check_episode(&ep, opts);
+    let findings = check_episode(&ep, opts, POLICY);
     for code in [
         "no-character-slider-ledger",
         "major-character-slider-missing",
@@ -356,7 +367,7 @@ fn character_slider_ledger_flags_flat_and_dangling_refs() {
         compensation: String::new(),
         scene_refs: vec!["s99".to_owned()],
     }];
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     for code in [
         "character-slider-flat",
         "slider-compensation-missing",
@@ -405,7 +416,7 @@ fn scene_work_ledger_checks_refs_and_terminal_resolution() {
             sequel_decision: None,
         },
     ];
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     for code in [
         "scene-work-unknown-scene",
         "scene-work-premature-resolution",
@@ -426,7 +437,7 @@ fn audio_plan_flags_failed_no_narrator_boundary() {
         narrator_tasks: vec![],
         direct_address: false,
     });
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     for code in [
         "narrator-needed-for-orientation",
         "no-narrator-sfx-burden",
@@ -445,7 +456,7 @@ fn audio_plan_rejects_host_or_direct_address() {
         direct_address: true,
         ..AudioPlan::default()
     });
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     assert!(has(&findings, "narrator-host-frame"));
     assert!(has(&findings, "narrator-direct-address"));
     assert_eq!(worst_severity(&findings), Some(Severity::Error));
@@ -468,7 +479,7 @@ fn mice_interleaving_is_an_error() {
             close_beat: "s3".to_owned(),
         },
     ];
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     assert!(has(&findings, "mice-interleaved"));
     assert_eq!(worst_severity(&findings), Some(Severity::Error));
 }
@@ -491,7 +502,7 @@ fn proper_nesting_and_disjoint_pass() {
         },
     ];
     assert!(!has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "mice-interleaved"
     ));
 }
@@ -512,7 +523,7 @@ fn premature_yes_and_warns() {
         },
     ];
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "premature-resolution"
     ));
 }
@@ -525,7 +536,7 @@ fn cast_over_four_warns() {
         .map(|s| (*s).to_owned())
         .collect();
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "cast-over-four"
     ));
 }
@@ -535,7 +546,7 @@ fn idle_scene_warns() {
     let mut ep = clean_episode();
     ep.scenes[1].advances = vec![];
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "scene-idles"
     ));
 }
@@ -545,7 +556,7 @@ fn hook_late_warns() {
     let mut ep = clean_episode();
     ep.hook_by_seconds = 120;
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "hook-late"
     ));
 }
@@ -555,7 +566,7 @@ fn loop_ledger_warns_on_empty() {
     let mut ep = clean_episode();
     ep.loops_opened = vec![];
     ep.loops_closed = vec![];
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
     assert!(has(&findings, "no-loop-opened"));
     assert!(has(&findings, "no-loop-closed"));
 }
@@ -566,7 +577,7 @@ fn season_boundary_excuses_unclosed_loop() {
     ep.loops_closed = vec![];
     ep.season_boundary = true;
     assert!(!has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "no-loop-closed"
     ));
 }
@@ -576,7 +587,7 @@ fn ten_reading_as_battle_warns() {
     let mut ep = clean_episode();
     ep.ten = "the hero draws a blade and cuts down the magister in a final blow".to_owned();
     assert!(has(
-        &check_episode(&ep, CheckOptions::default()),
+        &check_episode(&ep, CheckOptions::default(), POLICY),
         "ten-reads-as-battle"
     ));
 }
@@ -598,7 +609,7 @@ fn season_loop_accounting() {
         episodes: vec![a, b],
     };
     assert!(has(
-        &check_season(&season, CheckOptions::default()),
+        &check_season(&season, CheckOptions::default(), POLICY),
         "loop-closed-unopened"
     ));
 }
@@ -630,7 +641,7 @@ fn arc_promise_requires_payoff_or_carry() {
             episodes: vec![],
         };
         assert!(has(
-            &check_season(&season, CheckOptions::default()),
+            &check_season(&season, CheckOptions::default(), POLICY),
             "arc-promise-payoff-xor-carry"
         ));
     }
@@ -665,7 +676,7 @@ fn season_promise_ledger_checks_cross_episode_refs() {
         ],
         episodes: vec![a, b],
     };
-    let findings = check_season(&season, CheckOptions::default());
+    let findings = check_season(&season, CheckOptions::default(), POLICY);
     assert!(has(&findings, "season-promise-open-unknown"));
     assert!(has(&findings, "season-promise-payoff-unknown"));
 }
@@ -683,7 +694,7 @@ fn packet_mode_requires_season_promise_ledger() {
         material_worldbuilding: false,
     };
     assert!(has(
-        &check_season(&season, opts),
+        &check_season(&season, opts, POLICY),
         "no-season-promise-ledger"
     ));
 }
@@ -709,7 +720,7 @@ fn vendored_arc1_matches_oracle_verdict() {
         "the arc carries fourteen episodes"
     );
 
-    let findings = check_season(&season, CheckOptions::default());
+    let findings = check_season(&season, CheckOptions::default(), POLICY);
     assert_eq!(
         codes(&findings),
         BTreeSet::from(["outline.loop-never-closed".to_owned()])
@@ -749,14 +760,14 @@ fn committed_season_example_deserializes_and_checks() {
     // Each episode is clean at episode scope.
     for ep in &season.episodes {
         assert!(
-            check_episode(ep, CheckOptions::default()).is_empty(),
+            check_episode(ep, CheckOptions::default(), POLICY).is_empty(),
             "episode {} should be clean",
             ep.id
         );
     }
 
     // At season scope the only finding is the deliberate multi-season carry.
-    let findings = check_season(&season, CheckOptions::default());
+    let findings = check_season(&season, CheckOptions::default(), POLICY);
     assert_eq!(
         codes(&findings),
         BTreeSet::from(["outline.loop-never-closed".to_owned()])
@@ -794,7 +805,7 @@ loops_closed: []
 ";
     let ep: EpisodeOutline =
         serde_yaml_ng::from_str(yaml).expect("the broken episode matches the schema");
-    let findings = check_episode(&ep, CheckOptions::default());
+    let findings = check_episode(&ep, CheckOptions::default(), POLICY);
 
     let expected: BTreeSet<String> = [
         "cast-over-four",

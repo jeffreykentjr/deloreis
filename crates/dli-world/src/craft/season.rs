@@ -80,6 +80,42 @@ pub mod policy {
     ];
 }
 
+/// The per-episode outline policy — the calibratable thresholds and battle lexicon
+/// the `CRAFT-1` battery reads, threaded in as an argument rather than read from a
+/// global (design §2.3). The borrowed slices keep this a `const`-constructible,
+/// zero-copy value; [`DEFAULT_EPISODE_POLICY`] wires each field to the current
+/// [`policy`] leaf tables, so passing the default is byte-for-byte the legacy
+/// behavior.
+#[derive(Debug, Clone, Copy)]
+pub struct EpisodePolicy<'a> {
+    /// The most speaking voices a scene may carry before `cast-over-four` warns.
+    pub scene_cast_ceiling: usize,
+    /// The hook must land by this many seconds (`hook-late`).
+    pub hook_seconds_ceiling: u32,
+    /// At or above this, no single character slider reads as flat.
+    pub slider_flat_ceiling: u8,
+    /// Below this, a character slider needs an explicit compensation note.
+    pub slider_low_floor: u8,
+    /// Single-word combat vocabulary that signals a battle-climax habit in the
+    /// *ten* (`ten-reads-as-battle`; D-0052).
+    pub battle_single: &'a [&'a str],
+    /// Multi-token combat phrases (each an adjacent pair after tokenizing), with the
+    /// alternative leading tokens the legacy regex allowed.
+    pub battle_pairs: &'a [(&'a [&'a str], &'a str)],
+}
+
+/// The default outline policy — every field wired to the current [`policy`] leaf
+/// tables, so `check_episode(ep, opts, &DEFAULT_EPISODE_POLICY)` reproduces the
+/// legacy `check_outline(ep)` exactly (design §2.3, Step 1: zero behavior change).
+pub const DEFAULT_EPISODE_POLICY: EpisodePolicy<'static> = EpisodePolicy {
+    scene_cast_ceiling: policy::SCENE_CAST_CEILING,
+    hook_seconds_ceiling: policy::HOOK_SECONDS_CEILING,
+    slider_flat_ceiling: policy::SLIDER_FLAT_CEILING,
+    slider_low_floor: policy::SLIDER_LOW_FLOOR,
+    battle_single: policy::BATTLE_SINGLE,
+    battle_pairs: policy::BATTLE_PAIRS,
+};
+
 /// The optional review modes that turn on the packet-methodology and
 /// material-worldbuilding checks. The defaults ([`CheckOptions::default`]) run the
 /// always-on structural battery only, matching a bare `check_outline(ep)`.
@@ -102,7 +138,7 @@ pub struct CheckOptions {
 ///
 /// ```
 /// use dli_world::craft::outline::{EpisodeOutline, Scene, Advance};
-/// use dli_world::craft::season::{check_episode, CheckOptions};
+/// use dli_world::craft::season::{check_episode, CheckOptions, DEFAULT_EPISODE_POLICY};
 ///
 /// let ep = EpisodeOutline {
 ///     id: "e1".to_owned(),
@@ -117,32 +153,35 @@ pub struct CheckOptions {
 ///     }],
 ///     ..EpisodeOutline::default()
 /// };
-/// let codes: Vec<_> = check_episode(&ep, CheckOptions::default())
+/// let codes: Vec<_> = check_episode(&ep, CheckOptions::default(), &DEFAULT_EPISODE_POLICY)
 ///     .into_iter().map(|f| f.code).collect();
 /// assert!(codes.contains(&"outline.cast-over-four".to_owned()));
 /// ```
 #[must_use]
-pub fn check_episode(ep: &EpisodeOutline, opts: CheckOptions) -> Vec<WorldFinding> {
+pub fn check_episode(
+    ep: &EpisodeOutline,
+    opts: CheckOptions,
+    policy: &EpisodePolicy,
+) -> Vec<WorldFinding> {
     let scene_ids: BTreeSet<&str> = ep.scene_ids().into_iter().collect();
     let mut out = Vec::new();
     check_promises(ep, &scene_ids, &mut out);
-    check_character_sliders(ep, &scene_ids, opts, &mut out);
+    check_character_sliders(ep, &scene_ids, opts, policy, &mut out);
     check_mice_nesting(ep, &mut out);
     check_scene_work(ep, &scene_ids, opts, &mut out);
     check_tryfail(ep, &mut out);
-    check_scenes(ep, &mut out);
+    check_scenes(ep, policy, &mut out);
     check_audio_plan(ep, opts, &mut out);
     check_material_assumptions(ep, opts, &mut out);
     check_loops(ep, &mut out);
-    check_ten(ep, &mut out);
-    if ep.hook_by_seconds > policy::HOOK_SECONDS_CEILING {
+    check_ten(ep, policy, &mut out);
+    if ep.hook_by_seconds > policy.hook_seconds_ceiling {
         out.push(warn(
             "hook-late",
             &ep.id,
             format!(
                 "hook lands at {}s; earn attention inside {}s (the audio hook)",
-                ep.hook_by_seconds,
-                policy::HOOK_SECONDS_CEILING
+                ep.hook_by_seconds, policy.hook_seconds_ceiling
             ),
         ));
     }
@@ -157,14 +196,18 @@ pub fn check_episode(ep: &EpisodeOutline, opts: CheckOptions) -> Vec<WorldFindin
 /// season's end is reported (`loop-never-closed`, warn — it may be a deliberate
 /// multi-season carry).
 #[must_use]
-pub fn check_season(season: &SeasonOutline, opts: CheckOptions) -> Vec<WorldFinding> {
+pub fn check_season(
+    season: &SeasonOutline,
+    opts: CheckOptions,
+    policy: &EpisodePolicy,
+) -> Vec<WorldFinding> {
     let mut out = Vec::new();
     check_season_promises(season, opts, &mut out);
 
     let mut opened_so_far: BTreeSet<&str> = BTreeSet::new();
     let mut ever_closed: BTreeSet<&str> = BTreeSet::new();
     for ep in &season.episodes {
-        out.extend(check_episode(ep, opts));
+        out.extend(check_episode(ep, opts, policy));
         for loop_id in &ep.loops_closed {
             if !opened_so_far.contains(loop_id.as_str()) {
                 out.push(error(
@@ -256,6 +299,7 @@ fn check_character_sliders(
     ep: &EpisodeOutline,
     scene_ids: &BTreeSet<&str>,
     opts: CheckOptions,
+    policy: &EpisodePolicy,
     out: &mut Vec<WorldFinding>,
 ) {
     if opts.require_methodology && ep.character_sliders.is_empty() {
@@ -295,14 +339,14 @@ fn check_character_sliders(
             .proactivity
             .min(slider.competence)
             .min(slider.sympathy);
-        if high < policy::SLIDER_FLAT_CEILING {
+        if high < policy.slider_flat_ceiling {
             out.push(warn(
                 "character-slider-flat",
                 &slider.character,
                 "all three sliders are below 5; the character may read flat",
             ));
         }
-        if low < policy::SLIDER_LOW_FLOOR && slider.compensation.trim().is_empty() {
+        if low < policy.slider_low_floor && slider.compensation.trim().is_empty() {
             out.push(warn(
                 "slider-compensation-missing",
                 &slider.character,
@@ -478,9 +522,9 @@ fn check_tryfail(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
     }
 }
 
-fn check_scenes(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
+fn check_scenes(ep: &EpisodeOutline, policy: &EpisodePolicy, out: &mut Vec<WorldFinding>) {
     for s in &ep.scenes {
-        if s.speaking_cast.len() > policy::SCENE_CAST_CEILING {
+        if s.speaking_cast.len() > policy.scene_cast_ceiling {
             out.push(warn(
                 "cast-over-four",
                 &s.id,
@@ -488,7 +532,7 @@ fn check_scenes(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
                     "{} speaking voices; keep a scene to ≤{} (Toscan) so the ear \
                      tracks who is who",
                     s.speaking_cast.len(),
-                    policy::SCENE_CAST_CEILING
+                    policy.scene_cast_ceiling
                 ),
             ));
         }
@@ -720,8 +764,8 @@ fn check_loops(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
     }
 }
 
-fn check_ten(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
-    if !ep.ten.is_empty() && reads_as_battle(&ep.ten) {
+fn check_ten(ep: &EpisodeOutline, policy: &EpisodePolicy, out: &mut Vec<WorldFinding>) {
+    if !ep.ten.is_empty() && reads_as_battle(&ep.ten, policy) {
         out.push(
             warn(
                 "ten-reads-as-battle",
@@ -862,7 +906,7 @@ fn is_research_ref(reference: &str) -> bool {
     false
 }
 
-fn reads_as_battle(ten: &str) -> bool {
+fn reads_as_battle(ten: &str, policy: &EpisodePolicy) -> bool {
     let tokens: Vec<String> = ten
         .to_lowercase()
         .split(|c: char| !c.is_ascii_alphanumeric())
@@ -870,12 +914,12 @@ fn reads_as_battle(ten: &str) -> bool {
         .map(str::to_owned)
         .collect();
     for token in &tokens {
-        if policy::BATTLE_SINGLE.contains(&token.as_str()) {
+        if policy.battle_single.contains(&token.as_str()) {
             return true;
         }
     }
     for pair in tokens.windows(2) {
-        for (leads, tail) in policy::BATTLE_PAIRS {
+        for (leads, tail) in policy.battle_pairs {
             if leads.contains(&pair[0].as_str()) && pair[1] == *tail {
                 return true;
             }

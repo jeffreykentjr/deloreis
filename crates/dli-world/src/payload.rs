@@ -41,12 +41,13 @@ use dli_syntax::parse_clause_atom;
 
 use crate::check::factcheck::Verdict;
 use crate::check::{self, CompiledWorld, Severity, WorldFinding};
+use crate::craft::kb::Kb;
 use crate::craft::outline::EpisodeOutline;
 use crate::craft::season::{
     CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat, LedgerPromise, LedgerScene,
     Thresholds, check_season_rules,
 };
-use crate::craft::{PromiseKind, TryFailOutcome, kb};
+use crate::craft::{PromiseKind, TryFailOutcome};
 use crate::language::{aural_clash, vet_candidate};
 
 // --- the merged report finding (the seam `PAY-2` fills) ----------------------
@@ -652,6 +653,9 @@ pub struct BatteryContext<'a> {
     pub season: Option<&'a CraftLedger>,
     /// The craft-rule thresholds (policy data).
     pub thresholds: Thresholds,
+    /// The knowledge base the craft family queries for governing principles
+    /// ([`Kb::builtin`] by default).
+    pub kb: Kb<'a>,
 }
 
 impl<'a> BatteryContext<'a> {
@@ -664,6 +668,7 @@ impl<'a> BatteryContext<'a> {
             outline: None,
             season: None,
             thresholds: DEFAULT_THRESHOLDS,
+            kb: Kb::builtin(),
         }
     }
 
@@ -685,6 +690,13 @@ impl<'a> BatteryContext<'a> {
     #[must_use]
     pub fn with_thresholds(mut self, thresholds: Thresholds) -> Self {
         self.thresholds = thresholds;
+        self
+    }
+
+    /// Override the knowledge base the craft family queries, builder-style.
+    #[must_use]
+    pub fn with_kb(mut self, kb: Kb<'a>) -> Self {
+        self.kb = kb;
         self
     }
 }
@@ -737,7 +749,7 @@ pub fn check_payload(
 
     // (3) two-sided outline-conformance, when an outline is supplied (PAY-3).
     if let Some(outline) = ctx.outline {
-        out.extend(outline_conformance(payload, outline));
+        out.extend(outline_conformance(payload, outline, &ctx.kb));
     }
 
     out.sort_by(|a, b| (&a.code, a.line, &a.message).cmp(&(&b.code, b.line, &b.message)));
@@ -831,7 +843,7 @@ fn continuity_family(world: &CompiledWorld, claims: &[ParsedClaim<'_>]) -> Vec<P
 }
 
 /// The craft family: merge the payload's beats into the season ledger and run
-/// §3's rules; each finding cites its governing principle (via [`kb::why`]) and,
+/// §3's rules; each finding cites its governing principle (via [`Kb::why`]) and,
 /// where its message names a payload beat or promise, carries that item's line
 /// and quote.
 fn craft_family(payload: &Payload, ctx: &BatteryContext) -> Vec<PayloadFinding> {
@@ -841,7 +853,7 @@ fn craft_family(payload: &Payload, ctx: &BatteryContext) -> Vec<PayloadFinding> 
         .into_iter()
         .map(|wf| {
             let mut finding = world_finding_to_payload(&wf);
-            if let Some(principle) = kb::why(&wf.code).first() {
+            if let Some(principle) = ctx.kb.why(&wf.code).first() {
                 finding.principle = Some(principle.id.to_owned());
             }
             if let Some((line, quote)) = anchors
@@ -1042,7 +1054,11 @@ fn is_known_verdict(expect: &str) -> bool {
 /// Proof-cue conformance is not diffed here: `CRAFT-1`'s [`EpisodeOutline`]
 /// declares no proof cues to diff the payload's `proof_ledgers` against.
 #[must_use]
-pub fn outline_conformance(payload: &Payload, outline: &EpisodeOutline) -> Vec<PayloadFinding> {
+pub fn outline_conformance(
+    payload: &Payload,
+    outline: &EpisodeOutline,
+    kb: &Kb<'_>,
+) -> Vec<PayloadFinding> {
     let mut out = Vec::new();
     let beat_anchors = beat_anchors(payload);
     let promise_anchors = promise_anchors(payload);
@@ -1102,7 +1118,7 @@ pub fn outline_conformance(payload: &Payload, outline: &EpisodeOutline) -> Vec<P
     // Attribute each conformance finding to its governing principle. An
     // `outline.*` code resolves to the CRAFT-1 battery principles via the KB.
     for finding in &mut out {
-        if let Some(principle) = kb::why(&finding.code).first() {
+        if let Some(principle) = kb.why(&finding.code).first() {
             finding.principle = Some(principle.id.to_owned());
         }
     }
@@ -1482,7 +1498,7 @@ mod tests {
             ..Default::default()
         };
 
-        let findings = outline_conformance(&payload, &outline);
+        let findings = outline_conformance(&payload, &outline, &Kb::builtin());
 
         // The outline promised a beat the payload lacks — both readings stated.
         let unaccounted = findings

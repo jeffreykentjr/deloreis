@@ -1554,26 +1554,161 @@ pub static PRINCIPLES: &[Principle] = &[
     },
 ];
 
-/// Look a principle up by its id.
-#[must_use]
-pub fn by_id(id: &str) -> Option<&'static Principle> {
-    PRINCIPLES.iter().find(|p| p.id == id)
+/// A borrow-generic handle over a principle corpus (design §2.1, `CRAFT-3`).
+///
+/// The six knowledge-base queries are methods reading `self.principles`, so the
+/// same query surface serves the built-in [`PRINCIPLES`] table today
+/// ([`Kb::builtin`]) and a loaded corpus once packs are extracted. The borrow is
+/// `'a`, so every query hands out `&'a Principle` references into the underlying
+/// slice — independent of the `&self` borrow.
+///
+/// The free functions ([`by_id`], [`why`], …) remain as thin shims over
+/// [`Kb::builtin`]; prefer the methods.
+#[derive(Debug, Clone, Copy)]
+pub struct Kb<'a> {
+    principles: &'a [Principle],
 }
 
-/// Every principle that binds a given kernel rule, in corpus order.
+impl Kb<'static> {
+    /// The built-in knowledge base — the ported [`PRINCIPLES`] corpus.
+    #[must_use]
+    pub fn builtin() -> Self {
+        Self {
+            principles: PRINCIPLES,
+        }
+    }
+}
+
+impl<'a> Kb<'a> {
+    /// A knowledge base over an arbitrary principle slice.
+    #[must_use]
+    pub fn new(principles: &'a [Principle]) -> Self {
+        Self { principles }
+    }
+
+    /// The principle slice this handle reads.
+    #[must_use]
+    pub fn principles(&self) -> &'a [Principle] {
+        self.principles
+    }
+
+    /// Look a principle up by its id.
+    #[must_use]
+    pub fn by_id(&self, id: &str) -> Option<&'a Principle> {
+        self.principles.iter().find(|p| p.id == id)
+    }
+
+    /// Every principle that binds a given kernel rule, in corpus order.
+    #[must_use]
+    pub fn principles_binding(&self, rule: KernelRule) -> Vec<&'a Principle> {
+        self.principles
+            .iter()
+            .filter(|p| p.binding.kernel_rule() == Some(rule))
+            .collect()
+    }
+
+    /// The standing checkable-debt report: principles bound `judge` or `none` — the
+    /// roadmap of rules not yet written, kept honest rather than hidden (spec §5).
+    #[must_use]
+    pub fn checkable_debt(&self) -> Vec<&'a Principle> {
+        self.principles
+            .iter()
+            .filter(|p| p.binding.is_debt())
+            .collect()
+    }
+
+    /// Tally the knowledge base by binding class.
+    #[must_use]
+    pub fn coverage(&self) -> Coverage {
+        let mut c = Coverage {
+            total: self.principles.len(),
+            kernel_rule: 0,
+            factory: 0,
+            judge: 0,
+            declaration: 0,
+        };
+        for p in self.principles {
+            match p.binding {
+                Binding::Rule(_) => c.kernel_rule += 1,
+                Binding::Factory { .. } => c.factory += 1,
+                Binding::Attest(_) => c.judge += 1,
+                Binding::Declaration => c.declaration += 1,
+            }
+        }
+        c
+    }
+
+    /// The principles behind a finding, **pillars first** (D-0128 — the pillar
+    /// wins).
+    ///
+    /// A `craft.<rule>` finding resolves to the principles binding that season rule;
+    /// an `outline.<item>` finding resolves to the principles behind the `CRAFT-1`
+    /// batteries. Within the result, pillar-family principles sort first, so the
+    /// head of the list is the doctrine that governs when advice conflicts. Empty
+    /// when no principle claims the code.
+    #[must_use]
+    pub fn why(&self, finding_code: &str) -> Vec<&'a Principle> {
+        let item = finding_code
+            .split_once('.')
+            .map_or(finding_code, |(_, item)| item);
+        let mut hits: Vec<&'a Principle> = if finding_code.starts_with("outline.") {
+            self.principles
+                .iter()
+                .filter(|p| {
+                    matches!(
+                        p.binding.kernel_rule(),
+                        Some(KernelRule::CheckOutline | KernelRule::CheckSeason)
+                    )
+                })
+                .collect()
+        } else if let Some(rule) = KernelRule::from_id(item) {
+            self.principles_binding(rule)
+        } else {
+            Vec::new()
+        };
+        // Pillars win: stable-sort the pillar family to the front (D-0128).
+        hits.sort_by_key(|p| !p.is_pillar());
+        hits
+    }
+
+    /// Audit the knowledge base for the integrity faults the types do not preclude:
+    /// duplicate ids and phase-less principles. Empty on the ported corpus; a
+    /// nonempty result is a data fault to fix at the source.
+    #[must_use]
+    pub fn audit(&self) -> Vec<KbError> {
+        let mut errors = Vec::new();
+        let mut seen: BTreeSet<&str> = BTreeSet::new();
+        for p in self.principles {
+            if !seen.insert(p.id) {
+                errors.push(KbError::DuplicateId(p.id.to_owned()));
+            }
+            if p.phases.is_empty() {
+                errors.push(KbError::NoPhase(p.id.to_owned()));
+            }
+        }
+        errors
+    }
+}
+
+/// Look a principle up by its id. Thin shim over [`Kb::builtin`]`.by_id`.
+#[must_use]
+pub fn by_id(id: &str) -> Option<&'static Principle> {
+    Kb::builtin().by_id(id)
+}
+
+/// Every principle that binds a given kernel rule, in corpus order. Thin shim over
+/// [`Kb::builtin`]`.principles_binding`.
 #[must_use]
 pub fn principles_binding(rule: KernelRule) -> Vec<&'static Principle> {
-    PRINCIPLES
-        .iter()
-        .filter(|p| p.binding.kernel_rule() == Some(rule))
-        .collect()
+    Kb::builtin().principles_binding(rule)
 }
 
 /// The standing checkable-debt report: principles bound `judge` or `none` — the
-/// roadmap of rules not yet written, kept honest rather than hidden (spec §5).
+/// roadmap of rules not yet written, kept honest rather than hidden (spec §5). Thin
+/// shim over [`Kb::builtin`]`.checkable_debt`.
 #[must_use]
 pub fn checkable_debt() -> Vec<&'static Principle> {
-    PRINCIPLES.iter().filter(|p| p.binding.is_debt()).collect()
+    Kb::builtin().checkable_debt()
 }
 
 /// A coverage tally over the knowledge base — how each principle's check binds.
@@ -1605,25 +1740,11 @@ impl Coverage {
     }
 }
 
-/// Tally the knowledge base by binding class.
+/// Tally the knowledge base by binding class. Thin shim over
+/// [`Kb::builtin`]`.coverage`.
 #[must_use]
 pub fn coverage() -> Coverage {
-    let mut c = Coverage {
-        total: PRINCIPLES.len(),
-        kernel_rule: 0,
-        factory: 0,
-        judge: 0,
-        declaration: 0,
-    };
-    for p in PRINCIPLES {
-        match p.binding {
-            Binding::Rule(_) => c.kernel_rule += 1,
-            Binding::Factory { .. } => c.factory += 1,
-            Binding::Attest(_) => c.judge += 1,
-            Binding::Declaration => c.declaration += 1,
-        }
-    }
-    c
+    Kb::builtin().coverage()
 }
 
 /// The principles behind a finding, **pillars first** (D-0128 — the pillar wins).
@@ -1634,6 +1755,8 @@ pub fn coverage() -> Coverage {
 /// of the list is the doctrine that governs when advice conflicts. Empty when no
 /// principle claims the code.
 ///
+/// Thin shim over [`Kb::builtin`]`.why`.
+///
 /// ```
 /// use dli_world::craft::kb::why;
 /// // Every finding the KB explains renders its governing principle first.
@@ -1642,27 +1765,7 @@ pub fn coverage() -> Coverage {
 /// ```
 #[must_use]
 pub fn why(finding_code: &str) -> Vec<&'static Principle> {
-    let item = finding_code
-        .split_once('.')
-        .map_or(finding_code, |(_, item)| item);
-    let mut hits: Vec<&'static Principle> = if finding_code.starts_with("outline.") {
-        PRINCIPLES
-            .iter()
-            .filter(|p| {
-                matches!(
-                    p.binding.kernel_rule(),
-                    Some(KernelRule::CheckOutline | KernelRule::CheckSeason)
-                )
-            })
-            .collect()
-    } else if let Some(rule) = KernelRule::from_id(item) {
-        principles_binding(rule)
-    } else {
-        Vec::new()
-    };
-    // Pillars win: stable-sort the pillar family to the front (D-0128).
-    hits.sort_by_key(|p| !p.is_pillar());
-    hits
+    Kb::builtin().why(finding_code)
 }
 
 /// Consume a stored attestation for a judge-bound principle, reporting a finding
@@ -1731,18 +1834,9 @@ pub enum KbError {
 
 /// Audit the knowledge base for the integrity faults the types do not preclude:
 /// duplicate ids and phase-less principles. Empty on the ported corpus (asserted
-/// in the tests); a nonempty result is a data fault to fix at the source.
+/// in the tests); a nonempty result is a data fault to fix at the source. Thin shim
+/// over [`Kb::builtin`]`.audit`.
 #[must_use]
 pub fn audit() -> Vec<KbError> {
-    let mut errors = Vec::new();
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
-    for p in PRINCIPLES {
-        if !seen.insert(p.id) {
-            errors.push(KbError::DuplicateId(p.id.to_owned()));
-        }
-        if p.phases.is_empty() {
-            errors.push(KbError::NoPhase(p.id.to_owned()));
-        }
-    }
-    errors
+    Kb::builtin().audit()
 }
