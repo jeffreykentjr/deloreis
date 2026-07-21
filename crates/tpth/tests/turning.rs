@@ -1,21 +1,25 @@
-//! The SIM-2 oracle, end to end.
+//! The SIM-2 oracle, end to end — asserted through the **generic `dli_game`
+//! path** the Turning now loads onto.
 //!
 //! Each test pins one clause of the brief's oracle: legal-move enumeration under
-//! deltas, the `D-0147`→`D-0148` fork/ratify replay, the honest-versus-rigged
-//! study yielding a measurable difference, determinism (same seed → identical
-//! manifest), and the structural-invariant enumeration. The ruleset is exercised
-//! as *data*: every check reads the same [`Ruleset`] the export lane compiles, so
-//! a green suite is evidence the rules are really rules and really exportable.
+//! deltas, the `D-0147`→`D-0148` fork/ratify replay, the honest-versus-rigged study
+//! yielding a measurable difference, determinism (same seed → identical manifest),
+//! and the structural-invariant enumeration. The ruleset is exercised as *data*:
+//! every check reads the same [`Ruleset`] the export lane compiles, so a green suite
+//! is evidence the rules are really rules and really exportable.
 
 #![allow(clippy::unwrap_used)]
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+use dli_game::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
+
 use tpth::turning::{
-    HandRole, Layer, Leaf, Reading, Ruleset, Standing, StructuralInvariant, TurningBattery,
-    Variant, Verdict, enumerate_structural_invariants, honest_vs_rigged,
+    AttrValue, MoveRule, Reading, Ruleset, Standing, StructuralInvariant,
+    enumerate_structural_invariants, honest_vs_rigged, keep_stamped, keep_stamped_variant,
+    remap_touchstone, salt_fringe, the_turning, turning_bindings,
 };
-use tpth::turning::{ReadingInvariant, ReadingMetric, ReadingObservable};
 
 /// The committed export-facing fixture EXP-3 compiles against.
 fn fixture_path() -> PathBuf {
@@ -23,49 +27,94 @@ fn fixture_path() -> PathBuf {
         .join("../../worlds/tpth/turning/the-turning-rules.json")
 }
 
+// --- the golden migration guard ---------------------------------------------
+
+/// The pre-migration `leaves()` id-list, pasted verbatim as a committed golden. The
+/// generic `the_turning().card_ids()` must reproduce it byte-for-byte — the
+/// migration invariant that the deck did not drift when it became data.
+const GOLDEN_LEAF_IDS: [&str; 29] = [
+    "hand-taker-wood",
+    "hand-keeper-wood",
+    "hand-giver-wood",
+    "hand-mender-wood",
+    "hand-taker-water",
+    "hand-keeper-water",
+    "hand-giver-water",
+    "hand-mender-water",
+    "hand-taker-field",
+    "hand-keeper-field",
+    "hand-giver-field",
+    "hand-mender-field",
+    "hand-taker-hearth",
+    "hand-keeper-hearth",
+    "hand-giver-hearth",
+    "hand-mender-hearth",
+    "weather-greening",
+    "weather-rot",
+    "weather-flood",
+    "weather-dearth",
+    "weather-binding",
+    "weather-loosing",
+    "weather-mending",
+    "weather-sundering",
+    "weather-road",
+    "weather-bourn",
+    "weather-debt",
+    "weather-fallow",
+    "reckoner",
+];
+
+#[test]
+fn the_generic_wheel_reproduces_the_pre_migration_leaves_byte_for_byte() {
+    assert_eq!(the_turning().card_ids(), GOLDEN_LEAF_IDS.to_vec());
+}
+
 // --- deck structure ---------------------------------------------------------
 
 #[test]
 fn honest_deck_runs_the_moon_at_twenty_nine() {
-    let deck = Ruleset::lowlands_honest();
-    assert_eq!(deck.leaf_count(), 29, "16 Hands + 12 Weathers + 1 Reckoner");
+    let deck = the_turning();
+    assert_eq!(deck.card_count(), 29, "16 Hands + 12 Weathers + 1 Reckoner");
     let leaves = deck.leaves();
     assert_eq!(leaves.len(), 29);
-    let hands = leaves.iter().filter(|l| l.layer() == Layer::Hand).count();
-    let weathers = leaves
-        .iter()
-        .filter(|l| l.layer() == Layer::Weather)
-        .count();
-    let reckoners = leaves
-        .iter()
-        .filter(|l| l.layer() == Layer::Reckoner)
-        .count();
+    let hands = leaves.iter().filter(|c| c.layer == "hand").count();
+    let weathers = leaves.iter().filter(|c| c.layer == "weather").count();
+    let reckoners = leaves.iter().filter(|c| c.layer == "reckoner").count();
     assert_eq!((hands, weathers, reckoners), (16, 12, 1));
 }
 
 #[test]
 fn leaf_ids_and_figures_match_the_worked_export() {
     // The spec §6 worked export pins `hand-mender-field` → the Pleacher and
-    // `weather-debt` → ring_next `weather-fallow`. The ruleset must agree.
-    let deck = Ruleset::lowlands_honest();
-    let mender_field = Leaf::Hand {
-        role: HandRole::Mender,
-        ground: "field".to_owned(),
-    };
-    assert_eq!(mender_field.id(), "hand-mender-field");
+    // `weather-debt` → ring_next the fallow Weather (leaf `weather-fallow`). The
+    // loaded ruleset data must agree.
+    let deck = the_turning();
+    let mender_field = deck
+        .cards()
+        .into_iter()
+        .find(|card| card.id == "hand-mender-field")
+        .expect("the hand-mender-field leaf");
+    assert_eq!(mender_field.layer, "hand");
+    let fields = deck.render_fields(&mender_field);
     assert_eq!(
-        deck.figure_for(&mender_field).map(|f| f.id.as_str()),
-        Some("the-pleacher")
+        fields.get("figure").and_then(AttrValue::as_text),
+        Some("the-pleacher"),
+        "every Mender hand rides the Pleacher"
     );
-    let debt = deck.weathers.iter().find(|w| w.id == "debt").unwrap();
-    assert_eq!(debt.ring_next, "fallow"); // leaf id weather-fallow
+
+    let weather = deck.axis("weather").expect("the weather axis");
+    let debt = weather.value("debt").expect("the Debt weather");
+    assert_eq!(
+        debt.attrs.get("ring_next").and_then(AttrValue::as_text),
+        Some("fallow"), // leaf id weather-fallow
+    );
 }
 
 // --- legal-move enumeration under deltas ------------------------------------
 
 #[test]
 fn legal_move_enumeration_shrinks_under_the_keep_stamped_delta() {
-    let honest = Ruleset::lowlands_honest();
+    let honest = the_turning();
     let round = honest.layout("a-round").unwrap().clone();
     let opening = Reading::open(&round);
 
@@ -80,21 +129,24 @@ fn legal_move_enumeration_shrinks_under_the_keep_stamped_delta() {
 
     // The keep-stamped delta cuts them from the deck, so they vanish from the
     // legal-move set — the enumeration is delta-sensitive, computed not asserted.
-    let rigged = Ruleset::keep_stamped();
+    let rigged = keep_stamped();
     let rigged_moves = rigged.legal_moves(&Reading::open(&round));
     for hard in ["weather-debt", "weather-sundering", "weather-bourn"] {
         assert!(!rigged_moves.contains(&hard.to_owned()), "rig kept {hard}");
     }
     // And every rigged move is a legal honest move — a cut only removes plays.
-    let honest_set: std::collections::BTreeSet<_> = honest_moves.iter().collect();
+    let honest_set: BTreeSet<_> = honest_moves.iter().collect();
     assert!(rigged_moves.iter().all(|m| honest_set.contains(m)));
 }
 
 #[test]
 fn follows_is_forward_bounded_and_never_reflexive() {
-    let deck = Ruleset::lowlands_honest();
-    let wheel: Vec<String> = deck.leaves().iter().map(Leaf::id).collect();
-    let reach = usize::try_from(deck.reach).unwrap();
+    let deck = the_turning();
+    let MoveRule::CyclicReach { reach } = deck.moves else {
+        panic!("the Turning wheel is a cyclic-reach relation");
+    };
+    let reach = usize::try_from(reach).unwrap();
+    let wheel = deck.card_ids();
     for (i, prev) in wheel.iter().enumerate() {
         assert!(!deck.follows(prev, prev), "a leaf never follows itself");
         for step in 1..=reach {
@@ -113,7 +165,7 @@ fn follows_is_forward_bounded_and_never_reflexive() {
 fn remap_touchstone_is_proposed_and_ratifies_to_the_turning() {
     // D-0147: the remap-method touchstone wakes the deck, but only proposed —
     // structurally unassertable until an authorial ruling.
-    let touchstone = Ruleset::remap_touchstone();
+    let touchstone = remap_touchstone();
     assert!(
         !touchstone.is_assertable(),
         "a proposed deck is shadow-only"
@@ -123,29 +175,29 @@ fn remap_touchstone_is_proposed_and_ratifies_to_the_turning() {
 
     // D-0148: ratified whole. Now assertable, citing both the touchstone it was
     // woken from and the decision that ratified it, and equal to the canonical
-    // deck (which is *defined* as this very path — the replay is literal).
+    // deck loaded from the ratified fixture — the replay is literal.
     let ratified = touchstone.ratify("D-0148");
     assert!(ratified.is_assertable());
     assert_eq!(ratified.provenance.standing, Standing::Ratified);
     assert_eq!(ratified.provenance.cites, vec!["D-0147", "D-0148"]);
-    assert_eq!(ratified, Ruleset::lowlands_honest());
+    assert_eq!(ratified, the_turning());
 }
 
 #[test]
 fn a_variant_fork_is_proposed_until_ratified() {
-    let honest = Ruleset::lowlands_honest();
+    let honest = the_turning();
 
     // Forking the keep-stamped delta yields a *proposed* ruleset — a variant is a
     // claim awaiting a ruling — yet its legal-move enumeration already reflects
     // the delta before ratification (the rules changed; the standing has not).
-    let proposed = honest.fork(&Variant::keep_stamped());
+    let proposed = honest.fork(&keep_stamped_variant());
     assert!(!proposed.is_assertable());
-    assert_eq!(proposed.leaf_count(), 26);
+    assert_eq!(proposed.card_count(), 26);
     assert!(proposed.layout("the-debt-square").is_none());
 
     let ratified = proposed.ratify("D-0148");
     assert!(ratified.is_assertable());
-    assert_eq!(ratified, Ruleset::keep_stamped());
+    assert_eq!(ratified, keep_stamped());
 }
 
 // --- the honest-versus-rigged study -----------------------------------------
@@ -193,15 +245,17 @@ fn the_study_is_deterministic() {
 
 // --- determinism of the deal battery ----------------------------------------
 
-fn whole_round_battery(seed: u64, trials: u64) -> TurningBattery {
-    TurningBattery {
-        ruleset: Ruleset::lowlands_honest(),
+fn whole_round_battery(seed: u64, trials: u64) -> DealBattery {
+    DealBattery {
+        ruleset: the_turning(),
         layout: "the-whole-round".to_owned(),
         seed,
         trials,
         metrics: vec![ReadingMetric {
             name: "contradiction-rate".to_owned(),
-            observable: ReadingObservable::ContradictionRate,
+            observable: ReadingObservable::VerdictIs {
+                verdict_id: "contradiction".to_owned(),
+            },
         }],
         invariants: vec![
             ReadingInvariant::DeckConserved,
@@ -212,13 +266,14 @@ fn whole_round_battery(seed: u64, trials: u64) -> TurningBattery {
 
 #[test]
 fn same_seed_same_manifest_different_seed_differs() {
+    let bindings = turning_bindings();
     let battery = whole_round_battery(20_260_720, 300);
-    let first = battery.run();
-    let second = battery.run();
+    let first = battery.run(&bindings);
+    let second = battery.run(&bindings);
     assert_eq!(first.canonical_bytes(), second.canonical_bytes());
     assert_eq!(first.digest(), second.digest());
 
-    let other = whole_round_battery(1, 300).run();
+    let other = whole_round_battery(1, 300).run(&bindings);
     assert_ne!(first.canonical_bytes(), other.canonical_bytes());
 }
 
@@ -237,7 +292,7 @@ fn a_deal_is_a_pure_function_of_seed_and_index() {
 fn every_dealt_reading_is_legal_and_conserves_the_deck() {
     // Over a full battery, the two structural reading-invariants hold exactly, so
     // both grade `checked` — no reading reaches an illegal state or a doubled leaf.
-    let manifest = whole_round_battery(20_260_720, 500).run();
+    let manifest = whole_round_battery(20_260_720, 500).run(&turning_bindings());
     assert!(manifest.grades_are_honest());
     for verdict in &manifest.invariants {
         assert!(verdict.held(), "{verdict:?}");
@@ -249,55 +304,57 @@ fn every_dealt_reading_is_legal_and_conserves_the_deck() {
 
 #[test]
 fn a_reading_verdict_is_counsel_never_a_winner() {
-    let deck = Ruleset::lowlands_honest();
+    let deck = the_turning();
+    let bindings = turning_bindings();
     let round = deck.layout("a-round").unwrap().clone();
 
     // A filled round laying a reciprocal Weather pair reads as a Contradiction.
     let contradiction = Reading {
         layout: round.name.clone(),
-        leaves_dealt: 3,
+        cards_dealt: 3,
         laid: vec![
             "weather-greening".to_owned(),
             "weather-rot".to_owned(),
             "hand-taker-wood".to_owned(),
         ],
     };
-    assert_eq!(deck.verdict(&contradiction), Verdict::Contradiction);
+    assert_eq!(deck.verdict(&contradiction, &bindings).id, "contradiction");
 
     // A filled round without a reciprocal pair returns a better Question.
     let question = Reading {
         layout: round.name.clone(),
-        leaves_dealt: 3,
+        cards_dealt: 3,
         laid: vec![
             "hand-taker-wood".to_owned(),
             "weather-greening".to_owned(),
             "hand-keeper-water".to_owned(),
         ],
     };
-    assert_eq!(deck.verdict(&question), Verdict::Question);
+    assert_eq!(deck.verdict(&question, &bindings).id, "question");
 
     // An unfilled reading is a missing premise, not a loss.
     let jammed = Reading {
         layout: round.name.clone(),
-        leaves_dealt: 3,
+        cards_dealt: 3,
         laid: vec!["hand-taker-wood".to_owned()],
     };
-    assert_eq!(deck.verdict(&jammed), Verdict::MissingPremise);
+    assert_eq!(deck.verdict(&jammed, &bindings).id, "missing-premise");
 }
 
 // --- structural invariant enumeration ---------------------------------------
 
 #[test]
 fn structural_invariants_hold_on_the_shipped_decks() {
-    for deck in [
-        Ruleset::lowlands_honest(),
-        Ruleset::keep_stamped(),
-        Ruleset::salt_fringe(),
-    ] {
-        let verdicts = enumerate_structural_invariants(&deck);
-        assert_eq!(verdicts.len(), StructuralInvariant::ALL.len());
+    let bindings = turning_bindings();
+    for deck in [the_turning(), keep_stamped(), salt_fringe()] {
+        let verdicts = enumerate_structural_invariants(&deck, &bindings);
+        assert_eq!(
+            verdicts.len(),
+            4,
+            "deck-is-a-set, closed-ring, count-matches, reciprocity-closed"
+        );
         for verdict in verdicts {
-            assert!(verdict.held(), "{}: {verdict:?}", deck.deck_id);
+            assert!(verdict.held(), "{}: {verdict:?}", deck.game_id);
             assert_eq!(verdict.grade(), dli_core::Grade::Checked);
         }
     }
@@ -305,21 +362,43 @@ fn structural_invariants_hold_on_the_shipped_decks() {
 
 #[test]
 fn structural_invariants_have_teeth() {
-    // A hand-corrupted deck must be caught, so the enumeration is a real check and
-    // not a rubber stamp. A doubled Ground both duplicates ids (DeckIsASet) and
-    // makes the arithmetic count outrun the distinct wheel (MoonCount).
-    let mut broken = Ruleset::lowlands_honest();
-    broken.grounds.push(broken.grounds[0].clone());
-    assert!(StructuralInvariant::DeckIsASet.breach(&broken).is_some());
-    assert!(StructuralInvariant::MoonCount.breach(&broken).is_some());
+    let bindings = turning_bindings();
 
-    // A dangling reciprocal pointer — a half-pair with no partner — is caught.
-    let mut dangling = Ruleset::lowlands_honest();
-    dangling.weathers[0].reciprocal = Some("nowhere".to_owned());
+    // A hand-corrupted deck must be caught, so the enumeration is a real check and
+    // not a rubber stamp. A doubled Ground value both duplicates ids (DeckIsASet)
+    // and makes the declared count outrun the distinct wheel (CountMatches).
+    let mut broken = the_turning();
+    let ground = broken.axes.iter_mut().find(|a| a.id == "ground").unwrap();
+    let dup = ground.values[0].clone();
+    ground.values.push(dup);
     assert!(
-        StructuralInvariant::ReciprocityClosed
-            .breach(&dangling)
+        StructuralInvariant::DeckIsASet
+            .breach(&broken, &bindings)
             .is_some()
+    );
+    assert!(
+        StructuralInvariant::CountMatches
+            .breach(&broken, &bindings)
+            .is_some()
+    );
+
+    // A dangling reciprocal pointer — a Weather claiming a partner the deck no
+    // longer enumerates — is caught by the registered reciprocity invariant.
+    let mut dangling = the_turning();
+    let weather = dangling
+        .axes
+        .iter_mut()
+        .find(|a| a.id == "weather")
+        .unwrap();
+    weather.values[0]
+        .attrs
+        .insert("reciprocal".to_owned(), AttrValue::text("nowhere"));
+    assert!(
+        StructuralInvariant::Registered {
+            name: "reciprocity-closed".to_owned()
+        }
+        .breach(&dangling, &bindings)
+        .is_some()
     );
 }
 
@@ -327,7 +406,7 @@ fn structural_invariants_have_teeth() {
 
 #[test]
 fn the_export_fixture_round_trips_to_the_canonical_deck() {
-    let canonical = Ruleset::lowlands_honest();
+    let canonical = the_turning();
     let rendered = serde_json::to_string_pretty(&canonical).unwrap() + "\n";
 
     // Regenerate the committed fixture on demand (REGEN_TURNING_FIXTURE=1), else

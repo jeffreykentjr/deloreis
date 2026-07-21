@@ -1,0 +1,13 @@
+{
+  "name": "turning/keep-stamped",
+  "game_id": "turning-lowlands-keep-stamped",
+  "ops": [
+    { "op": "cut-axis-value", "axis": "weather", "value": "debt" },
+    { "op": "cut-axis-value", "axis": "weather", "value": "sundering" },
+    { "op": "cut-axis-value", "axis": "weather", "value": "bourn" }
+  ],
+  "provenance": {
+    "standing": "proposed",
+    "cites": ["D-0148"]
+  }
+}
