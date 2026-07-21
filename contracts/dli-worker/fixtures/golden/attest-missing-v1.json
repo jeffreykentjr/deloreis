@@ -8,7 +8,7 @@
         "id": "1",
         "op": "dli.attest.missing",
         "params": {
-          "document": "saltmarket"
+          "document": "camelot"
         }
       },
       "expect": {

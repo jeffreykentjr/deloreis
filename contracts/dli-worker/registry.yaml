@@ -39,7 +39,7 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: 11c25f59437c86597ef19868b9b85e81caae83fb1106714b7075cf90d45f2d71
 - path: golden/attest-missing-v1.json
-  sha256: 54f05721c2e4b6c0adadd459223b69beb7a3ff3c10e210ff725967c8d022c967
+  sha256: 6dbce537ad6dd5b17151f20856951c2e763b9b50d576562b8988af63a4e0b313
 - path: golden/attestation-sweep-v1.json
   sha256: e07aad7f38cb02723ff05157653b484790603084cadc333968d70b9a9a6c346c
 - path: golden/author-add-before-v1.json
@@ -75,9 +75,9 @@ fixtures:
 - path: golden/author-why-v1.json
   sha256: 7b78c7cfd3f4241e5f9401607ddca4f56008654d606c8c2be92e84b3859dfe1e
 - path: golden/check-basic-v1.json
-  sha256: 4e065818a4f10f887c1efe8ed273bec3f70521ef94c98d876f3611bfea05de34
+  sha256: d8755f0c715a390e4af2205913464dba89ce8b737ad99dbade0361457797ba83
 - path: golden/check-draft-v1.json
-  sha256: 48f4751b8b1bce21a42d39746fb240b3edcf47acdb386b67b2fd41a72d73a13f
+  sha256: 769a69212de63a8d6a01f9ac7d3b55ca6c993517e8e3a3d21ad5bdd7c520b26f
 - path: golden/check-proof-turning-v1.json
   sha256: b232632acdac34d9ed3968ad94478b48150c6cc6c5caedcd12f04f73d7b90124
 - path: golden/export-ludii-v1.json
@@ -85,29 +85,29 @@ fixtures:
 - path: golden/fork-add-v1.json
   sha256: 8486e4c8a6c2a00f06d7b6b888f9336f96924708b4bd9713c82c71ee80f63b16
 - path: golden/fork-diff-v1.json
-  sha256: 96893c81f6eccee66468541fd749113a504bb6e963d6950cf026ca765334036c
+  sha256: 465568f964c0f9568789052b0dd2d6a492ce4d6f3adca8154a236d6d278d398b
 - path: golden/fork-list-v1.json
-  sha256: 53f562973b6399abaff6b073700a09b39ae7171e58af26e5a56514ccc3b1af0f
+  sha256: 83cea2a55b0377ced82ae72ec214ba95a71f23644d4e62f0d45f5eff0efea56c
 - path: golden/fork-new-v1.json
-  sha256: c21f43a121389b641f288a51953173e2207623dc6b276eae36231bd2dcfac727
+  sha256: 8ed7882b2e22ba3c6c7aaff5e5c7cb9fe2ce6ea7f305f481782a98820256a337
 - path: golden/fork-preflight-v1.json
-  sha256: 21f17b6a7eb5f03f9f40a9e0c2ccdb7cdf3e67e0070df3f9fcfb14398d399ac7
+  sha256: 3d1dcbc520f84dab04a8fdcc88a03729c938e766d5fbdf225721f2862d68d459
 - path: golden/fork-promote-v1.json
-  sha256: 306c209ef7004e52f682d2cac587bdaf611851602b78fa374b11493557a34521
+  sha256: 73ac5e868b037a407aaa0f41ab8aeca6e8e424d0a15e688e883c4b7af9dc7e82
 - path: golden/fork-restrict-v1.json
-  sha256: 4099d5ab1cb0ac2ac6ea68264b1b3693c585834b95617199a60f27da774c664a
+  sha256: 40671edf8708be4479aa7ec0ae3ba5cbb2ce60831fc08e24e84fd5a53a8b2689
 - path: golden/fork-suppose-v1.json
-  sha256: fe9cd41a14a25971178adf86d5b2fc4ac2fd9cd09467265c0d52d00f3e83660e
+  sha256: f4025dd090c8a24f08c18d0f1b5baf7711ba076d079171669bf8084471a582cb
 - path: golden/fork-suppress-v1.json
-  sha256: 8432e204fbb389c87017639060e4081cb8bad39e1c2e62a9ea72115713e5a1fc
+  sha256: e6f6d297c9bceb82be51bde1fab5f275a11cdf6f4b9e6ec2e9a154acf9b9326a
 - path: golden/name-check-v1.json
   sha256: af2cf660cd00786fcdbd3da1d673b31e9beeb18af670a141e7fd3b208a4d8f4d
 - path: golden/payload-submit-v1.json
-  sha256: ee5e5b3ea856f20b1a503667850f036e52d38cdb4a347b4f79fef06318c43ed2
+  sha256: db6f41baeb716de75db62443160378f56fa3bbd2482aea91a63111f5808aec3b
 - path: golden/query-modifiers-v1.json
-  sha256: 9f63dbc0f6eceb6ff33f60d6ac956f9c0d3b2f035053baea21898e97dc58340f
+  sha256: 25ba34c3811d7bb27a6be730c681f320da608b224d36fd5c29f8594760632923
 - path: golden/query-support-v1.json
-  sha256: 2af8258634709b0dee73b10c861801ac82c6e40c8b60ee06c96a43785cbcad85
+  sha256: 64f6dd138a32b6ff70f4b9807ed06e560a07e325bcc145ab8b2abfe863e65785
 - path: golden/simulate-cancel-v1.json
   sha256: 9b9212a269737a0365decf61b296079bf285b45903b0f812e16e420477ca2897
 - path: golden/simulate-status-v1.json

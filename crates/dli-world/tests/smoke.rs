@@ -28,7 +28,7 @@ fn draft_payload_round_trips() {
 }
 
 #[test]
-fn golden_compile_loads_saltmarket_clean() {
+fn golden_compile_loads_camelot_clean() {
     // The FRONT-1 half of the original golden test: a hand-built pack fronts as
     // a compiled world with zero findings and the expected shape.
     let out = Loader::load(&example_docs());
@@ -44,8 +44,8 @@ fn golden_compile_loads_saltmarket_clean() {
 
 #[test]
 fn golden_check_draft_findings_match() {
-    // The CHECK-1 half: a draft over the compiled saltmarket world produces the
-    // committed findings. The pack's `rings(tide-bell, saltmarket)` is proposed
+    // The CHECK-1 half: a draft over the compiled camelot world produces the
+    // committed findings. The pack's `kept-at(excalibur, camelot)` is proposed
     // (shadow) lore, so a draft that states it as settled draws two findings — a
     // fact-check `unsupported` (no certain fact) and a continuity
     // `proposed-as-fact` — while the ratified `adjacent` claim is supported and
@@ -53,7 +53,7 @@ fn golden_check_draft_findings_match() {
     // `example_docs` declares the decisions it cites (`ratify`), so its ratified
     // facts carry authority and compile certain (B1).
     let world = compile(&Pack {
-        name: "saltmarket".to_owned(),
+        name: "camelot".to_owned(),
         documents: example_docs(),
     })
     .unwrap();
@@ -68,12 +68,12 @@ fn golden_check_draft_findings_match() {
     let draft = DraftPayload {
         meta: DraftMeta {
             title: "the-door-after-rain".to_owned(),
-            scope: "saltmarket".to_owned(),
+            scope: "camelot".to_owned(),
             version: 1,
         },
         claims: vec![
-            claim("adjacent", &["saltmarket", "the-shallows"]), // ratified → supported, silent
-            claim("rings", &["tide-bell", "saltmarket"]),       // proposed → two findings
+            claim("adjacent", &["camelot", "the-lake"]), // ratified → supported, silent
+            claim("kept-at", &["excalibur", "camelot"]), // proposed → two findings
         ],
         ..DraftPayload::default()
     };
@@ -83,7 +83,7 @@ fn golden_check_draft_findings_match() {
     assert!(
         findings
             .iter()
-            .any(|f| f.claim == "rings(tide-bell, saltmarket)"),
+            .any(|f| f.claim == "kept-at(excalibur, camelot)"),
         "expected a fact-check finding for the proposed claim: {findings:?}"
     );
     assert!(

@@ -8,7 +8,7 @@
         "id": "1",
         "op": "dli.fork.new",
         "params": {
-          "document": "saltmarket"
+          "document": "camelot"
         }
       },
       "expect": {
@@ -28,7 +28,7 @@
         "params": {
           "fork": "fork-1",
           "assume": [
-            "h.saltmarket#0"
+            "h.camelot#0"
           ]
         }
       },
@@ -38,7 +38,7 @@
         "ok": true,
         "result": {
           "newly_certain": [
-            "rings(tide-bell, saltmarket)"
+            "kept-at(excalibur, camelot)"
           ],
           "newly_possible": [],
           "newly_dead": [],
@@ -63,7 +63,7 @@
         "result": {
           "conflicts": [],
           "affected": [
-            "rings(tide-bell, saltmarket)"
+            "kept-at(excalibur, camelot)"
           ]
         }
       }

@@ -1376,26 +1376,26 @@ mod tests {
         use crate::compile;
         use crate::loader::example_docs;
 
-        // The saltmarket golden world: `adjacent(saltmarket, the-shallows)` is
-        // ratified-certain; `rings(tide-bell, saltmarket)` is proposed shadow lore.
+        // The camelot golden world: `adjacent(camelot, the-lake)` is
+        // ratified-certain; `kept-at(excalibur, camelot)` is proposed shadow lore.
         let world = compile(&Pack {
-            name: "saltmarket".to_owned(),
+            name: "camelot".to_owned(),
             documents: example_docs(),
         })
         .unwrap();
 
-        let source = "the bell and the market share a wall\nthe tide-bell rings for the market\n";
+        let source = "the king's hall looks out over the water\nExcalibur is kept at Camelot\n";
         let mut payload = Payload::default();
         payload.meta.source.sha256 = source_hash(source);
         payload.claims = vec![
             Claim {
-                atom: "adjacent(saltmarket, the-shallows)".to_owned(),
-                quote: "the bell and the market share a wall".to_owned(),
+                atom: "adjacent(camelot, the-lake)".to_owned(),
+                quote: "the king's hall looks out over the water".to_owned(),
                 line: 1,
             },
             Claim {
-                atom: "rings(tide-bell, saltmarket)".to_owned(),
-                quote: "the tide-bell rings for the market".to_owned(),
+                atom: "kept-at(excalibur, camelot)".to_owned(),
+                quote: "Excalibur is kept at Camelot".to_owned(),
                 line: 2,
             },
         ];
@@ -1413,11 +1413,11 @@ mod tests {
         let unsupported = findings
             .iter()
             .find(|f| f.code == "factcheck.unsupported")
-            .expect("rings must be unsupported");
+            .expect("kept-at must be unsupported");
         assert_eq!(unsupported.line, Some(2));
         assert_eq!(
             unsupported.quote.as_deref(),
-            Some("the tide-bell rings for the market")
+            Some("Excalibur is kept at Camelot")
         );
         // Continuity flags the same claim as stated-shadow-as-settled.
         assert!(

@@ -705,9 +705,11 @@ fn decl_identity(decl: &Decl) -> Option<(&'static str, String, Span)> {
     }
 }
 
-/// A hand-built document set used by the crate's doctests and tests: the
-/// saltmarket pack — a sort, three entities, and two facts, all with well-formed
-/// provenance, so it loads with zero findings.
+/// A hand-built document set used by the crate's doctests and tests: a neutral
+/// public-domain **Camelot** subset — a sort, three entities (two places and a
+/// thing), and two facts, all with well-formed provenance, so it loads with zero
+/// findings. It is the small in-Rust demo world; the full teaching corpus ships
+/// as `examples/camelot.dli`.
 #[doc(hidden)]
 #[must_use]
 pub fn example_docs() -> Vec<Document> {
@@ -755,7 +757,7 @@ pub fn example_docs() -> Vec<Document> {
 
     vec![Document {
         scope: Some(ScopeHeader {
-            name: Ident::synthetic("saltmarket"),
+            name: Ident::synthetic("camelot"),
             span: Span::synthetic(),
         }),
         decls: vec![
@@ -773,11 +775,11 @@ pub fn example_docs() -> Vec<Document> {
                 name: Ident::synthetic("place"),
                 provenance: Some(ratified("D-0001")),
             }),
-            place("saltmarket"),
-            place("the-shallows"),
+            place("camelot"),
+            place("the-lake"),
             Decl::Entity(EntityDecl {
                 kind: EntityKind::Thing,
-                name: Ident::synthetic("tide-bell"),
+                name: Ident::synthetic("excalibur"),
                 label: None,
                 time: None,
                 slots: Vec::new(),
@@ -785,13 +787,13 @@ pub fn example_docs() -> Vec<Document> {
             }),
             fact(
                 "adjacent",
-                &["saltmarket", "the-shallows"],
+                &["camelot", "the-lake"],
                 Some(ratified("D-0001")),
                 false,
             ),
             fact(
-                "rings",
-                &["tide-bell", "saltmarket"],
+                "kept-at",
+                &["excalibur", "camelot"],
                 Some(marked(ProvenanceMarker::Proposed, None)),
                 true,
             ),

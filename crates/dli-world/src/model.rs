@@ -336,7 +336,7 @@ impl WorldModel {
     /// ```
     /// use dli_world::loader::{Loader, example_docs};
     /// let out = Loader::load(&example_docs());
-    /// assert!(!out.world.facts_about("tide-bell").is_empty());
+    /// assert!(!out.world.facts_about("excalibur").is_empty());
     /// ```
     #[must_use]
     pub fn facts_about(&self, entity: &str) -> Vec<&LoadedAtom> {

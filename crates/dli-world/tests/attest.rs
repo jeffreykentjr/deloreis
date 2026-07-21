@@ -109,24 +109,21 @@ fn fingerprint_is_order_independent_and_content_sensitive() {
     let out = Loader::load(&example_docs());
     let model = &out.world;
 
-    let salt: Vec<_> = model.facts_about("saltmarket");
-    let forward = fingerprint_facts(salt.iter().map(|loaded| &loaded.atom));
-    let reversed = fingerprint_facts(salt.iter().rev().map(|loaded| &loaded.atom));
+    let seat: Vec<_> = model.facts_about("camelot");
+    let forward = fingerprint_facts(seat.iter().map(|loaded| &loaded.atom));
+    let reversed = fingerprint_facts(seat.iter().rev().map(|loaded| &loaded.atom));
     assert_eq!(
         forward, reversed,
         "iteration order does not change the digest"
     );
 
-    let shallows = fingerprint_facts(
+    let lake = fingerprint_facts(
         model
-            .facts_about("the-shallows")
+            .facts_about("the-lake")
             .iter()
             .map(|loaded| &loaded.atom),
     );
-    assert_ne!(
-        forward, shallows,
-        "different content fingerprints differently"
-    );
+    assert_ne!(forward, lake, "different content fingerprints differently");
 }
 
 #[test]
@@ -136,13 +133,13 @@ fn sweep_returns_exactly_the_stale_heads() {
 
     // Fresh: the head's fingerprint equals the world's current facts about the
     // subject, recomputed exactly as sweep will.
-    let current_tidebell = fingerprint_facts(
+    let current_excalibur = fingerprint_facts(
         model
-            .facts_about("tide-bell")
+            .facts_about("excalibur")
             .iter()
             .map(|loaded| &loaded.atom),
     );
-    let fresh = attestation("name-basis(tide-bell, x)", "tide-bell", current_tidebell);
+    let fresh = attestation("name-basis(excalibur, x)", "excalibur", current_excalibur);
     store_with_fresh_and_stale(model, fresh);
 }
 
@@ -151,26 +148,26 @@ fn store_with_fresh_and_stale(model: &dli_world::WorldModel, fresh: Attestation)
     store.append(fresh);
 
     // Stale: fingerprints that no longer match the current facts.
-    let stale_salt = attestation(
-        "name-basis(saltmarket, x)",
-        "saltmarket",
+    let stale_seat = attestation(
+        "name-basis(camelot, x)",
+        "camelot",
         ContentHash("stale".to_owned()),
     );
-    let stale_shallows = attestation(
-        "name-basis(the-shallows, x)",
-        "the-shallows",
+    let stale_lake = attestation(
+        "name-basis(the-lake, x)",
+        "the-lake",
         ContentHash("stale".to_owned()),
     );
-    store.append(stale_salt.clone());
-    store.append(stale_shallows.clone());
+    store.append(stale_seat.clone());
+    store.append(stale_lake.clone());
 
     let queue = sweep(&store, model);
 
     assert_eq!(queue.len(), 2, "exactly the stale heads, not the fresh one");
-    assert!(queue.contains(&stale_salt));
-    assert!(queue.contains(&stale_shallows));
+    assert!(queue.contains(&stale_seat));
+    assert!(queue.contains(&stale_lake));
     assert!(
-        !queue.iter().any(|record| record.subject() == "tide-bell"),
+        !queue.iter().any(|record| record.subject() == "excalibur"),
         "a fresh head is never queued"
     );
 }

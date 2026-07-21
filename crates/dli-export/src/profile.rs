@@ -373,7 +373,7 @@ pub fn refuse_write_back() -> ExportError {
 /// use dli_world::pack::Pack;
 /// use dli_world::loader::example_docs;
 ///
-/// let pack = Pack { name: "saltmarket".to_owned(), documents: example_docs() };
+/// let pack = Pack { name: "camelot".to_owned(), documents: example_docs() };
 /// let world = compile(&pack).expect("compiles");
 /// let outcome = export(ExportTarget::ContextPack, &world, &ExportOpts::default())
 ///     .expect("context pack exports");
@@ -514,7 +514,7 @@ pub fn certain_atoms_under<'w>(
 /// use dli_world::compile;
 /// use dli_world::pack::Pack;
 ///
-/// let pack = Pack { name: "saltmarket".to_owned(), documents: example_docs() };
+/// let pack = Pack { name: "camelot".to_owned(), documents: example_docs() };
 /// let world = compile(&pack).expect("compiles");
 /// let all = certain_atoms(&world);
 /// // Hiding a predicate that appears in canon drops at least one atom.

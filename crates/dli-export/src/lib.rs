@@ -93,7 +93,7 @@ pub struct ExportManifest {
 /// use dli_world::pack::Pack;
 /// use dli_world::loader::example_docs;
 ///
-/// let pack = Pack { name: "saltmarket".to_owned(), documents: example_docs() };
+/// let pack = Pack { name: "camelot".to_owned(), documents: example_docs() };
 /// let world = compile(&pack).expect("compiles");
 /// let outcome = export_wire(ExportProfile::ContextPack, &world, &ExportOpts::default())
 ///     .expect("context pack always exports");

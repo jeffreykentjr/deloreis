@@ -1,0 +1,146 @@
+# grammar: v0 (unfrozen; AST normative)
+#
+# camelot — the neutral teaching world that ships with dli.
+#
+# A recognizable, wholly public-domain setting (the Matter of Britain — King
+# Arthur, Camelot, the Round Table) that exercises the full teaching surface end
+# to end so a new author can learn dli without absorbing any one production
+# world's private canon. It mirrors every shape the later lanes check: a
+# totally-ordered era spine (>=3 eras) with a narration vantage, events with a
+# before-fact and a deliberately UNORDERED pair, a place adjacency graph
+# (>=6 edges), people, a thing, facts, states with since/until across two eras,
+# a magic practice (a spoken enchantment) with a graded-monotone resource, and
+# an open question and hypothesis. Provenance is this world's OWN decision list
+# (d-0001..) — a solo writer's ledger, per 01-syntax §3.
+scope camelot
+
+use language          # the practice below consumes the language layer
+use chronology        # ...and story-time, for the knowledge state a name earns
+
+# --- the world's ledger: the decisions its citations rest on ------------------
+# Declaring a decision is what lets `decided d-000n` carry authority rather than
+# mint it (B1): a citation to an undeclared decision fails closed.
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+ratify d-0008
+
+# --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
+era uthers-time < arthurs-reign < after-camlann   decided d-0001
+
+# events carry era membership; WITHIN an era only `before` orders them
+event the-sword-drawn         during uthers-time     decided d-0002
+event the-round-table-founded during arthurs-reign   decided d-0002
+event the-grail-quest         during arthurs-reign   decided d-0003
+event the-battle-of-camlann   during arthurs-reign   proposed
+
+# a declared intra-era order:
+before the-round-table-founded -> the-battle-of-camlann   decided d-0003
+# ...and a DELIBERATELY UNORDERED pair: the-grail-quest shares arthurs-reign with
+# the-round-table-founded but no before-fact orders them, so
+# happens-before(the-grail-quest, the-round-table-founded) answers `unordered` —
+# a first-class verdict, not a silent tie-break (03-time §1).
+
+narration vantage after-camlann
+# inert: the narrator looks back from after Camlann; declaring an event in the
+# vantage era is a type error (03-time §1.iii).
+
+# --- places and the adjacency graph (6 places, >=6 edges) ---------------------
+place camelot        "Camelot"          decided d-0004
+place the-lake       "The Lake"         decided d-0004
+place avalon         "Avalon"           decided d-0004
+place camlann        "Camlann"          decided d-0005
+place tintagel       "Tintagel"         decided d-0005
+place the-waste-land "The Waste Land"   decided d-0005
+
+adjacent(camelot, the-lake)          decided d-0004
+adjacent(camelot, camlann)           decided d-0004
+adjacent(camelot, tintagel)          decided d-0005
+adjacent(the-lake, avalon)           decided d-0005
+adjacent(camlann, the-waste-land)    decided d-0005
+adjacent(the-waste-land, avalon)     decided d-0005
+adjacent(tintagel, the-lake)         proposed
+
+# --- people, a thing, and facts -----------------------------------------------
+person arthur    "Arthur, the King"   decided d-0006
+person merlin    "Merlin"             decided d-0006
+person guinevere "Guinevere"          decided d-0006
+person lancelot  "Lancelot"           decided d-0007
+person mordred   "Mordred"            decided d-0007
+person morgan    "Morgan"             decided d-0007
+thing excalibur  "Excalibur"          decided d-0008
+
+fact arthur   rules    camelot        decided d-0006
+fact merlin   counsels arthur         decided d-0006
+fact lancelot serves   arthur         decided d-0007
+
+# --- states: facts acquire validity spans (the two-era sword case) ------------
+state excalibur.keeper = in-the-stone until the-sword-drawn   decided d-0008
+state excalibur.keeper = the-king     since the-sword-drawn   decided d-0008
+# in-the-stone UNTIL the sword is drawn and the-king's SINCE it: an interregnum
+# flashback checks clean AND the reign checks clean, because the two claims hold
+# over disjoint spans (03-time §2). No false contradiction between them.
+
+# --- the magic layer: a spoken enchantment (04-practices §4) ------------------
+# A dialect-derived true-name, the knowledge state that learning it initiates,
+# and the practice that spends it — three layers meeting in one pack, zero kernel
+# code, exactly as the practices workbench's acceptance test does.
+dialect old-speech "the old speech"  proposed {
+  vowels a e i o u y
+  endings -a -oc -wen
+  cluster-max 2
+  stress penultimate
+  name-kind person.given = given-proto given-deutero
+  name-part myr "sea"           role given-proto    proposed
+  name-part din "fastness"      role given-deutero  proposed
+  }
+
+name myrdin "Myrdin"  person.given in old-speech
+  = given-proto myr + given-deutero din
+  bearer the-enchanter   proposed
+  # checked at compile: the slot sequence matches a name-kind pattern, each
+  # name-part exists under its claimed role, and the composed form passes the
+  # phonotactics. A mispronunciation IS a failed dialect derivation (L4 below).
+
+event the-speaking-day   during arthurs-reign   proposed
+state knows.caster.myrdin = true  since the-speaking-day   proposed
+# learning a name is a knowledge state initiated when it is learned;
+# query knows(caster, true-name(bearer)) as-of a scene (03-time §4).
+
+practice merlins-craft  proposed {
+  use language.registers                # its primitives ARE the naming layer
+  resource breath(word) : graded monotone full > spent > silent
+  rule speak(bearer) requires
+      knows(caster, true-name(bearer)),
+      breath(true-name(bearer)) >= spent,
+      derivation(true-name(bearer)) checks in register-of(bearer)
+  effect speak degrades breath by 1     # a word spoken thins the breath behind it
+  condition unheard requires no witness within earshot
+  error mis-spoken     refines L4 bad-instantiation
+                       # a mispronunciation IS a failed dialect derivation
+  error stale-name     refines L2 where premise-outdated
+                       # the bearer has changed since the name was learned
+  error word-overheard refines L3 side-condition [unheard] signals degrade(+1)
+  cost vital | epistemic
+  }
+
+# --- the craft the practice serves, and the open fork it leaves ---------------
+rule show-the-price over season  proposed
+principle a-name-spends-breath   proposed
+
+fork what-does-the-word-cost
+  option a-year-of-life
+  option a-truth-told
+
+# --- an open fork: a question with options under a hypothesis ------------------
+hypothesis h-return "Excalibur was always the Lake's to reclaim, never the king's to keep"
+
+question who-holds-excalibur "Who holds Excalibur after Camlann?"
+  option arthur   implies keeps(arthur, excalibur)
+  option the-lake implies keeps(the-lake, excalibur)   assumes h-return
+# proposed-first: neither option is canon until a ruling; the question is a
+# tracked debt, not a blank (01-syntax §4).

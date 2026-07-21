@@ -161,7 +161,7 @@ fn fork_flow_threads_session_state() {
     let mut store = Store::default();
 
     let new = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.fork.new","params":{"document":"saltmarket"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.fork.new","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
@@ -169,7 +169,7 @@ fn fork_flow_threads_session_state() {
     assert_eq!(new.result.unwrap()["fork"], "fork-1");
 
     let suppose = send(
-        &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.saltmarket#0"]}}),
+        &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
         &mut sessions,
         &mut store,
     )
@@ -177,7 +177,7 @@ fn fork_flow_threads_session_state() {
     let delta = suppose.result.unwrap();
     assert_eq!(
         delta["newly_certain"],
-        serde_json::json!(["rings(tide-bell, saltmarket)"])
+        serde_json::json!(["kept-at(excalibur, camelot)"])
     );
 
     // The suppose persisted on the fork: a later diff sees the same consequence.
@@ -189,7 +189,7 @@ fn fork_flow_threads_session_state() {
     .unwrap();
     assert_eq!(
         diff.result.unwrap()["newly_certain"],
-        serde_json::json!(["rings(tide-bell, saltmarket)"])
+        serde_json::json!(["kept-at(excalibur, camelot)"])
     );
 }
 
@@ -239,7 +239,7 @@ fn not_yet_wired_ops_are_capability_gated() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
     let response = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.export.run","params":{"document":"saltmarket","profile":"ludii-gdl"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.export.run","params":{"document":"camelot","profile":"ludii-gdl"}}),
         &mut sessions,
         &mut store,
     )
@@ -259,7 +259,7 @@ fn check_proof_is_capability_gated_but_validates_params() {
     let mut store = Store::default();
 
     let gated = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.check-proof","params":{"document":"saltmarket"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.check-proof","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
@@ -357,10 +357,10 @@ fn query_modifiers_layer_and_fork() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
 
-    // rings is merely POSSIBLE in saltmarket (gated by the open hypothesis); the
+    // kept-at is merely POSSIBLE in camelot (gated by the open hypothesis); the
     // certain layer drops that shadow row → empty answer, FALSE support.
     let certain = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.query","params":{"document":"saltmarket","goal":"rings(tide-bell, saltmarket)","layer":"certain"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain"}}),
         &mut sessions,
         &mut store,
     )
@@ -370,22 +370,22 @@ fn query_modifiers_layer_and_fork() {
         serde_json::json!({"monomials": []})
     );
 
-    // Under a fork that supposes the gate, rings is certain — the --fork overlay
+    // Under a fork that supposes the gate, kept-at is certain — the --fork overlay
     // makes the certain-layer query return it.
     send(
-        &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.fork.new","params":{"document":"saltmarket"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.fork.new","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     send(
-        &serde_json::json!({"dli":"0.1.0","id":"3","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.saltmarket#0"]}}),
+        &serde_json::json!({"dli":"0.1.0","id":"3","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     let forked = send(
-        &serde_json::json!({"dli":"0.1.0","id":"4","op":"dli.query","params":{"document":"saltmarket","goal":"rings(tide-bell, saltmarket)","layer":"certain","fork":"fork-1"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"4","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain","fork":"fork-1"}}),
         &mut sessions,
         &mut store,
     )
@@ -402,17 +402,17 @@ fn author_reads_see_the_base_pack_not_just_staged() {
     // base + staged — an agent that has staged nothing still sees the BASE facts
     // of the pack it opened, which a staged-only (with_base/default) store would
     // hide.
-    let pack = dli_serve::session::builtin_pack("saltmarket").expect("built-in corpus");
-    let mut store = Store::with_pack(pack).expect("saltmarket compiles");
+    let pack = dli_serve::session::builtin_pack("camelot").expect("built-in corpus");
+    let mut store = Store::with_pack(pack).expect("camelot compiles");
     let mut sessions = Sessions::new();
 
     let open = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"author.open","params":{"scope":"saltmarket"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"author.open","params":{"scope":"camelot"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
-    assert!(open.ok, "author.open over the saltmarket pack");
+    assert!(open.ok, "author.open over the camelot pack");
     let workspace = open.result.unwrap()["workspace"]
         .as_str()
         .unwrap()
@@ -420,7 +420,7 @@ fn author_reads_see_the_base_pack_not_just_staged() {
 
     // Nothing staged; the ratified base fact must still be visible to the read.
     let query = send(
-        &serde_json::json!({"dli":"0.1.0","id":"2","op":"author.query","params":{"workspace":workspace,"goal":"adjacent(saltmarket, the-shallows)","layer":"certain"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"2","op":"author.query","params":{"workspace":workspace,"goal":"adjacent(camelot, the-lake)","layer":"certain"}}),
         &mut sessions,
         &mut store,
     )
@@ -429,7 +429,7 @@ fn author_reads_see_the_base_pack_not_just_staged() {
     let rows = query.result.unwrap()["rows"].as_array().unwrap().clone();
     assert!(
         rows.iter()
-            .any(|row| row["atom"] == "adjacent(saltmarket, the-shallows)"),
+            .any(|row| row["atom"] == "adjacent(camelot, the-lake)"),
         "the base pack's fact is visible to the read tool, not just staged decls: {rows:?}"
     );
 }

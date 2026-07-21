@@ -58,7 +58,7 @@ fn mcp_session_registers_tools_and_forwards_calls() {
 
     // tools/call a batch op — identical kernel path to the stdio worker
     let call = rpc(
-        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"dli.check","arguments":{"document":"saltmarket"}}}"#,
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"dli.check","arguments":{"document":"camelot"}}}"#,
         &mut sessions,
         &mut author,
     );
@@ -73,7 +73,7 @@ fn mcp_session_registers_tools_and_forwards_calls() {
 
     // tools/call an author.* tool — routes through the Door T seam
     let author_call = rpc(
-        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"author.open","arguments":{"scope":"saltmarket"}}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"author.open","arguments":{"scope":"camelot"}}}"#,
         &mut sessions,
         &mut author,
     );

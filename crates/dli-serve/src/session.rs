@@ -8,8 +8,8 @@
 //! the later fork ops resolve that handle back to the owning scope's
 //! [`ForkStore`].
 //!
-//! The corpus resolver is deliberately small at v0: the built-in `saltmarket`
-//! corpus (the crate's canonical test world, `dli_world::loader::example_docs`)
+//! The corpus resolver is deliberately small at v0: the built-in `camelot`
+//! corpus (the crate's neutral demo world, `dli_world::loader::example_docs`)
 //! resolves hermetically, and any other id is [`ErrorCode::UnknownDoc`]. Pointing
 //! the resolver at a corpus directory — parse each `<id>.dli` through
 //! `dli_syntax::parse_document` and compile it — is the single seam that opens the
@@ -57,7 +57,7 @@ impl Sessions {
     }
 
     /// Resolve a document id to its compiled scope, compiling and caching on first
-    /// use. Only the built-in `saltmarket` corpus is wired at v0; every other id is
+    /// use. Only the built-in `camelot` corpus is wired at v0; every other id is
     /// [`ErrorCode::UnknownDoc`] until the resolver is pointed at a corpus root.
     ///
     /// A compile failure maps through the frozen [`ErrorCode`] conversion — an
@@ -104,14 +104,14 @@ impl Sessions {
 }
 
 /// The built-in corpus pack for a doc-id, or `None` if the id is unknown. The v0
-/// resolver knows only `saltmarket` (the crate's canonical test world); pointing
-/// it at a corpus directory generalizes exactly this one function. It is the
-/// single source both the read surface ([`Sessions::scope`]) and the Door T store
+/// resolver knows only `camelot` (the crate's neutral demo world); pointing it at
+/// a corpus directory generalizes exactly this one function. It is the single
+/// source both the read surface ([`Sessions::scope`]) and the Door T store
 /// (`serve`'s `with_pack` construction) resolve a corpus through.
 #[must_use]
 pub fn builtin_pack(document: &str) -> Option<Pack> {
     match document {
-        "saltmarket" => Some(Pack {
+        "camelot" => Some(Pack {
             name: document.to_owned(),
             documents: example_docs(),
         }),

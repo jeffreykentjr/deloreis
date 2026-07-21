@@ -8,8 +8,8 @@
         "id": "1",
         "op": "dli.query",
         "params": {
-          "document": "saltmarket",
-          "goal": "adjacent(saltmarket, the-shallows)"
+          "document": "camelot",
+          "goal": "adjacent(camelot, the-lake)"
         }
       },
       "expect": {

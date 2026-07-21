@@ -90,7 +90,7 @@ fn golden_hand_built_world_loads_with_zero_findings() {
     assert_eq!(out.world.rule_count(), 0);
     // the compiled world carries the annotated source atoms
     assert_eq!(out.world.atoms().len(), 5);
-    assert!(!out.world.facts_about("tide-bell").is_empty());
+    assert!(!out.world.facts_about("excalibur").is_empty());
     // the event-variable table carries the cited decisions
     assert!(out.world.var_atom("D-0001").is_some());
 }

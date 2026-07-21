@@ -15,7 +15,7 @@
         "id": "1",
         "op": "dli.fork.new",
         "params": {
-          "document": "saltmarket"
+          "document": "camelot"
         }
       }
     },
@@ -28,7 +28,7 @@
           "conflicts": [],
           "grade_changed": [],
           "newly_certain": [
-            "rings(tide-bell, saltmarket)"
+            "kept-at(excalibur, camelot)"
           ],
           "newly_dead": [],
           "newly_possible": []
@@ -40,7 +40,7 @@
         "op": "dli.fork.suppose",
         "params": {
           "assume": [
-            "h.saltmarket#0"
+            "h.camelot#0"
           ],
           "fork": "fork-1"
         }
@@ -54,14 +54,14 @@
         "result": {
           "rq_draft": {
             "affects": [
-              "rings(tide-bell, saltmarket)"
+              "kept-at(excalibur, camelot)"
             ],
             "ask": "Ratify fork `fork-0`? 1 newly certain, 0 newly dead, 0 grade change(s), 0 conflict(s).",
             "diff": [
-              "rings(tide-bell, saltmarket): possible \u2192 certain"
+              "kept-at(excalibur, camelot): possible \u2192 certain"
             ],
             "evidence": [
-              "suppose h.saltmarket#0 = true"
+              "suppose h.camelot#0 = true"
             ],
             "slug": "fork-0"
           }

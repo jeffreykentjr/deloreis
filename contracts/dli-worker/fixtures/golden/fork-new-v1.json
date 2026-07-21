@@ -8,7 +8,7 @@
         "id": "1",
         "op": "dli.fork.new",
         "params": {
-          "document": "saltmarket"
+          "document": "camelot"
         }
       },
       "expect": {

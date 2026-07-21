@@ -91,7 +91,7 @@ pub fn build(spec: &ProfileSpec, layer: &str, atoms: &[&LoadedAtom]) -> ContextP
 /// use dli_export::profile::{certain_atoms, Registry, ExportTarget};
 /// use dli_world::{compile, pack::Pack, loader::example_docs};
 ///
-/// let world = compile(&Pack { name: "saltmarket".to_owned(), documents: example_docs() })
+/// let world = compile(&Pack { name: "camelot".to_owned(), documents: example_docs() })
 ///     .expect("compiles");
 /// let atoms = certain_atoms(&world);
 /// let registry = Registry::builtin();

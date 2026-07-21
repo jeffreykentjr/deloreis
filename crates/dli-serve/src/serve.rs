@@ -153,8 +153,8 @@ pub fn dispatch(
 /// resolves the pack through the same [`crate::session::builtin_pack`] the read
 /// surface uses, so the store base and the query scope never diverge.
 pub(crate) fn author_store() -> io::Result<author::store::Store> {
-    let pack = crate::session::builtin_pack("saltmarket")
-        .expect("the built-in saltmarket corpus is always present");
+    let pack = crate::session::builtin_pack("camelot")
+        .expect("the built-in camelot corpus is always present");
     author::store::Store::with_pack(pack).map_err(io::Error::other)
 }
 

@@ -22,9 +22,9 @@ use dli_export::profile::{
 };
 use dli_export::{ExportError, ExportManifest, ExportProfile, export_wire};
 
-fn saltmarket() -> dli_world::CompiledWorld {
+fn camelot() -> dli_world::CompiledWorld {
     compile(&Pack {
-        name: "saltmarket".to_owned(),
+        name: "camelot".to_owned(),
         documents: example_docs(),
     })
     .expect("compiles")
@@ -107,7 +107,7 @@ fn wire_manifest_has_exactly_the_frozen_fields() {
 
 #[test]
 fn context_pack_export_reads_the_certain_layer_and_pins_a_manifest() {
-    let world = saltmarket();
+    let world = camelot();
     let outcome = export_wire(
         ExportProfile::ContextPack,
         &world,
@@ -131,7 +131,7 @@ fn context_pack_export_reads_the_certain_layer_and_pins_a_manifest() {
 
 #[test]
 fn a_profile_hash_is_stable_and_profile_specific() {
-    let world = saltmarket();
+    let world = camelot();
     let registry = neutral_registry();
     // Two neutral, world-agnostic profiles — the engine's context-pack and a
     // neutral articy scaffold. The profile hash digests the ProfileSpec, so it is
@@ -173,7 +173,7 @@ fn a_profile_hash_is_stable_and_profile_specific() {
 
 #[test]
 fn an_unknown_named_profile_is_an_error() {
-    let world = saltmarket();
+    let world = camelot();
     let err = export(
         ExportTarget::ContextPack,
         &world,
@@ -225,7 +225,7 @@ fn kept_present_never_hides() {
 
 #[test]
 fn context_pack_budget_drops_from_the_tail() {
-    let world = saltmarket();
+    let world = camelot();
     let atoms = certain_atoms(&world);
     let registry = Registry::builtin();
     let spec = registry.default_for(ExportTarget::ContextPack).unwrap();
