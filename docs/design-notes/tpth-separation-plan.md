@@ -104,7 +104,7 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 | The material-planning taxonomy | `dli-world/src/craft/outline.rs::MaterialUnknown` (closed 12-category enum, D-0128/D-0056) | World-supplied category set (`material-categories.yaml`), or move the whole opt-in review to the TPtH craft config. |
 | Kishōtenketsu baked into the outline schema | `dli-world/src/craft/outline.rs::EpisodeOutline.{ki,sho,ten,ketsu}` + battle-scan of `ten` | Arc-shape-specific fields/checks become a world-selected arc module; the generic `ArcShape` enum stays. |
 | ✅ Sayability cap + `D-0095` in the naming vet | `dli-world/src/language/derivation.rs::SAYABILITY_CAP` (const 6) + `LangFinding::SayabilityCap` message printing `(D-0095)` | ✅ **Done (b5dd94b):** per-dialect `sayability-max <n>` clause added (loaded into `Phonotactics`); cap is now a generic default; `D-0095` dropped; TPtH's cap lives in `cymric-fringe.dli`. |
-| Banned-in-name message hardcodes the allegory rationale | `dli-world/src/language/derivation.rs::LangFinding::BannedInName` | ✅ message genericized (drops the TPtH allegory rationale, keeps the dli-spec ref); ⏳ still to surface `BanDef.reason` (already carried) as a follow-on. |
+| ✅ Banned-in-name message hardcodes the allegory rationale | `dli-world/src/language/derivation.rs::LangFinding::BannedInName` | ✅ **Done** (`2cd5878` + `bfcb758`): message genericized (drops the TPtH allegory rationale) and now surfaces the world's own `BanDef.reason`. |
 
 ### C. Data + contract (mostly clean; relocate / rename)
 
@@ -141,7 +141,7 @@ residues remain:
 |---|---|---|
 | ✅ **HARD:** ambient TPtH cycles in real logic | `dli-ledger/src/practice.rs:66` `KERNEL_CYCLES = ["tide","moon","season"]` — seeded every practice's cycle scope, so `tide` resolved in *any* world undeclared | ✅ **Done (b5dd94b):** `PracticeEnv` ambient cycles now **empty** (derive `Default`); cycles must be declared; `tide/moon/season` moved to `worlds/tpth/time/cycles.dli`. |
 | Contract-frozen diegetic name | `ledger_check.rs` `ProofFinding::WrongHour` / `proof.wrong-hour` — TPtH's "hour" in a frozen seam | Rename to neutral `WrongPhase` / `proof.wrong-phase` as a deliberate contract migration (schema regen). Low priority; rides with the `dli-worker` work. |
-| Un-externalized practice | the Concordance / spoken-proof practice exists only inline in `tests/proof.rs`, not as a `.dli` pack like the other two | Commit it as `worlds/tpth/practices/spoken-proof.dli` (couples to the `KERNEL_CYCLES` fix, since it uses `tide/slack`). |
+| ✅ Un-externalized practice | the Concordance / spoken-proof practice existed only inline in `tests/proof.rs` | ✅ **Done** (`b2c5caa`): committed as `worlds/tpth/practices/spoken-proof.dli` (with its own declared `tide` cycle); `proof.rs` loads it, all 20 assertions preserved. |
 
 Module doc "the Concordance-class engine" is doc-only (genericize on release).
 
