@@ -28,14 +28,13 @@ rule. All carry a severity and their origin — the domain is stated in the form
 not encoded in a separate keyword.
 
 ```dli
-scope craft
+scope camelot
 
-rule accomplishment-earned  over season  severity error
-  : beat $b kind accomplishment magnitude >= major
-    requires beat $f  thread($f) = thread($b)
+rule uthers-time-held-back  over order  severity error  decided d-0009
+  : listener-learns(during uthers-time _) requires act > 1
 
-rule full-team-floor  over order  ratified D-0162
-  : listener-has(configuration full-team) requires slot >= 10
+rule show-the-price  over season  severity warn  proposed
+  : listener-learns(cost magnitude >= major) requires season >= 2
 ```
 
 ## States — facts that hold over an interval
@@ -43,9 +42,9 @@ rule full-team-floor  over order  ratified D-0162
 A `state` is a fact true across a stretch of time, until something ends it.
 
 ```dli
-scope chronology
+scope camelot
 
-state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
+state excalibur.keeper = in-the-stone  until the-sword-drawn  decided d-0008
 ```
 
 ## Cycles — cyclic time that refuses rank
@@ -55,10 +54,10 @@ A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but
 season is a type error, not a silent tie-break.
 
 ```dli
-scope chronology
+scope camelot
 
-cycle tide(4) = ebb | slack | flood | high        ratified D-0146
-cycle moon(29)                                     ratified D-0148
+cycle season(4) = spring | summer | autumn | winter   decided d-0009
+cycle moon(29)                                         decided d-0009
 ```
 
 ## Forks — exploring an undecided world
@@ -68,11 +67,11 @@ store; nothing a fork does changes canon (koan 2). Its arms are `option`s, like
 a question's.
 
 ```dli
-scope saltmarket
+scope camelot
 
-fork what-does-a-name-cost
-  option a-memory
-  option a-year-of-service
+fork what-does-the-word-cost
+  option a-year-of-life
+  option a-truth-told
 ```
 
 ## Practices — magic systems as checked lore
@@ -82,16 +81,17 @@ errors, and costs, captured in one shallow braced block. Its interior is
 captured verbatim and checked by its lane; nothing is dropped (koan 4).
 
 ```dli
-scope magic
+scope camelot
 
-practice spoken-proof  ratified D-0146 D-0148 {
-  kind ground = water | field | ore | tide | hearth | boundary
-  role witness : entity    requires standing(witness), consent(witness)
-  resource debt   : linear conserved
-  rule ward-form(ground, fibre)  ratified D-0146 :- ...
-  condition seated requires phase(tide) in allowed-hours(rule)
-  error fizzle             refines L2 premise-not-available where absent
-  cost bodily | cognitive | material | temporal
+practice oath-binding  proposed {
+  kind bond = fealty | troth | ransom
+  role oathgiver : person   requires standing(oathgiver)
+  resource boon   : linear conserved
+  rule pledge(bond, oathgiver)
+  condition witnessed requires witness within earshot
+  error unowed         refines L2 premise-not-available where absent
+  error wrong-moon     refines L3 side-condition [timing] over cycle moon
+  cost social | bodily | material | epistemic
   }
 ```
 
@@ -101,13 +101,14 @@ A `proof` records a bounded piece of reasoning — a premise, the steps taken, a
 spend, and what it closes — inside a practice.
 
 ```dli
-scope magic
+scope camelot
 
-proof e01-s04  speaker protagonist  in spoken-proof {
-  premise p1  holds(enfys, consent(household, door))  cited D-0113  cue "line 112"
-  step   s1  instantiate ward-form  with ground = door, fibre = withy
-  spend  p3
-  close  holds(ward(door))  expect holds
+proof lancelots-oath  speaker lancelot  in oath-binding {
+  premise p1  standing(lancelot)  cited d-0007  cue "Lancelot comes to court"
+  premise p2  consent(arthur)     cited d-0006
+  step   s1  instantiate pledge  with bond = fealty, oathgiver = lancelot
+  spend  p1
+  close  pledged(lancelot, fealty)  expect holds
   }
 ```
 
@@ -119,27 +120,27 @@ vocabulary; a `hypothesis` conditions speculative claims, and `ratify` records
 the ruling that settles one.
 
 ```dli
-scope language
+scope camelot
 
-dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
-  vowels a e i o u w y
-  name-part en   "spirit"        role given-proto     ratified D-0134
+dialect old-speech  "the old speech"  proposed {
+  vowels a e i o u y
+  name-part myr   "sea"        role given-proto     proposed
   }
 
-name enfys "Enfys"  person.given in cymric-fringe
-  = given-proto en + given-deutero fys
-  bearer protagonist   ratified D-0134
+name myrdin "Myrdin"  person.given in old-speech
+  = given-proto myr + given-deutero din
+  bearer the-enchanter   proposed
 
-term hedgeway "the hedgeway"  ratified D-0143
-banned machine   D-0056  "the allegory is structural, never lexical"
+term the-drawing "the freeing of Excalibur from the stone"  decided d-0008
+banned cannon   d-0010  "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
 
-hypothesis h-cymric "the western fringe speaks a Brythonic-shaped tongue"
+hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
 
-dialect speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
+dialect over-the-water  proposed agent:factory/naming-run-0714  assumes h-old-loan {
   inventory placeholder
   }
 
-ratify D-0195 { h-cymric := true }
+ratify d-0011 { h-old-loan := true }
 ```
 
 ---

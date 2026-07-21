@@ -54,22 +54,22 @@ proposed, what question is open, what depends on what. Success is a faithful
 read with no coaching. Example stimulus:
 
 ```dli
-scope saltmarket
+scope camelot
 
-place saltmarket   "Saltmarket"     decided d-0001
-place breakwater   "The Breakwater" proposed
+place camelot   "Camelot"   decided d-0004
+place avalon    "Avalon"     proposed
 
-person mara "Mara of the Weirs"     decided d-0002
-  mara.home = the-shallows          proposed
+person arthur "Arthur, the King"    decided d-0006
+  arthur.blade = excalibur          proposed
 
-question q-0001 "Who raised the Tide-Bell?"
-  option guild      implies raised-by(tide-bell, guild)
-  option marsh-folk implies raised-by(tide-bell, marsh-folk)
+question who-holds-excalibur "Who holds Excalibur after Camlann?"
+  option arthur   implies keeps(arthur, excalibur)
+  option the-lake implies keeps(the-lake, excalibur)
 ```
 
-A comprehending reader should say, unprompted, that Saltmarket and Mara are
-settled, that the Breakwater and Mara's home are only proposed, and that who
-raised the Tide-Bell is an open question with two candidates.
+A comprehending reader should say, unprompted, that Camelot and Arthur are
+settled, that Avalon and Arthur's blade are only proposed, and that who holds
+Excalibur is an open question with two candidates.
 
 **B. Transcription.** The writer is given a fact of their world in prose and
 asked to write it as a claim. The measured thing is whether they reach a form
@@ -77,8 +77,8 @@ the parser accepts *and* whether they attach an origin without being told to.
 Example target the writer should be able to produce:
 
 ```dli
-person osian "Osian the Ferryman"   proposed
-  osian.trade = ferryman             proposed
+person kay "Kay the Seneschal"   proposed
+  kay.trade = seneschal          proposed
 ```
 
 The transcription task is the sharp one: the spec's central bet is

@@ -124,8 +124,8 @@ clause text to typed atoms.
 ## 5. Not surface yet
 
 **Episodes** (production order, scenes, knowledge deltas) ride as data
-payloads (`examples/saltmarket-episodes.yaml`) until their surface form lands
-with the `rule … over order` work (TIME-3).
+payloads (a world's episodes YAML, kept beside its `.dli`) until their surface
+form lands with the `rule … over order` work (TIME-3).
 
 ## 6. Where to look deeper
 

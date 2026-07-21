@@ -57,44 +57,44 @@ A complete small world fits in the gentle subset:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope saltmarket
+scope camelot
 
-era founding   "The Landing"      decided d-0001
-era now        "The Ninth Tide"   after founding
+era uthers-time   "Uther's Time"    decided d-0001
+era arthurs-reign "Arthur's Reign"  after uthers-time
 
-place saltmarket   "Saltmarket"     decided d-0001
-place the-shallows "The Shallows"   decided d-0003
-place breakwater   "The Breakwater" proposed
+place camelot   "Camelot"    decided d-0004
+place the-lake  "The Lake"    decided d-0004
+place avalon    "Avalon"      proposed
 
-adjacent(saltmarket, the-shallows)  decided d-0003
+adjacent(camelot, the-lake)  decided d-0004
 ```
 
 An entity carries its own details as indented slot facts, each with its origin:
 
 ```dli
-person mara "Mara of the Weirs"     decided d-0002
-  mara.trade = eel-fisher           decided d-0002
-  mara.home  = the-shallows         proposed
+person arthur "Arthur, the King"    decided d-0006
+  arthur.seat  = camelot            decided d-0006
+  arthur.blade = excalibur          proposed
 
-thing tide-bell "The Tide-Bell"     decided d-0004
-  tide-bell.kept-at = saltmarket    decided d-0004
+thing excalibur "Excalibur"         decided d-0008
+  excalibur.keeper = the-king       decided d-0008
 ```
 
 Time is a line of eras and orderings of events:
 
 ```dli
-event first-landing "The First Landing"   decided d-0001
-event ninth-tide    "The Ninth Tide"      proposed
-before first-landing -> ninth-tide        decided d-0001
+event the-round-table-founded "The Round Table Founded"  decided d-0002
+event the-battle-of-camlann   "The Battle of Camlann"    proposed
+before the-round-table-founded -> the-battle-of-camlann  decided d-0003
 ```
 
 An undecided choice is not a blank — it is a `question` carrying its `option`s,
 a debt the world keeps until you rule on it:
 
 ```dli
-question q-0001 "Who raised the Tide-Bell?"
-  option guild      implies raised-by(tide-bell, guild)
-  option marsh-folk implies raised-by(tide-bell, marsh-folk)
+question who-holds-excalibur "Who holds Excalibur after Camlann?"
+  option arthur   implies keeps(arthur, excalibur)
+  option the-lake implies keeps(the-lake, excalibur)
 ```
 
 ---
@@ -104,9 +104,9 @@ question q-0001 "Who raised the Tide-Bell?"
 Every claim ends in its origin, and this is the one discipline the gentle subset
 asks of you (spec §4; charter koan 1):
 
-- `decided d-0003` — a ruling you recorded (your decision list is just a file of
+- `decided d-0004` — a ruling you recorded (your decision list is just a file of
   what you chose, and when).
-- `proposed` — a claim with no ruling yet. `breakwater` and `mara.home` above
+- `proposed` — a claim with no ruling yet. `avalon` and `arthur.blade` above
   are proposed: fine as notes, out of canon until you decide.
 
 A claim with **no** origin is not wrong — it is read as a sketch, kept, and
@@ -115,8 +115,8 @@ lost (koan 4), and choosing truth stays a separate, later act (koan 5).
 
 When `deloreis check` answers, it answers in the same plain voice you wrote in:
 
-> *saltmarket: 10 claims certain, 3 proposed, 1 open question (q-0001).*
-> *`breakwater` has no decision behind it — fine as notes; it stays proposed and*
+> *camelot: 10 claims certain, 3 proposed, 1 open question (who-holds-excalibur).*
+> *`avalon` has no decision behind it — fine as notes; it stays proposed and*
 > *out of canon until you decide.*
 
 ---

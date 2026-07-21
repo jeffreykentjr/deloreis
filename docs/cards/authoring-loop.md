@@ -29,7 +29,7 @@ shown here; the envelope's constant fields are elided for brevity.
 digest.
 
 ```json
-→ { "op": "author.open", "params": { "scope": "saltmarket" } }
+→ { "op": "author.open", "params": { "scope": "camelot" } }
 ← { "ok": true, "result": {
       "workspace": "ws-1",
       "workspace_digest": "jcs:sha256:4b8f5ec2…1bf7703b" } }
@@ -43,16 +43,16 @@ Every later call names `"workspace": "ws-1"`. The digest is your fence: pass it 
 
 ```json
 → { "op": "author.add_entity", "params": {
-      "workspace": "ws-1", "kind": "person", "id": "mara",
-      "name": "Mara of the Weirs",
+      "workspace": "ws-1", "kind": "person", "id": "bedivere",
+      "name": "Bedivere",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ← { "ok": true, "result": {
-      "rendered": ["person mara \"Mara of the Weirs\" proposed session-7c9"],
+      "rendered": ["person bedivere \"Bedivere\" proposed session-7c9"],
       "workspace_digest": "jcs:sha256:2d3650bb…6413ea0f",
       "findings": [ {
         "code": "name.unvetted", "severity": "warn", "grade": "asserted",
-        "message": "The name \"mara\" has not passed the naming oracle; it enters proposed and unvetted.",
-        "repair": { "kind": "run-check", "op": "dli.name.check", "params": { "name": "mara" } } } ] } }
+        "message": "The name \"bedivere\" has not passed the naming oracle; it enters proposed and unvetted.",
+        "repair": { "kind": "run-check", "op": "dli.name.check", "params": { "name": "bedivere" } } } ] } }
 ```
 
 `name.unvetted` is `warn`, so it does **not** block materialize — it is an
@@ -60,7 +60,7 @@ advisory that the name never passed the oracle. To clear it, run the repair's
 `dli.name.check` (add your scope's `dialect` — the oracle requires it):
 
 ```json
-→ { "op": "dli.name.check", "params": { "name": "mara", "dialect": "low-saltish" } }
+→ { "op": "dli.name.check", "params": { "name": "bedivere", "dialect": "old-speech" } }
 ← { "ok": true, "result": { "ok": true, "findings": [] } }
 ```
 
@@ -68,10 +68,10 @@ advisory that the name never passed the oracle. To clear it, run the repair's
 
 ```json
 → { "op": "author.add_fact", "params": {
-      "workspace": "ws-1", "entity": "mara", "key": "trade", "value": "eel-fisher",
+      "workspace": "ws-1", "entity": "bedivere", "key": "trade", "value": "knight",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ← { "ok": true, "result": {
-      "rendered": ["mara.trade = eel-fisher proposed session-7c9"],
+      "rendered": ["bedivere.trade = knight proposed session-7c9"],
       "findings": [] } }
 ```
 
@@ -83,13 +83,13 @@ reference resolves.
 
 ```json
 → { "op": "author.add_relation", "params": {
-      "workspace": "ws-1", "relation": "serves", "from": "mara", "to": "the-warden",
+      "workspace": "ws-1", "relation": "serves", "from": "bedivere", "to": "the-steward",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ← { "ok": true, "result": {
-      "rendered": ["serves(mara, the-warden) proposed session-7c9"],
+      "rendered": ["serves(bedivere, the-steward) proposed session-7c9"],
       "findings": [ {
         "code": "entity.unknown", "severity": "error", "grade": "checked",
-        "message": "No entity \"the-warden\" is in scope. The claim is staged but cannot materialize until it exists.",
+        "message": "No entity \"the-steward\" is in scope. The claim is staged but cannot materialize until it exists.",
         "repair": { "kind": "resolve-entity", "candidates": [] } } ] } }
 ```
 
@@ -101,10 +101,10 @@ existing id, `candidates` lists the ids you most plausibly meant.)
 
 ```json
 → { "op": "author.add_entity", "params": {
-      "workspace": "ws-1", "kind": "person", "id": "the-warden", "name": "The Warden",
+      "workspace": "ws-1", "kind": "person", "id": "the-steward", "name": "The Steward",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
 ← { "ok": true, "result": {
-      "rendered": ["person the-warden \"The Warden\" proposed session-7c9"],
+      "rendered": ["person the-steward \"The Steward\" proposed session-7c9"],
       "findings": [ { "code": "name.unvetted", "severity": "warn", "…": "…" } ] } }
 ```
 
@@ -131,10 +131,10 @@ did. You can prove a consequence with `author.query` (an argument written `?who`
 enumerates; a proposed claim reads `status:"possible"`, never `certain`):
 
 ```json
-→ { "op": "author.query", "params": { "workspace": "ws-1", "goal": "serves(mara, ?who)", "why": true } }
+→ { "op": "author.query", "params": { "workspace": "ws-1", "goal": "serves(bedivere, ?who)", "why": true } }
 ← { "ok": true, "result": { "rows": [ {
-      "atom": "serves(mara, the-warden)",
-      "bindings": { "who": "the-warden" },
+      "atom": "serves(bedivere, the-steward)",
+      "bindings": { "who": "the-steward" },
       "status": "possible",
       "verdict": { "grade": "asserted", "support": {…} } } ] } }
 ```
@@ -143,13 +143,13 @@ and ask `author.why` why it is not yet certain — `why_not` names the blocking
 rulings; `known:false` would mean the world derives no such atom at all:
 
 ```json
-→ { "op": "author.why", "params": { "workspace": "ws-1", "atom": "serves(mara, the-warden)" } }
+→ { "op": "author.why", "params": { "workspace": "ws-1", "atom": "serves(bedivere, the-steward)" } }
 ← { "ok": true, "result": { "why_not": {
-      "atom": "serves(mara, the-warden)", "known": true, "status": "possible",
+      "atom": "serves(bedivere, the-steward)", "known": true, "status": "possible",
       "defeater": null, "rendered": ["awaits ruling: h.session-7c9"] } } }
 ```
 
-With `the-warden` added, `author.check` runs the full battery clean and
+With `the-steward` added, `author.check` runs the full battery clean and
 `author.findings` flips the gate open:
 
 ```json
@@ -172,11 +172,11 @@ closes through `author.*` alone — no raw `.dli`, no `dli.*` op.)
 ← { "ok": true, "result": {
       "findings": [],
       "rendered": [
-        "scope saltmarket", "",
-        "person mara \"Mara of the Weirs\" proposed session-7c9",
-        "mara.trade = eel-fisher proposed session-7c9",
-        "serves(mara, the-warden) proposed session-7c9",
-        "person the-warden \"The Warden\" proposed session-7c9" ] } }
+        "scope camelot", "",
+        "person bedivere \"Bedivere\" proposed session-7c9",
+        "bedivere.trade = knight proposed session-7c9",
+        "serves(bedivere, the-steward) proposed session-7c9",
+        "person the-steward \"The Steward\" proposed session-7c9" ] } }
 ```
 
 The `rendered` lines are the canonical `.dli` file, including the `scope` header
@@ -185,12 +185,12 @@ to your repo's staging path and open a pull request. This is the surface a human
 reviews:
 
 ```dli
-scope saltmarket
+scope camelot
 
-person mara "Mara of the Weirs" proposed session-7c9
-mara.trade = eel-fisher proposed session-7c9
-serves(mara, the-warden) proposed session-7c9
-person the-warden "The Warden" proposed session-7c9
+person bedivere "Bedivere" proposed session-7c9
+bedivere.trade = knight proposed session-7c9
+serves(bedivere, the-steward) proposed session-7c9
+person the-steward "The Steward" proposed session-7c9
 ```
 
 ---
@@ -202,7 +202,7 @@ multi-line declaration):
 
 ```json
 → { "op": "author.discard", "params": {
-      "workspace": "ws-1", "decl": "place breakwater \"The Breakwater\" proposed sess" } }
+      "workspace": "ws-1", "decl": "place lyonesse \"Lyonesse\" proposed sess" } }
 ← { "ok": true, "result": { "discarded": true, "workspace_digest": "jcs:sha256:5988a2fe…" } }
 ```
 
@@ -213,20 +213,20 @@ Omit `decl` to discard the whole workspace. A `decl` that matches nothing is an
 
 ```json
 → { "op": "author.open_question", "params": {
-      "workspace": "ws-1", "id": "who-raised-the-bell", "prompt": "Who raised the Tide-Bell?" } }
-← { "ok": true, "result": { "rendered": ["question who-raised-the-bell \"Who raised the Tide-Bell?\""] } }
+      "workspace": "ws-1", "id": "who-holds-excalibur", "prompt": "Who holds Excalibur after Camlann?" } }
+← { "ok": true, "result": { "rendered": ["question who-holds-excalibur \"Who holds Excalibur after Camlann?\""] } }
 
 → { "op": "author.add_option", "params": {
-      "workspace": "ws-1", "question": "who-raised-the-bell", "id": "guild", "label": "The Guild" } }
-← { "ok": true, "result": { "rendered": ["  option guild"] } }
+      "workspace": "ws-1", "question": "who-holds-excalibur", "id": "arthur", "label": "The King" } }
+← { "ok": true, "result": { "rendered": ["  option arthur"] } }
 ```
 
 The rendered surface a human reviews:
 
 ```dli
-scope saltmarket
+scope camelot
 
-question who-raised-the-bell "Who raised the Tide-Bell?"
-  option guild
-  option marsh-folk
+question who-holds-excalibur "Who holds Excalibur after Camlann?"
+  option arthur
+  option the-lake
 ```

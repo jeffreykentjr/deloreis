@@ -133,6 +133,13 @@ name myrdin "Myrdin"  person.given in old-speech
 # or diegetic term may carry it.
 banned cannon d-0010 "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
 
+# --- a coined in-world term (05 §4) -------------------------------------------
+# A `term` gives one of the world's own ideas a name, so a later claim can cite
+# the term rather than re-gloss it each time. The freeing of the sword is such an
+# idea: named once here (citing the sword's own decision), reusable everywhere
+# after — the lexical counterpart to the `banned` ruling above.
+term the-drawing "the freeing of Excalibur from the stone by the rightful king"  decided d-0008
+
 # --- the agent-init flow: a proposal bundle under one hypothesis (05 §5) -------
 # Candidate dialect data enters like world lore: proposed, under one hypothesis
 # variable, every clause carrying agent provenance by inheritance. Composed
@@ -199,6 +206,21 @@ practice oath-binding  proposed {
   cost social | bodily | material | epistemic
   }
 
+# --- a worked diegetic proof: one scene's reasoning, checked (04-practices §5) -
+# A `proof` records a bounded piece of reasoning inside a practice: premises with
+# their citations, the rule instantiated, the resource spent, and the atom it
+# closes on. Lancelot swears fealty to Arthur — two premises (his standing, the
+# king's consent) discharge the `pledge` rule, spend the boon, and close on the
+# vow. The interior is captured clause text, checked by the proof lane against
+# oath-binding, with zero kernel code.
+proof lancelots-oath  speaker lancelot  in oath-binding {
+  premise p1  standing(lancelot)  cited d-0007  cue "Lancelot comes to court"
+  premise p2  consent(arthur)     cited d-0006
+  step   s1  instantiate pledge  with bond = fealty, oathgiver = lancelot
+  spend  p1
+  close  pledged(lancelot, fealty)  expect holds
+  }
+
 # --- the craft the practice serves, and the open fork it leaves ---------------
 rule show-the-price over season  proposed
 principle a-name-spends-breath   proposed
@@ -215,3 +237,13 @@ question who-holds-excalibur "Who holds Excalibur after Camlann?"
   option the-lake implies keeps(the-lake, excalibur)   assumes h-return
 # proposed-first: neither option is canon until a ruling; the question is a
 # tracked debt, not a blank (01-syntax §4).
+
+# --- a settled hypothesis: the ratify BLOCK that turns a supposition certain ---
+# The counterpart to h-old-loan's live proposal: a hypothesis the author HAS ruled
+# on. A bare `ratify d-000n` (the ledger at the top) mints a decision; a ratify
+# BLOCK additionally settles a named hypothesis — the claim that `assumes` it
+# flips from merely-possible to certain in one recorded act (05 §5). This block
+# also declares d-0011, so its citations carry authority like any ledger entry.
+hypothesis h-merlin-foresaw "Merlin foresaw the fall at Camlann from the first"
+event the-warning  during arthurs-reign  proposed assumes h-merlin-foresaw
+ratify d-0011 { h-merlin-foresaw := true }
