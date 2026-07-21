@@ -193,6 +193,27 @@ regional defaults with proposed exceptions (the exception rides in `P⁻`), the
 shadow layer's must-not-contradict duty (discharged as surfaced risk, not as a
 block), and why-not provenance.
 
+Worked, in the surface. A ward holds where its ground is seated and not breached:
+
+```dli
+# grammar: v0 (unfrozen; AST normative)
+scope wards
+
+seated(ground-oak)     ratified d-0146    # certain
+breached(ground-oak)   proposed           # a shadow: possible, not certain
+
+rule ward-holds  ratified d-0146
+  ward-holds($g) :- seated($g), not breached($g)
+```
+
+`breached(ground-oak)` is merely proposed, so it does not block:
+`ward-holds(ground-oak)` is **derived and certain** (its support rests on the
+ratified `seated`). But `not breached` poisons — `breached`'s open monomial
+enters `ward-holds`'s `P⁻` — so the ward is **certain-at-risk**: assertable now,
+flagged as defeasible should `breached` ever be ruled true. Had `breached` been
+*certain* instead, the certain-layer test would have blocked the rule, and
+`ward-holds` would not be derived at all.
+
 **Slots are functional dependencies.** A slot (`entity.key`) admits one value;
 the continuity checker already treats them so. A certain value `v` together with
 a possible claim `v′ ≠ v` raises a **pending-conflict** for the author — nothing

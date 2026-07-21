@@ -12,6 +12,7 @@ pub mod clause;
 pub mod decl;
 pub mod doc;
 pub mod ident;
+pub mod literal;
 pub mod schema;
 pub mod span;
 pub mod term;
@@ -27,5 +28,6 @@ pub use decl::{
 };
 pub use doc::Doc;
 pub use ident::Ident;
+pub use literal::BodyLiteral;
 pub use span::{FileId, Span};
 pub use term::{AtomExpr, Term, TimeRef};

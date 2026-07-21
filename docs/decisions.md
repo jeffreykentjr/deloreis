@@ -446,3 +446,33 @@ holds documented == emitted). No wire/registry regeneration is required.
 **Revisit trigger.** None; the neutral term is stable. Any future world wanting an
 "hour"-flavored timing error declares it as its own diegetic error name, never as
 the kernel code.
+
+## DL-0020 — Rule-body negation: open bare world rules, with `not` and certain-layer semantics
+
+*Date: 2026-07-21*
+
+**Ruling.** Bare world `rule` declarations are an **open authoring door**: the
+loader lowers them into the typed world model (previously rule bodies were
+captured text and dropped). A negated body literal is written with the keyword
+**`not`** — `rule ward-holds($g) : seated($g), not breached($g)`. The evaluation
+semantics are those already specified in `02-semantics.md §4`: a negated literal
+`¬b` tests the **certain layer only** (a merely-`proposed` `b` never blocks the
+derivation) and **poisons** — the open-variable monomials of `b`'s positive
+support enter the conclusion's defeater polynomial `P⁻`, so the conclusion is
+*certain-at-risk*, never negation-as-failure. Two load-time disciplines guard the
+form: **range restriction** — every variable in the head or in a negated literal
+must also appear in a positive body atom (a negated literal binds nothing) — and
+**stratification**, which refuses a negative-dependency cycle
+(`p :- not q / q :- not p`) as a load finding rather than evaluate it.
+
+**Rationale.** The author ruled `not` (over `unless`/`absent`) as the negated-body
+keyword — datalog-standard, least surprising, and what the engine's own tests
+already assumed — and chose a full build (open the door + implement the evaluator
+semantics) over deferring. The semantics were pinned by the spec before any code;
+this ruling records the surface keyword and the decision to open bare world rules
+as an authoring door, which flips the prior "rule bodies are inert text" contract.
+
+**Revisit trigger.** A future need for disjunction or existential negation in rule
+bodies; a `requires`-style guarded body form (currently the parser leaves such
+bodies unlowered). Multi-authority or arithmetic negation stays out of v1
+(DEF-3/DEF-4).

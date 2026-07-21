@@ -23,6 +23,7 @@ use dli_ast::decl::{
     UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
+use dli_ast::literal::BodyLiteral;
 use dli_ast::span::{FileId, Span};
 use dli_ast::term::{AtomExpr, Term};
 
@@ -251,6 +252,104 @@ pub fn parse_clause_atom(clause: &Clause) -> Option<AtomExpr> {
     }
 
     None
+}
+
+/// Structure a captured [`Clause`] into a derivation rule's head atom and its
+/// body literals, when it is a `head :- body` (or `head : body`) datalog rule.
+///
+/// A sibling of [`parse_clause_atom`]: where that turns a clause into a single
+/// atom, this turns a clause into a **rule**. The head is one atom; the body is
+/// a comma-separated conjunction of literals after a `:-` (or `:`) separator, and
+/// a literal prefixed by `not` is negated (`docs/spec/01-syntax.md`). Atoms may
+/// be nullary (a bare predicate with no argument list). Surface variables are
+/// `$`-prefixed (`$g`), matching the term grammar.
+///
+/// Returns `None` for anything that is not a clean datalog rule — no separator,
+/// a checker-rule `requires`/operator body, unbalanced parens, or trailing junk
+/// — so a non-rule clause is left to the lane that owns it.
+///
+/// ```
+/// use dli_syntax::parse_rule_clause;
+/// use dli_ast::clause::Clause;
+/// use dli_ast::span::Span;
+///
+/// let clause = |t: &str| Clause { text: t.to_owned(), span: Span::synthetic() };
+///
+/// let (head, body) = parse_rule_clause(&clause("ward-holds($g) :- seated($g), not breached($g)")).unwrap();
+/// assert_eq!(head.pred.text, "ward-holds");
+/// assert_eq!(body.len(), 2);
+/// assert!(!body[0].negated); // seated($g)
+/// assert!(body[1].negated);  // not breached($g)
+///
+/// // A plain atom is not a rule (no separator).
+/// assert!(parse_rule_clause(&clause("adjacent(a, b)")).is_none());
+/// ```
+#[must_use]
+pub fn parse_rule_clause(clause: &Clause) -> Option<(AtomExpr, Vec<BodyLiteral>)> {
+    let tokens: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
+        .into_iter()
+        .filter(|t| t.kind != TokenKind::Newline)
+        .collect();
+    let mut cur = Cursor::new(&tokens);
+
+    let head = parse_rule_atom(&mut cur)?;
+    // The head and body are split by a `:-` or `:` separator (a bareword token).
+    match cur.peek_word_text() {
+        Some(":-" | ":") => cur.bump(),
+        _ => return None,
+    }
+
+    let mut body = Vec::new();
+    loop {
+        let negated = if cur.peek_word_text() == Some("not") {
+            cur.bump();
+            true
+        } else {
+            false
+        };
+        let atom = parse_rule_atom(&mut cur)?;
+        body.push(BodyLiteral { atom, negated });
+        if cur.peek_kind() == Some(TokenKind::Comma) {
+            cur.bump();
+        } else {
+            break;
+        }
+    }
+
+    // Nothing may be silently dropped (koan 4): a trailing operator body or
+    // `requires` clause means this is not a plain datalog rule.
+    cur.at_end().then_some((head, body))
+}
+
+/// Parse a rule atom `pred` or `pred(args…)`. Unlike [`parse_atom`], a nullary
+/// atom (a bare predicate with no argument list) is accepted, so a propositional
+/// rule (`p :- not q`) parses.
+fn parse_rule_atom(cur: &mut Cursor) -> Option<AtomExpr> {
+    let pred = cur.eat_ident()?;
+    if cur.peek_kind() != Some(TokenKind::LParen) {
+        return Some(AtomExpr {
+            pred,
+            args: Vec::new(),
+        });
+    }
+    cur.bump();
+    let mut args = Vec::new();
+    if cur.peek_kind() != Some(TokenKind::RParen) {
+        loop {
+            args.push(cur.eat_term()?);
+            if cur.peek_kind() == Some(TokenKind::Comma) {
+                cur.bump();
+            } else {
+                break;
+            }
+        }
+    }
+    if cur.peek_kind() == Some(TokenKind::RParen) {
+        cur.bump();
+        Some(AtomExpr { pred, args })
+    } else {
+        None // unbalanced parentheses → not a clean atom
+    }
 }
 
 /// Emit a `malformed` error if the record has unconsumed trailing tokens.

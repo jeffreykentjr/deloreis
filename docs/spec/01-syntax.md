@@ -168,6 +168,28 @@ without ever learning that a polynomial exists. The power is present from the
 first line; the vocabulary for it is introduced only when a writer reaches for
 it.
 
+A **world rule** is a bare `rule` whose body derives its head. The body is a
+comma-separated conjunction of atoms, and a body literal written **`not`** is a
+**negated** literal:
+
+```dli
+# grammar: v0 (unfrozen; AST normative)
+scope wards
+
+rule ward-holds  ratified d-0146
+  ward-holds($g) :- seated($g), not breached($g)
+```
+
+`not breached($g)` reads *"and `breached($g)` is not settled."* Its meaning is
+the certain-layer test and the defeater-poisoning of `02-semantics.md §4`: a
+merely-proposed `breached` never blocks the ward — it records the risk. Two
+load-time disciplines guard the form (`08-reasoning.md §1`): **range
+restriction** — every variable in the head or in a negated literal must also
+appear in a positive body atom, because a negated literal binds nothing — and
+**stratification**, which refuses a negative-dependency cycle (`p :- not q`,
+`q :- not p`) rather than evaluate it. `rule … over order` and `rule … over
+season` are checker rules for other engines, not world derivation rules.
+
 ---
 
 ## 4. Three stances at the surface

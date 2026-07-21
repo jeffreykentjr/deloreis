@@ -2,10 +2,12 @@
 //!
 //! Intensional predicates are partitioned into evaluation strata by
 //! strongly-connected component: mutually recursive predicates share a stratum,
-//! and a stratum depends only on earlier ones. With no negation in the current
-//! surface there are no negative dependencies, so every program stratifies;
-//! the SCC machinery is what will localise a future negative cycle to the exact
-//! atoms involved.
+//! and a stratum depends only on earlier ones. A **negative** dependency
+//! (`head :- …, not b, …`) is tracked alongside the positive edges; when a
+//! strongly-connected component contains a negative edge, the program has a
+//! negative-dependency cycle and is **unstratifiable** — the SCC machinery
+//! localises it to the exact atoms involved (`docs/spec/08-reasoning.md §1`).
+//! A purely positive program (recursion and all) always stratifies.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,12 +37,19 @@ pub fn stratify_rules(rules: &[Rule]) -> Result<Strata, EvalError> {
         .collect();
     let n = preds.len();
 
+    // Both positive and negative dependencies constrain the evaluation order, so
+    // both feed the SCC/adjacency graph. Negative edges are additionally recorded
+    // so a cycle *through* one can be reported as unstratifiable.
     let mut adjacency: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); n];
+    let mut negative_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
     for rule in rules {
         let head = index[rule.head.pred.text.as_str()];
-        for body_atom in &rule.body {
-            if let Some(&dep) = index.get(body_atom.pred.text.as_str()) {
+        for literal in &rule.body {
+            if let Some(&dep) = index.get(literal.atom.pred.text.as_str()) {
                 adjacency[head].insert(dep);
+                if literal.negated {
+                    negative_edges.insert((head, dep));
+                }
             }
         }
     }
@@ -50,6 +59,21 @@ pub fn stratify_rules(rules: &[Rule]) -> Result<Strata, EvalError> {
     for (id, component) in components.iter().enumerate() {
         for &node in component {
             component_of[node] = id;
+        }
+    }
+
+    // A negative edge whose endpoints share a strongly-connected component sits
+    // inside a recursive clique — the head depends, transitively and negatively,
+    // on itself. That is exactly the stratified-datalog well-formedness failure.
+    // Iterating the sorted set makes the reported blame deterministic.
+    for &(head, dep) in &negative_edges {
+        if component_of[head] == component_of[dep] {
+            return Err(EvalError::Unstratifiable {
+                reason: format!(
+                    "predicate '{}' depends on 'not {}' inside a recursive cycle",
+                    preds[head], preds[dep]
+                ),
+            });
         }
     }
 

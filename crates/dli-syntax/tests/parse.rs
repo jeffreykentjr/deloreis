@@ -7,7 +7,7 @@ use dli_ast::decl::{Decl, RuleDomain, TimeClause};
 use dli_ast::span::Span;
 use dli_ast::term::Term;
 use dli_syntax::diag::{DiagClass, Diagnostic};
-use dli_syntax::{format_document, parse_clause_atom, parse_document, render};
+use dli_syntax::{format_document, parse_clause_atom, parse_document, parse_rule_clause, render};
 
 /// The error-severity diagnostics only — advisory warnings (origin-missing) are
 /// legal surface (koan 5) and never a parse failure.
@@ -196,6 +196,42 @@ fn clause_atom_rejects_non_atoms() {
     assert!(parse_clause_atom(&clause("adjacent(A, B) :- adjacent(B, A)")).is_none());
     assert!(parse_clause_atom(&clause(": beat $b requires slot >= 10")).is_none());
     assert!(parse_clause_atom(&clause("resource debt : linear conserved")).is_none());
+}
+
+// --- parse_rule_clause: captured clauses become typed derivation rules -------
+
+#[test]
+fn rule_clause_reads_head_and_negated_body() {
+    let (head, body) =
+        parse_rule_clause(&clause("ward-holds($g) :- seated($g), not breached($g)")).unwrap();
+    assert_eq!(head.pred.text, "ward-holds");
+    assert!(matches!(&head.args[0], Term::Var(v) if v.text == "g"));
+    assert_eq!(body.len(), 2);
+    assert!(!body[0].negated);
+    assert_eq!(body[0].atom.pred.text, "seated");
+    assert!(body[1].negated);
+    assert_eq!(body[1].atom.pred.text, "breached");
+}
+
+#[test]
+fn rule_clause_accepts_the_colon_separator_and_nullary_atoms() {
+    // The inline `head : body` separator and propositional (nullary) atoms.
+    let (head, body) = parse_rule_clause(&clause("p : not q")).unwrap();
+    assert_eq!(head.pred.text, "p");
+    assert!(head.args.is_empty());
+    assert_eq!(body.len(), 1);
+    assert!(body[0].negated);
+    assert_eq!(body[0].atom.pred.text, "q");
+    assert!(body[0].atom.args.is_empty());
+}
+
+#[test]
+fn rule_clause_rejects_non_rules() {
+    // No separator, a checker `requires` body, and unbalanced parens are not
+    // plain datalog rules.
+    assert!(parse_rule_clause(&clause("adjacent(a, b)")).is_none());
+    assert!(parse_rule_clause(&clause(": beat $b requires slot >= 10")).is_none());
+    assert!(parse_rule_clause(&clause("held($e) :- listener-has($e requires x")).is_none());
 }
 
 // --- era chains keep provenance out of the chain (V1) ----------------------

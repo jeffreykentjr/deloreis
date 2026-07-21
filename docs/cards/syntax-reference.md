@@ -68,6 +68,7 @@ and renames are cheap now, expensive after.
 | Keyword | Line form(s) |
 |---|---|
 | `rule` | `rule <id> [over order\|season] [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body (body clauses are captured text; atoms extracted via the one clause→atom bridge). Bare = world rule; `over order` constrains a timeline; `over season` is a season-ledger rule |
+| `rule` (world, datalog) | a bare `rule` derives its head from a `<head> :- <lit>, <lit>, …` body; a body literal `not <atom>` is **negated** (tests the certain layer, poisons the conclusion's defeaters — spec/02 §4). Range-restricted (every head/`not` variable also in a positive atom) and stratified (no negative-dependency cycle) — spec/08 §1 |
 | `principle` | `principle <id> …` (craft KB; interior captured) |
 
 ### Time

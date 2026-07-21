@@ -31,19 +31,27 @@
 //! - **Builds the entity and sort registry** and records what each pack
 //!   contributed.
 //!
-//! # What the loader defers
+//! # Rules: the two load-time checks of spec 08 §1
 //!
-//! Two load-time checks named by spec 08 §1 — **range restriction** and
-//! **negative-dependency stratification** — are properties of *structured*
-//! rules. The AST deliberately captures a rule's body as normalized text
-//! ([`Clause`](dli_ast::clause::Clause)); the evaluator owns the typed rule
-//! intake ([`World::define_rule`](dli_eval::world::World::define_rule), which
-//! range-restriction checks the structured head/body). The loader consumes the
-//! `dli_eval::stratify` seam at load and surfaces a negative-dependency cycle as
-//! an [`Unstratifiable`](crate::model::LoadFinding::Unstratifiable) finding —
-//! `Ok` today over the loader's rule-less world, and it lights up the moment
-//! structured rules reach the world. Range-restriction of authored text rules
-//! stays with the evaluator's typed intake. Nothing is silently dropped (charter
+//! A **bare** world `rule` is a derivation rule. The loader parses its captured
+//! `head :- body` clause into typed literals
+//! ([`parse_rule_clause`](dli_syntax::parse_rule_clause)) — a body literal
+//! prefixed by `not` is negated — and routes it through the evaluator's
+//! negation-aware intake
+//! ([`World::define_rule`](dli_eval::world::World::define_rule)), populating
+//! `world.rules`. The two load-time checks of spec 08 §1 fire from there:
+//!
+//! - **Range restriction** — every variable in the head or in a negated literal
+//!   must appear in a positive body atom — is checked as each rule is defined; a
+//!   violation is an [`UnboundHeadVariable`](crate::model::LoadFinding::UnboundHeadVariable)
+//!   finding and the rule is dropped.
+//! - **Negative-dependency stratification** is checked once over the whole rule
+//!   set via the `dli_eval::stratify` seam in `finish`; a
+//!   negative cycle (`p :- not q`, `q :- not p`) is an
+//!   [`Unstratifiable`](crate::model::LoadFinding::Unstratifiable) finding.
+//!
+//! `rule … over order` and `rule … over season` are checker rules for other
+//! engines and are not lowered here. Nothing is silently dropped (charter
 //! koan 4).
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -390,10 +398,60 @@ impl LoadCtx {
 
     fn process_rule(&mut self, rule: &RuleDecl, pack: &str) {
         // A rule's provenance is checkable now; its typed head/body intake and
-        // range restriction go through the evaluator once the syntax lane
-        // structures the captured clause body (see the module docs).
+        // range restriction go through the evaluator's negation-aware seam.
         let label = format!("rule '{}'", rule.name.text);
         let _ = self.compile_ann(rule.provenance.as_ref(), &label, pack, true, rule.name.span);
+
+        // Only a **bare** `rule` is a world (derivation) rule. `rule … over order`
+        // and `rule … over season` route to the episode-ordering and season-ledger
+        // engines respectively; they are not lowered into `world.rules`.
+        if rule.domain.is_some() {
+            return;
+        }
+
+        // The datalog `head :- body` may live either in a captured body clause
+        // (the block form `rule <name>` + indented `head :- body`) or inline on
+        // the rule line (`rule head(args) : body`). Try the body clauses first,
+        // then the inline reconstruction; a rule that is not datalog-shaped (a
+        // checker `requires` body, free text) simply lowers no world rule.
+        let mut lowered = false;
+        for clause in &rule.body {
+            if let Some((head, body)) = dli_syntax::parse_rule_clause(clause) {
+                self.lower_world_rule(&rule.name, head, body, clause.span);
+                lowered = true;
+            }
+        }
+        if !lowered
+            && let Some(clause) = inline_rule_clause(rule)
+            && let Some((head, body)) = dli_syntax::parse_rule_clause(&clause)
+        {
+            self.lower_world_rule(&rule.name, head, body, rule.name.span);
+        }
+    }
+
+    /// Route one structured world rule through the evaluator's negation-aware,
+    /// range-restriction-checked intake, surfacing a range-restriction violation
+    /// as a [`LoadFinding::UnboundHeadVariable`] and a stratification failure — a
+    /// negative-dependency cycle across the whole rule set — from the
+    /// `dli_eval::stratify` seam in [`finish`](LoadCtx::finish).
+    fn lower_world_rule(
+        &mut self,
+        name: &Ident,
+        head: AtomExpr,
+        body: Vec<dli_ast::literal::BodyLiteral>,
+        span: Span,
+    ) {
+        if let Some(variable) = dli_eval::world::unbound_variable(&head, &body) {
+            self.findings.push(LoadFinding::UnboundHeadVariable {
+                rule: name.text.clone(),
+                variable,
+                span,
+            });
+            return;
+        }
+        // define_rule only errs on range restriction (handled above); ignore the
+        // redundant error rather than double-report.
+        let _ = self.wm.world.define_rule(name.text.clone(), head, body);
     }
 
     fn process_cycle(&mut self, cycle: &CycleDecl, pack: &str) {
@@ -658,6 +716,24 @@ fn dedup_findings(findings: &mut Vec<LoadFinding>) {
         }
     }
     *findings = unique;
+}
+
+/// Reconstruct the inline datalog clause of a world rule from its name and the
+/// captured header tokens (`rule head(args) : body` — everything after the name
+/// lands in [`RuleDecl::head`]). Returns `None` unless the header actually
+/// carries a `:`/`:-` separator, so a header-only rule (`rule show-the-price`)
+/// is never mistaken for a datalog clause. The reconstructed text is re-lexed by
+/// [`parse_rule_clause`](dli_syntax::parse_rule_clause), so token spacing is
+/// irrelevant.
+fn inline_rule_clause(rule: &RuleDecl) -> Option<dli_ast::clause::Clause> {
+    if !rule.head.iter().any(|token| token == ":" || token == ":-") {
+        return None;
+    }
+    let text = format!("{} {}", rule.name.text, rule.head.join(" "));
+    Some(dli_ast::clause::Clause {
+        text,
+        span: rule.name.span,
+    })
 }
 
 /// Render a term to its ground string form (a variable renders as its name).

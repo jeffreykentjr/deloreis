@@ -14,11 +14,12 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{Decl, Document, EntityKind, OptionClause, TimeClause};
 use dli_ast::ident::Ident;
+use dli_ast::literal::BodyLiteral;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status, Theory};
 use dli_core::atom::{Atom, Interner};
 use dli_core::grade::Grade;
-use dli_core::posbool::PosBool;
+use dli_core::posbool::{Monomial, PosBool};
 use dli_core::valuation::Valuation;
 use dli_core::verdict::Verdict;
 use dli_time::chronology::{Chronology, TimePoint};
@@ -73,16 +74,22 @@ pub struct Fact {
     pub grade: Grade,
 }
 
-/// A lowered derivation rule: an (unground) head and body carrying the rule's
-/// own annotation, which multiplies into every derivation passing through it.
+/// A lowered derivation rule: an (unground) head and a conjunctive body of
+/// polarity-aware literals, carrying the rule's own annotation, which multiplies
+/// into every derivation passing through it.
+///
+/// A **negated** body literal (`not <atom>`) tests only against the certain
+/// layer and poisons the conclusion's defeater polynomial (`docs/spec/02-semantics.md
+/// §4`); it binds no variables, so every variable it names must also appear in a
+/// positive body atom (range restriction, `08-reasoning.md §1`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Rule {
     /// The rule name.
     pub name: String,
     /// The head atom pattern the rule derives.
     pub head: AtomExpr,
-    /// The conjunctive body atom patterns.
-    pub body: Vec<AtomExpr>,
+    /// The conjunctive body literals (positive atoms and negated `not` literals).
+    pub body: Vec<BodyLiteral>,
     /// The rule's own annotation.
     pub ann: Ann,
     /// The rule's grade.
@@ -160,12 +167,13 @@ impl World {
     /// facts, exclusivity families for questions and forks, and cycles. Event
     /// variables are interned as they are encountered.
     ///
-    /// Derivation rules (`rule …`) are captured as expert-tier text clauses by
-    /// the current surface, not as a typed head/body, so they are not lowered
-    /// here; the engine's typed rule intake is [`World::define_rule`], and
-    /// lowering structured rule bodies waits on the syntax lane exposing them.
-    /// Other non-deductive declarations (sorts, registers, drafts, …) are
-    /// consumed by other subsystems and carry no fact.
+    /// Derivation rules (`rule …`) carry a text body this crate cannot re-parse
+    /// (the structured rule-body parser lives in the syntax lane, which this
+    /// crate does not depend on), so they are not lowered here; the engine's
+    /// typed rule intake is [`World::define_rule`], and the compiled loader
+    /// (`dli_world`) parses bare world rules and routes them through it. Other
+    /// non-deductive declarations (sorts, registers, drafts, …) are consumed by
+    /// other subsystems and carry no fact.
     pub fn lower(document: &Document) -> Result<World, EvalError> {
         let mut world = World::new();
         let mut proposal_seq: u32 = 0;
@@ -275,13 +283,22 @@ impl World {
 
     /// Define a typed, unconditional derivation rule — the engine's recursive
     /// datalog intake. The rule is range-restriction checked before it is added.
+    ///
+    /// The body accepts anything convertible into a [`BodyLiteral`]; a bare
+    /// [`AtomExpr`] converts to a **positive** literal, so a positive-only caller
+    /// passes `Vec<AtomExpr>` unchanged, while a negation-aware caller passes a
+    /// `Vec<BodyLiteral>` mixing [`BodyLiteral::pos`] and [`BodyLiteral::not`].
+    /// Range restriction counts only positive body atoms as binding: every
+    /// variable in the head *or in a negated literal* must appear in some
+    /// positive body atom (`docs/spec/08-reasoning.md §1`).
     pub fn define_rule(
         &mut self,
         name: impl Into<String>,
         head: AtomExpr,
-        body: Vec<AtomExpr>,
+        body: impl IntoIterator<Item = impl Into<BodyLiteral>>,
     ) -> Result<(), EvalError> {
         let name = name.into();
+        let body: Vec<BodyLiteral> = body.into_iter().map(Into::into).collect();
         check_range_restricted(&name, &head, &body)?;
         self.rules.push(Rule {
             name,
@@ -382,8 +399,9 @@ impl World {
     }
 
     /// Partition the rule set's intensional predicates into evaluation strata,
-    /// least-dependent first. Mutually recursive predicates share a stratum;
-    /// with no negation in scope every program is stratifiable.
+    /// least-dependent first. Mutually recursive predicates share a stratum; a
+    /// negative dependency inside such a recursive clique is unstratifiable and
+    /// returns [`EvalError::Unstratifiable`] naming the atoms.
     pub fn stratify(&self) -> Result<Strata, EvalError> {
         crate::strata::stratify_rules(&self.rules)
     }
@@ -410,6 +428,13 @@ impl World {
     }
 
     /// The fixpoint over a precomputed stratification (the free-function seam).
+    ///
+    /// The ambient valuation and theory are threaded into the stratum saturation
+    /// so a negated body literal can be evaluated against the **certain layer**
+    /// (`docs/spec/02-semantics.md §4`): a certain `b` blocks `not b`, a merely-
+    /// possible `b` poisons the conclusion's defeaters. A stratified negation is
+    /// stable within a stratum because the negated predicate is always fully
+    /// saturated in a strictly earlier one.
     pub fn saturate_with(&self, strata: &Strata) -> Result<World, EvalError> {
         let mut relation = self.seed_relation();
         for level in &strata.levels {
@@ -419,7 +444,7 @@ impl World {
                 .iter()
                 .filter(|rule| level_set.contains(rule.head.pred.text.as_str()))
                 .collect();
-            saturate_stratum(&mut relation, &level_rules)?;
+            saturate_stratum(&mut relation, &level_rules, &self.valuation, &self.theory)?;
         }
         let mut world = self.clone();
         world.derived = relation.into_values().collect();
@@ -538,16 +563,45 @@ impl World {
 /// Run the annotation-aware seminaive fixpoint for one stratum: seed a worklist
 /// with the current relation and re-fire a rule whenever a body atom's support
 /// strictly grows, until the finite support lattice reaches its fixpoint.
+///
+/// A rule with **no positive body literal** (a pure-negative body, e.g.
+/// `p :- not q`) has no atom to trigger it via a delta, so it is fired once at
+/// stratum start against the fully-saturated earlier strata. Everything else is
+/// delta-driven off its positive atoms.
 fn saturate_stratum(
     relation: &mut BTreeMap<GroundAtom, Derived>,
     rules: &[&Rule],
+    valuation: &Valuation,
+    theory: &Theory,
 ) -> Result<(), EvalError> {
     let mut worklist: VecDeque<GroundAtom> = relation.keys().cloned().collect();
+    // Seed pure-negative-body rules: they cannot be delta-triggered because they
+    // name no positive atom. Their negated predicates live in earlier strata
+    // (stratification guarantees it), so the relation already holds them.
+    for rule in rules {
+        if rule.body.iter().all(|lit| lit.negated) {
+            let negatives: Vec<&AtomExpr> = rule.body.iter().map(|lit| &lit.atom).collect();
+            let bindings = BTreeMap::new();
+            let Some(neg_defeaters) =
+                negative_guard(relation, &negatives, &bindings, valuation, theory)?
+            else {
+                continue; // a negated literal is certain → blocked
+            };
+            let Ok(head) = ground_head(&rule.head, &bindings) else {
+                continue; // range restriction guarantees a ground head here
+            };
+            let support = rule.ann.support.clone();
+            let defeaters = rule.ann.defeaters.or_(&neg_defeaters);
+            if let Some(head) = merge_into(relation, head, &support, rule.grade, &defeaters) {
+                worklist.push_back(head);
+            }
+        }
+    }
     while let Some(delta) = worklist.pop_front() {
         let Some(delta_row) = relation.get(&delta).cloned() else {
             continue;
         };
-        let productions = fire_rules(relation, rules, &delta, &delta_row)?;
+        let productions = fire_rules(relation, rules, &delta, &delta_row, valuation, theory)?;
         for (head, support, grade, defeaters) in productions {
             if let Some(head) = merge_into(relation, head, &support, grade, &defeaters) {
                 worklist.push_back(head);
@@ -557,8 +611,9 @@ fn saturate_stratum(
     Ok(())
 }
 
-/// Fire every rule against a changed atom `delta`, joining the other body atoms
-/// over the full relation, and collect the head atoms they produce.
+/// Fire every rule against a changed atom `delta`, joining the other *positive*
+/// body atoms over the full relation and then applying the negated literals as a
+/// certain-layer guard, and collect the head atoms they produce.
 type Production = (GroundAtom, PosBool, Grade, PosBool);
 
 fn fire_rules(
@@ -566,10 +621,25 @@ fn fire_rules(
     rules: &[&Rule],
     delta: &GroundAtom,
     delta_row: &Derived,
+    valuation: &Valuation,
+    theory: &Theory,
 ) -> Result<Vec<Production>, EvalError> {
     let mut out = Vec::new();
     for rule in rules {
-        for (i, body_atom) in rule.body.iter().enumerate() {
+        // Only positive literals trigger and join; negated literals filter.
+        let positives: Vec<&AtomExpr> = rule
+            .body
+            .iter()
+            .filter(|lit| !lit.negated)
+            .map(|lit| &lit.atom)
+            .collect();
+        let negatives: Vec<&AtomExpr> = rule
+            .body
+            .iter()
+            .filter(|lit| lit.negated)
+            .map(|lit| &lit.atom)
+            .collect();
+        for (i, body_atom) in positives.iter().enumerate() {
             if body_atom.pred.text != delta.pred || body_atom.args.len() != delta.args.len() {
                 continue;
             }
@@ -577,12 +647,11 @@ fn fire_rules(
             if !unify(body_atom, delta, &mut bindings) {
                 continue;
             }
-            let rest: Vec<&AtomExpr> = rule
-                .body
+            let rest: Vec<&AtomExpr> = positives
                 .iter()
                 .enumerate()
                 .filter(|(j, _)| *j != i)
-                .map(|(_, atom)| atom)
+                .map(|(_, atom)| *atom)
                 .collect();
             let solutions = join_body(
                 relation,
@@ -593,17 +662,77 @@ fn fire_rules(
                 delta_row.defeaters.clone(),
             );
             for (bindings, support, grade, defeaters) in solutions {
+                // Negation last: every positive atom has bound the negated
+                // literals' variables (range restriction), so each grounds.
+                let Some(neg_defeaters) =
+                    negative_guard(relation, &negatives, &bindings, valuation, theory)?
+                else {
+                    continue; // a negated literal is certain → the derivation is blocked
+                };
                 let head = ground_head(&rule.head, &bindings)?;
                 out.push((
                     head,
                     support.and_(&rule.ann.support),
                     Grade::weakest([grade, rule.grade]),
-                    defeaters.or_(&rule.ann.defeaters),
+                    defeaters.or_(&rule.ann.defeaters).or_(&neg_defeaters),
                 ));
             }
         }
     }
     Ok(out)
+}
+
+/// Apply a rule's negated body literals against the certain layer (`docs/spec/02-semantics.md
+/// §4`). Returns `None` when the derivation is **blocked** — some `¬b` whose `b`
+/// is *certain* under `(ν, Θ)`. Otherwise returns `Some(defeaters)`: the
+/// **poison**, the OR of every still-possible (open-variable) monomial of each
+/// `b`'s support `P⁺`, folded into the conclusion's `P⁻` so a future ruling that
+/// makes `b` certain surfaces as an at-risk defeat rather than negation-as-failure.
+///
+/// A `b` the relation never derives has support `FALSE`: not certain, nothing to
+/// poison — the standard "negation of an underived atom succeeds" cleanly.
+fn negative_guard(
+    relation: &BTreeMap<GroundAtom, Derived>,
+    negatives: &[&AtomExpr],
+    bindings: &BTreeMap<String, String>,
+    valuation: &Valuation,
+    theory: &Theory,
+) -> Result<Option<PosBool>, EvalError> {
+    let mut defeaters = PosBool::FALSE;
+    for neg in negatives {
+        let ground = ground_head(neg, bindings)?;
+        let Some(row) = relation.get(&ground) else {
+            continue;
+        };
+        // A certain b blocks: `not b` cannot fire when b holds on resolved events.
+        if row
+            .support
+            .monomials()
+            .any(|m| monomial_certain(m, valuation, theory))
+        {
+            return Ok(None);
+        }
+        // Otherwise poison: fold b's still-possible monomials into the defeaters.
+        for monomial in row.support.monomials() {
+            if monomial_possible(monomial, valuation, theory) {
+                defeaters = defeaters.or_(&PosBool::conjunction(monomial.lits()));
+            }
+        }
+    }
+    Ok(Some(defeaters))
+}
+
+/// Whether a monomial holds on resolved events alone and respects exclusivity —
+/// the per-monomial certainty test (mirrors `dli_core::ann`, which keeps it
+/// private).
+fn monomial_certain(monomial: &Monomial, valuation: &Valuation, theory: &Theory) -> bool {
+    monomial.is_certain_under(valuation) && theory.respects(monomial)
+}
+
+/// Whether a monomial can still hold in some admissible world: not contradictory,
+/// no literal resolved against it, and exclusivity-respecting.
+fn monomial_possible(monomial: &Monomial, valuation: &Valuation, theory: &Theory) -> bool {
+    !monomial.is_contradictory() && monomial.is_live_under(valuation) && theory.respects(monomial)
 }
 
 /// Recursively join the remaining body atoms over the relation, accumulating the
@@ -783,30 +912,82 @@ fn bind_render(term: &Term, bindings: &BTreeMap<String, String>) -> Option<Strin
     }
 }
 
-/// Reject a rule whose head carries a variable absent from every body atom —
-/// the range-restriction discipline, checked at load time.
-fn check_range_restricted(name: &str, head: &AtomExpr, body: &[AtomExpr]) -> Result<(), EvalError> {
+/// Reject a rule that violates range restriction — the datalog safety discipline
+/// (`docs/spec/08-reasoning.md §1`), checked at load time.
+fn check_range_restricted(
+    name: &str,
+    head: &AtomExpr,
+    body: &[BodyLiteral],
+) -> Result<(), EvalError> {
+    if let Some(variable) = unbound_variable(head, body) {
+        return Err(EvalError::Unstratifiable {
+            reason: format!(
+                "rule '{name}' is not range-restricted: variable '{variable}' is not bound by any positive body atom"
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// The first variable that violates range restriction, or `None` when the rule
+/// is safe. Only **positive** body atoms bind variables; every variable in the
+/// head *or in a negated literal* must appear in some positive body atom
+/// (`docs/spec/08-reasoning.md §1`). Negated literals bind nothing, so a variable
+/// that appears only under `not` is unsafe.
+///
+/// ```
+/// use dli_ast::ident::Ident;
+/// use dli_ast::literal::BodyLiteral;
+/// use dli_ast::term::{AtomExpr, Term};
+/// use dli_eval::world::unbound_variable;
+///
+/// let atom = |pred: &str, var: &str| AtomExpr {
+///     pred: Ident::synthetic(pred),
+///     args: vec![Term::Var(Ident::synthetic(var))],
+/// };
+/// // safe: x is bound by the positive `base(x)`.
+/// let safe = [BodyLiteral::pos(atom("base", "x")), BodyLiteral::not(atom("b", "x"))];
+/// assert_eq!(unbound_variable(&atom("risky", "x"), &safe), None);
+/// // unsafe: x appears only in the negated literal.
+/// let unsafe_body = [BodyLiteral::not(atom("b", "x"))];
+/// assert_eq!(
+///     unbound_variable(&atom("risky", "x"), &unsafe_body).as_deref(),
+///     Some("x")
+/// );
+/// ```
+#[must_use]
+pub fn unbound_variable(head: &AtomExpr, body: &[BodyLiteral]) -> Option<String> {
     let mut bound: BTreeSet<&str> = BTreeSet::new();
-    for atom in body {
-        for term in &atom.args {
-            if let Term::Var(id) = term {
-                bound.insert(id.text.as_str());
+    for lit in body {
+        if !lit.negated {
+            for term in &lit.atom.args {
+                if let Term::Var(id) = term {
+                    bound.insert(id.text.as_str());
+                }
             }
         }
     }
+    // Head variables must be positively bound.
     for term in &head.args {
         if let Term::Var(id) = term
             && !bound.contains(id.text.as_str())
         {
-            return Err(EvalError::Unstratifiable {
-                reason: format!(
-                    "rule '{name}' is not range-restricted: head variable '{}' is not bound in the body",
-                    id.text
-                ),
-            });
+            return Some(id.text.clone());
         }
     }
-    Ok(())
+    // A variable appearing only in a negated literal is unsafe (datalog safety).
+    for lit in body {
+        if lit.negated {
+            for term in &lit.atom.args {
+                if let Term::Var(id) = term
+                    && !bound.contains(id.text.as_str())
+                {
+                    return Some(id.text.clone());
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

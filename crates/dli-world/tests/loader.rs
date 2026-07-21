@@ -239,10 +239,10 @@ fn same_name_across_two_packs_is_a_collision() {
 
 #[test]
 fn a_well_formed_rule_loads_totally_and_clean() {
-    // Rules arrive with a captured (text) body; the loader stays total and
-    // checks the rule's provenance. Typed head/body intake, range restriction,
-    // and stratification go through the evaluator's rule seam, so the loader
-    // does not lower the text body and `rule_count` stays 0 here.
+    // A bare world rule now lowers: the loader parses its captured `head :- body`
+    // clause into a typed derivation rule and routes it through the evaluator's
+    // negation-aware intake, so `world.rules` populates. This positive,
+    // stratifiable rule loads clean.
     let rule = Decl::Rule(RuleDecl {
         name: ident("adjacency-symmetric"),
         domain: None,
@@ -256,6 +256,73 @@ fn a_well_formed_rule_loads_totally_and_clean() {
     let docs = vec![doc("saltmarket", vec![rule])];
     let out = Loader::load(&docs);
     assert!(out.findings.is_empty(), "unexpected: {:?}", out.findings);
+    assert_eq!(out.world.rule_count(), 1);
+}
+
+#[test]
+fn a_bare_world_rule_with_negation_lowers() {
+    // `ward-holds($g) :- seated($g), not breached($g)` — a range-restricted world
+    // rule with a negated body literal lowers cleanly and populates world.rules.
+    let rule = Decl::Rule(RuleDecl {
+        name: ident("ward-holds"),
+        domain: None,
+        head: Vec::new(),
+        body: vec![Clause {
+            text: "ward-holds($g) :- seated($g), not breached($g)".to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let out = Loader::load(&[doc("wards", vec![rule])]);
+    assert!(out.findings.is_empty(), "unexpected: {:?}", out.findings);
+    assert_eq!(out.world.rule_count(), 1);
+    let lowered = &out.world.world.rules[0];
+    assert_eq!(lowered.head.pred.text, "ward-holds");
+    assert_eq!(lowered.body.len(), 2);
+    assert!(!lowered.body[0].negated); // seated($g)
+    assert!(lowered.body[1].negated); // not breached($g)
+}
+
+#[test]
+fn a_negation_only_variable_is_a_range_restriction_finding() {
+    // `risky($x) :- not b($x)` — $x appears only in a negated literal, so nothing
+    // positive binds it. Range restriction rejects it as a load finding, and no
+    // rule is lowered (datalog safety, spec 08 §1).
+    let rule = Decl::Rule(RuleDecl {
+        name: ident("risky"),
+        domain: None,
+        head: Vec::new(),
+        body: vec![Clause {
+            text: "risky($x) :- not b($x)".to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let out = Loader::load(&[doc("wards", vec![rule])]);
+    assert!(
+        has_code(&out, "load.unbound-head-variable"),
+        "{:?}",
+        out.findings
+    );
+    assert_eq!(out.world.rule_count(), 0);
+}
+
+#[test]
+fn an_over_domain_rule_is_not_lowered_as_a_world_rule() {
+    // `rule … over order` / `… over season` are checker rules for other engines;
+    // they must never populate the derivation-rule set even with a datalog-looking
+    // body clause.
+    let rule = Decl::Rule(RuleDecl {
+        name: ident("full-team-floor"),
+        domain: Some(dli_ast::decl::RuleDomain::Order),
+        head: Vec::new(),
+        body: vec![Clause {
+            text: "held($e) :- listener-has($e)".to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let out = Loader::load(&[doc("order", vec![rule])]);
     assert_eq!(out.world.rule_count(), 0);
 }
 
@@ -274,17 +341,43 @@ fn a_rule_without_provenance_is_a_finding() {
 }
 
 #[test]
-#[ignore = "enabled when rule-body negation + typed rule lowering land"]
 fn negative_dependency_cycle_is_a_load_finding() {
-    // The loader already consumes the dli_eval::stratify seam in `load` and maps
-    // Err(Unstratifiable) -> LoadFinding::Unstratifiable. The finding cannot
-    // *fire* yet: the loader lowers no typed rules (rule bodies are captured
-    // text), and negation lives only in annotation conditions, so a program like
+    // Two bare world rules whose heads depend negatively on each other:
     //     p :- not q
     //     q :- not p
-    // is not constructible as input. Un-ignore once rule-body negation exists and
-    // RuleDecl -> typed world.rules lowering routes through World::define_rule.
-    todo!("wire a negative-cycle document once structured rules + rule-body negation land")
+    // Each lowers cleanly (propositional, range-restricted), but the rule set has
+    // no valid stratification — a negative cycle. The loader consumes the
+    // dli_eval::stratify seam in `finish` and maps Err(Unstratifiable) ->
+    // LoadFinding::Unstratifiable (spec 08 §1).
+    let p_rule = Decl::Rule(RuleDecl {
+        name: ident("p-rule"),
+        domain: None,
+        head: Vec::new(),
+        body: vec![Clause {
+            text: "p :- not q".to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let q_rule = Decl::Rule(RuleDecl {
+        name: ident("q-rule"),
+        domain: None,
+        head: Vec::new(),
+        body: vec![Clause {
+            text: "q :- not p".to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let out = Loader::load(&[doc("cycle", vec![p_rule, q_rule])]);
+    assert_eq!(out.world.rule_count(), 2, "both rules lower");
+    assert!(
+        out.findings
+            .iter()
+            .any(|f| matches!(f, LoadFinding::Unstratifiable { .. })),
+        "expected an Unstratifiable finding: {:?}",
+        out.findings
+    );
 }
 
 // --- the compiled world's timeline is live (defect F) ------------------------
