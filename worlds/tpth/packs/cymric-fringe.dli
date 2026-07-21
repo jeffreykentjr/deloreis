@@ -14,6 +14,7 @@ dialect cymric-fringe  "the fringe tongue"  provisional D-0181 {
   endings -ys -wen -eth -air
   foreign qu x z tion                          # clusters that mark a form as not-ours
   cluster-max 2
+  sayability-max 6                             # TPtH's own per-word syllable ceiling
   stress penultimate
   name-kind person.given = given-proto given-deutero | given-simple
   name-kind place        = place-qualifier place-generic

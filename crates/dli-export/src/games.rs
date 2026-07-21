@@ -147,7 +147,12 @@ pub struct DeckDiff {
 /// use dli_export::games::{compile_cards, diff_decks};
 /// use dli_export::profile::{ExportOpts, Registry, ExportTarget};
 ///
-/// let registry = Registry::builtin();
+/// // The card profile is world data (worlds/tpth/export/profiles.json), not kernel.
+/// let registry = Registry::from_path(concat!(
+///     env!("CARGO_MANIFEST_DIR"),
+///     "/../../worlds/tpth/export/profiles.json"
+/// ))
+/// .unwrap();
 /// let spec = registry.default_for(ExportTarget::Cards).unwrap();
 /// let honest = compile_cards(&Ruleset::lowlands_honest(), spec, "certain", &ExportOpts::default());
 /// let keep = compile_cards(&Ruleset::keep_stamped(), spec, "certain", &ExportOpts::default());

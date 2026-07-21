@@ -42,12 +42,13 @@ const BASE_VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
 /// are this close (or equal) sound too alike.
 const AURAL_THRESHOLD: usize = 1;
 
-/// The default sayability-tier syllable ceiling.
+/// The default sayability-tier syllable ceiling, applied when a dialect declares
+/// no `sayability-max` clause of its own.
 ///
-/// The consuming repo's sayability caps are ruled world policy (D-0095); until
-/// those tiers are ported as data this is a single generous ceiling that still
-/// catches an unpronounceable pile-up.
-const SAYABILITY_CAP: usize = 6;
+/// A world owns its sayability policy per dialect (the `sayability-max` clause);
+/// this is the neutral fallback — a single generous ceiling that still catches an
+/// unpronounceable pile-up when no world policy is in force.
+const DEFAULT_SAYABILITY_CAP: usize = 6;
 
 /// A naming verdict about the story's world (05 §3, in-kernel half).
 ///
@@ -158,7 +159,7 @@ pub enum LangFinding {
         /// Source location.
         span: Span,
     },
-    /// The name exceeds the ruled sayability-tier syllable cap (D-0095).
+    /// The name exceeds the dialect's sayability-tier syllable cap.
     SayabilityCap {
         /// The offending name.
         name: String,
@@ -278,9 +279,9 @@ impl LangFinding {
                 syllables,
                 cap,
                 ..
-            } => format!(
-                "'{name}' has {syllables} syllables, over the sayability-tier cap of {cap} (D-0095)"
-            ),
+            } => {
+                format!("'{name}' has {syllables} syllables, over the sayability-tier cap of {cap}")
+            }
             Self::BannedInName { name, word, .. } => {
                 format!("'{name}' carries the lexically-banned word '{word}' (05 §4)")
             }
@@ -586,11 +587,19 @@ fn banned_and_sayability(
     // person-name) is sayable when each of its words is, so the longest word
     // governs — never the concatenation.
     let syllables = max_word_syllables(name);
-    if syllables > SAYABILITY_CAP {
+    // The ceiling is per-dialect policy: read the named dialect's declared
+    // `sayability-max`, falling back to the generic default when the dialect sets
+    // none (or cannot be resolved).
+    let cap = model
+        .register(&name.register)
+        .map(|register| register.phonotactics.sayability_max)
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_SAYABILITY_CAP);
+    if syllables > cap {
         out.push(LangFinding::SayabilityCap {
             name: name.name.clone(),
             syllables,
-            cap: SAYABILITY_CAP,
+            cap,
             span: name.span,
         });
     }

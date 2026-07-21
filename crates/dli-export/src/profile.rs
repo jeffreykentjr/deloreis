@@ -114,9 +114,9 @@ pub enum ProvenanceMode {
 pub struct ProfileSpec {
     /// The target this profile compiles for.
     pub target: ExportTarget,
-    /// The profile name (e.g. `cards/lowlands`).
+    /// The profile name (e.g. `context-pack/default`, or a world's `cards/<region>`).
     pub name: String,
-    /// The profile version — the `@n` in `cards/lowlands@3`.
+    /// The profile version — the `@n` in a qualified name like `cards/<region>@3`.
     pub version: u32,
     /// The sorts and relations selected.
     pub selects: Selection,
@@ -144,79 +144,61 @@ pub struct Registry {
 }
 
 impl Registry {
-    /// The built-in profiles — one default per target, mirroring the spec's
-    /// worked profile data (spec 09 §2, §6).
+    /// The built-in profiles — the world-agnostic base catalog.
+    ///
+    /// This is the *engine's* catalog: a single neutral `context-pack/default`
+    /// profile that names no sorts, no relations, and no world. Concrete,
+    /// world-specific catalogs (the Turning card deck, the Ludii ruleset export,
+    /// the Articy scaffold) are **data**, not kernel code (spec 09 §2 clause 2):
+    /// they live under `worlds/<world>/export/profiles.json` and are loaded with
+    /// [`Registry::from_path`] and merged in with [`Registry::merge`]. A profile
+    /// is data, not a code fork — so no world's profile catalog is hardcoded here.
     #[must_use]
     pub fn builtin() -> Self {
         Self {
-            profiles: vec![
-                ProfileSpec {
-                    target: ExportTarget::ContextPack,
-                    name: "context-pack/default".to_owned(),
-                    version: 1,
-                    selects: Selection::default(),
-                    renders: BTreeMap::new(),
-                    carries_provenance: ProvenanceMode::DevMetadata,
-                },
-                ProfileSpec {
-                    target: ExportTarget::Cards,
-                    name: "cards/lowlands".to_owned(),
-                    version: 3,
-                    selects: Selection {
-                        sorts: vec![
-                            "ground".to_owned(),
-                            "hand".to_owned(),
-                            "weather".to_owned(),
-                            "reckoner".to_owned(),
-                        ],
-                        relations: vec!["rides-figure".to_owned(), "ring-next".to_owned()],
-                    },
-                    renders: BTreeMap::from([
-                        (
-                            "hand".to_owned(),
-                            RenderRule {
-                                id: "{role}-{ground}".to_owned(),
-                                keep: vec![
-                                    "role".to_owned(),
-                                    "ground".to_owned(),
-                                    "figure".to_owned(),
-                                ],
-                            },
-                        ),
-                        (
-                            "weather".to_owned(),
-                            RenderRule {
-                                id: "weather-{name}".to_owned(),
-                                keep: vec!["name".to_owned(), "ring_next".to_owned()],
-                            },
-                        ),
-                    ]),
-                    carries_provenance: ProvenanceMode::DevMetadata,
-                },
-                ProfileSpec {
-                    target: ExportTarget::LudiiGdl,
-                    name: "games/ludii".to_owned(),
-                    version: 1,
-                    selects: Selection {
-                        sorts: vec!["ground".to_owned(), "hand".to_owned(), "weather".to_owned()],
-                        relations: vec!["legal-move".to_owned(), "terminal".to_owned()],
-                    },
-                    renders: BTreeMap::new(),
-                    carries_provenance: ProvenanceMode::Stripped,
-                },
-                ProfileSpec {
-                    target: ExportTarget::Articy,
-                    name: "video/articy".to_owned(),
-                    version: 1,
-                    selects: Selection {
-                        sorts: vec!["person".to_owned(), "place".to_owned(), "thing".to_owned()],
-                        relations: vec!["knows".to_owned(), "promise".to_owned()],
-                    },
-                    renders: BTreeMap::new(),
-                    carries_provenance: ProvenanceMode::DevMetadata,
-                },
-            ],
+            profiles: vec![ProfileSpec {
+                target: ExportTarget::ContextPack,
+                name: "context-pack/default".to_owned(),
+                version: 1,
+                selects: Selection::default(),
+                renders: BTreeMap::new(),
+                carries_provenance: ProvenanceMode::DevMetadata,
+            }],
         }
+    }
+
+    /// Load a profile catalog (a serialised [`Registry`]) from a JSON file — the
+    /// mechanism that makes "a profile is data, not a code fork" literal: a world
+    /// ships its export profiles as data under `worlds/<world>/export/profiles.json`
+    /// and the engine reads them, never hardcodes them.
+    ///
+    /// The loaded catalog is typically merged onto [`Registry::builtin`] with
+    /// [`Registry::merge`] so the neutral base and the world's profiles both
+    /// resolve.
+    ///
+    /// # Errors
+    ///
+    /// [`RegistryLoadError::Read`] if the file cannot be read, and
+    /// [`RegistryLoadError::Parse`] if its contents are not a valid serialised
+    /// [`Registry`].
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Self, RegistryLoadError> {
+        let path = path.as_ref();
+        let bytes = std::fs::read(path).map_err(|source| RegistryLoadError::Read {
+            path: path.display().to_string(),
+            source,
+        })?;
+        serde_json::from_slice(&bytes).map_err(|source| RegistryLoadError::Parse {
+            path: path.display().to_string(),
+            source,
+        })
+    }
+
+    /// Merge another catalog's profiles onto this one, appended in order — the
+    /// base-plus-world composition (builtin base, then a world's loaded catalog).
+    #[must_use]
+    pub fn merge(mut self, other: Self) -> Self {
+        self.profiles.extend(other.profiles);
+        self
     }
 
     /// The profile registered under a `name` or `name@version` string.
@@ -338,6 +320,27 @@ pub enum ExportError {
     WriteBackRefused,
 }
 
+/// A failure loading a profile catalog from disk with [`Registry::from_path`].
+#[derive(Debug, Error)]
+pub enum RegistryLoadError {
+    /// The catalog file could not be read.
+    #[error("reading profile catalog '{path}': {source}")]
+    Read {
+        /// The path that failed to read.
+        path: String,
+        /// The underlying I/O error.
+        source: std::io::Error,
+    },
+    /// The catalog file was not a valid serialised [`Registry`].
+    #[error("parsing profile catalog '{path}': {source}")]
+    Parse {
+        /// The path that failed to parse.
+        path: String,
+        /// The underlying deserialisation error.
+        source: serde_json::Error,
+    },
+}
+
 /// The refusal a `--write-back` request gets: there is no import path, by
 /// principle (spec 09 §2, charter koan 10 — one fabric refuses two truths).
 ///
@@ -387,7 +390,28 @@ pub fn export(
     world: &CompiledWorld,
     opts: &ExportOpts,
 ) -> Result<ExportOutcome, ExportError> {
-    let registry = Registry::builtin();
+    export_with(&Registry::builtin(), target, world, opts)
+}
+
+/// [`export`] against an explicit [`Registry`] — the same pipeline, sourcing its
+/// profiles from a caller-supplied catalog instead of [`Registry::builtin`].
+///
+/// This is the seam that keeps profiles *data*: a world loads its catalog with
+/// [`Registry::from_path`] (optionally `.merge`d onto the builtin base) and exports
+/// through it. The mechanism — layer, certain atoms, keep-stamp filter, manifest —
+/// is unchanged; only where the [`ProfileSpec`] comes from differs.
+///
+/// # Errors
+///
+/// [`ExportError::UnknownProfile`] / [`ExportError::NoDefaultProfile`] when no
+/// profile resolves, and [`ExportError::ProfileTargetMismatch`] when a named
+/// profile is for a different target.
+pub fn export_with(
+    registry: &Registry,
+    target: ExportTarget,
+    world: &CompiledWorld,
+    opts: &ExportOpts,
+) -> Result<ExportOutcome, ExportError> {
     let spec = match &opts.profile_name {
         Some(name) => registry
             .resolve(name)

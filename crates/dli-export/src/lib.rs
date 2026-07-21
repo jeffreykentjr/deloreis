@@ -51,7 +51,8 @@ use dli_world::CompiledWorld;
 pub use context_pack::{ContextPack, PackedUnit};
 pub use profile::{
     ExportArtifact, ExportError, ExportOpts, ExportOutcome, ExportTarget, ProfileSpec,
-    ProvenanceMode, Registry, RenderRule, Selection, export, refuse_write_back,
+    ProvenanceMode, Registry, RegistryLoadError, RenderRule, Selection, export, export_with,
+    refuse_write_back,
 };
 
 /// The export target.

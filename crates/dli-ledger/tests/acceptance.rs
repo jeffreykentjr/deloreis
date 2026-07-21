@@ -238,10 +238,12 @@ practice bad-cycle proposed {
 fn negative_retired_over_wheel_is_refused_with_its_successor() {
     // DL-0016: a practice interior that seats a timing failure with the retired
     // `over wheel` is refused with `over cycle`, and the reference still resolves
-    // (the kernel cycle `tide` is in scope) so nothing is silently dropped.
+    // (the document-declared cycle `tide` is in scope) so nothing is silently
+    // dropped.
     let findings = findings_of(
         "\
 scope magic
+cycle tide(4) = ebb | slack | flood | high  proposed
 practice legacy proposed {
   error wrong-hour refines L3 side-condition [timing] over wheel tide
   cost temporal
@@ -259,7 +261,7 @@ practice legacy proposed {
             .collect::<Vec<_>>()
     );
     // The retired spelling is diagnosed, not misread as an unresolved cycle:
-    // `tide` is a kernel cycle and resolves.
+    // `tide` is a document-declared cycle and resolves.
     assert!(
         !findings
             .iter()

@@ -20,6 +20,7 @@
 //! endings <e> <e> …                          # characteristic name-endings (a `-` prefix is stripped)
 //! foreign <c> <c> …                          # clusters that mark a form as not-ours
 //! cluster-max <n>                            # the consonant-cluster ceiling
+//! sayability-max <n>                         # the per-word syllable ceiling
 //! stress <initial|penultimate|final>         # the stress rule
 //! name-kind <kind> = <role> <role> … [ | <role> … ]   # a slot grammar (alternatives split by `|`)
 //! name-part <surface> ["gloss"] [role <role>] [gender <g>] <provenance>
@@ -111,6 +112,9 @@ pub struct Phonotactics {
     pub foreign: Vec<String>,
     /// The maximum admissible consonant-cluster length. `0` means unset.
     pub cluster_max: usize,
+    /// The maximum admissible syllable count for a single word — the sayability
+    /// ceiling. `0` means unset, so the generic default applies.
+    pub sayability_max: usize,
     /// The stress rule.
     pub stress: Stress,
 }
@@ -471,6 +475,11 @@ impl Compiler {
             "cluster-max" => {
                 if let Some(n) = rest.iter().find_map(|t| t.text.parse::<usize>().ok()) {
                     reg.phonotactics.cluster_max = n;
+                }
+            }
+            "sayability-max" => {
+                if let Some(n) = rest.iter().find_map(|t| t.text.parse::<usize>().ok()) {
+                    reg.phonotactics.sayability_max = n;
                 }
             }
             "stress" => {

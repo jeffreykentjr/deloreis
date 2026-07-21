@@ -63,10 +63,6 @@ pub const PRIMITIVE_SORTS: &[&str] = &[
     "entity", "artifact", "place", "person", "thing", "event", "era",
 ];
 
-/// The kernel cycles every practice may seat a timing condition on, on the same
-/// footing as its own declared cycles (`docs/spec/03-time.md`; charter koan 8).
-pub const KERNEL_CYCLES: &[&str] = &["tide", "moon", "season"];
-
 /// The interior keywords that open a practice-block form (§ module docs). A
 /// clause opening with any other word continues the form above it.
 const ITEM_KEYWORDS: &[&str] = &[
@@ -283,8 +279,9 @@ pub struct PracticeDef {
     pub effects: Vec<EffectDef>,
     /// The currency vocabulary a casting may spend in.
     pub costs: Vec<Ident>,
-    /// The cycles in scope at compile time (kernel cycles plus those declared in
-    /// the document), against which cycle references are resolved.
+    /// The cycles in scope at compile time (those the document declares), against
+    /// which cycle references are resolved. The engine seats no ambient cycles —
+    /// a world's cyclic vocabulary is declared, never baked in (DL-0017).
     pub cycles_in_scope: BTreeSet<String>,
     /// Source span of the declaration.
     pub span: Span,
@@ -292,34 +289,26 @@ pub struct PracticeDef {
 
 /// The compile-time environment a practice resolves its references against.
 ///
-/// For PRAC-1 this is the set of cycles in scope — the kernel cycles plus every
-/// cycle the document declares. Build it with [`PracticeEnv::from_document`] so
-/// a practice that seats a timing failure on a document-declared cycle resolves.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// For PRAC-1 this is the set of cycles in scope — every cycle the document
+/// declares, and nothing ambient. Build it with [`PracticeEnv::from_document`]
+/// so a practice that seats a timing failure on a document-declared cycle
+/// resolves; the engine seats no world's cycles of its own (DL-0017).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PracticeEnv {
     /// The cycle names in scope.
     pub cycles: BTreeSet<String>,
 }
 
-impl Default for PracticeEnv {
-    /// The base environment: the kernel cycles, and nothing document-specific.
-    fn default() -> Self {
-        Self {
-            cycles: KERNEL_CYCLES.iter().map(|w| (*w).to_owned()).collect(),
-        }
-    }
-}
-
 impl PracticeEnv {
-    /// An environment with only the kernel cycles in scope — equal to
-    /// [`Default`], so the two never disagree.
+    /// An empty environment — no cycles in scope, equal to [`Default`] so the two
+    /// never disagree. A cycle resolves only where a document declares it.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// The environment for a document: the kernel cycles plus every cycle the
-    /// document declares.
+    /// The environment for a document: every cycle the document declares, and
+    /// nothing ambient.
     #[must_use]
     pub fn from_document(doc: &Document) -> Self {
         let mut env = Self::default();

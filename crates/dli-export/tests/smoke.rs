@@ -14,11 +14,14 @@ use dli_world::loader::example_docs;
 use dli_world::model::{LoadedAtom, Provenance};
 use dli_world::pack::Pack;
 
+use std::path::PathBuf;
+
 use dli_export::games::{
     DifferentialStatus, compile_cards, compile_ludii, diff_decks, follow_edge_count,
 };
 use dli_export::profile::{
-    ExportOpts, ExportTarget, Registry, apply_keep_stamps, certain_atoms, export, refuse_write_back,
+    ExportOpts, ExportTarget, Registry, apply_keep_stamps, certain_atoms, export, export_with,
+    refuse_write_back,
 };
 use dli_export::{ExportError, ExportManifest, ExportProfile, export_wire};
 
@@ -28,6 +31,18 @@ fn saltmarket() -> dli_world::CompiledWorld {
         documents: example_docs(),
     })
     .expect("compiles")
+}
+
+/// The engine's neutral base catalog merged with the `tpth` world's export
+/// profiles, loaded from data (`worlds/tpth/export/profiles.json`) — the same
+/// `cards/lowlands@3`, `games/ludii@1`, `video/articy@1` that used to be hardcoded
+/// in `Registry::builtin`, now sourced from the world, not the kernel.
+fn tpth_registry() -> Registry {
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/export/profiles.json");
+    Registry::builtin().merge(
+        Registry::from_path(&path).expect("worlds/tpth/export/profiles.json loads and parses"),
+    )
 }
 
 // -- the frozen wire contract ------------------------------------------------
@@ -109,21 +124,37 @@ fn context_pack_export_reads_the_certain_layer_and_pins_a_manifest() {
 #[test]
 fn a_profile_hash_is_stable_and_profile_specific() {
     let world = saltmarket();
-    let pack_hash = export(ExportTarget::ContextPack, &world, &ExportOpts::default())
-        .unwrap()
-        .manifest
-        .profile_hash;
-    let cards_hash = export(ExportTarget::Cards, &world, &ExportOpts::default())
-        .unwrap()
-        .manifest
-        .profile_hash;
+    let registry = tpth_registry();
+    let pack_hash = export_with(
+        &registry,
+        ExportTarget::ContextPack,
+        &world,
+        &ExportOpts::default(),
+    )
+    .unwrap()
+    .manifest
+    .profile_hash;
+    let cards_hash = export_with(
+        &registry,
+        ExportTarget::Cards,
+        &world,
+        &ExportOpts::default(),
+    )
+    .unwrap()
+    .manifest
+    .profile_hash;
     // Deterministic per profile, distinct across profiles.
     assert_eq!(
         pack_hash,
-        export(ExportTarget::ContextPack, &world, &ExportOpts::default())
-            .unwrap()
-            .manifest
-            .profile_hash
+        export_with(
+            &registry,
+            ExportTarget::ContextPack,
+            &world,
+            &ExportOpts::default()
+        )
+        .unwrap()
+        .manifest
+        .profile_hash
     );
     assert_ne!(pack_hash, cards_hash);
 }
@@ -183,7 +214,13 @@ fn kept_present_never_hides() {
 #[test]
 fn worked_card_export_honest_deck() {
     let world = saltmarket();
-    let outcome = export(ExportTarget::Cards, &world, &ExportOpts::default()).unwrap();
+    let outcome = export_with(
+        &tpth_registry(),
+        ExportTarget::Cards,
+        &world,
+        &ExportOpts::default(),
+    )
+    .unwrap();
     let deck = outcome.artifact.as_cards().expect("a card deck");
 
     assert_eq!(deck.deck, "turning-lowlands-honest");
@@ -208,13 +245,21 @@ fn worked_card_export_honest_deck() {
 #[test]
 fn worked_card_export_keep_stamped_diff_is_computed_not_asserted() {
     let world = saltmarket();
+    let registry = tpth_registry();
 
-    let honest = export(ExportTarget::Cards, &world, &ExportOpts::default()).unwrap();
+    let honest = export_with(
+        &registry,
+        ExportTarget::Cards,
+        &world,
+        &ExportOpts::default(),
+    )
+    .unwrap();
     let honest = honest.artifact.as_cards().unwrap();
 
     // The keep-stamped variant is lore (a variant selector); the ruleset cuts the
     // hard Weathers, and the debt-square drops out of `available_layouts` by compile.
-    let keep_stamped = export(
+    let keep_stamped = export_with(
+        &registry,
         ExportTarget::Cards,
         &world,
         &ExportOpts {
@@ -252,7 +297,8 @@ fn worked_card_export_keep_stamped_diff_is_computed_not_asserted() {
 #[test]
 fn worked_card_export_salt_fringe_regional_delta() {
     let world = saltmarket();
-    let outcome = export(
+    let outcome = export_with(
+        &tpth_registry(),
         ExportTarget::Cards,
         &world,
         &ExportOpts {
@@ -288,7 +334,13 @@ fn worked_card_export_salt_fringe_regional_delta() {
 #[test]
 fn ludii_export_is_a_structural_render_with_pending_differential() {
     let world = saltmarket();
-    let outcome = export(ExportTarget::LudiiGdl, &world, &ExportOpts::default()).unwrap();
+    let outcome = export_with(
+        &tpth_registry(),
+        ExportTarget::LudiiGdl,
+        &world,
+        &ExportOpts::default(),
+    )
+    .unwrap();
     let dli_export::ExportArtifact::LudiiGdl(gdl) = outcome.artifact else {
         panic!("expected a Ludii export");
     };
@@ -316,7 +368,7 @@ fn ludii_export_is_a_structural_render_with_pending_differential() {
 
 #[test]
 fn compile_ludii_directly_renders_each_leaf() {
-    let registry = Registry::builtin();
+    let registry = tpth_registry();
     let spec = registry.default_for(ExportTarget::LudiiGdl).unwrap();
     let gdl = compile_ludii(&Ruleset::lowlands_honest(), spec, "certain");
     assert!(gdl.program.starts_with("(game \"turning-lowlands-honest\""));
@@ -327,7 +379,7 @@ fn compile_ludii_directly_renders_each_leaf() {
 
 #[test]
 fn compile_cards_directly_matches_the_ruleset_counts() {
-    let registry = Registry::builtin();
+    let registry = tpth_registry();
     let spec = registry.default_for(ExportTarget::Cards).unwrap();
     let honest = compile_cards(
         &Ruleset::lowlands_honest(),
@@ -381,7 +433,7 @@ fn articy_scaffold_maps_knowledge_scopes_and_quests() {
         loaded_relation("promise", &["mend-the-weir"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
-    let registry = Registry::builtin();
+    let registry = tpth_registry();
     let spec = registry.default_for(ExportTarget::Articy).unwrap();
     let export = dli_export::articy::compile_scaffold(spec, "certain", &refs);
 
