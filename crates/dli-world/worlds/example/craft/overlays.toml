@@ -1,0 +1,19 @@
+# A couple of toy overlays (design §1.4): one judge dimension, one tension.
+[[overlays]]
+principle_id = "promise-progress-payoff"
+[overlays.mission_filter]
+mission_filter = "pass"
+[overlays.binding]
+binding = "attest"
+spec = "judge_promise"
+
+[[overlays]]
+principle_id = "causality-therefore-but"
+citations = ["EX-0001"]
+[overlays.mission_filter]
+mission_filter = "tension"
+note = "The example world elevates the causal spine over incident for its own reasons."
+resolution = "When incident and causality conflict, causality wins; the incident is re-motivated, not dropped."
+[overlays.binding]
+binding = "attest"
+spec = "judge_causality"

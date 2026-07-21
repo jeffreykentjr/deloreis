@@ -1,0 +1,13 @@
+# One synthetic pillar row so the example exercises the precedence tier + a
+# config-only principle. Generic content only.
+[[world_principles]]
+id = "example-restraint"
+family = "pillar"
+statement = "In this example world, restraint is the governing virtue: prefer the smaller gesture, and cut the line that merely repeats."
+source = "example world (synthetic); Strunk & White (omit needless words)."
+phases = ["revision"]
+citations = ["EX-0002"]
+[world_principles.mission_filter]
+mission_filter = "pass"
+[world_principles.binding]
+binding = "declaration"

@@ -107,6 +107,7 @@ pub mod kb;
 pub mod load;
 pub mod outline;
 pub mod season;
+pub mod worldcfg;
 
 pub use kb::{
     Binding, Checkable, Coverage, FactoryNs, Family, Kb, KbError, KernelRule, MissionFilter, Phase,
@@ -128,3 +129,11 @@ pub use season::{
 // Step 4 (craft separation): the shipped generic doctrine library.
 pub use kb::{CheckableKind, DoctrineFamily, DoctrinePack, DoctrinePrinciple, Scalar};
 pub use load::doctrines;
+
+// Step 5 (craft separation): the world craft-config loaded as data, composed with
+// the shipped packs into the runtime corpus.
+pub use worldcfg::{
+    ConfigError, ConfigLoadError, CraftConfig, FindingRuleCfg, MaterialCategoryCfg,
+    NarratorModeRuleCfg, NarratorPolicyCfg, OutlineThresholdsCfg, PrecedenceTier, PrincipleOverlay,
+    ProvenanceCfg, WorldPrinciple, apply, load_config, validate,
+};

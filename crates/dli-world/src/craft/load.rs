@@ -2,28 +2,25 @@
 //!
 //! Step 2 of the craft-separation DAG makes the [`Principle`] record
 //! **data-loadable**: with `Cow<'static, str>` fields and `Deserialize` in place,
-//! the compiled [`PRINCIPLES`](super::kb::PRINCIPLES) corpus now round-trips
-//! through a serialized record format ([`PrinciplePack`]). This module carries the
-//! record-level (de)serialization plus a minimal file loader; the higher-level
-//! doctrine-pack and world-config assembly are later steps (see the TODOs below).
+//! the builtin corpus round-trips through a serialized record format
+//! ([`PrinciplePack`]). This module carries the record-level (de)serialization, the
+//! minimal file loader, and the shipped generic doctrine packs
+//! ([`doctrines`]). The world-config assembly (`load_config`/`apply`/`validate`)
+//! lives in [`super::worldcfg`].
 //!
 //! The Step-2 green criterion is the round-trip in this module's tests: serialize
-//! the builtin 107 principles, deserialize, and assert the result equals the
-//! compiled builtin — the proof that the data format faithfully carries the
-//! compiled doctrine.
+//! the builtin corpus, deserialize, and assert the result equals the builtin — the
+//! proof that the data format faithfully carries the doctrine.
 //!
-//! ## Not yet here (later steps)
+//! ## Related (other modules / steps)
 //!
-//! - **Step 4 — shipped generic packs.** `doctrines() -> Vec<DoctrinePack>` over
-//!   the world-agnostic `DoctrinePrinciple` records embedded from
-//!   `craft-doctrines/*.toml` (design §1.1/§4). This module deliberately loads only
-//!   the *runtime* [`Principle`] record today; the shipped `DoctrinePrinciple`
-//!   type and the pack TOML land in Step 4.
-//! - **Step 5 — world config.** `load_config(world_dir: &Path) -> Result<CraftConfig>`
-//!   (serde over `worlds/<world>/craft/*.toml`), `apply(cfg, packs) -> Vec<Principle>`,
-//!   and `validate(cfg, packs) -> Vec<ConfigError>` (design §2.4/§4). These depend on
-//!   the `CraftConfig` / `DoctrinePack` / `PrincipleOverlay` types, which do not
-//!   exist yet.
+//! - **Step 4 — shipped generic packs.** [`doctrines`] returns the world-agnostic
+//!   [`DoctrinePrinciple`](super::kb::DoctrinePrinciple) records embedded from
+//!   `craft-doctrines/*.toml` (design §1.1/§4).
+//! - **Step 5 — world config.** [`load_config`](super::worldcfg::load_config),
+//!   [`apply`](super::worldcfg::apply), and
+//!   [`validate`](super::worldcfg::validate) (design §2.4/§4) compose a world's
+//!   craft config with the shipped packs into the runtime corpus.
 
 use std::path::Path;
 
@@ -35,11 +32,11 @@ use super::kb::{DoctrinePack, Kb, Principle};
 /// A loadable pack of runtime [`Principle`] records — the data form of a craft
 /// corpus (design §2.2).
 ///
-/// This is the Step-2 record format: it carries the *runtime* `Principle` (the
-/// type today's [`PRINCIPLES`](super::kb::PRINCIPLES) table is built from), so the
-/// compiled builtin can be emitted to data and loaded back identically. Step 4
-/// introduces the world-agnostic `DoctrinePrinciple` pack + overlays that compose
-/// *into* runtime principles; Step 5 folds those into a `CraftConfig`.
+/// This is the Step-2 record format: it carries the *runtime* `Principle`, so the
+/// builtin corpus can be emitted to data and loaded back identically. The shipped
+/// world-agnostic [`DoctrinePrinciple`](super::kb::DoctrinePrinciple) packs
+/// ([`doctrines`]) plus a world's overlays compose *into* runtime principles via
+/// [`super::worldcfg::apply`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PrinciplePack {
     /// The principles this pack carries, in corpus order.
@@ -47,10 +44,10 @@ pub struct PrinciplePack {
 }
 
 impl PrinciplePack {
-    /// A pack snapshotting the compiled builtin corpus
-    /// ([`PRINCIPLES`](super::kb::PRINCIPLES)).
+    /// A pack snapshotting the engine's default generic builtin corpus
+    /// ([`Kb::builtin`]).
     ///
-    /// The clone turns the const table's `Cow::Borrowed` fields into owned records;
+    /// The clone turns the composed corpus's `Cow` fields into owned records;
     /// value-equality with the builtin is preserved (a `Cow` compares by content).
     #[must_use]
     pub fn builtin() -> Self {
@@ -180,18 +177,20 @@ impl From<serde_json::Error> for LoadError {
 #[cfg(test)]
 mod tests {
     use super::{PrinciplePack, parse_pack, render_pack};
-    use crate::craft::kb;
+    use crate::craft::kb::Kb;
 
-    /// Step-2 green criterion (design §5): serialize the builtin 107 principles →
-    /// deserialize → assert the result equals the compiled builtin, proving the
-    /// data record format carries the compiled doctrine losslessly.
+    /// Step-2 green criterion (design §5), post-flip: serialize the builtin generic
+    /// corpus → deserialize → assert the result equals the builtin, proving the data
+    /// record format carries the doctrine losslessly. The builtin is now the generic
+    /// doctrine corpus (Step 5: the compiled `TPtH` table is gone), so the snapshot is
+    /// the 83 shipped generic records composed with an empty world config.
     #[test]
     fn builtin_pack_round_trips_through_the_record_format() {
         let builtin = PrinciplePack::builtin();
         assert_eq!(
             builtin.principles.len(),
-            107,
-            "the pack snapshots the compiled 107-principle corpus"
+            83,
+            "the pack snapshots the 83-record generic doctrine corpus"
         );
 
         let json = render_pack(&builtin).expect("the builtin corpus serializes");
@@ -200,12 +199,11 @@ mod tests {
         // Whole-pack value equality: the record round-trips.
         assert_eq!(loaded, builtin, "the pack round-trips by value");
 
-        // The loaded corpus equals the *compiled* const table field-for-field —
-        // `Cow::Owned` from data compares equal to `Cow::Borrowed` in the literal.
+        // The loaded corpus equals the composed builtin field-for-field.
         assert_eq!(
             loaded.principles.as_slice(),
-            kb::PRINCIPLES,
-            "deserialized principles equal the compiled builtin"
+            Kb::builtin().principles(),
+            "deserialized principles equal the builtin generic corpus"
         );
     }
 }

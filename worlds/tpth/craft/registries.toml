@@ -1,0 +1,15 @@
+# The world's factory-battery namespaces + judge registry.
+factory_namespaces = [
+    "check",
+    "style",
+    "raise",
+]
+judge_kinds = [
+    "judge_ppp",
+    "judge_pillars",
+    "judge_sliders",
+    "indirection_discipline",
+    "register_fidelity",
+    "silhouette",
+    "raise_draft",
+]

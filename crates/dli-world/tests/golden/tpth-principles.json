@@ -1,0 +1,1909 @@
+{
+  "principles": [
+    {
+      "id": "promise-progress-payoff",
+      "family": "plot",
+      "statement": "The opening makes promises about what the story will deliver; the middle shows visible progress toward them; the ending pays them off. A reader's sense of satisfaction is the felt distance between a promise made and a promise kept.",
+      "source": "Sanderson, BYU Creative Writing Lectures (plot); Writing Excuses.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_ppp"
+      }
+    },
+    {
+      "id": "promise-is-a-contract",
+      "family": "plot",
+      "statement": "The type of promise sets the genre contract: a promise of a mystery owes a solution, a promise of a relationship owes a resolution, a promise of a wound owes a healing. Track each promise so none is left dangling by accident.",
+      "source": "Sanderson, BYU Creative Writing Lectures; Kowal (MICE thread openings).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "arc-promise-ledger",
+      "family": "plot",
+      "statement": "Arc and packet review need a promise ledger that crosses levels: where the promise opens, where it pays off, and whether it is deliberately carried beyond the episode. Without that ledger, \"it feels promising\" is only taste language.",
+      "source": "Sanderson, BYU Creative Writing Lectures (promises/progress/payoff); Kowal (MICE accounting).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-season"
+      }
+    },
+    {
+      "id": "core-vs-umbrella-plot",
+      "family": "plot",
+      "statement": "The umbrella plot is the visible situation the story hangs on; the core plot is the character arc and the relationship question that actually keeps a listener engaged. The umbrella can be quiet so long as the core burns.",
+      "source": "Sanderson, BYU Creative Writing Lectures (umbrella/core plot).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "big-p-little-p",
+      "family": "plot",
+      "statement": "Big-P Plot answers 'what is this about' across the whole run; little-p plot is the beat-by-beat progression inside a scene. Every little-p beat should feed a Big-P promise so no scene is merely local color.",
+      "source": "Sanderson, BYU Creative Writing Lectures (Big-P vs little-p).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "causality-therefore-but",
+      "family": "plot",
+      "statement": "Beats should connect with 'therefore' and 'but', never 'and then'. If two adjacent beats can be reordered without breaking the story, the causal spine is missing and the scene is a list.",
+      "source": "Stone & Parker's 'therefore/but' rule; McKee, Story (progressive causality), filtered.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_ppp"
+      }
+    },
+    {
+      "id": "tryfail-yes-but-no-and",
+      "family": "plot",
+      "statement": "A try/fail cycle answers the character's attempt with 'yes-but' (they succeed and a new problem opens) or 'no-and' (they fail and it worsens). These cycles are the engine of the middle; 'yes-and' only ends a thread.",
+      "source": "Card/Kowal try-fail cycles; Writing Excuses.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The received model assumes the obstacle is external and often physical (a fight, a chase). Our climaxes are intellectual, restorative, or defensive (allegory constraint 2; D-0052 no Freytag)."
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "yes-and-is-terminal",
+      "family": "plot",
+      "statement": "A 'yes-and' outcome (clean success that also opens good fortune) resolves a thread and should appear only at a thread's close. A 'yes-and' in the middle deflates tension by handing the character an unearned win.",
+      "source": "Card/Kowal try-fail cycles.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "tryfail-count-three",
+      "family": "plot",
+      "statement": "Roughly three attempts before a turn reads as earned: too few feels easy, too many feels padded. The count is a heuristic, not a rule; the test is whether each attempt teaches the character something the next one uses.",
+      "source": "Folk-tale rule of three; Writing Excuses (try-fail pacing).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "mice-quotient",
+      "family": "plot",
+      "statement": "Every thread is one of four kinds: Milieu (a place entered and left), Inquiry (a question asked and answered), Character (an identity strained and resettled), or Event (an order disrupted and restored). Name each thread's kind so you know what it owes.",
+      "source": "Card, How to Write SF&F (1990); Kowal, MICE Quotient.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "mice-lifo-nesting",
+      "family": "plot",
+      "statement": "Threads nest like code: the first opened is the last closed (LIFO). A thread opened inside another must close before its parent, or the structure reads as a dropped stitch and the ending feels wrong without the reader knowing why.",
+      "source": "Kowal, MICE Quotient nesting codes (HTML-tag analogy).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "mice-milieu-as-hub",
+      "family": "plot",
+      "statement": "A Milieu thread opens on entering a place and closes on leaving it. The hub-and- spoke structure is a chain of Milieu threads: the party arrives, works the region, and migrates.",
+      "source": "Card/Kowal (Milieu); canon/narrative/structure.md (hub-and-spoke, D-0055).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The textbook Milieu thread closes by exiting back to where the traveller started (there-and-back-again). Our structure is one-directional migration through a root system, not a round trip."
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "mice-event-new-equilibrium",
+      "family": "plot",
+      "statement": "An Event thread opens when an order is disrupted and closes when order returns. The satisfaction is the world knitted back together.",
+      "source": "Card/Kowal (Event thread).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Ruled no real conflict (D-0152): \"we're kinda following that advice... it's just cycles within cycles.\" The Event thread's order-returns satisfaction holds — the order that returns is a new cycle's equilibrium, never the old extractive order turned back (D-0014, D-0022)."
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "scene-goal-conflict-outcome",
+      "family": "plot",
+      "statement": "A scene of action runs goal, conflict, outcome: the viewpoint character wants something, meets resistance, and leaves in a changed position. In packet review, ledger the goal/conflict/disaster chain explicitly so a quiet scene still has mechanical movement rather than mood alone.",
+      "source": "Swain, Techniques of the Selling Writer (scene/sequel); Bickham.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Swain's 'outcome' is usually a disaster that escalates external stakes, which pulls toward Freytag rising action (D-0052 rejected)."
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "sequel-reaction-dilemma-decision",
+      "family": "plot",
+      "statement": "Between scenes of action sit sequels: the character reacts, faces a dilemma, and decides. Sequels are where a meditative story does its real work, and they have a shape, so a quiet scene is never shapeless.",
+      "source": "Swain, Techniques of the Selling Writer (sequel structure).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "foreshadow-and-payoff",
+      "family": "plot",
+      "statement": "A payoff lands only if the ground was seeded earlier. Plant the detail plainly and let it lie inert until the turn recolors it. In a fractal kishōtenketsu the cold- open koan is often the seed the episode's ten cashes in.",
+      "source": "Chekhov's gun; Sanderson (setup/payoff); canon/narrative/narrator-framing.md.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "kishotenketsu-ten-is-the-turn",
+      "family": "plot",
+      "statement": "In ki-shō-ten-ketsu the third act (ten) is the crux: a turn that recontextualizes the first two acts so the listener re-reads everything just heard. The turn need not be a conflict; it is a shift in what the material means.",
+      "source": "Kishōtenketsu (classical East Asian four-act structure); canon/narrative/structure.md (D-0044, D-0055).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "climax-is-perspective-shift",
+      "family": "plot",
+      "statement": "The high point of an arc is the moment the trouble is revealed to be other than it seemed, and its cause is shown to be human and systemic. The resolution is a proof spoken and a community resettled.",
+      "source": "canon/narrative/structure.md (episode-arc mechanics, D-0072); kishōtenketsu.",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "Shōnen and three-act habits make the climax a battle or a power-spike against a villain (D-0010 no demon king, D-0052 no Freytag).",
+        "resolution": "The climax is the ten: a perspective shift dissolved through empathy, pedagogy, and rigorous logic. Where the draft reaches for a confrontation to peak the arc, replace it with the click of understanding that reframes the whole."
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "subplot-is-the-relationship-question",
+      "family": "plot",
+      "statement": "The most reliable engagement engine is a relationship question running under the umbrella plot: will these two trust each other, will the found family hold. It can carry episodes where the external situation is calm.",
+      "source": "Sanderson, BYU Creative Writing Lectures (the will-they/won't-they as core).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "three-sliders",
+      "family": "character",
+      "statement": "A character's hold on the audience runs on three dials: proactivity (do they pursue a goal), competence (are they good at something), and sympathy (do we like or understand them). A character high on even one dial engages; high on none goes flat.",
+      "source": "Sanderson, BYU Creative Writing Lectures (the three sliders).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_sliders"
+      }
+    },
+    {
+      "id": "slider-ledger-per-major-character",
+      "family": "character",
+      "statement": "For outline and packet review, track every major character's proactivity, competence, and sympathy as explicit numbers with compensation notes. The point is not arithmetic precision; it is forcing the reviewer to name which dial carries the audience's investment.",
+      "source": "Sanderson, BYU Creative Writing Lectures (three sliders and compensation).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "slider-compensation",
+      "family": "character",
+      "statement": "A deficit on one dial is bought back by a surplus on another: an unlikeable character reads if hyper-competent and driven (the Sherlock trick). When a character feels wrong, the fix is usually to raise a different dial, not to soften the flaw.",
+      "source": "Sanderson, BYU Creative Writing Lectures (compensation).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_sliders"
+      }
+    },
+    {
+      "id": "proactivity-as-investigation",
+      "family": "character",
+      "statement": "Proactive characters pursue a goal and take action toward it, which is what makes an audience invest in the journey.",
+      "source": "Sanderson, BYU Creative Writing Lectures (proactivity).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The default image of proactivity is a hero who drives the plot by force and confrontation, which pulls toward conquest (D-0052) and decapitation strikes (allegory constraint 1)."
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_sliders"
+      }
+    },
+    {
+      "id": "competence-reads-cold",
+      "family": "character",
+      "statement": "Competence engages an audience through a kind of wish-fulfillment: we like watching someone who is very good at a thing.",
+      "source": "Sanderson, BYU Creative Writing Lectures (competence).",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "Sanderson frames competence as wish-fulfillment, which invites the power-fantasy flex — the hero showing off. That collides with aesthetic sobriety, where power reads cold, clinical, and intellectual (D-0025, D-0065).",
+        "resolution": "Competence is a compelling engine and may be savored on-mic (D-0152) — but in Enfys it is never showy, arrogant, or noisy: quiet, hyper-focused labor, the steady breath under strain, the exact accounting. The constraint is hers, not a house ban on display; other characters may carry their skill louder. The scariest sound in the show is still a very calm voice under enormous strain."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_sliders"
+      }
+    },
+    {
+      "id": "sympathy-through-jeopardy-and-care",
+      "family": "character",
+      "statement": "Sympathy grows when a character is placed in undeserved difficulty, shows care for someone else, or is good at something we respect. It is earned in the first minutes and spent across the arc.",
+      "source": "Sanderson, BYU Creative Writing Lectures (likeability/sympathy).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_sliders"
+      }
+    },
+    {
+      "id": "want-versus-need",
+      "family": "character",
+      "statement": "A character consciously wants one thing and unconsciously needs another; the arc closes the gap. The want drives the plot's surface, the need drives the ten.",
+      "source": "Truby, The Anatomy of Story (desire vs need), filtered through kishōtenketsu.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Truby frames the closing of the gap as a moral self-revelation at a Western third-act crisis, tied to escalating conflict."
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "contrasting-temperament-cast",
+      "family": "character",
+      "statement": "An ensemble reads clearest when built by contrasting temperament: sense against sensibility against dry irony. Contrast lets a listener tell characters apart by how they meet the same trouble.",
+      "source": "Austen/Brontë harvest, canon/premise/influences.md (D-0073).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "lore-decision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "agency-never-victimhood",
+      "family": "character",
+      "statement": "A character in a cruel world is never staged as a victim for spectacle. Even a child in an adult danger stays an agent: exact, stubborn, running the numbers, and probing the rules so as not to be cheated.",
+      "source": "Portis, True Grit (Mattie Ross); canon (apprentice, D-0066); D-0076 no trauma-drama.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "antagonism-is-systemic",
+      "family": "character",
+      "statement": "The opposing force is a system, not a person. There is no single villain whose defeat ends the trouble; the pressure comes from quotas, ledgers, and tired functionaries doing their jobs.",
+      "source": "canon/decisions.md (D-0010 no demon king); allegory constraint 1 (D-0087).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "lore-decision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "anti-purity-characters",
+      "family": "character",
+      "statement": "The oppressed are not required to be morally pure to deserve rescue. They inform, betray, and scab to survive, and the story saves them anyway. Empathy is a baseline right, not a reward for good behavior.",
+      "source": "canon/premise/allegory.md (anti-purity politics, D-0087); D-0033/D-0034.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "strangeness-is-a-transaction",
+      "family": "character",
+      "statement": "A character is weird only if others react on-mic: a plain question, a challenge, a silence with cost. Unreacted strangeness is set-dressing.",
+      "source": "D-0163 ('others react' — the reaction economy); RQ-020 §4.3 (D-0166).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "indirection_discipline"
+      }
+    },
+    {
+      "id": "the-multitude-is-distinct",
+      "family": "character",
+      "statement": "The minds a vessel carries are individually clear, each in its own regional silhouette, mostly plainer than the blended surface that holds them. Strangeness is the blend, never fog.",
+      "source": "D-0165 (distinct-not-muddled); RQ-020 §1.2/§4.3 (D-0166).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "register_fidelity"
+      }
+    },
+    {
+      "id": "first-law-magic",
+      "family": "world",
+      "statement": "A reader's satisfaction from magic solving a problem is proportional to how well they understand its rules. Magic used to resolve a plot must first be shown and bounded, or the resolution reads as a cheat.",
+      "source": "Sanderson's First Law of Magic (2007 essay).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "second-law-limitations",
+      "family": "world",
+      "statement": "Limitations matter more than powers: what magic cannot do, and what it costs, generates more story than what it can do. Weaknesses are where drama lives.",
+      "source": "Sanderson's Second Law of Magic (2011 essay).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "magic-costs-the-body",
+      "family": "world",
+      "statement": "Magic always costs the body: calories, blood, neurological bandwidth. Proof-speech sounds like work — controlled breath starting to fray, a nosebleed on slate, an anchor's grip keeping a swaying body upright. There is no costless hand-waving.",
+      "source": "canon/premise/allegory.md (constraint 3, D-0087); canon/narrative/audio-design.md; Sanderson Second Law.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "third-law-expand-before-add",
+      "family": "world",
+      "statement": "Expand what you have before you add something new. A deeper use of an established rule beats a fresh power bolted on; sprawl of systems dilutes the ones the listener has learned to trust.",
+      "source": "Sanderson's Third Law of Magic (2013 essay).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "zeroth-law-err-awesome",
+      "family": "world",
+      "statement": "Err on the side of what is compelling: begin from an idea that grips you and let the rules bend to serve it, since the systems exist only to make a good story.",
+      "source": "Sanderson's Zeroth Law ('err on the side of awesome').",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "'Awesome' is easily read as spectacle — the bigger blast, the cooler feat. That collides head-on with aesthetic sobriety (D-0128, D-0025): power reads cold, and the show refuses the anime power-spike.",
+        "resolution": "The awe we chase is wonder-amid-ruin (D-0025): the green shoot in poisoned mud, the vast melancholic anatomy of time, a hard-won eucatastrophe. Reach for the breathtaking through beauty and dread, never through spectacle or a bigger fight."
+      },
+      "phases": [
+        "lore-decision",
+        "generation"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "iceberg-worldbuilding",
+      "family": "world",
+      "statement": "Show a fraction of what you have built and imply the rest. The felt depth of a world comes from the sense that the visible detail rests on a much larger unseen mass. Withheld lore is load-bearing.",
+      "source": "Sanderson (iceberg principle); Hemingway (omission).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "world-as-plot-engine",
+      "family": "world",
+      "statement": "Build the world modularly so it generates arcs on demand: each region, faction, and rule is a socket a new spoke can plug into. A world designed this way answers 'what happens next' from its own structure.",
+      "source": "Wildbow (modular worldbuilding); Sanderson; canon/narrative/structure.md (hub-and-spoke).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "consistency-enables-solutions",
+      "family": "world",
+      "statement": "A consistent, pre-established rule lets the audience predict and follow a clever resolution, so the payoff feels fair. Retconning a rule to solve a problem breaks the contract even when nobody can name the rule aloud.",
+      "source": "Sanderson's First Law (corollary); canon continuity discipline.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "material-reality-first",
+      "family": "world",
+      "statement": "Identity and culture are forged by geography, trauma, and economic class, never by modern identity shorthand pasted over a world that ignores material reality. Characters navigate a cruel supply chain in thick cloaks, covered in toxic mud.",
+      "source": "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0058.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "diction-geography",
+      "family": "world",
+      "statement": "Speech mirrors the naming map: distinct syntax preferences and diction strata per region, occasional attested loan words as texture, never an invented language. Region is audible in shape before any accent is cast.",
+      "source": "D-0165 (diction geography); RQ-020 §1.0/§4.3 (D-0166); style/data/diction_map.yaml.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "style",
+          "symbol": "check_conlang_guard"
+        }
+      }
+    },
+    {
+      "id": "windowpane-vs-stained-glass",
+      "family": "prose",
+      "statement": "Prose runs a spectrum from windowpane (invisible, the story seen straight through) to stained glass (the language itself part of the experience). Default to windowpane so the story leads.",
+      "source": "Orwell ('good prose is a windowpane'); Sanderson (windowpane/stained-glass); Writing Excuses.",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "A flat windowpane default would erase the elevated registers canon requires: the narrator's Le Guin/Clarke mythic dryness and the protagonist's Ishiguro/Wolfe/ McKillip elevation at proof-moments (D-0083, D-0122).",
+        "resolution": "Transparency is register-scoped, with the split ruled in D-0152: the narrator's QUOTES (koan cold-opens, outros) are one deliberate tone; MOST NARRATION is windowpane; at moments the narrator's register is allowed to reveal future knowledge. Dialogue-common and the apprentice run near windowpane. How Enfys performs the proofs is an open register question (Q-0018) — it needs its own register, maybe its own language; do not default it to either pole."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "pyramid-of-abstraction",
+      "family": "prose",
+      "statement": "Concrete beats abstract. Where a draft names an emotion or a concept, a specific sensory image usually carries it further. Climb to abstraction only for earned effect, then come back down to the ground.",
+      "source": "Sanderson (pyramid of abstraction); Le Guin (the concrete).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_abstraction_density"
+        }
+      }
+    },
+    {
+      "id": "concrete-detail-doctrine",
+      "family": "prose",
+      "statement": "One exact, distilled detail outperforms a pile of generic ones. 'Salt-swollen fingers on a cord that will not seat' beats 'she felt anxious'. Strategic specificity is the difference between a scene heard and a scene skimmed.",
+      "source": "Le Guin, Steering the Craft; canon/narrative/structure.md (the opening, D-0113).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_abstraction_density"
+        }
+      }
+    },
+    {
+      "id": "opening-sensory-seasonal-grounding",
+      "family": "prose",
+      "statement": "Opening action and dialogue must happen somewhere the audience can picture. Establish a legible physical place, at least one heard or smelled detail beyond the mere fact of speech, and the weather or season; choose details that act on the scene rather than inventorying a room.",
+      "source": "D-0217; canon/narrative/craft-pillars.md#Sensory and seasonal grounding; Le Guin, Steering the Craft (the concrete).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_opening_sensory_grounding"
+        }
+      }
+    },
+    {
+      "id": "said-asked-eighty-five",
+      "family": "prose",
+      "statement": "Keep dialogue attribution near-invisible: roughly 85 percent of tags should be plain 'said' or 'asked'. The eye slides over 'said'; an ornate tag (murmured, hissed, breathed) is a small interruption, and in a voiced drama it dictates the actor's delivery.",
+      "source": "Sanderson/Writing Excuses (said-tag discipline); Leonard's 10 Rules.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_said_tag_ratio"
+        }
+      }
+    },
+    {
+      "id": "no-adverb-tags",
+      "family": "prose",
+      "statement": "Prefer a plain tag plus a beat of action over an adverb-loaded tag. 'She said, turning the cord over' carries more than 'she said nervously'. The adverb tells what the line and the action should show.",
+      "source": "Leonard's 10 Rules of Writing; King, On Writing (adverbs).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_said_tag_ratio"
+        }
+      }
+    },
+    {
+      "id": "show-versus-tell-is-pacing",
+      "family": "prose",
+      "statement": "Show-versus-tell is a pacing lever, not a commandment. Dramatize the moments that matter and summarize the connective tissue; a story that shows everything crawls, and a story that tells everything goes cold.",
+      "source": "Sanderson (show-vs-tell as pacing); Writing Excuses.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The blanket 'show, don't tell' rule would forbid the omniscient narrator's mythic summary, which canon requires (Le Guin/Clarke, D-0083; the narrator frame, D-0035)."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "sentence-rhythm-and-sound",
+      "family": "prose",
+      "statement": "The sound of the language is where it begins; the test of a sentence is whether it sounds right aloud. Pace and movement depend on rhythm, and rhythm is controlled by hearing the prose, so vary sentence length to make it move.",
+      "source": "Le Guin, Steering the Craft (sound and rhythm).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_sentence_rhythm"
+        }
+      }
+    },
+    {
+      "id": "read-everything-aloud",
+      "family": "prose",
+      "statement": "Read every line aloud before it ships. The ear catches what the eye forgives: a clotted clause, a tongue-twister, a rhythm that stumbles. In an audio-first show the read-aloud pass is the primary proofing pass, not an optional one.",
+      "source": "Le Guin, Steering the Craft; Gill (SFWA, revise by reading dialog aloud); Wayland.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "no-filter-words",
+      "family": "prose",
+      "statement": "Cut filter verbs (she saw, he felt, they heard) that put a pane of glass between the listener and the sense. Render the thing itself: not 'she heard the wind rise' but the wind rising.",
+      "source": "Le Guin, Steering the Craft (crowding/leaping); Palmer (filter words).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "subtext-over-announcement",
+      "family": "prose",
+      "statement": "People talk about rations, weather, and repairs and mean love, fear, and defiance. Nobody narrates their own feelings or monologues a backstory. The meaning lives under the line.",
+      "source": "canon/narrative/tone-style.md (D-0082, D-0083); Gilroy (Andor), Mantel (Wolf Hall).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "distilled-imagery-not-purple",
+      "family": "prose",
+      "statement": "Earn every metaphor; genre-apt, specific imagery beats a purple-but-empty flourish. A stacked pile of figuration reads as decoration, and in audio the listener cannot re-scan it, so the image must land the first time.",
+      "source": "Le Guin, Steering the Craft; style-defense figurative-cliché research.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "episode-is-complete-kishotenketsu",
+      "family": "serial",
+      "statement": "Each installment carries its own complete shape so a listener is satisfied by the single episode before trusting the season. The self-contained shape is how serial trust is earned first.",
+      "source": "Platt & Truant, Write. Publish. Repeat.; canon/narrative/episode-format.md (D-0043, D-0044).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Serial-craft sources assume a self-contained three-act episode inside a season arc. Our episode shape is kishōtenketsu, not three-act (D-0044, D-0052)."
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "open-loop-discipline",
+      "family": "serial",
+      "statement": "Every installment opens at least one new psychological loop — a question, an unease, a thing withheld — that pulls the listener forward. A loop is not always a cliffhanger; it is any tension the mind wants closed.",
+      "source": "Wildbow, Thoughts on Writing Serials; Platt & Truant (open loops); Eyal (hooks).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The reflex reading of an open loop is a peril cliffhanger, which collides with the unhurried register and with D-0104 (no ticking clock)."
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "micro-pacing-every-installment",
+      "family": "serial",
+      "statement": "Every installment must do at least one of three things: advance the plot, change a relationship, or reveal a secret. An installment that does none is filler, however pretty.",
+      "source": "Fox, Write to Market; Platt & Truant, Write. Publish. Repeat.",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "Fox's rule is often read as 'advance the plot every chapter', which pushes toward constant forward motion and against the courage to hold a quiet scene (Frieren; audio-design 'courage to hold silence').",
+        "resolution": "A quiet scene of weather or mending still qualifies if it changes a relationship or an understanding. The test is motion of feeling or knowledge, not noise. Whole episodes of weather and teaching are features, not filler (D-0051). The counting rule is ruled explicit (D-0152): there is always movement, and pure relationship-deepening beats, richness of understanding, and emotional growth COUNT as movement."
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "promise-payoff-new-promise",
+      "family": "serial",
+      "statement": "The serial rhythm is a chain: each installment pays off an earlier promise and makes a fresh one, so the listener always carries an open expectation into the next drop. Close a loop, open a loop.",
+      "source": "Platt & Truant, Write. Publish. Repeat.; Sanderson (promise/payoff at serial scale).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "escalate-depth-not-pace",
+      "family": "serial",
+      "statement": "Long serials keep readers by escalation of intensity and stakes across the run.",
+      "source": "Wildbow, Worm/Pact (escalation as autopilot); serial-fiction craft.",
+      "mission_filter": {
+        "mission_filter": "tension",
+        "note": "Wildbow's escalation-is-everything is the sharpest conflict with our meditative register and with D-0104 (no ticking clock). Constant escalation of pace and peril exhausts the very stillness the show is built on — a lesson Wildbow himself drew from Pact.",
+        "resolution": "Escalate depth and the stakes of understanding, not pace. What deepens across the run is the archaeology of the world, the cost of what the protagonist becomes, and the moral weight of each rescue. The tempo stays unhurried; the meaning compounds."
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "reader-breathing-room",
+      "family": "serial",
+      "statement": "Give characters calm scenes to breathe between intensities. A serial that never lets up exhausts its audience and flattens its own peaks; the quiet scenes are what make the loud ones register.",
+      "source": "Wildbow, Thoughts on Writing Serials (the lesson of Pact's over-escalation).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "first-three-episodes-compression",
+      "family": "serial",
+      "statement": "The opening installments carry the heaviest load: establish voice, promise, and the world's rules fast enough that a listener commits. Front-load the hooks and the distinct textures; a slow first drop loses the audience before the shape can pay off.",
+      "source": "Fox, Launch to Market; Platt & Truant; streaming pilot craft.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "multiple-pov-loop-management",
+      "family": "serial",
+      "statement": "With more than one viewpoint, track a loop ledger per thread so no strand goes cold. Cutting away from a POV should leave its loop open; returning should advance it, or the listener stops caring about the neglected thread.",
+      "source": "Wildbow (multi-arc interludes); GRRM-style POV rotation, filtered.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "modular-world-generates-arcs",
+      "family": "serial",
+      "statement": "A serial sustains hundreds of installments only if the world can spin up a fresh arc from its own parts. Each new region and enclosed hoard is a ready spoke; the structure supplies stories without the author inventing an escalating threat.",
+      "source": "Wildbow (world-as-engine); canon/narrative/structure.md (hub-and-spoke, D-0051).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "lore-decision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "cold-open-is-a-tone-promise",
+      "family": "serial",
+      "statement": "The cold open is a promise of tone: a koan-like microcosm of the episode, read at a centuries-out remove, whose meaning clicks into place only as the episode plays. It sets the contract the installment must honor.",
+      "source": "canon/narrative/narrator-framing.md (D-0037, D-0045); Dune epigraphs.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "sfx-as-character",
+      "family": "audio",
+      "statement": "Sound effects are atmosphere and orientation, not a hidden visual channel. Script the sonic reality so the mix carries place, pressure, and punctuation, but do not ask it to teach subtle object mechanics the ear cannot decode.",
+      "source": "Wayland, Bombs Always Beep (theater for the mind); canon/narrative/audio-design.md; Episode 1 craft author feedback (2026-07-10).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Audio-drama craft often treats SFX as a full scene partner. The current project mode is closer to audiobook-with-cast/foley, and many generated effects will be approximate rather than image-painting."
+      },
+      "phases": [
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "audio-show-dont-tell",
+      "family": "audio",
+      "statement": "Let sound carry obvious heard facts: the door opens, rain hits shutters, footsteps cross a room. Do not use sound as the primary carrier for rope, knot, card, proof, or causal information; the narrator or dialogue must state what changed and why it matters.",
+      "source": "Gill (SFWA, listeners fill the gap); Wayland; Urbina (Wolf 359).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The generic rule is correct for simple audible facts but becomes dangerous when a scene depends on quiet rope, knot, card, or proof mechanics."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "narrated-sound-to-sfx",
+      "family": "audio",
+      "statement": "If the narrator describes an event whose point is that it is heard -- latch, rain, wind, cord, footsteps, ash, breath -- move it into SFX/foley/music unless the line is carrying causality or object meaning that sound alone cannot carry.",
+      "source": "Episode 1 script-format author feedback (2026-07-10); audio-show-dont-tell doctrine.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_narrated_audio_events"
+        }
+      }
+    },
+    {
+      "id": "sfx-cannot-carry-mechanics",
+      "family": "audio",
+      "statement": "Rope, knot, card, ward, proof, text, recognition, private knowledge, and emotional interpretation are not legible as sound. A cue can add rasp, rain, breath, or a tactile vibe, but narrator or dialogue must plainly carry the state change: what moved, what failed, what proved false, what was discovered, and why it matters. Over-detailed or impossible SFX prompts are hard failures in audio scripts.",
+      "source": "Episode 1 craft author feedback (2026-07-10); magic-pedagogy SFX recovery rules.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_sfx_semantic_load"
+        }
+      }
+    },
+    {
+      "id": "no-em-dashes-in-scripts",
+      "family": "prose",
+      "statement": "Generated scripts use no em dashes at all. The author has fully banned them; use sentence breaks, commas, semicolons, colons, or plain hyphens where rhythm needs a hinge.",
+      "source": "Episode 1 craft author feedback (2026-07-10); D-0153 em-dash rejection.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_no_em_dashes"
+        }
+      }
+    },
+    {
+      "id": "sixty-second-hook",
+      "family": "audio",
+      "statement": "Earn attention inside the first minute: the smallest moment of boredom or confusion can lose an audio listener, who has less to hold them than a screen does. The opening image must grip before the frame explains itself.",
+      "source": "Urbina, Advice for Radio Drama Beginners; Wayland (the hook).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "rule",
+        "spec": "check-outline"
+      }
+    },
+    {
+      "id": "three-four-voices-per-scene",
+      "family": "audio",
+      "statement": "Keep a scene to three or four speaking voices. Past that the ear loses track of who is who, especially when two performers sit near the same pitch. Split a crowded scene or let some characters stay silent presences.",
+      "source": "Toscan, Writing Audio Drama; Gill (SFWA, cast-size confusion); Urbina (four-hander).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_cast_per_scene"
+        }
+      }
+    },
+    {
+      "id": "vocal-signature-per-character",
+      "family": "audio",
+      "statement": "Every character needs a distinct vocal signature — vocabulary, cadence, register — so a listener can tell them apart before a name is spoken. Homogenized voices are the top narrative tell and this show's central risk.",
+      "source": "Toscan; Wayland; Kowal (puppetry-derived voice work); style-defense (voice_separation).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_vocal_signature"
+        }
+      }
+    },
+    {
+      "id": "voice-silhouette-principle",
+      "family": "audio",
+      "statement": "Every speaking party is distinguishable by ear within one line, from sentence shape, vocabulary stratum, rhythm, and address form alone, before actor timbre helps. Design voices as at-a-glance silhouettes.",
+      "source": "D-0163 (the silhouette commission, verbatim); RQ-020 §0/§4.3 (D-0166).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "silhouette"
+      }
+    },
+    {
+      "id": "one-sage-per-scene",
+      "family": "audio",
+      "statement": "At most one voice in an exchange may run oblique. Two voices trading figures reads as authorial manner, not character.",
+      "source": "D-0163 (the zen-textbook ban); RQ-020 §0/§4.3 (D-0166).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "style",
+          "symbol": "check_stichomythia"
+        }
+      }
+    },
+    {
+      "id": "viewpoint-asks-the-listeners-question",
+      "family": "audio",
+      "statement": "The viewpoint character asks the plain question the listener would ask, with a real question mark, and never carries the scene's wisdom line.",
+      "source": "D-0163 (Aalto asks the listener's question); RQ-020 §1.4/§4.3 (D-0166).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "style",
+          "symbol": "check_unmarked_question"
+        }
+      }
+    },
+    {
+      "id": "strategic-name-pepper",
+      "family": "audio",
+      "statement": "Salt the dialogue with names so the listener always knows who is in the room and who is speaking. Too little breeds who-is-talking confusion; too much reads as unnatural. Address by name at entrances, turns, and after any ambiguity.",
+      "source": "Toscan, Writing Audio Drama (signposting); radio-drama convention.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_name_pepper"
+        }
+      }
+    },
+    {
+      "id": "scripted-silence",
+      "family": "audio",
+      "statement": "Silence is a scored instrument: a held beat, wind and fire-crackle, boots in mud. The courage to hold silence instead of wall-to-wall scoring is a signature of the register, and a pause held a beat long carries more than a line.",
+      "source": "canon/narrative/audio-design.md (courage to hold silence, D-0023/D-0024); Werner.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_silence_scripting"
+        }
+      }
+    },
+    {
+      "id": "performance-direction-markers",
+      "family": "audio",
+      "statement": "Human review scripts may stay readable, but dialogue-heavy drafts should include sparse bracketed performance direction where it matters, e.g. ENFYS [tired]: before the line, so the artifact is already production-aware.",
+      "source": "Episode 1 script-format author feedback (2026-07-10); hybrid-format practice.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_performance_direction_markers"
+        }
+      }
+    },
+    {
+      "id": "four-beat-labels-earn-their-turns",
+      "family": "audio",
+      "statement": "Visible Four-Beat Turn labels are not structure by themselves. The deepen line is the actual complication the listener hears, and the turn is the actual recontextualization; do not label a later weak beat as deepen or turn when the scene has already moved.",
+      "source": "Episode 1 craft author feedback (2026-07-10); kishōtenketsu ten-is-the-turn doctrine.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_four_beat_turn_integrity"
+        }
+      }
+    },
+    {
+      "id": "first-meeting-audibility",
+      "family": "audio",
+      "statement": "When two core characters meet for the first time, the listener must hear and keep hearing that relationship state. A lexical stranger cue does not excuse established-pair habits, assumed shared plans, or instant-family behavior later in the episode.",
+      "source": "D-0216; campaign-033 false-pass audit; Toscan signposting.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_first_meeting_clarity"
+        }
+      }
+    },
+    {
+      "id": "earned-arc1-relationship-phase",
+      "family": "character",
+      "statement": "Arc 1 relationship behavior progresses no faster than the earned evidence: Episode 1 is a stranger emergency alliance, Episode 2 a functional truce, and Episode 3 may reach earned respect but not friendship, partnership, or found family. Preserve friction, separate motives and knowledge, negotiated next steps, and a credible choice to part.",
+      "source": "D-0216; canon/narrative/craft-pillars.md#Early-arc-legibility.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_first_meeting_clarity"
+        }
+      }
+    },
+    {
+      "id": "early-bounded-magic-genre-promise",
+      "family": "world",
+      "statement": "Before extended explanation in an early episode, Enfys's proof or Turning causes one bounded physical impossibility whose cause and effect are plain by ear. At the first meeting, power-caused overwhelm must temporarily disable a named function; fatigue, blood, or mood alone cannot carry the causal fact. Keep the event costly and clinical, without glow or spectacle.",
+      "source": "D-0216; D-0142; D-0155; campaign-033 false-pass audit.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_early_magic_genre_promise"
+        }
+      }
+    },
+    {
+      "id": "named-lore-backed-cold-open",
+      "family": "audio",
+      "statement": "Every cold-open quotation is two or three sentences followed immediately by a separate spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship. Reject compressed near-borrowings such as map-versus-territory formulations.",
+      "source": "D-0216; D-0220; canon/texts/in-world-texts.md; naming-oracle discipline.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_opening_epigraph_discipline"
+        }
+      }
+    },
+    {
+      "id": "early-aalto-enfys-care-hooks",
+      "family": "audio",
+      "statement": "Episode 1 must quickly buy investment in Aalto and Enfys. Aalto needs audible sympathy, competence, or proactivity before the lore density rises, including a concrete want or pressure; Enfys needs an immediate hook of competence, cost, care, or decisive action when she enters. The first shared scene must also make clear why these two being bound together starts a story.",
+      "source": "Episode 1 craft author feedback (2026-07-10); Sanderson character sliders; pilot-scene craft.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_early_character_hooks"
+        }
+      }
+    },
+    {
+      "id": "dialogue-scenes-have-turns",
+      "family": "audio",
+      "statement": "Good drama dialogue is motivated action: a line asks, resists, reframes, withholds, or changes the power in the room. Long exchanges need questions, contrast, reversals, grounding beats, and subtext with enough surface clarity to keep pace.",
+      "source": "Episode 1 craft author feedback (2026-07-10); film/TV scene craft; McKee scene turns; Mamet practical dialogue doctrine.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_dialogue_turn_motivation"
+        }
+      }
+    },
+    {
+      "id": "closing-punctuation-not-archival-quote",
+      "family": "audio",
+      "statement": "The opening may cite a quoted archival source. The ending defaults to two to four narrator sentences followed by final music: image, consequence, and next motion, not a long quote, audience address, stated moral, whole-episode recap, or abrupt one-line cutoff.",
+      "source": "D-0216; narrator-frame discipline; campaign-033 false-pass audit.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_closing_quote_discipline"
+        }
+      }
+    },
+    {
+      "id": "audio-opening-pressure",
+      "family": "audio",
+      "statement": "A first episode may use the Four-Beat Turn, but the first story minute still needs a Western-audio hook: a concrete pressure already happening, then enough narrator context to understand it. Do not open with a room inventory or a child muttering procedures before the listener knows what can be lost.",
+      "source": "D-0195; Sanderson (promises in the opening); audio-first clarity doctrine.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The project's default structure prizes set/deepen/turn/settle rather than constant escalation, but a cold audio listener still needs immediate orientation and pressure before patient pattern work can feel earned."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_audio_opening_pressure"
+        }
+      }
+    },
+    {
+      "id": "specific-family-context",
+      "family": "audio",
+      "statement": "If family danger motivates the scene, make the family context incidentally specific. Aalto knows who is in the bed, so the listener should hear a name or relation early; vague labels like 'the sick kinsman' turn human stakes into fog.",
+      "source": "D-0195; Sanderson (sympathy through concrete stakes); Toscan signposting.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_specific_family_context"
+        }
+      }
+    },
+    {
+      "id": "lone-opening-dialogue-context",
+      "family": "audio",
+      "statement": "Do not make Aalto carry the opening by talking to herself. If she is alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful.",
+      "source": "D-0195; audio-drama listener-orientation practice.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_lone_opening_dialogue_context"
+        }
+      }
+    },
+    {
+      "id": "performable-voice-strangeness",
+      "family": "audio",
+      "statement": "Enfys may sound strange, but the script cannot depend on unproducible voice layering. Let the actor or TTS simply perform a line; put her otherness in word choice, behavior, cost, and reactions, not in directions for multiple hidden voices or impossible acoustic variations.",
+      "source": "D-0195; ElevenLabs validation learning from campaign-016.",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "The project wants Enfys to remain liminal and a little inhuman, but generated voices and listeners will not reliably resolve subtle internal voice shifts."
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_performable_voice_strangeness"
+        }
+      }
+    },
+    {
+      "id": "narrator-never-describes-voices",
+      "family": "audio",
+      "statement": "The narrator never describes what a person's voice sounds like or how speech is delivered. No vocal qualities, accents or phonetics, delivery adverbs, vocal metaphors, or how-said paraphrases belong in Narrator records. Character dialogue may mention voices; the narrator may state that speech happened, describe breath or bodily cost, and use sound metaphors for objects, animals, or weather.",
+      "source": "D-0218; canon/narrative/narrator-framing.md#No voice-description narration.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_narrator_voice_descriptions"
+        }
+      }
+    },
+    {
+      "id": "no-as-you-know-bob",
+      "family": "audio",
+      "statement": "No character tells another something both already know for the audience's benefit (the maid-and-butler / as-you-know-Bob leak). It is the loudest exposition tell and it shatters the sincerity the register depends on.",
+      "source": "Wayland; Toscan; classic BBC radio-drama guidance (maid-and-butler).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_as_you_know_bob"
+        }
+      }
+    },
+    {
+      "id": "hybrid-script-formatting",
+      "family": "audio",
+      "statement": "Use a script format that carries sound as first-class: speaker cues, sound cues, and beats legible to a director and a foley artist. Format serves the production process and the listener, nothing else.",
+      "source": "Wayland, Bombs Always Beep (hybrid format); canon/narrative/episode-format.md.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "clarity-is-life-or-death",
+      "family": "audio",
+      "statement": "In audio, clarity is survival: give the audience exactly enough to fill the gaps the way you intend. A plot beat that depends on the listener seeing something will not land, so route every load-bearing turn through sound and speech.",
+      "source": "Urbina, Advice for Radio Drama Beginners; Gill (SFWA).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "plot-points-per-episode",
+      "family": "audio",
+      "statement": "A useful density heuristic: roughly ten plot points per episode, where a plot point is any item you would list when recapping the installment. It is a texture gauge, not a rule — a way to feel whether an episode is thin or overstuffed.",
+      "source": "Urbina, Wolf 359 (ten plot points per episode).",
+      "mission_filter": {
+        "mission_filter": "adapted",
+        "note": "Ten discrete plot points can read as briskness, which pulls against the meditative pace and the whole-episode-of-weather license (D-0051)."
+      },
+      "phases": [
+        "outline"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "aphorism-as-acoustic-logo",
+      "family": "audio",
+      "statement": "Because the show is heard, belief systems cannot lean on a visible symbol; a creed's repeated aphorism, in a fixed cadence over a signature texture, is its acoustic logo. Give each faction a phrase the listener knows before a name is said.",
+      "source": "canon/narrative/audio-design.md (aphorisms as acoustic identity, D-0090).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "music-as-learned-lexicon",
+      "family": "audio",
+      "statement": "Music works two ways: fixed signatures that punctuate the open and close, and a recognizable mood lexicon the listener learns (the rigid order, the wild Wyrd, the warm hearth). Consistency turns the score into orientation.",
+      "source": "canon/narrative/audio-design.md (music as punctuation and mood, D-0039).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "final-musical-sting",
+      "family": "audio",
+      "statement": "A full episode script should mark its closing musical sting or coda explicitly. The final cue is part of the episode shape, not an afterthought for production to infer from prose.",
+      "source": "Episode 1 script-format author feedback (2026-07-10); canon/narrative/audio-design.md (D-0039).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_final_music_sting"
+        }
+      }
+    },
+    {
+      "id": "narrator-brackets-the-frame",
+      "family": "audio",
+      "statement": "The narrator owns the cold open and the outro and intrudes between them only when audio genuinely needs it (passage of time, the unshowable). The present action belongs to the cast and the foley.",
+      "source": "canon/narrative/narrator-framing.md (mid-episode discipline, D-0036).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "generation"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "narrator-sfx-load-boundary",
+      "family": "audio",
+      "statement": "Current audio mode is audiobook-with-cast/foley: a load-bearing windowpane narrator carries orientation and causality, while SFX stays sparse support. Packet reviews must not let silence and foley become the hidden semantic channel.",
+      "source": "canon/decisions.md (D-0179 medium correction); D-0176 narrator amendment.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "factory",
+        "spec": {
+          "namespace": "check",
+          "symbol": "check_sfx_semantic_load"
+        }
+      }
+    },
+    {
+      "id": "pillar-aesthetic-sobriety",
+      "family": "pillar",
+      "statement": "Against shouty bravado, for melancholic competence: grounded, quiet confidence; emotion carried by a pause held a beat long, a steady breath, the hyper-focused labor of a knot. Power reads cold, clinical, intellectual.",
+      "source": "canon/narrative/craft-pillars.md (aesthetic sobriety, D-0128); D-0025, D-0065.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "lore-decision",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "pillar-rhizomatic-restoration",
+      "family": "pillar",
+      "statement": "Against Freytag's conquest, for the kishōtenketsu ecology: horizontal, exploratory, community-driven structure on the hub-and-spoke model. An arc's climax is a localized puzzle dissolved through empathy, pedagogy, and rigorous logic.",
+      "source": "canon/narrative/craft-pillars.md (rhizomatic restoration, D-0128); D-0010, D-0052, D-0055.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "pillar-material-sovereignty",
+      "family": "pillar",
+      "statement": "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true specificity and absolute respect; characters defined by autonomy and intellect.",
+      "source": "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0219.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "lore-decision",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "pillar-earnest-sincerity",
+      "family": "pillar",
+      "statement": "Against ironic detachment, for true subcreation: the world is a terrifying, breathtaking, authentic reality; the allegory is a hidden skeleton and the flesh is pure hard-magic fantasy. No meta winks; human connection is treated with un-ironic sincerity.",
+      "source": "canon/narrative/craft-pillars.md (earnest sincerity, D-0128); D-0025, D-0030, D-0085.",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "judge_pillars"
+      }
+    },
+    {
+      "id": "pillars-win-standing-rule",
+      "family": "pillar",
+      "statement": "Where any outside craft authority conflicts with a pillar or with canon, the pillar wins. The conflict is recorded as a tension with an explicit mission-side resolution; generic advice is adapted to the mission, never allowed to override it.",
+      "source": "canon/narrative/craft-pillars.md (D-0128, the standing rule).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "lore-decision",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "wonder-amid-ruin",
+      "family": "pillar",
+      "statement": "The emotional target is recovery, escape, and consolation: a hard-won eucatastrophe, the green shoot in poisoned mud, never cheap despair and never spectacle. Awe comes through beauty and dread inside a broken world.",
+      "source": "canon/premise/influences.md (Sanderson framing, D-0025); Tolkien (eucatastrophe).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "outline",
+        "generation",
+        "revision"
+      ],
+      "binding": {
+        "binding": "declaration"
+      }
+    },
+    {
+      "id": "bar-raiser-taste-gap",
+      "family": "pillar",
+      "statement": "A draft that clears every gate can still fall short of its own ambition; the gap between taste and execution closes only by naming the highest-leverage opportunities and doing the work. Good-enough is the enemy of the bar.",
+      "source": "Glass, 'The Gap' (This American Life); the bar-raising mandate (D-0128).",
+      "mission_filter": {
+        "mission_filter": "pass"
+      },
+      "phases": [
+        "revision"
+      ],
+      "binding": {
+        "binding": "attest",
+        "spec": "raise_draft"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Season-ledger bands + outline scalars + the kishotenketsu turn slot.
+[season]
+major_prior_failures = 1
+climax_prior_failures = 2
+competence_floor = 5
+reveal_lead_episodes = 1
+mystery_starved_gap = 3
+cold_open_cast_ceiling = 2
+cast_introduction_band = [
+    1,
+    3,
+]
+ten_position_band = [
+    0.55,
+    0.8,
+]
+audio_high_run = 3
+calibrated = false
+
+[outline]
+scene_cast_ceiling = 4
+hook_seconds_ceiling = 60
+slider_flat_ceiling = 5
+slider_low_floor = 4
+turn_slot = "ten"

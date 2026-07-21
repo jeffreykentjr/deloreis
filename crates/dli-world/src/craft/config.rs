@@ -19,6 +19,9 @@
 //! default is a `const`; the serde/`JsonSchema` loadable form lands with the
 //! `CraftConfig` fold, not here.
 
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use super::outline::{EpisodeOutline, MaterialUnknown, NarratorMode};
 use crate::check::Severity;
 
@@ -122,13 +125,15 @@ pub const DEFAULT_FINDING_POLICY: FindingPolicy<'static> = FindingPolicy {
 // ---- 3b  NarratorPolicy -----------------------------------------------------
 
 /// What a narrator-framing choice earns: an error, a warning, or nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 pub enum Disposition {
     /// The framing is forbidden — an error finding.
     Error,
     /// The framing is discouraged — a warn finding.
     Warn,
     /// The framing is permitted — no finding.
+    #[default]
     Allowed,
 }
 
@@ -356,7 +361,8 @@ pub const DEFAULT_MATERIAL_CATALOG: MaterialCatalog<'static> = MaterialCatalog {
 /// Which kishōtenketsu slot names the *turn* the outline battle-scan reads. The
 /// `ki`/`shō`/`ten`/`ketsu` fields stay on the outline (kishōtenketsu is a named
 /// framework, not world content); the catalog drives only *which* slot is scanned.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 pub enum TurnSlot {
     /// The opening image.
     Ki,

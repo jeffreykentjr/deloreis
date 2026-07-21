@@ -18,12 +18,14 @@ use dli_world::attest::{
     Attestation, AttestationStore, ContentHash, ModelRef, Policy, PromptRef, Question, Sampling,
 };
 use dli_world::check::{Severity, WorldFinding};
-use dli_world::craft::kb::{self, Binding, Checkable, KernelRule, MissionFilter};
+use dli_world::craft::kb::{self, Binding, Checkable, Kb, KernelRule, MissionFilter, Principle};
+use dli_world::craft::load::doctrines;
 use dli_world::craft::outline::{AudioLoad, PromiseKind, TryFailOutcome};
 use dli_world::craft::season::{
     ArcShape, BeatKind, CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat, LedgerPromise,
     LedgerScene, Magnitude, Reveal, Thresholds, Turn, check_season_rules,
 };
+use dli_world::craft::worldcfg::{apply, load_config, validate};
 
 // -- fixture builders ---------------------------------------------------------
 
@@ -580,41 +582,67 @@ fn thresholds_are_policy_data_the_bands_move() {
 }
 
 // -- CRAFT-3: the knowledge base ---------------------------------------------
+//
+// Post-Step-5 the engine ships no compiled corpus, so these mechanism tests run
+// against the engine's own synthetic **example world** (`worlds/example/craft`,
+// design §1.4 — generic packs + a couple of toy overlays, never TPtH), composed
+// through `apply` exactly as any world's corpus is.
+
+/// The example world's composed runtime corpus — the generic packs it enables,
+/// folded with its toy overlays + its one synthetic pillar row.
+fn example_corpus() -> Vec<Principle> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("worlds/example/craft");
+    let cfg = load_config(&dir).expect("the example world craft config loads");
+    let packs = doctrines();
+    assert!(
+        validate(&cfg, &packs).is_empty(),
+        "the example world config is structurally clean: {:?}",
+        validate(&cfg, &packs)
+    );
+    apply(&cfg, &packs)
+}
 
 #[test]
-fn kb_ports_the_whole_corpus_cleanly() {
+fn kb_composes_the_example_world_cleanly() {
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
+    // promise-and-plot (7) + try-fail-cycles (4) + prose-craft (13) + 1 world pillar.
     assert_eq!(
-        kb::PRINCIPLES.len(),
-        107,
-        "the pinned corpus carries 107 principles"
+        kb.principles().len(),
+        25,
+        "the example corpus composes 25 rows"
     );
     assert!(
-        kb::audit().is_empty(),
+        kb.audit().is_empty(),
         "duplicate ids / phase-less entries: {:?}",
-        kb::audit()
+        kb.audit()
     );
 }
 
 #[test]
 fn every_corpus_tension_carries_its_resolution() {
     // The type makes this a compile guarantee (see the `compile_fail` doctest on
-    // `MissionFilter`); here we confirm the corpus actually exercises the arm.
-    let tensions: Vec<_> = kb::PRINCIPLES
+    // `MissionFilter`); here we confirm the corpus actually exercises the arm. The
+    // example world's one tension rides on `causality-therefore-but`.
+    let corpus = example_corpus();
+    let tensions: Vec<_> = corpus
         .iter()
         .filter(|p| matches!(p.mission_filter, MissionFilter::Tension { .. }))
         .collect();
-    assert_eq!(tensions.len(), 6);
+    assert_eq!(tensions.len(), 1);
     assert!(tensions.iter().all(|p| p.resolution().is_some()));
 }
 
 #[test]
 fn coverage_and_debt_partition_the_corpus() {
-    let c = kb::coverage();
-    assert_eq!(c.total, kb::PRINCIPLES.len());
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
+    let c = kb.coverage();
+    assert_eq!(c.total, kb.principles().len());
     assert_eq!(c.kernel_rule + c.factory + c.judge + c.declaration, c.total);
     assert_eq!(c.deterministic(), c.kernel_rule + c.factory);
     // Checkable-debt is exactly the judge + declaration-only principles (spec §5).
-    let debt = kb::checkable_debt();
+    let debt = kb.checkable_debt();
     assert_eq!(debt.len(), c.debt());
     assert_eq!(debt.len(), c.judge + c.declaration);
     assert!(
@@ -628,7 +656,8 @@ fn kernel_rule_bindings_all_resolve() {
     // The closed `KernelRule` enum makes a dangling deterministic ref a compile
     // error (see the `compile_fail` doctest on `Binding`). Confirm every kernel
     // binding names a rule in the registry, and the id round-trips.
-    for p in kb::PRINCIPLES {
+    let corpus = example_corpus();
+    for p in &corpus {
         if let Binding::Rule(rule) = p.binding {
             assert_eq!(KernelRule::from_id(rule.id()), Some(rule));
         }
@@ -638,7 +667,11 @@ fn kernel_rule_bindings_all_resolve() {
 
 #[test]
 fn a_judge_bound_principle_reports_attested() {
-    let principle = kb::by_id("promise-progress-payoff").expect("a judge principle");
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
+    let principle = kb
+        .by_id("promise-progress-payoff")
+        .expect("a judge principle");
     assert!(matches!(principle.binding, Binding::Attest(_)));
 
     let mut store = AttestationStore::new();
@@ -655,7 +688,9 @@ fn a_judge_bound_principle_reports_attested() {
 
 #[test]
 fn a_missing_attestation_is_reported_not_guessed() {
-    let principle = kb::by_id("promise-progress-payoff").unwrap();
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
+    let principle = kb.by_id("promise-progress-payoff").unwrap();
     let store = AttestationStore::new();
     let finding = kb::evaluate_judge(principle, &store, "ppp(e1)", "e1").unwrap();
     assert_eq!(finding.code, "craft.attestation-missing");
@@ -666,7 +701,11 @@ fn a_missing_attestation_is_reported_not_guessed() {
 #[test]
 fn a_non_judge_principle_has_no_attestation_to_consume() {
     // `promise-is-a-contract` binds a deterministic rule, not a judge dimension.
-    let principle = kb::by_id("promise-is-a-contract").expect("a deterministic principle");
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
+    let principle = kb
+        .by_id("promise-is-a-contract")
+        .expect("a deterministic principle");
     assert!(matches!(principle.binding, Binding::Rule(_)));
     let store = AttestationStore::new();
     assert!(kb::evaluate_judge(principle, &store, "x", "y").is_none());
@@ -675,12 +714,16 @@ fn a_non_judge_principle_has_no_attestation_to_consume() {
 #[test]
 fn why_renders_pillars_first() {
     // Every finding the KB explains lists pillar-family doctrine ahead of generic
-    // advice (D-0128 — the pillar wins).
+    // advice (D-0128 — the pillar wins). The invariant is the stable-sort; the
+    // example corpus binds no pillar to a kernel rule, so the guard holds vacuously
+    // and the *sort* is what is asserted.
+    let corpus = example_corpus();
+    let kb = Kb::new(&corpus);
     for code in [
         "outline.premature-resolution",
         "craft.accomplishment-earned",
     ] {
-        let principles = kb::why(code);
+        let principles = kb.why(code);
         let first_generic = principles.iter().position(|p| !p.is_pillar());
         let last_pillar = principles.iter().rposition(|p| p.is_pillar());
         if let (Some(g), Some(pil)) = (first_generic, last_pillar) {
@@ -694,7 +737,8 @@ fn why_renders_pillars_first() {
 
 #[test]
 fn explain_renders_statement_and_resolution() {
-    let tension = kb::PRINCIPLES
+    let corpus = example_corpus();
+    let tension = corpus
         .iter()
         .find(|p| matches!(p.mission_filter, MissionFilter::Tension { .. }))
         .unwrap();

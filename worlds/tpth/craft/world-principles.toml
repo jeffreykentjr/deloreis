@@ -1,0 +1,525 @@
+# 24 WorldPrinciples: TPtH config-only rows (no generic kernel), incl. the
+# five D-0128 pillars + wonder-amid-ruin + the pillars-win meta-rule.
+[[world_principles]]
+id = "antagonism-is-systemic"
+family = "character"
+statement = "The opposing force is a system, not a person. There is no single villain whose defeat ends the trouble; the pressure comes from quotas, ledgers, and tired functionaries doing their jobs."
+source = "canon/decisions.md (D-0010 no demon king); allegory constraint 1 (D-0087)."
+phases = [
+    "outline",
+    "lore-decision",
+]
+citations = [
+    "D-0010",
+    "D-0087",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "judge_pillars"
+
+[[world_principles]]
+id = "anti-purity-characters"
+family = "character"
+statement = "The oppressed are not required to be morally pure to deserve rescue. They inform, betray, and scab to survive, and the story saves them anyway. Empathy is a baseline right, not a reward for good behavior."
+source = "canon/premise/allegory.md (anti-purity politics, D-0087); D-0033/D-0034."
+phases = [
+    "outline",
+    "generation",
+]
+citations = [
+    "D-0087",
+    "D-0033",
+    "D-0034",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "declaration"
+
+[[world_principles]]
+id = "strangeness-is-a-transaction"
+family = "character"
+statement = "A character is weird only if others react on-mic: a plain question, a challenge, a silence with cost. Unreacted strangeness is set-dressing."
+source = "D-0163 ('others react' — the reaction economy); RQ-020 §4.3 (D-0166)."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0163",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "indirection_discipline"
+
+[[world_principles]]
+id = "the-multitude-is-distinct"
+family = "character"
+statement = "The minds a vessel carries are individually clear, each in its own regional silhouette, mostly plainer than the blended surface that holds them. Strangeness is the blend, never fog."
+source = "D-0165 (distinct-not-muddled); RQ-020 §1.2/§4.3 (D-0166)."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0165",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "register_fidelity"
+
+[[world_principles]]
+id = "material-reality-first"
+family = "world"
+statement = "Identity and culture are forged by geography, trauma, and economic class, never by modern identity shorthand pasted over a world that ignores material reality. Characters navigate a cruel supply chain in thick cloaks, covered in toxic mud."
+source = "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0058."
+phases = [
+    "lore-decision",
+    "generation",
+]
+citations = [
+    "D-0128",
+    "D-0056",
+    "D-0058",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "declaration"
+
+[[world_principles]]
+id = "diction-geography"
+family = "world"
+statement = "Speech mirrors the naming map: distinct syntax preferences and diction strata per region, occasional attested loan words as texture, never an invented language. Region is audible in shape before any accent is cast."
+source = "D-0165 (diction geography); RQ-020 §1.0/§4.3 (D-0166); style/data/diction_map.yaml."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0165",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "style"
+symbol = "check_conlang_guard"
+
+[[world_principles]]
+id = "no-em-dashes-in-scripts"
+family = "prose"
+statement = "Generated scripts use no em dashes at all. The author has fully banned them; use sentence breaks, commas, semicolons, colons, or plain hyphens where rhythm needs a hinge."
+source = "Episode 1 craft author feedback (2026-07-10); D-0153 em-dash rejection."
+phases = [
+    "generation",
+    "revision",
+]
+citations = ["D-0153"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_no_em_dashes"
+
+[[world_principles]]
+id = "voice-silhouette-principle"
+family = "audio"
+statement = "Every speaking party is distinguishable by ear within one line, from sentence shape, vocabulary stratum, rhythm, and address form alone, before actor timbre helps. Design voices as at-a-glance silhouettes."
+source = "D-0163 (the silhouette commission, verbatim); RQ-020 §0/§4.3 (D-0166)."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0163",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "silhouette"
+
+[[world_principles]]
+id = "one-sage-per-scene"
+family = "audio"
+statement = "At most one voice in an exchange may run oblique. Two voices trading figures reads as authorial manner, not character."
+source = "D-0163 (the zen-textbook ban); RQ-020 §0/§4.3 (D-0166)."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0163",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "style"
+symbol = "check_stichomythia"
+
+[[world_principles]]
+id = "viewpoint-asks-the-listeners-question"
+family = "audio"
+statement = "The viewpoint character asks the plain question the listener would ask, with a real question mark, and never carries the scene's wisdom line."
+source = "D-0163 (Aalto asks the listener's question); RQ-020 §1.4/§4.3 (D-0166)."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0163",
+    "D-0166",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "style"
+symbol = "check_unmarked_question"
+
+[[world_principles]]
+id = "earned-arc1-relationship-phase"
+family = "character"
+statement = "Arc 1 relationship behavior progresses no faster than the earned evidence: Episode 1 is a stranger emergency alliance, Episode 2 a functional truce, and Episode 3 may reach earned respect but not friendship, partnership, or found family. Preserve friction, separate motives and knowledge, negotiated next steps, and a credible choice to part."
+source = "D-0216; canon/narrative/craft-pillars.md#Early-arc-legibility."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = ["D-0216"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_first_meeting_clarity"
+
+[[world_principles]]
+id = "early-bounded-magic-genre-promise"
+family = "world"
+statement = "Before extended explanation in an early episode, Enfys's proof or Turning causes one bounded physical impossibility whose cause and effect are plain by ear. At the first meeting, power-caused overwhelm must temporarily disable a named function; fatigue, blood, or mood alone cannot carry the causal fact. Keep the event costly and clinical, without glow or spectacle."
+source = "D-0216; D-0142; D-0155; campaign-033 false-pass audit."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0216",
+    "D-0142",
+    "D-0155",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_early_magic_genre_promise"
+
+[[world_principles]]
+id = "named-lore-backed-cold-open"
+family = "audio"
+statement = "Every cold-open quotation is two or three sentences followed immediately by a separate spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship. Reject compressed near-borrowings such as map-versus-territory formulations."
+source = "D-0216; D-0220; canon/texts/in-world-texts.md; naming-oracle discipline."
+phases = [
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0216",
+    "D-0220",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_opening_epigraph_discipline"
+
+[[world_principles]]
+id = "early-aalto-enfys-care-hooks"
+family = "audio"
+statement = "Episode 1 must quickly buy investment in Aalto and Enfys. Aalto needs audible sympathy, competence, or proactivity before the lore density rises, including a concrete want or pressure; Enfys needs an immediate hook of competence, cost, care, or decisive action when she enters. The first shared scene must also make clear why these two being bound together starts a story."
+source = "Episode 1 craft author feedback (2026-07-10); Sanderson character sliders; pilot-scene craft."
+phases = [
+    "generation",
+    "revision",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_early_character_hooks"
+
+[[world_principles]]
+id = "closing-punctuation-not-archival-quote"
+family = "audio"
+statement = "The opening may cite a quoted archival source. The ending defaults to two to four narrator sentences followed by final music: image, consequence, and next motion, not a long quote, audience address, stated moral, whole-episode recap, or abrupt one-line cutoff."
+source = "D-0216; narrator-frame discipline; campaign-033 false-pass audit."
+phases = [
+    "generation",
+    "revision",
+]
+citations = ["D-0216"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_closing_quote_discipline"
+
+[[world_principles]]
+id = "narrator-never-describes-voices"
+family = "audio"
+statement = "The narrator never describes what a person's voice sounds like or how speech is delivered. No vocal qualities, accents or phonetics, delivery adverbs, vocal metaphors, or how-said paraphrases belong in Narrator records. Character dialogue may mention voices; the narrator may state that speech happened, describe breath or bodily cost, and use sound metaphors for objects, animals, or weather."
+source = "D-0218; canon/narrative/narrator-framing.md#No voice-description narration."
+phases = [
+    "generation",
+    "revision",
+]
+citations = ["D-0218"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_narrator_voice_descriptions"
+
+[[world_principles]]
+id = "narrator-brackets-the-frame"
+family = "audio"
+statement = "The narrator owns the cold open and the outro and intrudes between them only when audio genuinely needs it (passage of time, the unshowable). The present action belongs to the cast and the foley."
+source = "canon/narrative/narrator-framing.md (mid-episode discipline, D-0036)."
+phases = ["generation"]
+citations = ["D-0036"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "declaration"
+
+[[world_principles]]
+id = "narrator-sfx-load-boundary"
+family = "audio"
+statement = "Current audio mode is audiobook-with-cast/foley: a load-bearing windowpane narrator carries orientation and causality, while SFX stays sparse support. Packet reviews must not let silence and foley become the hidden semantic channel."
+source = "canon/decisions.md (D-0179 medium correction); D-0176 narrator amendment."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0179",
+    "D-0176",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_sfx_semantic_load"
+
+[[world_principles]]
+id = "pillar-aesthetic-sobriety"
+family = "pillar"
+statement = "Against shouty bravado, for melancholic competence: grounded, quiet confidence; emotion carried by a pause held a beat long, a steady breath, the hyper-focused labor of a knot. Power reads cold, clinical, intellectual."
+source = "canon/narrative/craft-pillars.md (aesthetic sobriety, D-0128); D-0025, D-0065."
+phases = [
+    "outline",
+    "lore-decision",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0128",
+    "D-0025",
+    "D-0065",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "judge_pillars"
+
+[[world_principles]]
+id = "pillar-rhizomatic-restoration"
+family = "pillar"
+statement = "Against Freytag's conquest, for the kishōtenketsu ecology: horizontal, exploratory, community-driven structure on the hub-and-spoke model. An arc's climax is a localized puzzle dissolved through empathy, pedagogy, and rigorous logic."
+source = "canon/narrative/craft-pillars.md (rhizomatic restoration, D-0128); D-0010, D-0052, D-0055."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0128",
+    "D-0010",
+    "D-0052",
+    "D-0055",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "judge_pillars"
+
+[[world_principles]]
+id = "pillar-material-sovereignty"
+family = "pillar"
+statement = "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true specificity and absolute respect; characters defined by autonomy and intellect."
+source = "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0219."
+phases = [
+    "lore-decision",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0128",
+    "D-0056",
+    "D-0219",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "judge_pillars"
+
+[[world_principles]]
+id = "pillar-earnest-sincerity"
+family = "pillar"
+statement = "Against ironic detachment, for true subcreation: the world is a terrifying, breathtaking, authentic reality; the allegory is a hidden skeleton and the flesh is pure hard-magic fantasy. No meta winks; human connection is treated with un-ironic sincerity."
+source = "canon/narrative/craft-pillars.md (earnest sincerity, D-0128); D-0025, D-0030, D-0085."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = [
+    "D-0128",
+    "D-0025",
+    "D-0030",
+    "D-0085",
+]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "attest"
+spec = "judge_pillars"
+
+[[world_principles]]
+id = "pillars-win-standing-rule"
+family = "pillar"
+statement = "Where any outside craft authority conflicts with a pillar or with canon, the pillar wins. The conflict is recorded as a tension with an explicit mission-side resolution; generic advice is adapted to the mission, never allowed to override it."
+source = "canon/narrative/craft-pillars.md (D-0128, the standing rule)."
+phases = [
+    "outline",
+    "lore-decision",
+    "generation",
+    "revision",
+]
+citations = ["D-0128"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "declaration"
+
+[[world_principles]]
+id = "wonder-amid-ruin"
+family = "pillar"
+statement = "The emotional target is recovery, escape, and consolation: a hard-won eucatastrophe, the green shoot in poisoned mud, never cheap despair and never spectacle. Awe comes through beauty and dread inside a broken world."
+source = "canon/premise/influences.md (Sanderson framing, D-0025); Tolkien (eucatastrophe)."
+phases = [
+    "outline",
+    "generation",
+    "revision",
+]
+citations = ["D-0025"]
+
+[world_principles.mission_filter]
+mission_filter = "pass"
+
+[world_principles.binding]
+binding = "declaration"
