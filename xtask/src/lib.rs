@@ -7,6 +7,7 @@
 //! CI workflow are kept in lockstep by `tests/ci_parity.rs`.
 
 pub mod book;
+pub mod boundary;
 pub mod docgen;
 pub mod docs_oracle;
 pub mod finding_families;

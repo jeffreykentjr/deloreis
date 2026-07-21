@@ -10,7 +10,9 @@ fn main() -> Result<()> {
     let root = std::env::current_dir()?;
 
     let Some((command, rest)) = args.split_first() else {
-        eprintln!("usage: xtask <gate|schema|fixtures|docgen|docs-oracle|book|loc|hooks-check>");
+        eprintln!(
+            "usage: xtask <gate|schema|fixtures|docgen|docs-oracle|book|loc|boundary|hooks-check>"
+        );
         std::process::exit(2);
     };
 
@@ -34,6 +36,7 @@ fn main() -> Result<()> {
         }
         "docs-oracle" => xtask::docs_oracle::run_docs_oracle(&root),
         "loc" => xtask::loc::run_loc(&root),
+        "boundary" => xtask::boundary::run_boundary(&root),
         "hooks-check" => xtask::hooks::run_hooks_check(),
         other => bail!("unknown xtask command: {other}"),
     }
