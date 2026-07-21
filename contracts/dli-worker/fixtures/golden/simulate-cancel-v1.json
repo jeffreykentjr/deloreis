@@ -1,20 +1,40 @@
 {
   "fixture": "golden/simulate-cancel-v1",
   "version": 1,
-  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
         "dli": "0.1.0",
         "id": "1",
-        "op": "dli.simulate.cancel",
+        "op": "dli.simulate.start",
         "params": {
-          "job_id": "sim-1"
+          "document": "warding-vows",
+          "seed": 42,
+          "turns": 3
         }
       },
       "expect": {
         "dli": "0.1.0",
         "id": "1",
+        "ok": true,
+        "result": {
+          "job_id": "job-1",
+          "status": "complete"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.simulate.cancel",
+        "params": {
+          "job_id": "job-1"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
         "ok": true,
         "result": {
           "status": "cancelled"

@@ -1,7 +1,6 @@
 {
   "fixture": "golden/export-ludii-v1",
   "version": 1,
-  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
@@ -9,7 +8,7 @@
         "id": "1",
         "op": "dli.export.run",
         "params": {
-          "document": "true-naming",
+          "document": "french-deck",
           "profile": "ludii-gdl"
         }
       },
@@ -19,10 +18,10 @@
         "ok": true,
         "result": {
           "manifest": {
-            "commit": "0000000000000000000000000000000000000000",
-            "layer": "ratified",
-            "valuation": "sha256:0000000000000000",
-            "profile_hash": "sha256:1111111111111111"
+            "commit": "",
+            "layer": "certain",
+            "valuation": "fnv1a64:b90b77b6eb74e92f",
+            "profile_hash": "fnv1a64:54233da8cf58ccf6"
           }
         }
       }

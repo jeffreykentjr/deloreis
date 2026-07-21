@@ -79,9 +79,9 @@ fixtures:
 - path: golden/check-draft-v1.json
   sha256: 769a69212de63a8d6a01f9ac7d3b55ca6c993517e8e3a3d21ad5bdd7c520b26f
 - path: golden/check-proof-turning-v1.json
-  sha256: b232632acdac34d9ed3968ad94478b48150c6cc6c5caedcd12f04f73d7b90124
+  sha256: f7d1872239f8655bdac0b302bee2e1e7055650df58cf0b85e263e8e3490b67d1
 - path: golden/export-ludii-v1.json
-  sha256: 3d1e01f952e99ad16af945ccf395f0c3c8af537e2f8ffc5910f27f2e7351b0d5
+  sha256: 8dafb72f92929beeffcab2f2ea230a69270615c07e419fbeb9f21ec3bd72921a
 - path: golden/fork-add-v1.json
   sha256: 8486e4c8a6c2a00f06d7b6b888f9336f96924708b4bd9713c82c71ee80f63b16
 - path: golden/fork-diff-v1.json
@@ -109,11 +109,11 @@ fixtures:
 - path: golden/query-support-v1.json
   sha256: 64f6dd138a32b6ff70f4b9807ed06e560a07e325bcc145ab8b2abfe863e65785
 - path: golden/simulate-cancel-v1.json
-  sha256: 9b9212a269737a0365decf61b296079bf285b45903b0f812e16e420477ca2897
+  sha256: b03cf2fd26da84ff13a0e7097a9c573137d0fadf66564bca2cbe42efc3f5a88c
 - path: golden/simulate-status-v1.json
-  sha256: 25f3cc8488e46c9263e0eca9a2def99e83c446fbc9d5d53d1e6266eaebb5de89
+  sha256: 03371ead00eb130fb1f82e186abd452552461d6bc2f1c3e29a61d1b8d533ac6b
 - path: golden/simulate-v1.json
-  sha256: c34a67d07ee8375d19832cf811e93cef5b0f9d5787f883a85c9b3632d24da64e
+  sha256: 333b40a5dc7a806be07a04783da57bd1f022d7a229e8e98981c9b9a6bc668651
 - path: golden/timeline-episodes-v1.json
   sha256: 6d71cf12c509aa8089ccab2217630761b8811b7b8be4c4a2e6433939f05ff039
 - path: golden/timeline-knows-v1.json
@@ -125,7 +125,7 @@ fixtures:
 - path: golden/timeline-show-v1.json
   sha256: 7c550819e3d0d5b0e004f8677c10d2d46b6ef7494f0423ecc1d574594537524b
 - path: golden/version-v1.json
-  sha256: eb8b3bc1588969428fbf937e0311edcfcb51ad8995f66f9fc1b92675211cd318
+  sha256: 7c0d9b7101590db5a04967721aeb4ab79877f283832d7182fe5feb0a725e671d
 - path: negative/attest-missing-schema-violation.json
   sha256: 7bf357a47ecd220bc342a8d87da6dbd2908ed0f1ba9f320edf4560935c464e2c
 - path: negative/attestation-sweep-schema-violation.json

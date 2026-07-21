@@ -34,19 +34,27 @@ use dli_eval::fork::{AtomChange, ForkDelta, ForkError, KeepStamp, Visibility};
 use dli_eval::query::{Query, QueryOpts};
 use dli_eval::world::GroundAtom;
 
+use dli_ast::decl::{Decl, ProofDecl};
 use dli_ast::ident::Ident;
 use dli_ast::term::{AtomExpr, Term};
+
+use dli_export::profile::ExportTarget;
+use dli_export::{ExportOpts, ExportProfile, export_wire};
+use dli_ledger::ledger_check::check_proof;
+use dli_ledger::practice::{PracticeDef, compile_practices};
+use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 
 use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 use dli_world::draft::DraftFinding;
 use dli_world::language::{LangFinding, LanguageModel, view};
 use dli_world::model::WorldModel;
+use dli_world::scene_projection::project_scene;
 use dli_world::{check, check_draft, sweep};
 
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
-use crate::session::{Scope, Sessions};
+use crate::session::{Scope, Sessions, SimJob, builtin_pack, builtin_ruleset};
 
 /// A handler failure: a typed wire code and a domain-spoken message.
 type Fault = (ErrorCode, String);
@@ -73,21 +81,20 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::NameCheck => handle_name_check(request),
         Op::AttestMissing => handle_attest_missing(request, sessions),
         Op::AttestationSweep => handle_attestation_sweep(request),
+        // check-proof replays the document's proof block against its practice and
+        // the certain-layer scene projection, returning the rich `ProofReport`.
+        Op::CheckProof => handle_check_proof(request, sessions),
+        Op::ExportRun => handle_export_run(request, sessions),
+        Op::SimulateStart => handle_simulate_start(request, sessions),
+        Op::SimulateStatus => handle_simulate_status(request, sessions),
+        Op::SimulateCancel => handle_simulate_cancel(request, sessions),
         // Recognized, but capability-gated. Params are still validated first, so a
         // malformed request is a schema error (caught before the capability gate),
         // never masked by it.
-        // check-proof's wire result is the rich `ProofReport` (per-step L1-L7
-        // verdicts + weakest-link grade); building it needs the scene projection
-        // (the payload lane, wave 4). The thin ledger-replay is not its contract.
-        Op::CheckProof => unwired::<CheckProofParams>(request),
         // fork.add's declarations are full `.dli` declaration lines, not rendered
         // atoms; parsing them faithfully needs the syntax layer the worker does
         // not link yet, so the op is capability-gated rather than half-parsed.
         Op::ForkAdd => unwired::<ForkAddParams>(request),
-        Op::ExportRun => unwired::<ExportRunParams>(request),
-        Op::SimulateStart => unwired::<SimulateStartParams>(request),
-        Op::SimulateStatus => unwired::<SimulateStatusParams>(request),
-        Op::SimulateCancel => unwired::<SimulateCancelParams>(request),
         Op::TimelineShow => unwired::<TimelineShowParams>(request),
         Op::TimelineOrder => unwired::<TimelineOrderParams>(request),
         Op::TimelineKnows => unwired::<TimelineKnowsParams>(request),
@@ -321,6 +328,286 @@ fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<R
             findings: defects.iter().map(draft_finding).collect(),
         },
     ))
+}
+
+fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: CheckProofParams = params(request)?;
+    // The document's source declarations carry both the proof block and the
+    // practices; they resolve deterministically from the same corpus the scope
+    // compiles, so the report is projected against exactly the checked world.
+    let pack = builtin_pack(&p.document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document named '{}' is loaded", p.document),
+        )
+    })?;
+    let proof: &ProofDecl = pack
+        .documents
+        .iter()
+        .flat_map(|doc| &doc.decls)
+        .find_map(|decl| match decl {
+            Decl::Proof(proof) => Some(proof),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            (
+                ErrorCode::SchemaViolation,
+                format!(
+                    "document '{}' declares no proof block to replay",
+                    p.document
+                ),
+            )
+        })?;
+    let practices: Vec<PracticeDef> = pack.documents.iter().flat_map(compile_practices).collect();
+    let practice_name = header_value(&proof.head, "in").ok_or_else(|| {
+        (
+            ErrorCode::SchemaViolation,
+            "the proof names no practice — its header carries no `in <practice>`".to_owned(),
+        )
+    })?;
+    let practice = practices
+        .iter()
+        .find(|practice| practice.name.text == practice_name)
+        .ok_or_else(|| {
+            (
+                ErrorCode::SchemaViolation,
+                format!("the document declares no practice named '{practice_name}'"),
+            )
+        })?;
+    let speaker = header_value(&proof.head, "speaker");
+    let scope = resolve(sessions, &p.document)?;
+    let scene = project_scene(&scope.world, speaker.as_deref());
+    let report = check_proof(practice, proof, &scene);
+    Ok(ok_response(request, &CheckProofResult { report }))
+}
+
+fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: ExportRunParams = params(request)?;
+    match p.profile {
+        // The context pack renders a compiled lore world's certain layer.
+        ExportProfile::ContextPack => {
+            let scope = resolve(sessions, &p.document)?;
+            let outcome = export_wire(
+                ExportProfile::ContextPack,
+                &scope.world,
+                &ExportOpts::default(),
+            )
+            .map_err(|err| {
+                (
+                    ErrorCode::Internal,
+                    format!("the context-pack export failed: {err}"),
+                )
+            })?;
+            Ok(ok_response(
+                request,
+                &ExportRunResult {
+                    manifest: outcome.manifest,
+                },
+            ))
+        }
+        // Cards / Ludii render a card ruleset; the document must name a game, not a
+        // lore corpus (which carries no ruleset). A lore doc-id is refused, never
+        // half-rendered.
+        ExportProfile::Cards | ExportProfile::LudiiGdl => {
+            let (ruleset, registry) = builtin_ruleset(&p.document).ok_or_else(|| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!(
+                        "the requested profile renders a card ruleset; document '{}' names no \
+                         card game (a lore corpus carries no ruleset)",
+                        p.document
+                    ),
+                )
+            })?;
+            let target = if matches!(p.profile, ExportProfile::Cards) {
+                ExportTarget::Cards
+            } else {
+                ExportTarget::LudiiGdl
+            };
+            let export = dli_game::export::run(&registry, target, &ruleset, &ExportOpts::default())
+                .map_err(|err| (ErrorCode::Internal, format!("the export failed: {err}")))?;
+            Ok(ok_response(
+                request,
+                &ExportRunResult {
+                    manifest: export.manifest,
+                },
+            ))
+        }
+    }
+}
+
+fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: SimulateStartParams = params(request)?;
+    // Source the first declared practice from the document (the same corpus the
+    // scope compiles); `turns` is the trial count.
+    let pack = builtin_pack(&p.document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document named '{}' is loaded", p.document),
+        )
+    })?;
+    let practice = pack
+        .documents
+        .iter()
+        .flat_map(compile_practices)
+        .next()
+        .ok_or_else(|| {
+            (
+                ErrorCode::SchemaViolation,
+                format!("document '{}' declares no practice to simulate", p.document),
+            )
+        })?;
+    let battery = Battery {
+        practice,
+        bounds: GenBounds {
+            max_steps: SIM_MAX_STEPS,
+            max_magnitude: SIM_MAX_MAGNITUDE,
+        },
+        seed: p.seed,
+        trials: u64::from(p.turns),
+        metrics: default_metrics(&pack),
+        invariants: default_invariants(&pack),
+        affine_caps: std::collections::BTreeMap::new(),
+    };
+    let manifest = battery.run();
+    let trace = trace_lines(&battery);
+    let manifest_json = serde_json::to_value(&manifest).map_err(|err| {
+        (
+            ErrorCode::Internal,
+            format!("manifest could not be serialized: {err}"),
+        )
+    })?;
+    let job_id = sessions.register_job(SimJob {
+        status: "complete".to_owned(),
+        trace,
+        manifest: manifest_json,
+    });
+    Ok(ok_response(
+        request,
+        &SimulateStartResult {
+            job_id,
+            status: "complete".to_owned(),
+        },
+    ))
+}
+
+fn handle_simulate_status(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: SimulateStatusParams = params(request)?;
+    let job = sessions.job(&p.job_id).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no simulation job named '{}' is running", p.job_id),
+        )
+    })?;
+    Ok(ok_response(
+        request,
+        &SimulateStatusResult {
+            status: job.status.clone(),
+            trace: job.trace.clone(),
+            manifest: Some(job.manifest.clone()),
+        },
+    ))
+}
+
+fn handle_simulate_cancel(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: SimulateCancelParams = params(request)?;
+    if sessions.cancel_job(&p.job_id) {
+        Ok(ok_response(
+            request,
+            &SimulateCancelResult {
+                status: "cancelled".to_owned(),
+            },
+        ))
+    } else {
+        Err((
+            ErrorCode::UnknownDoc,
+            format!("no simulation job named '{}' is running", p.job_id),
+        ))
+    }
+}
+
+/// The generator bound on deltas drawn per resource per trial for the default
+/// `simulate.start` battery.
+const SIM_MAX_STEPS: u32 = 6;
+/// The generator bound on a single delta's magnitude for the default battery.
+const SIM_MAX_MAGNITUDE: u32 = 3;
+
+/// The synthesized default metrics for a `simulate.start` battery: an
+/// `any-violation` rate plus a per-resource `<res>-violated` rate.
+fn default_metrics(pack: &dli_world::Pack) -> Vec<Metric> {
+    let mut metrics = vec![Metric {
+        name: "any-violation".to_owned(),
+        observable: Observable::AnyViolation,
+    }];
+    for name in practice_resource_names(pack) {
+        metrics.push(Metric {
+            name: format!("{name}-violated"),
+            observable: Observable::Violated {
+                resource: name.clone(),
+            },
+        });
+    }
+    metrics
+}
+
+/// The synthesized default invariants for a `simulate.start` battery: an
+/// `all-laws-hold` sweep plus a per-resource `<res>-never-violated` sweep.
+fn default_invariants(pack: &dli_world::Pack) -> Vec<InvariantSpec> {
+    let mut invariants = vec![InvariantSpec {
+        name: "all-laws-hold".to_owned(),
+        predicate: Invariant::AllLawsHold,
+    }];
+    for name in practice_resource_names(pack) {
+        invariants.push(InvariantSpec {
+            name: format!("{name}-never-violated"),
+            predicate: Invariant::NeverViolated {
+                resource: name.clone(),
+            },
+        });
+    }
+    invariants
+}
+
+/// The declared resource names of the document's first practice, in declaration
+/// order — the axis the default metrics and invariants range over.
+fn practice_resource_names(pack: &dli_world::Pack) -> Vec<String> {
+    pack.documents
+        .iter()
+        .flat_map(compile_practices)
+        .next()
+        .map(|practice| {
+            practice
+                .resources
+                .iter()
+                .map(|resource| resource.name.text.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// One rendered line per simulated turn — whether that trial's casting broke any
+/// declared resource law.
+fn trace_lines(battery: &Battery) -> Vec<String> {
+    (0..battery.trials)
+        .map(|index| {
+            let outcome = battery.account_trial(&battery.generate_trial(index));
+            let verdict = if outcome.any_violation() {
+                "a law was broken"
+            } else {
+                "all laws held"
+            };
+            format!("turn {index}: {verdict}")
+        })
+        .collect()
+}
+
+/// Read the value following a header keyword (`in <practice>`, `speaker <who>`)
+/// from a proof declaration's flat header token list.
+fn header_value(head: &[String], key: &str) -> Option<String> {
+    head.iter()
+        .position(|token| token == key)
+        .and_then(|i| head.get(i + 1))
+        .cloned()
 }
 
 fn handle_name_check(request: &Request) -> Result<Response, Fault> {
@@ -639,13 +926,8 @@ fn not_wired(op: Op) -> Fault {
 /// in [`handle`].
 fn capabilities() -> Vec<String> {
     /// The ops whose engine has not landed — mirrors the `unwired` match arms.
-    const GATED: [Op; 11] = [
-        Op::CheckProof,
+    const GATED: [Op; 6] = [
         Op::ForkAdd,
-        Op::ExportRun,
-        Op::SimulateStart,
-        Op::SimulateStatus,
-        Op::SimulateCancel,
         Op::TimelineShow,
         Op::TimelineOrder,
         Op::TimelineKnows,

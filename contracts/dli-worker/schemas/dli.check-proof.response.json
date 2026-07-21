@@ -5,14 +5,61 @@
   "type": "object",
   "properties": {
     "report": {
-      "description": "The ledger report.",
-      "$ref": "#/$defs/LedgerReport"
+      "description": "The rich proof report: per-step L1–L7 verdicts, the reached verdict, the\ndeclared expectation, and the weakest-link grade.",
+      "$ref": "#/$defs/ProofReport"
     }
   },
   "required": [
     "report"
   ],
   "$defs": {
+    "Expectation": {
+      "description": "The verdict a proof declares it expects at its close (`docs/spec/04` §5).\n\nExternally tagged (`rename_all` only, no internal `tag`): the `FailsAt` and\n`Unknown` newtype variants wrap a bare `String`, which serde's internal\ntagging cannot merge a tag into — so this enum keeps serde's default\n(external) representation, unlike the struct/unit-only [`ProofFinding`].",
+      "oneOf": [
+        {
+          "description": "`expect holds` — the casting should reach its close cleanly.",
+          "type": "string",
+          "const": "holds"
+        },
+        {
+          "description": "`expect blocked` — the casting should be blocked (by some failure).",
+          "type": "string",
+          "const": "blocked"
+        },
+        {
+          "description": "`expect fails-at <error>` — the casting should fail at exactly this\ndeclared error. A wrong argument that accidentally validates is a bug.",
+          "type": "object",
+          "properties": {
+            "fails-at": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "fails-at"
+          ]
+        },
+        {
+          "description": "An `expect` clause naming a token that is not one of the three verdicts —\na typo silently reading as `holds` would gut the whole discipline\n(`docs/spec/04` §5), so an unknown token is kept and refused, not coerced.",
+          "type": "object",
+          "properties": {
+            "unknown": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "unknown"
+          ]
+        }
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
     "Grade": {
       "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
       "oneOf": [
@@ -38,45 +85,651 @@
         }
       ]
     },
-    "LedgerReport": {
-      "description": "The result of checking a ledger: the violations found, if any.",
+    "Ident": {
+      "description": "A named identifier with its source span.",
       "type": "object",
       "properties": {
-        "violations": {
-          "description": "Every law violation detected, in entry order.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/LedgerViolation"
-          }
-        }
-      },
-      "required": [
-        "violations"
-      ]
-    },
-    "LedgerViolation": {
-      "description": "A single detected law violation.",
-      "type": "object",
-      "properties": {
-        "entry": {
-          "description": "The index of the offending entry.",
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
+        "span": {
+          "description": "Where the identifier appears in source.",
+          "$ref": "#/$defs/Span"
         },
-        "grade": {
-          "description": "The grade at which the violation is asserted.",
-          "$ref": "#/$defs/Grade"
-        },
-        "message": {
-          "description": "A human-readable description.",
+        "text": {
+          "description": "The identifier text as written.",
           "type": "string"
         }
       },
       "required": [
-        "entry",
-        "message",
-        "grade"
+        "text",
+        "span"
+      ]
+    },
+    "ProofFinding": {
+      "description": "A structural finding against a proof — a refinement of one of `L1`..`L7`, or\nthe meta-finding that the declared expectation was not met.\n\nTwo-channel like every load finding (charter koan 9): a stable machine\n[`code`](ProofFinding::code) and a domain-spoken\n[`message`](ProofFinding::message).\n\nInternally tagged on `finding` (the house style for the fabric's data-carrying\nfinding enums — cf. `PracticeFinding` and `LoadFinding`): every variant is a\nstruct or unit variant, so the tag merges cleanly.",
+      "oneOf": [
+        {
+          "description": "L1 — a step names a form the practice does not declare.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "description": "The step that named it.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "unknown-form"
+            },
+            "form": {
+              "description": "The undeclared form.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "form",
+            "at"
+          ]
+        },
+        {
+          "description": "L2 (*absent*) — a premise merely unestablished in the projection: a fizzle.",
+          "type": "object",
+          "properties": {
+            "atom": {
+              "description": "The premise atom, as written.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "premise-absent"
+            },
+            "label": {
+              "description": "The premise label.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "label",
+            "atom"
+          ]
+        },
+        {
+          "description": "L2 (*contradicted*) — a premise the certain projection denies: a rebound.",
+          "type": "object",
+          "properties": {
+            "atom": {
+              "description": "The premise atom, as written.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "premise-contradicted"
+            },
+            "label": {
+              "description": "The premise label.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "label",
+            "atom"
+          ]
+        },
+        {
+          "description": "L3 (*timing*) — a timing premise seated at the wrong phase: wrong-phase.",
+          "type": "object",
+          "properties": {
+            "actual": {
+              "description": "The phase in force in the scene, if the scene established one.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cycle": {
+              "description": "The cycle whose phase was wrong.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "wrong-phase"
+            },
+            "label": {
+              "description": "The premise label.",
+              "type": "string"
+            },
+            "required": {
+              "description": "The phase the casting required.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "label",
+            "cycle",
+            "required"
+          ]
+        },
+        {
+          "description": "L4 — a form bound against an argument its parameters forbid.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "description": "The step.",
+              "type": "string"
+            },
+            "binding": {
+              "description": "The binding key the form does not declare.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "bad-instantiation"
+            },
+            "form": {
+              "description": "The form being instantiated.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "form",
+            "binding",
+            "at"
+          ]
+        },
+        {
+          "description": "L5 — a step joins premises by a law the practice does not license, or over\na premise it never established.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "description": "The step.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "invalid-chain"
+            },
+            "law": {
+              "description": "The law named (or `<unknown>` when a joined label does not resolve).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "law",
+            "at"
+          ]
+        },
+        {
+          "description": "L6 — a spend broke a resource's algebra law (overload is the affine case).",
+          "type": "object",
+          "properties": {
+            "at": {
+              "description": "The step where the offending delta was applied.",
+              "type": "string"
+            },
+            "code": {
+              "description": "The stable class of the breach.",
+              "$ref": "#/$defs/ResourceViolationCode"
+            },
+            "finding": {
+              "type": "string",
+              "const": "resource-violation"
+            },
+            "message": {
+              "description": "The domain-spoken description from the resource algebra.",
+              "type": "string"
+            },
+            "resource": {
+              "description": "The resource whose law broke.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "resource",
+            "code",
+            "message",
+            "at"
+          ]
+        },
+        {
+          "description": "L7 — the close does not follow from the accounted ledger.",
+          "type": "object",
+          "properties": {
+            "close": {
+              "description": "The close atom, as written.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "close-mismatch"
+            }
+          },
+          "required": [
+            "finding",
+            "close"
+          ]
+        },
+        {
+          "description": "The declared expectation was not met — most sharply, a proof that expected\na failure but *validated* (the silent-success bug the discipline catches).",
+          "type": "object",
+          "properties": {
+            "expected": {
+              "description": "The expectation the proof declared.",
+              "$ref": "#/$defs/Expectation"
+            },
+            "finding": {
+              "type": "string",
+              "const": "expectation-unmet"
+            },
+            "got": {
+              "description": "The verdict the checker reached.",
+              "$ref": "#/$defs/ProofVerdict"
+            }
+          },
+          "required": [
+            "finding",
+            "expected",
+            "got"
+          ]
+        },
+        {
+          "description": "L6 — a `spend`/`release` names a label that is not a declared resource\npremise (an undefined label, or a world/timing premise). The resource\naccounting cannot fold a unit that was never a unit.",
+          "type": "object",
+          "properties": {
+            "finding": {
+              "type": "string",
+              "const": "invalid-spend"
+            },
+            "keyword": {
+              "description": "The keyword written (`spend` or `release`).",
+              "type": "string"
+            },
+            "label": {
+              "description": "The label it named.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "keyword",
+            "label"
+          ]
+        },
+        {
+          "description": "L4 — a timing premise names a spoke the cycle does not carry\n(`phase(tide, purple)` on `tide = ebb | slack | flood | high`): a\nbad-instantiation, the phase equivalent of laying a figure on a leaf the\ncycle has no room for.",
+          "type": "object",
+          "properties": {
+            "cycle": {
+              "description": "The cycle named.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "unknown-spoke"
+            },
+            "label": {
+              "description": "The premise label.",
+              "type": "string"
+            },
+            "spoke": {
+              "description": "The undeclared spoke.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "label",
+            "cycle",
+            "spoke"
+          ]
+        },
+        {
+          "description": "The `expect` clause named a token that is not `holds`, `blocked`, or\n`fails-at <error>` — a typo the discipline must refuse, not coerce to\n`holds`.",
+          "type": "object",
+          "properties": {
+            "finding": {
+              "type": "string",
+              "const": "unknown-expectation"
+            },
+            "token": {
+              "description": "The unrecognized token.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "token"
+          ]
+        },
+        {
+          "description": "The proof has no `close` — a casting with no conclusion cannot be judged.",
+          "type": "object",
+          "properties": {
+            "finding": {
+              "type": "string",
+              "const": "missing-close"
+            }
+          },
+          "required": [
+            "finding"
+          ]
+        },
+        {
+          "description": "The proof's header `in <practice>` names a practice other than the one it\nwas checked against; the verdict would be about the wrong law-set.",
+          "type": "object",
+          "properties": {
+            "checked": {
+              "description": "The practice actually checked against.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "practice-mismatch"
+            },
+            "header": {
+              "description": "The practice the header named.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "header",
+            "checked"
+          ]
+        }
+      ]
+    },
+    "ProofForm": {
+      "description": "Which proof form a [`StepVerdict`] records.",
+      "oneOf": [
+        {
+          "description": "`premise <l> <atom> …` — an atom the casting rests on.",
+          "type": "string",
+          "const": "premise"
+        },
+        {
+          "description": "`assume <l> <atom>` — a fork-local supposition.",
+          "type": "string",
+          "const": "assume"
+        },
+        {
+          "description": "`step <l> instantiate <form> with …` — bind a form's parameters.",
+          "type": "string",
+          "const": "instantiate"
+        },
+        {
+          "description": "`step <l> chain from … by <law> conclusion <atom>` — join by a law.",
+          "type": "string",
+          "const": "chain"
+        },
+        {
+          "description": "`spend <l>` — draw a resource unit against a premise.",
+          "type": "string",
+          "const": "spend"
+        },
+        {
+          "description": "`release <l>` — return a conserved unit to the multiset.",
+          "type": "string",
+          "const": "release"
+        },
+        {
+          "description": "`redistribute <l>` — move a conserved unit between accounts.",
+          "type": "string",
+          "const": "redistribute"
+        },
+        {
+          "description": "`reveal <l>` — surface a conserved unit already implied.",
+          "type": "string",
+          "const": "reveal"
+        },
+        {
+          "description": "`close <atom> expect <verdict>` — the casting's conclusion.",
+          "type": "string",
+          "const": "close"
+        },
+        {
+          "description": "A form the checker did not recognize (kept, never dropped — koan 4).",
+          "type": "string",
+          "const": "other"
+        }
+      ]
+    },
+    "ProofReport": {
+      "description": "The full report of checking one proof.\n\nThis is a frozen seam: `SERVE-1`'s `dli.check-ledger` and the payload battery\n(PAY-2) consume it. The [`checks`](ProofReport::checks) flag is the one-bit\nverdict — the declared expectation was met — while\n[`findings`](ProofReport::findings), [`verdict`](ProofReport::verdict), and\n[`grade`](ProofReport::grade) carry the why, the where, and the strength.",
+      "type": "object",
+      "properties": {
+        "checks": {
+          "description": "Whether the proof checks: shorthand for\n[`expectation_met`](Self::expectation_met).",
+          "type": "boolean"
+        },
+        "expectation_met": {
+          "description": "Whether the reached verdict met the declared expectation.",
+          "type": "boolean"
+        },
+        "expected": {
+          "description": "The expectation the proof declared.",
+          "$ref": "#/$defs/Expectation"
+        },
+        "findings": {
+          "description": "The structural findings, ordered by the step where each fired.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProofFinding"
+          }
+        },
+        "grade": {
+          "description": "The weakest-link grade over the procedure chain (`Grade::weakest`).",
+          "$ref": "#/$defs/Grade"
+        },
+        "practice": {
+          "description": "The practice it ran in.",
+          "$ref": "#/$defs/Ident"
+        },
+        "proof": {
+          "description": "The proof's name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "speaker": {
+          "description": "The speaker named in the header (`speaker <who>`), if any.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "steps": {
+          "description": "Per-step verdicts, in ledger order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StepVerdict"
+          }
+        },
+        "verdict": {
+          "description": "The verdict the checker reached at the close.",
+          "$ref": "#/$defs/ProofVerdict"
+        }
+      },
+      "required": [
+        "proof",
+        "practice",
+        "steps",
+        "findings",
+        "verdict",
+        "expected",
+        "expectation_met",
+        "grade",
+        "checks"
+      ]
+    },
+    "ProofVerdict": {
+      "description": "What the checker made of the close, before the expectation is weighed.",
+      "oneOf": [
+        {
+          "description": "The close follows from the accounted ledger; nothing fired.",
+          "type": "string",
+          "const": "holds"
+        },
+        {
+          "description": "The casting is blocked at a structural class, with the practice's refining\nerror name (if one matched) and the step where it fired.",
+          "type": "object",
+          "properties": {
+            "failed-at": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "description": "The label of the step where it failed.",
+                  "type": "string"
+                },
+                "class": {
+                  "description": "The structural class the casting failed at.",
+                  "$ref": "#/$defs/StructuralClass"
+                },
+                "error": {
+                  "description": "The diegetic error this refines to, if the practice named one.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "class",
+                "at"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "failed-at"
+          ]
+        }
+      ]
+    },
+    "ResourceViolationCode": {
+      "description": "The stable class of a [`ResourceViolation`] (charter koan 9).",
+      "oneOf": [
+        {
+          "description": "A linear or affine balance fell below zero — a unit was spent that was\nnever accounted (over-spend below the floor).",
+          "type": "string",
+          "const": "overspent"
+        },
+        {
+          "description": "An affine balance rose above its declared capacity — more was held than\nthe cap allows.",
+          "type": "string",
+          "const": "over-capacity"
+        },
+        {
+          "description": "A `linear conserved` multiset did not net to zero at the close — a step\nminted or burned the resource.",
+          "type": "string",
+          "const": "not-conserved"
+        },
+        {
+          "description": "A graded-monotone grade moved against its one declared direction.",
+          "type": "string",
+          "const": "wrong-direction"
+        }
+      ]
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    },
+    "StepVerdict": {
+      "description": "One step's verdict in a checked proof.",
+      "type": "object",
+      "properties": {
+        "form": {
+          "description": "Which form this step is.",
+          "$ref": "#/$defs/ProofForm"
+        },
+        "grade": {
+          "description": "The grade this step contributes to the procedure chain.",
+          "$ref": "#/$defs/Grade"
+        },
+        "label": {
+          "description": "The step's label (`p1`, `s2`), or the keyword for an unlabeled form.",
+          "type": "string"
+        },
+        "note": {
+          "description": "A domain-spoken note (what the step did, or why it failed).",
+          "type": "string"
+        },
+        "ok": {
+          "description": "Whether the step stands — no finding fired against it.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "form",
+        "ok",
+        "grade",
+        "note"
+      ]
+    },
+    "StructuralClass": {
+      "description": "The seven structural error classes the checker knows.\n\nEvery diegetic failure a practice declares is a *refinement* of one of these\n(`docs/spec/04-practices.md` §2). The classes are the closed target set that\nwell-formedness obligation 1 checks against: an `error` refining anything\nelse does not compile.",
+      "oneOf": [
+        {
+          "description": "L1 — unknown-form: the casting names a form the practice does not declare.",
+          "type": "string",
+          "const": "L1"
+        },
+        {
+          "description": "L2 — premise-not-available: a required premise is absent or contradicted.",
+          "type": "string",
+          "const": "L2"
+        },
+        {
+          "description": "L3 — side-condition: a declared condition fails (timing, consent, scope).",
+          "type": "string",
+          "const": "L3"
+        },
+        {
+          "description": "L4 — bad-instantiation: a form is instantiated against forbidden sorts.",
+          "type": "string",
+          "const": "L4"
+        },
+        {
+          "description": "L5 — invalid-chain: a step joins premises the law does not license.",
+          "type": "string",
+          "const": "L5"
+        },
+        {
+          "description": "L6 — resource-violation: a spend breaks the resource's algebra.",
+          "type": "string",
+          "const": "L6"
+        },
+        {
+          "description": "L7 — close-mismatch: the close does not follow from the accounted ledger.",
+          "type": "string",
+          "const": "L7"
+        }
       ]
     }
   }

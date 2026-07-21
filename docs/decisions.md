@@ -476,3 +476,34 @@ as an authoring door, which flips the prior "rule bodies are inert text" contrac
 bodies; a `requires`-style guarded body form (currently the parser leaves such
 bodies unlowered). Multi-authority or arithmetic negation stays out of v1
 (DEF-3/DEF-4).
+
+## DL-0021 — Wire check-proof / simulate / export; migrate `dli.check-proof` to the rich `ProofReport`
+
+*Date: 2026-07-21*
+
+**Ruling.** The three honest not-yet commands are wired to their (already-built)
+engines at BOTH the CLI and the server, and their server ops leave the gated set.
+This carries a **frozen-contract migration**: `dli.check-proof`'s
+`CheckProofResult.report` changes from the placeholder thin `LedgerReport`
+(`{ violations: [] }`) to the rich `dli_ledger::ProofReport` (steps, findings,
+verdict, expectation, grade), with the response schema regenerated and the golden
+fixture rewritten to the real report shape. `check-proof` builds its scene via the
+new `CompiledWorld → SceneProjection` builder (DL-0019's companion); `export`
+renders ContextPack from the certain layer and Cards/Ludii from a game ruleset;
+`simulate` runs a practice or deal battery to completion and returns an honest
+manifest. `GATED` shrinks from 11 ops to 6 (only `fork.add` + `timeline.*` remain
+unwired).
+
+**Rationale.** The author ruled item 2 as "CLI + full serve un-gate" — the engines
+(dli-ledger proof checker, dli-sim, dli-game, dli-export) had all shipped, so the
+honest not-yet stubs were stale; wiring them is the intended completion. The
+`ProofReport` migration is the one frozen-contract change and was pre-enabled by
+adding the wire-derives (DL-0019's commit). The server ops carry only `{document}`,
+so the worker resolves a small set of builtin demo worlds (a `spoken-proof`
+practice corpus and a `french-deck` ruleset) rather than churn the cross-lane
+camelot fixtures — a lane-local resolver extension, not a contract change.
+
+**Revisit trigger.** If the worker gains a real corpus-passing channel, the
+builtin demo resolver is replaced by the passed world; `simulate` becomes
+asynchronous if a cross-process job store lands (today it runs synchronously and
+`status`/`cancel` read/drop an in-session job).

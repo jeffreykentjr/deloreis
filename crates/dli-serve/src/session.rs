@@ -19,10 +19,60 @@
 use std::collections::BTreeMap;
 
 use dli_eval::fork::{ForkId, ForkStore};
+use dli_export::profile::Registry;
+use dli_game::model::Ruleset;
+use dli_syntax::parse_document;
 use dli_world::loader::example_docs;
 use dli_world::{CompiledWorld, Pack, compile};
 
 use crate::envelope::ErrorCode;
+
+/// The built-in `french-deck` game ruleset — the shipped standard 52-card
+/// exemplar (`examples/games/french-deck/`). It gives the card / Ludii export
+/// profiles a hermetic, resolvable game to render (a lore world carries no card
+/// ruleset). Embedded as source (never a file read at runtime) so the worker
+/// stays offline and self-contained.
+const FRENCH_DECK_RULES: &str = include_str!("../../../examples/games/french-deck/rules.json");
+/// The `french-deck` export profile catalog (a `cards` and a `ludii-gdl` profile).
+const FRENCH_DECK_PROFILES: &str =
+    include_str!("../../../examples/games/french-deck/profiles.json");
+
+/// The built-in `warding-vows` teaching corpus: a linear-conserved proof
+/// discipline with one worked casting that checks. It gives the `check-proof` and
+/// `simulate.*` ops a hermetic, resolvable document that carries both a practice
+/// and a proof — the neutral `camelot` demo world carries neither. Embedded as
+/// source (never a file read) so the worker stays offline and self-contained.
+const WARDING_VOWS_SRC: &str = r#"scope warding-vows
+
+use chronology
+
+ratify d-1
+
+cycle tide(4) = ebb | slack | flood | high  decided d-1
+
+warded(arden)          decided d-1
+phase(tide, slack)     decided d-1
+
+practice warding-vows  proposed {
+  kind ground = door | field | ore
+  resource debt : linear conserved
+  rule ward-form(ground, fibre)
+  rule give-and-take
+  error fizzle  refines L2 premise-not-available where absent
+  error rebound refines L2 premise-not-available where contradicted
+  cost material
+  }
+
+proof e01-s04  speaker arden  in warding-vows {
+  premise p1  warded(arden)        cited d-1  cue "line 112"
+  premise p2  phase(tide, slack)   from-scene cue "line 118"
+  premise p3  debt(1)              drawn-against p1
+  step    s1  instantiate ward-form  with ground = door, fibre = withy
+  step    s2  chain from p1, s1 by give-and-take conclusion bound(ward, door)
+  spend   p3
+  close   bound(ward, door)  expect holds
+  }
+"#;
 
 /// A loaded corpus scope: the compiled world every read op queries, and the fork
 /// store every fork op layers over its saturated base.
@@ -33,6 +83,22 @@ pub struct Scope {
     /// The forks opened over this scope. Its base is a clone of the compiled
     /// world's saturated program, so a fork never disturbs the read surface.
     pub forks: ForkStore,
+}
+
+/// A completed simulation job held for the life of the serve loop. The worker
+/// runs a battery synchronously on `simulate.start` (bounded, replayable), so a
+/// job is `complete` the instant it is registered; `simulate.status` reads it back
+/// and `simulate.cancel` drops it. The manifest is kept pre-serialized so this
+/// module stays free of the simulator types (`10-serving.md` §5: jobs are
+/// in-process, never persisted).
+#[derive(Debug, Clone)]
+pub struct SimJob {
+    /// The job status (`complete` for a finished synchronous run).
+    pub status: String,
+    /// One rendered line per simulated turn.
+    pub trace: Vec<String>,
+    /// The committed run manifest, already serialized to JSON.
+    pub manifest: serde_json::Value,
 }
 
 /// The session store shared across one serve process: the doc-id→scope cache and
@@ -47,6 +113,11 @@ pub struct Sessions {
     /// Monotonic handle counter, so handles (`fork-1`, `fork-2`, …) are stable
     /// and never reused within a process.
     next_handle: u64,
+    /// Wire job handle → the completed simulation job it names.
+    jobs: BTreeMap<String, SimJob>,
+    /// Monotonic job counter, so handles (`job-1`, `job-2`, …) are stable and
+    /// never reused within a process.
+    next_job: u64,
 }
 
 impl Sessions {
@@ -101,6 +172,26 @@ impl Sessions {
             .map(|(handle, _)| handle.clone())
             .collect()
     }
+
+    /// Register a completed simulation job, minting a fresh stable wire handle.
+    pub fn register_job(&mut self, job: SimJob) -> String {
+        self.next_job += 1;
+        let handle = format!("job-{}", self.next_job);
+        self.jobs.insert(handle.clone(), job);
+        handle
+    }
+
+    /// Resolve a wire job handle to the completed job it names.
+    #[must_use]
+    pub fn job(&self, handle: &str) -> Option<&SimJob> {
+        self.jobs.get(handle)
+    }
+
+    /// Drop a job by handle, returning whether it was present — the
+    /// `simulate.cancel` seam over a synchronous, already-complete run.
+    pub fn cancel_job(&mut self, handle: &str) -> bool {
+        self.jobs.remove(handle).is_some()
+    }
 }
 
 /// The built-in corpus pack for a doc-id, or `None` if the id is unknown. The v0
@@ -115,6 +206,31 @@ pub fn builtin_pack(document: &str) -> Option<Pack> {
             name: document.to_owned(),
             documents: example_docs(),
         }),
+        "warding-vows" => {
+            let (doc, _diags) = parse_document(WARDING_VOWS_SRC);
+            Some(Pack {
+                name: document.to_owned(),
+                documents: vec![doc],
+            })
+        }
+        _ => None,
+    }
+}
+
+/// The built-in card ruleset for a game-document id, paired with its export
+/// profile registry (the built-in catalog merged with the game's own profiles) —
+/// the source the `Cards` / `LudiiGdl` export profiles render. `None` for a doc-id
+/// that names no built-in game (a lore corpus carries no ruleset). The v0 resolver
+/// knows only `french-deck`; pointing it at a games directory generalizes exactly
+/// this one function, mirroring [`builtin_pack`] for lore.
+#[must_use]
+pub fn builtin_ruleset(document: &str) -> Option<(Ruleset, Registry)> {
+    match document {
+        "french-deck" => {
+            let ruleset = Ruleset::from_rules(FRENCH_DECK_RULES).ok()?;
+            let world: Registry = serde_json::from_str(FRENCH_DECK_PROFILES).ok()?;
+            Some((ruleset, Registry::builtin().merge(world)))
+        }
         _ => None,
     }
 }

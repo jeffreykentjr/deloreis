@@ -4,9 +4,10 @@
 //! `respond` path (framing + routing + engine), threading session state across a
 //! multi-step flow; every negative fixture yields its typed error code; the raw
 //! frames exercise the framing discipline. Fixtures whose ops belong to another
-//! lane (author.*, door-t) or whose engine has not landed (check-proof, export,
-//! simulate, timeline) are covered elsewhere or are capability-gated, and are
-//! skipped here by ownership.
+//! lane (author.*, door-t) or whose engine has not landed (fork.add's declaration
+//! parser, timeline.*, and the killed `check-ledger` form) are covered elsewhere
+//! or are capability-gated, and are skipped here by ownership. check-proof,
+//! export.run, and simulate.* are wired and replay here.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::fs;
@@ -23,19 +24,15 @@ fn fixtures_dir() -> PathBuf {
 }
 
 /// The ops whose golden fixture replays in v0. Excluded: author.* (door-t) and
-/// the capability-gated ops (check-proof's rich `ProofReport`, export, simulate,
-/// timeline, and fork.add's declaration parser), each covered by the
-/// capability-gate test instead.
+/// the still-capability-gated ops (fork.add's declaration parser, timeline.*, and
+/// the killed `check-ledger` form), each covered by the capability-gate/killed-op
+/// tests instead. check-proof, export.run, and simulate.* are now wired and
+/// replay here.
 fn serve_owned(op: &str) -> bool {
     op.starts_with("dli.")
         && ![
-            "dli.check-proof",
             "dli.check-ledger",
             "dli.fork.add",
-            "dli.export.run",
-            "dli.simulate.start",
-            "dli.simulate.status",
-            "dli.simulate.cancel",
             "dli.timeline.show",
             "dli.timeline.order",
             "dli.timeline.knows",
@@ -238,8 +235,9 @@ fn killed_and_unknown_ops_are_refused() {
 fn not_yet_wired_ops_are_capability_gated() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
+    // timeline.* is still capability-gated (its engine has not landed).
     let response = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.export.run","params":{"document":"camelot","profile":"ludii-gdl"}}),
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.timeline.show","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
@@ -251,20 +249,24 @@ fn not_yet_wired_ops_are_capability_gated() {
 }
 
 #[test]
-fn check_proof_is_capability_gated_but_validates_params() {
-    // check-proof's wire result is the rich ProofReport, which needs the scene
-    // projection (payload lane, wave 4) — so it is capability-gated. A malformed
-    // request is still a schema error, caught before the capability gate.
+fn check_proof_is_wired_and_validates_params() {
+    // check-proof is wired: it replays the document's proof block against its
+    // practice and the certain-layer scene projection, returning the rich
+    // ProofReport. A malformed request is still a schema error, caught before the
+    // handler ever runs.
     let mut sessions = Sessions::new();
     let mut store = Store::default();
 
-    let gated = send(
-        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.check-proof","params":{"document":"camelot"}}),
+    let wired = send(
+        &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.check-proof","params":{"document":"warding-vows"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
-    assert_eq!(gated.error.unwrap().code.wire_name(), "not-wired");
+    assert!(wired.ok, "check-proof is wired: {wired:?}");
+    let report = &wired.result.unwrap()["report"];
+    assert_eq!(report["checks"], serde_json::json!(true));
+    assert_eq!(report["verdict"], serde_json::json!("holds"));
 
     let malformed = send(
         &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.check-proof","params":{}}),

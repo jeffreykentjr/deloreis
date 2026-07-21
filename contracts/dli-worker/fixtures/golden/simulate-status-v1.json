@@ -1,15 +1,16 @@
 {
   "fixture": "golden/simulate-status-v1",
   "version": 1,
-  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
         "dli": "0.1.0",
         "id": "1",
-        "op": "dli.simulate.status",
+        "op": "dli.simulate.start",
         "params": {
-          "job_id": "sim-1"
+          "document": "warding-vows",
+          "seed": 42,
+          "turns": 3
         }
       },
       "expect": {
@@ -17,8 +18,77 @@
         "id": "1",
         "ok": true,
         "result": {
+          "job_id": "job-1",
+          "status": "complete"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.simulate.status",
+        "params": {
+          "job_id": "job-1"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
           "status": "complete",
-          "trace": []
+          "trace": [
+            "turn 0: all laws held",
+            "turn 1: all laws held",
+            "turn 2: a law was broken"
+          ],
+          "manifest": {
+            "battery_digest": "fnv1a64:59a4e54ef5fc2aa1",
+            "seed": 42,
+            "trials": 3,
+            "metrics": [
+              {
+                "metric": "any-violation",
+                "trials": 3,
+                "sum": 1,
+                "sum_of_squares": 1,
+                "mean": 0.3333333333333333,
+                "half_width": 0.6533333333333334,
+                "grade": "tested"
+              },
+              {
+                "metric": "debt-violated",
+                "trials": 3,
+                "sum": 1,
+                "sum_of_squares": 1,
+                "mean": 0.3333333333333333,
+                "half_width": 0.6533333333333334,
+                "grade": "tested"
+              }
+            ],
+            "invariants": [
+              {
+                "invariant": "all-laws-hold",
+                "outcome": {
+                  "outcome": "violated",
+                  "trial": 2,
+                  "detail": "resource 'debt' violated its law (overspent) at trial 2"
+                },
+                "grade": "checked"
+              },
+              {
+                "invariant": "debt-never-violated",
+                "outcome": {
+                  "outcome": "violated",
+                  "trial": 2,
+                  "detail": "resource 'debt' violated its law (overspent) at trial 2"
+                },
+                "grade": "checked"
+              }
+            ],
+            "checkpoint_lineage": [3]
+          }
         }
       }
     }

@@ -245,11 +245,31 @@ fn fork_suppose_rejects_unknown_target() {
 }
 
 #[test]
-fn not_yet_engines_exit_two() {
-    // simulate/check-proof/export report a typed not-yet until their engines land.
-    let output = bin().args(["simulate", "turning"]).output().unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    assert!(stdout(&output).contains("not wired yet"));
+fn simulate_practice_runs_an_honest_battery() {
+    // simulate is wired (SIM-1): a bounded seeded battery over a declared practice,
+    // graded with honest metrics (tested) and invariants (checked). It no longer
+    // reports a typed not-yet.
+    let corpus = examples().join("true-naming.dli");
+    let output = bin()
+        .args(["simulate", "true-naming", "--games", "64", "--seed", "1"])
+        .arg("--corpus")
+        .arg(&corpus)
+        .output()
+        .unwrap();
+    let code = output.status.code();
+    // A verdict code: clean (0) if every law held, or findings (1) if a random
+    // casting broke one — never the old usage code (2) for an unwired engine.
+    assert!(
+        code == Some(0) || code == Some(1),
+        "simulate exits a verdict code, got {code:?}:\n{}",
+        stdout(&output)
+    );
+    let out = stdout(&output);
+    assert!(out.contains("grades are honest"), "honest manifest:\n{out}");
+    assert!(
+        !out.contains("not wired yet"),
+        "simulate is wired now:\n{out}"
+    );
 }
 
 /// H7: a downstream consumer closing the pipe early (`head`) must not panic the

@@ -1,7 +1,6 @@
 {
   "fixture": "golden/check-proof-turning-v1",
   "version": 1,
-  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
@@ -9,7 +8,7 @@
         "id": "1",
         "op": "dli.check-proof",
         "params": {
-          "document": "true-naming"
+          "document": "warding-vows"
         }
       },
       "expect": {
@@ -18,7 +17,30 @@
         "ok": true,
         "result": {
           "report": {
-            "violations": []
+            "proof": {
+              "text": "e01-s04",
+              "span": { "file": 0, "start": 490, "end": 497 }
+            },
+            "speaker": "arden",
+            "practice": {
+              "text": "warding-vows",
+              "span": { "file": 0, "start": 490, "end": 497 }
+            },
+            "steps": [
+              { "label": "p1", "form": "premise", "ok": true, "grade": "checked", "note": "available in the pool" },
+              { "label": "p2", "form": "premise", "ok": true, "grade": "checked", "note": "tide is slack" },
+              { "label": "p3", "form": "premise", "ok": true, "grade": "checked", "note": "draws 1 debt" },
+              { "label": "s1", "form": "instantiate", "ok": true, "grade": "checked", "note": "instantiate ward-form" },
+              { "label": "s2", "form": "chain", "ok": true, "grade": "checked", "note": "chain by give-and-take" },
+              { "label": "p3", "form": "spend", "ok": true, "grade": "checked", "note": "spend p3" },
+              { "label": "close", "form": "close", "ok": true, "grade": "checked", "note": "bound(ward, door)" }
+            ],
+            "findings": [],
+            "verdict": "holds",
+            "expected": "holds",
+            "expectation_met": true,
+            "grade": "checked",
+            "checks": true
           }
         }
       }

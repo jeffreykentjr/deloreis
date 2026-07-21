@@ -11,7 +11,7 @@ use dli_core::posbool::PosBool;
 use dli_eval::query::{Layer, QueryRow};
 use dli_eval::why::{Why, WhyNot};
 use dli_export::{ExportManifest, ExportProfile};
-use dli_ledger::LedgerReport;
+use dli_ledger::ProofReport;
 use dli_world::attest::{Attestation, AttestationStore};
 use dli_world::draft::{DraftFinding, DraftPayload};
 
@@ -279,8 +279,9 @@ pub struct CheckProofParams {
 /// `dli.check-proof` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CheckProofResult {
-    /// The ledger report.
-    pub report: LedgerReport,
+    /// The rich proof report: per-step L1–L7 verdicts, the reached verdict, the
+    /// declared expectation, and the weakest-link grade.
+    pub report: ProofReport,
 }
 
 // -- dli.check-draft ---------------------------------------------------------

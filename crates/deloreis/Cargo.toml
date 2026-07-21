@@ -17,6 +17,8 @@ dli-eval.workspace = true
 dli-ledger.workspace = true
 dli-world.workspace = true
 dli-export.workspace = true
+dli-sim.workspace = true
+dli-game.workspace = true
 dli-serve.workspace = true
 clap.workspace = true
 miette = { workspace = true, features = ["fancy"] }

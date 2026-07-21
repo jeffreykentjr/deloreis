@@ -1,7 +1,6 @@
 {
   "fixture": "golden/simulate-v1",
   "version": 1,
-  "expected_outcome": "gated",
   "steps": [
     {
       "send": {
@@ -9,7 +8,7 @@
         "id": "1",
         "op": "dli.simulate.start",
         "params": {
-          "document": "true-naming",
+          "document": "warding-vows",
           "seed": 42,
           "turns": 3
         }
@@ -20,7 +19,7 @@
         "ok": true,
         "result": {
           "job_id": "job-1",
-          "status": "started"
+          "status": "complete"
         }
       }
     }
