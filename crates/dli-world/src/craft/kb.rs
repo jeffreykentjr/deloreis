@@ -37,17 +37,18 @@
 //! win** (D-0128): [`why`] renders the principles behind a finding pillar-first, so
 //! a mission-specific pillar overrides generic advice.
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 use dli_core::grade::Grade;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::attest::{Attestation, Question, QuestionKey};
 use crate::check::WorldFinding;
 
 /// A doctrine family — the axis a principle speaks to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Family {
     /// Plot: promises, causality, try/fail, arc shape.
@@ -75,7 +76,7 @@ impl Family {
 }
 
 /// A production phase a principle bears on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Phase {
     /// The outline phase.
@@ -100,7 +101,7 @@ pub enum Phase {
 /// // A tension without a resolution is not a value that exists.
 /// let _bad = MissionFilter::Tension { note: "generic advice loses to the pillar" };
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "mission_filter", rename_all = "kebab-case")]
 pub enum MissionFilter {
     /// The principle applies to the mission unchanged.
@@ -108,33 +109,33 @@ pub enum MissionFilter {
     /// The principle applies with a caveat; the caveat is required.
     Adapted {
         /// Why the generic principle needs adapting to the mission.
-        note: &'static str,
+        note: Cow<'static, str>,
     },
     /// A generic principle conflicts with a pillar or with canon; the resolution
     /// (the mission-side ruling) is required (spec §5).
     Tension {
         /// The conflict between the received principle and the mission.
-        note: &'static str,
+        note: Cow<'static, str>,
         /// The mission-side ruling that resolves it — where the pillar wins.
-        resolution: &'static str,
+        resolution: Cow<'static, str>,
     },
 }
 
 impl MissionFilter {
     /// The tension/adaptation note, when the filter carries one.
     #[must_use]
-    pub fn note(&self) -> Option<&'static str> {
+    pub fn note(&self) -> Option<&str> {
         match self {
             Self::Pass => None,
-            Self::Adapted { note } | Self::Tension { note, .. } => Some(note),
+            Self::Adapted { note } | Self::Tension { note, .. } => Some(note.as_ref()),
         }
     }
 
     /// The mission-side resolution, present exactly when the filter is a tension.
     #[must_use]
-    pub fn resolution(&self) -> Option<&'static str> {
+    pub fn resolution(&self) -> Option<&str> {
         match self {
-            Self::Tension { resolution, .. } => Some(resolution),
+            Self::Tension { resolution, .. } => Some(resolution.as_ref()),
             _ => None,
         }
     }
@@ -147,7 +148,7 @@ impl MissionFilter {
 /// `check_ref_resolves` test, lifted into the type system. The outline entry
 /// points are the `CRAFT-1` batteries; the season rules are `CRAFT-2`'s join
 /// engine ([`super::season`]), and the two layers share this one rule namespace.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum KernelRule {
     /// The `CRAFT-1` per-episode structural battery ([`super::season::check_episode`]).
@@ -234,7 +235,7 @@ impl KernelRule {
 }
 
 /// A factory-side check namespace (spec §6: prose checks stay factory-invoked).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum FactoryNs {
     /// The `fantasy.craft.check` prose battery.
@@ -268,8 +269,8 @@ impl FactoryNs {
 /// // The kernel rules are a closed set; a rule that does not exist is not a variant.
 /// let _bad = Binding::Rule(KernelRule::NoSuchRule);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
-#[serde(tag = "binding", rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "binding", content = "spec", rename_all = "kebab-case")]
 pub enum Binding {
     /// A deterministic kernel rule (the reference cannot dangle — closed enum).
     Rule(KernelRule),
@@ -278,11 +279,11 @@ pub enum Binding {
         /// Which factory battery owns it.
         namespace: FactoryNs,
         /// The check symbol within that battery.
-        symbol: &'static str,
+        symbol: Cow<'static, str>,
     },
     /// A judge dimension: consumes a stored attestation of this question kind and
     /// reports grade [`Grade::Attested`].
-    Attest(&'static str),
+    Attest(Cow<'static, str>),
     /// Declaration-only: no check, surfaced by brief/phase queries.
     Declaration,
 }
@@ -290,7 +291,7 @@ pub enum Binding {
 impl Binding {
     /// The legacy checkability trichotomy this binding realizes.
     #[must_use]
-    pub fn checkable(self) -> Checkable {
+    pub fn checkable(&self) -> Checkable {
         match self {
             Self::Rule(_) | Self::Factory { .. } => Checkable::Deterministic,
             Self::Attest(_) => Checkable::Judge,
@@ -301,24 +302,24 @@ impl Binding {
     /// Whether this binding is standing checkable-debt — `judge` or `none` (spec
     /// §5: the roadmap of rules not yet written).
     #[must_use]
-    pub fn is_debt(self) -> bool {
+    pub fn is_debt(&self) -> bool {
         matches!(self, Self::Attest(_) | Self::Declaration)
     }
 
     /// The kernel rule this binding names, if it is a kernel binding.
     #[must_use]
-    pub fn kernel_rule(self) -> Option<KernelRule> {
+    pub fn kernel_rule(&self) -> Option<KernelRule> {
         match self {
-            Self::Rule(rule) => Some(rule),
+            Self::Rule(rule) => Some(*rule),
             _ => None,
         }
     }
 
     /// The judge question kind this binding consumes, if it is a judge binding.
     #[must_use]
-    pub fn attest_kind(self) -> Option<&'static str> {
+    pub fn attest_kind(&self) -> Option<&str> {
         match self {
-            Self::Attest(kind) => Some(kind),
+            Self::Attest(kind) => Some(kind.as_ref()),
             _ => None,
         }
     }
@@ -344,20 +345,20 @@ pub enum Checkable {
 /// `check_ref` are folded into the typed [`binding`](Self::binding), and
 /// `tension_note`/`resolution` into the typed
 /// [`mission_filter`](Self::mission_filter).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Principle {
     /// The unique kebab-case slug.
-    pub id: &'static str,
+    pub id: Cow<'static, str>,
     /// The doctrine family.
     pub family: Family,
     /// The principle, stated plainly.
-    pub statement: &'static str,
+    pub statement: Cow<'static, str>,
     /// The citation(s) — every entry is sourced.
-    pub source: &'static str,
+    pub source: Cow<'static, str>,
     /// How the mission filters it (carrying its note/resolution).
     pub mission_filter: MissionFilter,
     /// The production phases it bears on.
-    pub phases: &'static [Phase],
+    pub phases: Cow<'static, [Phase]>,
     /// How its check binds.
     pub binding: Binding,
 }
@@ -377,13 +378,13 @@ impl Principle {
 
     /// The tension/adaptation note, when the mission filter carries one.
     #[must_use]
-    pub fn tension_note(&self) -> Option<&'static str> {
+    pub fn tension_note(&self) -> Option<&str> {
         self.mission_filter.note()
     }
 
     /// The mission-side resolution, present exactly for a tension.
     #[must_use]
-    pub fn resolution(&self) -> Option<&'static str> {
+    pub fn resolution(&self) -> Option<&str> {
         self.mission_filter.resolution()
     }
 
@@ -435,1122 +436,1514 @@ impl Principle {
 /// The ported knowledge base: every principle, in corpus order.
 pub static PRINCIPLES: &[Principle] = &[
     Principle {
-        id: "promise-progress-payoff",
+        id: Cow::Borrowed("promise-progress-payoff"),
         family: Family::Plot,
-        statement: "The opening makes promises about what the story will deliver; the middle shows visible progress toward them; the ending pays them off. A reader's sense of satisfaction is the felt distance between a promise made and a promise kept.",
-        source: "Sanderson, BYU Creative Writing Lectures (plot); Writing Excuses.",
+        statement: Cow::Borrowed(
+            "The opening makes promises about what the story will deliver; the middle shows visible progress toward them; the ending pays them off. A reader's sense of satisfaction is the felt distance between a promise made and a promise kept.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (plot); Writing Excuses."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_ppp"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_ppp")),
     },
     Principle {
-        id: "promise-is-a-contract",
+        id: Cow::Borrowed("promise-is-a-contract"),
         family: Family::Plot,
-        statement: "The type of promise sets the genre contract: a promise of a mystery owes a solution, a promise of a relationship owes a resolution, a promise of a wound owes a healing. Track each promise so none is left dangling by accident.",
-        source: "Sanderson, BYU Creative Writing Lectures; Kowal (MICE thread openings).",
+        statement: Cow::Borrowed(
+            "The type of promise sets the genre contract: a promise of a mystery owes a solution, a promise of a relationship owes a resolution, a promise of a wound owes a healing. Track each promise so none is left dangling by accident.",
+        ),
+        source: Cow::Borrowed(
+            "Sanderson, BYU Creative Writing Lectures; Kowal (MICE thread openings).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "arc-promise-ledger",
+        id: Cow::Borrowed("arc-promise-ledger"),
         family: Family::Plot,
-        statement: "Arc and packet review need a promise ledger that crosses levels: where the promise opens, where it pays off, and whether it is deliberately carried beyond the episode. Without that ledger, \"it feels promising\" is only taste language.",
-        source: "Sanderson, BYU Creative Writing Lectures (promises/progress/payoff); Kowal (MICE accounting).",
+        statement: Cow::Borrowed(
+            "Arc and packet review need a promise ledger that crosses levels: where the promise opens, where it pays off, and whether it is deliberately carried beyond the episode. Without that ledger, \"it feels promising\" is only taste language.",
+        ),
+        source: Cow::Borrowed(
+            "Sanderson, BYU Creative Writing Lectures (promises/progress/payoff); Kowal (MICE accounting).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckSeason),
     },
     Principle {
-        id: "core-vs-umbrella-plot",
+        id: Cow::Borrowed("core-vs-umbrella-plot"),
         family: Family::Plot,
-        statement: "The umbrella plot is the visible situation the story hangs on; the core plot is the character arc and the relationship question that actually keeps a listener engaged. The umbrella can be quiet so long as the core burns.",
-        source: "Sanderson, BYU Creative Writing Lectures (umbrella/core plot).",
+        statement: Cow::Borrowed(
+            "The umbrella plot is the visible situation the story hangs on; the core plot is the character arc and the relationship question that actually keeps a listener engaged. The umbrella can be quiet so long as the core burns.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (umbrella/core plot)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "big-p-little-p",
+        id: Cow::Borrowed("big-p-little-p"),
         family: Family::Plot,
-        statement: "Big-P Plot answers 'what is this about' across the whole run; little-p plot is the beat-by-beat progression inside a scene. Every little-p beat should feed a Big-P promise so no scene is merely local color.",
-        source: "Sanderson, BYU Creative Writing Lectures (Big-P vs little-p).",
+        statement: Cow::Borrowed(
+            "Big-P Plot answers 'what is this about' across the whole run; little-p plot is the beat-by-beat progression inside a scene. Every little-p beat should feed a Big-P promise so no scene is merely local color.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (Big-P vs little-p)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "causality-therefore-but",
+        id: Cow::Borrowed("causality-therefore-but"),
         family: Family::Plot,
-        statement: "Beats should connect with 'therefore' and 'but', never 'and then'. If two adjacent beats can be reordered without breaking the story, the causal spine is missing and the scene is a list.",
-        source: "Stone & Parker's 'therefore/but' rule; McKee, Story (progressive causality), filtered.",
+        statement: Cow::Borrowed(
+            "Beats should connect with 'therefore' and 'but', never 'and then'. If two adjacent beats can be reordered without breaking the story, the causal spine is missing and the scene is a list.",
+        ),
+        source: Cow::Borrowed(
+            "Stone & Parker's 'therefore/but' rule; McKee, Story (progressive causality), filtered.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_ppp"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_ppp")),
     },
     Principle {
-        id: "tryfail-yes-but-no-and",
+        id: Cow::Borrowed("tryfail-yes-but-no-and"),
         family: Family::Plot,
-        statement: "A try/fail cycle answers the character's attempt with 'yes-but' (they succeed and a new problem opens) or 'no-and' (they fail and it worsens). These cycles are the engine of the middle; 'yes-and' only ends a thread.",
-        source: "Card/Kowal try-fail cycles; Writing Excuses.",
+        statement: Cow::Borrowed(
+            "A try/fail cycle answers the character's attempt with 'yes-but' (they succeed and a new problem opens) or 'no-and' (they fail and it worsens). These cycles are the engine of the middle; 'yes-and' only ends a thread.",
+        ),
+        source: Cow::Borrowed("Card/Kowal try-fail cycles; Writing Excuses."),
         mission_filter: MissionFilter::Adapted {
-            note: "The received model assumes the obstacle is external and often physical (a fight, a chase). Our climaxes are intellectual, restorative, or defensive (allegory constraint 2; D-0052 no Freytag).",
+            note: Cow::Borrowed(
+                "The received model assumes the obstacle is external and often physical (a fight, a chase). Our climaxes are intellectual, restorative, or defensive (allegory constraint 2; D-0052 no Freytag).",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "yes-and-is-terminal",
+        id: Cow::Borrowed("yes-and-is-terminal"),
         family: Family::Plot,
-        statement: "A 'yes-and' outcome (clean success that also opens good fortune) resolves a thread and should appear only at a thread's close. A 'yes-and' in the middle deflates tension by handing the character an unearned win.",
-        source: "Card/Kowal try-fail cycles.",
+        statement: Cow::Borrowed(
+            "A 'yes-and' outcome (clean success that also opens good fortune) resolves a thread and should appear only at a thread's close. A 'yes-and' in the middle deflates tension by handing the character an unearned win.",
+        ),
+        source: Cow::Borrowed("Card/Kowal try-fail cycles."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "tryfail-count-three",
+        id: Cow::Borrowed("tryfail-count-three"),
         family: Family::Plot,
-        statement: "Roughly three attempts before a turn reads as earned: too few feels easy, too many feels padded. The count is a heuristic, not a rule; the test is whether each attempt teaches the character something the next one uses.",
-        source: "Folk-tale rule of three; Writing Excuses (try-fail pacing).",
+        statement: Cow::Borrowed(
+            "Roughly three attempts before a turn reads as earned: too few feels easy, too many feels padded. The count is a heuristic, not a rule; the test is whether each attempt teaches the character something the next one uses.",
+        ),
+        source: Cow::Borrowed("Folk-tale rule of three; Writing Excuses (try-fail pacing)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "mice-quotient",
+        id: Cow::Borrowed("mice-quotient"),
         family: Family::Plot,
-        statement: "Every thread is one of four kinds: Milieu (a place entered and left), Inquiry (a question asked and answered), Character (an identity strained and resettled), or Event (an order disrupted and restored). Name each thread's kind so you know what it owes.",
-        source: "Card, How to Write SF&F (1990); Kowal, MICE Quotient.",
+        statement: Cow::Borrowed(
+            "Every thread is one of four kinds: Milieu (a place entered and left), Inquiry (a question asked and answered), Character (an identity strained and resettled), or Event (an order disrupted and restored). Name each thread's kind so you know what it owes.",
+        ),
+        source: Cow::Borrowed("Card, How to Write SF&F (1990); Kowal, MICE Quotient."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "mice-lifo-nesting",
+        id: Cow::Borrowed("mice-lifo-nesting"),
         family: Family::Plot,
-        statement: "Threads nest like code: the first opened is the last closed (LIFO). A thread opened inside another must close before its parent, or the structure reads as a dropped stitch and the ending feels wrong without the reader knowing why.",
-        source: "Kowal, MICE Quotient nesting codes (HTML-tag analogy).",
+        statement: Cow::Borrowed(
+            "Threads nest like code: the first opened is the last closed (LIFO). A thread opened inside another must close before its parent, or the structure reads as a dropped stitch and the ending feels wrong without the reader knowing why.",
+        ),
+        source: Cow::Borrowed("Kowal, MICE Quotient nesting codes (HTML-tag analogy)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "mice-milieu-as-hub",
+        id: Cow::Borrowed("mice-milieu-as-hub"),
         family: Family::Plot,
-        statement: "A Milieu thread opens on entering a place and closes on leaving it. The hub-and- spoke structure is a chain of Milieu threads: the party arrives, works the region, and migrates.",
-        source: "Card/Kowal (Milieu); canon/narrative/structure.md (hub-and-spoke, D-0055).",
+        statement: Cow::Borrowed(
+            "A Milieu thread opens on entering a place and closes on leaving it. The hub-and- spoke structure is a chain of Milieu threads: the party arrives, works the region, and migrates.",
+        ),
+        source: Cow::Borrowed(
+            "Card/Kowal (Milieu); canon/narrative/structure.md (hub-and-spoke, D-0055).",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "The textbook Milieu thread closes by exiting back to where the traveller started (there-and-back-again). Our structure is one-directional migration through a root system, not a round trip.",
+            note: Cow::Borrowed(
+                "The textbook Milieu thread closes by exiting back to where the traveller started (there-and-back-again). Our structure is one-directional migration through a root system, not a round trip.",
+            ),
         },
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "mice-event-new-equilibrium",
+        id: Cow::Borrowed("mice-event-new-equilibrium"),
         family: Family::Plot,
-        statement: "An Event thread opens when an order is disrupted and closes when order returns. The satisfaction is the world knitted back together.",
-        source: "Card/Kowal (Event thread).",
+        statement: Cow::Borrowed(
+            "An Event thread opens when an order is disrupted and closes when order returns. The satisfaction is the world knitted back together.",
+        ),
+        source: Cow::Borrowed("Card/Kowal (Event thread)."),
         mission_filter: MissionFilter::Adapted {
-            note: "Ruled no real conflict (D-0152): \"we're kinda following that advice... it's just cycles within cycles.\" The Event thread's order-returns satisfaction holds — the order that returns is a new cycle's equilibrium, never the old extractive order turned back (D-0014, D-0022).",
+            note: Cow::Borrowed(
+                "Ruled no real conflict (D-0152): \"we're kinda following that advice... it's just cycles within cycles.\" The Event thread's order-returns satisfaction holds — the order that returns is a new cycle's equilibrium, never the old extractive order turned back (D-0014, D-0022).",
+            ),
         },
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "scene-goal-conflict-outcome",
+        id: Cow::Borrowed("scene-goal-conflict-outcome"),
         family: Family::Plot,
-        statement: "A scene of action runs goal, conflict, outcome: the viewpoint character wants something, meets resistance, and leaves in a changed position. In packet review, ledger the goal/conflict/disaster chain explicitly so a quiet scene still has mechanical movement rather than mood alone.",
-        source: "Swain, Techniques of the Selling Writer (scene/sequel); Bickham.",
+        statement: Cow::Borrowed(
+            "A scene of action runs goal, conflict, outcome: the viewpoint character wants something, meets resistance, and leaves in a changed position. In packet review, ledger the goal/conflict/disaster chain explicitly so a quiet scene still has mechanical movement rather than mood alone.",
+        ),
+        source: Cow::Borrowed("Swain, Techniques of the Selling Writer (scene/sequel); Bickham."),
         mission_filter: MissionFilter::Adapted {
-            note: "Swain's 'outcome' is usually a disaster that escalates external stakes, which pulls toward Freytag rising action (D-0052 rejected).",
+            note: Cow::Borrowed(
+                "Swain's 'outcome' is usually a disaster that escalates external stakes, which pulls toward Freytag rising action (D-0052 rejected).",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "sequel-reaction-dilemma-decision",
+        id: Cow::Borrowed("sequel-reaction-dilemma-decision"),
         family: Family::Plot,
-        statement: "Between scenes of action sit sequels: the character reacts, faces a dilemma, and decides. Sequels are where a meditative story does its real work, and they have a shape, so a quiet scene is never shapeless.",
-        source: "Swain, Techniques of the Selling Writer (sequel structure).",
+        statement: Cow::Borrowed(
+            "Between scenes of action sit sequels: the character reacts, faces a dilemma, and decides. Sequels are where a meditative story does its real work, and they have a shape, so a quiet scene is never shapeless.",
+        ),
+        source: Cow::Borrowed("Swain, Techniques of the Selling Writer (sequel structure)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "foreshadow-and-payoff",
+        id: Cow::Borrowed("foreshadow-and-payoff"),
         family: Family::Plot,
-        statement: "A payoff lands only if the ground was seeded earlier. Plant the detail plainly and let it lie inert until the turn recolors it. In a fractal kishōtenketsu the cold- open koan is often the seed the episode's ten cashes in.",
-        source: "Chekhov's gun; Sanderson (setup/payoff); canon/narrative/narrator-framing.md.",
+        statement: Cow::Borrowed(
+            "A payoff lands only if the ground was seeded earlier. Plant the detail plainly and let it lie inert until the turn recolors it. In a fractal kishōtenketsu the cold- open koan is often the seed the episode's ten cashes in.",
+        ),
+        source: Cow::Borrowed(
+            "Chekhov's gun; Sanderson (setup/payoff); canon/narrative/narrator-framing.md.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "kishotenketsu-ten-is-the-turn",
+        id: Cow::Borrowed("kishotenketsu-ten-is-the-turn"),
         family: Family::Plot,
-        statement: "In ki-shō-ten-ketsu the third act (ten) is the crux: a turn that recontextualizes the first two acts so the listener re-reads everything just heard. The turn need not be a conflict; it is a shift in what the material means.",
-        source: "Kishōtenketsu (classical East Asian four-act structure); canon/narrative/structure.md (D-0044, D-0055).",
+        statement: Cow::Borrowed(
+            "In ki-shō-ten-ketsu the third act (ten) is the crux: a turn that recontextualizes the first two acts so the listener re-reads everything just heard. The turn need not be a conflict; it is a shift in what the material means.",
+        ),
+        source: Cow::Borrowed(
+            "Kishōtenketsu (classical East Asian four-act structure); canon/narrative/structure.md (D-0044, D-0055).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "climax-is-perspective-shift",
+        id: Cow::Borrowed("climax-is-perspective-shift"),
         family: Family::Plot,
-        statement: "The high point of an arc is the moment the trouble is revealed to be other than it seemed, and its cause is shown to be human and systemic. The resolution is a proof spoken and a community resettled.",
-        source: "canon/narrative/structure.md (episode-arc mechanics, D-0072); kishōtenketsu.",
+        statement: Cow::Borrowed(
+            "The high point of an arc is the moment the trouble is revealed to be other than it seemed, and its cause is shown to be human and systemic. The resolution is a proof spoken and a community resettled.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/structure.md (episode-arc mechanics, D-0072); kishōtenketsu.",
+        ),
         mission_filter: MissionFilter::Tension {
-            note: "Shōnen and three-act habits make the climax a battle or a power-spike against a villain (D-0010 no demon king, D-0052 no Freytag).",
-            resolution: "The climax is the ten: a perspective shift dissolved through empathy, pedagogy, and rigorous logic. Where the draft reaches for a confrontation to peak the arc, replace it with the click of understanding that reframes the whole.",
+            note: Cow::Borrowed(
+                "Shōnen and three-act habits make the climax a battle or a power-spike against a villain (D-0010 no demon king, D-0052 no Freytag).",
+            ),
+            resolution: Cow::Borrowed(
+                "The climax is the ten: a perspective shift dissolved through empathy, pedagogy, and rigorous logic. Where the draft reaches for a confrontation to peak the arc, replace it with the click of understanding that reframes the whole.",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "subplot-is-the-relationship-question",
+        id: Cow::Borrowed("subplot-is-the-relationship-question"),
         family: Family::Plot,
-        statement: "The most reliable engagement engine is a relationship question running under the umbrella plot: will these two trust each other, will the found family hold. It can carry episodes where the external situation is calm.",
-        source: "Sanderson, BYU Creative Writing Lectures (the will-they/won't-they as core).",
+        statement: Cow::Borrowed(
+            "The most reliable engagement engine is a relationship question running under the umbrella plot: will these two trust each other, will the found family hold. It can carry episodes where the external situation is calm.",
+        ),
+        source: Cow::Borrowed(
+            "Sanderson, BYU Creative Writing Lectures (the will-they/won't-they as core).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "three-sliders",
+        id: Cow::Borrowed("three-sliders"),
         family: Family::Character,
-        statement: "A character's hold on the audience runs on three dials: proactivity (do they pursue a goal), competence (are they good at something), and sympathy (do we like or understand them). A character high on even one dial engages; high on none goes flat.",
-        source: "Sanderson, BYU Creative Writing Lectures (the three sliders).",
+        statement: Cow::Borrowed(
+            "A character's hold on the audience runs on three dials: proactivity (do they pursue a goal), competence (are they good at something), and sympathy (do we like or understand them). A character high on even one dial engages; high on none goes flat.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (the three sliders)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_sliders"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_sliders")),
     },
     Principle {
-        id: "slider-ledger-per-major-character",
+        id: Cow::Borrowed("slider-ledger-per-major-character"),
         family: Family::Character,
-        statement: "For outline and packet review, track every major character's proactivity, competence, and sympathy as explicit numbers with compensation notes. The point is not arithmetic precision; it is forcing the reviewer to name which dial carries the audience's investment.",
-        source: "Sanderson, BYU Creative Writing Lectures (three sliders and compensation).",
+        statement: Cow::Borrowed(
+            "For outline and packet review, track every major character's proactivity, competence, and sympathy as explicit numbers with compensation notes. The point is not arithmetic precision; it is forcing the reviewer to name which dial carries the audience's investment.",
+        ),
+        source: Cow::Borrowed(
+            "Sanderson, BYU Creative Writing Lectures (three sliders and compensation).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "slider-compensation",
+        id: Cow::Borrowed("slider-compensation"),
         family: Family::Character,
-        statement: "A deficit on one dial is bought back by a surplus on another: an unlikeable character reads if hyper-competent and driven (the Sherlock trick). When a character feels wrong, the fix is usually to raise a different dial, not to soften the flaw.",
-        source: "Sanderson, BYU Creative Writing Lectures (compensation).",
+        statement: Cow::Borrowed(
+            "A deficit on one dial is bought back by a surplus on another: an unlikeable character reads if hyper-competent and driven (the Sherlock trick). When a character feels wrong, the fix is usually to raise a different dial, not to soften the flaw.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (compensation)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_sliders"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_sliders")),
     },
     Principle {
-        id: "proactivity-as-investigation",
+        id: Cow::Borrowed("proactivity-as-investigation"),
         family: Family::Character,
-        statement: "Proactive characters pursue a goal and take action toward it, which is what makes an audience invest in the journey.",
-        source: "Sanderson, BYU Creative Writing Lectures (proactivity).",
+        statement: Cow::Borrowed(
+            "Proactive characters pursue a goal and take action toward it, which is what makes an audience invest in the journey.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (proactivity)."),
         mission_filter: MissionFilter::Adapted {
-            note: "The default image of proactivity is a hero who drives the plot by force and confrontation, which pulls toward conquest (D-0052) and decapitation strikes (allegory constraint 1).",
+            note: Cow::Borrowed(
+                "The default image of proactivity is a hero who drives the plot by force and confrontation, which pulls toward conquest (D-0052) and decapitation strikes (allegory constraint 1).",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation],
-        binding: Binding::Attest("judge_sliders"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
+        binding: Binding::Attest(Cow::Borrowed("judge_sliders")),
     },
     Principle {
-        id: "competence-reads-cold",
+        id: Cow::Borrowed("competence-reads-cold"),
         family: Family::Character,
-        statement: "Competence engages an audience through a kind of wish-fulfillment: we like watching someone who is very good at a thing.",
-        source: "Sanderson, BYU Creative Writing Lectures (competence).",
+        statement: Cow::Borrowed(
+            "Competence engages an audience through a kind of wish-fulfillment: we like watching someone who is very good at a thing.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (competence)."),
         mission_filter: MissionFilter::Tension {
-            note: "Sanderson frames competence as wish-fulfillment, which invites the power-fantasy flex — the hero showing off. That collides with aesthetic sobriety, where power reads cold, clinical, and intellectual (D-0025, D-0065).",
-            resolution: "Competence is a compelling engine and may be savored on-mic (D-0152) — but in Enfys it is never showy, arrogant, or noisy: quiet, hyper-focused labor, the steady breath under strain, the exact accounting. The constraint is hers, not a house ban on display; other characters may carry their skill louder. The scariest sound in the show is still a very calm voice under enormous strain.",
+            note: Cow::Borrowed(
+                "Sanderson frames competence as wish-fulfillment, which invites the power-fantasy flex — the hero showing off. That collides with aesthetic sobriety, where power reads cold, clinical, and intellectual (D-0025, D-0065).",
+            ),
+            resolution: Cow::Borrowed(
+                "Competence is a compelling engine and may be savored on-mic (D-0152) — but in Enfys it is never showy, arrogant, or noisy: quiet, hyper-focused labor, the steady breath under strain, the exact accounting. The constraint is hers, not a house ban on display; other characters may carry their skill louder. The scariest sound in the show is still a very calm voice under enormous strain.",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_sliders"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_sliders")),
     },
     Principle {
-        id: "sympathy-through-jeopardy-and-care",
+        id: Cow::Borrowed("sympathy-through-jeopardy-and-care"),
         family: Family::Character,
-        statement: "Sympathy grows when a character is placed in undeserved difficulty, shows care for someone else, or is good at something we respect. It is earned in the first minutes and spent across the arc.",
-        source: "Sanderson, BYU Creative Writing Lectures (likeability/sympathy).",
+        statement: Cow::Borrowed(
+            "Sympathy grows when a character is placed in undeserved difficulty, shows care for someone else, or is good at something we respect. It is earned in the first minutes and spent across the arc.",
+        ),
+        source: Cow::Borrowed("Sanderson, BYU Creative Writing Lectures (likeability/sympathy)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_sliders"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_sliders")),
     },
     Principle {
-        id: "want-versus-need",
+        id: Cow::Borrowed("want-versus-need"),
         family: Family::Character,
-        statement: "A character consciously wants one thing and unconsciously needs another; the arc closes the gap. The want drives the plot's surface, the need drives the ten.",
-        source: "Truby, The Anatomy of Story (desire vs need), filtered through kishōtenketsu.",
+        statement: Cow::Borrowed(
+            "A character consciously wants one thing and unconsciously needs another; the arc closes the gap. The want drives the plot's surface, the need drives the ten.",
+        ),
+        source: Cow::Borrowed(
+            "Truby, The Anatomy of Story (desire vs need), filtered through kishōtenketsu.",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "Truby frames the closing of the gap as a moral self-revelation at a Western third-act crisis, tied to escalating conflict.",
+            note: Cow::Borrowed(
+                "Truby frames the closing of the gap as a moral self-revelation at a Western third-act crisis, tied to escalating conflict.",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "contrasting-temperament-cast",
+        id: Cow::Borrowed("contrasting-temperament-cast"),
         family: Family::Character,
-        statement: "An ensemble reads clearest when built by contrasting temperament: sense against sensibility against dry irony. Contrast lets a listener tell characters apart by how they meet the same trouble.",
-        source: "Austen/Brontë harvest, canon/premise/influences.md (D-0073).",
+        statement: Cow::Borrowed(
+            "An ensemble reads clearest when built by contrasting temperament: sense against sensibility against dry irony. Contrast lets a listener tell characters apart by how they meet the same trouble.",
+        ),
+        source: Cow::Borrowed("Austen/Brontë harvest, canon/premise/influences.md (D-0073)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::LoreDecision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::LoreDecision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "agency-never-victimhood",
+        id: Cow::Borrowed("agency-never-victimhood"),
         family: Family::Character,
-        statement: "A character in a cruel world is never staged as a victim for spectacle. Even a child in an adult danger stays an agent: exact, stubborn, running the numbers, and probing the rules so as not to be cheated.",
-        source: "Portis, True Grit (Mattie Ross); canon (apprentice, D-0066); D-0076 no trauma-drama.",
+        statement: Cow::Borrowed(
+            "A character in a cruel world is never staged as a victim for spectacle. Even a child in an adult danger stays an agent: exact, stubborn, running the numbers, and probing the rules so as not to be cheated.",
+        ),
+        source: Cow::Borrowed(
+            "Portis, True Grit (Mattie Ross); canon (apprentice, D-0066); D-0076 no trauma-drama.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "antagonism-is-systemic",
+        id: Cow::Borrowed("antagonism-is-systemic"),
         family: Family::Character,
-        statement: "The opposing force is a system, not a person. There is no single villain whose defeat ends the trouble; the pressure comes from quotas, ledgers, and tired functionaries doing their jobs.",
-        source: "canon/decisions.md (D-0010 no demon king); allegory constraint 1 (D-0087).",
+        statement: Cow::Borrowed(
+            "The opposing force is a system, not a person. There is no single villain whose defeat ends the trouble; the pressure comes from quotas, ledgers, and tired functionaries doing their jobs.",
+        ),
+        source: Cow::Borrowed(
+            "canon/decisions.md (D-0010 no demon king); allegory constraint 1 (D-0087).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::LoreDecision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::LoreDecision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "anti-purity-characters",
+        id: Cow::Borrowed("anti-purity-characters"),
         family: Family::Character,
-        statement: "The oppressed are not required to be morally pure to deserve rescue. They inform, betray, and scab to survive, and the story saves them anyway. Empathy is a baseline right, not a reward for good behavior.",
-        source: "canon/premise/allegory.md (anti-purity politics, D-0087); D-0033/D-0034.",
+        statement: Cow::Borrowed(
+            "The oppressed are not required to be morally pure to deserve rescue. They inform, betray, and scab to survive, and the story saves them anyway. Empathy is a baseline right, not a reward for good behavior.",
+        ),
+        source: Cow::Borrowed(
+            "canon/premise/allegory.md (anti-purity politics, D-0087); D-0033/D-0034.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "strangeness-is-a-transaction",
+        id: Cow::Borrowed("strangeness-is-a-transaction"),
         family: Family::Character,
-        statement: "A character is weird only if others react on-mic: a plain question, a challenge, a silence with cost. Unreacted strangeness is set-dressing.",
-        source: "D-0163 ('others react' — the reaction economy); RQ-020 §4.3 (D-0166).",
+        statement: Cow::Borrowed(
+            "A character is weird only if others react on-mic: a plain question, a challenge, a silence with cost. Unreacted strangeness is set-dressing.",
+        ),
+        source: Cow::Borrowed(
+            "D-0163 ('others react' — the reaction economy); RQ-020 §4.3 (D-0166).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("indirection_discipline"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("indirection_discipline")),
     },
     Principle {
-        id: "the-multitude-is-distinct",
+        id: Cow::Borrowed("the-multitude-is-distinct"),
         family: Family::Character,
-        statement: "The minds a vessel carries are individually clear, each in its own regional silhouette, mostly plainer than the blended surface that holds them. Strangeness is the blend, never fog.",
-        source: "D-0165 (distinct-not-muddled); RQ-020 §1.2/§4.3 (D-0166).",
+        statement: Cow::Borrowed(
+            "The minds a vessel carries are individually clear, each in its own regional silhouette, mostly plainer than the blended surface that holds them. Strangeness is the blend, never fog.",
+        ),
+        source: Cow::Borrowed("D-0165 (distinct-not-muddled); RQ-020 §1.2/§4.3 (D-0166)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("register_fidelity"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("register_fidelity")),
     },
     Principle {
-        id: "first-law-magic",
+        id: Cow::Borrowed("first-law-magic"),
         family: Family::World,
-        statement: "A reader's satisfaction from magic solving a problem is proportional to how well they understand its rules. Magic used to resolve a plot must first be shown and bounded, or the resolution reads as a cheat.",
-        source: "Sanderson's First Law of Magic (2007 essay).",
+        statement: Cow::Borrowed(
+            "A reader's satisfaction from magic solving a problem is proportional to how well they understand its rules. Magic used to resolve a plot must first be shown and bounded, or the resolution reads as a cheat.",
+        ),
+        source: Cow::Borrowed("Sanderson's First Law of Magic (2007 essay)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "second-law-limitations",
+        id: Cow::Borrowed("second-law-limitations"),
         family: Family::World,
-        statement: "Limitations matter more than powers: what magic cannot do, and what it costs, generates more story than what it can do. Weaknesses are where drama lives.",
-        source: "Sanderson's Second Law of Magic (2011 essay).",
+        statement: Cow::Borrowed(
+            "Limitations matter more than powers: what magic cannot do, and what it costs, generates more story than what it can do. Weaknesses are where drama lives.",
+        ),
+        source: Cow::Borrowed("Sanderson's Second Law of Magic (2011 essay)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision],
+        phases: Cow::Borrowed(&[Phase::LoreDecision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "magic-costs-the-body",
+        id: Cow::Borrowed("magic-costs-the-body"),
         family: Family::World,
-        statement: "Magic always costs the body: calories, blood, neurological bandwidth. Proof-speech sounds like work — controlled breath starting to fray, a nosebleed on slate, an anchor's grip keeping a swaying body upright. There is no costless hand-waving.",
-        source: "canon/premise/allegory.md (constraint 3, D-0087); canon/narrative/audio-design.md; Sanderson Second Law.",
+        statement: Cow::Borrowed(
+            "Magic always costs the body: calories, blood, neurological bandwidth. Proof-speech sounds like work — controlled breath starting to fray, a nosebleed on slate, an anchor's grip keeping a swaying body upright. There is no costless hand-waving.",
+        ),
+        source: Cow::Borrowed(
+            "canon/premise/allegory.md (constraint 3, D-0087); canon/narrative/audio-design.md; Sanderson Second Law.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "third-law-expand-before-add",
+        id: Cow::Borrowed("third-law-expand-before-add"),
         family: Family::World,
-        statement: "Expand what you have before you add something new. A deeper use of an established rule beats a fresh power bolted on; sprawl of systems dilutes the ones the listener has learned to trust.",
-        source: "Sanderson's Third Law of Magic (2013 essay).",
+        statement: Cow::Borrowed(
+            "Expand what you have before you add something new. A deeper use of an established rule beats a fresh power bolted on; sprawl of systems dilutes the ones the listener has learned to trust.",
+        ),
+        source: Cow::Borrowed("Sanderson's Third Law of Magic (2013 essay)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision],
+        phases: Cow::Borrowed(&[Phase::LoreDecision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "zeroth-law-err-awesome",
+        id: Cow::Borrowed("zeroth-law-err-awesome"),
         family: Family::World,
-        statement: "Err on the side of what is compelling: begin from an idea that grips you and let the rules bend to serve it, since the systems exist only to make a good story.",
-        source: "Sanderson's Zeroth Law ('err on the side of awesome').",
+        statement: Cow::Borrowed(
+            "Err on the side of what is compelling: begin from an idea that grips you and let the rules bend to serve it, since the systems exist only to make a good story.",
+        ),
+        source: Cow::Borrowed("Sanderson's Zeroth Law ('err on the side of awesome')."),
         mission_filter: MissionFilter::Tension {
-            note: "'Awesome' is easily read as spectacle — the bigger blast, the cooler feat. That collides head-on with aesthetic sobriety (D-0128, D-0025): power reads cold, and the show refuses the anime power-spike.",
-            resolution: "The awe we chase is wonder-amid-ruin (D-0025): the green shoot in poisoned mud, the vast melancholic anatomy of time, a hard-won eucatastrophe. Reach for the breathtaking through beauty and dread, never through spectacle or a bigger fight.",
+            note: Cow::Borrowed(
+                "'Awesome' is easily read as spectacle — the bigger blast, the cooler feat. That collides head-on with aesthetic sobriety (D-0128, D-0025): power reads cold, and the show refuses the anime power-spike.",
+            ),
+            resolution: Cow::Borrowed(
+                "The awe we chase is wonder-amid-ruin (D-0025): the green shoot in poisoned mud, the vast melancholic anatomy of time, a hard-won eucatastrophe. Reach for the breathtaking through beauty and dread, never through spectacle or a bigger fight.",
+            ),
         },
-        phases: &[Phase::LoreDecision, Phase::Generation],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "iceberg-worldbuilding",
+        id: Cow::Borrowed("iceberg-worldbuilding"),
         family: Family::World,
-        statement: "Show a fraction of what you have built and imply the rest. The felt depth of a world comes from the sense that the visible detail rests on a much larger unseen mass. Withheld lore is load-bearing.",
-        source: "Sanderson (iceberg principle); Hemingway (omission).",
+        statement: Cow::Borrowed(
+            "Show a fraction of what you have built and imply the rest. The felt depth of a world comes from the sense that the visible detail rests on a much larger unseen mass. Withheld lore is load-bearing.",
+        ),
+        source: Cow::Borrowed("Sanderson (iceberg principle); Hemingway (omission)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "world-as-plot-engine",
+        id: Cow::Borrowed("world-as-plot-engine"),
         family: Family::World,
-        statement: "Build the world modularly so it generates arcs on demand: each region, faction, and rule is a socket a new spoke can plug into. A world designed this way answers 'what happens next' from its own structure.",
-        source: "Wildbow (modular worldbuilding); Sanderson; canon/narrative/structure.md (hub-and-spoke).",
+        statement: Cow::Borrowed(
+            "Build the world modularly so it generates arcs on demand: each region, faction, and rule is a socket a new spoke can plug into. A world designed this way answers 'what happens next' from its own structure.",
+        ),
+        source: Cow::Borrowed(
+            "Wildbow (modular worldbuilding); Sanderson; canon/narrative/structure.md (hub-and-spoke).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "consistency-enables-solutions",
+        id: Cow::Borrowed("consistency-enables-solutions"),
         family: Family::World,
-        statement: "A consistent, pre-established rule lets the audience predict and follow a clever resolution, so the payoff feels fair. Retconning a rule to solve a problem breaks the contract even when nobody can name the rule aloud.",
-        source: "Sanderson's First Law (corollary); canon continuity discipline.",
+        statement: Cow::Borrowed(
+            "A consistent, pre-established rule lets the audience predict and follow a clever resolution, so the payoff feels fair. Retconning a rule to solve a problem breaks the contract even when nobody can name the rule aloud.",
+        ),
+        source: Cow::Borrowed("Sanderson's First Law (corollary); canon continuity discipline."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "material-reality-first",
+        id: Cow::Borrowed("material-reality-first"),
         family: Family::World,
-        statement: "Identity and culture are forged by geography, trauma, and economic class, never by modern identity shorthand pasted over a world that ignores material reality. Characters navigate a cruel supply chain in thick cloaks, covered in toxic mud.",
-        source: "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0058.",
+        statement: Cow::Borrowed(
+            "Identity and culture are forged by geography, trauma, and economic class, never by modern identity shorthand pasted over a world that ignores material reality. Characters navigate a cruel supply chain in thick cloaks, covered in toxic mud.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0058.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "diction-geography",
+        id: Cow::Borrowed("diction-geography"),
         family: Family::World,
-        statement: "Speech mirrors the naming map: distinct syntax preferences and diction strata per region, occasional attested loan words as texture, never an invented language. Region is audible in shape before any accent is cast.",
-        source: "D-0165 (diction geography); RQ-020 §1.0/§4.3 (D-0166); style/data/diction_map.yaml.",
+        statement: Cow::Borrowed(
+            "Speech mirrors the naming map: distinct syntax preferences and diction strata per region, occasional attested loan words as texture, never an invented language. Region is audible in shape before any accent is cast.",
+        ),
+        source: Cow::Borrowed(
+            "D-0165 (diction geography); RQ-020 §1.0/§4.3 (D-0166); style/data/diction_map.yaml.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Style,
-            symbol: "check_conlang_guard",
+            symbol: Cow::Borrowed("check_conlang_guard"),
         },
     },
     Principle {
-        id: "windowpane-vs-stained-glass",
+        id: Cow::Borrowed("windowpane-vs-stained-glass"),
         family: Family::Prose,
-        statement: "Prose runs a spectrum from windowpane (invisible, the story seen straight through) to stained glass (the language itself part of the experience). Default to windowpane so the story leads.",
-        source: "Orwell ('good prose is a windowpane'); Sanderson (windowpane/stained-glass); Writing Excuses.",
+        statement: Cow::Borrowed(
+            "Prose runs a spectrum from windowpane (invisible, the story seen straight through) to stained glass (the language itself part of the experience). Default to windowpane so the story leads.",
+        ),
+        source: Cow::Borrowed(
+            "Orwell ('good prose is a windowpane'); Sanderson (windowpane/stained-glass); Writing Excuses.",
+        ),
         mission_filter: MissionFilter::Tension {
-            note: "A flat windowpane default would erase the elevated registers canon requires: the narrator's Le Guin/Clarke mythic dryness and the protagonist's Ishiguro/Wolfe/ McKillip elevation at proof-moments (D-0083, D-0122).",
-            resolution: "Transparency is register-scoped, with the split ruled in D-0152: the narrator's QUOTES (koan cold-opens, outros) are one deliberate tone; MOST NARRATION is windowpane; at moments the narrator's register is allowed to reveal future knowledge. Dialogue-common and the apprentice run near windowpane. How Enfys performs the proofs is an open register question (Q-0018) — it needs its own register, maybe its own language; do not default it to either pole.",
+            note: Cow::Borrowed(
+                "A flat windowpane default would erase the elevated registers canon requires: the narrator's Le Guin/Clarke mythic dryness and the protagonist's Ishiguro/Wolfe/ McKillip elevation at proof-moments (D-0083, D-0122).",
+            ),
+            resolution: Cow::Borrowed(
+                "Transparency is register-scoped, with the split ruled in D-0152: the narrator's QUOTES (koan cold-opens, outros) are one deliberate tone; MOST NARRATION is windowpane; at moments the narrator's register is allowed to reveal future knowledge. Dialogue-common and the apprentice run near windowpane. How Enfys performs the proofs is an open register question (Q-0018) — it needs its own register, maybe its own language; do not default it to either pole.",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "pyramid-of-abstraction",
+        id: Cow::Borrowed("pyramid-of-abstraction"),
         family: Family::Prose,
-        statement: "Concrete beats abstract. Where a draft names an emotion or a concept, a specific sensory image usually carries it further. Climb to abstraction only for earned effect, then come back down to the ground.",
-        source: "Sanderson (pyramid of abstraction); Le Guin (the concrete).",
+        statement: Cow::Borrowed(
+            "Concrete beats abstract. Where a draft names an emotion or a concept, a specific sensory image usually carries it further. Climb to abstraction only for earned effect, then come back down to the ground.",
+        ),
+        source: Cow::Borrowed("Sanderson (pyramid of abstraction); Le Guin (the concrete)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_abstraction_density",
+            symbol: Cow::Borrowed("check_abstraction_density"),
         },
     },
     Principle {
-        id: "concrete-detail-doctrine",
+        id: Cow::Borrowed("concrete-detail-doctrine"),
         family: Family::Prose,
-        statement: "One exact, distilled detail outperforms a pile of generic ones. 'Salt-swollen fingers on a cord that will not seat' beats 'she felt anxious'. Strategic specificity is the difference between a scene heard and a scene skimmed.",
-        source: "Le Guin, Steering the Craft; canon/narrative/structure.md (the opening, D-0113).",
+        statement: Cow::Borrowed(
+            "One exact, distilled detail outperforms a pile of generic ones. 'Salt-swollen fingers on a cord that will not seat' beats 'she felt anxious'. Strategic specificity is the difference between a scene heard and a scene skimmed.",
+        ),
+        source: Cow::Borrowed(
+            "Le Guin, Steering the Craft; canon/narrative/structure.md (the opening, D-0113).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_abstraction_density",
+            symbol: Cow::Borrowed("check_abstraction_density"),
         },
     },
     Principle {
-        id: "opening-sensory-seasonal-grounding",
+        id: Cow::Borrowed("opening-sensory-seasonal-grounding"),
         family: Family::Prose,
-        statement: "Opening action and dialogue must happen somewhere the audience can picture. Establish a legible physical place, at least one heard or smelled detail beyond the mere fact of speech, and the weather or season; choose details that act on the scene rather than inventorying a room.",
-        source: "D-0217; canon/narrative/craft-pillars.md#Sensory and seasonal grounding; Le Guin, Steering the Craft (the concrete).",
+        statement: Cow::Borrowed(
+            "Opening action and dialogue must happen somewhere the audience can picture. Establish a legible physical place, at least one heard or smelled detail beyond the mere fact of speech, and the weather or season; choose details that act on the scene rather than inventorying a room.",
+        ),
+        source: Cow::Borrowed(
+            "D-0217; canon/narrative/craft-pillars.md#Sensory and seasonal grounding; Le Guin, Steering the Craft (the concrete).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_opening_sensory_grounding",
+            symbol: Cow::Borrowed("check_opening_sensory_grounding"),
         },
     },
     Principle {
-        id: "said-asked-eighty-five",
+        id: Cow::Borrowed("said-asked-eighty-five"),
         family: Family::Prose,
-        statement: "Keep dialogue attribution near-invisible: roughly 85 percent of tags should be plain 'said' or 'asked'. The eye slides over 'said'; an ornate tag (murmured, hissed, breathed) is a small interruption, and in a voiced drama it dictates the actor's delivery.",
-        source: "Sanderson/Writing Excuses (said-tag discipline); Leonard's 10 Rules.",
+        statement: Cow::Borrowed(
+            "Keep dialogue attribution near-invisible: roughly 85 percent of tags should be plain 'said' or 'asked'. The eye slides over 'said'; an ornate tag (murmured, hissed, breathed) is a small interruption, and in a voiced drama it dictates the actor's delivery.",
+        ),
+        source: Cow::Borrowed(
+            "Sanderson/Writing Excuses (said-tag discipline); Leonard's 10 Rules.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_said_tag_ratio",
+            symbol: Cow::Borrowed("check_said_tag_ratio"),
         },
     },
     Principle {
-        id: "no-adverb-tags",
+        id: Cow::Borrowed("no-adverb-tags"),
         family: Family::Prose,
-        statement: "Prefer a plain tag plus a beat of action over an adverb-loaded tag. 'She said, turning the cord over' carries more than 'she said nervously'. The adverb tells what the line and the action should show.",
-        source: "Leonard's 10 Rules of Writing; King, On Writing (adverbs).",
+        statement: Cow::Borrowed(
+            "Prefer a plain tag plus a beat of action over an adverb-loaded tag. 'She said, turning the cord over' carries more than 'she said nervously'. The adverb tells what the line and the action should show.",
+        ),
+        source: Cow::Borrowed("Leonard's 10 Rules of Writing; King, On Writing (adverbs)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_said_tag_ratio",
+            symbol: Cow::Borrowed("check_said_tag_ratio"),
         },
     },
     Principle {
-        id: "show-versus-tell-is-pacing",
+        id: Cow::Borrowed("show-versus-tell-is-pacing"),
         family: Family::Prose,
-        statement: "Show-versus-tell is a pacing lever, not a commandment. Dramatize the moments that matter and summarize the connective tissue; a story that shows everything crawls, and a story that tells everything goes cold.",
-        source: "Sanderson (show-vs-tell as pacing); Writing Excuses.",
+        statement: Cow::Borrowed(
+            "Show-versus-tell is a pacing lever, not a commandment. Dramatize the moments that matter and summarize the connective tissue; a story that shows everything crawls, and a story that tells everything goes cold.",
+        ),
+        source: Cow::Borrowed("Sanderson (show-vs-tell as pacing); Writing Excuses."),
         mission_filter: MissionFilter::Adapted {
-            note: "The blanket 'show, don't tell' rule would forbid the omniscient narrator's mythic summary, which canon requires (Le Guin/Clarke, D-0083; the narrator frame, D-0035).",
+            note: Cow::Borrowed(
+                "The blanket 'show, don't tell' rule would forbid the omniscient narrator's mythic summary, which canon requires (Le Guin/Clarke, D-0083; the narrator frame, D-0035).",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "sentence-rhythm-and-sound",
+        id: Cow::Borrowed("sentence-rhythm-and-sound"),
         family: Family::Prose,
-        statement: "The sound of the language is where it begins; the test of a sentence is whether it sounds right aloud. Pace and movement depend on rhythm, and rhythm is controlled by hearing the prose, so vary sentence length to make it move.",
-        source: "Le Guin, Steering the Craft (sound and rhythm).",
+        statement: Cow::Borrowed(
+            "The sound of the language is where it begins; the test of a sentence is whether it sounds right aloud. Pace and movement depend on rhythm, and rhythm is controlled by hearing the prose, so vary sentence length to make it move.",
+        ),
+        source: Cow::Borrowed("Le Guin, Steering the Craft (sound and rhythm)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_sentence_rhythm",
+            symbol: Cow::Borrowed("check_sentence_rhythm"),
         },
     },
     Principle {
-        id: "read-everything-aloud",
+        id: Cow::Borrowed("read-everything-aloud"),
         family: Family::Prose,
-        statement: "Read every line aloud before it ships. The ear catches what the eye forgives: a clotted clause, a tongue-twister, a rhythm that stumbles. In an audio-first show the read-aloud pass is the primary proofing pass, not an optional one.",
-        source: "Le Guin, Steering the Craft; Gill (SFWA, revise by reading dialog aloud); Wayland.",
+        statement: Cow::Borrowed(
+            "Read every line aloud before it ships. The ear catches what the eye forgives: a clotted clause, a tongue-twister, a rhythm that stumbles. In an audio-first show the read-aloud pass is the primary proofing pass, not an optional one.",
+        ),
+        source: Cow::Borrowed(
+            "Le Guin, Steering the Craft; Gill (SFWA, revise by reading dialog aloud); Wayland.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "no-filter-words",
+        id: Cow::Borrowed("no-filter-words"),
         family: Family::Prose,
-        statement: "Cut filter verbs (she saw, he felt, they heard) that put a pane of glass between the listener and the sense. Render the thing itself: not 'she heard the wind rise' but the wind rising.",
-        source: "Le Guin, Steering the Craft (crowding/leaping); Palmer (filter words).",
+        statement: Cow::Borrowed(
+            "Cut filter verbs (she saw, he felt, they heard) that put a pane of glass between the listener and the sense. Render the thing itself: not 'she heard the wind rise' but the wind rising.",
+        ),
+        source: Cow::Borrowed(
+            "Le Guin, Steering the Craft (crowding/leaping); Palmer (filter words).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "subtext-over-announcement",
+        id: Cow::Borrowed("subtext-over-announcement"),
         family: Family::Prose,
-        statement: "People talk about rations, weather, and repairs and mean love, fear, and defiance. Nobody narrates their own feelings or monologues a backstory. The meaning lives under the line.",
-        source: "canon/narrative/tone-style.md (D-0082, D-0083); Gilroy (Andor), Mantel (Wolf Hall).",
+        statement: Cow::Borrowed(
+            "People talk about rations, weather, and repairs and mean love, fear, and defiance. Nobody narrates their own feelings or monologues a backstory. The meaning lives under the line.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/tone-style.md (D-0082, D-0083); Gilroy (Andor), Mantel (Wolf Hall).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "distilled-imagery-not-purple",
+        id: Cow::Borrowed("distilled-imagery-not-purple"),
         family: Family::Prose,
-        statement: "Earn every metaphor; genre-apt, specific imagery beats a purple-but-empty flourish. A stacked pile of figuration reads as decoration, and in audio the listener cannot re-scan it, so the image must land the first time.",
-        source: "Le Guin, Steering the Craft; style-defense figurative-cliché research.",
+        statement: Cow::Borrowed(
+            "Earn every metaphor; genre-apt, specific imagery beats a purple-but-empty flourish. A stacked pile of figuration reads as decoration, and in audio the listener cannot re-scan it, so the image must land the first time.",
+        ),
+        source: Cow::Borrowed(
+            "Le Guin, Steering the Craft; style-defense figurative-cliché research.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "episode-is-complete-kishotenketsu",
+        id: Cow::Borrowed("episode-is-complete-kishotenketsu"),
         family: Family::Serial,
-        statement: "Each installment carries its own complete shape so a listener is satisfied by the single episode before trusting the season. The self-contained shape is how serial trust is earned first.",
-        source: "Platt & Truant, Write. Publish. Repeat.; canon/narrative/episode-format.md (D-0043, D-0044).",
+        statement: Cow::Borrowed(
+            "Each installment carries its own complete shape so a listener is satisfied by the single episode before trusting the season. The self-contained shape is how serial trust is earned first.",
+        ),
+        source: Cow::Borrowed(
+            "Platt & Truant, Write. Publish. Repeat.; canon/narrative/episode-format.md (D-0043, D-0044).",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "Serial-craft sources assume a self-contained three-act episode inside a season arc. Our episode shape is kishōtenketsu, not three-act (D-0044, D-0052).",
+            note: Cow::Borrowed(
+                "Serial-craft sources assume a self-contained three-act episode inside a season arc. Our episode shape is kishōtenketsu, not three-act (D-0044, D-0052).",
+            ),
         },
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "open-loop-discipline",
+        id: Cow::Borrowed("open-loop-discipline"),
         family: Family::Serial,
-        statement: "Every installment opens at least one new psychological loop — a question, an unease, a thing withheld — that pulls the listener forward. A loop is not always a cliffhanger; it is any tension the mind wants closed.",
-        source: "Wildbow, Thoughts on Writing Serials; Platt & Truant (open loops); Eyal (hooks).",
+        statement: Cow::Borrowed(
+            "Every installment opens at least one new psychological loop — a question, an unease, a thing withheld — that pulls the listener forward. A loop is not always a cliffhanger; it is any tension the mind wants closed.",
+        ),
+        source: Cow::Borrowed(
+            "Wildbow, Thoughts on Writing Serials; Platt & Truant (open loops); Eyal (hooks).",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "The reflex reading of an open loop is a peril cliffhanger, which collides with the unhurried register and with D-0104 (no ticking clock).",
+            note: Cow::Borrowed(
+                "The reflex reading of an open loop is a peril cliffhanger, which collides with the unhurried register and with D-0104 (no ticking clock).",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "micro-pacing-every-installment",
+        id: Cow::Borrowed("micro-pacing-every-installment"),
         family: Family::Serial,
-        statement: "Every installment must do at least one of three things: advance the plot, change a relationship, or reveal a secret. An installment that does none is filler, however pretty.",
-        source: "Fox, Write to Market; Platt & Truant, Write. Publish. Repeat.",
+        statement: Cow::Borrowed(
+            "Every installment must do at least one of three things: advance the plot, change a relationship, or reveal a secret. An installment that does none is filler, however pretty.",
+        ),
+        source: Cow::Borrowed("Fox, Write to Market; Platt & Truant, Write. Publish. Repeat."),
         mission_filter: MissionFilter::Tension {
-            note: "Fox's rule is often read as 'advance the plot every chapter', which pushes toward constant forward motion and against the courage to hold a quiet scene (Frieren; audio-design 'courage to hold silence').",
-            resolution: "A quiet scene of weather or mending still qualifies if it changes a relationship or an understanding. The test is motion of feeling or knowledge, not noise. Whole episodes of weather and teaching are features, not filler (D-0051). The counting rule is ruled explicit (D-0152): there is always movement, and pure relationship-deepening beats, richness of understanding, and emotional growth COUNT as movement.",
+            note: Cow::Borrowed(
+                "Fox's rule is often read as 'advance the plot every chapter', which pushes toward constant forward motion and against the courage to hold a quiet scene (Frieren; audio-design 'courage to hold silence').",
+            ),
+            resolution: Cow::Borrowed(
+                "A quiet scene of weather or mending still qualifies if it changes a relationship or an understanding. The test is motion of feeling or knowledge, not noise. Whole episodes of weather and teaching are features, not filler (D-0051). The counting rule is ruled explicit (D-0152): there is always movement, and pure relationship-deepening beats, richness of understanding, and emotional growth COUNT as movement.",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "promise-payoff-new-promise",
+        id: Cow::Borrowed("promise-payoff-new-promise"),
         family: Family::Serial,
-        statement: "The serial rhythm is a chain: each installment pays off an earlier promise and makes a fresh one, so the listener always carries an open expectation into the next drop. Close a loop, open a loop.",
-        source: "Platt & Truant, Write. Publish. Repeat.; Sanderson (promise/payoff at serial scale).",
+        statement: Cow::Borrowed(
+            "The serial rhythm is a chain: each installment pays off an earlier promise and makes a fresh one, so the listener always carries an open expectation into the next drop. Close a loop, open a loop.",
+        ),
+        source: Cow::Borrowed(
+            "Platt & Truant, Write. Publish. Repeat.; Sanderson (promise/payoff at serial scale).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "escalate-depth-not-pace",
+        id: Cow::Borrowed("escalate-depth-not-pace"),
         family: Family::Serial,
-        statement: "Long serials keep readers by escalation of intensity and stakes across the run.",
-        source: "Wildbow, Worm/Pact (escalation as autopilot); serial-fiction craft.",
+        statement: Cow::Borrowed(
+            "Long serials keep readers by escalation of intensity and stakes across the run.",
+        ),
+        source: Cow::Borrowed(
+            "Wildbow, Worm/Pact (escalation as autopilot); serial-fiction craft.",
+        ),
         mission_filter: MissionFilter::Tension {
-            note: "Wildbow's escalation-is-everything is the sharpest conflict with our meditative register and with D-0104 (no ticking clock). Constant escalation of pace and peril exhausts the very stillness the show is built on — a lesson Wildbow himself drew from Pact.",
-            resolution: "Escalate depth and the stakes of understanding, not pace. What deepens across the run is the archaeology of the world, the cost of what the protagonist becomes, and the moral weight of each rescue. The tempo stays unhurried; the meaning compounds.",
+            note: Cow::Borrowed(
+                "Wildbow's escalation-is-everything is the sharpest conflict with our meditative register and with D-0104 (no ticking clock). Constant escalation of pace and peril exhausts the very stillness the show is built on — a lesson Wildbow himself drew from Pact.",
+            ),
+            resolution: Cow::Borrowed(
+                "Escalate depth and the stakes of understanding, not pace. What deepens across the run is the archaeology of the world, the cost of what the protagonist becomes, and the moral weight of each rescue. The tempo stays unhurried; the meaning compounds.",
+            ),
         },
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "reader-breathing-room",
+        id: Cow::Borrowed("reader-breathing-room"),
         family: Family::Serial,
-        statement: "Give characters calm scenes to breathe between intensities. A serial that never lets up exhausts its audience and flattens its own peaks; the quiet scenes are what make the loud ones register.",
-        source: "Wildbow, Thoughts on Writing Serials (the lesson of Pact's over-escalation).",
+        statement: Cow::Borrowed(
+            "Give characters calm scenes to breathe between intensities. A serial that never lets up exhausts its audience and flattens its own peaks; the quiet scenes are what make the loud ones register.",
+        ),
+        source: Cow::Borrowed(
+            "Wildbow, Thoughts on Writing Serials (the lesson of Pact's over-escalation).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "first-three-episodes-compression",
+        id: Cow::Borrowed("first-three-episodes-compression"),
         family: Family::Serial,
-        statement: "The opening installments carry the heaviest load: establish voice, promise, and the world's rules fast enough that a listener commits. Front-load the hooks and the distinct textures; a slow first drop loses the audience before the shape can pay off.",
-        source: "Fox, Launch to Market; Platt & Truant; streaming pilot craft.",
+        statement: Cow::Borrowed(
+            "The opening installments carry the heaviest load: establish voice, promise, and the world's rules fast enough that a listener commits. Front-load the hooks and the distinct textures; a slow first drop loses the audience before the shape can pay off.",
+        ),
+        source: Cow::Borrowed("Fox, Launch to Market; Platt & Truant; streaming pilot craft."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "multiple-pov-loop-management",
+        id: Cow::Borrowed("multiple-pov-loop-management"),
         family: Family::Serial,
-        statement: "With more than one viewpoint, track a loop ledger per thread so no strand goes cold. Cutting away from a POV should leave its loop open; returning should advance it, or the listener stops caring about the neglected thread.",
-        source: "Wildbow (multi-arc interludes); GRRM-style POV rotation, filtered.",
+        statement: Cow::Borrowed(
+            "With more than one viewpoint, track a loop ledger per thread so no strand goes cold. Cutting away from a POV should leave its loop open; returning should advance it, or the listener stops caring about the neglected thread.",
+        ),
+        source: Cow::Borrowed("Wildbow (multi-arc interludes); GRRM-style POV rotation, filtered."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "modular-world-generates-arcs",
+        id: Cow::Borrowed("modular-world-generates-arcs"),
         family: Family::Serial,
-        statement: "A serial sustains hundreds of installments only if the world can spin up a fresh arc from its own parts. Each new region and enclosed hoard is a ready spoke; the structure supplies stories without the author inventing an escalating threat.",
-        source: "Wildbow (world-as-engine); canon/narrative/structure.md (hub-and-spoke, D-0051).",
+        statement: Cow::Borrowed(
+            "A serial sustains hundreds of installments only if the world can spin up a fresh arc from its own parts. Each new region and enclosed hoard is a ready spoke; the structure supplies stories without the author inventing an escalating threat.",
+        ),
+        source: Cow::Borrowed(
+            "Wildbow (world-as-engine); canon/narrative/structure.md (hub-and-spoke, D-0051).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::LoreDecision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::LoreDecision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "cold-open-is-a-tone-promise",
+        id: Cow::Borrowed("cold-open-is-a-tone-promise"),
         family: Family::Serial,
-        statement: "The cold open is a promise of tone: a koan-like microcosm of the episode, read at a centuries-out remove, whose meaning clicks into place only as the episode plays. It sets the contract the installment must honor.",
-        source: "canon/narrative/narrator-framing.md (D-0037, D-0045); Dune epigraphs.",
+        statement: Cow::Borrowed(
+            "The cold open is a promise of tone: a koan-like microcosm of the episode, read at a centuries-out remove, whose meaning clicks into place only as the episode plays. It sets the contract the installment must honor.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/narrator-framing.md (D-0037, D-0045); Dune epigraphs.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "sfx-as-character",
+        id: Cow::Borrowed("sfx-as-character"),
         family: Family::Audio,
-        statement: "Sound effects are atmosphere and orientation, not a hidden visual channel. Script the sonic reality so the mix carries place, pressure, and punctuation, but do not ask it to teach subtle object mechanics the ear cannot decode.",
-        source: "Wayland, Bombs Always Beep (theater for the mind); canon/narrative/audio-design.md; Episode 1 craft author feedback (2026-07-10).",
+        statement: Cow::Borrowed(
+            "Sound effects are atmosphere and orientation, not a hidden visual channel. Script the sonic reality so the mix carries place, pressure, and punctuation, but do not ask it to teach subtle object mechanics the ear cannot decode.",
+        ),
+        source: Cow::Borrowed(
+            "Wayland, Bombs Always Beep (theater for the mind); canon/narrative/audio-design.md; Episode 1 craft author feedback (2026-07-10).",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "Audio-drama craft often treats SFX as a full scene partner. The current project mode is closer to audiobook-with-cast/foley, and many generated effects will be approximate rather than image-painting.",
+            note: Cow::Borrowed(
+                "Audio-drama craft often treats SFX as a full scene partner. The current project mode is closer to audiobook-with-cast/foley, and many generated effects will be approximate rather than image-painting.",
+            ),
         },
-        phases: &[Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "audio-show-dont-tell",
+        id: Cow::Borrowed("audio-show-dont-tell"),
         family: Family::Audio,
-        statement: "Let sound carry obvious heard facts: the door opens, rain hits shutters, footsteps cross a room. Do not use sound as the primary carrier for rope, knot, card, proof, or causal information; the narrator or dialogue must state what changed and why it matters.",
-        source: "Gill (SFWA, listeners fill the gap); Wayland; Urbina (Wolf 359).",
+        statement: Cow::Borrowed(
+            "Let sound carry obvious heard facts: the door opens, rain hits shutters, footsteps cross a room. Do not use sound as the primary carrier for rope, knot, card, proof, or causal information; the narrator or dialogue must state what changed and why it matters.",
+        ),
+        source: Cow::Borrowed("Gill (SFWA, listeners fill the gap); Wayland; Urbina (Wolf 359)."),
         mission_filter: MissionFilter::Adapted {
-            note: "The generic rule is correct for simple audible facts but becomes dangerous when a scene depends on quiet rope, knot, card, or proof mechanics.",
+            note: Cow::Borrowed(
+                "The generic rule is correct for simple audible facts but becomes dangerous when a scene depends on quiet rope, knot, card, or proof mechanics.",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "narrated-sound-to-sfx",
+        id: Cow::Borrowed("narrated-sound-to-sfx"),
         family: Family::Audio,
-        statement: "If the narrator describes an event whose point is that it is heard -- latch, rain, wind, cord, footsteps, ash, breath -- move it into SFX/foley/music unless the line is carrying causality or object meaning that sound alone cannot carry.",
-        source: "Episode 1 script-format author feedback (2026-07-10); audio-show-dont-tell doctrine.",
+        statement: Cow::Borrowed(
+            "If the narrator describes an event whose point is that it is heard -- latch, rain, wind, cord, footsteps, ash, breath -- move it into SFX/foley/music unless the line is carrying causality or object meaning that sound alone cannot carry.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 script-format author feedback (2026-07-10); audio-show-dont-tell doctrine.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_narrated_audio_events",
+            symbol: Cow::Borrowed("check_narrated_audio_events"),
         },
     },
     Principle {
-        id: "sfx-cannot-carry-mechanics",
+        id: Cow::Borrowed("sfx-cannot-carry-mechanics"),
         family: Family::Audio,
-        statement: "Rope, knot, card, ward, proof, text, recognition, private knowledge, and emotional interpretation are not legible as sound. A cue can add rasp, rain, breath, or a tactile vibe, but narrator or dialogue must plainly carry the state change: what moved, what failed, what proved false, what was discovered, and why it matters. Over-detailed or impossible SFX prompts are hard failures in audio scripts.",
-        source: "Episode 1 craft author feedback (2026-07-10); magic-pedagogy SFX recovery rules.",
+        statement: Cow::Borrowed(
+            "Rope, knot, card, ward, proof, text, recognition, private knowledge, and emotional interpretation are not legible as sound. A cue can add rasp, rain, breath, or a tactile vibe, but narrator or dialogue must plainly carry the state change: what moved, what failed, what proved false, what was discovered, and why it matters. Over-detailed or impossible SFX prompts are hard failures in audio scripts.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 craft author feedback (2026-07-10); magic-pedagogy SFX recovery rules.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_sfx_semantic_load",
+            symbol: Cow::Borrowed("check_sfx_semantic_load"),
         },
     },
     Principle {
-        id: "no-em-dashes-in-scripts",
+        id: Cow::Borrowed("no-em-dashes-in-scripts"),
         family: Family::Prose,
-        statement: "Generated scripts use no em dashes at all. The author has fully banned them; use sentence breaks, commas, semicolons, colons, or plain hyphens where rhythm needs a hinge.",
-        source: "Episode 1 craft author feedback (2026-07-10); D-0153 em-dash rejection.",
+        statement: Cow::Borrowed(
+            "Generated scripts use no em dashes at all. The author has fully banned them; use sentence breaks, commas, semicolons, colons, or plain hyphens where rhythm needs a hinge.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 craft author feedback (2026-07-10); D-0153 em-dash rejection.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_no_em_dashes",
+            symbol: Cow::Borrowed("check_no_em_dashes"),
         },
     },
     Principle {
-        id: "sixty-second-hook",
+        id: Cow::Borrowed("sixty-second-hook"),
         family: Family::Audio,
-        statement: "Earn attention inside the first minute: the smallest moment of boredom or confusion can lose an audio listener, who has less to hold them than a screen does. The opening image must grip before the frame explains itself.",
-        source: "Urbina, Advice for Radio Drama Beginners; Wayland (the hook).",
+        statement: Cow::Borrowed(
+            "Earn attention inside the first minute: the smallest moment of boredom or confusion can lose an audio listener, who has less to hold them than a screen does. The opening image must grip before the frame explains itself.",
+        ),
+        source: Cow::Borrowed("Urbina, Advice for Radio Drama Beginners; Wayland (the hook)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Rule(KernelRule::CheckOutline),
     },
     Principle {
-        id: "three-four-voices-per-scene",
+        id: Cow::Borrowed("three-four-voices-per-scene"),
         family: Family::Audio,
-        statement: "Keep a scene to three or four speaking voices. Past that the ear loses track of who is who, especially when two performers sit near the same pitch. Split a crowded scene or let some characters stay silent presences.",
-        source: "Toscan, Writing Audio Drama; Gill (SFWA, cast-size confusion); Urbina (four-hander).",
+        statement: Cow::Borrowed(
+            "Keep a scene to three or four speaking voices. Past that the ear loses track of who is who, especially when two performers sit near the same pitch. Split a crowded scene or let some characters stay silent presences.",
+        ),
+        source: Cow::Borrowed(
+            "Toscan, Writing Audio Drama; Gill (SFWA, cast-size confusion); Urbina (four-hander).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_cast_per_scene",
+            symbol: Cow::Borrowed("check_cast_per_scene"),
         },
     },
     Principle {
-        id: "vocal-signature-per-character",
+        id: Cow::Borrowed("vocal-signature-per-character"),
         family: Family::Audio,
-        statement: "Every character needs a distinct vocal signature — vocabulary, cadence, register — so a listener can tell them apart before a name is spoken. Homogenized voices are the top narrative tell and this show's central risk.",
-        source: "Toscan; Wayland; Kowal (puppetry-derived voice work); style-defense (voice_separation).",
+        statement: Cow::Borrowed(
+            "Every character needs a distinct vocal signature — vocabulary, cadence, register — so a listener can tell them apart before a name is spoken. Homogenized voices are the top narrative tell and this show's central risk.",
+        ),
+        source: Cow::Borrowed(
+            "Toscan; Wayland; Kowal (puppetry-derived voice work); style-defense (voice_separation).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_vocal_signature",
+            symbol: Cow::Borrowed("check_vocal_signature"),
         },
     },
     Principle {
-        id: "voice-silhouette-principle",
+        id: Cow::Borrowed("voice-silhouette-principle"),
         family: Family::Audio,
-        statement: "Every speaking party is distinguishable by ear within one line, from sentence shape, vocabulary stratum, rhythm, and address form alone, before actor timbre helps. Design voices as at-a-glance silhouettes.",
-        source: "D-0163 (the silhouette commission, verbatim); RQ-020 §0/§4.3 (D-0166).",
+        statement: Cow::Borrowed(
+            "Every speaking party is distinguishable by ear within one line, from sentence shape, vocabulary stratum, rhythm, and address form alone, before actor timbre helps. Design voices as at-a-glance silhouettes.",
+        ),
+        source: Cow::Borrowed(
+            "D-0163 (the silhouette commission, verbatim); RQ-020 §0/§4.3 (D-0166).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("silhouette"),
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("silhouette")),
     },
     Principle {
-        id: "one-sage-per-scene",
+        id: Cow::Borrowed("one-sage-per-scene"),
         family: Family::Audio,
-        statement: "At most one voice in an exchange may run oblique. Two voices trading figures reads as authorial manner, not character.",
-        source: "D-0163 (the zen-textbook ban); RQ-020 §0/§4.3 (D-0166).",
+        statement: Cow::Borrowed(
+            "At most one voice in an exchange may run oblique. Two voices trading figures reads as authorial manner, not character.",
+        ),
+        source: Cow::Borrowed("D-0163 (the zen-textbook ban); RQ-020 §0/§4.3 (D-0166)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Style,
-            symbol: "check_stichomythia",
+            symbol: Cow::Borrowed("check_stichomythia"),
         },
     },
     Principle {
-        id: "viewpoint-asks-the-listeners-question",
+        id: Cow::Borrowed("viewpoint-asks-the-listeners-question"),
         family: Family::Audio,
-        statement: "The viewpoint character asks the plain question the listener would ask, with a real question mark, and never carries the scene's wisdom line.",
-        source: "D-0163 (Aalto asks the listener's question); RQ-020 §1.4/§4.3 (D-0166).",
+        statement: Cow::Borrowed(
+            "The viewpoint character asks the plain question the listener would ask, with a real question mark, and never carries the scene's wisdom line.",
+        ),
+        source: Cow::Borrowed(
+            "D-0163 (Aalto asks the listener's question); RQ-020 §1.4/§4.3 (D-0166).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Style,
-            symbol: "check_unmarked_question",
+            symbol: Cow::Borrowed("check_unmarked_question"),
         },
     },
     Principle {
-        id: "strategic-name-pepper",
+        id: Cow::Borrowed("strategic-name-pepper"),
         family: Family::Audio,
-        statement: "Salt the dialogue with names so the listener always knows who is in the room and who is speaking. Too little breeds who-is-talking confusion; too much reads as unnatural. Address by name at entrances, turns, and after any ambiguity.",
-        source: "Toscan, Writing Audio Drama (signposting); radio-drama convention.",
+        statement: Cow::Borrowed(
+            "Salt the dialogue with names so the listener always knows who is in the room and who is speaking. Too little breeds who-is-talking confusion; too much reads as unnatural. Address by name at entrances, turns, and after any ambiguity.",
+        ),
+        source: Cow::Borrowed("Toscan, Writing Audio Drama (signposting); radio-drama convention."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_name_pepper",
+            symbol: Cow::Borrowed("check_name_pepper"),
         },
     },
     Principle {
-        id: "scripted-silence",
+        id: Cow::Borrowed("scripted-silence"),
         family: Family::Audio,
-        statement: "Silence is a scored instrument: a held beat, wind and fire-crackle, boots in mud. The courage to hold silence instead of wall-to-wall scoring is a signature of the register, and a pause held a beat long carries more than a line.",
-        source: "canon/narrative/audio-design.md (courage to hold silence, D-0023/D-0024); Werner.",
+        statement: Cow::Borrowed(
+            "Silence is a scored instrument: a held beat, wind and fire-crackle, boots in mud. The courage to hold silence instead of wall-to-wall scoring is a signature of the register, and a pause held a beat long carries more than a line.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/audio-design.md (courage to hold silence, D-0023/D-0024); Werner.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Generation]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_silence_scripting",
+            symbol: Cow::Borrowed("check_silence_scripting"),
         },
     },
     Principle {
-        id: "performance-direction-markers",
+        id: Cow::Borrowed("performance-direction-markers"),
         family: Family::Audio,
-        statement: "Human review scripts may stay readable, but dialogue-heavy drafts should include sparse bracketed performance direction where it matters, e.g. ENFYS [tired]: before the line, so the artifact is already production-aware.",
-        source: "Episode 1 script-format author feedback (2026-07-10); hybrid-format practice.",
+        statement: Cow::Borrowed(
+            "Human review scripts may stay readable, but dialogue-heavy drafts should include sparse bracketed performance direction where it matters, e.g. ENFYS [tired]: before the line, so the artifact is already production-aware.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 script-format author feedback (2026-07-10); hybrid-format practice.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_performance_direction_markers",
+            symbol: Cow::Borrowed("check_performance_direction_markers"),
         },
     },
     Principle {
-        id: "four-beat-labels-earn-their-turns",
+        id: Cow::Borrowed("four-beat-labels-earn-their-turns"),
         family: Family::Audio,
-        statement: "Visible Four-Beat Turn labels are not structure by themselves. The deepen line is the actual complication the listener hears, and the turn is the actual recontextualization; do not label a later weak beat as deepen or turn when the scene has already moved.",
-        source: "Episode 1 craft author feedback (2026-07-10); kishōtenketsu ten-is-the-turn doctrine.",
+        statement: Cow::Borrowed(
+            "Visible Four-Beat Turn labels are not structure by themselves. The deepen line is the actual complication the listener hears, and the turn is the actual recontextualization; do not label a later weak beat as deepen or turn when the scene has already moved.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 craft author feedback (2026-07-10); kishōtenketsu ten-is-the-turn doctrine.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_four_beat_turn_integrity",
+            symbol: Cow::Borrowed("check_four_beat_turn_integrity"),
         },
     },
     Principle {
-        id: "first-meeting-audibility",
+        id: Cow::Borrowed("first-meeting-audibility"),
         family: Family::Audio,
-        statement: "When two core characters meet for the first time, the listener must hear and keep hearing that relationship state. A lexical stranger cue does not excuse established-pair habits, assumed shared plans, or instant-family behavior later in the episode.",
-        source: "D-0216; campaign-033 false-pass audit; Toscan signposting.",
+        statement: Cow::Borrowed(
+            "When two core characters meet for the first time, the listener must hear and keep hearing that relationship state. A lexical stranger cue does not excuse established-pair habits, assumed shared plans, or instant-family behavior later in the episode.",
+        ),
+        source: Cow::Borrowed("D-0216; campaign-033 false-pass audit; Toscan signposting."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_first_meeting_clarity",
+            symbol: Cow::Borrowed("check_first_meeting_clarity"),
         },
     },
     Principle {
-        id: "earned-arc1-relationship-phase",
+        id: Cow::Borrowed("earned-arc1-relationship-phase"),
         family: Family::Character,
-        statement: "Arc 1 relationship behavior progresses no faster than the earned evidence: Episode 1 is a stranger emergency alliance, Episode 2 a functional truce, and Episode 3 may reach earned respect but not friendship, partnership, or found family. Preserve friction, separate motives and knowledge, negotiated next steps, and a credible choice to part.",
-        source: "D-0216; canon/narrative/craft-pillars.md#Early-arc-legibility.",
+        statement: Cow::Borrowed(
+            "Arc 1 relationship behavior progresses no faster than the earned evidence: Episode 1 is a stranger emergency alliance, Episode 2 a functional truce, and Episode 3 may reach earned respect but not friendship, partnership, or found family. Preserve friction, separate motives and knowledge, negotiated next steps, and a credible choice to part.",
+        ),
+        source: Cow::Borrowed("D-0216; canon/narrative/craft-pillars.md#Early-arc-legibility."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_first_meeting_clarity",
+            symbol: Cow::Borrowed("check_first_meeting_clarity"),
         },
     },
     Principle {
-        id: "early-bounded-magic-genre-promise",
+        id: Cow::Borrowed("early-bounded-magic-genre-promise"),
         family: Family::World,
-        statement: "Before extended explanation in an early episode, Enfys's proof or Turning causes one bounded physical impossibility whose cause and effect are plain by ear. At the first meeting, power-caused overwhelm must temporarily disable a named function; fatigue, blood, or mood alone cannot carry the causal fact. Keep the event costly and clinical, without glow or spectacle.",
-        source: "D-0216; D-0142; D-0155; campaign-033 false-pass audit.",
+        statement: Cow::Borrowed(
+            "Before extended explanation in an early episode, Enfys's proof or Turning causes one bounded physical impossibility whose cause and effect are plain by ear. At the first meeting, power-caused overwhelm must temporarily disable a named function; fatigue, blood, or mood alone cannot carry the causal fact. Keep the event costly and clinical, without glow or spectacle.",
+        ),
+        source: Cow::Borrowed("D-0216; D-0142; D-0155; campaign-033 false-pass audit."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_early_magic_genre_promise",
+            symbol: Cow::Borrowed("check_early_magic_genre_promise"),
         },
     },
     Principle {
-        id: "named-lore-backed-cold-open",
+        id: Cow::Borrowed("named-lore-backed-cold-open"),
         family: Family::Audio,
-        statement: "Every cold-open quotation is two or three sentences followed immediately by a separate spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship. Reject compressed near-borrowings such as map-versus-territory formulations.",
-        source: "D-0216; D-0220; canon/texts/in-world-texts.md; naming-oracle discipline.",
+        statement: Cow::Borrowed(
+            "Every cold-open quotation is two or three sentences followed immediately by a separate spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship. Reject compressed near-borrowings such as map-versus-territory formulations.",
+        ),
+        source: Cow::Borrowed(
+            "D-0216; D-0220; canon/texts/in-world-texts.md; naming-oracle discipline.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_opening_epigraph_discipline",
+            symbol: Cow::Borrowed("check_opening_epigraph_discipline"),
         },
     },
     Principle {
-        id: "early-aalto-enfys-care-hooks",
+        id: Cow::Borrowed("early-aalto-enfys-care-hooks"),
         family: Family::Audio,
-        statement: "Episode 1 must quickly buy investment in Aalto and Enfys. Aalto needs audible sympathy, competence, or proactivity before the lore density rises, including a concrete want or pressure; Enfys needs an immediate hook of competence, cost, care, or decisive action when she enters. The first shared scene must also make clear why these two being bound together starts a story.",
-        source: "Episode 1 craft author feedback (2026-07-10); Sanderson character sliders; pilot-scene craft.",
+        statement: Cow::Borrowed(
+            "Episode 1 must quickly buy investment in Aalto and Enfys. Aalto needs audible sympathy, competence, or proactivity before the lore density rises, including a concrete want or pressure; Enfys needs an immediate hook of competence, cost, care, or decisive action when she enters. The first shared scene must also make clear why these two being bound together starts a story.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 craft author feedback (2026-07-10); Sanderson character sliders; pilot-scene craft.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_early_character_hooks",
+            symbol: Cow::Borrowed("check_early_character_hooks"),
         },
     },
     Principle {
-        id: "dialogue-scenes-have-turns",
+        id: Cow::Borrowed("dialogue-scenes-have-turns"),
         family: Family::Audio,
-        statement: "Good drama dialogue is motivated action: a line asks, resists, reframes, withholds, or changes the power in the room. Long exchanges need questions, contrast, reversals, grounding beats, and subtext with enough surface clarity to keep pace.",
-        source: "Episode 1 craft author feedback (2026-07-10); film/TV scene craft; McKee scene turns; Mamet practical dialogue doctrine.",
+        statement: Cow::Borrowed(
+            "Good drama dialogue is motivated action: a line asks, resists, reframes, withholds, or changes the power in the room. Long exchanges need questions, contrast, reversals, grounding beats, and subtext with enough surface clarity to keep pace.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 craft author feedback (2026-07-10); film/TV scene craft; McKee scene turns; Mamet practical dialogue doctrine.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_dialogue_turn_motivation",
+            symbol: Cow::Borrowed("check_dialogue_turn_motivation"),
         },
     },
     Principle {
-        id: "closing-punctuation-not-archival-quote",
+        id: Cow::Borrowed("closing-punctuation-not-archival-quote"),
         family: Family::Audio,
-        statement: "The opening may cite a quoted archival source. The ending defaults to two to four narrator sentences followed by final music: image, consequence, and next motion, not a long quote, audience address, stated moral, whole-episode recap, or abrupt one-line cutoff.",
-        source: "D-0216; narrator-frame discipline; campaign-033 false-pass audit.",
+        statement: Cow::Borrowed(
+            "The opening may cite a quoted archival source. The ending defaults to two to four narrator sentences followed by final music: image, consequence, and next motion, not a long quote, audience address, stated moral, whole-episode recap, or abrupt one-line cutoff.",
+        ),
+        source: Cow::Borrowed("D-0216; narrator-frame discipline; campaign-033 false-pass audit."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_closing_quote_discipline",
+            symbol: Cow::Borrowed("check_closing_quote_discipline"),
         },
     },
     Principle {
-        id: "audio-opening-pressure",
+        id: Cow::Borrowed("audio-opening-pressure"),
         family: Family::Audio,
-        statement: "A first episode may use the Four-Beat Turn, but the first story minute still needs a Western-audio hook: a concrete pressure already happening, then enough narrator context to understand it. Do not open with a room inventory or a child muttering procedures before the listener knows what can be lost.",
-        source: "D-0195; Sanderson (promises in the opening); audio-first clarity doctrine.",
+        statement: Cow::Borrowed(
+            "A first episode may use the Four-Beat Turn, but the first story minute still needs a Western-audio hook: a concrete pressure already happening, then enough narrator context to understand it. Do not open with a room inventory or a child muttering procedures before the listener knows what can be lost.",
+        ),
+        source: Cow::Borrowed(
+            "D-0195; Sanderson (promises in the opening); audio-first clarity doctrine.",
+        ),
         mission_filter: MissionFilter::Adapted {
-            note: "The project's default structure prizes set/deepen/turn/settle rather than constant escalation, but a cold audio listener still needs immediate orientation and pressure before patient pattern work can feel earned.",
+            note: Cow::Borrowed(
+                "The project's default structure prizes set/deepen/turn/settle rather than constant escalation, but a cold audio listener still needs immediate orientation and pressure before patient pattern work can feel earned.",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_audio_opening_pressure",
+            symbol: Cow::Borrowed("check_audio_opening_pressure"),
         },
     },
     Principle {
-        id: "specific-family-context",
+        id: Cow::Borrowed("specific-family-context"),
         family: Family::Audio,
-        statement: "If family danger motivates the scene, make the family context incidentally specific. Aalto knows who is in the bed, so the listener should hear a name or relation early; vague labels like 'the sick kinsman' turn human stakes into fog.",
-        source: "D-0195; Sanderson (sympathy through concrete stakes); Toscan signposting.",
+        statement: Cow::Borrowed(
+            "If family danger motivates the scene, make the family context incidentally specific. Aalto knows who is in the bed, so the listener should hear a name or relation early; vague labels like 'the sick kinsman' turn human stakes into fog.",
+        ),
+        source: Cow::Borrowed(
+            "D-0195; Sanderson (sympathy through concrete stakes); Toscan signposting.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_specific_family_context",
+            symbol: Cow::Borrowed("check_specific_family_context"),
         },
     },
     Principle {
-        id: "lone-opening-dialogue-context",
+        id: Cow::Borrowed("lone-opening-dialogue-context"),
         family: Family::Audio,
-        statement: "Do not make Aalto carry the opening by talking to herself. If she is alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful.",
-        source: "D-0195; audio-drama listener-orientation practice.",
+        statement: Cow::Borrowed(
+            "Do not make Aalto carry the opening by talking to herself. If she is alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful.",
+        ),
+        source: Cow::Borrowed("D-0195; audio-drama listener-orientation practice."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_lone_opening_dialogue_context",
+            symbol: Cow::Borrowed("check_lone_opening_dialogue_context"),
         },
     },
     Principle {
-        id: "performable-voice-strangeness",
+        id: Cow::Borrowed("performable-voice-strangeness"),
         family: Family::Audio,
-        statement: "Enfys may sound strange, but the script cannot depend on unproducible voice layering. Let the actor or TTS simply perform a line; put her otherness in word choice, behavior, cost, and reactions, not in directions for multiple hidden voices or impossible acoustic variations.",
-        source: "D-0195; ElevenLabs validation learning from campaign-016.",
+        statement: Cow::Borrowed(
+            "Enfys may sound strange, but the script cannot depend on unproducible voice layering. Let the actor or TTS simply perform a line; put her otherness in word choice, behavior, cost, and reactions, not in directions for multiple hidden voices or impossible acoustic variations.",
+        ),
+        source: Cow::Borrowed("D-0195; ElevenLabs validation learning from campaign-016."),
         mission_filter: MissionFilter::Adapted {
-            note: "The project wants Enfys to remain liminal and a little inhuman, but generated voices and listeners will not reliably resolve subtle internal voice shifts.",
+            note: Cow::Borrowed(
+                "The project wants Enfys to remain liminal and a little inhuman, but generated voices and listeners will not reliably resolve subtle internal voice shifts.",
+            ),
         },
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_performable_voice_strangeness",
+            symbol: Cow::Borrowed("check_performable_voice_strangeness"),
         },
     },
     Principle {
-        id: "narrator-never-describes-voices",
+        id: Cow::Borrowed("narrator-never-describes-voices"),
         family: Family::Audio,
-        statement: "The narrator never describes what a person's voice sounds like or how speech is delivered. No vocal qualities, accents or phonetics, delivery adverbs, vocal metaphors, or how-said paraphrases belong in Narrator records. Character dialogue may mention voices; the narrator may state that speech happened, describe breath or bodily cost, and use sound metaphors for objects, animals, or weather.",
-        source: "D-0218; canon/narrative/narrator-framing.md#No voice-description narration.",
+        statement: Cow::Borrowed(
+            "The narrator never describes what a person's voice sounds like or how speech is delivered. No vocal qualities, accents or phonetics, delivery adverbs, vocal metaphors, or how-said paraphrases belong in Narrator records. Character dialogue may mention voices; the narrator may state that speech happened, describe breath or bodily cost, and use sound metaphors for objects, animals, or weather.",
+        ),
+        source: Cow::Borrowed(
+            "D-0218; canon/narrative/narrator-framing.md#No voice-description narration.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_narrator_voice_descriptions",
+            symbol: Cow::Borrowed("check_narrator_voice_descriptions"),
         },
     },
     Principle {
-        id: "no-as-you-know-bob",
+        id: Cow::Borrowed("no-as-you-know-bob"),
         family: Family::Audio,
-        statement: "No character tells another something both already know for the audience's benefit (the maid-and-butler / as-you-know-Bob leak). It is the loudest exposition tell and it shatters the sincerity the register depends on.",
-        source: "Wayland; Toscan; classic BBC radio-drama guidance (maid-and-butler).",
+        statement: Cow::Borrowed(
+            "No character tells another something both already know for the audience's benefit (the maid-and-butler / as-you-know-Bob leak). It is the loudest exposition tell and it shatters the sincerity the register depends on.",
+        ),
+        source: Cow::Borrowed(
+            "Wayland; Toscan; classic BBC radio-drama guidance (maid-and-butler).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_as_you_know_bob",
+            symbol: Cow::Borrowed("check_as_you_know_bob"),
         },
     },
     Principle {
-        id: "hybrid-script-formatting",
+        id: Cow::Borrowed("hybrid-script-formatting"),
         family: Family::Audio,
-        statement: "Use a script format that carries sound as first-class: speaker cues, sound cues, and beats legible to a director and a foley artist. Format serves the production process and the listener, nothing else.",
-        source: "Wayland, Bombs Always Beep (hybrid format); canon/narrative/episode-format.md.",
+        statement: Cow::Borrowed(
+            "Use a script format that carries sound as first-class: speaker cues, sound cues, and beats legible to a director and a foley artist. Format serves the production process and the listener, nothing else.",
+        ),
+        source: Cow::Borrowed(
+            "Wayland, Bombs Always Beep (hybrid format); canon/narrative/episode-format.md.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "clarity-is-life-or-death",
+        id: Cow::Borrowed("clarity-is-life-or-death"),
         family: Family::Audio,
-        statement: "In audio, clarity is survival: give the audience exactly enough to fill the gaps the way you intend. A plot beat that depends on the listener seeing something will not land, so route every load-bearing turn through sound and speech.",
-        source: "Urbina, Advice for Radio Drama Beginners; Gill (SFWA).",
+        statement: Cow::Borrowed(
+            "In audio, clarity is survival: give the audience exactly enough to fill the gaps the way you intend. A plot beat that depends on the listener seeing something will not land, so route every load-bearing turn through sound and speech.",
+        ),
+        source: Cow::Borrowed("Urbina, Advice for Radio Drama Beginners; Gill (SFWA)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "plot-points-per-episode",
+        id: Cow::Borrowed("plot-points-per-episode"),
         family: Family::Audio,
-        statement: "A useful density heuristic: roughly ten plot points per episode, where a plot point is any item you would list when recapping the installment. It is a texture gauge, not a rule — a way to feel whether an episode is thin or overstuffed.",
-        source: "Urbina, Wolf 359 (ten plot points per episode).",
+        statement: Cow::Borrowed(
+            "A useful density heuristic: roughly ten plot points per episode, where a plot point is any item you would list when recapping the installment. It is a texture gauge, not a rule — a way to feel whether an episode is thin or overstuffed.",
+        ),
+        source: Cow::Borrowed("Urbina, Wolf 359 (ten plot points per episode)."),
         mission_filter: MissionFilter::Adapted {
-            note: "Ten discrete plot points can read as briskness, which pulls against the meditative pace and the whole-episode-of-weather license (D-0051).",
+            note: Cow::Borrowed(
+                "Ten discrete plot points can read as briskness, which pulls against the meditative pace and the whole-episode-of-weather license (D-0051).",
+            ),
         },
-        phases: &[Phase::Outline],
+        phases: Cow::Borrowed(&[Phase::Outline]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "aphorism-as-acoustic-logo",
+        id: Cow::Borrowed("aphorism-as-acoustic-logo"),
         family: Family::Audio,
-        statement: "Because the show is heard, belief systems cannot lean on a visible symbol; a creed's repeated aphorism, in a fixed cadence over a signature texture, is its acoustic logo. Give each faction a phrase the listener knows before a name is said.",
-        source: "canon/narrative/audio-design.md (aphorisms as acoustic identity, D-0090).",
+        statement: Cow::Borrowed(
+            "Because the show is heard, belief systems cannot lean on a visible symbol; a creed's repeated aphorism, in a fixed cadence over a signature texture, is its acoustic logo. Give each faction a phrase the listener knows before a name is said.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/audio-design.md (aphorisms as acoustic identity, D-0090).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "music-as-learned-lexicon",
+        id: Cow::Borrowed("music-as-learned-lexicon"),
         family: Family::Audio,
-        statement: "Music works two ways: fixed signatures that punctuate the open and close, and a recognizable mood lexicon the listener learns (the rigid order, the wild Wyrd, the warm hearth). Consistency turns the score into orientation.",
-        source: "canon/narrative/audio-design.md (music as punctuation and mood, D-0039).",
+        statement: Cow::Borrowed(
+            "Music works two ways: fixed signatures that punctuate the open and close, and a recognizable mood lexicon the listener learns (the rigid order, the wild Wyrd, the warm hearth). Consistency turns the score into orientation.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/audio-design.md (music as punctuation and mood, D-0039).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "final-musical-sting",
+        id: Cow::Borrowed("final-musical-sting"),
         family: Family::Audio,
-        statement: "A full episode script should mark its closing musical sting or coda explicitly. The final cue is part of the episode shape, not an afterthought for production to infer from prose.",
-        source: "Episode 1 script-format author feedback (2026-07-10); canon/narrative/audio-design.md (D-0039).",
+        statement: Cow::Borrowed(
+            "A full episode script should mark its closing musical sting or coda explicitly. The final cue is part of the episode shape, not an afterthought for production to infer from prose.",
+        ),
+        source: Cow::Borrowed(
+            "Episode 1 script-format author feedback (2026-07-10); canon/narrative/audio-design.md (D-0039).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_final_music_sting",
+            symbol: Cow::Borrowed("check_final_music_sting"),
         },
     },
     Principle {
-        id: "narrator-brackets-the-frame",
+        id: Cow::Borrowed("narrator-brackets-the-frame"),
         family: Family::Audio,
-        statement: "The narrator owns the cold open and the outro and intrudes between them only when audio genuinely needs it (passage of time, the unshowable). The present action belongs to the cast and the foley.",
-        source: "canon/narrative/narrator-framing.md (mid-episode discipline, D-0036).",
+        statement: Cow::Borrowed(
+            "The narrator owns the cold open and the outro and intrudes between them only when audio genuinely needs it (passage of time, the unshowable). The present action belongs to the cast and the foley.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/narrator-framing.md (mid-episode discipline, D-0036).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Generation],
+        phases: Cow::Borrowed(&[Phase::Generation]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "narrator-sfx-load-boundary",
+        id: Cow::Borrowed("narrator-sfx-load-boundary"),
         family: Family::Audio,
-        statement: "Current audio mode is audiobook-with-cast/foley: a load-bearing windowpane narrator carries orientation and causality, while SFX stays sparse support. Packet reviews must not let silence and foley become the hidden semantic channel.",
-        source: "canon/decisions.md (D-0179 medium correction); D-0176 narrator amendment.",
+        statement: Cow::Borrowed(
+            "Current audio mode is audiobook-with-cast/foley: a load-bearing windowpane narrator carries orientation and causality, while SFX stays sparse support. Packet reviews must not let silence and foley become the hidden semantic channel.",
+        ),
+        source: Cow::Borrowed(
+            "canon/decisions.md (D-0179 medium correction); D-0176 narrator amendment.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Factory {
             namespace: FactoryNs::Check,
-            symbol: "check_sfx_semantic_load",
+            symbol: Cow::Borrowed("check_sfx_semantic_load"),
         },
     },
     Principle {
-        id: "pillar-aesthetic-sobriety",
+        id: Cow::Borrowed("pillar-aesthetic-sobriety"),
         family: Family::Pillar,
-        statement: "Against shouty bravado, for melancholic competence: grounded, quiet confidence; emotion carried by a pause held a beat long, a steady breath, the hyper-focused labor of a knot. Power reads cold, clinical, intellectual.",
-        source: "canon/narrative/craft-pillars.md (aesthetic sobriety, D-0128); D-0025, D-0065.",
+        statement: Cow::Borrowed(
+            "Against shouty bravado, for melancholic competence: grounded, quiet confidence; emotion carried by a pause held a beat long, a steady breath, the hyper-focused labor of a knot. Power reads cold, clinical, intellectual.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/craft-pillars.md (aesthetic sobriety, D-0128); D-0025, D-0065.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[
+        phases: Cow::Borrowed(&[
             Phase::Outline,
             Phase::LoreDecision,
             Phase::Generation,
             Phase::Revision,
-        ],
-        binding: Binding::Attest("judge_pillars"),
+        ]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "pillar-rhizomatic-restoration",
+        id: Cow::Borrowed("pillar-rhizomatic-restoration"),
         family: Family::Pillar,
-        statement: "Against Freytag's conquest, for the kishōtenketsu ecology: horizontal, exploratory, community-driven structure on the hub-and-spoke model. An arc's climax is a localized puzzle dissolved through empathy, pedagogy, and rigorous logic.",
-        source: "canon/narrative/craft-pillars.md (rhizomatic restoration, D-0128); D-0010, D-0052, D-0055.",
+        statement: Cow::Borrowed(
+            "Against Freytag's conquest, for the kishōtenketsu ecology: horizontal, exploratory, community-driven structure on the hub-and-spoke model. An arc's climax is a localized puzzle dissolved through empathy, pedagogy, and rigorous logic.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/craft-pillars.md (rhizomatic restoration, D-0128); D-0010, D-0052, D-0055.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "pillar-material-sovereignty",
+        id: Cow::Borrowed("pillar-material-sovereignty"),
         family: Family::Pillar,
-        statement: "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true specificity and absolute respect; characters defined by autonomy and intellect.",
-        source: "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0219.",
+        statement: Cow::Borrowed(
+            "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true specificity and absolute respect; characters defined by autonomy and intellect.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0219.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::LoreDecision, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::LoreDecision, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "pillar-earnest-sincerity",
+        id: Cow::Borrowed("pillar-earnest-sincerity"),
         family: Family::Pillar,
-        statement: "Against ironic detachment, for true subcreation: the world is a terrifying, breathtaking, authentic reality; the allegory is a hidden skeleton and the flesh is pure hard-magic fantasy. No meta winks; human connection is treated with un-ironic sincerity.",
-        source: "canon/narrative/craft-pillars.md (earnest sincerity, D-0128); D-0025, D-0030, D-0085.",
+        statement: Cow::Borrowed(
+            "Against ironic detachment, for true subcreation: the world is a terrifying, breathtaking, authentic reality; the allegory is a hidden skeleton and the flesh is pure hard-magic fantasy. No meta winks; human connection is treated with un-ironic sincerity.",
+        ),
+        source: Cow::Borrowed(
+            "canon/narrative/craft-pillars.md (earnest sincerity, D-0128); D-0025, D-0030, D-0085.",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
-        binding: Binding::Attest("judge_pillars"),
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("judge_pillars")),
     },
     Principle {
-        id: "pillars-win-standing-rule",
+        id: Cow::Borrowed("pillars-win-standing-rule"),
         family: Family::Pillar,
-        statement: "Where any outside craft authority conflicts with a pillar or with canon, the pillar wins. The conflict is recorded as a tension with an explicit mission-side resolution; generic advice is adapted to the mission, never allowed to override it.",
-        source: "canon/narrative/craft-pillars.md (D-0128, the standing rule).",
+        statement: Cow::Borrowed(
+            "Where any outside craft authority conflicts with a pillar or with canon, the pillar wins. The conflict is recorded as a tension with an explicit mission-side resolution; generic advice is adapted to the mission, never allowed to override it.",
+        ),
+        source: Cow::Borrowed("canon/narrative/craft-pillars.md (D-0128, the standing rule)."),
         mission_filter: MissionFilter::Pass,
-        phases: &[
+        phases: Cow::Borrowed(&[
             Phase::Outline,
             Phase::LoreDecision,
             Phase::Generation,
             Phase::Revision,
-        ],
+        ]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "wonder-amid-ruin",
+        id: Cow::Borrowed("wonder-amid-ruin"),
         family: Family::Pillar,
-        statement: "The emotional target is recovery, escape, and consolation: a hard-won eucatastrophe, the green shoot in poisoned mud, never cheap despair and never spectacle. Awe comes through beauty and dread inside a broken world.",
-        source: "canon/premise/influences.md (Sanderson framing, D-0025); Tolkien (eucatastrophe).",
+        statement: Cow::Borrowed(
+            "The emotional target is recovery, escape, and consolation: a hard-won eucatastrophe, the green shoot in poisoned mud, never cheap despair and never spectacle. Awe comes through beauty and dread inside a broken world.",
+        ),
+        source: Cow::Borrowed(
+            "canon/premise/influences.md (Sanderson framing, D-0025); Tolkien (eucatastrophe).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Outline, Phase::Generation, Phase::Revision],
+        phases: Cow::Borrowed(&[Phase::Outline, Phase::Generation, Phase::Revision]),
         binding: Binding::Declaration,
     },
     Principle {
-        id: "bar-raiser-taste-gap",
+        id: Cow::Borrowed("bar-raiser-taste-gap"),
         family: Family::Pillar,
-        statement: "A draft that clears every gate can still fall short of its own ambition; the gap between taste and execution closes only by naming the highest-leverage opportunities and doing the work. Good-enough is the enemy of the bar.",
-        source: "Glass, 'The Gap' (This American Life); the bar-raising mandate (D-0128).",
+        statement: Cow::Borrowed(
+            "A draft that clears every gate can still fall short of its own ambition; the gap between taste and execution closes only by naming the highest-leverage opportunities and doing the work. Good-enough is the enemy of the bar.",
+        ),
+        source: Cow::Borrowed(
+            "Glass, 'The Gap' (This American Life); the bar-raising mandate (D-0128).",
+        ),
         mission_filter: MissionFilter::Pass,
-        phases: &[Phase::Revision],
-        binding: Binding::Attest("raise_draft"),
+        phases: Cow::Borrowed(&[Phase::Revision]),
+        binding: Binding::Attest(Cow::Borrowed("raise_draft")),
     },
 ];
 
@@ -1679,11 +2072,11 @@ impl<'a> Kb<'a> {
         let mut errors = Vec::new();
         let mut seen: BTreeSet<&str> = BTreeSet::new();
         for p in self.principles {
-            if !seen.insert(p.id) {
-                errors.push(KbError::DuplicateId(p.id.to_owned()));
+            if !seen.insert(p.id.as_ref()) {
+                errors.push(KbError::DuplicateId(p.id.to_string()));
             }
             if p.phases.is_empty() {
-                errors.push(KbError::NoPhase(p.id.to_owned()));
+                errors.push(KbError::NoPhase(p.id.to_string()));
             }
         }
         errors

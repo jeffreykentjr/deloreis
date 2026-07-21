@@ -854,7 +854,7 @@ fn craft_family(payload: &Payload, ctx: &BatteryContext) -> Vec<PayloadFinding> 
         .map(|wf| {
             let mut finding = world_finding_to_payload(&wf);
             if let Some(principle) = ctx.kb.why(&wf.code).first() {
-                finding.principle = Some(principle.id.to_owned());
+                finding.principle = Some(principle.id.to_string());
             }
             if let Some((line, quote)) = anchors
                 .iter()
@@ -1119,7 +1119,7 @@ pub fn outline_conformance(
     // `outline.*` code resolves to the CRAFT-1 battery principles via the KB.
     for finding in &mut out {
         if let Some(principle) = kb.why(&finding.code).first() {
-            finding.principle = Some(principle.id.to_owned());
+            finding.principle = Some(principle.id.to_string());
         }
     }
     out

@@ -103,6 +103,7 @@
 //! `u8`.
 
 pub mod kb;
+pub mod load;
 pub mod outline;
 pub mod season;
 
@@ -110,6 +111,7 @@ pub use kb::{
     Binding, Checkable, Coverage, FactoryNs, Family, Kb, KbError, KernelRule, MissionFilter, Phase,
     Principle, audit, by_id, checkable_debt, coverage, evaluate_judge, principles_binding, why,
 };
+pub use load::{LoadError, PrinciplePack, parse_pack, render_pack};
 pub use outline::{
     Advance, ArcPromise, AudioLoad, AudioPlan, CarryScope, CharacterSlider, EpisodeOutline,
     MaterialAssumptionLedger, MaterialUnknown, MiceKind, MiceThread, NarratorMode, NarratorTask,

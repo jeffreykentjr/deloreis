@@ -16,11 +16,11 @@ dli-eval.workspace = true
 dli-ledger.workspace = true
 dli-syntax.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 schemars.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 serde_yaml_ng.workspace = true
 
 [lints]

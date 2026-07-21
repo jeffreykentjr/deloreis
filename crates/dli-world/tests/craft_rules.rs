@@ -699,7 +699,7 @@ fn explain_renders_statement_and_resolution() {
         .find(|p| matches!(p.mission_filter, MissionFilter::Tension { .. }))
         .unwrap();
     let rendered = tension.explain();
-    assert!(rendered.contains(tension.statement));
+    assert!(rendered.contains(tension.statement.as_ref()));
     assert!(rendered.contains("resolution:"));
     assert!(rendered.contains("source:"));
 }
