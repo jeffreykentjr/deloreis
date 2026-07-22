@@ -10,7 +10,7 @@ use dli_ast::term::{AtomExpr, Term};
 fn sample_document() -> Document {
     Document {
         scope: Some(ScopeHeader {
-            name: Ident::synthetic("saltmarket"),
+            name: Ident::synthetic("camelot"),
             span: Span::synthetic(),
         }),
         decls: vec![
@@ -22,8 +22,8 @@ fn sample_document() -> Document {
                 atom: AtomExpr {
                     pred: Ident::synthetic("adjacent"),
                     args: vec![
-                        Term::Sym(Ident::synthetic("the-shallows")),
-                        Term::Sym(Ident::synthetic("saltmarket")),
+                        Term::Sym(Ident::synthetic("the-lake")),
+                        Term::Sym(Ident::synthetic("camelot")),
                     ],
                 },
                 triple: false,
