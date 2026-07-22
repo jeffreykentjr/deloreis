@@ -45,7 +45,11 @@ fn a_term_citing_a_declared_decision_is_clean() {
 }
 
 #[test]
-fn a_term_citing_an_undeclared_decision_is_caught() {
+fn a_term_citing_an_undeclared_decision_is_not_gated() {
+    // A `term`'s `decided <d-id>` is language-layer *provenance*, not assertability
+    // authority: it may name a decision recorded outside this corpus (the vendored
+    // TPtH packs cite external canon ids like `D-0181` on terms this way). So an
+    // undeclared term citation is NOT a finding — unlike a proof/ratify citation.
     let world = world_of(
         "scope demo\n\
          ratify d-1\n\
@@ -53,8 +57,8 @@ fn a_term_citing_an_undeclared_decision_is_caught() {
     );
     let findings = unknown_decision_findings(&world);
     assert!(
-        findings.iter().any(|m| m.contains("d-9999")),
-        "a forged term citation is caught: {findings:?}",
+        findings.is_empty(),
+        "an undeclared term citation is provenance, not gated: {findings:?}",
     );
 }
 
@@ -111,6 +115,44 @@ fn a_cited_keyword_inside_a_nested_atom_is_not_a_citation() {
     assert!(
         unknown_decision_findings(&world).is_empty(),
         "only the top-level `cited d-1` is a citation, and d-1 is declared: {:?}",
+        unknown_decision_findings(&world),
+    );
+}
+
+#[test]
+fn a_forged_citation_hidden_behind_a_cue_paren_is_still_caught() {
+    // R-A3 F1a: an unbalanced `(` inside a cue STRING must not hide a real forged
+    // `cited` after it — the harvest tracks string state, not only paren depth.
+    let world = world_of(
+        "scope demo\n\
+         ratify d-1\n\
+         proof forged  speaker p  in prac {\n\
+           premise p1  holds(p)  cue \"a (parenthetical remark\"  cited d-9999\n\
+           close holds(p) expect holds\n\
+         }\n",
+    );
+    let findings = unknown_decision_findings(&world);
+    assert!(
+        findings.iter().any(|m| m.contains("d-9999")),
+        "a forged cited behind a cue paren is caught: {findings:?}",
+    );
+}
+
+#[test]
+fn a_cite_keyword_in_cue_prose_is_not_a_citation() {
+    // R-A3 F1b: `decided`/`ratified` in ordinary cue PROSE must not mint a spurious
+    // citation.
+    let world = world_of(
+        "scope demo\n\
+         ratify d-1\n\
+         proof benign  speaker p  in prac {\n\
+           premise p1  holds(p)  cited d-1  cue \"the king decided to grant it\"\n\
+           close holds(p) expect holds\n\
+         }\n",
+    );
+    assert!(
+        unknown_decision_findings(&world).is_empty(),
+        "a cite keyword in cue prose is not a citation: {:?}",
         unknown_decision_findings(&world),
     );
 }

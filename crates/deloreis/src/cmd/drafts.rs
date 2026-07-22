@@ -264,11 +264,20 @@ fn parse_caps(specs: &[String]) -> Result<std::collections::BTreeMap<String, i64
         let (res, n) = spec
             .split_once('=')
             .ok_or_else(|| format!("--cap expects <resource>=<n>, got '{spec}'"))?;
+        let res = res.trim();
+        if res.is_empty() {
+            return Err(format!("--cap '{spec}': empty resource name"));
+        }
         let bound: i64 = n
             .trim()
             .parse()
             .map_err(|_| format!("--cap '{spec}': '{}' is not an integer bound", n.trim()))?;
-        caps.insert(res.trim().to_owned(), bound);
+        if bound < 0 {
+            return Err(format!(
+                "--cap '{spec}': a cap must be >= 0 (a negative bound would silently enforce 0)"
+            ));
+        }
+        caps.insert(res.to_owned(), bound);
     }
     Ok(caps)
 }

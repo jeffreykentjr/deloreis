@@ -142,20 +142,24 @@ fn ledger_valuation(
     (nu, findings)
 }
 
-/// Extend the citation guard over the three declarations the loader keeps outside
-/// `atoms()`/`sorts()` but which still cite decisions — closing the `B1` hole the
-/// red team surfaced (a forged authority claim on a `term`, a `proof`, or a
-/// `ratify`-block currently escaping the "authority is declared, not minted"
-/// invariant):
+/// Extend the citation guard over the two ledger-authority declarations the loader
+/// keeps outside `atoms()`/`sorts()` — closing the `B1` hole the red team surfaced
+/// (a forged authority claim escaping the "authority is declared, not minted"
+/// invariant) — WITHOUT over-reaching into bibliographic provenance:
 ///
-/// - a **`term`** carries a typed ledger provenance (`term … decided <d-id>`);
 /// - a **`proof`**'s premises cite the certain ground they rest on
-///   (`premise … cited <d-id>`), harvested from the captured body clauses;
+///   (`premise … cited <d-id>`), harvested from the captured body clauses; a forged
+///   id would mint a diegetic proof's authority, so it is gated;
 /// - a **`ratify … { }`** block mints its own decision (already declared), but any
-///   decision its body clauses *cite* is checked the same way (shipped blocks
-///   settle only hypotheses, so they stay clean; a forged citation is caught).
+///   decision its body clauses *cite* is gated the same way.
 ///
-/// Each cited id is routed through [`gate_citations`] exactly as an atom's would
+/// **Not gated:** a `term`/`dialect`/`word`/`name-part`'s `decided <d-id>` is
+/// *language-layer provenance* — a bibliographic pointer that may name a decision
+/// recorded OUTSIDE this corpus. The vendored TPtH packs legitimately cite external
+/// canon ids (e.g. `D-0181`) this way; gating them would break a partial/vendored
+/// corpus that points at its home ledger. Provenance is not assertability authority.
+///
+/// Each gated id is routed through [`gate_citations`] exactly as an atom's would
 /// be, so a declared id rules its variable and an undeclared one raises
 /// `citation.unknown-decision`.
 fn gate_language_citations(
@@ -167,17 +171,6 @@ fn gate_language_citations(
 ) {
     for decl in pack.documents.iter().flat_map(|doc| &doc.decls) {
         match decl {
-            Decl::Term(term) => {
-                if let Some(annotation) = &term.provenance {
-                    let kind = Provenance::from_marker(annotation.marker);
-                    let citations: Vec<String> = annotation
-                        .citations
-                        .iter()
-                        .map(|citation| citation.id.text.clone())
-                        .collect();
-                    gate_citations(nu, findings, model, known_decisions, kind, &citations);
-                }
-            }
             Decl::Proof(proof) => {
                 let citations = harvest_clause_citations(&proof.body);
                 gate_citations(
@@ -206,20 +199,25 @@ fn gate_language_citations(
 }
 
 /// The decision ids a run of captured body clauses cite: the token after each
-/// `cited`/`decided`/`ratified`/`provisional` keyword read at top level. Paren
-/// depth is tracked so a keyword *inside* a nested atom (`p(cited)`) is never
-/// mistaken for a real citation — the same discipline the proof lane's premise
-/// parser uses.
+/// `cited`/`decided`/`ratified`/`provisional` keyword read at top level, OUTSIDE any
+/// string literal. Two disciplines guard it: paren depth (a keyword inside a nested
+/// atom `p(cited)` is not a citation) AND string state (a keyword or paren inside a
+/// `"…"` cue/label is inert). Without the string guard a cue like `"the king decided
+/// to grant it"` would mint a spurious citation, and an unbalanced `(` inside a cue
+/// string would hide a real forged `cited` after it.
 fn harvest_clause_citations(clauses: &[dli_ast::clause::Clause]) -> Vec<String> {
     const CITE_KEYWORDS: &[&str] = &["cited", "decided", "ratified", "provisional"];
     let mut out = Vec::new();
     for clause in clauses {
         let tokens: Vec<&str> = clause.text.split_whitespace().collect();
         let mut depth: i32 = 0;
+        let mut in_str = false;
         let mut index = 0;
         while index < tokens.len() {
             let token = tokens[index];
+            // A keyword counts only at top level and outside a string literal.
             if depth == 0
+                && !in_str
                 && CITE_KEYWORDS.contains(&token)
                 && let Some(id) = tokens.get(index + 1)
             {
@@ -227,9 +225,16 @@ fn harvest_clause_citations(clauses: &[dli_ast::clause::Clause]) -> Vec<String> 
                 index += 2;
                 continue;
             }
-            let opens = i32::try_from(token.matches('(').count()).unwrap_or(0);
-            let closes = i32::try_from(token.matches(')').count()).unwrap_or(0);
-            depth = (depth + opens - closes).max(0);
+            // Walk the token's characters, toggling string state on each quote; a
+            // paren only moves the depth when we are NOT inside a string.
+            for ch in token.chars() {
+                match ch {
+                    '"' => in_str = !in_str,
+                    '(' if !in_str => depth += 1,
+                    ')' if !in_str => depth = (depth - 1).max(0),
+                    _ => {}
+                }
+            }
             index += 1;
         }
     }
