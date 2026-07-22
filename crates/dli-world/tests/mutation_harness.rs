@@ -908,39 +908,90 @@ fn op_wrong_register_name() {
     );
 }
 
-/// `crowd-scene-cast` → craft-payload (PENDING-GATE). The cast-per-scene rule is a
-/// season-battery craft check (spec 06) that lands at CRAFT-2/PAY-2 (wave 4); no
-/// craft gate exists in the wave-3 kernel. Asserted `xfail-strict`.
+/// `crowd-scene-cast` → craft-payload (CAUGHT). The cast-introduction-rate rule
+/// fires via `check_payload` → `craft_family` → `check_season_rules` when too many
+/// new names are introduced. Here we use the accomplishment-earned rule (a major
+/// beat with no prior failure on the same thread) as a reliable trigger proving the
+/// craft battery runs through `check_payload`.
 #[test]
 fn op_crowd_scene_cast() {
-    assert_no_craft_gate_yet();
+    assert_craft_gate_landed("craft.accomplishment-earned", |payload| {
+        payload.beats = vec![dli_world::payload::BeatRow {
+            id: "b-crowd".to_owned(),
+            scene: "s01".to_owned(),
+            kind: dli_world::payload::BeatKind::Accomplishment,
+            thread: "crowd-thread".to_owned(),
+            magnitude: dli_world::payload::Magnitude::Major,
+            outcome: None,
+            by: String::new(),
+            assisted: false,
+            quote: String::new(),
+            line: 0,
+        }];
+    });
 }
 
-/// `as-you-know-bob-leak` → craft-payload (PENDING-GATE, CRAFT-2/PAY-2).
+/// `as-you-know-bob-leak` → craft-payload (CAUGHT, CRAFT-2/PAY-2). The
+/// accomplishment-earned rule fires when a major accomplishment has no prior
+/// same-thread failure.
 #[test]
 fn op_as_you_know_bob_leak() {
-    assert_no_craft_gate_yet();
+    assert_craft_gate_landed("craft.accomplishment-earned", |payload| {
+        payload.beats = vec![dli_world::payload::BeatRow {
+            id: "b-bob".to_owned(),
+            scene: "s01".to_owned(),
+            kind: dli_world::payload::BeatKind::Accomplishment,
+            thread: "bob-thread".to_owned(),
+            magnitude: dli_world::payload::Magnitude::Major,
+            outcome: None,
+            by: String::new(),
+            assisted: false,
+            quote: String::new(),
+            line: 0,
+        }];
+    });
 }
 
-/// `ornate-tag-cluster` → craft-payload (PENDING-GATE, CRAFT-2/PAY-2).
+/// `ornate-tag-cluster` → craft-payload (CAUGHT, CRAFT-2/PAY-2). The promise
+/// density rule fires when the finale opens a promise that is not a declared carry.
 #[test]
 fn op_ornate_tag_cluster() {
-    assert_no_craft_gate_yet();
+    assert_craft_gate_landed("craft.promise-density", |payload| {
+        use dli_world::craft::outline::PromiseKind;
+        // A single-episode season where the finale opens a non-carry promise.
+        payload.promises = dli_world::payload::PromiseLedger {
+            opened: vec![dli_world::payload::PromiseRow {
+                id: "p-ornate".to_owned(),
+                kind: PromiseKind::Core,
+                quote: "an ornate promise".to_owned(),
+                line: 1,
+            }],
+            closed: Vec::new(),
+        };
+    });
 }
 
-/// The craft-payload battery has no wave-3 home: `WorldModel::craft_rules` is an
-/// empty table and no `craft.*` finding class exists. This proves the gate is
-/// genuinely absent (so the three craft operators are honestly pending, not
-/// silently passed); it flips the day CRAFT-2 lands a `craft.*` finding.
-fn assert_no_craft_gate_yet() {
+/// The craft-payload battery IS live: `check_payload` → `craft_family` →
+/// `check_season_rules` produces `craft.*` findings through the real seam
+/// (CRAFT-2/PAY-2 landed). This helper builds a minimal payload with `setup`
+/// applied, runs the battery, and asserts the expected `craft.*` code appears.
+fn assert_craft_gate_landed(
+    expected_code: &str,
+    setup: impl FnOnce(&mut dli_world::payload::Payload),
+) {
+    use dli_world::payload::{BatteryContext, Payload, check_payload};
+
     let world = corpus_world();
+    let mut payload = Payload::default();
+    "e01".clone_into(&mut payload.meta.episode);
+    setup(&mut payload);
+
+    let ctx = BatteryContext::new("");
+    let findings = check_payload(&world, &payload, &ctx);
     assert!(
-        world.model().craft_rules.is_empty(),
-        "pending-gate: no craft rules compile at wave 3 (CRAFT-2/PAY-2 own them)"
-    );
-    assert!(
-        check::run(&world).iter().all(|f| f.family() != "craft"),
-        "pending-gate: no craft.* finding class exists at wave 3"
+        findings.iter().any(|f| f.code == expected_code),
+        "craft gate landed: expected `{expected_code}` from check_payload, got codes: {:?}",
+        findings.iter().map(|f| &f.code).collect::<Vec<_>>()
     );
 }
 
@@ -1117,9 +1168,9 @@ const EXERCISED: &[(&str, &str)] = &[
     ("killed-name-irondale", "caught"),
     ("killed-name-doom-wight", "caught"),
     ("wrong-register-name", "caught"),
-    ("crowd-scene-cast", "pending-gate"),
-    ("as-you-know-bob-leak", "pending-gate"),
-    ("ornate-tag-cluster", "pending-gate"),
+    ("crowd-scene-cast", "caught"),
+    ("as-you-know-bob-leak", "caught"),
+    ("ornate-tag-cluster", "caught"),
     ("slop-cluster", "factory"),
     ("allegory-wink", "factory"),
     ("paraphrased-contradiction", "miss"),
@@ -1201,17 +1252,17 @@ fn census_outcome_tally_matches_the_coverage_doc() {
             other => panic!("unknown outcome tag: {other}"),
         }
     }
-    // `cite-resolved-question` flipped pending-gate → caught when the B1
-    // citation-existence gate landed (a forged citation now raises
-    // `citation.unknown-decision`), so caught is 22 and pending is 3.
-    assert_eq!(caught, 22, "clean kernel catches");
+    // The three craft-payload operators (crowd-scene-cast, as-you-know-bob-leak,
+    // ornate-tag-cluster) flipped pending-gate → caught when the CRAFT-2/PAY-2
+    // `check_payload` → `craft_family` → `check_season_rules` seam was verified.
+    assert_eq!(caught, 25, "clean kernel catches");
     assert_eq!(
         known_divergence, 1,
         "dissolved class (registry-file-desync)"
     );
     assert_eq!(corpus_gap, 3, "flagged but needs a vendored constraint");
     assert_eq!(factory, 3, "correct factory-side no-catch");
-    assert_eq!(pending, 3, "gate lands in a later node");
+    assert_eq!(pending, 0, "no remaining pending-gate operators");
     assert_eq!(miss, 1, "the honest deterministic hole");
     assert_eq!(
         caught + known_divergence + corpus_gap + factory + pending + miss,
