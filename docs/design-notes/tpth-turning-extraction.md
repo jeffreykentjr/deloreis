@@ -37,12 +37,16 @@ Two consequences:
 
 1. Moving the Turning to a world crate **severs a fake coupling**, not a real one.
    `tpth`'s export path needs no `dli-world` dependency and no `CompiledWorld`.
-2. **The only live consumers of the Turning export are the tests we are moving.**
-   The CLI `simulate`/`export` (`deloreis/src/cmd/drafts.rs`) are unwired "not yet"
-   stubs; the serve `Op::ExportRun` is capability-**gated** (`dli-serve/src/handlers.rs`
-   → `unwired`), and the golden `contracts/dli-worker/fixtures/golden/export-ludii-v1.json`
-   carries `expected_outcome: "gated"` — the fixture asserts the op answers
-   `not-wired` and never dispatches to a renderer.
+2. **At extraction time, the only live consumers of the Turning export were the
+   tests we are moving.** The CLI `simulate`/`export` (`deloreis/src/cmd/drafts.rs`)
+   were unwired "not yet" stubs at the time of this note, and the serve
+   `Op::ExportRun` was capability-**gated**; the golden
+   `contracts/dli-worker/fixtures/golden/export-ludii-v1.json` then asserted a
+   `not-wired` answer that never dispatched to a renderer. Both have since been
+   wired to the generic `dli-game` engine (DL-0021) — the golden now asserts a real
+   `ok` manifest over the `french-deck` ruleset — but the card/Ludii render they
+   reach is a world crate's own, never a hardcoded ruleset inside the engine, so the
+   extraction argument stands.
 
 This is why Phase 4 changes zero wire surface (§3).
 

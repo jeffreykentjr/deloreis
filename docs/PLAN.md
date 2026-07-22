@@ -302,7 +302,7 @@ they touch; they are not a lane of their own.
 
 ### `serve`
 
-- **CON-1** — The `contracts/fantasy-worker` contract: the schemas, the op/tool
+- **CON-1** — The `contracts/dli-worker` contract: the schemas, the op/tool
   inventory, and the closed fixture registry.
   *Needs:* DOCS-1, ENG-2. *Produces:* the boundary the server and fantasy share.
   *Oracle:* an op or tool without golden + negative + framing fixtures does not

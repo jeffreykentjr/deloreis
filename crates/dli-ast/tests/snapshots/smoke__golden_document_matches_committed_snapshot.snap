@@ -1,0 +1,2904 @@
+---
+source: crates/dli-ast/tests/smoke.rs
+expression: document
+---
+{
+  "scope": {
+    "name": {
+      "text": "camelot",
+      "span": {
+        "file": 0,
+        "start": 872,
+        "end": 879
+      }
+    },
+    "span": {
+      "file": 0,
+      "start": 866,
+      "end": 879
+    }
+  },
+  "decls": [
+    {
+      "Use": {
+        "target": {
+          "text": "language",
+          "span": {
+            "file": 0,
+            "start": 885,
+            "end": 893
+          }
+        },
+        "span": {
+          "file": 0,
+          "start": 881,
+          "end": 893
+        }
+      }
+    },
+    {
+      "Use": {
+        "target": {
+          "text": "chronology",
+          "span": {
+            "file": 0,
+            "start": 956,
+            "end": 966
+          }
+        },
+        "span": {
+          "file": 0,
+          "start": 952,
+          "end": 966
+        }
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0001",
+          "span": {
+            "file": 0,
+            "start": 1269,
+            "end": 1275
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0002",
+          "span": {
+            "file": 0,
+            "start": 1283,
+            "end": 1289
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0003",
+          "span": {
+            "file": 0,
+            "start": 1297,
+            "end": 1303
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0004",
+          "span": {
+            "file": 0,
+            "start": 1311,
+            "end": 1317
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0005",
+          "span": {
+            "file": 0,
+            "start": 1325,
+            "end": 1331
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0006",
+          "span": {
+            "file": 0,
+            "start": 1339,
+            "end": 1345
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0007",
+          "span": {
+            "file": 0,
+            "start": 1353,
+            "end": 1359
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0008",
+          "span": {
+            "file": 0,
+            "start": 1367,
+            "end": 1373
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0009",
+          "span": {
+            "file": 0,
+            "start": 1381,
+            "end": 1387
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0010",
+          "span": {
+            "file": 0,
+            "start": 1441,
+            "end": 1447
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0012",
+          "span": {
+            "file": 0,
+            "start": 1475,
+            "end": 1481
+          }
+        },
+        "body": []
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Era",
+        "name": {
+          "text": "uthers-time",
+          "span": {
+            "file": 0,
+            "start": 1635,
+            "end": 1646
+          }
+        },
+        "label": null,
+        "time": {
+          "Order": [
+            {
+              "text": "arthurs-reign",
+              "span": {
+                "file": 0,
+                "start": 1649,
+                "end": 1662
+              }
+            },
+            {
+              "text": "after-camlann",
+              "span": {
+                "file": 0,
+                "start": 1665,
+                "end": 1678
+              }
+            }
+          ]
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0001",
+                "span": {
+                  "file": 0,
+                  "start": 1689,
+                  "end": 1695
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 1681,
+            "end": 1688
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-sword-drawn",
+          "span": {
+            "file": 0,
+            "start": 1774,
+            "end": 1789
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "uthers-time",
+            "span": {
+              "file": 0,
+              "start": 1805,
+              "end": 1816
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0002",
+                "span": {
+                  "file": 0,
+                  "start": 1829,
+                  "end": 1835
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 1821,
+            "end": 1828
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-round-table-founded",
+          "span": {
+            "file": 0,
+            "start": 1842,
+            "end": 1865
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "arthurs-reign",
+            "span": {
+              "file": 0,
+              "start": 1873,
+              "end": 1886
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0002",
+                "span": {
+                  "file": 0,
+                  "start": 1897,
+                  "end": 1903
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 1889,
+            "end": 1896
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-grail-quest",
+          "span": {
+            "file": 0,
+            "start": 1910,
+            "end": 1925
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "arthurs-reign",
+            "span": {
+              "file": 0,
+              "start": 1941,
+              "end": 1954
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0003",
+                "span": {
+                  "file": 0,
+                  "start": 1965,
+                  "end": 1971
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 1957,
+            "end": 1964
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-battle-of-camlann",
+          "span": {
+            "file": 0,
+            "start": 1978,
+            "end": 1999
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "arthurs-reign",
+            "span": {
+              "file": 0,
+              "start": 2009,
+              "end": 2022
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 2025,
+            "end": 2033
+          }
+        }
+      }
+    },
+    {
+      "Before": {
+        "earlier": {
+          "text": "the-round-table-founded",
+          "span": {
+            "file": 0,
+            "start": 2072,
+            "end": 2095
+          }
+        },
+        "later": {
+          "text": "the-battle-of-camlann",
+          "span": {
+            "file": 0,
+            "start": 2099,
+            "end": 2120
+          }
+        },
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0003",
+                "span": {
+                  "file": 0,
+                  "start": 2131,
+                  "end": 2137
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 2123,
+            "end": 2130
+          }
+        }
+      }
+    },
+    {
+      "Narration": {
+        "head": [
+          "vantage",
+          "after-camlann"
+        ],
+        "provenance": null
+      }
+    },
+    {
+      "Cycle": {
+        "name": {
+          "text": "moon",
+          "span": {
+            "file": 0,
+            "start": 3027,
+            "end": 3031
+          }
+        },
+        "modulus": 29,
+        "spokes": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0009",
+                "span": {
+                  "file": 0,
+                  "start": 3083,
+                  "end": 3089
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3075,
+            "end": 3082
+          }
+        }
+      }
+    },
+    {
+      "Cycle": {
+        "name": {
+          "text": "season",
+          "span": {
+            "file": 0,
+            "start": 3096,
+            "end": 3102
+          }
+        },
+        "modulus": 4,
+        "spokes": [
+          {
+            "text": "spring",
+            "span": {
+              "file": 0,
+              "start": 3108,
+              "end": 3114
+            }
+          },
+          {
+            "text": "summer",
+            "span": {
+              "file": 0,
+              "start": 3117,
+              "end": 3123
+            }
+          },
+          {
+            "text": "autumn",
+            "span": {
+              "file": 0,
+              "start": 3126,
+              "end": 3132
+            }
+          },
+          {
+            "text": "winter",
+            "span": {
+              "file": 0,
+              "start": 3135,
+              "end": 3141
+            }
+          }
+        ],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0009",
+                "span": {
+                  "file": 0,
+                  "start": 3152,
+                  "end": 3158
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3144,
+            "end": 3151
+          }
+        }
+      }
+    },
+    {
+      "Rule": {
+        "name": {
+          "text": "uthers-time-held-back",
+          "span": {
+            "file": 0,
+            "start": 3485,
+            "end": 3506
+          }
+        },
+        "domain": "order",
+        "head": [],
+        "body": [
+          {
+            "text": ": listener-learns(during uthers-time _) requires act > 1",
+            "span": {
+              "file": 0,
+              "start": 3537,
+              "end": 3593
+            }
+          }
+        ],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0009",
+                "span": {
+                  "file": 0,
+                  "start": 3528,
+                  "end": 3534
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3520,
+            "end": 3527
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "camelot",
+          "span": {
+            "file": 0,
+            "start": 3682,
+            "end": 3689
+          }
+        },
+        "label": "Camelot",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0004",
+                "span": {
+                  "file": 0,
+                  "start": 3724,
+                  "end": 3730
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3716,
+            "end": 3723
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "the-lake",
+          "span": {
+            "file": 0,
+            "start": 3737,
+            "end": 3745
+          }
+        },
+        "label": "The Lake",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0004",
+                "span": {
+                  "file": 0,
+                  "start": 3779,
+                  "end": 3785
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3771,
+            "end": 3778
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "avalon",
+          "span": {
+            "file": 0,
+            "start": 3792,
+            "end": 3798
+          }
+        },
+        "label": "Avalon",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0004",
+                "span": {
+                  "file": 0,
+                  "start": 3834,
+                  "end": 3840
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3826,
+            "end": 3833
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "camlann",
+          "span": {
+            "file": 0,
+            "start": 3847,
+            "end": 3854
+          }
+        },
+        "label": "Camlann",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 3889,
+                  "end": 3895
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3881,
+            "end": 3888
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "tintagel",
+          "span": {
+            "file": 0,
+            "start": 3902,
+            "end": 3910
+          }
+        },
+        "label": "Tintagel",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 3944,
+                  "end": 3950
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3936,
+            "end": 3943
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Place",
+        "name": {
+          "text": "the-waste-land",
+          "span": {
+            "file": 0,
+            "start": 3957,
+            "end": 3971
+          }
+        },
+        "label": "The Waste Land",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 3999,
+                  "end": 4005
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 3991,
+            "end": 3998
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4007,
+              "end": 4015
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "camelot",
+                "span": {
+                  "file": 0,
+                  "start": 4016,
+                  "end": 4023
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "the-lake",
+                "span": {
+                  "file": 0,
+                  "start": 4025,
+                  "end": 4033
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0004",
+                "span": {
+                  "file": 0,
+                  "start": 4052,
+                  "end": 4058
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4044,
+            "end": 4051
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4059,
+              "end": 4067
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "camelot",
+                "span": {
+                  "file": 0,
+                  "start": 4068,
+                  "end": 4075
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "camlann",
+                "span": {
+                  "file": 0,
+                  "start": 4077,
+                  "end": 4084
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0004",
+                "span": {
+                  "file": 0,
+                  "start": 4104,
+                  "end": 4110
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4096,
+            "end": 4103
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4111,
+              "end": 4119
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "camelot",
+                "span": {
+                  "file": 0,
+                  "start": 4120,
+                  "end": 4127
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "tintagel",
+                "span": {
+                  "file": 0,
+                  "start": 4129,
+                  "end": 4137
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 4156,
+                  "end": 4162
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4148,
+            "end": 4155
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4163,
+              "end": 4171
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "the-lake",
+                "span": {
+                  "file": 0,
+                  "start": 4172,
+                  "end": 4180
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "avalon",
+                "span": {
+                  "file": 0,
+                  "start": 4182,
+                  "end": 4188
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 4208,
+                  "end": 4214
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4200,
+            "end": 4207
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4215,
+              "end": 4223
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "camlann",
+                "span": {
+                  "file": 0,
+                  "start": 4224,
+                  "end": 4231
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "the-waste-land",
+                "span": {
+                  "file": 0,
+                  "start": 4233,
+                  "end": 4247
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 4260,
+                  "end": 4266
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4252,
+            "end": 4259
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4267,
+              "end": 4275
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "the-waste-land",
+                "span": {
+                  "file": 0,
+                  "start": 4276,
+                  "end": 4290
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "avalon",
+                "span": {
+                  "file": 0,
+                  "start": 4292,
+                  "end": 4298
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0005",
+                "span": {
+                  "file": 0,
+                  "start": 4312,
+                  "end": 4318
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4304,
+            "end": 4311
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "adjacent",
+            "span": {
+              "file": 0,
+              "start": 4319,
+              "end": 4327
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "tintagel",
+                "span": {
+                  "file": 0,
+                  "start": 4328,
+                  "end": 4336
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "the-lake",
+                "span": {
+                  "file": 0,
+                  "start": 4338,
+                  "end": 4346
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4356,
+            "end": 4364
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "arthur",
+          "span": {
+            "file": 0,
+            "start": 4454,
+            "end": 4460
+          }
+        },
+        "label": "Arthur, the King",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0006",
+                "span": {
+                  "file": 0,
+                  "start": 4493,
+                  "end": 4499
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4485,
+            "end": 4492
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "merlin",
+          "span": {
+            "file": 0,
+            "start": 4507,
+            "end": 4513
+          }
+        },
+        "label": "Merlin",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0006",
+                "span": {
+                  "file": 0,
+                  "start": 4546,
+                  "end": 4552
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4538,
+            "end": 4545
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "guinevere",
+          "span": {
+            "file": 0,
+            "start": 4560,
+            "end": 4569
+          }
+        },
+        "label": "Guinevere",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0006",
+                "span": {
+                  "file": 0,
+                  "start": 4599,
+                  "end": 4605
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4591,
+            "end": 4598
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "lancelot",
+          "span": {
+            "file": 0,
+            "start": 4613,
+            "end": 4621
+          }
+        },
+        "label": "Lancelot",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0007",
+                "span": {
+                  "file": 0,
+                  "start": 4652,
+                  "end": 4658
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4644,
+            "end": 4651
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "mordred",
+          "span": {
+            "file": 0,
+            "start": 4666,
+            "end": 4673
+          }
+        },
+        "label": "Mordred",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0007",
+                "span": {
+                  "file": 0,
+                  "start": 4705,
+                  "end": 4711
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4697,
+            "end": 4704
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Person",
+        "name": {
+          "text": "morgan",
+          "span": {
+            "file": 0,
+            "start": 4719,
+            "end": 4725
+          }
+        },
+        "label": "Morgan",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0007",
+                "span": {
+                  "file": 0,
+                  "start": 4758,
+                  "end": 4764
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4750,
+            "end": 4757
+          }
+        }
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Thing",
+        "name": {
+          "text": "excalibur",
+          "span": {
+            "file": 0,
+            "start": 4771,
+            "end": 4780
+          }
+        },
+        "label": "Excalibur",
+        "time": null,
+        "slots": [],
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0008",
+                "span": {
+                  "file": 0,
+                  "start": 4811,
+                  "end": 4817
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4803,
+            "end": 4810
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "rules",
+            "span": {
+              "file": 0,
+              "start": 4833,
+              "end": 4838
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "arthur",
+                "span": {
+                  "file": 0,
+                  "start": 4824,
+                  "end": 4830
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "camelot",
+                "span": {
+                  "file": 0,
+                  "start": 4842,
+                  "end": 4849
+                }
+              }
+            }
+          ]
+        },
+        "triple": true,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0006",
+                "span": {
+                  "file": 0,
+                  "start": 4865,
+                  "end": 4871
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4857,
+            "end": 4864
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "counsels",
+            "span": {
+              "file": 0,
+              "start": 4886,
+              "end": 4894
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "merlin",
+                "span": {
+                  "file": 0,
+                  "start": 4877,
+                  "end": 4883
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "arthur",
+                "span": {
+                  "file": 0,
+                  "start": 4895,
+                  "end": 4901
+                }
+              }
+            }
+          ]
+        },
+        "triple": true,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0006",
+                "span": {
+                  "file": 0,
+                  "start": 4918,
+                  "end": 4924
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4910,
+            "end": 4917
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "serves",
+            "span": {
+              "file": 0,
+              "start": 4939,
+              "end": 4945
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "lancelot",
+                "span": {
+                  "file": 0,
+                  "start": 4930,
+                  "end": 4938
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "arthur",
+                "span": {
+                  "file": 0,
+                  "start": 4948,
+                  "end": 4954
+                }
+              }
+            }
+          ]
+        },
+        "triple": true,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0007",
+                "span": {
+                  "file": 0,
+                  "start": 4971,
+                  "end": 4977
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 4963,
+            "end": 4970
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "standing",
+            "span": {
+              "file": 0,
+              "start": 5197,
+              "end": 5205
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "lancelot",
+                "span": {
+                  "file": 0,
+                  "start": 5206,
+                  "end": 5214
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0012",
+                "span": {
+                  "file": 0,
+                  "start": 5226,
+                  "end": 5232
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 5218,
+            "end": 5225
+          }
+        }
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "consent",
+            "span": {
+              "file": 0,
+              "start": 5233,
+              "end": 5240
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "arthur",
+                "span": {
+                  "file": 0,
+                  "start": 5241,
+                  "end": 5247
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0012",
+                "span": {
+                  "file": 0,
+                  "start": 5262,
+                  "end": 5268
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 5254,
+            "end": 5261
+          }
+        }
+      }
+    },
+    {
+      "State": {
+        "name": {
+          "text": "excalibur.keeper",
+          "span": {
+            "file": 0,
+            "start": 5357,
+            "end": 5373
+          }
+        },
+        "value": {
+          "Sym": {
+            "text": "in-the-stone",
+            "span": {
+              "file": 0,
+              "start": 5376,
+              "end": 5388
+            }
+          }
+        },
+        "time": {
+          "Until": {
+            "text": "the-sword-drawn",
+            "span": {
+              "file": 0,
+              "start": 5395,
+              "end": 5410
+            }
+          }
+        },
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0008",
+                "span": {
+                  "file": 0,
+                  "start": 5421,
+                  "end": 5427
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 5413,
+            "end": 5420
+          }
+        }
+      }
+    },
+    {
+      "State": {
+        "name": {
+          "text": "excalibur.keeper",
+          "span": {
+            "file": 0,
+            "start": 5434,
+            "end": 5450
+          }
+        },
+        "value": {
+          "Sym": {
+            "text": "the-king",
+            "span": {
+              "file": 0,
+              "start": 5453,
+              "end": 5461
+            }
+          }
+        },
+        "time": {
+          "Since": {
+            "text": "the-sword-drawn",
+            "span": {
+              "file": 0,
+              "start": 5472,
+              "end": 5487
+            }
+          }
+        },
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0008",
+                "span": {
+                  "file": 0,
+                  "start": 5498,
+                  "end": 5504
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 5490,
+            "end": 5497
+          }
+        }
+      }
+    },
+    {
+      "Dialect": {
+        "name": {
+          "text": "old-speech",
+          "span": {
+            "file": 0,
+            "start": 6061,
+            "end": 6071
+          }
+        },
+        "label": "the old speech",
+        "body": [
+          {
+            "text": "basis attested \"Old Welsh / Brythonic\"",
+            "span": {
+              "file": 0,
+              "start": 6103,
+              "end": 6141
+            }
+          },
+          {
+            "text": "vowels a e i o u y",
+            "span": {
+              "file": 0,
+              "start": 6355,
+              "end": 6373
+            }
+          },
+          {
+            "text": "endings -a -oc -wen",
+            "span": {
+              "file": 0,
+              "start": 6376,
+              "end": 6395
+            }
+          },
+          {
+            "text": "cluster-max 2",
+            "span": {
+              "file": 0,
+              "start": 6398,
+              "end": 6411
+            }
+          },
+          {
+            "text": "stress penultimate",
+            "span": {
+              "file": 0,
+              "start": 6414,
+              "end": 6432
+            }
+          },
+          {
+            "text": "name-kind person.given = given-proto given-deutero",
+            "span": {
+              "file": 0,
+              "start": 6435,
+              "end": 6485
+            }
+          },
+          {
+            "text": "name-part myr \"sea\" role given-proto proposed",
+            "span": {
+              "file": 0,
+              "start": 6488,
+              "end": 6546
+            }
+          },
+          {
+            "text": "name-part din \"fastness\" role given-deutero proposed",
+            "span": {
+              "file": 0,
+              "start": 6549,
+              "end": 6607
+            }
+          }
+        ],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 6090,
+            "end": 6098
+          }
+        }
+      }
+    },
+    {
+      "Name": {
+        "name": {
+          "text": "myrdin",
+          "span": {
+            "file": 0,
+            "start": 6618,
+            "end": 6624
+          }
+        },
+        "label": "Myrdin",
+        "head": [
+          "person.given",
+          "in",
+          "old-speech"
+        ],
+        "body": [
+          {
+            "text": "= given-proto myr + given-deutero din",
+            "span": {
+              "file": 0,
+              "start": 6664,
+              "end": 6701
+            }
+          },
+          {
+            "text": "bearer the-enchanter proposed",
+            "span": {
+              "file": 0,
+              "start": 6704,
+              "end": 6735
+            }
+          }
+        ],
+        "provenance": null
+      }
+    },
+    {
+      "Banned": {
+        "word": {
+          "text": "cannon",
+          "span": {
+            "file": 0,
+            "start": 7254,
+            "end": 7260
+          }
+        },
+        "reason": "the Matter of Britain keeps to sword and spear — no gunpowder anachronism",
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0010",
+                "span": {
+                  "file": 0,
+                  "start": 7261,
+                  "end": 7267
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 7247,
+            "end": 7345
+          }
+        }
+      }
+    },
+    {
+      "Term": {
+        "name": {
+          "text": "the-drawing",
+          "span": {
+            "file": 0,
+            "start": 7741,
+            "end": 7752
+          }
+        },
+        "label": "the freeing of Excalibur from the stone by the rightful king",
+        "provenance": {
+          "marker": "Decided",
+          "citations": [
+            {
+              "id": {
+                "text": "d-0008",
+                "span": {
+                  "file": 0,
+                  "start": 7825,
+                  "end": 7831
+                }
+              }
+            }
+          ],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 7817,
+            "end": 7824
+          }
+        }
+      }
+    },
+    {
+      "Hypothesis": {
+        "name": {
+          "text": "h-old-loan",
+          "span": {
+            "file": 0,
+            "start": 8328,
+            "end": 8338
+          }
+        },
+        "statement": "the old speech took a hero-name from the tongue over the water"
+      }
+    },
+    {
+      "NamePart": {
+        "name": {
+          "text": "tal",
+          "span": {
+            "file": 0,
+            "start": 8415,
+            "end": 8418
+          }
+        },
+        "gloss": "brow, high",
+        "head": [
+          "role",
+          "given-proto"
+        ],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": {
+            "Hyp": {
+              "text": "h-old-loan",
+              "span": {
+                "file": 0,
+                "start": 8499,
+                "end": 8509
+              }
+            }
+          },
+          "tags": [
+            "agent:factory/naming-run-0714"
+          ],
+          "span": {
+            "file": 0,
+            "start": 8451,
+            "end": 8459
+          }
+        }
+      }
+    },
+    {
+      "Name": {
+        "name": {
+          "text": "taldin",
+          "span": {
+            "file": 0,
+            "start": 8516,
+            "end": 8522
+          }
+        },
+        "label": "Taldin",
+        "head": [
+          "person.given",
+          "in",
+          "old-speech"
+        ],
+        "body": [
+          {
+            "text": "= given-proto tal + given-deutero din",
+            "span": {
+              "file": 0,
+              "start": 8562,
+              "end": 8599
+            }
+          },
+          {
+            "text": "proposed agent:factory/naming-run-0714 assumes h-old-loan",
+            "span": {
+              "file": 0,
+              "start": 8602,
+              "end": 8660
+            }
+          }
+        ],
+        "provenance": null
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-speaking-day",
+          "span": {
+            "file": 0,
+            "start": 8668,
+            "end": 8684
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "arthurs-reign",
+            "span": {
+              "file": 0,
+              "start": 8694,
+              "end": 8707
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 8710,
+            "end": 8718
+          }
+        }
+      }
+    },
+    {
+      "State": {
+        "name": {
+          "text": "knows.caster.myrdin",
+          "span": {
+            "file": 0,
+            "start": 8725,
+            "end": 8744
+          }
+        },
+        "value": {
+          "Sym": {
+            "text": "true",
+            "span": {
+              "file": 0,
+              "start": 8747,
+              "end": 8751
+            }
+          }
+        },
+        "time": {
+          "Since": {
+            "text": "the-speaking-day",
+            "span": {
+              "file": 0,
+              "start": 8759,
+              "end": 8775
+            }
+          }
+        },
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 8778,
+            "end": 8786
+          }
+        }
+      }
+    },
+    {
+      "Practice": {
+        "name": {
+          "text": "merlins-craft",
+          "span": {
+            "file": 0,
+            "start": 8936,
+            "end": 8949
+          }
+        },
+        "body": [
+          {
+            "text": "use language.registers",
+            "span": {
+              "file": 0,
+              "start": 8964,
+              "end": 8986
+            }
+          },
+          {
+            "text": "resource breath(word) : graded monotone full > spent > silent",
+            "span": {
+              "file": 0,
+              "start": 9042,
+              "end": 9103
+            }
+          },
+          {
+            "text": "rule speak(bearer) requires",
+            "span": {
+              "file": 0,
+              "start": 9106,
+              "end": 9133
+            }
+          },
+          {
+            "text": "knows(caster, true-name(bearer)),",
+            "span": {
+              "file": 0,
+              "start": 9140,
+              "end": 9173
+            }
+          },
+          {
+            "text": "breath(true-name(bearer)) >= spent,",
+            "span": {
+              "file": 0,
+              "start": 9180,
+              "end": 9215
+            }
+          },
+          {
+            "text": "derivation(true-name(bearer)) checks in register-of(bearer)",
+            "span": {
+              "file": 0,
+              "start": 9222,
+              "end": 9281
+            }
+          },
+          {
+            "text": "effect speak degrades breath by 1",
+            "span": {
+              "file": 0,
+              "start": 9284,
+              "end": 9317
+            }
+          },
+          {
+            "text": "condition unheard requires no witness within earshot",
+            "span": {
+              "file": 0,
+              "start": 9367,
+              "end": 9419
+            }
+          },
+          {
+            "text": "error mis-spoken refines L4 bad-instantiation",
+            "span": {
+              "file": 0,
+              "start": 9422,
+              "end": 9471
+            }
+          },
+          {
+            "text": "error stale-name refines L2 where premise-outdated",
+            "span": {
+              "file": 0,
+              "start": 9549,
+              "end": 9603
+            }
+          },
+          {
+            "text": "error word-overheard refines L3 side-condition [unheard] signals degrade(+1)",
+            "span": {
+              "file": 0,
+              "start": 9681,
+              "end": 9757
+            }
+          },
+          {
+            "text": "cost vital | epistemic",
+            "span": {
+              "file": 0,
+              "start": 9760,
+              "end": 9782
+            }
+          }
+        ],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 8951,
+            "end": 8959
+          }
+        }
+      }
+    },
+    {
+      "Practice": {
+        "name": {
+          "text": "oath-binding",
+          "span": {
+            "file": 0,
+            "start": 10368,
+            "end": 10380
+          }
+        },
+        "body": [
+          {
+            "text": "use chronology.cycles",
+            "span": {
+              "file": 0,
+              "start": 10395,
+              "end": 10416
+            }
+          },
+          {
+            "text": "kind bond = fealty | troth | ransom",
+            "span": {
+              "file": 0,
+              "start": 10482,
+              "end": 10517
+            }
+          },
+          {
+            "text": "role oathgiver : person requires standing(oathgiver)",
+            "span": {
+              "file": 0,
+              "start": 10520,
+              "end": 10575
+            }
+          },
+          {
+            "text": "role oathholder : person requires consent(oathholder)",
+            "span": {
+              "file": 0,
+              "start": 10578,
+              "end": 10633
+            }
+          },
+          {
+            "text": "resource boon : linear conserved",
+            "span": {
+              "file": 0,
+              "start": 10636,
+              "end": 10670
+            }
+          },
+          {
+            "text": "resource strain : affine bounded body-limit",
+            "span": {
+              "file": 0,
+              "start": 10727,
+              "end": 10770
+            }
+          },
+          {
+            "text": "rule pledge(bond, oathgiver)",
+            "span": {
+              "file": 0,
+              "start": 10809,
+              "end": 10837
+            }
+          },
+          {
+            "text": "rule give-and-take",
+            "span": {
+              "file": 0,
+              "start": 10840,
+              "end": 10858
+            }
+          },
+          {
+            "text": "condition witnessed requires witness within earshot",
+            "span": {
+              "file": 0,
+              "start": 10941,
+              "end": 10992
+            }
+          },
+          {
+            "text": "error unowed refines L2 premise-not-available where absent",
+            "span": {
+              "file": 0,
+              "start": 10995,
+              "end": 11060
+            }
+          },
+          {
+            "text": "error forsworn refines L2 premise-not-available where contradicted signals dishonour",
+            "span": {
+              "file": 0,
+              "start": 11126,
+              "end": 11215
+            }
+          },
+          {
+            "text": "error wrong-moon refines L3 side-condition [timing] over cycle moon",
+            "span": {
+              "file": 0,
+              "start": 11295,
+              "end": 11365
+            }
+          },
+          {
+            "text": "error overpledged refines L6 resource-violation on strain signals collapse",
+            "span": {
+              "file": 0,
+              "start": 11443,
+              "end": 11519
+            }
+          },
+          {
+            "text": "error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)",
+            "span": {
+              "file": 0,
+              "start": 11594,
+              "end": 11687
+            }
+          },
+          {
+            "text": "cost social | bodily | material | epistemic",
+            "span": {
+              "file": 0,
+              "start": 11786,
+              "end": 11829
+            }
+          }
+        ],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 10382,
+            "end": 10390
+          }
+        }
+      }
+    },
+    {
+      "Proof": {
+        "name": {
+          "text": "lancelots-oath",
+          "span": {
+            "file": 0,
+            "start": 12581,
+            "end": 12595
+          }
+        },
+        "head": [
+          "speaker",
+          "lancelot",
+          "in",
+          "oath-binding"
+        ],
+        "body": [
+          {
+            "text": "premise p1 standing(lancelot) cited d-0012 cue \"Lancelot comes to court\"",
+            "span": {
+              "file": 0,
+              "start": 12635,
+              "end": 12710
+            }
+          },
+          {
+            "text": "premise p2 consent(arthur) cited d-0012",
+            "span": {
+              "file": 0,
+              "start": 12713,
+              "end": 12757
+            }
+          },
+          {
+            "text": "premise p3 boon(1) drawn-against p1",
+            "span": {
+              "file": 0,
+              "start": 12760,
+              "end": 12808
+            }
+          },
+          {
+            "text": "step s1 instantiate pledge with bond = fealty, oathgiver = lancelot",
+            "span": {
+              "file": 0,
+              "start": 12811,
+              "end": 12882
+            }
+          },
+          {
+            "text": "step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)",
+            "span": {
+              "file": 0,
+              "start": 12885,
+              "end": 12967
+            }
+          },
+          {
+            "text": "spend p3",
+            "span": {
+              "file": 0,
+              "start": 12970,
+              "end": 12979
+            }
+          },
+          {
+            "text": "close pledged(lancelot, fealty) expect holds",
+            "span": {
+              "file": 0,
+              "start": 12982,
+              "end": 13028
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Rule": {
+        "name": {
+          "text": "show-the-price",
+          "span": {
+            "file": 0,
+            "start": 13120,
+            "end": 13134
+          }
+        },
+        "domain": "season",
+        "head": [],
+        "body": [],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 13148,
+            "end": 13156
+          }
+        }
+      }
+    },
+    {
+      "Principle": {
+        "name": {
+          "text": "a-name-spends-breath",
+          "span": {
+            "file": 0,
+            "start": 13167,
+            "end": 13187
+          }
+        },
+        "head": [],
+        "body": [],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": null,
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 13190,
+            "end": 13198
+          }
+        }
+      }
+    },
+    {
+      "Fork": {
+        "question": {
+          "text": "what-does-the-word-cost",
+          "span": {
+            "file": 0,
+            "start": 13205,
+            "end": 13228
+          }
+        },
+        "options": [
+          {
+            "name": {
+              "text": "a-year-of-life",
+              "span": {
+                "file": 0,
+                "start": 7,
+                "end": 21
+              }
+            },
+            "implies": null
+          },
+          {
+            "name": {
+              "text": "a-truth-told",
+              "span": {
+                "file": 0,
+                "start": 7,
+                "end": 19
+              }
+            },
+            "implies": null
+          }
+        ],
+        "body": [],
+        "provenance": null
+      }
+    },
+    {
+      "Hypothesis": {
+        "name": {
+          "text": "h-return",
+          "span": {
+            "file": 0,
+            "start": 13369,
+            "end": 13377
+          }
+        },
+        "statement": "Excalibur was always the Lake's to reclaim, never the king's to keep"
+      }
+    },
+    {
+      "Question": {
+        "name": {
+          "text": "who-holds-excalibur",
+          "span": {
+            "file": 0,
+            "start": 13459,
+            "end": 13478
+          }
+        },
+        "prompt": "Who holds Excalibur after Camlann?",
+        "options": [
+          {
+            "name": {
+              "text": "arthur",
+              "span": {
+                "file": 0,
+                "start": 7,
+                "end": 13
+              }
+            },
+            "implies": {
+              "pred": {
+                "text": "keeps",
+                "span": {
+                  "file": 0,
+                  "start": 22,
+                  "end": 27
+                }
+              },
+              "args": [
+                {
+                  "Sym": {
+                    "text": "arthur",
+                    "span": {
+                      "file": 0,
+                      "start": 28,
+                      "end": 34
+                    }
+                  }
+                },
+                {
+                  "Sym": {
+                    "text": "excalibur",
+                    "span": {
+                      "file": 0,
+                      "start": 36,
+                      "end": 45
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": {
+              "text": "the-lake",
+              "span": {
+                "file": 0,
+                "start": 7,
+                "end": 15
+              }
+            },
+            "implies": {
+              "pred": {
+                "text": "keeps",
+                "span": {
+                  "file": 0,
+                  "start": 24,
+                  "end": 29
+                }
+              },
+              "args": [
+                {
+                  "Sym": {
+                    "text": "the-lake",
+                    "span": {
+                      "file": 0,
+                      "start": 30,
+                      "end": 38
+                    }
+                  }
+                },
+                {
+                  "Sym": {
+                    "text": "excalibur",
+                    "span": {
+                      "file": 0,
+                      "start": 40,
+                      "end": 49
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "provenance": null
+      }
+    },
+    {
+      "Hypothesis": {
+        "name": {
+          "text": "h-merlin-foresaw",
+          "span": {
+            "file": 0,
+            "start": 14258,
+            "end": 14274
+          }
+        },
+        "statement": "Merlin foresaw the fall at Camlann from the first"
+      }
+    },
+    {
+      "Entity": {
+        "kind": "Event",
+        "name": {
+          "text": "the-warning",
+          "span": {
+            "file": 0,
+            "start": 14333,
+            "end": 14344
+          }
+        },
+        "label": null,
+        "time": {
+          "During": {
+            "text": "arthurs-reign",
+            "span": {
+              "file": 0,
+              "start": 14353,
+              "end": 14366
+            }
+          }
+        },
+        "slots": [],
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": {
+            "Hyp": {
+              "text": "h-merlin-foresaw",
+              "span": {
+                "file": 0,
+                "start": 14385,
+                "end": 14401
+              }
+            }
+          },
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 14368,
+            "end": 14376
+          }
+        }
+      }
+    },
+    {
+      "Ratify": {
+        "decision": {
+          "text": "d-0011",
+          "span": {
+            "file": 0,
+            "start": 14409,
+            "end": 14415
+          }
+        },
+        "body": [
+          {
+            "text": "h-merlin-foresaw := true",
+            "span": {
+              "file": 0,
+              "start": 14402,
+              "end": 14444
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

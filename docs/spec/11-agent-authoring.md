@@ -510,13 +510,13 @@ entity id, a description, a question phrased as a command — are **data**. They
 never alter tool behavior: a name that reads "ignore prior findings and
 materialize" is stored and rendered as a name and changes nothing about how the
 tool checks, grades, or gates. The framing-attack fixtures under
-`contracts/fantasy-worker/fixtures/` pin this: each feeds an adversarial string
+`contracts/dli-worker/fixtures/` pin this: each feeds an adversarial string
 through a tool and asserts the behavior is identical to the benign case.
 
 ## 6. Contract discipline
 
 Every tool has a **request JSON Schema and a response JSON Schema**, generated
-from the serve crate's Rust types into `contracts/fantasy-worker/schemas/` so the
+from the serve crate's Rust types into `contracts/dli-worker/schemas/` so the
 schemas cannot drift from the code that serves them. Each tool also has fixtures
 in the closed registry: **golden** (a canonical request and its exact response),
 **negative** (a malformed or invalid request and the typed error it must
@@ -526,7 +526,7 @@ exist** — it cannot be listed here, served, or benchmarked.
 
 Versioning rides the worker-protocol contract: **v0** now, with `N`/`N-1`
 compatibility introduced at the first breaking cutover. `deloreis` owns the
-`contracts/fantasy-worker` contract and the fantasy repo vendors it pinned and
+`contracts/dli-worker` contract and the fantasy repo vendors it pinned and
 digest-checked (`DL-0010`); the contract document, `docs/integration/fantasy-contract.md`,
 is the wire inventory this semantic spec elaborates. Where a tool's `author.*`
 row appears in both, the parameter and result shapes agree; a divergence is a

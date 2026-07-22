@@ -309,13 +309,16 @@ are mechanical or additive.
   add a `dli-game` test that loads it and drives legal moves, terminals, generic
   invariants, a deal battery, and the card + Ludii render. Pure add.
 
-- **Step 4 — repoint the CLI (mechanical, optional).** With `Cards`/`LudiiGdl` now
-  having a generic engine renderer, wire the honest "not yet" `deloreis simulate` /
-  `export` stubs (`crates/deloreis/src/cmd/drafts.rs`) to `dli-game`. Optional.
+- **Step 4 — repoint the CLI — ✅ DONE (DL-0021, commit `f94ee47`).** With
+  `Cards`/`LudiiGdl` now having a generic engine renderer, the honest "not yet"
+  `deloreis simulate` / `export` stubs (`crates/deloreis/src/cmd/drafts.rs`) are
+  wired to `dli-game`; both compile a corpus (or load a ruleset), run the engine,
+  and render a real result. The deck build was also hoisted out of the legal-moves
+  inner loop — `cards()` memoized once per battery, not per move (commit `9ca2ca7`).
 
-- **Step 5 — docs (docs-as-you-go).** Flip the Phase-4 follow-on row in
-  [`tpth-separation-plan.md`](tpth-separation-plan.md) to done; cross-link this note.
-  Docs-only, green.
+- **Step 5 — docs (docs-as-you-go) — ✅ DONE (commit `458e6cd`).** The Phase-4
+  follow-on is tracked complete and this note is cross-linked from the separation
+  plan. Docs-only, green.
 
 **Risk.** The Turning's *observable behavior* must stay green through Step 2 — the only
 risky step. Digests are safe to change: no committed golden pins a Turning

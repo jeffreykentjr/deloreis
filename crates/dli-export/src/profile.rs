@@ -148,7 +148,7 @@ impl Registry {
     /// This is the *engine's* catalog: a single neutral `context-pack/default`
     /// profile that names no sorts, no relations, and no world. Concrete,
     /// world-specific catalogs (the Turning card deck, the Ludii ruleset export,
-    /// the Articy scaffold) are **data**, not kernel code (spec 09 §2 clause 2):
+    /// a world's `video/articy` profile) are **data**, not kernel code (spec 09 §2 clause 2):
     /// they live under `worlds/<world>/export/profiles.json` and are loaded with
     /// [`Registry::from_path`] and merged in with [`Registry::merge`]. A profile
     /// is data, not a code fork — so no world's profile catalog is hardcoded here.
@@ -254,7 +254,8 @@ pub struct ExportOpts {
 pub enum ExportArtifact {
     /// A context pack (EXP-2) — the certain layer as prompt-injection blocks.
     ContextPack(ContextPack),
-    /// Articy-shaped video-game JSON (EXP-4 scaffold).
+    /// Articy-shaped video-game JSON (EXP-4): typed entities with fact scopes,
+    /// who-may-know facts, relations, and quest flow.
     Articy(ArticyExport),
 }
 
@@ -431,9 +432,7 @@ pub fn export_with(
         ExportTarget::ContextPack => {
             ExportArtifact::ContextPack(context_pack::build(spec, &layer, &visible))
         }
-        ExportTarget::Articy => {
-            ExportArtifact::Articy(articy::compile_scaffold(spec, &layer, &visible))
-        }
+        ExportTarget::Articy => ExportArtifact::Articy(articy::compile(spec, &layer, &visible)),
         // The card/Ludii render is world content, not engine code: it lives in a
         // world crate that builds its ruleset directly and needs no compiled
         // world. Fail closed here.

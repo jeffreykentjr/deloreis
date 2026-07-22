@@ -92,15 +92,18 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-**`dli.check-proof`'s result is transitional at v0.** The op is capability-gated
-this contract version (its engine is not wired), and its declared wire result is
-the thin violations report (`dli_ledger::LedgerReport`, `{report}`), not yet the
-rich per-step shape the Returns column above describes. The rich `ProofReport`
-(per-step structural-class verdicts, weakest-link grade, `fails-at`) lands as the
-result type together with the op's wiring and the scene-projection build. The
-doc-row-vs-schema divergence is therefore **declared**, not latent: read the
-committed `dli.check-proof.response` schema as the v0 shape and this row as the
-target.
+**`dli.check-proof`, `dli.simulate.*`, and `dli.export.run` are wired (DL-0021).**
+`dli.check-proof` compiles the corpus, projects the certain-layer scene, replays
+the diegetic proof block, and returns the rich `ProofReport` (per-step
+structural-class verdicts, weakest-link grade, `fails-at`) the Returns column
+above describes; the earlier transitional thin-violations shape is gone and the
+committed `dli.check-proof.response` schema now **is** the `ProofReport` shape.
+`dli.simulate.*` runs the seeded battery and `dli.export.run` renders a compiled
+world under a profile — both live, both pinning an honest manifest. The only ops
+still capability-gated at this contract version are `dli.fork.add` and the five
+`dli.timeline.*` ops (6 total): they answer `not-wired` until their engines land,
+and their goldens carry `expected_outcome: "gated"` (documentation of the
+intended shape, not a live assertion).
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -183,7 +186,7 @@ flow families and every declared error code, not yet every op.
 - **Verdict parity.** The same fixture input yields the same verdict on the
   deloreis side and the fantasy side. Parity is checked in both trees.
 - **Digest domains.** Fixture files are pinned by **sha256 over exact file
-  bytes** in `contracts/fantasy-worker/registry.yaml` — the registry IS the
+  bytes** in `contracts/dli-worker/registry.yaml` — the registry IS the
   manifest, and the gate verifies it against the fixtures on both sides.
   Digests over *payloads and workspaces* (e.g. `workspace_digest`) use the
   **RFC 8785 JSON Canonicalization Scheme (JCS)**, so those are stable across

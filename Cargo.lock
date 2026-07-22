@@ -320,6 +320,8 @@ dependencies = [
 name = "dli-ast"
 version = "0.1.0"
 dependencies = [
+ "dli-syntax",
+ "insta",
  "schemars",
  "serde",
  "serde_json",

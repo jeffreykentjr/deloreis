@@ -8,9 +8,11 @@
 //! a workspace cache; [`cmd::timeline`] reads the chronology and the episode
 //! fold; [`cmd::name`] runs the kernel vet half; [`cmd::report`] renders the
 //! findings report; [`cmd::serve`] delegates to the JSON worker loop and MCP
-//! transport. The engines
-//! that are not yet frozen (`check-proof`, `simulate`, `export`) answer with a
-//! typed honest not-yet rather than a guess or a panic.
+//! transport. [`cmd::drafts`] rounds out the surface: `check-draft` fact-checks a
+//! payload, `check-proof` replays a diegetic proof block against its practice,
+//! `simulate` runs a seeded battery over a practice or card ruleset, and `export`
+//! renders a compiled world (or ruleset) under a profile — all wired to their real
+//! engine crates (`DL-0021`), each returning a rendered result and a verdict code.
 //!
 //! Exit codes are verdict-reflecting and uniform across the surface: `0` clean,
 //! `1` findings (a diagnosed problem the caller acts on — including a query that

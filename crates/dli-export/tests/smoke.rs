@@ -241,23 +241,52 @@ fn context_pack_budget_drops_from_the_tail() {
     assert_eq!(full.est_tokens, full.text.len() / 4);
 }
 
-// -- the articy scaffold (EXP-4) ---------------------------------------------
+// -- the articy v1 export (EXP-4) --------------------------------------------
 
 #[test]
-fn articy_scaffold_maps_knowledge_scopes_and_quests() {
+fn articy_v1_maps_entities_scopes_and_quests() {
     let atoms = [
         loaded_fact("person", &["the-reeve"]),
+        loaded_fact("place", &["the-mill"]),
         loaded_relation("owes", &["the-reeve", "the-mill"]),
         loaded_relation("knows", &["lowlands", "owes(the-reeve, the-mill)"]),
         loaded_relation("promise", &["mend-the-weir"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
     let spec = neutral_articy_spec();
-    let export = dli_export::articy::compile_scaffold(&spec, "certain", &refs);
+    let export = dli_export::articy::compile(&spec, "certain", &refs);
 
-    assert!(export.pending);
-    assert_eq!(export.entities.len(), 1);
-    assert!(export.quests.iter().any(|quest| quest.state == "hook"));
+    // A real v1: no longer a scaffold.
+    assert!(!export.pending);
+    assert_eq!(export.profile, "video/articy@1");
+
+    // Two typed entities, each carrying the fact it participates in (its scope).
+    assert_eq!(export.entities.len(), 2);
+    let reeve = export
+        .entities
+        .iter()
+        .find(|e| e.id == "the-reeve")
+        .expect("the reeve entity");
+    assert_eq!(reeve.sort, "person");
+    assert_eq!(reeve.facts, vec!["owes(the-reeve, the-mill)".to_owned()]);
+
+    // The `owes` relation is modelled with ordered args.
+    assert!(
+        export
+            .relations
+            .iter()
+            .any(|r| r.kind == "owes" && r.args == vec!["the-reeve", "the-mill"])
+    );
+
+    // The promise becomes a quest whose flow starts at the hook stage.
+    let quest = export
+        .quests
+        .iter()
+        .find(|q| q.id == "mend-the-weir")
+        .expect("the promise quest");
+    assert_eq!(quest.state, "hook");
+    assert_eq!(quest.flow, vec!["hook".to_owned()]);
+
     // The `knows` atom licenses the lowlands scope to know the owes fact.
     let owes = export
         .facts
@@ -265,6 +294,46 @@ fn articy_scaffold_maps_knowledge_scopes_and_quests() {
         .find(|fact| fact.claim == "owes(the-reeve, the-mill)")
         .expect("the owes fact");
     assert_eq!(owes.who_may_know, vec!["lowlands".to_owned()]);
+}
+
+#[test]
+fn articy_quest_folds_stages_into_one_flow() {
+    // A single quest id that is promised, owed, then discharged folds into one
+    // quest whose state is the furthest reached and whose flow is ordered.
+    let atoms = [
+        loaded_relation("promise", &["mend-the-weir"]),
+        loaded_relation("debt", &["mend-the-weir"]),
+        loaded_relation("discharge", &["mend-the-weir"]),
+    ];
+    let refs: Vec<&LoadedAtom> = atoms.iter().collect();
+    let export = dli_export::articy::compile(&neutral_articy_spec(), "certain", &refs);
+
+    assert_eq!(export.quests.len(), 1);
+    let quest = &export.quests[0];
+    assert_eq!(quest.id, "mend-the-weir");
+    assert_eq!(quest.state, "complete");
+    assert_eq!(
+        quest.flow,
+        vec![
+            "hook".to_owned(),
+            "objective".to_owned(),
+            "complete".to_owned()
+        ]
+    );
+}
+
+#[test]
+fn articy_output_is_deterministic() {
+    let atoms = [
+        loaded_fact("person", &["the-reeve"]),
+        loaded_relation("owes", &["the-reeve", "the-mill"]),
+        loaded_relation("promise", &["mend-the-weir"]),
+    ];
+    let refs: Vec<&LoadedAtom> = atoms.iter().collect();
+    let spec = neutral_articy_spec();
+    let a = dli_export::articy::compile(&spec, "certain", &refs);
+    let b = dli_export::articy::compile(&spec, "certain", &refs);
+    assert_eq!(a, b);
 }
 
 // -- helpers -----------------------------------------------------------------

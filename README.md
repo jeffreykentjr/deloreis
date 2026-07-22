@@ -41,7 +41,7 @@ ritual are in [`AGENTS.md`](AGENTS.md).
 | `crates/` | The kernel crates (evaluator, checks, practices, time, language, serve). |
 | `xtask/` | The compiled gate — `cargo xtask gate` runs CI as a Rust test. |
 | `schemas/` | The normative AST JSON Schema, derived from the Rust types. |
-| `contracts/fantasy-worker/` | The owned integration contract, vendored by fantasy. |
+| `contracts/dli-worker/` | The owned integration contract, vendored by fantasy. |
 | `worlds/tpth/` | TPtH world content as data — packs, turning, craft config, and the pinned fantasy snapshot + detection corpus (`vendor/`, `mutation/`). |
 | `examples/` | CI-compiled `.dli` examples (the reference-card examples must compile). |
 | `docs/` | The doc layer: charter, decision ledger, plan, spec, integration, design notes. |

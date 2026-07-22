@@ -1,12 +1,15 @@
-//! The payload and simulation ops: `check-draft` (wired), plus `check-proof`,
-//! `simulate`, and `export` (typed honest not-yet until their engines freeze).
+//! The payload, proof, simulation, and export ops — all wired to their real engine
+//! crates (`DL-0021`).
 //!
-//! `check-draft` runs the merged fact-check battery (`dli_world::check_draft`)
-//! over a `payload/v1` document. The other three name engines that have not
-//! landed in this wave — the proof checker (PRAC-2), the practice simulator
-//! (SIM-1), and the export profiles (EXP-1). Rather than call a `todo!` body and
-//! panic, or guess an answer, each reports what it is waiting on and exits with a
-//! usage code, so a script sees an honest "not yet" and the surface never lies.
+//! `check-draft` runs the merged fact-check battery (`dli_world::check_draft`) over
+//! a `payload/v1` document. `check-proof` compiles the corpus, projects the
+//! certain-layer scene, and replays a diegetic proof block against its practice
+//! (PRAC-2), returning the rich per-step `ProofReport`. `simulate` runs a bounded
+//! seeded battery over a declared practice — or a card ruleset with `--game` — and
+//! renders its honest run manifest (SIM-1). `export` renders a compiled world
+//! (context pack, articy) or a card ruleset (cards, Ludii GDL) under a profile,
+//! pinning a provenance manifest (EXP-1). Each returns a rendered result and a
+//! verdict-reflecting exit code — never a `todo!` panic or a guessed answer.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -14,8 +17,10 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
 use dli_ast::decl::{Decl, ProofDecl};
-use dli_export::profile::{ExportTarget, Registry};
-use dli_export::{ExportManifest, ExportOpts, ExportProfile, export_wire};
+use dli_export::profile::{ExportTarget, ProfileSpec, ProvenanceMode, Registry, Selection};
+use dli_export::{
+    ExportArtifact, ExportManifest, ExportOpts, ExportProfile, export_wire, export_with,
+};
 use dli_game::export::GameArtifact;
 use dli_game::model::{Ruleset, Verdict};
 use dli_game::{DealBattery, GameBindings, ReadingInvariant, ReadingMetric, ReadingObservable};
@@ -465,6 +470,8 @@ pub(crate) enum ProfileArg {
     Cards,
     /// Ludii Game Description Language for the simulator.
     LudiiGdl,
+    /// Articy-shaped video-game JSON (typed entities, who-may-know facts, quests).
+    Articy,
 }
 
 /// Arguments for `deloreis export`.
@@ -481,6 +488,12 @@ pub(crate) struct ExportArgs {
     /// or a direct `rules.json` path.
     #[arg(long = "game", value_name = "PATH")]
     pub(crate) game: Option<PathBuf>,
+    /// The source commit to pin in the manifest, tracing the artifact to an exact
+    /// revision. Optional — when omitted, a content fingerprint of the loaded source
+    /// is derived instead, so two different corpora never share a manifest even when
+    /// their decision set (valuation) and profile match.
+    #[arg(long = "commit", value_name = "SHA")]
+    pub(crate) commit: Option<String>,
 }
 
 /// Render a compiled world (context pack) or a card ruleset (cards / Ludii GDL)
@@ -488,6 +501,7 @@ pub(crate) struct ExportArgs {
 pub(crate) fn run_export(args: &ExportArgs) -> CmdResult {
     match args.profile {
         ProfileArg::ContextPack => run_export_context_pack(args),
+        ProfileArg::Articy => run_export_articy(args),
         ProfileArg::Cards => run_export_game(args, ExportTarget::Cards, "cards"),
         ProfileArg::LudiiGdl => run_export_game(args, ExportTarget::LudiiGdl, "ludii-gdl"),
     }
@@ -503,12 +517,16 @@ fn run_export_context_pack(args: &ExportArgs) -> CmdResult {
     }
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "export")?;
-    let outcome = export_wire(ExportProfile::ContextPack, &world, &ExportOpts::default())
+    let opts = ExportOpts {
+        source_commit: export_commit(args.commit.as_ref(), &corpus_material(&files)),
+        ..ExportOpts::default()
+    };
+    let outcome = export_wire(ExportProfile::ContextPack, &world, &opts)
         .map_err(|err| format!("the context-pack export failed: {err}"))?;
     let pack = outcome
         .artifact
         .as_context_pack()
-        .expect("a context-pack export yields a context pack");
+        .ok_or("a context-pack export must yield a context pack")?;
     outln!(
         "export context-pack: {} unit(s) included, {} skipped, ~{} tokens",
         pack.included.len(),
@@ -517,6 +535,69 @@ fn run_export_context_pack(args: &ExportArgs) -> CmdResult {
     );
     render_export_manifest(&outcome.manifest);
     Ok(EXIT_CLEAN)
+}
+
+/// Export the certain layer of a compiled world as articy-shaped video-game JSON
+/// (EXP-4): typed entities carrying their fact scopes, who-may-know facts, typed
+/// relations, and quest flow. Fail-closed on proposed lore (certain layer only),
+/// exactly like the context pack.
+fn run_export_articy(args: &ExportArgs) -> CmdResult {
+    if args.corpus.is_empty() {
+        return Err(
+            "the articy export needs a corpus: pass -c/--corpus one or more .dli files".to_owned(),
+        );
+    }
+    let files = cmd::load_corpus(&args.corpus)?;
+    let world = cmd::compile_corpus(&files, "export")?;
+    let opts = ExportOpts {
+        source_commit: export_commit(args.commit.as_ref(), &corpus_material(&files)),
+        ..ExportOpts::default()
+    };
+    let outcome = export_with(
+        &neutral_articy_registry(),
+        ExportTarget::Articy,
+        &world,
+        &opts,
+    )
+    .map_err(|err| format!("the articy export failed: {err}"))?;
+    let articy = match &outcome.artifact {
+        ExportArtifact::Articy(articy) => articy,
+        ExportArtifact::ContextPack(_) => {
+            return Err("the articy export produced a non-articy artifact".to_owned());
+        }
+    };
+    outln!(
+        "export articy: {} entit{}, {} relation(s), {} fact(s), {} quest(s)",
+        articy.entities.len(),
+        if articy.entities.len() == 1 {
+            "y"
+        } else {
+            "ies"
+        },
+        articy.relations.len(),
+        articy.facts.len(),
+        articy.quests.len(),
+    );
+    render_export_manifest(&outcome.manifest);
+    Ok(EXIT_CLEAN)
+}
+
+/// The neutral engine-default articy profile registry: a generic `video/articy`
+/// format selector naming no world sorts or relations — the articy analogue of the
+/// builtin `context-pack/default`. A world that ships a richer `video/articy@N`
+/// catalog under `worlds/<world>/export/profiles.json` would load and merge it (as
+/// the `--game` exports merge card profiles); a lore corpus uses this neutral base.
+fn neutral_articy_registry() -> Registry {
+    Registry {
+        profiles: vec![ProfileSpec {
+            target: ExportTarget::Articy,
+            name: "video/articy".to_owned(),
+            version: 1,
+            selects: Selection::default(),
+            renders: BTreeMap::new(),
+            carries_provenance: ProvenanceMode::DevMetadata,
+        }],
+    }
 }
 
 /// Export a card ruleset as printable cards or Ludii GDL (EXP-3), sourcing its
@@ -531,7 +612,11 @@ fn run_export_game(args: &ExportArgs, target: ExportTarget, label: &str) -> CmdR
     })?;
     let ruleset = load_ruleset(game)?;
     let registry = game_registry(game)?;
-    let export = dli_game::export::run(&registry, target, &ruleset, &ExportOpts::default())
+    let opts = ExportOpts {
+        source_commit: export_commit(args.commit.as_ref(), &ruleset_material(game)),
+        ..ExportOpts::default()
+    };
+    let export = dli_game::export::run(&registry, target, &ruleset, &opts)
         .map_err(|err| format!("the {label} export failed: {err}"))?;
     match &export.artifact {
         GameArtifact::Cards(deck) => outln!(
@@ -578,6 +663,54 @@ fn differential_word(status: &dli_game::export::DifferentialStatus) -> String {
         DifferentialStatus::Pending { .. } => "pending".to_owned(),
         DifferentialStatus::Agreed { positions } => format!("agreed over {positions} position(s)"),
     }
+}
+
+/// The manifest `commit` for an export: the `--commit` value when supplied
+/// (non-empty), else a best-effort FNV-1a content fingerprint of the source
+/// material. The offline kernel reads no git, so a caller who pins no commit still
+/// gets a manifest that traces to the exact bytes the artifact was built from —
+/// two different corpora never collide on a byte-identical manifest even when their
+/// valuation and profile hash match.
+fn export_commit(explicit: Option<&String>, material: &[u8]) -> String {
+    if let Some(commit) = explicit {
+        let trimmed = commit.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_owned();
+        }
+    }
+    // FNV-1a 64: dependency-free, deterministic, and the same 64-bit fingerprint
+    // family the worker manifests already use (`fnv1a64:`).
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &byte in material {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("content-fnv1a64:{hash:016x}")
+}
+
+/// The source material a corpus export's content fingerprint is taken over: each
+/// file's path and raw text, in the deterministic order `load_corpus` returns.
+fn corpus_material(files: &[cmd::CorpusFile]) -> Vec<u8> {
+    let mut material = Vec::new();
+    for file in files {
+        material.extend_from_slice(file.path.to_string_lossy().as_bytes());
+        material.push(0);
+        material.extend_from_slice(file.source.as_bytes());
+        material.push(0);
+    }
+    material
+}
+
+/// The source material a `--game` export's fingerprint is taken over: the resolved
+/// rules file bytes. Best-effort — an unreadable file yields empty material rather
+/// than failing the export (the fingerprint is a convenience, never a gate).
+fn ruleset_material(game: &Path) -> Vec<u8> {
+    let rules_path = if game.is_dir() {
+        game.join("rules.json")
+    } else {
+        game.to_path_buf()
+    };
+    fs::read(&rules_path).unwrap_or_default()
 }
 
 /// Render an export's provenance manifest — the layer, valuation fingerprint,
