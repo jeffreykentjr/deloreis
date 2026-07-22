@@ -404,6 +404,7 @@ dependencies = [
  "dli-ledger",
  "dli-sim",
  "dli-syntax",
+ "dli-time",
  "dli-world",
  "schemars",
  "serde",

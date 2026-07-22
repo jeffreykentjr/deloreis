@@ -18,6 +18,7 @@ dli-export.workspace = true
 dli-sim.workspace = true
 dli-game.workspace = true
 dli-syntax.workspace = true
+dli-time.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

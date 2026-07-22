@@ -35,9 +35,9 @@ fixtures:
 - path: framing/author-why-framing.json
   sha256: 241be3c6f6e085d00b25f41366d3039f7921dfef5f6575c742ba32657002f3ed
 - path: framing/fork-add-framing.json
-  sha256: b93aad7b9285732b0adc07307096ea80eb048ad9965600bc3f4bc9cf08e62967
+  sha256: 2942d973c9519b12ee66912d4e678c32f379f4d6689aee323d0dbc8292ca3410
 - path: framing/name-check-framing.json
-  sha256: 11c25f59437c86597ef19868b9b85e81caae83fb1106714b7075cf90d45f2d71
+  sha256: cabf15430c1c7fff5e4ed8e4e3447740f948d5c17b607c52a0cb8e8839fcd9ad
 - path: golden/attest-missing-v1.json
   sha256: 6dbce537ad6dd5b17151f20856951c2e763b9b50d576562b8988af63a4e0b313
 - path: golden/attestation-sweep-v1.json
@@ -83,7 +83,7 @@ fixtures:
 - path: golden/export-ludii-v1.json
   sha256: 8dafb72f92929beeffcab2f2ea230a69270615c07e419fbeb9f21ec3bd72921a
 - path: golden/fork-add-v1.json
-  sha256: 8486e4c8a6c2a00f06d7b6b888f9336f96924708b4bd9713c82c71ee80f63b16
+  sha256: a4e2841163809fc44dc802cda3700950ebe34f75041bd5deebadb8cfba4fb40b
 - path: golden/fork-diff-v1.json
   sha256: 465568f964c0f9568789052b0dd2d6a492ce4d6f3adca8154a236d6d278d398b
 - path: golden/fork-list-v1.json
@@ -101,7 +101,7 @@ fixtures:
 - path: golden/fork-suppress-v1.json
   sha256: e6f6d297c9bceb82be51bde1fab5f275a11cdf6f4b9e6ec2e9a154acf9b9326a
 - path: golden/name-check-v1.json
-  sha256: af2cf660cd00786fcdbd3da1d673b31e9beeb18af670a141e7fd3b208a4d8f4d
+  sha256: 6022076d3a798953c17fb622a560eda3ce0a0bfe8d915c60208ee1f07b430a0c
 - path: golden/payload-submit-v1.json
   sha256: db6f41baeb716de75db62443160378f56fa3bbd2482aea91a63111f5808aec3b
 - path: golden/query-modifiers-v1.json
@@ -115,17 +115,17 @@ fixtures:
 - path: golden/simulate-v1.json
   sha256: 333b40a5dc7a806be07a04783da57bd1f022d7a229e8e98981c9b9a6bc668651
 - path: golden/timeline-episodes-v1.json
-  sha256: 6d71cf12c509aa8089ccab2217630761b8811b7b8be4c4a2e6433939f05ff039
+  sha256: 69611d9c272b3c372605a16a21bf9c556950a40d17debf70b32f300b408b1810
 - path: golden/timeline-knows-v1.json
-  sha256: 51ce0504c6ae2b7d69d58888f40458ab8ae29d5730901fe4c9260ce736f7454b
+  sha256: f9ea99314bc08970b9abdefbe15373946a2729b9b57b55bc06b0b514e3b41452
 - path: golden/timeline-order-v1.json
-  sha256: c1073b6299b6cc812f6f81c74b60e8a4d2399948fb140b0a179317902aebe83c
+  sha256: 3563f17840149ce4dd8262b8da4c3f50d898d022c69c167cfae7c1e9198c44d7
 - path: golden/timeline-phases-v1.json
-  sha256: 2e0f5770eef3a3b451fa78e45a9a915700920c877606b5474253ed1c192aed5b
+  sha256: 4be1caca82ef5e915ce5d87d129ec704fd69cf17c2772a9d11db420720cb5855
 - path: golden/timeline-show-v1.json
-  sha256: 7c550819e3d0d5b0e004f8677c10d2d46b6ef7494f0423ecc1d574594537524b
+  sha256: d9fa0d053bc7474167f1497c90c61b5efc75b0f60922dfd2e35c138dc6b4723d
 - path: golden/version-v1.json
-  sha256: 7c0d9b7101590db5a04967721aeb4ab79877f283832d7182fe5feb0a725e671d
+  sha256: ccf733d4ebc2e4d6b310a7a9fed7b1b6573093056498738b69dee9eb9deb19b9
 - path: negative/attest-missing-schema-violation.json
   sha256: 7bf357a47ecd220bc342a8d87da6dbd2908ed0f1ba9f320edf4560935c464e2c
 - path: negative/attestation-sweep-schema-violation.json

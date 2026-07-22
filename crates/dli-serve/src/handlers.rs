@@ -24,19 +24,23 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use dli_core::ann::Ann;
 use dli_core::atom::{Interner, Rail};
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_core::valuation::Valuation;
 
 use dli_eval::EvalError;
-use dli_eval::fork::{AtomChange, ForkDelta, ForkError, KeepStamp, Visibility};
+use dli_eval::fork::{Addition, AtomChange, ForkDelta, ForkError, KeepStamp, Visibility};
 use dli_eval::query::{Query, QueryOpts};
-use dli_eval::world::GroundAtom;
+use dli_eval::world::{GroundAtom, World};
 
 use dli_ast::decl::{Decl, ProofDecl};
 use dli_ast::ident::Ident;
 use dli_ast::term::{AtomExpr, Term};
+
+use dli_syntax::parse_document;
+use dli_time::chronology::{TemporalVerdict, TimePoint};
 
 use dli_export::profile::ExportTarget;
 use dli_export::{ExportOpts, ExportProfile, export_wire};
@@ -46,7 +50,8 @@ use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 
 use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 use dli_world::draft::DraftFinding;
-use dli_world::language::{LangFinding, LanguageModel, view};
+use dli_world::episode::{Episode, Knower, fold};
+use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, view};
 use dli_world::model::WorldModel;
 use dli_world::scene_projection::project_scene;
 use dli_world::{check, check_draft, sweep};
@@ -54,7 +59,9 @@ use dli_world::{check, check_draft, sweep};
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
-use crate::session::{Scope, Sessions, SimJob, builtin_pack, builtin_ruleset};
+use crate::session::{
+    Scope, Sessions, SimJob, builtin_episodes, builtin_pack, builtin_ruleset, demo_language_model,
+};
 
 /// A handler failure: a typed wire code and a domain-spoken message.
 type Fault = (ErrorCode, String);
@@ -88,18 +95,16 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::SimulateStart => handle_simulate_start(request, sessions),
         Op::SimulateStatus => handle_simulate_status(request, sessions),
         Op::SimulateCancel => handle_simulate_cancel(request, sessions),
-        // Recognized, but capability-gated. Params are still validated first, so a
-        // malformed request is a schema error (caught before the capability gate),
-        // never masked by it.
-        // fork.add's declarations are full `.dli` declaration lines, not rendered
-        // atoms; parsing them faithfully needs the syntax layer the worker does
-        // not link yet, so the op is capability-gated rather than half-parsed.
-        Op::ForkAdd => unwired::<ForkAddParams>(request),
-        Op::TimelineShow => unwired::<TimelineShowParams>(request),
-        Op::TimelineOrder => unwired::<TimelineOrderParams>(request),
-        Op::TimelineKnows => unwired::<TimelineKnowsParams>(request),
-        Op::TimelineEpisodes => unwired::<TimelineEpisodesParams>(request),
-        Op::TimelinePhases => unwired::<TimelinePhasesParams>(request),
+        // fork.add parses full `.dli` declaration lines through the syntax layer
+        // and adds the lowered facts to the fork; the timeline reads project the
+        // resolved world's chronology and the episode fold. Params are validated
+        // first, so a malformed request is a schema error either way.
+        Op::ForkAdd => handle_fork_add(request, sessions),
+        Op::TimelineShow => handle_timeline_show(request, sessions),
+        Op::TimelineOrder => handle_timeline_order(request, sessions),
+        Op::TimelineKnows => handle_timeline_knows(request),
+        Op::TimelineEpisodes => handle_timeline_episodes(request),
+        Op::TimelinePhases => handle_timeline_phases(request),
         // author.* is routed through the Door T seam before reaching here.
         Op::AuthorOpen
         | Op::AuthorStatus
@@ -304,6 +309,50 @@ fn handle_fork_promote(request: &Request, sessions: &mut Sessions) -> Result<Res
             },
         },
     ))
+}
+
+fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: ForkAddParams = params(request)?;
+    // Parse the declaration lines through the syntax layer and lower them to
+    // ground facts BEFORE touching session state, so a malformed decl is a schema
+    // error caught up front, never a half-applied fork.
+    let additions = additions_from_declarations(&p.declarations)?;
+    let (id, scope) = fork_scope(sessions, &p.fork)?;
+    scope.forks.add(id, additions).map_err(fork_fault)?;
+    // The consequence delta runs the fork's incremental fixpoint over the base.
+    let delta = scope.forks.diff(id).map_err(fork_fault)?;
+    Ok(ok_response(
+        request,
+        &ForkAddResult {
+            ok: true,
+            delta: diff_delta(&delta),
+        },
+    ))
+}
+
+/// Parse a run of `.dli` declaration lines and lower them to fork-local
+/// additions. Each lowered fact becomes an [`Addition`] asserted by fiat within
+/// the fork (`dli.fork.add`, *propose a fact* — the same fork-local assertion the
+/// CLI's `fork add` makes): the fork is a what-if, so a proposed line is supposed
+/// true inside it and its consequences are read off the diff. A parse error or an
+/// unground fact is a clean [`ErrorCode::SchemaViolation`], never a panic. A
+/// non-fact declaration (an entity, an era edge) carries no ground fact and adds
+/// nothing — the honest empty delta.
+fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>, Fault> {
+    let source = declarations.join("\n");
+    let (document, diags) = parse_document(&source);
+    if let Some(diag) = diags.iter().find(|diag| diag.class.is_error()) {
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!("the declaration is not well-formed .dli: {}", diag.message),
+        ));
+    }
+    let world = World::lower(&document).map_err(eval_fault)?;
+    Ok(world
+        .facts
+        .iter()
+        .map(|fact| Addition::asserted(fact.atom.clone(), Ann::unconditional()))
+        .collect())
 }
 
 fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
@@ -612,11 +661,17 @@ fn header_value(head: &[String], key: &str) -> Option<String> {
 
 fn handle_name_check(request: &Request) -> Result<Response, Fault> {
     let p: NameCheckParams = params(request)?;
-    // The wire carries a `dialect` but no corpus reference; the kernel half vets
-    // the candidate against an empty language model. Dialect-scoped vetting over a
-    // loaded corpus is the future seam (`05-language-layer.md`).
-    let _ = &p.dialect;
-    let findings = view::vet_candidate(&LanguageModel::default(), &p.name);
+    // The op carries no corpus reference, so a NAMED dialect resolves its register
+    // in the worker's demo language model (the one engine-owned corpus that
+    // declares a dialect); register-fit + phonotactics are vetted against it (spec
+    // `05-language-layer.md` §2). An empty dialect keeps the register-free default:
+    // the bare-candidate screens against an empty model.
+    let dialect = p.dialect.trim();
+    let findings = if dialect.is_empty() {
+        view::vet_candidate(&LanguageModel::default(), &p.name)
+    } else {
+        vet_candidate_in_dialect(&demo_language_model(), &p.name, dialect)
+    };
     Ok(ok_response(
         request,
         &NameCheckResult {
@@ -651,6 +706,251 @@ fn handle_attestation_sweep(request: &Request) -> Result<Response, Fault> {
             stale: sweep(&p.store, &model),
         },
     ))
+}
+
+// -- dli.timeline.* ----------------------------------------------------------
+//
+// Two times meet here and stay apart (`03-time.md`): `show`/`order` read the
+// resolved world's chronology (an era spine and events as partially-ordered
+// points); `knows`/`episodes`/`phases` read the episode fold (production order —
+// the listener's dimension) over the document's season. Each renders the same
+// domain lines the CLI's `deloreis timeline` reads print, mapped onto the shared
+// [`TimelineResult`]. Story-time is honestly partial: `order` reports unordered
+// pairs as first-class, never a silent tie-break (`TemporalVerdict::Unordered`).
+
+fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: TimelineShowParams = params(request)?;
+    let scope = resolve(sessions, &p.document)?;
+    let world = &scope.world.model.world;
+    let points = time_universe(world);
+    let mut findings = Vec::new();
+    if points.is_empty() {
+        findings.push("no chronology in this corpus".to_owned());
+        return Ok(ok_response(request, &TimelineResult { findings }));
+    }
+    match world.chronology.topological_layers(&points) {
+        Ok(layers) => {
+            for (rank, layer) in layers.iter().enumerate() {
+                let names: Vec<String> = layer.iter().map(|pt| point_name(world, *pt)).collect();
+                findings.push(format!("layer {rank}: {}", names.join(", ")));
+            }
+        }
+        Err(blame) => {
+            findings.push(format!(
+                "the chronology has a cycle over {} edge(s):",
+                blame.cycle.len()
+            ));
+            for edge in &blame.cycle {
+                findings.push(format!(
+                    "  {} -> {}",
+                    point_name(world, edge.before),
+                    point_name(world, edge.after)
+                ));
+            }
+            return Ok(ok_response(request, &TimelineResult { findings }));
+        }
+    }
+    if let Some(at) = &p.at {
+        let cursor = points
+            .iter()
+            .copied()
+            .find(|pt| &point_name(world, *pt) == at)
+            .ok_or_else(|| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("unknown timeline point '{at}'"),
+                )
+            })?;
+        let mut before = Vec::new();
+        let mut after = Vec::new();
+        for &other in &points {
+            if other == cursor {
+                continue;
+            }
+            match world.chronology.precedes(other, cursor) {
+                TemporalVerdict::Before => before.push(point_name(world, other)),
+                TemporalVerdict::After => after.push(point_name(world, other)),
+                TemporalVerdict::Unordered => {}
+            }
+        }
+        findings.push(format!(
+            "at {at}: after [{}], before [{}]",
+            before.join(", "),
+            after.join(", ")
+        ));
+    }
+    Ok(ok_response(request, &TimelineResult { findings }))
+}
+
+fn handle_timeline_order(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: TimelineOrderParams = params(request)?;
+    let scope = resolve(sessions, &p.document)?;
+    let world = &scope.world.model.world;
+    let mut findings = Vec::new();
+    if let Some(blame) = world.chronology.find_cycle(&[]) {
+        findings.push(format!(
+            "cycle in the chronology over {} edge(s):",
+            blame.cycle.len()
+        ));
+        for edge in &blame.cycle {
+            findings.push(format!(
+                "  {} -> {}",
+                point_name(world, edge.before),
+                point_name(world, edge.after)
+            ));
+        }
+        return Ok(ok_response(request, &TimelineResult { findings }));
+    }
+    let points = time_universe(world);
+    let mut unordered = 0usize;
+    for (i, &a) in points.iter().enumerate() {
+        for &b in &points[i + 1..] {
+            if world.chronology.precedes(a, b) == TemporalVerdict::Unordered {
+                findings.push(format!(
+                    "unordered: {} ? {}",
+                    point_name(world, a),
+                    point_name(world, b)
+                ));
+                unordered += 1;
+            }
+        }
+    }
+    findings.push(format!("chronology acyclic; {unordered} unordered pair(s)"));
+    Ok(ok_response(request, &TimelineResult { findings }))
+}
+
+fn handle_timeline_knows(request: &Request) -> Result<Response, Fault> {
+    let p: TimelineKnowsParams = params(request)?;
+    let episodes = resolve_season(&p.document)?;
+    let folded = fold(&episodes);
+    let slot = match &p.at {
+        Some(at) => at.parse::<u32>().map_err(|_| {
+            (
+                ErrorCode::SchemaViolation,
+                format!("'{at}' is not a production slot (a whole number)"),
+            )
+        })?,
+        None => max_slot(&episodes),
+    };
+    let facts = folded.knowledge_at(slot, &Knower::Listener);
+    let mut findings = Vec::new();
+    if facts.is_empty() {
+        findings.push(format!("at slot {slot}, the listener knows nothing"));
+    } else {
+        findings.push(format!("at slot {slot}, the listener knows:"));
+        for fact in &facts {
+            findings.push(format!("  {}", fact.0));
+        }
+    }
+    Ok(ok_response(request, &TimelineResult { findings }))
+}
+
+fn handle_timeline_episodes(request: &Request) -> Result<Response, Fault> {
+    let p: TimelineEpisodesParams = params(request)?;
+    let episodes = resolve_season(&p.document)?;
+    let folded = fold(&episodes);
+    let mut ordered: Vec<&Episode> = episodes.iter().collect();
+    ordered.sort_by_key(|ep| ep.production_order);
+    let mut findings = Vec::new();
+    for ep in &ordered {
+        let anchor = ep
+            .story_anchor
+            .era
+            .as_ref()
+            .map_or_else(|| "unanchored".to_owned(), |era| era.0.clone());
+        findings.push(format!(
+            "slot {}: {} @ {anchor}",
+            ep.production_order, ep.id
+        ));
+    }
+    let loops = folded.open_loops();
+    for question in &loops.open {
+        findings.push(format!("open loop never resolved: {}", question.0));
+    }
+    findings.push(format!(
+        "{} episode(s); {} loop(s) resolved, {} still open",
+        episodes.len(),
+        loops.closed.len(),
+        loops.open.len()
+    ));
+    Ok(ok_response(request, &TimelineResult { findings }))
+}
+
+fn handle_timeline_phases(request: &Request) -> Result<Response, Fault> {
+    let p: TimelinePhasesParams = params(request)?;
+    let episodes = resolve_season(&p.document)?;
+    let episode = episodes
+        .iter()
+        .find(|ep| ep.id == p.episode)
+        .ok_or_else(|| {
+            (
+                ErrorCode::SchemaViolation,
+                format!("no episode '{}' in the season", p.episode),
+            )
+        })?;
+    let mut findings = Vec::new();
+    for phase in &episode.story_anchor.phases {
+        findings.push(format!(
+            "episode anchor: {} = index {}",
+            phase.cycle, phase.index
+        ));
+    }
+    for scene in &episode.scenes {
+        if let Some(anchor) = &scene.scene_anchor {
+            for phase in &anchor.phases {
+                findings.push(format!(
+                    "scene {} anchor: {} = index {}",
+                    scene.id, phase.cycle, phase.index
+                ));
+            }
+        }
+    }
+    if findings.is_empty() {
+        findings.push(format!("episode {} pins no cyclic phase", p.episode));
+    }
+    Ok(ok_response(request, &TimelineResult { findings }))
+}
+
+/// The season for a document, or a typed fault when none is loaded. Episodes are
+/// serde payloads the compiled world does not carry, so the worker resolves a
+/// season by doc-id from an engine-owned neutral fixture, exactly as it resolves a
+/// corpus.
+fn resolve_season(document: &str) -> Result<Vec<Episode>, Fault> {
+    builtin_episodes(document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no episode season is loaded for document '{document}'"),
+        )
+    })
+}
+
+/// The highest production slot a season reaches — the default `knows` cursor (the
+/// whole season played).
+fn max_slot(episodes: &[Episode]) -> u32 {
+    episodes
+        .iter()
+        .map(|ep| ep.production_order)
+        .max()
+        .unwrap_or(0)
+}
+
+/// The name of a time point in the world's time-point table, or a stable fallback.
+fn point_name(world: &World, point: TimePoint) -> String {
+    world
+        .time_points
+        .names()
+        .get(point.0 as usize)
+        .cloned()
+        .unwrap_or_else(|| format!("point#{}", point.0))
+}
+
+/// The full universe of interned time points in a compiled world — every era and
+/// event, so a point with no `before`-fact still appears (it lands in layer 0).
+fn time_universe(world: &World) -> Vec<TimePoint> {
+    (0..world.time_points.names().len())
+        .filter_map(|index| u32::try_from(index).ok())
+        .map(TimePoint)
+        .collect()
 }
 
 // -- engine → wire mappings --------------------------------------------------
@@ -897,49 +1197,13 @@ fn eval_fault(error: EvalError) -> Fault {
     (ErrorCode::from(error), message)
 }
 
-/// Validate a not-yet-wired op's params, then report it capability-gated. A
-/// malformed request is a schema error caught before the capability gate
-/// (`10-serving.md` §2.1), so an unwired op never masks a bad request.
-fn unwired<T: DeserializeOwned + Serialize>(request: &Request) -> Result<Response, Fault> {
-    let _validated: T = params(request)?;
-    Err(not_wired(request.op))
-}
-
-/// The recognized-but-unwired capability error for an op whose engine is pending.
-/// `not-wired` is a permanent-until-wired refusal, distinct from an `internal`
-/// server bug (`fantasy-contract.md` §9).
-fn not_wired(op: Op) -> Fault {
-    (
-        ErrorCode::NotWired,
-        format!(
-            "operation '{}' is recognized but its engine is not wired in this build; \
-             it is capability-gated until the engine lands",
-            wire_name(op)
-        ),
-    )
-}
-
-/// The wire op names this build actually implements — every op the dispatch
-/// answers with a real result. The capability-gated ops (whose engines have not
-/// landed) are omitted, so a consumer can degrade rather than call one
-/// (`10-serving.md` §2). [`GATED`] must mirror the capability-gated match arms
-/// in [`handle`].
+/// The wire op names this build implements — every `dli.*` op the dispatch
+/// answers with a real result. Every engine has now landed (fork.add's declaration
+/// parser and the `timeline.*` chronology/episode reads were the last gated ops),
+/// so the full op table is advertised and a consumer never needs to degrade
+/// (`10-serving.md` §2).
 fn capabilities() -> Vec<String> {
-    /// The ops whose engine has not landed — mirrors the `unwired` match arms.
-    const GATED: [Op; 6] = [
-        Op::ForkAdd,
-        Op::TimelineShow,
-        Op::TimelineOrder,
-        Op::TimelineKnows,
-        Op::TimelineEpisodes,
-        Op::TimelinePhases,
-    ];
-    Op::ALL
-        .iter()
-        .copied()
-        .filter(|op| !GATED.contains(op))
-        .map(wire_name)
-        .collect()
+    Op::ALL.iter().copied().map(wire_name).collect()
 }
 
 /// The op's wire identifier (its serde encoding).

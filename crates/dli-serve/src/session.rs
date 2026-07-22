@@ -22,6 +22,9 @@ use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
+use dli_time::cycle::CyclePos;
+use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
+use dli_world::language::LanguageModel;
 use dli_world::loader::example_docs;
 use dli_world::{CompiledWorld, Pack, compile};
 
@@ -36,6 +39,18 @@ const FRENCH_DECK_RULES: &str = include_str!("../../../examples/games/french-dec
 /// The `french-deck` export profile catalog (a `cards` and a `ludii-gdl` profile).
 const FRENCH_DECK_PROFILES: &str =
     include_str!("../../../examples/games/french-deck/profiles.json");
+
+/// The `round-table` teaching corpus: the neutral, wholly public-domain Matter of
+/// Britain world that ships with dli (`examples/camelot.dli`). It carries the one
+/// shape the `camelot` in-Rust builtin lacks — a full chronology (an era spine,
+/// events with a `before`-fact and a deliberately UNORDERED pair) plus a language
+/// dialect — so the `timeline.show`/`timeline.order` and dialect-scoped
+/// `name.check` reads have a resolvable, engine-owned world to run against. It is
+/// the neutral counterpart to any one production world; the worker embeds no
+/// production canon (the dli/TPtH separation invariant). Embedded as source (never
+/// a file read at runtime) so the worker stays offline and self-contained, exactly
+/// like the `french-deck` game rules above.
+const ROUND_TABLE_SRC: &str = include_str!("../../../examples/camelot.dli");
 
 /// The built-in `warding-vows` teaching corpus: a linear-conserved proof
 /// discipline with one worked casting that checks. It gives the `check-proof` and
@@ -213,8 +228,95 @@ pub fn builtin_pack(document: &str) -> Option<Pack> {
                 documents: vec![doc],
             })
         }
+        "round-table" => {
+            let (doc, _diags) = parse_document(ROUND_TABLE_SRC);
+            Some(Pack {
+                name: document.to_owned(),
+                documents: vec![doc],
+            })
+        }
         _ => None,
     }
+}
+
+/// The built-in episode season for a doc-id, or `None` if the id names no season.
+///
+/// Episodes are serde payloads until their `.dli` surface lands (TIME-3), and the
+/// compiled world carries none — so the worker resolves a season the same way it
+/// resolves a corpus: by id, from an engine-owned neutral fixture. The
+/// `round-table` season is a three-episode fold over the `ROUND_TABLE_SRC`
+/// world (production order, story anchors, cyclic phases, a knowledge ledger, and
+/// one open loop opened in the première and closed in the finale) — enough for the
+/// `timeline.knows`/`timeline.episodes`/`timeline.phases` reads to project real
+/// output. Wholly public-domain vocabulary; the worker embeds no production canon.
+#[must_use]
+pub fn builtin_episodes(document: &str) -> Option<Vec<Episode>> {
+    match document {
+        "round-table" => Some(round_table_season()),
+        _ => None,
+    }
+}
+
+/// The worker's demo language model — the compiled language layer of the
+/// `ROUND_TABLE_SRC` world (its `old-speech` dialect and name-parts). The
+/// `name.check` op carries no corpus reference, so a dialect-scoped vet resolves
+/// its register here, against the one engine-owned neutral corpus that declares a
+/// dialect. An empty dialect keeps the register-free default behavior.
+#[must_use]
+pub fn demo_language_model() -> LanguageModel {
+    let (doc, _diags) = parse_document(ROUND_TABLE_SRC);
+    LanguageModel::from_documents(&[doc]).model
+}
+
+/// A three-episode season over the `round-table` world, built in Rust (the
+/// episode payload's typed form). Production order is the listener's dimension;
+/// each story anchor pins an era and a cyclic phase (`season`); the open loop
+/// `who-holds-excalibur` opens in the première and closes in the finale, so the
+/// season folds with zero loops left open.
+fn round_table_season() -> Vec<Episode> {
+    let phase = |index: u32| CyclePos {
+        cycle: "season".to_owned(),
+        index,
+    };
+    vec![
+        Episode {
+            id: "e01".to_owned(),
+            production_order: 1,
+            story_anchor: EpisodeAnchor::era("uthers-time").with_phase(phase(0)),
+            scenes: vec![Scene {
+                id: "s1".to_owned(),
+                knowledge_deltas: vec![KnowledgeDelta::listener_learns("the-sword-drawn")],
+                fact_deltas: vec![FactDelta::of("the-sword-drawn")],
+                opens: vec![QuestionRef("who-holds-excalibur".to_owned())],
+                ..Scene::default()
+            }],
+        },
+        Episode {
+            id: "e02".to_owned(),
+            production_order: 2,
+            story_anchor: EpisodeAnchor::era("arthurs-reign").with_phase(phase(1)),
+            scenes: vec![Scene {
+                id: "s1".to_owned(),
+                knowledge_deltas: vec![
+                    KnowledgeDelta::listener_learns("the-round-table-founded"),
+                    KnowledgeDelta::cast_learns("lancelot", "the-sword-drawn"),
+                ],
+                fact_deltas: vec![FactDelta::of("the-round-table-founded")],
+                ..Scene::default()
+            }],
+        },
+        Episode {
+            id: "e03".to_owned(),
+            production_order: 3,
+            story_anchor: EpisodeAnchor::era("after-camlann").with_phase(phase(3)),
+            scenes: vec![Scene {
+                id: "s1".to_owned(),
+                knowledge_deltas: vec![KnowledgeDelta::listener_learns("the-battle-of-camlann")],
+                closes: vec![QuestionRef("who-holds-excalibur".to_owned())],
+                ..Scene::default()
+            }],
+        },
+    ]
 }
 
 /// The built-in card ruleset for a game-document id, paired with its export

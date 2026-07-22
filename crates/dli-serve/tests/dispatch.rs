@@ -24,22 +24,11 @@ fn fixtures_dir() -> PathBuf {
 }
 
 /// The ops whose golden fixture replays in v0. Excluded: author.* (door-t) and
-/// the still-capability-gated ops (fork.add's declaration parser, timeline.*, and
-/// the killed `check-ledger` form), each covered by the capability-gate/killed-op
-/// tests instead. check-proof, export.run, and simulate.* are now wired and
-/// replay here.
+/// the killed `check-ledger` form (covered by the killed-op test). Every `dli.*`
+/// engine has now landed — fork.add's declaration parser and the `timeline.*`
+/// chronology/episode reads were the last gated ops — so they replay here too.
 fn serve_owned(op: &str) -> bool {
-    op.starts_with("dli.")
-        && ![
-            "dli.check-ledger",
-            "dli.fork.add",
-            "dli.timeline.show",
-            "dli.timeline.order",
-            "dli.timeline.knows",
-            "dli.timeline.episodes",
-            "dli.timeline.phases",
-        ]
-        .contains(&op)
+    op.starts_with("dli.") && !["dli.check-ledger"].contains(&op)
 }
 
 fn json_fixtures(sub: &str) -> Vec<(String, Value)> {
@@ -232,20 +221,54 @@ fn killed_and_unknown_ops_are_refused() {
 }
 
 #[test]
-fn not_yet_wired_ops_are_capability_gated() {
+fn timeline_and_fork_add_are_wired() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
-    // timeline.* is still capability-gated (its engine has not landed).
-    let response = send(
+
+    // A corpus with no chronology reads the honest empty state, never `not-wired`.
+    let bare = send(
         &serde_json::json!({"dli":"0.1.0","id":"1","op":"dli.timeline.show","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
-    assert!(!response.ok);
-    // Recognized, but the engine is not wired: the `not-wired` capability error
-    // (permanent-until-wired), distinct from an `internal` server bug (M1).
-    assert_eq!(response.error.unwrap().code.wire_name(), "not-wired");
+    assert!(bare.ok, "timeline.show is wired: {bare:?}");
+    assert_eq!(
+        bare.result.unwrap()["findings"],
+        serde_json::json!(["no chronology in this corpus"])
+    );
+
+    // The neutral round-table world carries a real era spine, so show lays it out.
+    let laid = send(
+        &serde_json::json!({"dli":"0.1.0","id":"2","op":"dli.timeline.show","params":{"document":"round-table"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    let findings = laid.result.unwrap()["findings"].clone();
+    assert!(
+        findings[0].as_str().unwrap().starts_with("layer 0:"),
+        "chronology is laid out in layers: {findings}"
+    );
+
+    // fork.add parses a declaration line and adds its lowered fact to the fork.
+    send(
+        &serde_json::json!({"dli":"0.1.0","id":"3","op":"dli.fork.new","params":{"document":"round-table"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    let added = send(
+        &serde_json::json!({"dli":"0.1.0","id":"4","op":"dli.fork.add","params":{"fork":"fork-1","declarations":["adjacent(camelot, avalon) proposed"]}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(added.ok, "fork.add is wired: {added:?}");
+    assert_eq!(
+        added.result.unwrap()["delta"]["newly_certain"],
+        serde_json::json!(["adjacent(camelot, avalon)"])
+    );
 }
 
 #[test]

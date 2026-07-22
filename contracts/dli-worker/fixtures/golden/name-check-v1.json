@@ -1,6 +1,7 @@
 {
   "fixture": "golden/name-check-v1",
   "version": 1,
+  "note": "dli.name.check now honors the `dialect` param: a named dialect resolves its register in the worker's demo language model and the candidate is vetted against that register's phonotactics (spec 05 §2). `myrdin` clears the neutral round-table world's `old-speech` register.",
   "steps": [
     {
       "send": {
@@ -8,8 +9,8 @@
         "id": "1",
         "op": "dli.name.check",
         "params": {
-          "name": "mireth",
-          "dialect": "low-saltish"
+          "name": "myrdin",
+          "dialect": "old-speech"
         }
       },
       "expect": {

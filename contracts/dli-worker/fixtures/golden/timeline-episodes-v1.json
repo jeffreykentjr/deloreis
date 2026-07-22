@@ -1,7 +1,7 @@
 {
   "fixture": "golden/timeline-episodes-v1",
   "version": 1,
-  "expected_outcome": "gated",
+  "note": "dli.timeline.episodes folds the season in production order and reports each slot's story anchor plus the open-loop ledger. The neutral round-table season opens `who-holds-excalibur` in the premiere and closes it in the finale, so it folds with zero loops left open.",
   "steps": [
     {
       "send": {
@@ -9,7 +9,7 @@
         "id": "1",
         "op": "dli.timeline.episodes",
         "params": {
-          "document": "saltmarket"
+          "document": "round-table"
         }
       },
       "expect": {
@@ -17,7 +17,12 @@
         "id": "1",
         "ok": true,
         "result": {
-          "findings": []
+          "findings": [
+            "slot 1: e01 @ uthers-time",
+            "slot 2: e02 @ arthurs-reign",
+            "slot 3: e03 @ after-camlann",
+            "3 episode(s); 1 loop(s) resolved, 0 still open"
+          ]
         }
       }
     }

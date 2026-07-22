@@ -1,7 +1,7 @@
 {
   "fixture": "golden/timeline-show-v1",
   "version": 1,
-  "expected_outcome": "gated",
+  "note": "dli.timeline.show renders the resolved world's chronology as topological layers (least-constrained first), then — when `at` names a point — the points ordered relative to that cursor. Read over the neutral round-table teaching world.",
   "steps": [
     {
       "send": {
@@ -9,7 +9,7 @@
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
-          "document": "saltmarket"
+          "document": "round-table"
         }
       },
       "expect": {
@@ -17,7 +17,35 @@
         "id": "1",
         "ok": true,
         "result": {
-          "findings": []
+          "findings": [
+            "layer 0: uthers-time, the-sword-drawn, the-round-table-founded, the-grail-quest, the-speaking-day, the-warning",
+            "layer 1: arthurs-reign, the-battle-of-camlann",
+            "layer 2: after-camlann"
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.1.0",
+        "id": "2",
+        "op": "dli.timeline.show",
+        "params": {
+          "document": "round-table",
+          "at": "arthurs-reign"
+        }
+      },
+      "expect": {
+        "dli": "0.1.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [
+            "layer 0: uthers-time, the-sword-drawn, the-round-table-founded, the-grail-quest, the-speaking-day, the-warning",
+            "layer 1: arthurs-reign, the-battle-of-camlann",
+            "layer 2: after-camlann",
+            "at arthurs-reign: after [uthers-time], before [after-camlann]"
+          ]
         }
       }
     }
