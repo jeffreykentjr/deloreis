@@ -146,7 +146,7 @@ fn certain_b_defeats_and_whynot_explains_the_block() {
     world.assert_fact(ground("p", &["a"]), Ann::supported(PosBool::pos(Atom(0))));
     world.assert_fact(ground("b", &["a"]), Ann::supported(PosBool::pos(Atom(1))));
     world.valuation.set(Atom(0), true);
-    world.valuation.set(Atom(1), true); // b CERTAIN → defeats (reversibly)
+    world.valuation.set(Atom(1), true); // b CERTAIN → blocks derivation entirely
     world
         .define_rule(
             "h-rule",
@@ -159,32 +159,18 @@ fn certain_b_defeats_and_whynot_explains_the_block() {
         .unwrap();
     let world = world.fixpoint().unwrap();
 
-    // The block is a defeater condition on h's support monomial, not absence:
-    // h is derived, present, and Possible (defeated), not dropped.
-    let h = row(&world, "h", &["a"]).expect("certain b defeats but does not drop h");
-    assert_eq!(
-        h.ann().status(&world.valuation, &world.theory),
-        Status::Possible
+    // Spec §4: a certain b blocks the derivation entirely — h is absent.
+    assert!(
+        row(&world, "h", &["a"]).is_none(),
+        "certain b blocks the derivation — h is absent, not present"
     );
     let ans = world.query(&query_goal("h", &["a"])).unwrap();
-    assert_eq!(ans.rows.len(), 1, "h is present (defeated), not absent");
-    assert_eq!(ans.rows[0].status, Status::Possible);
+    assert_eq!(ans.rows.len(), 0, "h is absent when b is certain");
 
-    // ITEM 7 (Finding 3): blame for the defeated conclusion now names the
-    // negated premise b — the block leaves a trail through the defeater.
+    // why_not: h is unknown (not derived).
     let wn = why_not(&world, &atom("h", vec![Term::Sym(Ident::synthetic("a"))]));
-    assert!(wn.known, "defeated h is known (present), not unknown");
-    assert_eq!(wn.status, Status::Possible);
-    assert_eq!(
-        wn.defeater.map(|c| c.0),
-        Some(1),
-        "b (Atom 1) is blamed for the defeat"
-    );
-    assert!(
-        wn.rendered.iter().any(|line| line.contains("defeated by")),
-        "the block is explained: {:?}",
-        wn.rendered
-    );
+    assert!(!wn.known, "blocked h is unknown (never derived)");
+    assert_eq!(wn.status, Status::Dead);
 }
 
 // ===========================================================================
@@ -357,13 +343,9 @@ fn ruling_poison_true_downgrades_but_does_not_delete_the_row() {
 
 #[test]
 fn baked_block_is_unblocked_by_later_supersession() {
-    // b CERTAIN at fixpoint (Atom1 ruled true) ⇒ h defeated, but PRESENT in the
-    // saturation with the block held as a defeater condition on its support
-    // monomial. Superseding b (revaluing Atom1 false) via the ambient ledger
-    // WITHOUT re-fixpoint now un-blocks h — it becomes Certain — matching a fresh
-    // fixpoint under b=false. The block is a support condition the valuation
-    // moves both ways, so "compute once, valuate after" (spec 02 §1 / §5) holds
-    // across the negation boundary in the un-blocking direction.
+    // Spec §4: b CERTAIN at fixpoint blocks the derivation entirely — h is
+    // absent. Un-blocking requires a re-fixpoint under a valuation where b is no
+    // longer certain. A fresh fixpoint under b=false derives h Certain.
     let build = |b_true: bool| {
         let mut world = World::new();
         world.assert_fact(ground("p", &["a"]), Ann::supported(PosBool::pos(Atom(0))));
@@ -383,32 +365,22 @@ fn baked_block_is_unblocked_by_later_supersession() {
         world
     };
 
-    // Baked with b certain: h defeated (Possible) but present, not dropped.
+    // Baked with b certain: h is ABSENT (derivation blocked by §4).
     let blocked = build(true).fixpoint().unwrap();
-    let h = row(&blocked, "h", &["a"]).expect("defeated h is present, not absent");
-    assert_eq!(
-        h.ann().status(&blocked.valuation, &blocked.theory),
-        Status::Possible
+    assert!(
+        row(&blocked, "h", &["a"]).is_none(),
+        "certain b blocks derivation — h is absent"
     );
+    let ans = blocked.query(&query_goal("h", &["a"])).unwrap();
+    assert_eq!(ans.rows.len(), 0, "h is absent when b is certain");
 
-    // Supersede b (Atom1 -> false) WITHOUT re-fixpoint: h un-blocks to Certain.
-    let mut superseded = blocked.clone();
-    superseded.valuation.set(Atom(1), false);
-    let ans = superseded.query(&query_goal("h", &["a"])).unwrap();
-    assert_eq!(ans.rows.len(), 1, "valuation-only supersession derives h");
-    assert_eq!(
-        ans.rows[0].status,
-        Status::Certain,
-        "FIXED: valuation-only supersession un-blocks h to Certain"
-    );
-
-    // A fresh fixpoint under b=false ALSO derives h Certain — the answers agree.
+    // A fresh fixpoint under b=false derives h Certain — the spec-aligned path.
     let refixed = build(false).fixpoint().unwrap();
     let h_ref = row(&refixed, "h", &["a"]).expect("re-fixpoint under b=false derives h");
     assert_eq!(
         h_ref.ann().status(&refixed.valuation, &refixed.theory),
         Status::Certain,
-        "valuation-only and re-fixpoint agree — no divergence"
+        "re-fixpoint under b=false derives h as Certain"
     );
 }
 
@@ -495,13 +467,11 @@ fn stratifiable_negated_program_loads_and_evaluates() {
         q.ann().status(&world.valuation, &world.theory),
         Status::Certain
     );
-    // p is present but defeated (the block is a reversible defeater condition,
-    // not absence): q is certain, so `not q` poisons p to Possible.
-    let p = row(&world, "p", &[]).expect("p present, defeated by certain q");
-    assert_eq!(
-        p.ann().status(&world.valuation, &world.theory),
-        Status::Possible,
-        "p defeated: q is certain"
+    // Spec §4: q is certain, so `not q` blocks the derivation of p entirely.
+    // p is absent from the saturation (not present-and-defeated).
+    assert!(
+        row(&world, "p", &[]).is_none(),
+        "p absent: certain q blocks `not q`"
     );
 }
 
@@ -552,26 +522,23 @@ fn mixed_positive_recursion_plus_negation_stratifies_and_evaluates() {
     let world = world.fixpoint().unwrap();
 
     assert!(row(&world, "reach", &["a", "c"]).is_some(), "a reaches c");
-    // reach(a,b) and reach(a,c) certain ⇒ orphan(b), orphan(c) present but
-    // DEFEATED (Possible) — the block is a reversible defeater condition, not
-    // absence.
+    // Spec §4: reach(a,b) and reach(a,c) are certain, so `not reach(a,b)` and
+    // `not reach(a,c)` block the derivation of orphan(b) and orphan(c) entirely.
+    assert!(
+        row(&world, "orphan", &["b"]).is_none(),
+        "orphan(b) absent: reach(a,b) is certain"
+    );
+    assert!(
+        row(&world, "orphan", &["c"]).is_none(),
+        "orphan(c) absent: reach(a,c) is certain"
+    );
+    // a does not reach a; z is isolated ⇒ orphan(a), orphan(z) certain.
     let orphan_status = |node: &str| {
         row(&world, "orphan", &[node])
             .unwrap_or_else(|| panic!("orphan({node}) present"))
             .ann()
             .status(&world.valuation, &world.theory)
     };
-    assert_eq!(
-        orphan_status("b"),
-        Status::Possible,
-        "b is reached ⇒ not an orphan"
-    );
-    assert_eq!(
-        orphan_status("c"),
-        Status::Possible,
-        "c is reached ⇒ not an orphan"
-    );
-    // a does not reach a; z is isolated ⇒ orphan(a), orphan(z) certain.
     assert_eq!(
         orphan_status("a"),
         Status::Certain,
