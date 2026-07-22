@@ -196,10 +196,25 @@ fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
     }
 }
 
+/// True when the line carries a real markdown link whose TARGET names the tpth
+/// worldbook — `](…worlds/tpth…)`. A bare `worlds/tpth` mention in prose does NOT
+/// count: otherwise a paragraph could launder a private lexicon by merely naming
+/// the path once. The exemption requires an actual cross-link.
+fn has_worldbook_link(line: &str) -> bool {
+    let lower = line.to_lowercase();
+    lower.match_indices("](").any(|(i, _)| {
+        let after = &lower[i + 2..];
+        match after.find(')') {
+            Some(end) => after[..end].contains(WORLDBOOK_LINK),
+            None => false,
+        }
+    })
+}
+
 /// Mark every line that belongs to a worldbook-footer paragraph. A paragraph is a
-/// maximal run of consecutive non-blank lines; if any of its lines carries a
-/// `worlds/tpth` cross-link, the whole paragraph is a legitimate worldbook pointer
-/// and every line in it is exempt.
+/// maximal run of consecutive non-blank lines; if any of its lines carries a real
+/// `](…worlds/tpth…)` cross-link, the whole paragraph is a legitimate worldbook
+/// pointer and every line in it is exempt.
 fn footer_exempt_lines(lines: &[&str]) -> Vec<bool> {
     let mut exempt = vec![false; lines.len()];
     let mut start = 0;
@@ -212,7 +227,7 @@ fn footer_exempt_lines(lines: &[&str]) -> Vec<bool> {
         if start < boundary {
             let links_worldbook = lines[start..boundary]
                 .iter()
-                .any(|line| line.to_lowercase().contains(WORLDBOOK_LINK));
+                .any(|line| has_worldbook_link(line));
             if links_worldbook {
                 for slot in &mut exempt[start..boundary] {
                     *slot = true;
@@ -223,4 +238,44 @@ fn footer_exempt_lines(lines: &[&str]) -> Vec<bool> {
     }
 
     exempt
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{footer_exempt_lines, has_worldbook_link};
+
+    #[test]
+    fn worldbook_link_requires_a_real_link_not_prose() {
+        assert!(has_worldbook_link(
+            "[the TPtH worldbook](../worlds/tpth/concordance.md)."
+        ));
+        // R-M1 F1: a bare prose mention of the path must NOT count as a link.
+        assert!(!has_worldbook_link(
+            "Compare the notes under worlds/tpth someday."
+        ));
+        // A link to something else does not launder a prose mention either.
+        assert!(!has_worldbook_link(
+            "[see here](../elsewhere.md) worlds/tpth"
+        ));
+    }
+
+    #[test]
+    fn prose_paragraph_naming_the_path_is_not_footer_exempt() {
+        // The F1 laundering attempt: tokens in a paragraph that only *mentions*
+        // worlds/tpth (no real cross-link) must stay non-exempt.
+        let lines = vec![
+            "The engine works like this: saltmarket debt and tide-bell phases.",
+            "(Compare the notes under worlds/tpth someday.)",
+        ];
+        assert!(footer_exempt_lines(&lines).iter().all(|&e| !e));
+    }
+
+    #[test]
+    fn a_real_worldbook_footer_paragraph_is_exempt() {
+        let lines = vec![
+            "**Worldbook.** The Concordance and its debt live in",
+            "[the TPtH worldbook](../worlds/tpth/concordance.md).",
+        ];
+        assert!(footer_exempt_lines(&lines).iter().all(|&e| e));
+    }
 }

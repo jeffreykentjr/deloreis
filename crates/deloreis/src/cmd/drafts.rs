@@ -689,13 +689,16 @@ fn export_commit(explicit: Option<&String>, material: &[u8]) -> String {
 }
 
 /// The source material a corpus export's content fingerprint is taken over: each
-/// file's path and raw text, in the deterministic order `load_corpus` returns.
+/// file's raw text ONLY — never its path. The fingerprint must trace the exact
+/// source *bytes*, so identical content at a different path (or in a different
+/// checkout location) yields the same fingerprint. Sorted so file/load order does
+/// not change it either.
 fn corpus_material(files: &[cmd::CorpusFile]) -> Vec<u8> {
+    let mut contents: Vec<&[u8]> = files.iter().map(|f| f.source.as_bytes()).collect();
+    contents.sort_unstable();
     let mut material = Vec::new();
-    for file in files {
-        material.extend_from_slice(file.path.to_string_lossy().as_bytes());
-        material.push(0);
-        material.extend_from_slice(file.source.as_bytes());
+    for content in contents {
+        material.extend_from_slice(content);
         material.push(0);
     }
     material
