@@ -3,7 +3,7 @@ status: live
 verdict: "The deloreis ↔ fantasy worker contract: parties, transport, the dli.* and author.* inventories, the closed fixture registry, authority and sync, versioning, guarantees, requirements, the error taxonomy, and change control."
 ---
 
-# The fantasy-worker contract
+# The dli-worker contract
 
 > **A worked integration: the fantasy factory.** This is one consumer of the
 > generic `dli-worker` contract — the fantasy repository's audio-drama factory,

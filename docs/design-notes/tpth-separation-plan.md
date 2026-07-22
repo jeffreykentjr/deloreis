@@ -181,7 +181,7 @@ forks; each is an individually-verified step, not a big-bang.
 - ✅ `KERNEL_CYCLES` ambient cycles → empty default + `worlds/tpth/time/cycles.dli` (b5dd94b).
 - ✅ `profile.rs::Registry::builtin` → data-loaded profiles from `worlds/tpth/export/profiles.json` (b5dd94b).
 - ⏳ `loader.rs::example_docs` → a **PD example world** (not a bare toy — see *The generic corpus* below); `session.rs::builtin_pack` → corpus-dir.
-- ⏳ Contract rename `fantasy-worker` → `dli-worker` + consumer profile (touches registry + fixtures).
+- ✅ Contract rename `fantasy-worker` → `dli-worker` + consumer profile (touches registry + fixtures) — DL-0018, `contracts/dli-worker/`.
 
 **Phase 3 — craft to config — ✅ DONE (Steps 1–5; Step 6 = the factory-interface spec)**
 - ✅ Step 1 (`Kb` handle + config-as-argument) · ✅ Step 2 (`Cow`/serde data-loadable records) · ✅ Step 3 (season/outline policy → `config.rs`) · ✅ Step 4 (shipped `craft-doctrines/` library, 83 records) · ✅ Step 5 (author `worlds/tpth/craft/` + `apply()` + round-trip golden + flip source + strip the TPtH const; `dli-world` tests moved to `worlds/example`).

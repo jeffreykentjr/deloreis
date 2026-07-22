@@ -271,7 +271,7 @@ should become ratified canon, promotion is a later `dli.fork.promote` →
 `docs/rulings/` ruling request, ruled by the author, per the standing SOP. The
 machine never wrote canon at any step.
 
-The seed golden fixture (`contracts/fantasy-worker/fixtures/golden/author-session-v1.json`)
+The seed golden fixture (`contracts/dli-worker/fixtures/golden/author-session-v1.json`)
 demonstrates this same tool flow against the example world; the fixture that
 encodes THIS scenario against the pinned TPtH corpus lands at `AUTH-2` (it
 needs the vendored corpus, `EXT-F2`) and becomes CP-10's replay evidence.
