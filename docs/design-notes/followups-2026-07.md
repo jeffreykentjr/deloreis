@@ -1,0 +1,90 @@
+---
+status: reference
+verdict: "The engineering follow-ups outstanding after the 2026-07 items-2/3/4 + Tier-A work: LOW/by-design remainders the red-teams surfaced and left on purpose, each with a file:line anchor. The big roadmap (Tier B/C/D) lives in PLAN.md + decisions.md + integration/STATUS.md; this note captures only what those don't."
+---
+
+# Outstanding follow-ups (2026-07)
+
+This note exists so the small engineering follow-ups surfaced during the
+items-2/3/4 build and the Tier-A round are **tracked in a committed file**, not
+only in ephemeral red-team task outputs. Every CRITICAL/HIGH/MEDIUM finding from
+those red-teams was fixed and committed; what remains below is LOW-or-by-design,
+kept on purpose. Each item names its `file:line` and how it was found.
+
+The **larger roadmap is tracked elsewhere** — this note does not duplicate it:
+
+- **Tier B (needs an author ruling)** and **Tier D (parked behind a flip
+  condition)** — `docs/PLAN.md` node registry (BENCH-1/2, SURF-4, DEF-1..4,
+  EXT-A1/A2) + `docs/decisions.md` (DL-0005, DL-0022) + `bench-deferral.md`.
+- **Tier C (the cross-repo fantasy cutover)** — `docs/integration/STATUS.md`
+  (CP-1…CP-10, all `proposed`), `docs/integration/fantasy-contract.md`, and the
+  MIG-3/4 / EXT-F1/F3/F4 nodes in `PLAN.md`.
+- **The three pending craft mutation operators** — `docs/design-notes/mutation-coverage.md`.
+- **The Ludii trace differential** — `DifferentialStatus::Pending` in
+  `crates/dli-game/src/export.rs`, gated by DL-0013 (Ludii not provisioned offline).
+- **Ledger revisit triggers** (async simulate; real corpus-passing channel; the
+  craft-library pack set on a 2nd world; post-freeze surface migrations) —
+  `docs/decisions.md` DL-0021 / DL-0018 / DL-0016.
+
+## The follow-ups
+
+### F1 — negation blame names the proposal variable, not the atom (LOW)
+`crates/dli-eval/src/why.rs:320` (`render_why_not`, the `"at risk from"` /
+`"defeated by"` lines at :339/:341). For a certain-at-risk or defeated conclusion,
+the blame line renders the defeater as its anonymous bundle variable (e.g.
+`h.nine-realms#2`) instead of the atom that poisoned it (`stormed(asgard)`), and
+the `#N` index shifts as other proposed facts are added earlier. The **assertion**
+surface (`status`/`at_risk`, fork diffs) is correct; only the human-readable "why"
+is opaque. Fix: thread the inverted provenance index into `render_why_not` so the
+defeater renders to its atom name. Found by R-M1 F4 / R-A3 (verify pass).
+
+### F2 — `fork.promote` renders the internal `ForkId`, not the wire handle (LOW, pre-existing)
+`crates/dli-serve/src/handlers.rs:296` (`handle_fork_promote`, `slug`/`ask` at
+:304-305). A consumer opens `fork-1` but the promote draft's `slug`/`ask` say
+`fork-0` (the internal id). Baked into `contracts/dli-worker/fixtures/golden/fork-promote-v1.json`.
+Pre-existing — fork.promote was wired before the 2026-07 work; surfaced only
+because `fork.add` now feeds it. Fix: map the internal `ForkId` back to the wire
+handle in the promote draft. Found by R-A1.
+
+### F3 — L2-contradicted residuals (LOW/by-design)
+`crates/dli-world/src/scene_projection.rs:233` (`denied_by_exclusivity`). A3 made
+`forsworn`/rebound reachable via option-exclusivity denials, but two edges remain:
+- the "certain **negative** fact" contradiction sub-case is **not** implemented —
+  the language has no stored negative ground-fact primitive (negation lives in
+  rule bodies / defeaters per `spec/02-semantics.md §4`); exclusivity is the only
+  concrete contradiction primitive today.
+- a cross-family predicate-reuse hazard: when two different questions share an
+  outcome atom that is certain, siblings in *both* families are denied. Defensible
+  under "an option whose outcome is certain is the settled answer," but authors
+  reusing a predicate across questions should know. Found by R-A3.
+
+### F4 — `fork.add` asserts any parseable fact by fiat (INFO/by-design)
+`crates/dli-serve/src/handlers.rs:341` (`additions_from_declarations`,
+`Ann::unconditional()` at :354). A forked add discards the decl's declared status
+and its own annotation, strips a dangling citation yet still asserts the fact
+certain, and admits a fact referencing an undeclared symbol. This is the intended
+what-if semantics (a fork is session-local; `promote` yields only a *draft*, never
+canon), so the certain-canon trust boundary holds — but `fork.add` cannot
+introduce a merely-*possible* fact and bypasses the B1 citation-authority check the
+base `check` enforces. Revisit only if forks need graded/provenanced additions.
+Found by R-A1.
+
+### F5 — `name.check` honest-subset over-claim + server `camelot` id-collision (LOW)
+- `crates/dli-serve/src/contract.rs:501` (`NameCheckResult`, doc-comment
+  `"Findings from the six-check vetting"` at :504) over-claims: the wire op runs
+  phonotactics-only against the named dialect, or the empty `LanguageModel::default()`
+  when no dialect is named — no uniqueness/collision check. It is the documented
+  honest subset (`spec/05-language-layer.md §3`); the doc-comment should say so.
+- `crates/dli-serve/src/session.rs:220`: the `"camelot"` builtin resolves the
+  hand-built `example_docs()` (no proof block), so `dli.check-proof {document:"camelot"}`
+  can't check a proof — only the `round-table` / `warding-vows` demo worlds carry
+  one. A v0 resolver limitation (the wire ops carry only `{document}`); folds away
+  when the worker gains a real corpus-passing channel (DL-0021 revisit trigger).
+  Found by R-BC F5 / R-A1.
+
+### F6 — `parse_caps` / `simulate --cap` minor input handling (LOW, mostly hardened)
+`crates/deloreis/src/cmd/drafts.rs` (`parse_caps`). R-A3 hardened this: negative
+and empty-resource caps now error. Remaining by-design: a duplicate
+`--cap res=3 --cap res=9` silently last-wins (BTreeMap), no diagnostic; a cap for a
+resource the practice does not declare `affine bounded` is simply unused (stays
+deferred). Neither is wrong; a warning would be friendlier. Found by R-A3.
