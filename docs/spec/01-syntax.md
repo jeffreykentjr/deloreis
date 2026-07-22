@@ -125,33 +125,33 @@ lines of it:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-scope saltmarket
+scope camelot
 
-era founding   "The Landing"      decided d-0001
-era now        "The Ninth Tide"   after founding
+era uthers-time   "Uther's Time"    decided d-0001
+era arthurs-reign "Arthur's Reign"  after uthers-time
 
-place saltmarket   "Saltmarket"     decided d-0001
-place the-shallows "The Shallows"   decided d-0003
-place breakwater   "The Breakwater" proposed
+place camelot  "Camelot"      decided d-0001
+place the-lake "The Lake"     decided d-0003
+place avalon   "Avalon"       proposed
 
-adjacent(saltmarket, the-shallows)  decided d-0003
+adjacent(camelot, the-lake)   decided d-0003
 
-person mara "Mara of the Weirs"     decided d-0002
-  mara.trade = eel-fisher           decided d-0002
-  mara.home  = the-shallows         proposed
+person merlin "Merlin the Counsellor"  decided d-0002
+  merlin.trade = counsellor            decided d-0002
+  merlin.home  = the-lake              proposed
 
-thing tide-bell "The Tide-Bell"     decided d-0004
-  tide-bell.kept-at = saltmarket    decided d-0004
+thing excalibur "Excalibur"       decided d-0004
+  excalibur.kept-at = camelot     decided d-0004
 
-question q-0001 "Who raised the Tide-Bell?"
-  option guild      implies raised-by(tide-bell, guild)
-  option marsh-folk implies raised-by(tide-bell, marsh-folk)
+question q-0001 "Who drew Excalibur from the stone?"
+  option arthur  implies drawn-by(excalibur, arthur)
+  option mordred implies drawn-by(excalibur, mordred)
 ```
 
 `deloreis check` answers in the same register the file is written in:
 
-> *saltmarket: 10 claims certain, 3 proposed, 1 open question (q-0001).
-> `breakwater` has no decision behind it — fine as notes; it stays proposed and
+> *camelot: 10 claims certain, 3 proposed, 1 open question (q-0001).
+> `avalon` has no decision behind it — fine as notes; it stays proposed and
 > out of canon until you decide.*
 
 The writer's ledger is just their own decision list — `d-0001` is a line in a
@@ -200,7 +200,7 @@ Three deliberate stances make the surface humane rather than merely small.
 world-record artifact, authored with the same care as any other surface, and it
 never speaks in compiler idiom. Not *"unbound identifier"* but:
 
-> *`breakwater` needs a ruling before this can be asserted — record a decision,
+> *`avalon` needs a ruling before this can be asserted — record a decision,
 > mark it proposed, or move the claim into a fork.*
 
 Not *"no Ord instance"* but:

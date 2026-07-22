@@ -23,7 +23,7 @@ use walkdir::WalkDir;
 /// whole-word (ASCII boundary) and case-insensitively; keep them lowercase.
 /// `D-nnnn` decision ids are deliberately absent — they legitimately appear in
 /// mechanism doc-comments.
-const WORLD_TOKENS: &[&str] = &[
+pub(crate) const WORLD_TOKENS: &[&str] = &[
     "enfys",
     "aalto",
     "the-debt-square",
@@ -41,13 +41,15 @@ const WORLD_TOKENS: &[&str] = &[
     "the-multitude",
     "gwern",
     "tide-bell",
+    "mara",
+    "breakwater",
 ];
 
 /// A permitted current leak: real-engine-code uses of specific world tokens in one
 /// file, tracked as debt with a removal note. A flagged line in `file` is exempt
 /// only if EVERY world token it names is in `tokens`; a leak of any *other* token
 /// in the same file still fails the guard.
-#[allow(dead_code)] // the tracked-debt allowlist mechanism; ALLOWLIST is currently EMPTY — the engine is fully TPtH-free
+#[allow(dead_code)] // the tracked-debt allowlist mechanism
 struct Allow {
     /// Repo-relative path (forward slashes).
     file: &'static str,
@@ -57,10 +59,10 @@ struct Allow {
     note: &'static str,
 }
 
-/// The tracked-debt allowlist. NOTE: `crates/dli-world/src/craft/load.rs`'s
-/// `FORBIDDEN_WORLD_TOKENS` (the anti-leak lint corpus) is NOT listed — it lives
-/// inside `#[cfg(test)] mod doctrine_tests`, so the test-code exclusion already
-/// covers it; those tokens are the needles the lint screens for, not content.
+/// The tracked-debt allowlist — currently EMPTY. Engine real code is fully
+/// TPtH-free (the separation invariant): no `## Section` cites a world token in a
+/// non-comment, non-test line. An entry here (or a `// tpth-exempt:` marker) is how
+/// a genuine, temporary leak would be tracked; none exist today.
 const ALLOWLIST: &[Allow] = &[];
 
 /// One real-code leak: a forbidden token in a real (non-comment, non-test) line.
@@ -274,7 +276,7 @@ fn is_path_byte(byte: u8) -> bool {
 /// Whole-word (ASCII-boundary), case-insensitive containment. `haystack` is
 /// lowercased and `needle` is lowercase; a match must be flanked by non-ASCII
 /// -alphanumeric bytes (or the ends). Mirrors the craft lint's `contains_word`.
-fn contains_word(haystack: &str, needle: &str) -> bool {
+pub(crate) fn contains_word(haystack: &str, needle: &str) -> bool {
     let bytes = haystack.as_bytes();
     let mut from = 0;
     while let Some(rel) = haystack[from..].find(needle) {

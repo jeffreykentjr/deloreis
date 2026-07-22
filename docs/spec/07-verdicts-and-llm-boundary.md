@@ -91,7 +91,7 @@ class has exactly one kernel input surface:
 
 | Class | What it is | Example | Human review | Kernel surface |
 |---|---|---|---|---|
-| **Attestation** | a stored model judgment on a bounded question | "Is Enfys a real Welsh given name?" | never, by design | the attestation store (read-only input to checks) |
+| **Attestation** | a stored model judgment on a bounded question | "Is Myrdin a real Welsh given name?" | never, by design | the attestation store (read-only input to checks) |
 | **Candidate** | model-generated content that wants to become canon | thirty hamlet names; a proposal bundle | always — sign-off *is* ratification | hypothesis declarations, via Door T |
 | **Encoding** | model transcription of human content into formal form | cue → proof-ledger; draft → payload | of the rendered form, spot-wise; schema + fixtures always | declarations with `encoded-by` provenance |
 | **Gloss** | model prose over structured output | the fork-diff sidebar summary | n/a | none — never stored |
@@ -109,7 +109,7 @@ inside those tools, not a door.
 An attestation is a model judgment that will **never receive human review — by
 design, not neglect.** Author review time is the scarcest resource in the
 system; questions with a fact-of-the-matter *outside* the repo — a register's
-real basis ("is Enfys Welsh?"), homophone plausibility, tone-fit — are exactly
+real basis ("is Myrdin Welsh?"), homophone plausibility, tone-fit — are exactly
 the questions to spend model time on and zero author time. But "never reviewed"
 does not mean "silently trusted." It means **stored, graded, and replayable**: an
 attestation is a committed record, not a transient answer.
@@ -118,7 +118,7 @@ attestation is a committed record, not a transient answer.
 # lore/attest/naming/q-3f9c21.att.yaml   (append-only per question; head answers it)
 question:
   kind: register-real-basis
-  atom: name-basis(enfys, welsh-common-given)
+  atom: name-basis(myrdin, welsh-common-given)
 answer: yes
 rationale_hash: "sha256:c41a…"        # full text lives in the sweep manifest
 model: {provider: bedrock, id: claude-fable-5, as_of: 2026-07-19}

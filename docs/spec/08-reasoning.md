@@ -117,7 +117,7 @@ arithmetic theory solving · **CHECK** proof checking, linear in proof length ·
 | T17 | Turning legal moves; deck invariants under deltas | successor + finite invariant enumeration | ENUM | yes | no |
 | T18 | Ruleset-space exploration | legality: sweep now, ASP-shaped iff generative; metrics: simulation | ENUM/ASP + MC | sweep + battery: yes | clingo when enumeration goes generative |
 | T19 | Rank-emergence / thesis-alignment metrics | statistical estimation over simulated play | MC (+ MCTS) | battery: yes | ISMCTS lab-side; results `tested` forever |
-| T20 | Concordance ledger checking | proof CHECKING — linear, decidable, no search | CHECK | yes | no — the paradigm reimplement case |
+| T20 | Proof-ledger checking | proof CHECKING — linear, decidable, no search | CHECK | yes | no — the paradigm reimplement case |
 | T21 | Metatheorems | interactive proving, offline | Lean | no, by design | spec organ; badged lemmas |
 | T22 | The proof layer itself (gate coverage) | seeded-violation operators × real gates | MC/ENUM | harness exists | no |
 
@@ -176,7 +176,7 @@ exact checker (§5), with clingo retained only as a differential oracle.
 **The two rows that anchor "reimplement."** T2 (transitive closures) is the
 irreducible center: recursive datalog over a finite domain *is* the engine, and
 there is nothing to integrate because this row is the thing being built. T20
-(Concordance ledger checking) is the paradigm reimplement case at the other end:
+(proof-ledger checking) is the paradigm reimplement case at the other end:
 proof checking is linear in proof length, decidable, and contains no search at
 all — a small first-order checker with explicit instantiation and linear
 resource accounting, whose verdicts certify canon and therefore must be owned,
@@ -185,7 +185,7 @@ evaluation or checking, and every proposing task is search or simulation held
 behind the judgment boundary.
 
 **The synthesis.** The certification path — everything that gates canon
-assertion, continuity, the export pack, the Concordance — is deterministic
+assertion, continuity, the export pack, the proof ledger — is deterministic
 evaluation and checking: polynomial per evaluation, terminating by construction,
 no search anywhere. That is the crisp line under all twenty-two rows.
 
@@ -273,7 +273,7 @@ Per seat:
 ## 7. The Lean posture
 
 Lean is an offline spec organ, adopted later, never in the serving path. The
-Concordance checker is a first-order object — atoms, explicit instantiation,
+proof-ledger checker is a first-order object — atoms, explicit instantiation,
 around nine forms, side conditions, and linear accounting — and a full CIC
 embedding would supply dependent types the design never uses while lacking the
 one thing it most needs, linearity. So Lean is not the checker; it is the spec

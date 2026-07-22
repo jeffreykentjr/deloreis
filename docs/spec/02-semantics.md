@@ -244,9 +244,9 @@ The operations:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
-fork the-guild-raised-the-bell
-  suppose q-0001 = guild
-  add fact raised-by(tide-bell, guild)
+fork arthur-drew-the-sword
+  suppose q-0001 = arthur
+  add fact drawn-by(excalibur, arthur)
 ```
 
 - **suppose** — valuate an open variable within the fork.

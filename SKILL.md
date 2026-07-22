@@ -163,7 +163,7 @@ have not interrogated. The read path costs nothing and mutates nothing.
   `{ok, findings}` — use it to catch a *contradiction* against the base (a
   proposed fact that fights a certain one), not just local reference errors.
 - **`author.query`** proves a consequence before you commit to it: ask
-  `serves(mara, ?who)` and read the rows. A proposed claim comes back
+  `serves(lancelot, ?who)` and read the rows. A proposed claim comes back
   `status:"possible"` — expected, since only a human ruling makes it certain.
 - **`author.why`** answers "why isn't this certain yet?" — `why_not` names the
   blocking rulings and the defeater; `known:false` means the world derives no
@@ -217,12 +217,12 @@ A materialized workspace — the exact bytes `author.materialize` hands back for
 small cast:
 
 ```dli
-scope saltmarket
+scope camelot
 
-person mara "Mara of the Weirs" proposed session-7c9
-mara.trade = eel-fisher proposed session-7c9
-serves(mara, the-warden) proposed session-7c9
-person the-warden "The Warden" proposed session-7c9
+person lancelot "Lancelot of the Lake" proposed session-7c9
+lancelot.trade = knight proposed session-7c9
+serves(lancelot, the-king) proposed session-7c9
+person the-king "The King" proposed session-7c9
 ```
 
 Read every claim's tail: `proposed session-7c9` says a proposal made in that
@@ -230,22 +230,22 @@ session stands behind it — out of canon until a human rules. A question render
 with its options indented one level, and asserts nothing:
 
 ```dli
-scope saltmarket
+scope camelot
 
-question who-raised-the-bell "Who raised the Tide-Bell?"
-  option guild
-  option marsh-folk
+question who-drew-the-sword "Who drew Excalibur from the stone?"
+  option arthur
+  option mordred
 ```
 
 Time is eras, events, and orderings — every line still ending in its origin:
 
 ```dli
-scope saltmarket
+scope camelot
 
-era founding "The Landing" proposed session-7c9
-event the-drowning "The Drowning" proposed session-7c9
-event the-reclaiming "The Reclaiming" proposed session-7c9
-before the-drowning -> the-reclaiming proposed session-7c9
+era arthurs-reign "Arthur's Reign" proposed session-7c9
+event the-sword-drawn "The Sword Drawn" proposed session-7c9
+event the-battle-of-camlann "The Battle of Camlann" proposed session-7c9
+before the-sword-drawn -> the-battle-of-camlann proposed session-7c9
 ```
 
 The worked call-by-call playbook that produces surfaces like these — every real

@@ -55,7 +55,7 @@ repo:
 4. **A fork manager** — `fork new/suppose/add/diff/promote`, `preflight`:
    what-if worlds as cheap, reviewable, diffable values.
 5. **A ledger checker for any declared practice** — `deloreis check-proof in
-   <practice>`: the Concordance is the Hedgeway instance of a generic
+   <practice>`: any practice's proof ledger is one instance of a generic
    declarative-ledger checker.
 6. **A practice simulator** — `deloreis simulate`: batteries over any declared
    practice with declared metrics and invariants; the Turning is its first
@@ -94,7 +94,7 @@ cite an existing ruling. The machine never writes canon (charter, koan 3).
 
 ## Generality, and the one limit
 
-Nothing in the kernel is Hedgeway-specific; the domain keywords are a small
+Nothing in the kernel is world-specific; the domain keywords are a small
 standard prelude. The language generalizes:
 
 - **Another fiction world** — direct; only the Turning is bespoke, and it is a

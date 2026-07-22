@@ -249,7 +249,7 @@ fn split_atom(text: &str) -> Result<(String, Vec<String>), ErrorBody> {
     let malformed = || ErrorBody {
         code: ErrorCode::SchemaViolation,
         message: format!(
-            "'{text}' is not a pred(args) atom; write a rendered goal like serves(mara, ?who)"
+            "'{text}' is not a pred(args) atom; write a rendered goal like serves(lancelot, ?who)"
         ),
         data: None,
     };

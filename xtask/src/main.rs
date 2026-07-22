@@ -11,7 +11,7 @@ fn main() -> Result<()> {
 
     let Some((command, rest)) = args.split_first() else {
         eprintln!(
-            "usage: xtask <gate|schema|fixtures|docgen|docs-oracle|book|loc|boundary|hooks-check>"
+            "usage: xtask <gate|schema|fixtures|docgen|docs-oracle|docs-tokens|book|loc|boundary|hooks-check>"
         );
         std::process::exit(2);
     };
@@ -35,6 +35,7 @@ fn main() -> Result<()> {
             xtask::fixtures::run_fixtures(&contract, &schemas, has_flag(rest, "--update-digests"))
         }
         "docs-oracle" => xtask::docs_oracle::run_docs_oracle(&root),
+        "docs-tokens" => xtask::docs_tokens::run_docs_tokens(&root),
         "loc" => xtask::loc::run_loc(&root),
         "boundary" => xtask::boundary::run_boundary(&root),
         "hooks-check" => xtask::hooks::run_hooks_check(),
