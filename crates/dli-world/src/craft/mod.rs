@@ -135,5 +135,5 @@ pub use load::doctrines;
 pub use worldcfg::{
     ConfigError, ConfigLoadError, CraftConfig, FindingRuleCfg, MaterialCategoryCfg,
     NarratorModeRuleCfg, NarratorPolicyCfg, OutlineThresholdsCfg, PrecedenceTier, PrincipleOverlay,
-    ProvenanceCfg, WorldPrinciple, apply, load_config, validate,
+    ProvenanceCfg, WorldPrinciple, apply, build_episode_policy, load_config, validate,
 };

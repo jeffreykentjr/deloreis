@@ -44,13 +44,18 @@ use std::path::Path;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::config::{Disposition, TurnSlot};
+use super::config::{
+    ArcShapeCatalog, DEFAULT_ARC_SHAPES, DEFAULT_FINDING_POLICY, DEFAULT_MATERIAL_CATALOG,
+    DEFAULT_NARRATOR_POLICY, DEFAULT_PROVENANCE, Disposition, FindingPolicy, FindingRule,
+    MaterialCatalog, MaterialCategory, NarratorModeRule, NarratorPolicy, ProvenanceFormats,
+    TurnSlot,
+};
 use super::kb::{
     Binding, CheckableKind, DoctrinePack, DoctrinePrinciple, Family, MissionFilter, Phase,
     Principle, Scalar,
 };
 use super::outline::{MaterialUnknown, NarratorMode};
-use super::season::Thresholds;
+use super::season::{self, EpisodePolicy, Thresholds};
 use crate::check::Severity;
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // serde `skip_serializing_if` needs `fn(&T)`.
@@ -633,4 +638,305 @@ pub fn load_config(dir: &Path) -> Result<CraftConfig, ConfigLoadError> {
         season_thresholds: thresholds.season,
         outline_thresholds: thresholds.outline,
     })
+}
+
+// ---------------------------------------------------------------------------
+// build_episode_policy — the CraftConfig→EpisodePolicy bridge (design §2.3)
+// ---------------------------------------------------------------------------
+
+/// Build a [`FindingPolicy`] from the config's finding rules, leaking the data to
+/// obtain `'static` references. Falls back to [`DEFAULT_FINDING_POLICY`] when the
+/// config carries no rules.
+fn build_finding_policy(rules: &[FindingRuleCfg]) -> FindingPolicy<'static> {
+    if rules.is_empty() {
+        return DEFAULT_FINDING_POLICY;
+    }
+    let static_rules: &'static [FindingRule<'static>] = Vec::leak(
+        rules
+            .iter()
+            .map(|r| {
+                let code: &'static str = String::leak(r.code.to_string());
+                let citations: &'static [&'static str] = Vec::leak(
+                    r.citations
+                        .iter()
+                        .map(|c| -> &'static str { String::leak(c.to_string()) })
+                        .collect(),
+                );
+                FindingRule {
+                    code,
+                    citations,
+                    severity: r.severity,
+                }
+            })
+            .collect(),
+    );
+    FindingPolicy {
+        rules: static_rules,
+    }
+}
+
+/// Build a [`NarratorPolicy`] from the config's narrator policy, leaking the data
+/// to obtain `'static` references. Falls back to [`DEFAULT_NARRATOR_POLICY`] when
+/// the config carries no narrator policy.
+fn build_narrator_policy(cfg: Option<&NarratorPolicyCfg>) -> NarratorPolicy<'static> {
+    let Some(np) = cfg else {
+        return DEFAULT_NARRATOR_POLICY;
+    };
+    let mode_rules: &'static [NarratorModeRule] = Vec::leak(
+        np.mode_rules
+            .iter()
+            .map(|r| NarratorModeRule {
+                mode: r.mode,
+                disposition: r.disposition,
+            })
+            .collect(),
+    );
+    NarratorPolicy {
+        mode_rules,
+        direct_address: np.direct_address,
+    }
+}
+
+/// Build a [`ProvenanceFormats`] from the config's provenance settings, leaking the
+/// data to obtain `'static` references. Falls back to [`DEFAULT_PROVENANCE`] when
+/// the config carries no provenance.
+fn build_provenance(cfg: Option<&ProvenanceCfg>) -> ProvenanceFormats<'static> {
+    let Some(prov) = cfg else {
+        return DEFAULT_PROVENANCE;
+    };
+    let canon_prefix: &'static str = String::leak(prov.canon_prefix.to_string());
+    let research_url_schemes: &'static [&'static str] = Vec::leak(
+        prov.research_url_schemes
+            .iter()
+            .map(|s| -> &'static str { String::leak(s.to_string()) })
+            .collect(),
+    );
+    let research_id_prefix: &'static str = String::leak(prov.research_id_prefix.to_string());
+    let research_path_prefix: &'static str = String::leak(prov.research_path_prefix.to_string());
+    let research_path_suffix: &'static str = String::leak(prov.research_path_suffix.to_string());
+    ProvenanceFormats {
+        canon_prefix,
+        canon_digits: prov.canon_digits,
+        research_url_schemes,
+        research_id_prefix,
+        research_id_digits: prov.research_id_digits,
+        research_path_prefix,
+        research_path_digits: prov.research_path_digits,
+        research_path_suffix,
+    }
+}
+
+/// Build a [`MaterialCatalog`] from the config's material categories, leaking the
+/// data to obtain `'static` references. Falls back to [`DEFAULT_MATERIAL_CATALOG`]
+/// when the config carries no catalog entries.
+fn build_material_catalog(cats: &[MaterialCategoryCfg]) -> MaterialCatalog<'static> {
+    if cats.is_empty() {
+        return DEFAULT_MATERIAL_CATALOG;
+    }
+    let entries: &'static [MaterialCategory] = Vec::leak(
+        cats.iter()
+            .map(|c| MaterialCategory {
+                category: c.category,
+                required: c.required,
+            })
+            .collect(),
+    );
+    MaterialCatalog { entries }
+}
+
+/// Build an [`ArcShapeCatalog`] from the config's outline thresholds. Falls back to
+/// [`DEFAULT_ARC_SHAPES`] when the config carries no outline thresholds.
+fn build_arc_shapes(cfg: Option<&OutlineThresholdsCfg>) -> ArcShapeCatalog {
+    cfg.map_or(DEFAULT_ARC_SHAPES, |ot| ArcShapeCatalog {
+        turn_slot: ot.turn_slot,
+    })
+}
+
+/// Build an [`EpisodePolicy`] from a loaded [`CraftConfig`] — the bridge that
+/// makes world-authored craft config actually feed the checker (design §2.3,
+/// audit findings F7B-1/F7B-2/F8-1).
+///
+/// World-specific policy fields (finding policy, narrator policy, provenance,
+/// material catalog, thresholds, arc shapes) are taken from the config when
+/// present, falling back to the compiled defaults from [`super::config`] when
+/// absent. Battle vocabulary and similar linguistic constants always use the
+/// static defaults — they are generic linguistic patterns, not world content.
+///
+/// The returned policy has `'static` lifetime: config data loaded once at startup
+/// is leaked to provide the borrowed slices the zero-copy [`EpisodePolicy`]
+/// requires. This is intentional and acceptable for a load-once-at-startup config
+/// path.
+///
+/// # Example
+///
+/// ```no_run
+/// use std::path::Path;
+/// use dli_world::craft::worldcfg::{load_config, build_episode_policy};
+///
+/// let cfg = load_config(Path::new("worlds/tpth/craft")).unwrap();
+/// let policy = build_episode_policy(&cfg);
+/// // policy is now usable with check_episode(ep, opts, &policy)
+/// ```
+#[must_use]
+pub fn build_episode_policy(cfg: &CraftConfig) -> EpisodePolicy<'static> {
+    let finding_policy = build_finding_policy(&cfg.finding_policy);
+    let narrator_policy = build_narrator_policy(cfg.narrator_policy.as_ref());
+    let provenance = build_provenance(cfg.provenance.as_ref());
+    let material_catalog = build_material_catalog(&cfg.material_catalog);
+    let arc_shapes = build_arc_shapes(cfg.outline_thresholds.as_ref());
+
+    // Outline scalars: use config when present, otherwise fall back to the
+    // compiled policy leaf tables.
+    let (scene_cast_ceiling, hook_seconds_ceiling, slider_flat_ceiling, slider_low_floor) =
+        match &cfg.outline_thresholds {
+            Some(ot) => (
+                ot.scene_cast_ceiling,
+                ot.hook_seconds_ceiling,
+                ot.slider_flat_ceiling,
+                ot.slider_low_floor,
+            ),
+            None => (
+                season::policy::SCENE_CAST_CEILING,
+                season::policy::HOOK_SECONDS_CEILING,
+                season::policy::SLIDER_FLAT_CEILING,
+                season::policy::SLIDER_LOW_FLOOR,
+            ),
+        };
+
+    EpisodePolicy {
+        scene_cast_ceiling,
+        hook_seconds_ceiling,
+        slider_flat_ceiling,
+        slider_low_floor,
+        // Battle vocabulary: generic linguistic patterns, always use static defaults.
+        battle_single: season::policy::BATTLE_SINGLE,
+        battle_pairs: season::policy::BATTLE_PAIRS,
+        finding_policy,
+        narrator_policy,
+        provenance,
+        material_catalog,
+        arc_shapes,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn tpth_craft_dir() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../worlds/tpth/craft")
+            .canonicalize()
+            .expect("worlds/tpth/craft exists at the repo root")
+    }
+
+    #[test]
+    fn build_episode_policy_from_tpth_config() {
+        let cfg = load_config(&tpth_craft_dir()).expect("TPtH craft config loads");
+        let policy = build_episode_policy(&cfg);
+
+        // The finding policy rules should match the config's rules count and codes.
+        assert_eq!(
+            policy.finding_policy.rules.len(),
+            cfg.finding_policy.len(),
+            "finding policy rule count matches config"
+        );
+        for (got, want) in policy.finding_policy.rules.iter().zip(&cfg.finding_policy) {
+            assert_eq!(got.code, want.code.as_ref(), "finding rule code matches");
+            let got_cites: Vec<&str> = got.citations.to_vec();
+            let want_cites: Vec<&str> = want.citations.iter().map(Cow::as_ref).collect();
+            assert_eq!(got_cites, want_cites, "citations for {} match", got.code);
+            assert_eq!(
+                got.severity, want.severity,
+                "severity for {} matches",
+                got.code
+            );
+        }
+
+        // Narrator policy matches config.
+        let np = cfg
+            .narrator_policy
+            .as_ref()
+            .expect("TPtH config carries narrator_policy");
+        assert_eq!(
+            policy.narrator_policy.mode_rules.len(),
+            np.mode_rules.len(),
+            "narrator mode rule count matches"
+        );
+        assert_eq!(
+            policy.narrator_policy.direct_address, np.direct_address,
+            "narrator direct_address matches"
+        );
+
+        // Provenance matches config.
+        let prov = cfg
+            .provenance
+            .as_ref()
+            .expect("TPtH config carries provenance");
+        assert_eq!(policy.provenance.canon_prefix, prov.canon_prefix.as_ref());
+        assert_eq!(policy.provenance.canon_digits, prov.canon_digits);
+
+        // Material catalog matches config.
+        assert_eq!(
+            policy.material_catalog.entries.len(),
+            cfg.material_catalog.len(),
+            "material catalog entry count matches"
+        );
+        for (got, want) in policy
+            .material_catalog
+            .entries
+            .iter()
+            .zip(&cfg.material_catalog)
+        {
+            assert_eq!(got.category, want.category);
+            assert_eq!(got.required, want.required);
+        }
+
+        // Outline scalars from config.
+        let ot = cfg
+            .outline_thresholds
+            .as_ref()
+            .expect("TPtH config carries outline_thresholds");
+        assert_eq!(policy.scene_cast_ceiling, ot.scene_cast_ceiling);
+        assert_eq!(policy.hook_seconds_ceiling, ot.hook_seconds_ceiling);
+        assert_eq!(policy.slider_flat_ceiling, ot.slider_flat_ceiling);
+        assert_eq!(policy.slider_low_floor, ot.slider_low_floor);
+
+        // Arc shapes from config.
+        assert_eq!(policy.arc_shapes.turn_slot, ot.turn_slot);
+
+        // Battle vocabulary uses static defaults.
+        assert_eq!(
+            policy.battle_single,
+            season::policy::BATTLE_SINGLE,
+            "battle_single is the static default"
+        );
+    }
+
+    #[test]
+    fn build_episode_policy_empty_config_uses_defaults() {
+        let cfg = CraftConfig::default();
+        let policy = build_episode_policy(&cfg);
+
+        // All fields fall back to compiled defaults.
+        assert_eq!(
+            policy.finding_policy.rules.len(),
+            super::super::config::DEFAULT_FINDING_POLICY.rules.len(),
+            "empty config falls back to DEFAULT_FINDING_POLICY"
+        );
+        assert_eq!(
+            policy.scene_cast_ceiling,
+            season::policy::SCENE_CAST_CEILING
+        );
+        assert_eq!(
+            policy.hook_seconds_ceiling,
+            season::policy::HOOK_SECONDS_CEILING
+        );
+        assert_eq!(
+            policy.slider_flat_ceiling,
+            season::policy::SLIDER_FLAT_CEILING
+        );
+        assert_eq!(policy.slider_low_floor, season::policy::SLIDER_LOW_FLOOR);
+    }
 }
