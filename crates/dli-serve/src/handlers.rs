@@ -8,12 +8,10 @@
 //! evolve independently. [`handle`] is the frozen dispatch seam the serve loop
 //! (and `CLI-1`) call; each op has one small typed handler.
 //!
-//! Ops that are capability-gated (`dli.check-proof`'s rich `ProofReport` awaits
-//! the scene projection, `dli.export.run`, `dli.simulate.*`, `dli.timeline.*`,
-//! and `dli.fork.add`'s declaration parser) are answered with the typed
-//! [`ErrorCode::NotWired`] capability error rather than a panic — honest
-//! capability negotiation (`10-serving.md` §2), with a domain-spoken message
-//! naming the op and its pending milestone.
+//! All 46 operations (27 `dli.*` + 19 `author.*`) are fully dispatched through
+//! [`handle`]; [`ErrorCode::NotWired`] is never constructed. The capability-gated
+//! regime described in earlier iterations of this comment is historical — the
+//! DL-0021 and ec92efd wiring waves completed the dispatch table.
 
 // The contract module is one flat table of param/result structs; a scoped glob
 // is clearer than a 40-line import list, exactly as `schema.rs` does it.

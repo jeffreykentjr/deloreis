@@ -78,8 +78,9 @@ they touch; they are not a lane of their own.
 - **DOCS-2** — The spec suite: `spec/00-overview.md`, the per-lane specs, and
   the design notes.
   *Needs:* DOCS-1. *Produces:* the buildable spec of each lane. *Oracle:* every
-  spec has frontmatter; every fenced example passes the docs-oracle (the probe
-  classifier until SURF-1; a full compile after).
+  spec has frontmatter; every fenced example passes the docs-oracle (the real
+  parser, `dli_syntax::parse_document`, over every fenced `.dli` block and
+  every committed example).
 - **EXT-A1** — *(external — author.)* The author's standing ruling queue filed
   as live ruling requests: the migration RQ batch and the Turning RQs.
   *Needs:* none. *Produces:* the queue the author rules against. *Oracle:* the
@@ -535,22 +536,20 @@ the AST, the evaluator, the verdict lattice, and the loader exist, eleven nodes
 across nine lanes are simultaneously unblocked. The build's rate from there is
 set by how many of them run at once, not by any single node's length.
 
-### Current state (as of the bootstrap commit)
+### Current state
 
-- **Done:** INFRA-1, DOCS-1, DOCS-2. CORE-1 is **partially** done: the AST
-  types and the schemars-derived schema exist and are gate-enforced; the
-  recursive-descent parser is a `todo!()` skeleton (the probe classifier stands
-  in for it — see the docs-oracle note below).
-- **Seeded ahead of the DAG:** CON-1's *artifacts* (the 41-op schemas, the
+- **Done:** INFRA-1, DOCS-1, DOCS-2. CORE-1 is **done**: the AST types, the
+  schemars-derived schema, and the recursive-descent parser
+  (`dli_syntax::parse_document`) are live and gate-enforced; zero `todo!()`
+  bodies remain in the codebase.
+- **Seeded ahead of the DAG:** CON-1's *artifacts* (the 46-op schemas, the
   closed registry, the seed golden/negative/raw fixtures) were built at
   bootstrap so the contract could be designed before the engine. CON-1's
-  *oracle* — verdict parity against a running server — remains blocked on
-  ENG-2; the `golden_dispatch` test stays `#[ignore]` until then, which is why
-  the ENG-2 → CON-1 edge stands. The per-op fixture-completeness rule
-  (contract §4) is likewise a CON-1/cutover obligation, not a seed-state fact:
-  the seed set covers the flow families, not every op.
-- **Everything else** is real types with `todo!()` behavior; each `#[ignore]`
-  test names the PLAN node that enables it.
+  *oracle* — verdict parity against a running server — is live; the
+  `golden_dispatch_matches` test runs un-ignored. The per-op
+  fixture-completeness rule (contract §4) is likewise a CON-1/cutover
+  obligation, not a seed-state fact: the seed set covers the flow families, not
+  every op.
 
 ## Milestones (node-sets, not dates)
 

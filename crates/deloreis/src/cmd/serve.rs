@@ -9,11 +9,10 @@
 //! `0`, an I/O failure → usage). The MCP transport is a wrapper over the same
 //! ops, not a second protocol, so both reach identical kernel paths.
 //!
-//! The loop never panics on `dli.*` traffic — ops whose engine has not landed
-//! answer with a typed capability error, not a crash. The one caller-reachable
-//! panic is `author.*` traffic, which the worker routes through Door T
-//! (`author::dispatch`, unimplemented until AUTH-1); that is a property of the
-//! worker, not of this delegation.
+//! The loop never panics on any traffic. All 19 `author.*` tools are fully
+//! implemented (`author::dispatch` routes through Door T); all `dli.*` ops are
+//! wired. No capability-gated or unimplemented paths remain — the DL-0021 and
+//! ec92efd wiring waves completed the dispatch table.
 
 use crate::cmd::{CmdResult, EXIT_CLEAN};
 

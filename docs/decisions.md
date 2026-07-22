@@ -532,3 +532,31 @@ ready to consume.
 probe is prioritized AND a live-LLM door-decision run is authorized with a spend
 cap. Details: `design-notes/bench-deferral.md`; the PLAN nodes are marked
 `*(deferred.)*`.
+
+## DL-0023 — Door T read tools: 5 non-mutating `author.*` queries
+
+*Date: 2026-07-22*
+
+**Ruling.** Door T's served `author.*` set (DL-0014's 14 mutating tools) is
+extended with **5 read tools** — non-mutating queries that let an agent inspect
+workspace and world state without staging anything:
+
+- `author.query` — query the compiled world (pattern-match over derived atoms).
+- `author.check` — run the full check battery and return graded findings.
+- `author.why` — explain a derivation (the why-not provenance trace).
+- `author.findings` — retrieve the current findings for the workspace.
+- `author.list_workspaces` — enumerate available workspaces.
+
+The served `author.*` tool set is now **19 tools total** (14 mutating + 5 read).
+These tools were implemented during the DL-0021 wiring wave but never ledgered;
+this entry records them.
+
+**Rationale.** An agent that cannot inspect the world it is authoring into must
+guess at context, provenance, and derivation state. The read tools close the
+inspect-before-you-act loop: query discovers what exists, check reveals what is
+wrong, why explains how a conclusion was reached, findings retrieves the current
+error surface, and list_workspaces orients a cold-starting session. None of them
+mutate the workspace; none carry `expected_digest` or `idempotency_key`.
+
+**Revisit trigger.** Additional read tools (e.g. `author.schema`, `author.history`)
+land as new ledger entries if the tool set grows beyond 19.

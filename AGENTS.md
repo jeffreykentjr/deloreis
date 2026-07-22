@@ -49,10 +49,10 @@ Discipline (`decisions.md` DL-0011):
 - **The gate is offline and deterministic** — no network, ever, in a gating
   lane. The kernel calls no model and reads no clock.
 - **Doc examples are gate-checked.** Every fenced `.dli` example in the docs
-  and the reference cards runs through the docs-oracle in CI; a failing example
-  fails the gate. Until the parser lands (`SURF-1`), the oracle is the keyword
-  probe classifier — line-shape validation, deliberately not a parse; it
-  upgrades to a full compile when the parser exists.
+  and the reference cards runs through the docs-oracle in CI; the oracle runs
+  `dli_syntax::parse_document` — the real front end — over every fenced `.dli`
+  block and committed example. A block producing any error-class diagnostic
+  fails the gate.
 - **Killed forms are registered, never deleted.** A retired keyword, operation,
   or name lands in the killed-form registry and the server refuses it, naming its
   successor.

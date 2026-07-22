@@ -36,6 +36,8 @@ prose/koan taglines retain the metaphor — correctly.
 
 ## Per-doc verdict
 
+> **Staleness notice (2026-07):** This snapshot predates the DL-0021 and ec92efd wiring waves. The 41-op/capability-gated claims below are now stale — see audit-2026-07.md §3.1.9. The note is retained as dated evidence per docs discipline (design notes are not re-litigated).
+
 | Doc | Verdict | Notes |
 |---|---|---|
 | 00 · overview | **corrected** | `deloreis check-ledger`→`check-proof` (CLI, §"seven programs" item 5) and the op-inventory `check-ledger`→`check-proof`. Concept prose ("a ledger checker", "declarative-ledger checker") left intact. |

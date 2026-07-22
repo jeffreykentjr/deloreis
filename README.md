@@ -10,9 +10,9 @@ declarative claim about what the world holds, which is the name, read one way.
 
 ## Status
 
-Spike scaffold. The AST is normative and the grammar is **unfrozen** — the
-surface freezes at the G1 grammar gate, not before. The build is a dependency
-graph, not a schedule; what is runnable now is the graph's frontier. See
+The engine build is complete; the grammar is **unfrozen** — the surface freezes
+at the G1 grammar gate, not before. The build is a dependency graph, not a
+schedule; what is runnable now is the graph's frontier. See
 [`docs/PLAN.md`](docs/PLAN.md) for the frontier and the milestone node-sets.
 
 ## Where to start (in order)

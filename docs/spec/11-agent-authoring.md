@@ -395,6 +395,27 @@ feedback contract. They are invoked in the `author.*` (authoring) and `dli.*`
 (worker-protocol, e.g. `dli.name.check`) namespaces; this document does not
 invent their parameters.
 
+### 3.10 Read tools
+
+Five non-mutating tools let an agent inspect workspace and world state without
+staging anything. They carry no `expected_digest` or `idempotency_key` — they
+are pure queries with no side effects.
+
+| Tool | Purpose |
+|---|---|
+| `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. |
+| `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
+| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. |
+| `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
+| `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, open-finding count, digest). |
+
+Read tools share the standard request envelope (`dli`, `id`, `op`, `params`
+with `workspace` where applicable) and return typed JSON responses. They do not
+appear in the feedback contract's mutating-call shape (§4) — they return
+query-specific result shapes rather than `{ ok, workspace_digest, rendered,
+findings }`. An agent uses them to orient before mutating: query what exists,
+check the current state, understand a derivation, then act.
+
 ## 4. The feedback contract
 
 This is the core of the door. **Every mutating call returns, immediately:**

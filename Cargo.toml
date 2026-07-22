@@ -53,10 +53,8 @@ dbg_macro = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
 unwrap_used = "warn"
-# SPIKE ONLY: todo!()/unimplemented!() bodies are the whole point of the
-# scaffold; remove these two allows once real behavior lands.
-todo = "allow"
-unimplemented = "allow"
+todo = "warn"
+unimplemented = "warn"
 module_name_repetitions = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"

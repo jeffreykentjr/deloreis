@@ -245,8 +245,8 @@ findings, including the merely-possible status of everything proposed.
      "tegwen.trade = net-mender  proposed",
      "located_in(tegwen, gwern)  proposed"],
    "findings": [
-     {"grade": "asserted", "severity": "warn", "code": "merely-possible",
-      "message": "3 proposed atoms — visible to shadow queries, excluded from every context pack and assertion until ruled."}],
+     {"grade": "asserted", "severity": "warn", "code": "name.unvetted",
+      "message": "The name \"tegwen\" has not passed the naming oracle; it enters proposed and unvetted."}],
    "workspace_digest": "jcs:sha256:1f77…"}
 ```
 
@@ -259,7 +259,7 @@ fantasy review.
 → {"tool": "author.materialize", "args": {"workspace": "ep9-cast"}}
 ← {"findings": [],
    "rendered": [
-     "pack ep9-cast",
+     "scope ep9-cast",
      "person tegwen \"Tegwen\"  proposed  agent:factory/ep9-cast",
      "tegwen.trade = net-mender  proposed",
      "located_in(tegwen, gwern)  proposed"],
