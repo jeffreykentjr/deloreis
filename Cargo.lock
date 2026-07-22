@@ -435,6 +435,7 @@ dependencies = [
  "proptest",
  "serde_json",
  "thiserror",
+ "walkdir",
 ]
 
 [[package]]

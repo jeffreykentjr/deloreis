@@ -47,9 +47,10 @@ pub fn run_docs_oracle(root: &Path) -> Result<()> {
 
     let examples_dir = root.join("examples");
     if examples_dir.is_dir() {
-        let mut example_paths: Vec<_> = std::fs::read_dir(&examples_dir)?
+        let mut example_paths: Vec<_> = WalkDir::new(&examples_dir)
+            .into_iter()
             .filter_map(Result::ok)
-            .map(|entry| entry.path())
+            .map(walkdir::DirEntry::into_path)
             .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("dli"))
             .collect();
         example_paths.sort();

@@ -22,8 +22,11 @@ fn repo_root() -> PathBuf {
 fn committed_examples_parse_clean() {
     let examples = repo_root().join("examples");
     let mut saw = false;
-    for entry in std::fs::read_dir(&examples).unwrap() {
-        let path = entry.unwrap().path();
+    for entry in walkdir::WalkDir::new(&examples)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let path = entry.path().to_path_buf();
         if path.extension().and_then(|e| e.to_str()) != Some("dli") {
             continue;
         }
