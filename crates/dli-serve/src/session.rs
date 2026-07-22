@@ -26,7 +26,7 @@ use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
 use dli_world::language::LanguageModel;
 use dli_world::loader::example_docs;
-use dli_world::{CompiledWorld, Pack, compile};
+use dli_world::{CompiledWorld, KilledTokens, Pack, compile};
 
 use crate::envelope::ErrorCode;
 
@@ -161,6 +161,24 @@ impl Sessions {
             .scopes
             .get_mut(document)
             .expect("scope was just resolved into the cache"))
+    }
+
+    /// Resolve a document and attach killed-token guardrails from a
+    /// [`KilledTokens`] store. When a world's craft config directory ships a
+    /// killed-token registry, the caller compiles it and passes it here so the
+    /// scope's `check_draft` runs enforce rejected-lore constraints.
+    pub fn scope_with_killed_tokens(
+        &mut self,
+        document: &str,
+        killed: KilledTokens,
+    ) -> Result<&mut Scope, ErrorCode> {
+        self.scope(document)?;
+        let scope = self
+            .scopes
+            .get_mut(document)
+            .expect("scope was just resolved");
+        scope.world.killed = killed;
+        Ok(scope)
     }
 
     /// Mint a fresh, stable wire handle bound to a fork within a document.

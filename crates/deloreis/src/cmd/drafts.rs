@@ -31,7 +31,7 @@ use dli_sim::{
 };
 use dli_syntax::parse_document;
 use dli_world::scene_projection::project_scene;
-use dli_world::{DraftPayload, check_draft};
+use dli_world::{DraftPayload, KilledTokens, check_draft};
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
 
@@ -51,12 +51,24 @@ pub(crate) struct CheckDraftArgs {
     /// The `.dli` corpus (files or directories) to check the draft against.
     #[arg(short = 'c', long = "corpus", value_name = "PATH", required = true)]
     pub(crate) corpus: Vec<PathBuf>,
+    /// Path to the killed-token registry (YAML). When provided, drafts reviving
+    /// a killed token are flagged as rejected lore.
+    #[arg(long = "killed", value_name = "PATH")]
+    pub(crate) killed: Option<PathBuf>,
 }
 
 /// Fact-check a draft payload against the compiled world.
 pub(crate) fn run_check_draft(args: &CheckDraftArgs) -> CmdResult {
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "check-draft")?;
+
+    // Attach killed-token guardrails when a registry is supplied.
+    let world = if let Some(killed_path) = &args.killed {
+        let killed = load_killed_tokens(killed_path)?;
+        world.with_killed_tokens(killed)
+    } else {
+        world
+    };
 
     let text = fs::read_to_string(&args.payload)
         .map_err(|err| format!("cannot read {}: {err}", args.payload.display()))?;
@@ -85,6 +97,60 @@ pub(crate) fn run_check_draft(args: &CheckDraftArgs) -> CmdResult {
         outln!("draft: {} defect(s)", findings.len());
         Ok(EXIT_FINDINGS)
     }
+}
+
+/// Load a killed-token registry from a YAML file.
+///
+/// The format mirrors the vendored `killed_tokens.yaml`:
+///
+/// ```yaml
+/// killed:
+///   - {token: doom-wight, match: phrase, decision: D-0097, scope: "…"}
+/// ```
+pub(crate) fn load_killed_tokens(path: &Path) -> Result<KilledTokens, String> {
+    use dli_world::{KilledToken, MatchMode};
+
+    #[derive(serde::Deserialize)]
+    struct KilledDoc {
+        killed: Vec<KilledRow>,
+    }
+    #[derive(serde::Deserialize)]
+    struct KilledRow {
+        token: String,
+        #[serde(rename = "match", default)]
+        mode: String,
+        decision: String,
+        #[serde(default)]
+        scope: String,
+    }
+
+    let text = fs::read_to_string(path).map_err(|err| {
+        format!(
+            "cannot read killed-token registry {}: {err}",
+            path.display()
+        )
+    })?;
+    let doc: KilledDoc = serde_yaml_ng::from_str(&text).map_err(|err| {
+        format!(
+            "the killed-token registry {} is malformed: {err}",
+            path.display()
+        )
+    })?;
+    let tokens = doc
+        .killed
+        .into_iter()
+        .map(|row| KilledToken {
+            token: row.token,
+            mode: match row.mode.as_str() {
+                "phrase" => MatchMode::Phrase,
+                "substring" | "regex" => MatchMode::Substring,
+                _ => MatchMode::Word,
+            },
+            decision: row.decision,
+            scope: row.scope,
+        })
+        .collect();
+    Ok(KilledTokens::new(tokens))
 }
 
 /// Arguments for `deloreis check-proof`.

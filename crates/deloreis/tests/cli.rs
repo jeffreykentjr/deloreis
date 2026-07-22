@@ -361,3 +361,80 @@ fn name_check_does_not_overclaim_register_fit() {
         "must disclose what was skipped:\n{out}"
     );
 }
+
+/// F8-2: `check-draft --killed` flags a draft that revives a killed token.
+#[test]
+fn check_draft_killed_token_exits_one() {
+    let dir = tmp("check-draft-killed");
+
+    // A minimal corpus the draft checks against.
+    let corpus = dir.join("world.dli");
+    fs::write(
+        &corpus,
+        "scope demo\n\
+         ratify d-0001\n\
+         place saltmarket \"Saltmarket\" decided d-0001\n",
+    )
+    .unwrap();
+
+    // A killed-token registry naming `irondale` as struck.
+    let registry = dir.join("killed_tokens.yaml");
+    fs::write(
+        &registry,
+        "killed:\n  - {token: irondale, match: word, decision: D-0101, scope: region name}\n",
+    )
+    .unwrap();
+
+    // A draft payload introducing the killed name.
+    let payload = dir.join("draft.yaml");
+    fs::write(
+        &payload,
+        "meta:\n  title: test-draft\n  scope: demo\n  version: 1\n\
+         claims: []\n\
+         deltas: []\n\
+         scenes: []\n\
+         beats: []\n\
+         promises: []\n\
+         proofs: []\n\
+         names:\n  - Irondale\n\
+         lexicon: []\n",
+    )
+    .unwrap();
+
+    // Without --killed: the draft exits clean (the bug this fixes).
+    let output_no_killed = bin()
+        .arg("check-draft")
+        .arg(&payload)
+        .arg("--corpus")
+        .arg(&corpus)
+        .output()
+        .unwrap();
+    assert_eq!(
+        output_no_killed.status.code(),
+        Some(0),
+        "without --killed should be clean:\n{}",
+        stdout(&output_no_killed)
+    );
+
+    // With --killed: the draft exits 1 because `Irondale` is a killed token.
+    let output_killed = bin()
+        .arg("check-draft")
+        .arg(&payload)
+        .arg("--corpus")
+        .arg(&corpus)
+        .arg("--killed")
+        .arg(&registry)
+        .output()
+        .unwrap();
+    assert_eq!(
+        output_killed.status.code(),
+        Some(1),
+        "with --killed should flag the revived token:\n{}",
+        stdout(&output_killed)
+    );
+    let out = stdout(&output_killed);
+    assert!(
+        out.contains("killed token"),
+        "expected killed-token finding:\n{out}"
+    );
+}
