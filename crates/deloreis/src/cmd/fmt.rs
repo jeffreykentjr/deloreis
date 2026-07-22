@@ -4,7 +4,7 @@
 //! parse a document and render it back, idempotently. By default `fmt` writes
 //! each file's canonical form in place (write-sloppy-save-canonical); with
 //! `--check` it writes nothing and reports the files that are not already
-//! canonical, exiting `1` — the shape the gate's `fmt --canonical` step consumes.
+//! canonical, exiting `1` — the shape the gate's `dli-fmt --check` step consumes.
 //!
 //! Formatting goes through the **safe** entry [`format_source`], never the raw
 //! AST renderer: `format_source` re-parses and *refuses* (an `Err` of

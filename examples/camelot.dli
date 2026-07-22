@@ -1,25 +1,7 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# camelot — the neutral teaching world that ships with dli.
-#
-# A recognizable, wholly public-domain setting (the Matter of Britain — King
-# Arthur, Camelot, the Round Table) that exercises the full teaching surface end
-# to end so a new author can learn dli without absorbing any one production
-# world's private canon. It mirrors every shape the later lanes check: a
-# totally-ordered era spine (>=3 eras) with a narration vantage, events with a
-# before-fact and a deliberately UNORDERED pair, a place adjacency graph
-# (>=6 edges), people, a thing, facts, states with since/until across two eras,
-# a magic practice (a spoken enchantment) with a graded-monotone resource, and
-# an open question and hypothesis. Provenance is this world's OWN decision list
-# (d-0001..) — a solo writer's ledger, per 01-syntax §3.
 scope camelot
 
-use language          # the practice below consumes the language layer
-use chronology        # ...and story-time, for the knowledge state a name earns
-
-# --- the world's ledger: the decisions its citations rest on ------------------
-# Declaring a decision is what lets `decided d-000n` carry authority rather than
-# mint it (B1): a citation to an undeclared decision fails closed.
+use language
+use chronology
 ratify d-0001
 ratify d-0002
 ratify d-0003
@@ -28,234 +10,120 @@ ratify d-0005
 ratify d-0006
 ratify d-0007
 ratify d-0008
-ratify d-0009   # the cyclic-time + ordering-rule extension
-ratify d-0010   # the lexical ban
-ratify d-0012   # lancelot's oath scene — the ground the worked proof rests on
-
-# --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
-era uthers-time < arthurs-reign < after-camlann   decided d-0001
-
-# events carry era membership; WITHIN an era only `before` orders them
-event the-sword-drawn         during uthers-time     decided d-0002
-event the-round-table-founded during arthurs-reign   decided d-0002
-event the-grail-quest         during arthurs-reign   decided d-0003
-event the-battle-of-camlann   during arthurs-reign   proposed
-
-# a declared intra-era order:
-before the-round-table-founded -> the-battle-of-camlann   decided d-0003
-# ...and a DELIBERATELY UNORDERED pair: the-grail-quest shares arthurs-reign with
-# the-round-table-founded but no before-fact orders them, so
-# happens-before(the-grail-quest, the-round-table-founded) answers `unordered` —
-# a first-class verdict, not a silent tie-break (03-time §1).
-
+ratify d-0009
+ratify d-0010
+ratify d-0012
+era uthers-time < arthurs-reign < after-camlann decided d-0001
+event the-sword-drawn          during uthers-time decided d-0002
+event the-round-table-founded  during arthurs-reign decided d-0002
+event the-grail-quest          during arthurs-reign decided d-0003
+event the-battle-of-camlann    during arthurs-reign proposed
+before the-round-table-founded -> the-battle-of-camlann decided d-0003
 narration vantage after-camlann
-# inert: the narrator looks back from after Camlann; declaring an event in the
-# vantage era is a type error (03-time §1.iii).
-
-# --- cyclic time: public-domain cycles a practice seats its hour on (03-time §1.iv)
-# The moon's twenty-nine nights and the four seasons — cyclic kinds with no epoch
-# and no calendar: succ/pred/across/distance exist, but `<`, sort, and max are
-# type errors (a cycle refuses rank). The engine seats no ambient cycles; a world
-# declares the ones its practices need — oath-binding seats its wrong-moon hour on
-# `moon` below.
-cycle moon(29)                                        decided d-0009
-cycle season(4) = spring | summer | autumn | winter   decided d-0009
-
-# --- an ordering rule over the era/event spine (03-time §6, block B) -----------
-# A floor on when the deepest era may first be shown, held as data the season
-# checker reads rather than as code. Inert until an episode season binds a
-# production order to check it against — a declaration, not a running constraint.
-rule uthers-time-held-back over order   decided d-0009
+cycle moon(29) decided d-0009
+cycle season(4) = spring | summer | autumn | winter decided d-0009
+rule uthers-time-held-back over order decided d-0009
   : listener-learns(during uthers-time _) requires act > 1
-
-# --- places and the adjacency graph (6 places, >=6 edges) ---------------------
-place camelot        "Camelot"          decided d-0004
-place the-lake       "The Lake"         decided d-0004
-place avalon         "Avalon"           decided d-0004
-place camlann        "Camlann"          decided d-0005
-place tintagel       "Tintagel"         decided d-0005
-place the-waste-land "The Waste Land"   decided d-0005
-
-adjacent(camelot, the-lake)          decided d-0004
-adjacent(camelot, camlann)           decided d-0004
-adjacent(camelot, tintagel)          decided d-0005
-adjacent(the-lake, avalon)           decided d-0005
-adjacent(camlann, the-waste-land)    decided d-0005
-adjacent(the-waste-land, avalon)     decided d-0005
-adjacent(tintagel, the-lake)         proposed
-
-# --- people, a thing, and facts -----------------------------------------------
-person arthur    "Arthur, the King"   decided d-0006
-person merlin    "Merlin"             decided d-0006
-person guinevere "Guinevere"          decided d-0006
-person lancelot  "Lancelot"           decided d-0007
-person mordred   "Mordred"            decided d-0007
-person morgan    "Morgan"             decided d-0007
-thing excalibur  "Excalibur"          decided d-0008
-
-fact arthur   rules    camelot        decided d-0006
-fact merlin   counsels arthur         decided d-0006
-fact lancelot serves   arthur         decided d-0007
-
-# the certain ground the worked oath-binding proof (below) rests on: Lancelot's
-# standing at court and the king's consent are facts in the certain layer, so the
-# proof's premises seat in the pool rather than fizzle.
-standing(lancelot)   decided d-0012
-consent(arthur)      decided d-0012
-
-# --- states: facts acquire validity spans (the two-era sword case) ------------
-state excalibur.keeper = in-the-stone until the-sword-drawn   decided d-0008
-state excalibur.keeper = the-king     since the-sword-drawn   decided d-0008
-# in-the-stone UNTIL the sword is drawn and the-king's SINCE it: an interregnum
-# flashback checks clean AND the reign checks clean, because the two claims hold
-# over disjoint spans (03-time §2). No false contradiction between them.
-
-# --- the magic layer: a spoken enchantment (04-practices §4) ------------------
-# A dialect-derived true-name, the knowledge state that learning it initiates,
-# and the practice that spends it — three layers meeting in one pack, zero kernel
-# code, exactly as the practices workbench's acceptance test does.
-dialect old-speech "the old speech"  proposed {
-  basis attested "Old Welsh / Brythonic"   # an external-world claim (05 §1, §7):
-                                           # the author ratifies the SOUND, never
-                                           # the scholarship — never a support term
+place camelot        "Camelot"        decided d-0004
+place the-lake       "The Lake"       decided d-0004
+place avalon         "Avalon"         decided d-0004
+place camlann        "Camlann"        decided d-0005
+place tintagel       "Tintagel"       decided d-0005
+place the-waste-land "The Waste Land" decided d-0005
+adjacent(camelot, the-lake)       decided d-0004
+adjacent(camelot, camlann)        decided d-0004
+adjacent(camelot, tintagel)       decided d-0005
+adjacent(the-lake, avalon)        decided d-0005
+adjacent(camlann, the-waste-land) decided d-0005
+adjacent(the-waste-land, avalon)  decided d-0005
+adjacent(tintagel, the-lake)      proposed
+person arthur    "Arthur, the King" decided d-0006
+person merlin    "Merlin"           decided d-0006
+person guinevere "Guinevere"        decided d-0006
+person lancelot  "Lancelot"         decided d-0007
+person mordred   "Mordred"          decided d-0007
+person morgan    "Morgan"           decided d-0007
+thing excalibur "Excalibur" decided d-0008
+fact arthur rules camelot   decided d-0006
+fact merlin counsels arthur decided d-0006
+fact lancelot serves arthur decided d-0007
+standing(lancelot)          decided d-0012
+consent(arthur)             decided d-0012
+state excalibur.keeper = in-the-stone until the-sword-drawn decided d-0008
+state excalibur.keeper = the-king since the-sword-drawn decided d-0008
+dialect old-speech "the old speech" proposed {
+  basis attested "Old Welsh / Brythonic"
   vowels a e i o u y
   endings -a -oc -wen
   cluster-max 2
   stress penultimate
   name-kind person.given = given-proto given-deutero
-  name-part myr "sea"           role given-proto    proposed
-  name-part din "fastness"      role given-deutero  proposed
-  }
-
-name myrdin "Myrdin"  person.given in old-speech
+  name-part myr "sea" role given-proto proposed
+  name-part din "fastness" role given-deutero proposed
+}
+name myrdin "Myrdin" person.given in old-speech
   = given-proto myr + given-deutero din
-  bearer the-enchanter   proposed
-  # checked at compile: the slot sequence matches a name-kind pattern, each
-  # name-part exists under its claimed role, and the composed form passes the
-  # phonotactics. A mispronunciation IS a failed dialect derivation (L4 below).
-
-# --- the lexicon: a cited lexical ban (05 §4) ---------------------------------
-# The allegory-ban's public-domain shape: the register is kept period-true by a
-# ruling, so an anachronism is a cited lexicon fact, not a config entry. No name
-# or diegetic term may carry it.
+  bearer the-enchanter proposed
 banned cannon d-0010 "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
-
-# --- a coined in-world term (05 §4) -------------------------------------------
-# A `term` gives one of the world's own ideas a name, so a later claim can cite
-# the term rather than re-gloss it each time. The freeing of the sword is such an
-# idea: named once here (citing the sword's own decision), reusable everywhere
-# after — the lexical counterpart to the `banned` ruling above.
-term the-drawing "the freeing of Excalibur from the stone by the rightful king"  decided d-0008
-
-# --- the agent-init flow: a proposal bundle under one hypothesis (05 §5) -------
-# Candidate dialect data enters like world lore: proposed, under one hypothesis
-# variable, every clause carrying agent provenance by inheritance. Composed
-# through an unratified name-part, the name is merely-possible BY CONSTRUCTION —
-# visible to shadow queries, structurally excluded from every context pack and
-# assertion until the bundle is ruled. No ratify follows: this is a live proposal.
+term the-drawing "the freeing of Excalibur from the stone by the rightful king" decided d-0008
 hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
-
-name-part tal "brow, high"  role given-proto  proposed agent:factory/naming-run-0714  assumes h-old-loan
-
-name taldin "Taldin"  person.given in old-speech
+name-part tal "brow, high" role given-proto proposed agent:factory/naming-run-0714 assumes h-old-loan
+name taldin "Taldin" person.given in old-speech
   = given-proto tal + given-deutero din
-  proposed agent:factory/naming-run-0714  assumes h-old-loan
-
-event the-speaking-day   during arthurs-reign   proposed
-state knows.caster.myrdin = true  since the-speaking-day   proposed
-# learning a name is a knowledge state initiated when it is learned;
-# query knows(caster, true-name(bearer)) as-of a scene (03-time §4).
-
-practice merlins-craft  proposed {
-  use language.registers                # its primitives ARE the naming layer
+  proposed agent:factory/naming-run-0714 assumes h-old-loan
+event the-speaking-day  during arthurs-reign proposed
+state knows.caster.myrdin = true since the-speaking-day proposed
+practice merlins-craft proposed {
+  use language.registers
   resource breath(word) : graded monotone full > spent > silent
   rule speak(bearer) requires
-      knows(caster, true-name(bearer)),
-      breath(true-name(bearer)) >= spent,
-      derivation(true-name(bearer)) checks in register-of(bearer)
-  effect speak degrades breath by 1     # a word spoken thins the breath behind it
+  knows(caster, true-name(bearer)),
+  breath(true-name(bearer)) >= spent,
+  derivation(true-name(bearer)) checks in register-of(bearer)
+  effect speak degrades breath by 1
   condition unheard requires no witness within earshot
-  error mis-spoken     refines L4 bad-instantiation
-                       # a mispronunciation IS a failed dialect derivation
-  error stale-name     refines L2 where premise-outdated
-                       # the bearer has changed since the name was learned
+  error mis-spoken refines L4 bad-instantiation
+  error stale-name refines L2 where premise-outdated
   error word-overheard refines L3 side-condition [unheard] signals degrade(+1)
   cost vital | epistemic
-  }
-
-# --- a second practice: oath-binding, a linear-conserved debt (04-practices §3)
-# A vow is a debt: the boon a swearer owes must balance across every close — a
-# LINEAR CONSERVED resource, neither merlins-craft's graded-monotone decay nor an
-# affine-only bound. It seats its hour on the `moon` cycle above, and its failures
-# span the L2..L6 ladder INCLUDING the licensed-ignorance shape only this kernel
-# can state: an oath that seats true against a licensed pool yet lies against the
-# certain. Hosts on the one generic checker with zero per-practice kernel code.
-practice oath-binding  proposed {
-  use chronology.cycles                        # the pledge seats its hour on the moon
+}
+practice oath-binding proposed {
+  use chronology.cycles
   kind bond = fealty | troth | ransom
-  role oathgiver  : person   requires standing(oathgiver)
-  role oathholder : person   requires consent(oathholder)
-  resource boon   : linear conserved           # a boon owed must balance — the debt law
-  resource strain : affine bounded body-limit  # the swearer's body caps the draw
+  role oathgiver : person requires standing(oathgiver)
+  role oathholder : person requires consent(oathholder)
+  resource boon : linear conserved
+  resource strain : affine bounded body-limit
   rule pledge(bond, oathgiver)
-  rule give-and-take                           # every boon revealed, assigned, or released balances
+  rule give-and-take
   condition witnessed requires witness within earshot
-  error unowed        refines L2 premise-not-available where absent
-                      # a pledge drawn on a boon never granted
-  error forsworn      refines L2 premise-not-available where contradicted signals dishonour
-                      # a boon the ledger contradicts recoils on the swearer
-  error wrong-moon    refines L3 side-condition [timing] over cycle moon
-                      # the same oath, sworn at the wrong turn of the moon
-  error overpledged   refines L6 resource-violation on strain signals collapse
-                      # pledging more strain than the body-limit allows
-  error hollow-vow    refines L2 where available-in(licensed-pool) and contradicted-in(certain)
-                      # seats-and-lies: true against a licensed pool, false against the certain
+  error unowed refines L2 premise-not-available where absent
+  error forsworn refines L2 premise-not-available where contradicted signals dishonour
+  error wrong-moon refines L3 side-condition [timing] over cycle moon
+  error overpledged refines L6 resource-violation on strain signals collapse
+  error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)
   cost social | bodily | material | epistemic
-  }
-
-# --- a worked diegetic proof: one scene's reasoning, checked (04-practices §5) -
-# A `proof` records a bounded piece of reasoning inside a practice: certain-layer
-# premises, a resource drawn against one of them, the rule instantiated, a chain
-# that concludes the close atom, the resource spent, and the atom it closes on.
-# Lancelot swears fealty to Arthur — his standing and the king's consent seat in
-# the pool; a boon is drawn against his standing; the `pledge` rule is
-# instantiated; a `give-and-take` chain concludes the vow; the boon is spent so
-# the linear-conserved debt balances to zero; and the close holds. The interior
-# is captured clause text, checked by the proof lane against oath-binding, with
-# zero kernel code.
-proof lancelots-oath  speaker lancelot  in oath-binding {
-  premise p1  standing(lancelot)  cited d-0012  cue "Lancelot comes to court"
-  premise p2  consent(arthur)     cited d-0012
-  premise p3  boon(1)             drawn-against p1
-  step   s1  instantiate pledge  with bond = fealty, oathgiver = lancelot
-  step   s2  chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)
-  spend  p3
-  close  pledged(lancelot, fealty)  expect holds
-  }
-
-# --- the craft the practice serves, and the open fork it leaves ---------------
-rule show-the-price over season  proposed
-principle a-name-spends-breath   proposed
-
+}
+proof lancelots-oath speaker lancelot in oath-binding {
+  premise p1 standing(lancelot) cited d-0012 cue "Lancelot comes to court"
+  premise p2 consent(arthur) cited d-0012
+  premise p3 boon(1) drawn-against p1
+  step s1 instantiate pledge with bond = fealty, oathgiver = lancelot
+  step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)
+  spend p3
+  close pledged(lancelot, fealty) expect holds
+}
+rule show-the-price over season proposed
+principle a-name-spends-breath proposed
 fork what-does-the-word-cost
   option a-year-of-life
   option a-truth-told
-
-# --- an open fork: a question with options under a hypothesis ------------------
 hypothesis h-return "Excalibur was always the Lake's to reclaim, never the king's to keep"
-
 question who-holds-excalibur "Who holds Excalibur after Camlann?"
   option arthur   implies keeps(arthur, excalibur)
-  option the-lake implies keeps(the-lake, excalibur)   assumes h-return
-# proposed-first: neither option is canon until a ruling; the question is a
-# tracked debt, not a blank (01-syntax §4).
-
-# --- a settled hypothesis: the ratify BLOCK that turns a supposition certain ---
-# The counterpart to h-old-loan's live proposal: a hypothesis the author HAS ruled
-# on. A bare `ratify d-000n` (the ledger at the top) mints a decision; a ratify
-# BLOCK additionally settles a named hypothesis — the claim that `assumes` it
-# flips from merely-possible to certain in one recorded act (05 §5). This block
-# also declares d-0011, so its citations carry authority like any ledger entry.
+  option the-lake implies keeps(the-lake, excalibur)
 hypothesis h-merlin-foresaw "Merlin foresaw the fall at Camlann from the first"
-event the-warning  during arthurs-reign  proposed assumes h-merlin-foresaw
-ratify d-0011 { h-merlin-foresaw := true }
+event the-warning  during arthurs-reign proposed assumes h-merlin-foresaw
+ratify d-0011 {
+  h-merlin-foresaw := true
+}

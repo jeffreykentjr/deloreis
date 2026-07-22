@@ -1,83 +1,39 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# seidr — the magic system of the Norse world, as a declared PRACTICE (04). Seidr
-# is the fate-craft: the volva weaves and reads the web the Norns spin, drawing on
-# orlog (fate-debt owed) and on her own megin (bodily might). The kernel supplies
-# one generic checker; this pack supplies the kinds, the resources, the roles, the
-# laws, the failure classes refining L2..L6, and the currencies a working spends —
-# all as data, zero kernel code (koan 10). It closes with a WORKED PROOF that
-# HOLDS: one casting written out and checked against the practice and the scene.
 scope seidr
 
-use chronology        # a working seats its hour on the moon's wheel
-
-# --- the pack's ledger --------------------------------------------------------
-ratify d-0101   # the moon wheel the timing failure is seated on
-ratify d-0104   # the seeress and the wanderer who meet in the worked proof
-ratify d-0105   # the certain ground the proof's premises rest on
-
-# --- cyclic time the practice needs: the moon's twenty-nine nights ------------
-# The SAME rank-refusing cyclic kind the timing checker shares (03-time §1.iv):
-# succ/pred/across/distance exist; `<`, sort, and max are type errors.
-cycle moon(29)   decided d-0101
-
-# --- the certain ground the worked proof rests on -----------------------------
-# The seeress's standing to work seidr and the wanderer's consent to be answered
-# are facts in the certain layer, so the proof's premises seat in the pool rather
-# than fizzle (the seam of 04 §2: premises are the certain projection of a scene).
-person the-seeress  "The Seeress"    decided d-0104
-person the-wanderer "The Wanderer"   decided d-0104
-
-standing(the-seeress)   decided d-0105
-consent(the-wanderer)   decided d-0105
-
-# --- the practice: a conserved fate-debt and an affine-bounded body (04 §3) ----
-# Orlog is a LINEAR CONSERVED resource: a fate-debt drawn must balance across every
-# close — nothing is minted or burned, only revealed, assigned, or settled. Megin
-# is AFFINE BOUNDED: the seer's body caps the draw, overspend fails and underspend
-# is legal. The failure classes refine L2..L6, including the licensed-ignorance
-# shape only an annotated kernel can state (a seeing true against a licensed pool
-# yet false against the certain). Hosts on the one generic checker, no kernel code.
-practice seidr  proposed {
-  use chronology.cycles                       # the working seats its hour on the moon
+use chronology
+ratify d-0101
+ratify d-0104
+ratify d-0105
+cycle moon(29) decided d-0101
+person the-seeress  "The Seeress"  decided d-0104
+person the-wanderer "The Wanderer" decided d-0104
+standing(the-seeress) decided d-0105
+consent(the-wanderer) decided d-0105
+practice seidr proposed {
+  use chronology.cycles
   kind working = prophecy | weather-witch | shape-sending
-  role seer       : person   requires standing(seer)
-  role petitioner : person   requires consent(petitioner)
-  resource orlog  : linear conserved          # a fate-debt drawn must balance — the debt law
-  resource megin  : affine bounded body-limit # the seer's body caps the draw
+  role seer : person requires standing(seer)
+  role petitioner : person requires consent(petitioner)
+  resource orlog : linear conserved
+  resource megin : affine bounded body-limit
   rule weave(working, seer)
-  rule spend-and-settle                       # every fate-debt revealed, assigned, or settled balances
+  rule spend-and-settle
   condition witnessed requires witness within earshot
-  error unowed         refines L2 premise-not-available where absent
-                       # a working drawn on a fate never granted
-  error fate-denied    refines L2 premise-not-available where contradicted signals recoil
-                       # a fate the Norns' web contradicts recoils on the seer
-  error wrong-moon     refines L3 side-condition [timing] over cycle moon
-                       # the same seeing, worked at the wrong turn of the moon
+  error unowed refines L2 premise-not-available where absent
+  error fate-denied refines L2 premise-not-available where contradicted signals recoil
+  error wrong-moon refines L3 side-condition [timing] over cycle moon
   error mislaid-working refines L4 bad-instantiation
-                       # a working bound against a kind the practice does not carry
-  error broken-thread  refines L5 invalid-chain
-                       # a step joining premises the fate-craft does not license
-  error overdrawn      refines L6 resource-violation on megin signals collapse
-                       # drawing more might than the body-limit allows
-  error hollow-seeing  refines L2 where available-in(licensed-pool) and contradicted-in(certain)
-                       # seats-and-lies: true against a licensed pool, false against the certain
+  error broken-thread refines L5 invalid-chain
+  error overdrawn refines L6 resource-violation on megin signals collapse
+  error hollow-seeing refines L2 where available-in(licensed-pool) and contradicted-in(certain)
   cost fate | bodily | social | epistemic
-  }
-
-# --- a worked diegetic proof: one scene's reasoning, checked (04 §5) -----------
-# The Wanderer (Odin in disguise) rides to the dead seeress and asks her the doom.
-# Her standing to work and his consent to be answered seat in the pool; a fate-debt
-# is drawn against her standing; the `weave` rule is instantiated for a prophecy;
-# a `spend-and-settle` chain concludes the seeing; the orlog is settled so the
-# linear-conserved debt balances to zero; and the close holds. The interior is
-# captured clause text, checked by the proof lane against seidr, zero kernel code.
-proof the-seeress-answers  speaker the-seeress  in seidr {
-  premise p1  standing(the-seeress)   cited d-0105  cue "the Wanderer wakes her from the mound"
-  premise p2  consent(the-wanderer)   cited d-0105
-  premise p3  orlog(1)                drawn-against p1
-  step   s1  instantiate weave  with working = prophecy, seer = the-seeress
-  step   s2  chain from p1, s1 by spend-and-settle conclusion foretold(the-seeress, doom)
-  spend  p3
-  close  foretold(the-seeress, doom)  expect holds
-  }
+}
+proof the-seeress-answers speaker the-seeress in seidr {
+  premise p1 standing(the-seeress) cited d-0105 cue "the Wanderer wakes her from the mound"
+  premise p2 consent(the-wanderer) cited d-0105
+  premise p3 orlog(1) drawn-against p1
+  step s1 instantiate weave with working = prophecy, seer = the-seeress
+  step s2 chain from p1, s1 by spend-and-settle conclusion foretold(the-seeress, doom)
+  spend p3
+  close foretold(the-seeress, doom) expect holds
+}

@@ -1,49 +1,24 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# The Turning — a divination game on the moon's twenty-nine leaves, and the
-# SECOND arbitrariness proof (04-practices §4). It is structurally disjoint from
-# BOTH proof-magic (no conserved debt) AND true-naming (no graded decay, no
-# knowledge states): its resource is affine-bounded, its failures are cycle-phase
-# timing and spread overflow, and its premises are figures laid on a cyclic kind.
-# Three practices, one generic checker, zero per-system kernel code.
 scope magic
 
-use chronology        # the reading is seated on a cycle phase
-
-# the ring of twenty-nine leaves, one for each night of the moon (03-time §1.iv):
-# the SAME cyclic kind the timing checker shares. succ/pred/across/distance exist;
-# `<`, sort, and max are type errors — the wheel refuses rank (koan 8).
-cycle turning-leaf(29)   proposed
-
-practice the-turning  proposed {
+use chronology
+cycle turning-leaf(29) proposed
+practice the-turning proposed {
   use chronology.cycles
   kind figure = the-tide | the-weir | the-drowned | the-keeper | the-empty
-  role reader  : entity   requires standing(reader)
-  role querent : entity   requires consent(querent)
-  resource spread : affine bounded nine-leaves    # a reading lays at most nine leaves
-  rule lay(figure, leaf)  requires phase(turning-leaf) = leaf
-  rule read(figure)       requires lay(figure, _), seated-reading
+  role reader : entity requires standing(reader)
+  role querent : entity requires consent(querent)
+  resource spread : affine bounded nine-leaves
+  rule lay(figure, leaf) requires phase(turning-leaf) = leaf
+  rule read(figure) requires lay(figure, _), seated-reading
   condition seated-reading requires phase(turning-leaf) within declared-span
-  error mislaid-leaf   refines L4 bad-instantiation
-                       # a figure laid on a leaf the cycle does not carry
-  error overspread     refines L6 resource-violation on spread signals scatter
-                       # more leaves laid than the affine bound allows
-  error wrong-turning  refines L3 side-condition [timing] over cycle turning-leaf
-                       # a reading seated at the wrong leaf of the moon
+  error mislaid-leaf refines L4 bad-instantiation
+  error overspread refines L6 resource-violation on spread signals scatter
+  error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf
   cost epistemic | social | temporal
-  }
-
-# A worked reading, checked as data (never authored by the machine):
-proof reading-e02  reader old-fen  in the-turning {
-  premise q1  phase(turning-leaf) = the-ninth-leaf  from-scene  cue "line 40"
-  step   s1  instantiate lay  with figure = the-weir, leaf = the-ninth-leaf
-  step   s2  read the-weir
-  close  reads(the-weir)  expect holds
-  }
-
-# Disjointness ledger (04 §4): the resource is `affine bounded`, not
-# `graded monotone` (true-naming) nor `linear conserved` (proof-magic); failure is
-# cycle-phase timing and spread overflow, not name-decay nor typed proof-step
-# errors; the premises are laid figures on a cycle, not names known nor facts
-# derived. A second system disjoint on every declared axis, hosting for free —
-# koan 10 demonstrated a second time.
+}
+proof reading-e02 reader old-fen in the-turning {
+  premise q1 phase(turning-leaf) = the-ninth-leaf from-scene cue "line 40"
+  step s1 instantiate lay with figure = the-weir, leaf = the-ninth-leaf
+  step s2 read the-weir
+  close reads(the-weir) expect holds
+}

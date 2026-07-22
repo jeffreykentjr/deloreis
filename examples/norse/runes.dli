@@ -1,76 +1,39 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# runes — the language layer of the Norse world (05). Names and words are world
-# knowledge, so a dialect lives in the fabric like any other lore: statused and
-# forkable. This pack declares the Old Norse tongue as a dialect with its
-# phonotactic frame and a dithematic name grammar, composes canonical hero-names
-# as TYPED DERIVATIONS (each checked at compile: slot sequence, role membership,
-# phonotactics), coins a word and a term, and shows the agent-init flow — a
-# proposal bundle under one hypothesis, ratified in one recorded act.
 scope runes
 
-# --- the pack's ledger --------------------------------------------------------
-ratify d-0201   # the dialect and its cited canon name-parts
-ratify d-0202   # the canon hero-names
-ratify d-0203   # the coined word and term
-ratify d-0205   # the ratify block that settles the loan-word bundle
-
-# --- the dialect as a declaration (05 §1) -------------------------------------
-# Old Norse is dithematic: a hero-name is a proto + deutero compound (Sig-run,
-# Thor-ulf). `basis attested` is a claim about OUR world (is this pattern Norse-
-# like?), graded and replayable but NEVER a support variable — the author ratifies
-# the SOUND, not the scholarship (the attestation seam, 05 §7).
-dialect old-norse "the Old Norse tongue"  decided d-0201 {
+ratify d-0201
+ratify d-0202
+ratify d-0203
+ratify d-0205
+dialect old-norse "the Old Norse tongue" decided d-0201 {
   basis attested "Old Norse / Old West Norse"
   vowels a e i o u y
   endings -r -i -a -unn
   cluster-max 2
   stress initial
   name-kind person.given = given-proto given-deutero
-  name-part sig  "victory"          role given-proto    decided d-0201
-  name-part thor "the thunder-god"  role given-proto    decided d-0201
-  name-part gud  "god"              role given-proto    decided d-0201
-  name-part run  "rune, secret"     role given-deutero  decided d-0201
-  name-part ulf  "wolf"             role given-deutero  decided d-0201
-  name-part mund "hand, protection" role given-deutero  decided d-0201
-  }
-
-# --- names as typed derivations: dialect-true is a compile verdict (05 §2) ----
-name sigrun "Sigrun"  person.given in old-norse
+  name-part sig "victory" role given-proto decided d-0201
+  name-part thor "the thunder-god" role given-proto decided d-0201
+  name-part gud "god" role given-proto decided d-0201
+  name-part run "rune, secret" role given-deutero decided d-0201
+  name-part ulf "wolf" role given-deutero decided d-0201
+  name-part mund "hand, protection" role given-deutero decided d-0201
+}
+name sigrun "Sigrun" person.given in old-norse
   = given-proto sig + given-deutero run
-  bearer the-seeress   decided d-0202
-  # checked at compile: the slot sequence [given-proto, given-deutero] matches the
-  # name-kind pattern, each name-part exists under its claimed role, and the
-  # composed surface passes the phonotactics. A mispronunciation IS a failed
-  # derivation (the seidr practice's L4 mislaid-working, one fabric).
-
-name thorulf "Thorulf"  person.given in old-norse
+  bearer the-seeress decided d-0202
+name thorulf "Thorulf" person.given in old-norse
   = given-proto thor + given-deutero ulf
-  bearer the-wanderer   decided d-0202
-
-name gudmund "Gudmund"  person.given in old-norse
+  bearer the-wanderer decided d-0202
+name gudmund "Gudmund" person.given in old-norse
   = given-proto gud + given-deutero mund
-  bearer heimdall   decided d-0202
-
-# --- the lexicon: a coined word and a diegetic term (05 §4) -------------------
-word runestave "rune-stave"  = given-deutero run   decided d-0203
-term the-elder-futhark "the four-and-twenty carved staves by which fate is read and worked"   decided d-0203
-
-# --- the agent-init flow: a proposal bundle under one hypothesis (05 §5) -------
-# Candidate dialect data enters like world lore: proposed, under one hypothesis
-# variable, every clause carrying agent provenance by inheritance. Composed through
-# an unratified name-part, the name is merely-possible BY CONSTRUCTION — visible to
-# shadow queries, structurally excluded from every context pack and assertion until
-# the bundle is ruled. Here the author HAS ruled: one valuation ratifies the bundle
-# and the loan-name flips from possible to certain.
+  bearer heimdall decided d-0202
+word runestave "rune-stave"  = given-deutero run decided d-0203
+term the-elder-futhark "the four-and-twenty carved staves by which fate is read and worked" decided d-0203
 hypothesis h-loan-name "the Norse tongue took a hero-name from the tongue over the sea"
-
-name-part har "grey, hoary"  role given-proto  proposed agent:factory/naming-run-0721  assumes h-loan-name
-
-name harmund "Harmund"  person.given in old-norse
+name-part har "grey, hoary" role given-proto proposed agent:factory/naming-run-0721 assumes h-loan-name
+name harmund "Harmund" person.given in old-norse
   = given-proto har + given-deutero mund
-  proposed agent:factory/naming-run-0721  assumes h-loan-name
-  # a rejected name-part would valuate false and this name would die into the
-  # killed-token dialect; instead the ruling below settles the bundle true.
-
-ratify d-0205 { h-loan-name := true }   # one valuation ratifies the whole bundle
+  proposed agent:factory/naming-run-0721 assumes h-loan-name
+ratify d-0205 {
+  h-loan-name := true
+}

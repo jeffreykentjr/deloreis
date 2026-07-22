@@ -71,6 +71,10 @@ pub fn probe_line(line: &str) -> Result<(), ProbeError> {
     if line.starts_with(|c: char| c.is_whitespace()) {
         return Ok(());
     }
+    // A closing brace on its own is canonical block-close syntax.
+    if line.trim() == "}" {
+        return Ok(());
+    }
     let token = first_token(line);
     if KEYWORDS.contains(&token) || is_relation_form(line) {
         return Ok(());

@@ -62,6 +62,7 @@ fn command_step(label: &'static str, parts: &[&str]) -> GateStep {
 
 /// The canonical, ordered gate list. `ci` selects the nextest CI profile.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn gate_steps(ci: bool) -> Vec<GateStep> {
     let mut nextest = vec!["cargo", "nextest", "run", "--workspace", "--locked"];
     if ci {
@@ -110,6 +111,21 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
             &["cargo", "test", "--doc", "--workspace", "--locked"],
         ),
         command_step("build", &["cargo", "build", "--workspace", "--locked"]),
+        command_step(
+            "dli-fmt --check",
+            &[
+                "cargo",
+                "run",
+                "-p",
+                "deloreis",
+                "--locked",
+                "--",
+                "fmt",
+                "--check",
+                "examples/",
+                "worlds/",
+            ],
+        ),
         command_step(
             "schema --check",
             &[

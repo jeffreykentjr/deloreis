@@ -1,15 +1,5 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# The cyclic-time vocabulary of To Pleach the Hedgeway (03-time §1.iv). These
-# were once seated in the engine as ambient "kernel cycles"; DL-0017 moved them
-# out — the engine seats no world's cycles of its own, so a world declares the
-# cycles its practices seat timing on. Tide presumes a coastal world; that is
-# TPtH canon, not kernel truth. succ/pred/across/distance exist on each; `<`,
-# sort, and max are type errors — a cycle refuses rank (charter koan 8).
 scope chronology
 
-cycle tide(4) = ebb | slack | flood | high        ratified D-0146
-cycle moon(29)                                     ratified D-0148
-# the same cyclic kind as the Turning's leaf(29): no epoch, no calendar
-cycle season                                       proposed
-# the turning of the agrarian year; its modulus and spokes are not yet ratified
+cycle tide(4) = ebb | slack | flood | high ratified D-0146
+cycle moon(29) ratified D-0148
+cycle season proposed

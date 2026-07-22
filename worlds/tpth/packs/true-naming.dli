@@ -1,66 +1,37 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# true-naming — the arbitrariness proof of 04-practices §4, completed: a practice
-# whose resource is graded-monotone DECAY (nothing spent, knowing only wears),
-# whose names are DIALECT-DERIVATIONS, and whose premises are KNOWLEDGE STATES.
-# Three layers — magic, language, and story-time — meet in one pack, zero kernel
-# code. Standing role: the workbench's acceptance test (04 §4).
 scope magic
 
-use language          # true-naming consumes the language layer wholesale
-use chronology        # ...and story-time, for the knowledge states
-
-# --- dialect-derived names: a true-name IS a dialect derivation (05 §2) ------
-dialect fen-tongue "the fen tongue"  proposed {
+use language
+use chronology
+dialect fen-tongue "the fen tongue" proposed {
   vowels a e i o u y
   endings -a -en -eth
   cluster-max 2
   stress penultimate
   name-kind person.given = given-proto given-deutero
-  name-part sae "still-water"      role given-proto    proposed
-  name-part wen "one-who-tends"    role given-deutero  proposed
-  }
-
-name saewen "Saewen"  person.given in fen-tongue
+  name-part sae "still-water" role given-proto proposed
+  name-part wen "one-who-tends" role given-deutero proposed
+}
+name saewen "Saewen" person.given in fen-tongue
   = given-proto sae + given-deutero wen
-  bearer the-marsh-child   proposed
-  # checked at compile: slot sequence matches a name-kind pattern, each name-part
-  # exists under its claimed role, the composed form passes the phonotactics.
-  # A mispronunciation is literally a dialect-derivation failure (L4 below).
-
-# --- knowledge states: knowing a name is a fact with a validity span ----------
-event the-naming-day   during the-beleaguered-present   proposed
-state knows.caster.saewen = true  since the-naming-day   proposed
-# learning a name is a knowledge state initiated when it is learned;
-# query knows(caster, true-name(bearer)) as-of a scene (03-time §4).
-
-# --- the practice: graded-monotone decay (04 §4) ------------------------------
-practice true-naming  proposed {
-  use language.registers                # its primitives ARE the naming layer
+  bearer the-marsh-child proposed
+event the-naming-day  during the-beleaguered-present proposed
+state knows.caster.saewen = true since the-naming-day proposed
+practice true-naming proposed {
+  use language.registers
   resource acquaintance(name) : graded monotone whole > worn > husk
   rule invoke(bearer) requires
-      knows(caster, true-name(bearer)),
-      acquaintance(true-name(bearer)) >= worn,
-      derivation(true-name(bearer)) checks in register-of(bearer)
-  effect invoke degrades acquaintance by 1     # speaking a name wears it
+  knows(caster, true-name(bearer)),
+  acquaintance(true-name(bearer)) >= worn,
+  derivation(true-name(bearer)) checks in register-of(bearer)
+  effect invoke degrades acquaintance by 1
   condition unheard requires no witness within earshot
-  error slipped-name   refines L4 bad-instantiation
-                       # a mispronunciation IS a failed dialect derivation
-  error stale-name     refines L2 where premise-outdated
-                       # the bearer has changed since the name was learned
+  error slipped-name refines L4 bad-instantiation
+  error stale-name refines L2 where premise-outdated
   error name-overheard refines L3 side-condition [unheard] signals degrade(+1)
   cost social | epistemic
-  }
-
-# --- the craft the practice serves, and the open fork it leaves ---------------
-rule show-the-cost over season  proposed
-principle name-earns-its-weight  proposed
-
+}
+rule show-the-cost over season proposed
+principle name-earns-its-weight proposed
 fork what-does-a-name-cost
   option a-memory
   option a-year-of-service
-
-# Disjointness ledger (04 §4): the one honest cost this fixture exacts is adding
-# `graded monotone` to the resource algebra. Had it needed a second new algebra
-# member, the parameterization would have failed — which is what makes the
-# fixture load-bearing. Nothing here resembles proof-magic's conserved debt.

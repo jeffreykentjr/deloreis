@@ -1,17 +1,5 @@
-# grammar: v0 (unfrozen; AST normative)
-#
-# The saltmarket world — the shared test corpus every later lane checks against.
-# Gentle subset plus a chronology spine: an era spine (>=3 eras), events with a
-# before-fact and a deliberately UNORDERED pair, states with since/until (the
-# two-era water-status case), an adjacency graph (>=6 edges), and a question with
-# options under a hypothesis. Provenance is this world's OWN decision list
-# (d-0001..d-0009) — a solo writer's ledger, per 01-syntax §3.
 scope saltmarket
 
-# --- the world's ledger: the decisions its citations rest on ------------------
-# A solo writer's ledger (01-syntax §3). Every `decided d-000n` below cites one
-# of these; declaring them here is what lets the citation carry authority rather
-# than mint it (B1) — a citation to an undeclared decision fails closed.
 ratify d-0001
 ratify d-0002
 ratify d-0003
@@ -21,66 +9,37 @@ ratify d-0006
 ratify d-0007
 ratify d-0008
 ratify d-0009
-
-# --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
-era first-tides < the-silting < the-drought-years < the-ledger-days   decided d-0001
-
-# events carry era membership; WITHIN an era only `before` orders them
-event the-first-weir       during first-tides        decided d-0002
-event the-silting-begins   during the-silting        decided d-0002
-event the-long-drought     during the-drought-years  decided d-0003
-event the-marsh-enclosure  during the-drought-years  decided d-0003
-event the-salt-tithe       during the-drought-years  proposed
-event the-ledger-struck    during the-ledger-days    decided d-0009
-
-# a declared intra-era order:
-before the-long-drought -> the-marsh-enclosure       decided d-0003
-# ...and a DELIBERATELY UNORDERED pair: the-salt-tithe shares the-drought-years
-# with the-long-drought but no before-fact orders them, so
-# happens-before(the-salt-tithe, the-long-drought) answers `unordered` — a
-# first-class verdict, not a silent tie-break (03-time §1).
-
+era first-tides < the-silting < the-drought-years < the-ledger-days decided d-0001
+event the-first-weir       during first-tides decided d-0002
+event the-silting-begins   during the-silting decided d-0002
+event the-long-drought     during the-drought-years decided d-0003
+event the-marsh-enclosure  during the-drought-years decided d-0003
+event the-salt-tithe       during the-drought-years proposed
+event the-ledger-struck    during the-ledger-days decided d-0009
+before the-long-drought -> the-marsh-enclosure decided d-0003
 narration vantage the-ledger-days
-# inert: the narrator looks back from the ledger-days; declaring an event here
-# is a type error (03-time §1.iii)
-
-# --- places and the adjacency graph (7 places, >=6 edges) ---------------------
-place saltmarket    "Saltmarket"      decided d-0004
-place the-shallows  "The Shallows"    decided d-0004
-place the-weir      "The Weir"        decided d-0004
-place the-tideflats "The Tideflats"   decided d-0005
-place the-cut       "The Cut"         decided d-0005
-place the-old-quay  "The Old Quay"    decided d-0005
-place the-fen-road  "The Fen Road"    proposed
-
-adjacent(saltmarket, the-shallows)     decided d-0004
-adjacent(the-shallows, the-weir)       decided d-0004
-adjacent(the-weir, the-tideflats)      decided d-0005
-adjacent(saltmarket, the-cut)          decided d-0005
-adjacent(the-cut, the-old-quay)        decided d-0005
-adjacent(the-old-quay, the-fen-road)   proposed
-adjacent(the-fen-road, the-tideflats)  proposed
-
-# --- people, a thing, and facts -----------------------------------------------
-person mara     "Mara of the Weirs"    decided d-0006
-person old-fen  "Old Fen"              decided d-0006
+place saltmarket    "Saltmarket"    decided d-0004
+place the-shallows  "The Shallows"  decided d-0004
+place the-weir      "The Weir"      decided d-0004
+place the-tideflats "The Tideflats" decided d-0005
+place the-cut       "The Cut"       decided d-0005
+place the-old-quay  "The Old Quay"  decided d-0005
+place the-fen-road  "The Fen Road"  proposed
+adjacent(saltmarket, the-shallows)    decided d-0004
+adjacent(the-shallows, the-weir)      decided d-0004
+adjacent(the-weir, the-tideflats)     decided d-0005
+adjacent(saltmarket, the-cut)         decided d-0005
+adjacent(the-cut, the-old-quay)       decided d-0005
+adjacent(the-old-quay, the-fen-road)  proposed
+adjacent(the-fen-road, the-tideflats) proposed
+person mara    "Mara of the Weirs" decided d-0006
+person old-fen "Old Fen"           decided d-0006
 thing the-salt-ledger "The Salt-Ledger" decided d-0007
-
-fact mara lives-in saltmarket          decided d-0006
-fact old-fen tends the-weir            decided d-0006
-
-# --- states: facts acquire validity spans (the two-era water-status case) ----
-state the-weir.water = common   until the-marsh-enclosure   decided d-0008
-state the-weir.water = enclosed since the-marsh-enclosure   decided d-0008
-# common UNTIL the enclosure and enclosed SINCE it: a pre-enclosure flashback
-# checks clean AND the present checks clean, because the two claims hold over
-# disjoint spans (03-time §2). No false contradiction between them.
-
-# --- an open fork: a question with options under a hypothesis ------------------
+fact mara lives-in saltmarket decided d-0006
+fact old-fen tends the-weir   decided d-0006
+state the-weir.water = common until the-marsh-enclosure decided d-0008
+state the-weir.water = enclosed since the-marsh-enclosure decided d-0008
 hypothesis h-ledger "the salt-ledger was kept by the marsh-folk, not the guild"
-
 question who-keeps-the-ledger "Who keeps the salt-ledger?"
-  option old-fen  implies keeps(old-fen, the-salt-ledger)
-  option mara     implies keeps(mara, the-salt-ledger)   assumes h-ledger
-# proposed-first: neither option is canon until a ruling; the question is a
-# tracked debt, not a blank (01-syntax §4).
+  option old-fen implies keeps(old-fen, the-salt-ledger)
+  option mara    implies keeps(mara, the-salt-ledger)
