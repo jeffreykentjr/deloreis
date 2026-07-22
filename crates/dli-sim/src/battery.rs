@@ -230,8 +230,19 @@ pub struct Battery {
     /// The exact invariants to sweep.
     pub invariants: Vec<InvariantSpec>,
     /// Concrete capacities for `affine bounded` resources whose declared cap is a
-    /// symbolic expression, keyed by resource name. A bare-integer cap in the
-    /// practice declaration is resolved directly and needs no binding.
+    /// symbolic expression (`body-limit(caster)`), keyed by **resource name**. A
+    /// bare-integer cap in the practice declaration (`affine bounded 5`) resolves
+    /// directly and needs no binding.
+    ///
+    /// This map is the engine's cap-binding intake: a binding here turns an
+    /// otherwise-`Deferred` symbolic-capped law into an *enforced* (`checked`) one
+    /// (`resolve_cap` consults it, `account_resource` applies the affine law, and
+    /// the sweep reports real violations). An entry for
+    /// a resource the practice does not declare as `affine bounded` is simply
+    /// unused; a symbolic cap with no entry stays honestly `Deferred`. The CLI
+    /// (`deloreis simulate`) is the intended writer — it should surface a flag
+    /// (e.g. `--cap <resource>=<n>`) that populates this map; today it constructs
+    /// the battery with an empty map, so symbolic caps defer until the flag lands.
     pub affine_caps: BTreeMap<String, i64>,
 }
 
@@ -389,7 +400,7 @@ impl Battery {
     /// Why a resource's law could not be enforced this run, or [`None`] if it was.
     ///
     /// This is exactly the `accounted = false` condition of
-    /// [`account_resource`](Self::account_resource): an `affine bounded` resource
+    /// `account_resource`: an `affine bounded` resource
     /// whose symbolic cap never resolved to a number (no bare-integer cap and no
     /// [`affine_caps`](Battery::affine_caps) binding), or a resource whose declared
     /// law is outside the closed algebra. A law in either state was never applied,

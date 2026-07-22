@@ -72,7 +72,7 @@ use crate::model::Provenance;
 pub fn compile(pack: &Pack) -> Result<CompiledWorld, EvalError> {
     let known_decisions = declared_decisions(pack);
     let mut model = Loader::load(&pack.documents).world;
-    let (valuation, findings) = ledger_valuation(&model, &known_decisions);
+    let (valuation, findings) = ledger_valuation(&model, pack, &known_decisions);
     model.world.valuation = valuation;
     model.world.findings.extend(findings);
     // Saturate the loader's status-gated facts; the clone in `fixpoint` carries
@@ -103,8 +103,17 @@ fn declared_decisions(pack: &Pack) -> BTreeSet<&str> {
 /// decision leaves its variable open and raises a `citation.unknown-decision`
 /// finding (`B1`). This mirrors `dli_eval`'s `lower_fact_annotation`, so the two
 /// lowerings converge.
+///
+/// The certain-layer atoms and sorts carry their citations as typed
+/// [`LoadedAtom`](crate::model::LoadedAtom)/[`SortEntry`](crate::model::SortEntry)
+/// provenance; a `term`, a `proof`'s premises, and a `ratify … { }` block cite
+/// decisions too, but the loader does not lift them into `atoms()`/`sorts()`, so
+/// [`gate_language_citations`] closes that hole over the raw declarations. Without
+/// it, a forged decision id on any of those three would mint authority the corpus
+/// never declared (`B1`) and escape the invariant.
 fn ledger_valuation(
     model: &WorldModel,
+    pack: &Pack,
     known_decisions: &BTreeSet<&str>,
 ) -> (Valuation, Vec<LowerFinding>) {
     let mut nu = Valuation::new();
@@ -129,7 +138,102 @@ fn ledger_valuation(
             &sort.citations,
         );
     }
+    gate_language_citations(&mut nu, &mut findings, model, pack, known_decisions);
     (nu, findings)
+}
+
+/// Extend the citation guard over the three declarations the loader keeps outside
+/// `atoms()`/`sorts()` but which still cite decisions — closing the `B1` hole the
+/// red team surfaced (a forged authority claim on a `term`, a `proof`, or a
+/// `ratify`-block currently escaping the "authority is declared, not minted"
+/// invariant):
+///
+/// - a **`term`** carries a typed ledger provenance (`term … decided <d-id>`);
+/// - a **`proof`**'s premises cite the certain ground they rest on
+///   (`premise … cited <d-id>`), harvested from the captured body clauses;
+/// - a **`ratify … { }`** block mints its own decision (already declared), but any
+///   decision its body clauses *cite* is checked the same way (shipped blocks
+///   settle only hypotheses, so they stay clean; a forged citation is caught).
+///
+/// Each cited id is routed through [`gate_citations`] exactly as an atom's would
+/// be, so a declared id rules its variable and an undeclared one raises
+/// `citation.unknown-decision`.
+fn gate_language_citations(
+    nu: &mut Valuation,
+    findings: &mut Vec<LowerFinding>,
+    model: &WorldModel,
+    pack: &Pack,
+    known_decisions: &BTreeSet<&str>,
+) {
+    for decl in pack.documents.iter().flat_map(|doc| &doc.decls) {
+        match decl {
+            Decl::Term(term) => {
+                if let Some(annotation) = &term.provenance {
+                    let kind = Provenance::from_marker(annotation.marker);
+                    let citations: Vec<String> = annotation
+                        .citations
+                        .iter()
+                        .map(|citation| citation.id.text.clone())
+                        .collect();
+                    gate_citations(nu, findings, model, known_decisions, kind, &citations);
+                }
+            }
+            Decl::Proof(proof) => {
+                let citations = harvest_clause_citations(&proof.body);
+                gate_citations(
+                    nu,
+                    findings,
+                    model,
+                    known_decisions,
+                    Provenance::Decided,
+                    &citations,
+                );
+            }
+            Decl::Ratify(ratify) => {
+                let citations = harvest_clause_citations(&ratify.body);
+                gate_citations(
+                    nu,
+                    findings,
+                    model,
+                    known_decisions,
+                    Provenance::Decided,
+                    &citations,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The decision ids a run of captured body clauses cite: the token after each
+/// `cited`/`decided`/`ratified`/`provisional` keyword read at top level. Paren
+/// depth is tracked so a keyword *inside* a nested atom (`p(cited)`) is never
+/// mistaken for a real citation — the same discipline the proof lane's premise
+/// parser uses.
+fn harvest_clause_citations(clauses: &[dli_ast::clause::Clause]) -> Vec<String> {
+    const CITE_KEYWORDS: &[&str] = &["cited", "decided", "ratified", "provisional"];
+    let mut out = Vec::new();
+    for clause in clauses {
+        let tokens: Vec<&str> = clause.text.split_whitespace().collect();
+        let mut depth: i32 = 0;
+        let mut index = 0;
+        while index < tokens.len() {
+            let token = tokens[index];
+            if depth == 0
+                && CITE_KEYWORDS.contains(&token)
+                && let Some(id) = tokens.get(index + 1)
+            {
+                out.push((*id).to_owned());
+                index += 2;
+                continue;
+            }
+            let opens = i32::try_from(token.matches('(').count()).unwrap_or(0);
+            let closes = i32::try_from(token.matches(')').count()).unwrap_or(0);
+            depth = (depth + opens - closes).max(0);
+            index += 1;
+        }
+    }
+    out
 }
 
 /// Rule each of a ledger claim's cited decisions true when it is declared,

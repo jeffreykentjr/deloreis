@@ -573,3 +573,112 @@ fn an_unresolved_affine_cap_law_is_deferred_not_held() {
     );
     assert_eq!(capped_strain.grade(), Grade::Checked);
 }
+
+/// Binding a symbolic affine cap doesn't merely stop the *deferred* verdict — it
+/// makes the law genuinely ENFORCED: an overspend that breaks the bound is caught,
+/// and the run-level `never-violated` sweep reports the exact witnessing trial.
+/// Unbound, the same symbolic-cap law is never even accounted (honest deferral);
+/// bound, it is accounted every trial and breaks when the balance overtops the cap.
+/// This is the difference between an honest gap and a real check.
+#[test]
+fn a_bound_affine_cap_enforces_the_law_and_catches_overspends() {
+    let (doc, diags) = parse_document(
+        "scope magic\n\
+         practice oath-binding proposed {\n\
+           resource strain : affine bounded body-limit\n\
+           cost bodily\n\
+         }\n",
+    );
+    assert!(diags.is_empty(), "fixture parses: {diags:?}");
+    let practice = compile_practices(&doc).remove(0);
+
+    let base = Battery {
+        practice,
+        bounds: GenBounds {
+            max_steps: 6,
+            max_magnitude: 3,
+        },
+        seed: 7,
+        trials: 200,
+        metrics: Vec::new(),
+        invariants: vec![InvariantSpec {
+            name: "strain-never-violated".to_owned(),
+            predicate: Invariant::NeverViolated {
+                resource: "strain".to_owned(),
+            },
+        }],
+        affine_caps: BTreeMap::new(),
+    };
+
+    // Bind the caster's body-limit low, so the generated draws overtop it.
+    let mut bound = base.clone();
+    bound.affine_caps = BTreeMap::from([("strain".to_owned(), 1)]);
+
+    // Ground truth over the seeded trials: bound, strain's law is applied every
+    // trial and catches genuine overspends; unbound, it is never accounted at all.
+    let mut expected_first_breach: Option<u64> = None;
+    for index in 0..base.trials {
+        let trial = base.generate_trial(index);
+        let bound_strain = bound
+            .account_trial(&trial)
+            .resource("strain")
+            .expect("strain is declared")
+            .clone();
+        let unbound_strain = base
+            .account_trial(&trial)
+            .resource("strain")
+            .expect("strain is declared")
+            .clone();
+        assert!(
+            bound_strain.accounted,
+            "a bound cap means strain's affine law is enforced (accounted) at trial {index}"
+        );
+        assert!(
+            !unbound_strain.accounted,
+            "an unbindable symbolic cap is never accounted — deferral is honest, not a pass"
+        );
+        assert!(
+            !unbound_strain.violated(),
+            "an unaccounted law is never reported violated"
+        );
+        if bound_strain.violated() && expected_first_breach.is_none() {
+            expected_first_breach = Some(index);
+        }
+    }
+    let breach_trial =
+        expected_first_breach.expect("the low bound is genuinely breached by some draw");
+
+    // The run-level sweep reflects that ground truth exactly: bound → Violated at
+    // the witnessing trial; unbound → Deferred (the same law, never enforced).
+    let bound_sweep = bound
+        .run()
+        .invariants
+        .into_iter()
+        .find(|v| v.invariant == "strain-never-violated")
+        .expect("the strain sweep is present");
+    assert!(
+        !bound_sweep.deferred() && !bound_sweep.held(),
+        "a bound, breached affine law is violated — not deferred, not held: {:?}",
+        bound_sweep.outcome
+    );
+    let dli_sim::InvariantOutcome::Violated { trial, .. } = &bound_sweep.outcome else {
+        panic!("expected Violated, got {:?}", bound_sweep.outcome);
+    };
+    assert_eq!(
+        *trial, breach_trial,
+        "the sweep names the earliest genuinely-overspending trial"
+    );
+    assert_eq!(bound_sweep.grade(), Grade::Checked);
+
+    let unbound_sweep = base
+        .run()
+        .invariants
+        .into_iter()
+        .find(|v| v.invariant == "strain-never-violated")
+        .expect("the strain sweep is present");
+    assert!(
+        unbound_sweep.deferred(),
+        "the same law with no binding stays honestly deferred: {:?}",
+        unbound_sweep.outcome
+    );
+}

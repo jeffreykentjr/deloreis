@@ -248,6 +248,29 @@ pub(crate) struct SimulateArgs {
     /// The master seed. Default 0.
     #[arg(long, value_name = "SEED")]
     pub(crate) seed: Option<u64>,
+    /// Bind a symbolic affine cap so its law is ENFORCED (not deferred), e.g.
+    /// `--cap megin=5`. Repeatable; keyed by resource name. An unbound symbolic
+    /// cap stays honestly `deferred`.
+    #[arg(long = "cap", value_name = "RESOURCE=N")]
+    pub(crate) caps: Vec<String>,
+}
+
+/// Parse repeated `--cap <resource>=<n>` flags into the battery's `affine_caps`
+/// (resource name → integer bound). An `affine bounded <symbolic-cap>` law is
+/// enforced only when its resource is bound here.
+fn parse_caps(specs: &[String]) -> Result<std::collections::BTreeMap<String, i64>, String> {
+    let mut caps = std::collections::BTreeMap::new();
+    for spec in specs {
+        let (res, n) = spec
+            .split_once('=')
+            .ok_or_else(|| format!("--cap expects <resource>=<n>, got '{spec}'"))?;
+        let bound: i64 = n
+            .trim()
+            .parse()
+            .map_err(|_| format!("--cap '{spec}': '{}' is not an integer bound", n.trim()))?;
+        caps.insert(res.trim().to_owned(), bound);
+    }
+    Ok(caps)
 }
 
 /// Run a seeded battery over a declared practice (or a card ruleset with
@@ -267,8 +290,8 @@ pub(crate) fn run_simulate(args: &SimulateArgs) -> CmdResult {
 /// per resource per trial; `trials` = `--games` or [`SIM_DEFAULT_TRIALS`]; `seed` =
 /// `--seed` or 0. The metrics are an `any-violation` rate plus a per-resource
 /// `<res>-violated` rate; the invariants are `all-laws-hold` plus a per-resource
-/// `<res>-never-violated` sweep. Affine caps are left unbound (a symbolic cap
-/// defers its check, never guesses).
+/// `<res>-never-violated` sweep. Affine caps bind from `--cap <resource>=<n>`; an
+/// unbound symbolic cap defers its check honestly, never guesses.
 fn run_simulate_practice(args: &SimulateArgs) -> CmdResult {
     if args.corpus.is_empty() {
         return Err(
@@ -293,6 +316,7 @@ fn run_simulate_practice(args: &SimulateArgs) -> CmdResult {
         max_magnitude: SIM_DEFAULT_MAX_MAGNITUDE,
     };
     let (metrics, invariants) = default_practice_grading(&practice);
+    let affine_caps = parse_caps(&args.caps)?;
     let battery = Battery {
         practice,
         bounds,
@@ -300,7 +324,7 @@ fn run_simulate_practice(args: &SimulateArgs) -> CmdResult {
         trials: args.games.unwrap_or(SIM_DEFAULT_TRIALS),
         metrics,
         invariants,
-        affine_caps: BTreeMap::new(),
+        affine_caps,
     };
     for finding in battery.validate() {
         outln!("config  {finding}");

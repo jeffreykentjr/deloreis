@@ -44,16 +44,28 @@
 //! knowledge with ground `knows(<speaker>, <subject>)` certain facts, a named
 //! speaker narrows the pool: a premise is known only if its subject (its first
 //! argument) is one the speaker is recorded as knowing. Absent any such fact for
-//! the speaker, the full-information default stands. Denials are never
-//! synthesized: contradiction in this algebra is an FD-versus-certain clash
-//! (`docs/spec/02-semantics.md` §4), a per-atom relation rather than a finite
-//! enumerable set, so [`SceneProjection::denied`] is left empty and a caller
-//! testing a specific rebound supplies it with [`SceneProjection::deny`].
+//! the speaker, the full-information default stands.
+//!
+//! **Denials — the rebound seam (`docs/spec/02-semantics.md` §4).** Contradiction
+//! in this algebra is a clash between a tested premise and what the certain layer
+//! *actively opposes*, and it is what splits a *rebound* (L2 contradicted /
+//! forsworn) from a mere *fizzle* (L2 absent). The one contradiction relation a
+//! `(world, speaker)` pair can read soundly is **option-exclusivity**: the options
+//! of one question/fork form a mutually-exclusive family (`dli_core::ann::Theory`),
+//! so once the certain layer holds one option's outcome, every *other* option's
+//! outcome is not merely unestablished — it is refuted. [`project_scene`] therefore
+//! populates [`SceneProjection::denied`] with each excluded sibling atom of a
+//! certain option outcome: a genuine FD-versus-certain clash, never a synthesized
+//! one (a family with no certain member denies nothing, and a certain atom is never
+//! denied). A caller testing any other specific rebound may still add one directly
+//! with [`SceneProjection::deny`].
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::Status;
+use dli_core::atom::{Atom, Rail};
+use dli_core::posbool::PosBool;
 use dli_ledger::SceneProjection;
 
 use crate::check::CompiledWorld;
@@ -68,6 +80,11 @@ use crate::check::CompiledWorld;
 /// the corpus records ground `knows(<speaker>, <subject>)` facts for the given
 /// speaker, in which case the pool is narrowed to premises whose subject the
 /// speaker knows (see the module docs for why this is the conservative default).
+///
+/// [`denied`](SceneProjection::denied) is populated from option-exclusivity: when
+/// the certain layer holds one option's outcome, the outcomes of that option's
+/// mutually-exclusive siblings are denied, so a premise resting on one rebounds
+/// (L2 contradicted) rather than fizzles (L2 absent). See the module docs.
 ///
 /// `speaker` names the caster the pool is projected *for*; pass [`None`] to
 /// project the speaker-independent full-information pool.
@@ -161,6 +178,12 @@ pub fn project_scene(world: &CompiledWorld, speaker: Option<&str>) -> SceneProje
     // full-information default (the whole certain layer is known and present).
     let gate_knowledge = speaker.is_some() && speaker_has_knowledge;
 
+    // Denials: the excluded siblings of a certain option outcome. A rebound is a
+    // real FD-versus-certain clash, so this reads the certain layer we just
+    // harvested against the world's option-exclusivity families — never guessed.
+    let certain_set: BTreeSet<&str> = pool.iter().map(|(rendered, _)| rendered.as_str()).collect();
+    let denied = denied_by_exclusivity(world, &certain_set);
+
     // Pass 2: assemble the projection. Spokes, phases, and caps are read from the
     // world; the pool atoms are seated (present always; known per the gate).
     let mut proj = SceneProjection::new();
@@ -187,7 +210,94 @@ pub fn project_scene(world: &CompiledWorld, speaker: Option<&str>) -> SceneProje
             proj = proj.known(rendered);
         }
     }
+    for atom in &denied {
+        proj = proj.deny(atom);
+    }
     proj
+}
+
+/// The atoms the certain layer *actively opposes* by option-exclusivity — the
+/// denied side that turns a fizzle into a rebound (`docs/spec/02-semantics.md` §4).
+///
+/// A question's (or fork's) options form a mutually-exclusive family
+/// ([`Theory`](dli_core::ann::Theory)); each option gates the outcome atom it
+/// `implies` (support `+<option>`). When the certain layer holds one option's
+/// outcome, that option is the settled answer, so every *other* option's outcome
+/// atom is not merely absent — the world refutes it. Those sibling outcome atoms
+/// are the denials.
+///
+/// Soundness: a family with **no** certain outcome denies nothing (an open
+/// question refutes nothing), and an atom that is itself certain is never denied
+/// (guarding the pathological case where two exclusive options are both certain —
+/// a genuine clash the pool surfaces, not one this function invents).
+fn denied_by_exclusivity(world: &CompiledWorld, certain_set: &BTreeSet<&str>) -> BTreeSet<String> {
+    let families = &world.model.world.theory.exclusive;
+    let mut denied = BTreeSet::new();
+    if families.is_empty() {
+        return denied;
+    }
+
+    // The option vars in play, and the outcome atoms each option gates (an atom
+    // whose support is exactly `+<option>` — the shape `implies` lowers to).
+    let family_vars: BTreeSet<Atom> = families.iter().flatten().copied().collect();
+    let mut outcomes: BTreeMap<Atom, BTreeSet<String>> = BTreeMap::new();
+    for loaded in world.model.atoms() {
+        if let Some(var) = single_positive_var(&loaded.ann.support)
+            && family_vars.contains(&var)
+        {
+            outcomes
+                .entry(var)
+                .or_default()
+                .insert(render_atom(&loaded.atom));
+        }
+    }
+
+    for family in families {
+        let certain_members: BTreeSet<Atom> = family
+            .iter()
+            .copied()
+            .filter(|var| {
+                outcomes
+                    .get(var)
+                    .is_some_and(|atoms| atoms.iter().any(|a| certain_set.contains(a.as_str())))
+            })
+            .collect();
+        if certain_members.is_empty() {
+            continue;
+        }
+        for var in family {
+            if certain_members.contains(var) {
+                continue;
+            }
+            if let Some(atoms) = outcomes.get(var) {
+                for atom in atoms {
+                    if !certain_set.contains(atom.as_str()) {
+                        denied.insert(atom.clone());
+                    }
+                }
+            }
+        }
+    }
+    denied
+}
+
+/// The single event variable a support polynomial rests on when it is exactly one
+/// positive literal (`+v`) — the shape an option's `implies` outcome carries
+/// ([`Ann::supported(PosBool::pos(var))`](dli_core::ann::Ann::supported)). Any
+/// other support (multi-monomial, conjunction, or a negative literal) is not an
+/// option outcome and yields [`None`].
+fn single_positive_var(support: &PosBool) -> Option<Atom> {
+    let mut monomials = support.monomials();
+    let monomial = monomials.next()?;
+    if monomials.next().is_some() {
+        return None;
+    }
+    let mut lits = monomial.lits();
+    let lit = lits.next()?;
+    if lits.next().is_some() || lit.rail != Rail::Pos {
+        return None;
+    }
+    Some(lit.atom)
 }
 
 /// Render an [`AtomExpr`] to its `pred(a, b)` surface form (bare `pred` when
@@ -234,7 +344,9 @@ mod tests {
     use super::*;
 
     use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-    use dli_ast::decl::{CycleDecl, Decl, Document, FactDecl, RatifyDecl, ScopeHeader};
+    use dli_ast::decl::{
+        CycleDecl, Decl, Document, FactDecl, OptionClause, QuestionDecl, RatifyDecl, ScopeHeader,
+    };
     use dli_ast::ident::Ident;
     use dli_ast::span::Span;
     use dli_ledger::premise::PremiseStatus;
@@ -278,6 +390,30 @@ mod tests {
 
     fn sym(text: &str) -> Term {
         Term::Sym(id(text))
+    }
+
+    fn atom(pred: &str, args: Vec<Term>) -> AtomExpr {
+        AtomExpr {
+            pred: id(pred),
+            args,
+        }
+    }
+
+    /// A question with two mutually-exclusive options, each `implies`-ing an
+    /// outcome atom — the option-exclusivity family the rebound seam reads.
+    fn two_option_question(name: &str, options: Vec<(&str, AtomExpr)>) -> Decl {
+        Decl::Question(QuestionDecl {
+            name: id(name),
+            prompt: None,
+            options: options
+                .into_iter()
+                .map(|(opt, implied)| OptionClause {
+                    name: id(opt),
+                    implies: Some(implied),
+                })
+                .collect(),
+            provenance: None,
+        })
     }
 
     fn tide_cycle() -> Decl {
@@ -413,5 +549,65 @@ mod tests {
             PremiseStatus::Available,
             "no knows-facts for this speaker → full-information default",
         );
+    }
+
+    #[test]
+    fn a_certain_option_outcome_denies_its_exclusive_sibling() {
+        // The world rules Arthur *refused*; consent and refusal are the two
+        // exclusive answers to one question. `consent(arthur)` is therefore not
+        // merely absent — the certain layer refutes it, so it REBOUNDS.
+        let world = world(vec![
+            ratify("d-1"),
+            // The settled answer, certain in the base layer.
+            fact("refused", vec![sym("arthur")], "d-1"),
+            // The two options are mutually exclusive; each implies its outcome.
+            two_option_question(
+                "arthurs-answer",
+                vec![
+                    ("refuses", atom("refused", vec![sym("arthur")])),
+                    ("grants", atom("consent", vec![sym("arthur")])),
+                ],
+            ),
+        ]);
+        let scene = project_scene(&world, None);
+        assert_eq!(
+            scene.availability("refused(arthur)"),
+            PremiseStatus::Available,
+            "the settled answer is certain and in the pool",
+        );
+        assert_eq!(
+            scene.availability("consent(arthur)"),
+            PremiseStatus::Contradicted,
+            "the excluded sibling of a certain outcome is denied — a rebound, not a fizzle",
+        );
+        assert!(
+            scene.denied.contains("consent(arthur)"),
+            "denied is populated from the exclusivity family: {:?}",
+            scene.denied,
+        );
+    }
+
+    #[test]
+    fn an_open_question_denies_nothing() {
+        // Neither option's outcome is certain, so the question is open and refutes
+        // nothing — both sibling outcomes stay merely absent (fizzle, not rebound).
+        let world = world(vec![
+            ratify("d-1"),
+            two_option_question(
+                "arthurs-answer",
+                vec![
+                    ("refuses", atom("refused", vec![sym("arthur")])),
+                    ("grants", atom("consent", vec![sym("arthur")])),
+                ],
+            ),
+        ]);
+        let scene = project_scene(&world, None);
+        assert!(
+            scene.denied.is_empty(),
+            "an open family denies nothing: {:?}",
+            scene.denied,
+        );
+        assert_eq!(scene.availability("consent(arthur)"), PremiseStatus::Absent,);
+        assert_eq!(scene.availability("refused(arthur)"), PremiseStatus::Absent,);
     }
 }
