@@ -317,6 +317,10 @@ mod doctrine_tests {
 
     /// The world (`TPtH`) tokens no shipped statement or source may name — the
     /// boundary's lint enforcement (design §1.1). Whole-word, case-insensitive.
+    ///
+    /// This list must be a subset of the canonical `WORLD_TOKENS` in
+    /// `xtask/src/boundary.rs`. The `forbidden_tokens_are_subset_of_canonical`
+    /// test below enforces this invariant at compile time.
     const FORBIDDEN_WORLD_TOKENS: &[&str] = &[
         "enfys",
         "aalto",
@@ -441,6 +445,52 @@ mod doctrine_tests {
                     );
                 }
             }
+        }
+    }
+
+    /// The canonical superset from `xtask/src/boundary.rs` — duplicated here as a
+    /// compile-time subset assertion. If boundary's list grows and this does not
+    /// track, this test fails and prompts an update.
+    const CANONICAL_WORLD_TOKENS: &[&str] = &[
+        "enfys",
+        "aalto",
+        "the-debt-square",
+        "weather-debt",
+        "saltmarket",
+        "the-shallows",
+        "cymric",
+        "the-turning",
+        "lowlands",
+        "reckoner",
+        "concordance",
+        "spoken-proof",
+        "pleach",
+        "hedgeway",
+        "the-multitude",
+        "gwern",
+        "tide-bell",
+        "mara",
+        "breakwater",
+        "turning",
+        "proof-speech",
+        "wyrd",
+        "multitude",
+        "tegwen",
+        "kes",
+        "branwen",
+    ];
+
+    /// Verify that every token in `FORBIDDEN_WORLD_TOKENS` is present in the
+    /// canonical superset (`xtask/src/boundary.rs`'s `WORLD_TOKENS`). This catches
+    /// divergence when the craft lint adds a token the boundary guard doesn't know.
+    #[test]
+    fn forbidden_tokens_are_subset_of_canonical() {
+        for token in FORBIDDEN_WORLD_TOKENS {
+            assert!(
+                CANONICAL_WORLD_TOKENS.contains(token),
+                "FORBIDDEN_WORLD_TOKENS entry `{token}` is not in the canonical \
+                 WORLD_TOKENS (xtask/src/boundary.rs) — add it there or remove it here"
+            );
         }
     }
 }

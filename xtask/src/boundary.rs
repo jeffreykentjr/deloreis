@@ -23,7 +23,13 @@ use walkdir::WalkDir;
 /// whole-word (ASCII boundary) and case-insensitively; keep them lowercase.
 /// `D-nnnn` decision ids are deliberately absent — they legitimately appear in
 /// mechanism doc-comments.
-pub(crate) const WORLD_TOKENS: &[&str] = &[
+///
+/// This is the canonical superset: it merges the original 19 boundary tokens,
+/// the `dli-world` craft lint's `FORBIDDEN_WORLD_TOKENS`, and live canon names
+/// present in fixtures. Engine real code is TPtH-free within the proven scope
+/// (canonical tokens + spaced forms).
+pub const WORLD_TOKENS: &[&str] = &[
+    // --- original 19 ---
     "enfys",
     "aalto",
     "the-debt-square",
@@ -43,6 +49,15 @@ pub(crate) const WORLD_TOKENS: &[&str] = &[
     "tide-bell",
     "mara",
     "breakwater",
+    // --- from FORBIDDEN_WORLD_TOKENS (dli-world craft lint) ---
+    "turning",
+    "proof-speech",
+    "wyrd",
+    "multitude",
+    // --- live canon names (present in fixtures) ---
+    "tegwen",
+    "kes",
+    "branwen",
 ];
 
 /// A permitted current leak: real-engine-code uses of specific world tokens in one
@@ -59,10 +74,11 @@ struct Allow {
     note: &'static str,
 }
 
-/// The tracked-debt allowlist — currently EMPTY. Engine real code is fully
-/// TPtH-free (the separation invariant): no `## Section` cites a world token in a
-/// non-comment, non-test line. An entry here (or a `// tpth-exempt:` marker) is how
-/// a genuine, temporary leak would be tracked; none exist today.
+/// The tracked-debt allowlist — currently EMPTY. Engine real code is TPtH-free
+/// within the proven scope (26 canonical tokens + spaced forms): no `## Section`
+/// cites a world token in a non-comment, non-test line. An entry here (or a
+/// `// tpth-exempt:` marker) is how a genuine, temporary leak would be tracked;
+/// none exist today.
 const ALLOWLIST: &[Allow] = &[];
 
 /// One real-code leak: a forbidden token in a real (non-comment, non-test) line.
@@ -177,7 +193,12 @@ fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
     for (index, line) in text.lines().enumerate() {
         let started_in_block = in_block_comment;
         let trimmed = line.trim_start();
-        if trimmed.contains("#[cfg(test)]") {
+        // F5S-4: a doc comment (/// or //!) mentioning `#[cfg(test)]` must not
+        // set the flag — it is documentation, not an actual attribute.
+        if trimmed.contains("#[cfg(test)]")
+            && !trimmed.starts_with("///")
+            && !trimmed.starts_with("//!")
+        {
             pending_cfg = true;
         }
 
@@ -235,12 +256,28 @@ fn allowed_tokens(rel: &str) -> Vec<&'static str> {
 
 /// The forbidden world tokens named on a line (whole-word, case-insensitive),
 /// after blanking any `worlds/tpth/...` data path (a path is not content).
+/// For hyphenated tokens starting with `the-`, also checks the spaced equivalent
+/// (F5S-1): e.g. `the-turning` also scans for `the turning`. Only `the-` prefixed
+/// tokens get spaced-form expansion since other hyphenated tokens (`spoken-proof`,
+/// `proof-speech`) could appear as generic English.
 fn line_tokens(line: &str) -> Vec<&'static str> {
     let lower = blank_world_paths(&line.to_lowercase());
     WORLD_TOKENS
         .iter()
         .copied()
-        .filter(|token| contains_word(&lower, token))
+        .filter(|token| {
+            if contains_word(&lower, token) {
+                return true;
+            }
+            // F5S-1: for `the-X` tokens, also check the spaced form
+            // ("the turning", "the multitude", etc.).
+            if token.starts_with("the-") {
+                let spaced = token.replace('-', " ");
+                contains_word(&lower, &spaced)
+            } else {
+                false
+            }
+        })
         .collect()
 }
 
@@ -276,7 +313,7 @@ fn is_path_byte(byte: u8) -> bool {
 /// Whole-word (ASCII-boundary), case-insensitive containment. `haystack` is
 /// lowercased and `needle` is lowercase; a match must be flanked by non-ASCII
 /// -alphanumeric bytes (or the ends). Mirrors the craft lint's `contains_word`.
-pub(crate) fn contains_word(haystack: &str, needle: &str) -> bool {
+pub fn contains_word(haystack: &str, needle: &str) -> bool {
     let bytes = haystack.as_bytes();
     let mut from = 0;
     while let Some(rel) = haystack[from..].find(needle) {

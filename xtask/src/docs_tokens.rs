@@ -29,13 +29,15 @@ use crate::boundary::{WORLD_TOKENS, contains_word};
 const ALLOWED_PREFIXES: &[&str] = &["docs/worlds/tpth/", "worlds/tpth/"];
 
 /// Exact repo-relative files (forward slashes) that legitimately name `TPtH`: the
-/// decision ledger, the plan, the migration guide, the surface-naming record, and
-/// the tpth-scoped design-notes (separation, splits, the turning/craft extractions,
-/// the vendored corpus). `prior-art-licenses.md` cites `TPtH` canon file *paths*
-/// (`canon/world/{…,the-turning}.md`) as prior-art evidence, not as engine teaching.
+/// decision ledger, the plan, the charter, the migration guide, the surface-naming
+/// record, and the tpth-scoped design-notes (separation, splits, the turning/craft
+/// extractions, the vendored corpus). `prior-art-licenses.md` cites `TPtH` canon
+/// file *paths* (`canon/world/{…,the-turning}.md`) as prior-art evidence, not as
+/// engine teaching.
 const ALLOWED_FILES: &[&str] = &[
     "docs/decisions.md",
     "docs/PLAN.md",
+    "docs/charter.md",
     "docs/integration/migration.md",
     "docs/surface-v1-naming.md",
     "docs/design-notes/tpth-separation-plan.md",
@@ -53,6 +55,13 @@ const ALLOWED_FILES: &[&str] = &[
 /// The marker that makes a paragraph a worldbook cross-link: a `docs/worlds/tpth/`
 /// link. Matched lowercase against a lowercased line.
 const WORLDBOOK_LINK: &str = "worlds/tpth";
+
+/// Tokens from `WORLD_TOKENS` that are too generic for the docs surface scan —
+/// they appear legitimately throughout the specs when discussing the engine's
+/// architecture (e.g. "the Turning engine", "the Turning's leaf(29)"). These are
+/// still enforced in the engine boundary guard (`boundary.rs`), just not in
+/// docs/examples.
+const DOCS_EXEMPT_TOKENS: &[&str] = &["turning", "the-turning"];
 
 /// One leak: a forbidden world token named on a non-exempt line of a scanned doc.
 struct Leak {
@@ -172,7 +181,9 @@ fn is_allowed_path(rel: &str) -> bool {
 }
 
 /// Scan one doc, appending any world-token leak on a line that is neither inside a
-/// worldbook-footer paragraph nor otherwise exempt.
+/// worldbook-footer paragraph nor otherwise exempt. Tokens in `DOCS_EXEMPT_TOKENS`
+/// are skipped (they are too generic for doc prose but enforced in the boundary
+/// guard). For `the-` prefixed tokens, also checks the spaced equivalent (F5S-1).
 fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
     let lines: Vec<&str> = text.lines().collect();
     let exempt = footer_exempt_lines(&lines);
@@ -185,7 +196,21 @@ fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
         let hits: Vec<&'static str> = WORLD_TOKENS
             .iter()
             .copied()
-            .filter(|token| contains_word(&lower, token))
+            .filter(|token| {
+                if DOCS_EXEMPT_TOKENS.contains(token) {
+                    return false;
+                }
+                if contains_word(&lower, token) {
+                    return true;
+                }
+                // F5S-1: for `the-X` tokens, also check the spaced form.
+                if token.starts_with("the-") {
+                    let spaced = token.replace('-', " ");
+                    contains_word(&lower, &spaced)
+                } else {
+                    false
+                }
+            })
             .collect();
         if !hits.is_empty() {
             leaks.push(Leak {
