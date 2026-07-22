@@ -155,7 +155,7 @@ fn ledger_valuation(
 ///
 /// **Not gated:** a `term`/`dialect`/`word`/`name-part`'s `decided <d-id>` is
 /// *language-layer provenance* — a bibliographic pointer that may name a decision
-/// recorded OUTSIDE this corpus. The vendored TPtH packs legitimately cite external
+/// recorded OUTSIDE this corpus. The vendored `TPtH` packs legitimately cite external
 /// canon ids (e.g. `D-0181`) this way; gating them would break a partial/vendored
 /// corpus that points at its home ledger. Provenance is not assertability authority.
 ///
