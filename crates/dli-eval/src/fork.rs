@@ -734,7 +734,8 @@ fn standings(world: &World, nu: &Valuation) -> BTreeMap<GroundAtom, (Status, Gra
     for derived in &world.derived {
         let ann = derived.ann();
         let status = ann.status(nu, &world.theory);
-        out.insert(derived.atom.clone(), (status, derived.grade));
+        let grade = world.grade_under(&derived.support, nu, derived.grade);
+        out.insert(derived.atom.clone(), (status, grade));
     }
     out
 }

@@ -171,6 +171,13 @@ pub struct World {
     pub chronology: Chronology,
     /// The cyclic calendars.
     pub cycles: Vec<Cycle>,
+    /// Per-variable grade: the grade of the evidence that introduced each
+    /// support variable. Used by [`World::grade_under`] to compute the dynamic
+    /// grade of a support polynomial under a valuation, fixing the
+    /// grade-laundering issue where the pooled `Derived.grade` was
+    /// valuation-independent.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub var_grades: BTreeMap<Atom, Grade>,
 }
 
 impl World {
@@ -337,6 +344,58 @@ impl World {
         });
     }
 
+    /// Assert a typed ground fact with an explicit annotation and grade,
+    /// populating `var_grades` for each variable in the fact's support.
+    pub fn assert_fact_graded(&mut self, atom: GroundAtom, ann: Ann, grade: Grade) {
+        for monomial in ann.support.monomials() {
+            for lit in monomial.lits() {
+                self.var_grades
+                    .entry(lit.atom)
+                    .and_modify(|existing| *existing = Grade::join_alt([*existing, grade]))
+                    .or_insert(grade);
+            }
+        }
+        self.facts.push(Fact { atom, ann, grade });
+    }
+
+    /// Compute the dynamic grade of a support polynomial under a specific
+    /// valuation (`docs/spec/02-semantics.md` §2): the grade of a monomial is
+    /// the meet (weakest) of its variables' grades; the grade of the atom is the
+    /// join (strongest) over all ν-true monomials.
+    ///
+    /// `fallback` is used as the grade of an empty (unconditional) monomial,
+    /// which has no variables — its grade comes from the establishing procedure,
+    /// not from the support algebra.
+    ///
+    /// This replaces the static `Derived.grade` in the query path so that grade
+    /// is valuation-dependent and grade-laundering is impossible.
+    #[must_use]
+    pub fn grade_under(&self, support: &PosBool, valuation: &Valuation, fallback: Grade) -> Grade {
+        let mut best = None;
+        for monomial in support.monomials() {
+            if !monomial.eval_under(valuation) {
+                continue;
+            }
+            let mono_grade = if monomial.0.is_empty() {
+                // The empty monomial (unconditional): no variables to meet, so
+                // the grade is the establishing procedure's grade (the fallback).
+                fallback
+            } else {
+                Grade::weakest(monomial.lits().map(|lit| {
+                    self.var_grades
+                        .get(&lit.atom)
+                        .copied()
+                        .unwrap_or(Grade::Checked)
+                }))
+            };
+            best = Some(match best {
+                Some(prev) => Grade::join_alt([prev, mono_grade]),
+                None => mono_grade,
+            });
+        }
+        best.unwrap_or(Grade::Asserted)
+    }
+
     /// Compile a fact's provenance into its support, gating on the provenance
     /// marker — not merely on the optional `assumes` condition (koan 1: nothing
     /// is true by being written down).
@@ -467,6 +526,21 @@ impl World {
         world.derived = relation.into_values().collect();
         world.derived.sort_by(|a, b| a.atom.cmp(&b.atom));
         world.support_index = build_support_index(&world.derived);
+        // Populate var_grades from facts: each variable in a fact's support
+        // inherits the fact's grade, keeping the strongest if seen twice.
+        for fact in &world.facts {
+            for monomial in fact.ann.support.monomials() {
+                for lit in monomial.lits() {
+                    world
+                        .var_grades
+                        .entry(lit.atom)
+                        .and_modify(|existing| {
+                            *existing = Grade::join_alt([*existing, fact.grade]);
+                        })
+                        .or_insert(fact.grade);
+                }
+            }
+        }
         Ok(world)
     }
 
@@ -506,7 +580,7 @@ impl World {
                 bindings,
                 verdict: Verdict {
                     support: derived.support.clone(),
-                    grade: derived.grade,
+                    grade: self.grade_under(&derived.support, valuation, derived.grade),
                 },
                 status,
                 // Explanations are attached by `query_with` (the query lane),
@@ -1182,5 +1256,67 @@ mod tests {
         assert_eq!(asserted_first[&atom], checked_first[&atom]);
         assert!(asserted_first[&atom].support.is_true());
         assert_eq!(asserted_first[&atom].grade, Grade::Checked);
+    }
+
+    #[test]
+    fn grade_is_per_valuation() {
+        // Two facts derive the same atom via different monomials with different
+        // grades. Under a valuation where only the asserted monomial is true,
+        // grade should be Asserted. Under a valuation where only the checked
+        // monomial is true, grade should be Checked. The pooled grade (both
+        // monomials) should be Checked (join_alt).
+        let mut world = World::new();
+        let var_a = world.interner.intern("h.a");
+        let var_b = world.interner.intern("h.b");
+
+        // Fact 1: supported on var_a, grade Asserted.
+        world.assert_fact_graded(
+            nullary("p"),
+            Ann::supported(PosBool::pos(var_a)),
+            Grade::Asserted,
+        );
+        // Fact 2: supported on var_b, grade Checked.
+        world.assert_fact_graded(
+            nullary("p"),
+            Ann::supported(PosBool::pos(var_b)),
+            Grade::Checked,
+        );
+
+        let world = world.fixpoint().expect("stratifiable");
+
+        // The pooled grade on the Derived row is the join (Checked).
+        let derived = world
+            .derived
+            .iter()
+            .find(|d| d.atom == nullary("p"))
+            .expect("p is derived");
+        assert_eq!(derived.grade, Grade::Checked);
+
+        // Under a valuation where only var_a is true: grade is Asserted.
+        let mut nu_a = Valuation::new();
+        nu_a.set(var_a, true);
+        nu_a.set(var_b, false);
+        assert_eq!(
+            world.grade_under(&derived.support, &nu_a, derived.grade),
+            Grade::Asserted,
+        );
+
+        // Under a valuation where only var_b is true: grade is Checked.
+        let mut nu_b = Valuation::new();
+        nu_b.set(var_a, false);
+        nu_b.set(var_b, true);
+        assert_eq!(
+            world.grade_under(&derived.support, &nu_b, derived.grade),
+            Grade::Checked,
+        );
+
+        // Under a valuation where both are true: grade is Checked (join_alt).
+        let mut nu_both = Valuation::new();
+        nu_both.set(var_a, true);
+        nu_both.set(var_b, true);
+        assert_eq!(
+            world.grade_under(&derived.support, &nu_both, derived.grade),
+            Grade::Checked,
+        );
     }
 }
