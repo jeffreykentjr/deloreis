@@ -318,11 +318,14 @@ pub struct ForkDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `practice <name> { … }`.
+/// `practice <name> ["label"] { … }`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PracticeDecl {
     /// The practice name.
     pub name: Ident,
+    /// The display label, if written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// The captured body clauses.
     pub body: Vec<Clause>,
     /// Provenance annotation, if any.
@@ -342,11 +345,14 @@ pub struct DialectDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `word <name>` with its name-parts.
+/// `word <name> ["label"] [= <name-parts…>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct WordDecl {
     /// The word name.
     pub name: Ident,
+    /// The display label, if written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// The name-parts composing the word.
     pub name_parts: Vec<Ident>,
     /// Provenance annotation, if any.
@@ -366,11 +372,14 @@ pub struct NamePartDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `draft <name>`.
+/// `draft <name> ["label"]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DraftDecl {
     /// The draft name.
     pub name: Ident,
+    /// The display label, if written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// The captured body clauses.
     pub body: Vec<Clause>,
     /// Provenance annotation, if any.
@@ -386,11 +395,14 @@ pub struct AttestDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `export <profile>`.
+/// `export <profile> ["label"]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ExportDecl {
     /// The export profile name.
     pub profile: Ident,
+    /// The display label, if written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// The captured body clauses.
     pub body: Vec<Clause>,
     /// Provenance annotation, if any.
@@ -485,4 +497,7 @@ pub struct ProofDecl {
     pub head: Vec<String>,
     /// The captured body clauses (`premise …`, `step …`, `spend …`, `close …`).
     pub body: Vec<Clause>,
+    /// Provenance annotation, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Annotation>,
 }

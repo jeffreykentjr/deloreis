@@ -302,7 +302,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
         Decl::Practice(p) => braced(
             "practice",
             &p.name.text,
-            None,
+            p.label.as_deref(),
             &[],
             p.provenance.as_ref(),
             &p.body,
@@ -318,7 +318,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
         Decl::Draft(d) => braced(
             "draft",
             &d.name.text,
-            None,
+            d.label.as_deref(),
             &[],
             d.provenance.as_ref(),
             &d.body,
@@ -326,18 +326,30 @@ fn render_raw(decl: &Decl) -> Vec<String> {
         Decl::Export(e) => braced(
             "export",
             &e.profile.text,
-            None,
+            e.label.as_deref(),
             &[],
             e.provenance.as_ref(),
             &e.body,
         ),
-        Decl::Proof(l) => braced("proof", &l.name.text, None, &l.head, None, &l.body),
+        Decl::Proof(l) => braced(
+            "proof",
+            &l.name.text,
+            None,
+            &l.head,
+            l.provenance.as_ref(),
+            &l.body,
+        ),
         Decl::Ratify(r) => braced("ratify", &r.decision.text, None, &[], None, &r.body),
         Decl::Word(l) => {
             let mut line = format!("word {}", l.name.text);
-            for part in &l.name_parts {
+            if let Some(label) = &l.label {
                 line.push(' ');
-                line.push_str(&part.text);
+                line.push_str(&quote(label));
+            }
+            if !l.name_parts.is_empty() {
+                line.push_str("  = ");
+                let parts: Vec<&str> = l.name_parts.iter().map(|p| p.text.as_str()).collect();
+                line.push_str(&parts.join(" "));
             }
             append_provenance(&mut line, l.provenance.as_ref());
             vec![line.trim_end().to_owned()]

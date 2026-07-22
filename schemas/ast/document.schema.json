@@ -741,7 +741,7 @@
       ]
     },
     "DraftDecl": {
-      "description": "`draft <name>`.",
+      "description": "`draft <name> [\"label\"]`.",
       "type": "object",
       "properties": {
         "body": {
@@ -750,6 +750,13 @@
           "items": {
             "$ref": "#/$defs/Clause"
           }
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "name": {
           "description": "The draft name.",
@@ -858,7 +865,7 @@
       ]
     },
     "ExportDecl": {
-      "description": "`export <profile>`.",
+      "description": "`export <profile> [\"label\"]`.",
       "type": "object",
       "properties": {
         "body": {
@@ -867,6 +874,13 @@
           "items": {
             "$ref": "#/$defs/Clause"
           }
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "profile": {
           "description": "The export profile name.",
@@ -1164,7 +1178,7 @@
       ]
     },
     "PracticeDecl": {
-      "description": "`practice <name> { … }`.",
+      "description": "`practice <name> [\"label\"] { … }`.",
       "type": "object",
       "properties": {
         "body": {
@@ -1173,6 +1187,13 @@
           "items": {
             "$ref": "#/$defs/Clause"
           }
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "name": {
           "description": "The practice name.",
@@ -1256,6 +1277,17 @@
         "name": {
           "description": "The proof name.",
           "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1763,9 +1795,16 @@
       ]
     },
     "WordDecl": {
-      "description": "`word <name>` with its name-parts.",
+      "description": "`word <name> [\"label\"] [= <name-parts…>]`.",
       "type": "object",
       "properties": {
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "name": {
           "description": "The word name.",
           "$ref": "#/$defs/Ident"

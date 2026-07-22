@@ -628,11 +628,15 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             }
         }
         "use" => match cur.eat_ident() {
-            Some(target) => items.push(Item::Decl(Decl::Use(UseDecl { target, span }))),
+            Some(target) => {
+                expect_consumed(&cur, diags, "a `use` reads `use <target>`.");
+                items.push(Item::Decl(Decl::Use(UseDecl { target, span })));
+            }
             None => missing_name(diags, "use", span),
         },
         "kind" => match parse_simple_named(&mut cur, diags, span) {
             Some((name, provenance)) => {
+                expect_consumed(&cur, diags, "a `kind` reads `kind <name> [origin]`.");
                 items.push(Item::Decl(Decl::Kind(KindDecl { name, provenance })));
             }
             None => missing_name(diags, "kind", span),
@@ -662,11 +666,12 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             }
         }
         "practice" => {
-            if let Some((name, _label, _head, body, provenance)) =
+            if let Some((name, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "practice")
             {
                 items.push(Item::Decl(Decl::Practice(PracticeDecl {
                     name,
+                    label,
                     body,
                     provenance,
                 })));
@@ -684,11 +689,34 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 })));
             }
         }
-        "word" => match parse_simple_named(&mut cur, diags, span) {
-            Some((name, provenance)) => {
+        "word" => match cur.eat_ident() {
+            Some(name) => {
+                let label = cur.eat_string();
+                let mut name_parts = Vec::new();
+                if cur.peek_kind() == Some(TokenKind::Equals) {
+                    cur.bump();
+                    while let Some(tok) = cur.peek() {
+                        if tok.kind == TokenKind::Word && is_marker(&tok.text) {
+                            break;
+                        }
+                        if matches!(tok.kind, TokenKind::Word | TokenKind::Int) {
+                            name_parts.push(ident_of(tok));
+                            cur.bump();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                let provenance = parse_provenance(&mut cur, diags);
+                expect_consumed(
+                    &cur,
+                    diags,
+                    "a `word` reads `word <name> [\"label\"] [= <parts…>] [origin]`.",
+                );
                 items.push(Item::Decl(Decl::Word(WordDecl {
                     name,
-                    name_parts: Vec::new(),
+                    label,
+                    name_parts,
                     provenance,
                 })));
             }
@@ -708,11 +736,12 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             None => missing_name(diags, "name-part", span),
         },
         "draft" => {
-            if let Some((name, _label, _head, body, provenance)) =
+            if let Some((name, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "draft")
             {
                 items.push(Item::Decl(Decl::Draft(DraftDecl {
                     name,
+                    label,
                     body,
                     provenance,
                 })));
@@ -720,6 +749,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         }
         "attest" => match parse_simple_named(&mut cur, diags, span) {
             Some((question, provenance)) => {
+                expect_consumed(
+                    &cur,
+                    diags,
+                    "an `attest` reads `attest <question> [origin]`.",
+                );
                 items.push(Item::Decl(Decl::Attest(dli_ast::decl::AttestDecl {
                     question,
                     provenance,
@@ -728,11 +762,12 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             None => missing_name(diags, "attest", span),
         },
         "export" => {
-            if let Some((profile, _label, _head, body, provenance)) =
+            if let Some((profile, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "export")
             {
                 items.push(Item::Decl(Decl::Export(ExportDecl {
                     profile,
+                    label,
                     body,
                     provenance,
                 })));
@@ -788,10 +823,13 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             None => missing_name(diags, "variant", span),
         },
         "ratify" => match cur.eat_ident() {
-            Some(decision) => items.push(Item::Decl(Decl::Ratify(RatifyDecl {
-                decision,
-                body: record.body.clone(),
-            }))),
+            Some(decision) => {
+                expect_consumed(&cur, diags, "a `ratify` reads `ratify <d-id> { … }`.");
+                items.push(Item::Decl(Decl::Ratify(RatifyDecl {
+                    decision,
+                    body: record.body.clone(),
+                })));
+            }
             None => missing_name(diags, "ratify", span),
         },
         "principle" => match cur.eat_ident() {
@@ -808,11 +846,12 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         },
         "proof" => match cur.eat_ident() {
             Some(name) => {
-                let (head, _provenance) = split_head_prov(&mut cur, diags);
+                let (head, provenance) = split_head_prov(&mut cur, diags);
                 items.push(Item::Decl(Decl::Proof(ProofDecl {
                     name,
                     head,
                     body: record.body.clone(),
+                    provenance,
                 })));
             }
             None => missing_name(diags, "proof", span),

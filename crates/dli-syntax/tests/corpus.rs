@@ -150,3 +150,94 @@ fn practice_block_captures_its_body() {
     // Every non-blank interior line is captured as a clause.
     assert_eq!(practice.body.len(), 7);
 }
+
+#[test]
+fn practice_label_round_trips() {
+    let source = "practice p \"The Rite\" {\n  claim x\n}\n";
+    let (doc, diags) = parse_document(source);
+    let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();
+    assert!(errs.is_empty(), "parse errors: {errs:?}");
+
+    let dli_ast::decl::Decl::Practice(practice) = &doc.decls[0] else {
+        panic!("expected a practice declaration");
+    };
+    assert_eq!(practice.name.text, "p");
+    assert_eq!(practice.label.as_deref(), Some("The Rite"));
+    assert_eq!(practice.body.len(), 1);
+
+    // Round-trip: format → re-parse → same label.
+    let formatted = dli_syntax::format::format_document(&doc);
+    assert!(
+        formatted.contains("\"The Rite\""),
+        "label missing from formatted output: {formatted}"
+    );
+    let (doc2, diags2) = parse_document(&formatted);
+    let errs2: Vec<_> = diags2.iter().filter(|d| d.class.is_error()).collect();
+    assert!(errs2.is_empty(), "re-parse errors: {errs2:?}");
+    let dli_ast::decl::Decl::Practice(practice2) = &doc2.decls[0] else {
+        panic!("expected a practice declaration on re-parse");
+    };
+    assert_eq!(practice2.label.as_deref(), Some("The Rite"));
+}
+
+#[test]
+fn draft_and_export_labels_round_trip() {
+    let source =
+        "draft d \"Working Copy\" {\n  line one\n}\nexport e \"Public\" {\n  format json\n}\n";
+    let (doc, diags) = parse_document(source);
+    let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();
+    assert!(errs.is_empty(), "parse errors: {errs:?}");
+
+    let dli_ast::decl::Decl::Draft(draft) = &doc.decls[0] else {
+        panic!("expected a draft");
+    };
+    assert_eq!(draft.label.as_deref(), Some("Working Copy"));
+
+    let dli_ast::decl::Decl::Export(export) = &doc.decls[1] else {
+        panic!("expected an export");
+    };
+    assert_eq!(export.label.as_deref(), Some("Public"));
+
+    let formatted = dli_syntax::format::format_document(&doc);
+    assert!(formatted.contains("\"Working Copy\""));
+    assert!(formatted.contains("\"Public\""));
+
+    let (doc2, _) = parse_document(&formatted);
+    let dli_ast::decl::Decl::Draft(draft2) = &doc2.decls[0] else {
+        panic!("expected a draft on re-parse");
+    };
+    assert_eq!(draft2.label.as_deref(), Some("Working Copy"));
+    let dli_ast::decl::Decl::Export(export2) = &doc2.decls[1] else {
+        panic!("expected an export on re-parse");
+    };
+    assert_eq!(export2.label.as_deref(), Some("Public"));
+}
+
+#[test]
+fn word_label_and_parts_round_trip() {
+    let source = "word runestave \"rune-stave\"  = given-deutero run   decided d-0203\n";
+    let (doc, diags) = parse_document(source);
+    let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();
+    assert!(errs.is_empty(), "parse errors: {errs:?}");
+
+    let dli_ast::decl::Decl::Word(word) = &doc.decls[0] else {
+        panic!("expected a word");
+    };
+    assert_eq!(word.name.text, "runestave");
+    assert_eq!(word.label.as_deref(), Some("rune-stave"));
+    assert_eq!(word.name_parts.len(), 2);
+    assert_eq!(word.name_parts[0].text, "given-deutero");
+    assert_eq!(word.name_parts[1].text, "run");
+    assert!(word.provenance.is_some());
+
+    let formatted = dli_syntax::format::format_document(&doc);
+    assert!(formatted.contains("\"rune-stave\""));
+    assert!(formatted.contains("= given-deutero run"));
+
+    let (doc2, _) = parse_document(&formatted);
+    let dli_ast::decl::Decl::Word(word2) = &doc2.decls[0] else {
+        panic!("expected a word on re-parse");
+    };
+    assert_eq!(word2.label.as_deref(), Some("rune-stave"));
+    assert_eq!(word2.name_parts.len(), 2);
+}
