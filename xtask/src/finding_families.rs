@@ -50,6 +50,9 @@ enum Scrape {
     /// A still-landing family whose codes are bare suffixes handed to the season
     /// battery's `warn(`/`error(` helpers; covered no-phantom.
     OutlineSnapshot,
+    /// The craft season-rule family: codes are derived from `KernelRule::id()`
+    /// match arms in `kb.rs`, prefixed with `craft.`. Covered no-phantom.
+    CraftKernelRules,
 }
 
 /// One finding code: its dotted `family.item` string, severity, repair kind, and
@@ -580,6 +583,18 @@ const FAMILIES: &[Family] = &[
         ],
     },
     Family {
+        key: "craft",
+        title: "craft — the season-ledger join-rule battery",
+        emitter: "`check_season_rules` / `check_episode` in `dli-world::craft::season` (CRAFT-2)",
+        owner: "dli-world :: craft/season.rs + craft/kb.rs (WorldFinding, via KernelRule)",
+        severity_note: "Mixed error/warn per rule: structural verdicts (accomplishment-earned, \
+            yes-and-terminal, scene-name-clash) are error; band/threshold rules are warn until \
+            calibrated. This lane is landing under CRAFT-2; covered by a no-phantom check.",
+        sources: &["../crates/dli-world/src/craft/kb.rs"],
+        scrape: Scrape::CraftKernelRules,
+        codes: CRAFT_CODES,
+    },
+    Family {
         key: "outline",
         title: "outline — the season/outline conformance battery",
         emitter: "the season-outline checks, run by `check-draft`'s craft battery",
@@ -591,6 +606,91 @@ const FAMILIES: &[Family] = &[
         scrape: Scrape::OutlineSnapshot,
         codes: OUTLINE_CODES,
         // OUTLINE_CODES follows this table.
+    },
+];
+
+/// The craft family's codes — the 13 season-rule [`KernelRule`](dli_world::craft::kb::KernelRule)
+/// ids emitted by the season-ledger join battery (`CRAFT-2`) via `craft_warn`/`craft_error`.
+/// The two entry-point meta-codes (`CheckOutline`, `CheckSeason`) name the battery functions,
+/// not emitted finding codes, so they are excluded.
+const CRAFT_CODES: &[Code] = &[
+    Code {
+        code: "craft.accomplishment-earned",
+        severity: "error",
+        repair: "—",
+        meaning: "a major beat needs a prior same-thread failure; the triumph is unearned.",
+    },
+    Code {
+        code: "craft.accomplishment-earned-climax",
+        severity: "warn",
+        repair: "—",
+        meaning: "a climax-class beat needs two prior failures; the climax rests on too few.",
+    },
+    Code {
+        code: "craft.yes-and-terminal",
+        severity: "error",
+        repair: "—",
+        meaning: "a thread re-opens after its unqualified win; a yes-and is terminal per thread.",
+    },
+    Code {
+        code: "craft.competence-consistency",
+        severity: "warn",
+        repair: "—",
+        meaning: "an unearned major win by an under-competent hand with no intervening growth.",
+    },
+    Code {
+        code: "craft.competence-arc-flat",
+        severity: "warn",
+        repair: "—",
+        meaning: "competence never moves across the season; the character does not grow.",
+    },
+    Code {
+        code: "craft.reveal-fair-play",
+        severity: "warn",
+        repair: "—",
+        meaning: "a turn's reframing fact is not on the listener ledger early enough (kishōtenketsu fair-play).",
+    },
+    Code {
+        code: "craft.mystery-starved",
+        severity: "warn",
+        repair: "—",
+        meaning: "a mystery promise goes untouched for too many consecutive episodes.",
+    },
+    Code {
+        code: "craft.cold-open-discipline",
+        severity: "warn",
+        repair: "—",
+        meaning: "cold-open discipline: open a loop, cast within ceiling, no deep-time in act 1.",
+    },
+    Code {
+        code: "craft.cast-introduction-rate",
+        severity: "warn",
+        repair: "—",
+        meaning: "new named speakers per episode exceed the band or the season budget.",
+    },
+    Code {
+        code: "craft.scene-name-clash",
+        severity: "error",
+        repair: "—",
+        meaning: "two names below the aural-distinctness floor share a scene.",
+    },
+    Code {
+        code: "craft.promise-density",
+        severity: "warn",
+        repair: "—",
+        meaning: "promise open/close density violates the season-position bands.",
+    },
+    Code {
+        code: "craft.arc-shape",
+        severity: "warn",
+        repair: "—",
+        meaning: "a kishōtenketsu episode places its ten out of band or resolves a conflict.",
+    },
+    Code {
+        code: "craft.audio-load-trajectory",
+        severity: "warn",
+        repair: "—",
+        meaning: "too many consecutive high-orientation-load episodes without recovery.",
     },
 ];
 
@@ -1023,13 +1123,22 @@ fn scrape_code_fields(source: &str) -> BTreeSet<String> {
 /// Recover the outline codes: the first string literal handed to a `warn(`,
 /// `error(`, or `report_duplicates(` call, prefixed with `outline.`. Definitions
 /// (`fn warn`) yield `outline.{code}`-shaped tokens that [`is_bare`] rejects.
+/// Excludes `craft_warn(`/`craft_error(` matches (the CRAFT-2 battery uses its
+/// own helper that takes a `KernelRule`, not a string code).
 #[cfg(test)]
 fn scrape_outline(source: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for kw in ["warn(", "error(", "report_duplicates(", "push_disposition("] {
         let mut rest = source;
         while let Some(i) = rest.find(kw) {
+            // Skip craft_warn( / craft_error( — those are CRAFT-2 helpers, not
+            // outline emitters. Check whether the match is preceded by "craft_".
+            let is_craft = i >= 6 && &rest[i - 6..i] == "craft_";
             let after = &rest[i + kw.len()..];
+            if is_craft {
+                rest = after;
+                continue;
+            }
             let window = &after[..after.len().min(160)];
             if let Some(q) = window.find('"') {
                 let tail = &window[q + 1..];
@@ -1042,6 +1151,36 @@ fn scrape_outline(source: &str) -> BTreeSet<String> {
             }
             rest = after;
         }
+    }
+    out
+}
+
+/// Recover the craft family's codes from `kb.rs`: each `KernelRule::id()` match
+/// arm returns a quoted kebab-case token; we prefix it with `craft.` and also
+/// accept the two underscore-bearing entry-point ids (`check_outline`,
+/// `check_season`).
+#[cfg(test)]
+fn scrape_craft_kernel_rules(source: &str) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    // The id() match arms look like: `Self::Variant => "token",`
+    // We find every quoted string that appears as a `=> "..."` return in the
+    // function and prefix with `craft.`.
+    let needle = "=> \"";
+    let mut rest = source;
+    while let Some(i) = rest.find(needle) {
+        let after = &rest[i + needle.len()..];
+        if let Some(end) = after.find('"') {
+            let token = &after[..end];
+            // Accept kebab-case tokens and underscore-bearing entry points.
+            if !token.is_empty()
+                && token
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b == b'-' || b == b'_')
+            {
+                out.insert(format!("craft.{token}"));
+            }
+        }
+        rest = after;
     }
     out
 }
@@ -1089,6 +1228,7 @@ mod tests {
                 }
                 Scrape::CodeFields => out.extend(scrape_code_fields(&source)),
                 Scrape::OutlineSnapshot => out.extend(scrape_outline(&source)),
+                Scrape::CraftKernelRules => out.extend(scrape_craft_kernel_rules(&source)),
                 Scrape::BareTokens => {}
             }
         }
@@ -1099,9 +1239,9 @@ mod tests {
     /// Settled families (`Prefixed`, `CodeFields`) are checked strictly — the
     /// documented set must equal the emitted set, so a new code that no one
     /// documents fails the gate. Still-landing families (`PrefixedSnapshot`,
-    /// `OutlineSnapshot`) are checked no-phantom — every documented code must
-    /// still be emitted, but a newer source code does not gate this page while
-    /// the lane is in flight.
+    /// `OutlineSnapshot`, `CraftKernelRules`) are checked no-phantom — every
+    /// documented code must still be emitted, but a newer source code does not
+    /// gate this page while the lane is in flight.
     #[test]
     fn families_are_covered_against_source() {
         for family in FAMILIES {
@@ -1118,7 +1258,9 @@ mod tests {
                         family.key
                     );
                 }
-                Scrape::PrefixedSnapshot(_) | Scrape::OutlineSnapshot => {
+                Scrape::PrefixedSnapshot(_)
+                | Scrape::OutlineSnapshot
+                | Scrape::CraftKernelRules => {
                     let emitted = emitted_codes(family);
                     let mut phantom: Vec<&str> = family
                         .codes
