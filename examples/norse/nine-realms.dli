@@ -1,0 +1,163 @@
+# grammar: v0 (unfrozen; AST normative)
+#
+# nine-realms — the base world of the Norse example: the Nine Realms on the
+# branches of Yggdrasil, the ages running down toward Ragnarok, and the seeress
+# who narrates the fall from the far side of the world's rebirth.
+#
+# A wholly public-domain setting (the Norse myths — the Aesir, the Nine Realms,
+# the doom of the gods) chosen to prove the engine is genuinely world-agnostic:
+# not one token of any production world appears here. This pack exercises the
+# gentle subset plus the chronology spine end to end — a totally-ordered era
+# spine (>=3 eras) running toward the doom with a narration vantage past it,
+# events with a before-fact and a deliberately UNORDERED pair, cyclic time
+# (season and the great-year wheel), a place adjacency graph (9 realms, >=6
+# edges), people and a thing with facts, states with since/until across two eras,
+# a WORLD RULE WITH NEGATION that derives a certain-at-risk conclusion, a coined
+# term, a cited lexical ban, an open fork, an open question under a hypothesis,
+# and a settled hypothesis via a ratify BLOCK. Provenance is this world's OWN
+# decision list (d-0001..) — a solo writer's ledger, per 01-syntax §3.
+scope nine-realms
+
+# --- the world's ledger: the decisions its citations rest on ------------------
+# Declaring a decision is what lets `decided d-000n` carry authority rather than
+# mint it (B1): a citation to an undeclared decision fails closed.
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+ratify d-0008
+ratify d-0009   # the cyclic-time cycles
+ratify d-0010   # the ordering rule over the era spine
+ratify d-0011   # the ward-holds negation rule and its ground
+ratify d-0012   # the coined term
+ratify d-0013   # the lexical ban
+ratify d-0014   # the seeress-foresaw ratify block
+
+# --- world chronology: a totally-ordered era spine (>=3 eras) -----------------
+# The ages run down toward the doom; WITHIN an era only `before` orders events.
+era elder-age < the-binding-age < the-wolf-age < after-ragnarok   decided d-0001
+
+# events carry era membership; a deliberately UNORDERED pair sits in elder-age
+event the-world-shaped      during elder-age        decided d-0002
+event the-wall-raised       during elder-age        decided d-0002
+event the-binding-of-fenrir during the-binding-age  decided d-0003
+event the-death-of-baldr    during the-binding-age  decided d-0003
+event fimbulwinter-falls    during the-wolf-age     proposed
+event the-last-battle       during the-wolf-age     decided d-0004
+
+# a declared intra-era order:
+before the-binding-of-fenrir -> the-death-of-baldr   decided d-0003
+# ...and a DELIBERATELY UNORDERED pair: the-world-shaped and the-wall-raised
+# share elder-age and no before-fact orders them, so happens-before(x, y) answers
+# `unordered` — a first-class verdict, not a silent tie-break (03-time §1).
+
+narration vantage after-ragnarok
+# inert: the seeress sings the doom looking back from the reborn world; declaring
+# an event in the vantage era is a type error (03-time §1.iii).
+
+# --- cyclic time: the wheels a practice may seat its hour on (03-time §1.iv) ---
+# The four seasons and the great-year — the eternal return of the Norse cosmos,
+# fire and rebirth. Cyclic kinds with no epoch and no calendar: succ/pred/across/
+# distance exist, but `<`, sort, and max are type errors (the wheel refuses rank,
+# koan 8). The moon's own wheel is seated by the seidr practice that needs it.
+cycle season(4) = winter | spring | summer | autumn   decided d-0009
+cycle great-year(4) = gold | strife | doom | reborn    decided d-0009
+
+# --- an ordering rule over the era/event spine (03-time §6, block B) -----------
+# A floor on when the deepest era may first be shown, held as data the season
+# checker reads rather than as code — a declaration, not a running constraint.
+rule elder-age-held-back over order   decided d-0010
+  : listener-learns(during elder-age _) requires act > 1
+
+# --- places and the adjacency graph (9 realms, >=6 edges) ---------------------
+place asgard       "Asgard"        decided d-0004
+place vanaheim     "Vanaheim"      decided d-0004
+place alfheim      "Alfheim"       decided d-0004
+place midgard      "Midgard"       decided d-0005
+place jotunheim    "Jotunheim"     decided d-0005
+place svartalfheim "Svartalfheim"  decided d-0005
+place muspelheim   "Muspelheim"    decided d-0006
+place niflheim     "Niflheim"      decided d-0006
+place helheim      "Helheim"       decided d-0006
+
+adjacent(asgard, midgard)          decided d-0004
+adjacent(asgard, vanaheim)         decided d-0004
+adjacent(midgard, jotunheim)       decided d-0005
+adjacent(midgard, svartalfheim)    decided d-0005
+adjacent(vanaheim, alfheim)        decided d-0005
+adjacent(muspelheim, niflheim)     decided d-0006
+adjacent(niflheim, helheim)        decided d-0006
+adjacent(jotunheim, niflheim)      decided d-0006
+adjacent(asgard, alfheim)          proposed
+
+# --- people, a thing, and facts -----------------------------------------------
+person odin     "Odin All-Father"   decided d-0006
+person thor     "Thor"              decided d-0007
+person loki     "Loki"              decided d-0007
+person heimdall "Heimdall"          decided d-0007
+thing gungnir   "Gungnir"           decided d-0008
+thing sol       "Sol, the Sun"      decided d-0008
+
+fact odin     rules   asgard        decided d-0006
+fact thor     guards  midgard       decided d-0007
+fact heimdall watches asgard        decided d-0007
+
+# --- states: facts acquire validity spans (the two-era sun case) --------------
+state sol.course = crossing until the-last-battle   decided d-0008
+state sol.course = devoured since the-last-battle   decided d-0008
+# crossing UNTIL the wolf takes the sun at the last battle and devoured SINCE it:
+# an elder-age flashback checks clean AND the wolf-age doom checks clean, because
+# the two claims hold over disjoint spans (03-time §2). No false contradiction.
+
+# --- a world rule with NEGATION: a certain-at-risk conclusion (01-syntax §3) ---
+# A realm's ward holds where its wall is raised and it has not been stormed. The
+# ground is certain; the storming is a mere shadow — proposed, not settled — so it
+# does NOT block the derivation, but it POISONS: `ward-holds(asgard)` is derived
+# certain (its support rests on the ratified `warded`) AND flagged certain-at-risk,
+# defeasible should `stormed` ever be ruled true (02-semantics §4). Had `stormed`
+# been certain, the certain-layer test would have blocked the rule outright.
+warded(asgard)    ratified d-0011    # certain: the wall of Asgard stands
+stormed(asgard)   proposed           # a shadow: possible at the doom, not certain
+
+rule ward-holds   ratified d-0011
+  ward-holds($r) :- warded($r), not stormed($r)
+
+# --- a coined in-world term (05 §4) -------------------------------------------
+# A `term` names one of the world's own ideas once, so a later claim can cite the
+# term rather than re-gloss it. The doom is such an idea: named here (citing its
+# own decision), reusable everywhere after.
+term the-doom "Ragnarok, the fated fall of the gods and the burning of the Nine Realms"   decided d-0012
+
+# --- the lexicon: a cited lexical ban (05 §4) ---------------------------------
+# The register is kept saga-true by a ruling, so an anachronism is a cited lexicon
+# fact, not a config entry. No name or diegetic term may carry it.
+banned gunpowder d-0013 "the Nine Realms keep to seax and spear — no black-powder anachronism"
+banned clockwork d-0013 "fate is spun by the Norns, never geared — no mechanism in-world"
+
+# --- an open fork: a bare set of live options (01-syntax §4) -------------------
+fork what-does-wisdom-cost
+  option an-eye-at-the-well
+  option a-nine-day-hanging
+
+# --- an open question: options under a hypothesis (01-syntax §4) ---------------
+hypothesis h-return "the world rises again, green, out of the sea after the fire"
+
+question who-holds-the-reborn-world "Who holds the world after the fire?"
+  option the-sons-of-thor implies holds(the-sons-of-thor, after-ragnarok)
+  option baldr-returned   implies holds(baldr, after-ragnarok)   assumes h-return
+# proposed-first: neither option is canon until a ruling; the question is a
+# tracked debt, not a blank. `baldr-returned` presumes the world is reborn, so it
+# rides the h-return hypothesis; `the-sons-of-thor` stands on its own.
+
+# --- a settled hypothesis: the ratify BLOCK that turns a supposition certain ---
+# The counterpart to h-return's live question: a hypothesis the author HAS ruled
+# on. A bare `ratify d-000n` (the ledger above) mints a decision; a ratify BLOCK
+# additionally settles a named hypothesis — the claim that `assumes` it flips from
+# merely-possible to certain in one recorded act (05 §5). This block also declares
+# d-0014, so its citation carries authority like any ledger entry.
+hypothesis h-seer-foresaw "the seeress foresaw the doom from the first, and sang it before it came"
+event the-first-prophecy   during the-binding-age   proposed assumes h-seer-foresaw
+ratify d-0014 { h-seer-foresaw := true }
