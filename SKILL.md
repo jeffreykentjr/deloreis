@@ -73,9 +73,10 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (14 mutating + 5 read)
+## 2. The tool surface (19 tools; see contract §3.2 table)
 
-**The fourteen mutation tools** (each returns `{findings, rendered, workspace_digest}`):
+**The eleven mutating tools** (each returns `{findings, rendered, workspace_digest}`) and
+**three read-only state ops** (status, diff, materialize):
 
 | Tool | Intent |
 |---|---|

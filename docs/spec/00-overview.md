@@ -59,7 +59,7 @@ repo:
    declarative-ledger checker.
 6. **A practice simulator** — `deloreis simulate`: batteries over any declared
    practice with declared metrics and invariants; the Turning is its first
-   instance.
+   instance (see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
 7. **A language workbench** — registers, names as typed derivations, the
    diegetic lexicon.
 
@@ -79,7 +79,7 @@ A consuming repo holds four residencies, and the distinction is load-bearing:
 
 - **Source** (author/agents, reviewed) — `decisions.md` (the author's verbatim
   rulings), the prose canon, and the `.dli` packs (`world`, `cast`, `chronology`,
-  `turning`, the ledger mirror of `decisions.md`).
+  `game`, the ledger mirror of `decisions.md`).
 - **Experiment-state** (agents) — forks: small committed files holding an
   assumption list plus local declarations, cheap to create, deleted or archived
   on promotion or abandonment.
@@ -98,7 +98,7 @@ Nothing in the kernel is world-specific; the domain keywords are a small
 standard prelude. The language generalizes:
 
 - **Another fiction world** — direct; only the Turning is bespoke, and it is a
-  module.
+  module (see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
 - **An in-world magic system** — a different `practice` block; the core is
   untouched.
 - **A card/board game plus variants** — decks, variants-as-deltas, house rules

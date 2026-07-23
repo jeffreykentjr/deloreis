@@ -37,9 +37,8 @@ const ALLOWED_PREFIXES: &[&str] = &["docs/worlds/tpth/", "worlds/tpth/"];
 const ALLOWED_FILES: &[&str] = &[
     "docs/decisions.md",
     "docs/PLAN.md",
-    // Author-ruled exception: charter is constitutionally entangled with the
-    // world's Turning (charter:44,105,148); genericizing the charter is worse
-    // than exempting it.
+    // DL-0026: charter is constitutionally entangled with the world's
+    // Turning (charter:44,148,290); normative specs may never be exempt.
     "docs/charter.md",
     "docs/integration/migration.md",
     "docs/surface-v1-naming.md",
@@ -55,14 +54,6 @@ const ALLOWED_FILES: &[&str] = &[
     "docs/design-notes/audit-remediation-plan.md",
     "docs/design-notes/audit-validation-2026-07.md",
     "docs/design-notes/bench-deferral.md",
-    // Discusses the world-agnostic time-layer architecture using TPtH's Turning
-    // as the worked example.
-    "docs/spec/00-overview.md",
-    "docs/spec/03-time.md",
-    "docs/spec/06-craft-and-payloads.md",
-    "docs/spec/08-reasoning.md",
-    "docs/spec/09-exports.md",
-    "docs/spec/10-serving.md",
 ];
 
 /// The marker that makes a paragraph a worldbook cross-link: a `docs/worlds/tpth/`

@@ -188,13 +188,13 @@ The kernel does evaluation, diff, blame, draft content, and the generated
 affects-list. The consumer does rendering, glossing, file placement, and the
 review queue. **Canon is untouched until the author rules** (koan 3).
 
-### 3.2 Turning simulation jobs
+### 3.2 Game simulation jobs
 
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
 
 ```json
-→ {"op": "dli.simulate.start", "ruleset": "turning@main",
+→ {"op": "dli.simulate.start", "ruleset": "game@main",
    "delta": "lore/variants/salt-fringe.dli", "games": 100000,
    "seed": 41, "checkpoint_every": 10000,
    "metrics": ["game_length", "debt_spread", "forced_loss_rate"]}

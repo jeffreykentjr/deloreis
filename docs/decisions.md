@@ -587,3 +587,19 @@ guarded by the TQ-N3 property test.
 
 **Revisit:** when TQ-N3 property demonstrates full commutation, the
 conditioned-support refinement of TQ-N2 may narrow the defeater set.
+
+## DL-0026 — Token-lint file-exemption policy; DL-0023 erratum
+
+**Ruling (1):** File-level token-lint exemption scope. Design notes, the
+charter, and audit/validation docs may be file-exempt from the `docs_tokens`
+lint (they discuss or quote the world by nature). Normative teaching surfaces
+(`docs/spec/`) may **never** be file-exempt — they are the generic surface
+DL-0017 protects and consumer #2 will read. World-token mentions in specs use
+the worldbook-footer paragraph mechanism (a paragraph containing a
+`docs/worlds/tpth/` link self-exempts) or are genericized.
+
+**Ruling (2) — DL-0023 erratum:** The 19 `author.*` tools comprise 11 mutating
+ops, 3 read-only state ops (status, diff, materialize), and 5 read queries
+(query, check, why, findings, list_workspaces). The contract §3.2 table is
+authoritative for the mutating/read classification; DL-0023's loose "14
+mutating" was editorial shorthand, not a count. Propagated copies corrected.

@@ -76,7 +76,8 @@ leaves. Crucially there is **no epoch**: phase coordinates are *local*
 declarations, and consistency is checked only as **legal walks along declared
 contiguity** — within an episode, or an explicitly declared contiguous span —
 never as absolute positions joined across unrelated scenes, which would be a
-calendar through the back door.
+calendar through the back door
+(see [the TPtH world · Turning](../worlds/tpth/turning-export.md) for the worked cycle).
 
 The four edge operations are pinned (ruling M6), so the cycle's laws are stated
 rather than accidental:

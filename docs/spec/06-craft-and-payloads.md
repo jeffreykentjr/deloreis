@@ -56,7 +56,7 @@ exactly as the continuity checker does for the world checks. Ported unchanged:
 - scene **goal/conflict/disaster** chains;
 - **cast-over-four** (no scene carries more than four active speakers);
 - the **audio-plan policy family**, porting as *policy leaf tables* in the
-  Turning-variant style — substitutable data, not code;
+  board-game-variant style — substitutable data, not code;
 - the **material-assumptions** provenance ledger;
 - **loop open/close** discipline;
 - **hook-late**.

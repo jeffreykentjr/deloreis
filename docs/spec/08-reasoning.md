@@ -114,7 +114,7 @@ arithmetic theory solving · **CHECK** proof checking, linear in proof length ·
 | T14 | Episode-order CHECK (~200 eps) | linear scans against precedence + window constraints | PROP (trivial) | yes | no |
 | T15 | Episode-order SEARCH / optimize | topological + earliest-slot while constraints stay precedence + windows (poly); NP only with disjunctive/soft constraints | PROP → owned searcher | deferred until the workflow exists | CP-SAT as proposer, if ever |
 | T16 | Wrong-hour / phase checking | modular arithmetic; wheel-walk consistency | CHECK | yes | no |
-| T17 | Turning legal moves; deck invariants under deltas | successor + finite invariant enumeration | ENUM | yes | no |
+| T17 | Game legal moves; deck invariants under deltas | successor + finite invariant enumeration | ENUM | yes | no |
 | T18 | Ruleset-space exploration | legality: sweep now, ASP-shaped iff generative; metrics: simulation | ENUM/ASP + MC | sweep + battery: yes | clingo when enumeration goes generative |
 | T19 | Rank-emergence / thesis-alignment metrics | statistical estimation over simulated play | MC (+ MCTS) | battery: yes | ISMCTS lab-side; results `tested` forever |
 | T20 | Proof-ledger checking | proof CHECKING — linear, decidable, no search | CHECK | yes | no — the paradigm reimplement case |
@@ -245,7 +245,8 @@ and the searcher and enumerator when they earn existence are separate small
 owned components composing at the **replayable-judgment boundary**: serialized
 inputs and outputs, re-runnable, diffable. Composition by data, not by
 embedding — which is also how one fabric (koan 10) stays small: one semantics,
-several small parts.
+several small parts
+(see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
 
 ## 6. Flip conditions, two-stage and falsifiable
 

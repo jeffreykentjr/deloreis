@@ -141,7 +141,8 @@ agree over the battery.
 
 This is koan 12 working **in reverse** — the GDL runtime is a rented baseline
 validating the owned engine — and it is the cheapest external audit of the claim
-that the Turning's rules-as-lore are really rules:
+that the Turning's rules-as-lore are really rules
+(see [the TPtH world · Turning](../worlds/tpth/turning-export.md)):
 
 - If the export is **not trivial**, the rules were entangled with the kernel.
 - If it is **not sound**, the simulator was wrong.
