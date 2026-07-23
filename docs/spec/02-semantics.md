@@ -180,11 +180,32 @@ Raw negation-as-failure is banned; `proposed` is genuinely three-valued. The
 regime is one store, one symbolic fixpoint, with **layers as evaluations, never
 as sub-stores.**
 
-A negative body literal `¬b` evaluates against the **certain layer only** — a
-merely-possible `b` never blocks a derivation. But `¬b` also **poisons**: the
-open-variable monomials of `b`'s `P⁺` are added to the conclusion's `P⁻`, the
-defeater polynomial. A possible-but-not-certain `b` therefore does not stop the
-conclusion; it *records the risk* that a future ruling could defeat it.
+A negative body literal `¬b` does **not** block derivation. It **poisons**: all
+non-contradictory, theory-respecting monomials of `b`'s support `P⁺` enter the
+conclusion's defeater polynomial `P⁻`. This is **valuation-neutral
+all-admissible-monomials poison** (DL-0024): the fixpoint includes every
+monomial that *could* become true under *some* valuation — never filtered by
+the active `ν` — so the symbolic saturation is identical regardless of which
+valuation is set at fixpoint time. Evaluation commutes with specialization: a
+fork's `eval_under(ν)` reads the precomputed supports and defeaters without a
+re-fixpoint and gets the same answer a fresh fixpoint under `ν` would give
+(TQ-N3 property).
+
+The consequence of poison for status:
+
+- A **certain** `b` (some monomial of `b`'s `P⁺` is ν-true): its monomials
+  enter `P⁻`, and — because they are themselves ν-certain — the conclusion is
+  **present-but-Possible (defeated)**. The conclusion's support monomial is
+  poisoned by a live defeater, so it cannot evaluate as Certain. No derivation
+  is blocked; no row vanishes — the conclusion exists with degraded standing.
+- A **merely-possible** `b` (no monomial ν-certain, but some ν-live): its open
+  monomials likewise enter `P⁻`. Under the current valuation the defeater is
+  not yet certain (so the conclusion stays Certain if its support is clean), but
+  the risk is recorded — a future ruling that makes `b` certain will defeat it.
+  The conclusion is **certain-at-risk**.
+- A **dead** `b` (every monomial ν-killed): its monomials are still in `P⁻`
+  syntactically but evaluate dead, so the poison is inert and the conclusion is
+  unaffected. A clean support evaluates to Certain without obstacle.
 
 An atom that is **certain but carries a Θ-live `P⁻`** is **certain-at-risk**:
 assertable now, with the pending fork that could defeat it surfaced —
@@ -206,13 +227,16 @@ rule ward-holds  ratified d-0146
   ward-holds($g) :- seated($g), not breached($g)
 ```
 
-`breached(ground-oak)` is merely proposed, so it does not block:
-`ward-holds(ground-oak)` is **derived and certain** (its support rests on the
-ratified `seated`). But `not breached` poisons — `breached`'s open monomial
-enters `ward-holds`'s `P⁻` — so the ward is **certain-at-risk**: assertable now,
-flagged as defeasible should `breached` ever be ruled true. Had `breached` been
-*certain* instead, the certain-layer test would have blocked the rule, and
-`ward-holds` would not be derived at all.
+`breached(ground-oak)` is merely proposed — its monomial is ν-live but not
+ν-certain. The negation `not breached($g)` poisons: `breached`'s open monomial
+enters `ward-holds`'s `P⁻`. Because the defeater is not yet certain,
+`ward-holds(ground-oak)` evaluates as **Certain** (its support from `seated` is
+ν-certain and the defeater does not yet fire). It is **certain-at-risk**:
+assertable now, flagged as defeasible should `breached` ever be ruled true. Were
+`breached` *certain* instead, its monomial in `P⁻` would be ν-certain too —
+poisoning the support monomial — and `ward-holds` would evaluate as
+**present-but-Possible** (defeated), not absent. The derivation still exists;
+only its standing degrades.
 
 **Slots are functional dependencies.** A slot (`entity.key`) admits one value;
 the continuity checker already treats them so. A certain value `v` together with

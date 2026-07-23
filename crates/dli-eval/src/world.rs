@@ -520,7 +520,7 @@ impl World {
                 .iter()
                 .filter(|rule| level_set.contains(rule.head.pred.text.as_str()))
                 .collect();
-            saturate_stratum(&mut relation, &level_rules, &self.theory, &self.valuation)?;
+            saturate_stratum(&mut relation, &level_rules, &self.theory)?;
         }
         let mut world = self.clone();
         world.derived = relation.into_values().collect();
@@ -658,7 +658,6 @@ fn saturate_stratum(
     relation: &mut BTreeMap<GroundAtom, Derived>,
     rules: &[&Rule],
     theory: &Theory,
-    valuation: &Valuation,
 ) -> Result<(), EvalError> {
     let mut worklist: VecDeque<GroundAtom> = relation.keys().cloned().collect();
     // Seed pure-negative-body rules: they cannot be delta-triggered because they
@@ -668,10 +667,7 @@ fn saturate_stratum(
         if rule.body.iter().all(|lit| lit.negated) {
             let negatives: Vec<&AtomExpr> = rule.body.iter().map(|lit| &lit.atom).collect();
             let bindings = BTreeMap::new();
-            let poison = match negative_poison(relation, &negatives, &bindings, theory, valuation) {
-                Ok(p) => p,
-                Err(NegationBlock) => continue, // certain negated atom blocks this rule
-            };
+            let poison = negative_poison(relation, &negatives, &bindings, theory)?;
             let Ok(head) = ground_head(&rule.head, &bindings) else {
                 continue; // range restriction guarantees a ground head here
             };
@@ -685,7 +681,7 @@ fn saturate_stratum(
         let Some(delta_row) = relation.get(&delta).cloned() else {
             continue;
         };
-        let productions = fire_rules(relation, rules, &delta, &delta_row, theory, valuation)?;
+        let productions = fire_rules(relation, rules, &delta, &delta_row, theory)?;
         for (head, grade, cond) in productions {
             if let Some(head) = merge_into(relation, head, grade, &cond) {
                 worklist.push_back(head);
@@ -850,7 +846,6 @@ fn fire_rules(
     delta: &GroundAtom,
     delta_row: &Derived,
     theory: &Theory,
-    valuation: &Valuation,
 ) -> Result<Vec<Production>, EvalError> {
     let mut out = Vec::new();
     for rule in rules {
@@ -889,14 +884,13 @@ fn fire_rules(
                 delta_row.grade,
             );
             for (bindings, grade, cond) in solutions {
-                // Negation: certain-layer-only semantics (§4). A certain negated
-                // atom blocks the derivation entirely; a merely-possible one
-                // poisons but does not block.
-                let poison =
-                    match negative_poison(relation, &negatives, &bindings, theory, valuation) {
-                        Ok(p) => p,
-                        Err(NegationBlock) => continue, // certain negated atom — skip
-                    };
+                // Negation last: every positive atom has bound the negated
+                // literals' variables (range restriction), so each grounds. A
+                // certain negated premise now poisons rather than blocks — the
+                // block is a defeater condition the valuation can move both ways
+                // (`docs/spec/02-semantics.md §5`), so it un-blocks without a
+                // re-fixpoint.
+                let poison = negative_poison(relation, &negatives, &bindings, theory)?;
                 let head = ground_head(&rule.head, &bindings)?;
                 let cond = cond.and_(&CondSupport::of_ann(&rule.ann)).poison(&poison);
                 out.push((head, Grade::weakest([grade, rule.grade]), cond));
@@ -906,66 +900,40 @@ fn fire_rules(
     Ok(out)
 }
 
-/// A signal that a negated body literal's atom is **robustly certain** under the
-/// base valuation (`docs/spec/02-semantics.md §4`): the rule does not fire — the
-/// derivation is blocked entirely.
-#[derive(Debug, Clone)]
-struct NegationBlock;
-
 /// The negation poison for a rule body's negated literals against the current
-/// relation (`docs/spec/02-semantics.md §4`): **certain-layer-only** semantics.
+/// relation (`docs/spec/02-semantics.md §4`): the OR of every **structurally
+/// admissible** monomial of each `¬b`'s support `P⁺`, to be folded into the
+/// conclusion's defeater condition.
 ///
-/// 1. If any negated atom `b` is **robustly certain** under the base valuation
-///    (its `Ann::status` is `Status::Certain` AND it is NOT at-risk — no live
-///    defeater can unseat it), the rule is blocked entirely and
-///    `Err(NegationBlock)` is returned — the derivation does not fire.
+/// The poison is **valuation-neutral**: a monomial is included whenever it can be
+/// true under *some* valuation — `!is_contradictory()` and theory-respecting —
+/// never filtered by the base `ν`'s *liveness*. Baking the base valuation in would
+/// permanently drop a poison monomial whose support var is ruled false at fixpoint
+/// time, so a later fork re-supposing it true could never re-block; the defeater
+/// must move both ways under `eval_under` for evaluation to commute with
+/// specialization (§1). A **certain** `b` is likewise included — its monomial
+/// rides in as a defeater rather than dropping the derivation, un-blocking without
+/// a re-fixpoint (§5). Only a monomial that can NEVER be true under ANY valuation
+/// (contradictory or theory-forbidden) contributes nothing.
 ///
-/// 2. For a **merely possible** `b`, or a **certain-at-risk** `b` (TQ-N2:
-///    derived but carrying a live defeater that means it is not genuinely
-///    settled), the negation succeeds but **poisons**: the open-variable
-///    monomials of `b`'s `P⁺` (those not already certain under `ν`) are folded
-///    into the conclusion's `P⁻`.
-///
-/// 3. A `b` that the relation never derives (absent) or that is `Dead` under
-///    the current valuation contributes nothing — the negation succeeds cleanly.
+/// A `b` the relation never derives has support `FALSE`: nothing to poison — the
+/// standard "negation of an underived atom succeeds" cleanly, leaving the path
+/// clean.
 fn negative_poison(
     relation: &BTreeMap<GroundAtom, Derived>,
     negatives: &[&AtomExpr],
     bindings: &BTreeMap<String, String>,
     theory: &Theory,
-    valuation: &Valuation,
-) -> Result<PosBool, NegationBlock> {
+) -> Result<PosBool, EvalError> {
     let mut poison = PosBool::FALSE;
     for neg in negatives {
-        let Ok(ground) = ground_head(neg, bindings) else {
-            continue;
-        };
+        let ground = ground_head(neg, bindings)?;
         let Some(row) = relation.get(&ground) else {
-            // Atom never derived — negation succeeds cleanly.
             continue;
         };
-        let ann = row.ann();
-        let status = ann.status(valuation, theory);
-        match status {
-            Status::Certain if !ann.at_risk(valuation, theory) => {
-                // §4: a robustly certain negated atom blocks derivation entirely.
-                return Err(NegationBlock);
-            }
-            Status::Dead => {
-                // Dead under current valuation — effectively absent, no poison.
-            }
-            Status::Certain | Status::Possible => {
-                // Certain-at-risk (TQ-N2) or merely possible: collect only the
-                // *open* monomials (those not already certain under ν) that are
-                // admissible.
-                for monomial in row.support.monomials() {
-                    if !monomial.is_contradictory()
-                        && theory.respects(monomial)
-                        && !monomial.is_certain_under(valuation)
-                    {
-                        poison = poison.or_(&PosBool::conjunction(monomial.lits()));
-                    }
-                }
+        for monomial in row.support.monomials() {
+            if !monomial.is_contradictory() && theory.respects(monomial) {
+                poison = poison.or_(&PosBool::conjunction(monomial.lits()));
             }
         }
     }

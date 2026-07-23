@@ -560,3 +560,30 @@ mutate the workspace; none carry `expected_digest` or `idempotency_key`.
 
 **Revisit trigger.** Additional read tools (e.g. `author.schema`, `author.history`)
 land as new ledger entries if the tool set grows beyond 19.
+
+## DL-0024 — Shipped negation semantics: valuation-neutral poison, present-but-Possible defeat
+
+*Date: 2026-07-23*
+
+**Ruling** (supersedes DL-0020 mechanics wording): the evaluator's negation
+semantics are valuation-neutral all-admissible-monomials poison. A negated atom
+`¬b` contributes every non-contradictory, theory-respecting monomial of `b`'s
+support `P⁺` to the conclusion's defeater polynomial `P⁻`; the conclusion is
+present-but-Possible (defeated) rather than absent. No derivation is blocked;
+no row vanishes.
+
+**Rationale:** the fork subsystem evaluates by valuation overlay with no
+re-fixpoint (`fork.rs:7`; O(1) forks, koan 2, ENG-2). Blocking semantics are
+only sound if every fork evaluation re-runs the fixpoint; without that the
+blocked-conclusion path forges certainty through `fork.suppose`/`diff`/
+`preflight`. Valuation-neutral poison is the semantics that survived two
+adversarial red-teams (b8243cc, 13605cd) and keeps why-blocked explanations
+alive (koans 4 and 9).
+
+**TQ-N2 over-approximation acknowledged:** defeat is not propagated through
+negation; the defeater set is a superset of the minimal. This is a conservative
+over-approximation (never forges certainty, may over-report risk). Follow-up
+guarded by the TQ-N3 property test.
+
+**Revisit:** when TQ-N3 property demonstrates full commutation, the
+conditioned-support refinement of TQ-N2 may narrow the defeater set.
