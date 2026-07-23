@@ -1,6 +1,6 @@
 ---
 status: draft
-verdict: "Validation of the 12-commit audit remediation (268fe41..4d1bceb): gate/CI green and roughly half the audit genuinely fixed — but the negation 'alignment' reverted the b8243cc/13605cd red-team soundness fix (with test assertions inverted under kept names), the canonicality sweep silently deleted `assumes` clauses from three committed worlds, plan Tasks 15/17 never ran, the promised DL entries were not minted, and 13 new issues were introduced. Evidence, not authority — mints no DL ids."
+verdict: "Validation of the 12-commit audit remediation (268fe41..4d1bceb): gate/CI green and roughly half the audit genuinely fixed — but the negation 'alignment' reverted the b8243cc/13605cd red-team soundness fix (with test assertions inverted under kept names), the canonicality sweep silently deleted `assumes` clauses from three committed worlds, plan Tasks 15/17 never ran, the promised DL entries were not minted, and 13 new issues were introduced. Evidence, not authority — mints no DL ids. RE-AUDIT ADDENDUM (§7, at 4806776): the 5-commit repair round is genuine — negation byte-restored, assumes clauses back with the strong safety invariant, DL-0024 minted clean — but one MAJOR semantic hole remains (the grade absorption fold launders, pinned by the repair's own test) plus three MAJOR doc/guard items and a MINOR tail."
 ---
 
 # Audit-remediation validation — 2026-07
@@ -206,7 +206,11 @@ world.rs:1293-1352). But:
   comments still poison); ci_parity's new checks cover the gate job's steps
   only (triggers, `uses:`, job-level keys, other jobs still invisible).
 - PLAN.md:545 now attributes all "46-op schemas" to bootstrap (bootstrap
-  built 41; ec92efd added 5).
+  built 41; the other 5 landed later). ~~ec92efd added 5~~ — *corrected in the
+  re-audit addendum below: the 5 schemas came from f85f69b (the wave-4 stretch
+  layer); ec92efd added zero schema files. The repair copied this note's
+  original wrong attribution into PLAN.md:546, which still needs the f85f69b
+  correction.*
 
 ## 6. Bottom line
 
@@ -220,3 +224,160 @@ Tasks 15/17 and both promised DL entries are open; and the contract picked up
 two new false claims while shedding old ones. Priority order: §2.2 restore →
 §2.1 ledger decision → §2.3 hole → contract text (§5 items 1-3) →
 mutation-coverage.md tally → the Task 15/16 remainder.
+
+## 7. Re-audit addendum — the audit-repair round (4d1bceb..4806776)
+
+*Added 2026-07-23. Scope: the five `audit-repair:` commits (29f20e9 assumes /
+7def256 negation / a5b13fb grades / 1e57083 docs-contract / 4806776
+tokens-TQ-N4). Ground truth: `cargo xtask gate` **PASSED — 17 steps green**
+at 4806776 (receipt `out/greengate/audit-reaudit/receipt.json`); CI green by
+SHA for all five commits; per-commit greengate receipts present; tree clean.
+Method: six adversarial validators (refute-by-default, baseline diffs against
+268fe410 and 4d1bceb) plus orchestrator cross-examination of the semantic
+cores. 85 obligations re-validated: **26 FIXED · 17 OK · 4 DEFERRED-DECLARED
+· 21 PARTIAL · 8 NEW-ISSUE · 8 UNADDRESSED · 1 REGRESSED.***
+
+### 7.1 What is genuinely closed
+
+The previous round's failure class is gone — no inverted assertions, no
+silent deletions, no smuggled semantics, this time verified by byte-diff:
+
+- **Negation (§2.1) fully resolved.** `negative_poison` and every negation
+  call-site are byte-identical to 268fe410; `NegationBlock` and the
+  `is_certain_under` poison filter are gone from the tree; the `ground_head`
+  swallow is back to `?` propagation. raverify.rs, negation.rs, and
+  redteam_negation.rs diff to zero against baseline — every inversion
+  reverted. DL-0024 minted (pure append; supersedes DL-0020 mechanics
+  wording; declares the TQ-N2 over-approximation and defers the
+  conditioned-support refinement with a revisit trigger). Spec 02 §4 rewritten
+  to match and cites DL-0024 — three-way consistent with code and ledger. Two
+  real commutation properties landed (props.rs:247, :300; 256 cases each,
+  negated body literals over both base and derived atoms, in the gated suite).
+- **Assumes data loss (§2.2) resolved.** All three clauses restored
+  token-exact (camelot.dli:124, nine-realms.dli:72, saltmarket.dli:45); the
+  `parse_option_clause` noop sink is closed with diags threaded from both
+  callers; `assumes` has a real AST home (decl.rs:224, schema regenerated,
+  formatter renders, proptest strategy covers it). The new safety net codes
+  the **strong** invariant: `source_token_invariant` compares the source token
+  stream against format(parse(src)) modulo layout — it would have caught the
+  original loss — plus `committed_files_zero_diagnostics` and the span-blind
+  round-trip, walking all committed `.dli`.
+- **Contract falsehoods fixed correctly.** :105 replaced with a true claim;
+  the gated/not-wired outcome reworded-as-reserved (NotWired un-orphaned);
+  read-tool prose matches the real single-param structs; DL-0023, DL-0020,
+  and the op table byte-untouched (append-only respected).
+- **Guards:** TQ-N4 is the strong form (base-world field equality
+  post-`fork.add`+promote AND zero-row base query); the load.rs duplicate
+  token list is gone with enforcement preserved and a gate-run cross-check
+  (world_tokens.rs); plain-`//` cfg(test) poisoning closed; three new
+  ci_parity checks (uses-allowlist, no job-level if, push-trigger pattern).
+
+### 7.2 Remaining MAJOR items
+
+1. **The grade absorption fold re-opens laundering — and the repair's own
+   test pins it.** `merge_into` folds an absorbed monomial's grade into the
+   absorbing survivor via strongest-wins `join_alt`
+   (world.rs:1100-1132). That inference is valid only under valuations where
+   the absorbed monomial is true; under ν where it is false or open
+   (open-goes-false, posbool.rs:64-67) the only live evidence is the
+   survivor's own derivation. Counterexample — Asserted fiat on TRUE +
+   Checked fact on {+x}: after absorption, `grade_under(∅)` reports
+   **Checked** while the sole live derivation is the Asserted fiat.
+   `true_absorption_folds_absorbed_grade` (world.rs:1539-1571) asserts
+   exactly this over-claim as intended, and the shipped doc-comments claim
+   "no laundering possible" (world.rs:104-106, :471-473) — doc ahead of
+   code. Same observable as baseline's pooled grade (not a regression), but
+   it violates the explicit repair ruling ("the TRUE monomial carries the
+   fiat's own grade") and is undeclared. Everything else in the grade fix is
+   right: per-monomial storage, Asserted-ward fallbacks, the Asserted-rule
+   and per-valuation tests. **Fix direction:** keep absorbed monomials'
+   entries in `monomial_grades` (the map need not mirror minimal support)
+   and have `grade_under` join over ν-true *entries* rather than ν-true
+   support monomials; delete the fold. Related residue: (a) `join_body`
+   grades rule derivations from the body row's *pooled* grade
+   (world.rs:1064) instead of the per-monomial stored grade — latent only
+   because `define_rule` hardcodes rule grade Asserted (world.rs:439), but
+   live for deserialized worlds with stronger rule grades; (b) `grade_under`
+   ignores per-monomial defeat, so a defeated Checked path still lends its
+   grade (status/grade channel asymmetry, pre-existing); (c) the
+   Asserted-ward fallback has no pinning test; (d) spec 02 §2 still says
+   "meet of its variables' kinds," which was never the implementation.
+2. **Token lint: one blanket traded for another.** `DOCS_EXEMPT_TOKENS` is
+   gone (good), but six spec files — 00, 03, **06**, 08, 09, **10** (06 and
+   10 beyond the four the ruling named) — joined `ALLOWED_FILES`
+   (docs_tokens.rs:58-65) and are now exempt from **all 26 tokens**, not
+   just turning. Coverage regression vs baseline: adding "saltmarket" prose
+   to spec/03 passes today's gate and failed baseline's. The ruled
+   alternatives (genericize, footer discipline, or a small tested per-line
+   marker) were not attempted for the ~10 turning lines.
+3. **A new false completion marker.** tpth-separation-plan.md:173 was
+   flipped to "✅ TPtH-payload contract goldens moved" — `worlds/tpth/contract/`
+   has never existed in any commit; the goldens still live in
+   `contracts/dli-worker/fixtures/` and the executed resolution was
+   keep-in-place (:129). Honest marker: "resolved by keeping." Same file
+   still says two teaching worlds ship where the same commit counts three.
+4. **mutation-coverage.md is now self-contradictory.** Tally table and
+   frontmatter say 25 caught / 0 pending-gate (matches the harness), but the
+   operator matrix rows (:113-115) and deviations prose (:166-171) still
+   assert the three craft operators pending-gate/xfail-strict.
+
+### 7.3 MINOR tail (anchored)
+
+- New dangling-keyword swallow in the new code: `option x assumes` (no
+  hypothesis) bumps the keyword, parses clean, and canonicalization deletes
+  it — the drop class this repair set out to close (parser.rs:1206-1211;
+  contrast parse_before's Malformed diagnostic at :1246). Sibling
+  pre-existing: `option x implies`, and question-body junk clauses dropped
+  via `filter_map` (parser.rs:1161-1165).
+- `option.assumes` is stored-but-dead: neither `lower_options`
+  (world.rs:397-413) nor `process_options` (loader.rs:242-264) consumes it,
+  no spec defines it, and Door T cannot author it (AuthorAddOptionParams has
+  no implies/assumes). Loss-free surface now; semantics still to come or to
+  be ruled out.
+- `fork_add_grade_vector_per_monomial` (tests/fork.rs:440) never exercises
+  the fork path its name and comment claim — the fork standings/diff grade
+  seam (fork.rs:737, :766) remains untested through ForkStore.
+- TQ-N3 properties compare Status only (not defeat flags, not grade); dead
+  generator inputs; leftover drafting chatter committed at props.rs:339-341.
+- The repair ADDED "14 mutating + 5 read" to SKILL.md:76, entrenching the
+  DL-0023 arithmetic against the contract table's 11-yes column instead of
+  resolving it.
+- posbool.rs:330-335 now mischaracterizes the TESTQ-CORE-2 counterexample as
+  ordering (impossible for BTreeSet); the real class is logically-equal but
+  structurally different supports.
+- PLAN.md:546 wrong schema attribution (ec92efd → f85f69b) — propagated from
+  this note's §5, corrected above.
+- MonomialGrades::deserialize silently truncates multi-monomial wire paths
+  (world.rs:180-184; conservative direction); block-comment `/* #[cfg(test)] */`
+  can still poison boundary regions; ci_parity still ignores
+  paths-ignore/pull_request-presence/job-level continue-on-error; F5S-5
+  neither done nor deferred; load.rs:321-323 comment points at a test this
+  commit deleted; redteam_negation.rs:322-326 ITEM 2 banner contradicts the
+  test below it (baseline-inherited); charter rationale comment cites
+  charter:105 (Frith) which is not a listed token; audit-2026-07.md still
+  carries no remediation/repair SHA stamp; DL-0024 lacks a trailing newline.
+
+### 7.4 Open author decisions
+
+1. **Stripped pedagogical comments** (§2.2 residue): the teaching worlds'
+   `#` commentary is still gone, un-ruled, and restoration is now
+   structurally blocked by fmt-check + the token invariant unless the
+   formatter learns comments. Needs an explicit ruling either way.
+2. **Charter exemption + spec-file exemptions**: currently in-code comments
+   only; if file-level exemption is the accepted mechanism, say so on the
+   record (and shrink it to the ruled four spec files).
+3. **DL-0023 "14 mutating" arithmetic**: accept the loose adjective on the
+   record or correct it in a future entry — the table is right; stop
+   propagating the 14.
+
+### 7.5 Bottom line
+
+This round did what the last round only claimed: the soundness regression is
+reverted with proof, the data loss is restored with a safety net strong
+enough to have caught it, the ledger discipline held, and every commit has a
+green receipt. The engine's negation story is now code=spec=ledger
+consistent. What stands between here and "audit closed" is one semantic hole
+(the absorption grade fold — including flipping its pinning test), two
+guard/doc honesty items (spec-file token exemptions, the false goldens-moved
+marker), one self-contradictory doc, and a mechanical MINOR sweep. No red
+main, no re-litigated rulings, nothing silently dropped this time.

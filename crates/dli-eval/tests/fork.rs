@@ -482,8 +482,54 @@ fn fork_add_grade_vector_per_monomial() {
     // Fork with an addition: a new fact on var_a at grade Asserted. After
     // re-fixpoint, the var_a monomial's grade should be join_alt(Checked, Asserted) = Checked.
     let fork = store.fork();
-    // The fork is tested through its diff — the standings function uses grade_under.
-    // We verify the diff reports correct grades by using a direct world with addition.
+
+    // Add a fork-local fact on var_a at Asserted grade.
+    store
+        .add(
+            fork,
+            vec![Addition::new(
+                GroundAtom {
+                    pred: "p".to_owned(),
+                    args: vec![],
+                },
+                Ann::supported(PosBool::pos(var_a)),
+                Grade::Asserted,
+            )],
+        )
+        .expect("add to fork");
+
+    // Exercise the fork standings seam (fork.rs:737): diff() calls standings()
+    // which calls grade_under() on the layered world. The base has {a}@Checked
+    // and {b}@Asserted; the fork adds {a}@Asserted which join_alt's to Checked.
+    // Under the base valuation the grade should remain unchanged (both vars
+    // unset → both monomials don't fire → Asserted fallback).
+    let delta = store.diff(fork).expect("diff");
+
+    // Verify the base standings via store.base() — grade_under on the base world.
+    let base_derived = store
+        .base()
+        .derived
+        .iter()
+        .find(|d| d.atom.pred == "p")
+        .unwrap();
+    assert_eq!(
+        store.base().grade_under(base_derived, &nu_a),
+        Grade::Checked
+    );
+    assert_eq!(
+        store.base().grade_under(base_derived, &nu_b),
+        Grade::Asserted
+    );
+
+    // The fork's diff exercises grade_under through the standings function.
+    // Since the base valuation has vars unset, the fork addition should not
+    // produce a grade_changed entry (both before/after would be Asserted under
+    // empty valuation). But we verify the diff ran without error and the grade
+    // path was exercised.
+    // (If vars are set in valuation, it would show up in grade_changed.)
+    let _ = delta;
+
+    // Also verify using a direct world with the fork's addition for correctness.
     let mut program = world.clone();
     program.derived.clear();
     program.support_index.clear();
@@ -502,10 +548,6 @@ fn fork_add_grade_vector_per_monomial() {
     assert_eq!(layered.grade_under(derived2, &nu_a), Grade::Checked);
     // Under var_b: still Asserted (only one derivation path).
     assert_eq!(layered.grade_under(derived2, &nu_b), Grade::Asserted);
-
-    // Suppress var_a to verify unused fork import
-    drop(store);
-    let _ = fork;
 }
 
 #[test]

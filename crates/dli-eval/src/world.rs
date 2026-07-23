@@ -156,6 +156,18 @@ impl MonomialGrades {
     pub fn iter(&self) -> impl Iterator<Item = (&Monomial, Grade)> + '_ {
         self.by_monomial.iter().map(|(m, g)| (m, *g))
     }
+
+    /// The weakest (minimum) grade across all stored entries, or
+    /// `Grade::Asserted` if empty. Used by `join_body` for the conservative
+    /// body-atom grade contribution.
+    #[must_use]
+    pub fn weakest_entry(&self) -> Grade {
+        self.by_monomial
+            .values()
+            .copied()
+            .min()
+            .unwrap_or(Grade::Asserted)
+    }
 }
 
 impl Serialize for MonomialGrades {
@@ -468,23 +480,19 @@ impl World {
     /// Compute the dynamic grade of an atom under a specific valuation
     /// (`docs/spec/02-semantics.md` §2): per-monomial stored grades; the grade
     /// of the atom is the join (strongest alternative) over all ν-true
-    /// monomials' stored grades. No laundering possible — the grade of each
-    /// monomial is fixed at derivation time as min(rule.grade, meet of body
-    /// atom grades).
+    /// monomials' stored grades. No laundering through absorption or pooled-grade
+    /// path. Defeat asymmetry documented: a defeated Checked monomial still lends
+    /// its grade (pre-existing; future design ruling).
     ///
     /// Old data with an empty `monomial_grades` map falls back to
     /// `Grade::Asserted` (conservative default, not over-claiming).
     #[must_use]
     pub fn grade_under(&self, derived: &Derived, valuation: &Valuation) -> Grade {
         let mut best = None;
-        for monomial in derived.support.monomials() {
+        for (monomial, mono_grade) in derived.monomial_grades.iter() {
             if !monomial.eval_under(valuation) {
                 continue;
             }
-            let mono_grade = derived
-                .monomial_grades
-                .get(monomial)
-                .unwrap_or(Grade::Asserted); // conservative default
             best = Some(match best {
                 Some(prev) => Grade::join_alt([prev, mono_grade]),
                 None => mono_grade,
@@ -978,7 +986,7 @@ fn fire_rules(
                 &rest,
                 bindings,
                 CondSupport::of_row(delta_row),
-                delta_row.grade,
+                delta_row.monomial_grades.weakest_entry(),
             );
             for (bindings, grade, cond) in solutions {
                 // Negation last: every positive atom has bound the negated
@@ -1061,7 +1069,7 @@ fn join_body(
                 rest,
                 next,
                 cond.and_(&CondSupport::of_row(row)),
-                Grade::weakest([grade, row.grade]),
+                Grade::weakest([grade, row.monomial_grades.weakest_entry()]),
             ));
         }
     }
@@ -1082,7 +1090,7 @@ fn merge_into(
     if let Some(row) = relation.get_mut(&atom) {
         row.grade = Grade::join_alt([row.grade, grade]);
         // Collect the pre-merge monomial grades for grade-folding on absorption.
-        let pre_grades: BTreeMap<Monomial, Grade> = row
+        let _pre_grades: BTreeMap<Monomial, Grade> = row
             .monomial_grades
             .iter()
             .map(|(m, g)| (m.clone(), g))
@@ -1097,39 +1105,10 @@ fn merge_into(
         for monomial in cond.support.monomials() {
             row.monomial_grades.set(monomial.clone(), grade);
         }
-        // Fold absorbed monomials' grades into the absorbing (surviving)
-        // monomial: if monomial A subsumes (absorbs) monomial B, then under
-        // every valuation making B true, A is also true, so A's grade must
-        // reflect both derivation paths via join_alt.
-        let surviving: BTreeSet<&Monomial> = row.support.monomials().collect();
-        let stale: Vec<(Monomial, Grade)> = row
-            .monomial_grades
-            .iter()
-            .filter(|(m, _)| !surviving.contains(m))
-            .map(|(m, g)| (m.clone(), g))
-            .collect();
-        for (absorbed, absorbed_grade) in &stale {
-            // Find the absorber: the surviving monomial that subsumes the stale one.
-            for survivor in &surviving {
-                if survivor.subsumes(absorbed) {
-                    row.monomial_grades
-                        .set((*survivor).clone(), *absorbed_grade);
-                    break;
-                }
-            }
-            row.monomial_grades.remove(absorbed);
-        }
-        // Also fold pre-merge grades for old monomials that were absorbed.
-        for (old_mono, old_grade) in &pre_grades {
-            if !surviving.contains(old_mono) {
-                for survivor in &surviving {
-                    if survivor.subsumes(old_mono) {
-                        row.monomial_grades.set((*survivor).clone(), *old_grade);
-                        break;
-                    }
-                }
-            }
-        }
+        // Absorbed monomials' entries stay in monomial_grades intentionally:
+        // grade_under iterates all entries (including absorbed ones no longer
+        // in minimal support), so a monomial's grade is still available when
+        // its variables are true under the valuation.
         if changed {
             return Some(atom);
         }
@@ -1538,9 +1517,8 @@ mod tests {
     #[test]
     fn true_absorption_folds_absorbed_grade() {
         // A Checked fact on monomial {+x} and an Asserted fact on TRUE (absorbs
-        // {+x}). After absorption the support is TRUE. Grade under any valuation
-        // where +x would be true must be Checked (join_alt of Asserted and
-        // Checked), because both derivation paths are alternatives.
+        // {+x}). After absorption the support is TRUE. The monomial_grades map
+        // retains BOTH entries: TRUE@Asserted and {+x}@Checked.
         let mut world = World::new();
         let var_x = world.interner.intern("h.x");
 
@@ -1564,9 +1542,95 @@ mod tests {
         // Support is TRUE (absorbed {+x}).
         assert!(derived.support.is_true());
 
-        // The TRUE monomial's grade is join_alt(Asserted, Checked) = Checked
-        // because the Checked derivation path was folded in on absorption.
+        // Under empty valuation (x defaults false): only TRUE monomial fires →
+        // Asserted (the fiat's grade — the only live evidence when x is false).
         let nu = Valuation::new();
-        assert_eq!(world.grade_under(derived, &nu), Grade::Checked);
+        assert_eq!(world.grade_under(derived, &nu), Grade::Asserted);
+
+        // Under {x: true}: both TRUE and {+x} fire; join_alt(Asserted, Checked) = Checked.
+        let mut nu_x = Valuation::new();
+        nu_x.set(var_x, true);
+        assert_eq!(world.grade_under(derived, &nu_x), Grade::Checked);
+    }
+
+    #[test]
+    fn multi_path_body_no_over_claim() {
+        // A Checked-grade rule over a body atom that has two monomial entries:
+        // {x}@Asserted and {y}@Checked. Under {x:true, y:false} the body atom's
+        // weakest_entry is Asserted, so the derived grade must be Asserted.
+        let mut world = World::new();
+        let var_x = world.interner.intern("h.x");
+        let var_y = world.interner.intern("h.y");
+
+        // Body atom "base" has two derivation paths with different grades.
+        world.assert_fact_graded(
+            nullary("base"),
+            Ann::supported(PosBool::pos(var_x)),
+            Grade::Asserted,
+        );
+        world.assert_fact_graded(
+            nullary("base"),
+            Ann::supported(PosBool::pos(var_y)),
+            Grade::Checked,
+        );
+
+        // Checked-grade rule: derived :- base.
+        world
+            .define_rule(
+                "r_checked",
+                AtomExpr {
+                    pred: Ident::synthetic("derived"),
+                    args: vec![],
+                },
+                vec![BodyLiteral {
+                    negated: false,
+                    atom: AtomExpr {
+                        pred: Ident::synthetic("base"),
+                        args: vec![],
+                    },
+                }],
+            )
+            .expect("define_rule");
+        // Upgrade the rule's grade to Checked.
+        world.rules.last_mut().unwrap().grade = Grade::Checked;
+
+        let world = world.fixpoint().expect("stratifiable");
+
+        let derived = world
+            .derived
+            .iter()
+            .find(|d| d.atom.pred == "derived")
+            .expect("derived exists");
+
+        // Under {x:true, y:false}: the body atom contributes its weakest_entry
+        // (Asserted) to the chain, so derived grade = min(Checked, Asserted) = Asserted.
+        let mut nu = Valuation::new();
+        nu.set(var_x, true);
+        nu.set(var_y, false);
+        assert_eq!(world.grade_under(derived, &nu), Grade::Asserted);
+    }
+
+    #[test]
+    fn asserted_ward_fallback_empty_monomial_grades() {
+        // A Derived with an empty monomial_grades map reports Asserted under any
+        // valuation — the conservative fallback.
+        let derived = Derived {
+            atom: nullary("empty"),
+            support: PosBool::truth(),
+            defeaters: PosBool::FALSE,
+            conditions: DefeaterConditions::new(),
+            monomial_grades: MonomialGrades::new(),
+            grade: Grade::Checked, // pooled grade is irrelevant
+        };
+
+        let world = World::new();
+        let nu = Valuation::new();
+        assert_eq!(world.grade_under(&derived, &nu), Grade::Asserted);
+
+        // Under any arbitrary valuation, still Asserted.
+        let mut nu2 = Valuation::new();
+        nu2.set(Atom(0), true);
+        nu2.set(Atom(1), false);
+        assert_eq!(world.grade_under(&derived, &nu2), Grade::Asserted);
     }
 }
