@@ -1191,21 +1191,35 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
     }
 }
 
-fn parse_option(
-    cur: &mut Cursor,
-    diags: &mut Vec<Diagnostic>,
-    _span: Span,
-) -> Option<OptionClause> {
+fn parse_option(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<OptionClause> {
     let name = cur.eat_ident()?;
     let implies = if cur.peek_word_text() == Some("implies") {
         cur.bump();
-        parse_atom(cur)
+        if let Some(atom) = parse_atom(cur) {
+            Some(atom)
+        } else {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "`implies` requires an atom.",
+                span,
+            ));
+            None
+        }
     } else {
         None
     };
     let assumes = if cur.peek_word_text() == Some("assumes") {
         cur.bump();
-        cur.eat_ident()
+        if let Some(hyp) = cur.eat_ident() {
+            Some(hyp)
+        } else {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "`assumes` requires a hypothesis name.",
+                span,
+            ));
+            None
+        }
     } else {
         None
     };

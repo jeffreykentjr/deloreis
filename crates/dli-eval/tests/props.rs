@@ -299,11 +299,9 @@ proptest! {
     #[test]
     fn negated_reach_commutes_with_valuation(
         edges in arb_edges(),
-        extra_obs in prop::collection::vec((0u32..4, 0u32..4, any::<bool>()), 0..4),
         nu in arb_valuation(6),
     ) {
-        let _ = &extra_obs; // used to widen the search space via shrinking
-        // Build reachability world with negation: blocked(X,Y) :- adjacent(X,Y), not reachable(Y,Z)
+        // Build reachability world with negation: blocked(X,Y,Z) :- adjacent(X,Y), adjacent(Y,Z), not reachable(Y,Z)
         let build = |val: Valuation| {
             let mut world = World::new();
             for (i, &(a, b)) in edges.iter().enumerate() {
@@ -333,12 +331,6 @@ proptest! {
                     ],
                 )
                 .unwrap();
-            // blocked(X,Y) :- adjacent(X,Y), not reachable(Y,Z)
-            // This is stratifiable: reachable depends only on adjacent (stratum 0→1),
-            // blocked depends negatively on reachable (stratum 2).
-            // Range restriction: X and Y bound by adjacent(X,Y); Z bound by... wait,
-            // Z appears only in the negated literal. We need Z in a positive atom too.
-            // Fix: blocked(X,Y,Z) :- adjacent(X,Y), adjacent(Y,Z), not reachable(Y,Z)
             world
                 .define_rule(
                     "blocked",

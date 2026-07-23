@@ -320,9 +320,10 @@ fn independent_clean_support_is_not_defeated_by_unrelated_poison() {
 }
 
 // ===========================================================================
-// ITEM 2 — the transition, and the AMBIENT-LEDGER SUPERSESSION ASYMMETRY:
-// negation is NOT a pure post-fixpoint homomorphism. Blocking is baked into
-// the saturation, so re-valuating the negated premise false does NOT un-block.
+// ITEM 2 — valuation-phase ruling and the BAKED-BLOCK PERSISTENCE:
+// ruling the blocker TRUE via valuation (post-fixpoint) downgrades the
+// blocked atom to Possible but does NOT delete it — the block is baked into
+// the saturation, so post-hoc confirmation degrades but preserves the row.
 // ===========================================================================
 
 #[test]

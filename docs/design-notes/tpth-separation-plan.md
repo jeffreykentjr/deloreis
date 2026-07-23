@@ -12,9 +12,10 @@ verdict: "dli is the generic engine; craft is togglable project config; TPtH is 
 > an **empty allowlist** (zero TPtH tokens in engine real code; the build fails if
 > that regresses). TPtH is cleanly modularized as **`crates/tpth`** (a thin world
 > crate) + **`worlds/tpth/`** (all its data: packs, turning, craft config,
-> practices, episodes, vendor, mutation). Two public-domain teaching worlds ship
-> (`examples/camelot.dli` Arthurian; `examples/games/french-deck/` a 52-card
-> game), and the docs teach the tool generically with TPtH as a `docs/worlds/tpth/`
+> practices, episodes, vendor, mutation). Three public-domain teaching worlds ship
+> (`examples/camelot.dli` Arthurian; `examples/norse/` nine-realms;
+> `examples/games/french-deck/` a 52-card game), and the docs teach the tool
+> generically with TPtH as a `docs/worlds/tpth/`
 > worldbook. **Phases 0–5 all landed, every step gate-green.** What remains is
 > optional polish (the `expert-card.md` genericization; wiring the `simulate`/
 > `export` CLI stubs; a `Ruleset::cards()` memoization perf).
@@ -170,7 +171,7 @@ forks; each is an individually-verified step, not a big-bang.
 - ✅ `DL-0017`/`DL-0018` + this plan + the `worlds/tpth/` home (README).
 - ✅ Relocate the TPtH example corpus: `examples/{saltmarket,cymric-fringe,true-naming,second-practice}.dli` → `worlds/tpth/packs/`, `the-turning-rules.json` → `worlds/tpth/turning/`, the episode/season yaml → `worlds/tpth/episodes|season/`; test path-helpers repointed.
 - ✅ Add neutral teaching worlds: `examples/camelot.dli` (Arthurian), `examples/norse/` (nine-realms/runes/seidr), `examples/games/french-deck/` (52-card game).
-- ✅ Moved (they lived outside `examples/`) `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`; test path-helpers, the pinned/differential/shadow-read scripts, and the corpus docs repointed. ✅ TPtH-payload contract goldens moved with the `dli-worker` rename (Phase 2).
+- ✅ Moved (they lived outside `examples/`) `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`; test path-helpers, the pinned/differential/shadow-read scripts, and the corpus docs repointed. ✅ resolved: goldens kept in `contracts/dli-worker/fixtures/`
 
 **Phase 1 — the boundary guard**
 - Add a gate step: engine crate `src/` grep-denies a TPtH proper-noun set (saltmarket, cymric, enfys, the-debt-square, weather-debt, concordance, spoken-proof, pleach, hedgeway, `D-\d{4}`) outside lines marked `// doc-example`. Fails closed. This freezes the boundary and turns every remaining leak into a tracked, guard-visible debt.

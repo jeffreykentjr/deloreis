@@ -319,8 +319,8 @@ mod doctrine_tests {
     /// boundary's lint enforcement (design §1.1). Whole-word, case-insensitive.
     ///
     /// This list must be a subset of the canonical `WORLD_TOKENS` in
-    /// `xtask/src/boundary.rs`. The `forbidden_tokens_are_subset_of_canonical`
-    /// test below enforces this invariant at compile time.
+    /// `xtask/src/boundary.rs`. The `forbidden_world_tokens_are_subset_of_boundary`
+    /// test in `xtask/tests/world_tokens.rs` enforces this invariant.
     const FORBIDDEN_WORLD_TOKENS: &[&str] = &[
         "enfys",
         "aalto",

@@ -329,10 +329,12 @@ impl Serialize for PosBool {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         // Emit the canonical antichain so the wire form is byte-stable for the
         // common case.  Two logically-equal supports with the same monomial set
-        // serialize (and digest) identically.  Counterexample class: defeater-
-        // bearing polynomials with equivalent but differently-ordered monomial
-        // sets may serialize differently despite logical equality — callers that
-        // need byte-equality across arbitrary equivalents must normalize first.
+        // serialize (and digest) identically.  Counterexample class: structurally-
+        // different but logically-equal supports (e.g., `{{+0},{-0}}` vs TRUE)
+        // may serialize differently despite logical equality — BTreeSet ensures
+        // deterministic ordering within a representation, but cannot collapse
+        // structural difference.  Callers that need byte-equality across
+        // arbitrary equivalents must normalize first.
         let canonical = self.absorb();
         let monomials: Vec<Vec<String>> = canonical
             .0

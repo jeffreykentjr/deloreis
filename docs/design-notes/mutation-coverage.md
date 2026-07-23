@@ -110,9 +110,9 @@ sections; it is realized as a ratified claim stripped of its live ruling.
 | `killed-name-irondale` | naming | `check_draft` | killed-token | caught |
 | `killed-name-doom-wight` | naming | `check_draft` | killed-token | caught |
 | `wrong-register-name` | naming | `language::check` | `name.phonotactics` | caught |
-| `crowd-scene-cast` | craft | — | — | **pending-gate** (CRAFT-2/PAY-2) |
-| `as-you-know-bob-leak` | craft | — | — | **pending-gate** (CRAFT-2/PAY-2) |
-| `ornate-tag-cluster` | craft | — | — | **pending-gate** (CRAFT-2/PAY-2) |
+| `crowd-scene-cast` | craft | `apply` | `craft.accomplishment-earned` | caught |
+| `as-you-know-bob-leak` | craft | `apply` | `craft.accomplishment-earned` | caught |
+| `ornate-tag-cluster` | craft | `apply` | `craft.promise-density` | caught |
 | `slop-cluster` | style | — | — | **factory** |
 | `allegory-wink` | allegory | — | — | **factory** |
 | `paraphrased-contradiction` | factcheck | — | — | **miss** (deterministic) |
@@ -163,11 +163,10 @@ harness fails until the asserted outcomes and these counts agree, and
    compiles to advisory constraints automatically" is the fix). Owner: fantasy
    (add the fixtures).
 
-3. **Three operators are `pending-gate`.** The three craft operators
-   (`crowd-scene-cast`, `as-you-know-bob-leak`, `ornate-tag-cluster`) need the craft
-   payload battery (CRAFT-2/PAY-2, wave 4). PROOF-1's node depends only on CHECK-1, so
-   these are expected to be pending at wave 3; each is asserted `xfail-strict` and
-   flips the day its gate lands.
+3. **Three craft operators now caught.** The three craft operators
+   (`crowd-scene-cast`, `as-you-know-bob-leak`, `ornate-tag-cluster`) landed with
+   the craft payload battery (CRAFT-2/PAY-2). Each is killed by its respective
+   code: `craft.accomplishment-earned` (×2), `craft.promise-density` (×1).
 
    A fourth, `cite-resolved-question`, **already flipped** `pending-gate → caught`
    when the **B1 citation-existence gate** landed: a citation to an id with no
