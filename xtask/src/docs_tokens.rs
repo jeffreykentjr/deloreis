@@ -37,6 +37,9 @@ const ALLOWED_PREFIXES: &[&str] = &["docs/worlds/tpth/", "worlds/tpth/"];
 const ALLOWED_FILES: &[&str] = &[
     "docs/decisions.md",
     "docs/PLAN.md",
+    // Author-ruled exception: charter is constitutionally entangled with the
+    // world's Turning (charter:44,105,148); genericizing the charter is worse
+    // than exempting it.
     "docs/charter.md",
     "docs/integration/migration.md",
     "docs/surface-v1-naming.md",
@@ -51,18 +54,20 @@ const ALLOWED_FILES: &[&str] = &[
     "docs/design-notes/audit-2026-07.md",
     "docs/design-notes/audit-remediation-plan.md",
     "docs/design-notes/audit-validation-2026-07.md",
+    "docs/design-notes/bench-deferral.md",
+    // Discusses the world-agnostic time-layer architecture using TPtH's Turning
+    // as the worked example.
+    "docs/spec/00-overview.md",
+    "docs/spec/03-time.md",
+    "docs/spec/06-craft-and-payloads.md",
+    "docs/spec/08-reasoning.md",
+    "docs/spec/09-exports.md",
+    "docs/spec/10-serving.md",
 ];
 
 /// The marker that makes a paragraph a worldbook cross-link: a `docs/worlds/tpth/`
 /// link. Matched lowercase against a lowercased line.
 const WORLDBOOK_LINK: &str = "worlds/tpth";
-
-/// Tokens from `WORLD_TOKENS` that are too generic for the docs surface scan —
-/// they appear legitimately throughout the specs when discussing the engine's
-/// architecture (e.g. "the Turning engine", "the Turning's leaf(29)"). These are
-/// still enforced in the engine boundary guard (`boundary.rs`), just not in
-/// docs/examples.
-const DOCS_EXEMPT_TOKENS: &[&str] = &["turning", "the-turning"];
 
 /// One leak: a forbidden world token named on a non-exempt line of a scanned doc.
 struct Leak {
@@ -182,9 +187,8 @@ fn is_allowed_path(rel: &str) -> bool {
 }
 
 /// Scan one doc, appending any world-token leak on a line that is neither inside a
-/// worldbook-footer paragraph nor otherwise exempt. Tokens in `DOCS_EXEMPT_TOKENS`
-/// are skipped (they are too generic for doc prose but enforced in the boundary
-/// guard). For `the-` prefixed tokens, also checks the spaced equivalent (F5S-1).
+/// worldbook-footer paragraph nor otherwise exempt. For `the-` prefixed tokens,
+/// also checks the spaced equivalent (F5S-1).
 fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
     let lines: Vec<&str> = text.lines().collect();
     let exempt = footer_exempt_lines(&lines);
@@ -198,9 +202,6 @@ fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
             .iter()
             .copied()
             .filter(|token| {
-                if DOCS_EXEMPT_TOKENS.contains(token) {
-                    return false;
-                }
                 if contains_word(&lower, token) {
                     return true;
                 }

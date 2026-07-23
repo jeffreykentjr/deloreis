@@ -117,3 +117,83 @@ fn gate_job_has_no_conditional_or_continue_on_error_steps() {
         }
     }
 }
+
+#[test]
+fn gate_job_steps_are_run_commands_only() {
+    /// Infrastructure-only setup actions that are tolerated before the gate run.
+    const ALLOWED_ACTIONS: &[&str] = &[
+        "actions/checkout",
+        "Swatinem/rust-cache",
+        "taiki-e/install-action",
+    ];
+
+    let root = repo_root();
+    let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+
+    let gate_job = jobs
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("gate"))
+        .map(|(_, v)| v)
+        .expect("ci.yml must have a `gate` job");
+
+    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_sequence()) {
+        for (i, step) in steps.iter().enumerate() {
+            if let Some(uses) = step.get("uses").and_then(|v| v.as_str()) {
+                let step_name = step
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("<unnamed>");
+                let is_infra = ALLOWED_ACTIONS
+                    .iter()
+                    .any(|prefix| uses.starts_with(prefix));
+                assert!(
+                    is_infra,
+                    "gate job step {i} ({step_name}) uses a non-infrastructure action \
+                     `{uses}` — gate logic must be `run:` commands only (DL-0013/DL-0015). \
+                     Only setup actions are tolerated: {ALLOWED_ACTIONS:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn gate_job_has_no_job_level_if_condition() {
+    let root = repo_root();
+    let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+
+    let gate_job = jobs
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("gate"))
+        .map(|(_, v)| v)
+        .expect("ci.yml must have a `gate` job");
+
+    assert!(
+        gate_job.get("if").is_none(),
+        "the gate job has a job-level `if:` condition — \
+         the gate must run unconditionally on every trigger"
+    );
+}
+
+#[test]
+fn ci_on_trigger_matches_expected_pattern() {
+    let root = repo_root();
+    let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
+
+    let on = ci.get("on").expect("ci.yml must have an `on:` trigger");
+    let push = on.get("push").expect("ci.yml must trigger on `push`");
+    let branches = push
+        .get("branches")
+        .and_then(|v| v.as_sequence())
+        .expect("push trigger must have a `branches` list");
+
+    assert!(
+        branches.iter().any(|b| b.as_str() == Some("main")),
+        "the push trigger must include `main` in its branches list"
+    );
+}

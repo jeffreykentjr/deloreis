@@ -507,3 +507,71 @@ fn fork_add_grade_vector_per_monomial() {
     drop(store);
     let _ = fork;
 }
+
+#[test]
+fn fork_add_does_not_contaminate_base() {
+    // TQ-N4 (stronger form): fork additions never leak into the base world.
+    // This is the trust-boundary invariant.
+
+    // 1. Create a world with some facts, fixpoint it.
+    let world = base_world();
+    let pre_fork_world = world.clone();
+
+    // 2. Clone the world into a ForkStore.
+    let mut store = ForkStore::new(world);
+
+    // 3. Fork, add an atom via fork.add.
+    let fork = store.fork();
+    store
+        .add(
+            fork,
+            [Addition::asserted(
+                ground("new-predicate", &["fresh-entity", "novel-data"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    // Verify the addition is visible in the fork's diff.
+    let delta = store.diff(fork).unwrap();
+    assert!(
+        delta
+            .newly_certain
+            .iter()
+            .any(|c| c.atom.render() == "new-predicate(fresh-entity, novel-data)"),
+        "the added atom must be newly-certain in the fork diff"
+    );
+
+    // 4. Promote the fork.
+    let _rq = store.promote(fork).unwrap();
+
+    // 5. Assert store.base() field-equals the pre-fork world (the base is immutable).
+    assert_eq!(
+        store.base(),
+        &pre_fork_world,
+        "the base world must be immutable — fork operations must never mutate it"
+    );
+
+    // 6. Query the base world for the added atom → must return zero rows.
+    let query = Query {
+        goal: atom_expr(
+            "new-predicate",
+            vec![sym("fresh-entity"), sym("novel-data")],
+        ),
+    };
+    let answer = store.base().query(&query);
+    match answer {
+        Ok(ans) => {
+            assert_eq!(
+                ans.rows.len(),
+                0,
+                "the base world must not contain the fork-added atom — \
+                 fork additions must never leak into the base"
+            );
+        }
+        // UnknownPredicate is also acceptable: it means the base has never
+        // heard of the predicate, which is the strongest form of non-leakage.
+        Err(dli_eval::error::EvalError::UnknownPredicate { .. }) => {}
+        Err(e) => panic!("unexpected eval error querying base for fork atom: {e}"),
+    }
+}

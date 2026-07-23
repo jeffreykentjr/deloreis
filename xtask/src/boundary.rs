@@ -193,12 +193,9 @@ fn scan_file(rel: &str, text: &str, leaks: &mut Vec<Leak>) {
     for (index, line) in text.lines().enumerate() {
         let started_in_block = in_block_comment;
         let trimmed = line.trim_start();
-        // F5S-4: a doc comment (/// or //!) mentioning `#[cfg(test)]` must not
-        // set the flag — it is documentation, not an actual attribute.
-        if trimmed.contains("#[cfg(test)]")
-            && !trimmed.starts_with("///")
-            && !trimmed.starts_with("//!")
-        {
+        // F5S-4: a comment (// or /// or //!) mentioning `#[cfg(test)]` must not
+        // set the flag — it is documentation or annotation, not an actual attribute.
+        if trimmed.contains("#[cfg(test)]") && !trimmed.starts_with("//") {
             pending_cfg = true;
         }
 
