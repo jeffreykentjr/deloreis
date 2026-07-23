@@ -84,3 +84,36 @@ fn canonical_gate_carries_the_doc_hygiene_steps() {
         "the book build must be an allowed aux command for CI parity"
     );
 }
+
+#[test]
+fn gate_job_has_no_conditional_or_continue_on_error_steps() {
+    let root = repo_root();
+    let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+
+    let gate_job = jobs
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("gate"))
+        .map(|(_, v)| v)
+        .expect("ci.yml must have a `gate` job");
+
+    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_sequence()) {
+        for (i, step) in steps.iter().enumerate() {
+            let step_name = step
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("<unnamed>");
+            assert!(
+                step.get("continue-on-error").is_none(),
+                "gate job step {i} ({step_name}) has `continue-on-error` — \
+                 the gate must fail-fast, never swallow failures"
+            );
+            assert!(
+                step.get("if").is_none(),
+                "gate job step {i} ({step_name}) has an `if:` condition — \
+                 the gate must run unconditionally"
+            );
+        }
+    }
+}

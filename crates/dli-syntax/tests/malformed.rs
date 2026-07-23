@@ -90,7 +90,25 @@ fn fmt_accepts_advisory_only_documents() {
 
 #[test]
 fn probe_keywords_are_the_authoritative_set() {
-    assert_eq!(KEYWORDS, LINE_OPEN_KEYWORDS);
+    // Every keyword in the KEYWORDS constant must be dispatched by the parser
+    // (i.e., not produce an UnknownKeyword diagnostic). This test was originally
+    // `assert_eq!(KEYWORDS, LINE_OPEN_KEYWORDS)` which is a tautology — KEYWORDS
+    // is defined as an alias of LINE_OPEN_KEYWORDS. We now verify against the
+    // actual parser behaviour (an independent oracle).
+    for kw in KEYWORDS {
+        let source = format!("{kw} x\n");
+        let (_doc, diags) = parse_document(&source);
+        assert!(
+            !diags.iter().any(|d| d.class == DiagClass::UnknownKeyword),
+            "KEYWORDS lists `{kw}` but the parser rejects it as unknown"
+        );
+    }
+    // Also verify that line_open_keywords() returns the same slice.
+    assert_eq!(
+        line_open_keywords(),
+        LINE_OPEN_KEYWORDS,
+        "line_open_keywords() must return LINE_OPEN_KEYWORDS"
+    );
 }
 
 #[test]

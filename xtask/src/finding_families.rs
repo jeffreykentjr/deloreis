@@ -46,6 +46,7 @@ enum Scrape {
     /// no-phantom: every documented code must still be emitted, but a newer
     /// source code does not fail the gate (so an in-flight lane edit does not
     /// gate on this page).
+    #[allow(dead_code)]
     PrefixedSnapshot(&'static str),
     /// A still-landing family whose codes are bare suffixes handed to the season
     /// battery's `warn(`/`error(` helpers; covered no-phantom.
@@ -197,10 +198,9 @@ const FAMILIES: &[Family] = &[
         owner: "dli-world :: language/derivation.rs (LangFinding)",
         severity_note: "Warn: a name defect warns rather than blocks (grade `checked`); the \
             factory-side world-safe screens live outside the kernel. (Distinct from the \
-            Door-T `name.unvetted` finding below.) This lane is extending under wave-4 Items \
-            3/4, so it is covered no-phantom rather than strictly.",
+            Door-T `name.unvetted` finding below.)",
         sources: &["../crates/dli-world/src/language/derivation.rs"],
-        scrape: Scrape::PrefixedSnapshot("name"),
+        scrape: Scrape::Prefixed("name"),
         codes: &[
             Code {
                 code: "name.slot-sequence",

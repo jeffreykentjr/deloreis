@@ -1,7 +1,7 @@
 //! The committed episodes example must deserialize through the real types
-//! and fold correctly — pinning `examples/saltmarket-episodes.yaml` against
-//! type drift. Episodes ride as payload data until their surface form lands
-//! (TIME-3); this test is that payload's contract.
+//! and fold correctly — pinning `worlds/tpth/episodes/saltmarket-episodes.yaml`
+//! against type drift. Episodes ride as payload data until their surface form
+//! lands (TIME-3); this test is that payload's contract.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 

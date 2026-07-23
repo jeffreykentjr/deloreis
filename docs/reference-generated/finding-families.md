@@ -50,7 +50,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 - **Emitted by:** the world-true half of the naming oracle, run by `dli.name.check` and the language layer of `check`
 - **Owner:** `dli-world :: language/derivation.rs (LangFinding)`
-- **Severity:** Warn: a name defect warns rather than blocks (grade `checked`); the factory-side world-safe screens live outside the kernel. (Distinct from the Door-T `name.unvetted` finding below.) This lane is extending under wave-4 Items 3/4, so it is covered no-phantom rather than strictly.
+- **Severity:** Warn: a name defect warns rather than blocks (grade `checked`); the factory-side world-safe screens live outside the kernel. (Distinct from the Door-T `name.unvetted` finding below.)
 
 | Code | Severity | Repair | Meaning |
 |---|---|---|---|
