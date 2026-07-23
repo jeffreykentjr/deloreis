@@ -167,6 +167,7 @@ impl Sessions {
     /// [`KilledTokens`] store. When a world's craft config directory ships a
     /// killed-token registry, the caller compiles it and passes it here so the
     /// scope's `check_draft` runs enforce rejected-lore constraints.
+    // REVISIT(DL-0021): wire when corpus channel lands
     pub fn scope_with_killed_tokens(
         &mut self,
         document: &str,

@@ -102,7 +102,7 @@ the committed `dli.check-proof.response` schema now **is** the `ProofReport`
 shape. `dli.simulate.*` runs the seeded battery and `dli.export.run` renders a
 compiled world under a profile — both live, both pinning an honest manifest.
 `dli.fork.add` and the five `dli.timeline.*` ops are fully wired; their goldens
-carry normal `expected_outcome` assertions like every other op.
+follow the same fixture schema as every other op.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -148,9 +148,9 @@ through Door H; the agent proposes and the human confirms the citation in review
 | `author.add_hypothesis` | Add a hypothesis variable (one per proposal bundle). | yes |
 | `author.suppose` | Pin minted hypotheses true within the workspace (fork-only). | yes |
 | `author.query` | Query the compiled world (entity lookup, relation traversal, timeline). | read |
-| `author.check` | Run a named check family over the workspace and return findings. | read |
+| `author.check` | Run the full check battery over the workspace and return findings. | read |
 | `author.why` | Explain why a fact holds: provenance chain + grade derivation. | read |
-| `author.findings` | Return all outstanding findings for the workspace (filterable by severity/family). | read |
+| `author.findings` | Return all outstanding findings for the workspace. | read |
 | `author.list_workspaces` | List open workspaces and their summary status. | read |
 
 `author.materialize` returns the `.dli` contents as data; the kernel does not
@@ -178,9 +178,8 @@ flow families and every declared error code, not yet every op.
   harness only.
 - **Expected outcome.** A fixture declares an `expected_outcome` so replay is
   unambiguous: `replay` (the default — each frame's response equals its `expect`),
-  or `gated` (the op is capability-gated at this contract version and answers
-  `not-wired`; the golden body is the intended-contract shape the op will return
-  once wired — documentation, not a live assertion).
+  or `gated` (reserved outcome for future capability-gated ops; no op carries
+  this outcome today as all 46 are wired).
 - **Cold replay.** Every registered fixture — golden, negative, framing, and
   author — is driven through the server **cold**, from a fresh session, with its
   declared precondition, and the declared outcome is asserted (`fixture_replay` in

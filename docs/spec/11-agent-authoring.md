@@ -407,7 +407,7 @@ are pure queries with no side effects.
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
 | `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
-| `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, open-finding count, digest). |
+| `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
 
 Read tools share the standard request envelope (`dli`, `id`, `op`, `params`
 with `workspace` where applicable) and return typed JSON responses. They do not

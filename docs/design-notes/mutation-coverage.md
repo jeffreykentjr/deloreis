@@ -1,6 +1,6 @@
 ---
 status: reference
-verdict: "PROOF-1's operator×gate coverage matrix and MIG-2's shadow-read state: the 33 ported mutation operators, the wave-3 deloreis kernel outcome each was VERIFIED to produce (22 caught, incl. cite-resolved-question flipped by the B1 citation gate), the deviations the harness surfaced (one factory reclassification, three corpus-gaps, three pending-gates, one known-divergence, one honest miss), and the dual-run parity + detection numbers at the pinned SHA."
+verdict: "PROOF-1's operator×gate coverage matrix and MIG-2's shadow-read state: the 33 ported mutation operators, the wave-3 deloreis kernel outcome each was VERIFIED to produce (25 caught, incl. cite-resolved-question flipped by the B1 citation gate), the deviations the harness surfaced (one factory reclassification, three corpus-gaps, zero pending-gate, one known-divergence, one honest miss), and the dual-run parity + detection numbers at the pinned SHA."
 ---
 
 # Mutation coverage (PROOF-1) and the shadow-read state (MIG-2)
@@ -130,11 +130,11 @@ sections; it is realized as a ratified claim stripped of its live ruling.
 
 | outcome | count |
 |---|---|
-| caught | 22 |
+| caught | 25 |
 | known-divergence | 1 |
 | corpus-gap | 3 |
 | factory | 3 |
-| pending-gate | 3 |
+| pending-gate | 0 |
 | miss | 1 |
 | **total** | **33** |
 

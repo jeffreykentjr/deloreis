@@ -67,7 +67,7 @@ worlds/tpth/                # TIER 3 — TPtH world content, as data
   contract/ the TPtH-payload conformance fixtures (goldens carrying saltmarket/mara/…)
   (+ crates/tpth/ — thin world code only where not yet pure data: Turning invariants/study)
 
-examples/                   # ENGINE — a NEW neutral generic teaching world (hello-world.dli)
+examples/                   # ENGINE — neutral generic teaching worlds (camelot.dli, norse/, french-deck/)
 contracts/dli-worker/       # ENGINE — the generic wire contract (renamed from fantasy-worker)
 docs/                       # ENGINE MANUAL (generic) + a TPtH worldbook companion + integration/
 ```
@@ -123,7 +123,7 @@ target). **SOFT** = doc/test illustration (genericize on release, non-blocking).
 
 | Artifact | State | Move |
 |---|---|---|
-| `examples/*.dli/.yaml/.json` | All TPtH (saltmarket, cymric-fringe, true-naming, second-practice, the-turning-rules, saltmarket-episodes/season) | → `worlds/tpth/`. **Safe data move** (update test path refs). Add a NEW neutral `examples/hello-world.dli`. |
+| `examples/*.dli/.yaml/.json` | All TPtH (saltmarket, cymric-fringe, true-naming, second-practice, the-turning-rules, saltmarket-episodes/season) | → `worlds/tpth/`. **Safe data move** (update test path refs). Neutral worlds now ship as `examples/camelot.dli`, `examples/norse/`, `examples/games/french-deck/`. |
 | `fixtures/vendor/fantasy-*` | Pinned fantasy snapshot, digest-isolated | → `worlds/tpth/vendor/`. Safe move (update MANIFEST/test refs). |
 | `fixtures/mutation/*` | Ported fantasy detection corpus | → `worlds/tpth/mutation/`; the generic check-class taxonomy in its README → engine spec docs. |
 | `contracts/fantasy-worker/` | Mechanism generic; **mis-named** for one consumer; goldens TPtH-payload-bound | Rename dir + `contract:` id → `dli-worker`; keep TPtH-payload goldens as the fantasy consumer's suite; add a small generic-world conformance set. |
@@ -169,15 +169,15 @@ forks; each is an individually-verified step, not a big-bang.
 **Phase 0 — establish the location (safe now, no engine code changes)**
 - ✅ `DL-0017`/`DL-0018` + this plan + the `worlds/tpth/` home (README).
 - ✅ Relocate the TPtH example corpus: `examples/{saltmarket,cymric-fringe,true-naming,second-practice}.dli` → `worlds/tpth/packs/`, `the-turning-rules.json` → `worlds/tpth/turning/`, the episode/season yaml → `worlds/tpth/episodes|season/`; test path-helpers repointed.
-- ✅ Add a neutral `examples/hello-world.dli` teaching world (a generic river town, no TPtH lore) — now the only pack in `examples/`.
-- ✅ Moved (they lived outside `examples/`) `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`; test path-helpers, the pinned/differential/shadow-read scripts, and the corpus docs repointed. ⏳ Still to move: the TPtH-payload contract goldens (with the `dli-worker` rename, Phase 2).
+- ✅ Add neutral teaching worlds: `examples/camelot.dli` (Arthurian), `examples/norse/` (nine-realms/runes/seidr), `examples/games/french-deck/` (52-card game).
+- ✅ Moved (they lived outside `examples/`) `fixtures/vendor|mutation` → `worlds/tpth/vendor|mutation/`; test path-helpers, the pinned/differential/shadow-read scripts, and the corpus docs repointed. ✅ TPtH-payload contract goldens moved with the `dli-worker` rename (Phase 2).
 
 **Phase 1 — the boundary guard**
 - Add a gate step: engine crate `src/` grep-denies a TPtH proper-noun set (saltmarket, cymric, enfys, the-debt-square, weather-debt, concordance, spoken-proof, pleach, hedgeway, `D-\d{4}`) outside lines marked `// doc-example`. Fails closed. This freezes the boundary and turns every remaining leak into a tracked, guard-visible debt.
 
 **Phase 2 — the clean code extractions (each its own commit)**
 - ✅ Sayability cap → per-dialect `sayability-max`; drop `D-0095` (b5dd94b).
-- ✅ Banned-in-name message → generic (2cd5878); ⏳ surface `BanDef.reason` (follow-on).
+- ✅ Banned-in-name message → generic (2cd5878); ✅ surface `BanDef.reason` (bfcb758).
 - ✅ `KERNEL_CYCLES` ambient cycles → empty default + `worlds/tpth/time/cycles.dli` (b5dd94b).
 - ✅ `profile.rs::Registry::builtin` → data-loaded profiles from `worlds/tpth/export/profiles.json` (b5dd94b).
 - ⏳ `loader.rs::example_docs` → a **PD example world** (not a bare toy — see *The generic corpus* below); `session.rs::builtin_pack` → corpus-dir.
@@ -202,8 +202,10 @@ forks; each is an individually-verified step, not a big-bang.
 The standalone tool should ship example worlds drawn from **public-domain
 literature and real games**, not TPtH content and not just a bare invented toy —
 recognizable worlds prove dli's generality and give the sim/practice/export
-features real non-TPtH exemplars. The current `examples/hello-world.dli`
-(rivertown) is a placeholder to be superseded.
+features real non-TPtH exemplars. The shipped examples (`camelot.dli`
+Arthurian, `norse/` nine-realms/runes/seidr, `french-deck/` 52-card game) are
+the current generic corpus; `example_docs`/`builtin_pack` default to them once
+the in-Rust saltmarket is retired.
 
 **The hard constraint is copyright.** Rules and ideas are not copyrightable;
 fictional-world *content* is. So:
@@ -230,7 +232,7 @@ and the **craft-doctrines library** citing the real published laws/frameworks.
 **How it threads the DAG:** the tarot exemplar pairs with Phase 4 (Turning →
 `crates/tpth/`, generic card-game example stays in `examples/`); the craft
 library is Phase 3's Tier-2 target; the PD literary world supersedes
-`hello-world.dli` and becomes `example_docs`/`builtin_pack`'s default (Phase 2's
+`camelot.dli` and becomes `example_docs`/`builtin_pack`'s default (Phase 2's
 `loader`/`serve` item). Authoring these PD worlds is its own tracked strand.
 
 ---
@@ -246,9 +248,9 @@ library is Phase 3's Tier-2 target; the PD literary world supersedes
    simulator genericization (everything-as-data) is a follow-on, not a blocker.
 3. **Contract rename.** ✅ **`fantasy-worker` → `dli-worker`.** Generic contract +
    a fantasy consumer profile; TPtH-payload goldens become the fantasy suite.
-4. **Neutral teaching world.** A `hello-world.dli` (invented neutral setting)
-   becomes the engine's shipped example; saltmarket demotes to `worlds/tpth/`.
-   *(Confirmed direction; landed with the Phase-0 relocation.)*
+4. **Neutral teaching worlds.** `camelot.dli`, `norse/`, and `french-deck/`
+   are the engine's shipped examples; saltmarket demotes to `worlds/tpth/`.
+   *(Confirmed direction; landed with Phase 0 + Phase 4.)*
 
 ---
 

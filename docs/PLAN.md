@@ -542,8 +542,9 @@ set by how many of them run at once, not by any single node's length.
   schemars-derived schema, and the recursive-descent parser
   (`dli_syntax::parse_document`) are live and gate-enforced; zero `todo!()`
   bodies remain in the codebase.
-- **Seeded ahead of the DAG:** CON-1's *artifacts* (the 46-op schemas, the
-  closed registry, the seed golden/negative/raw fixtures) were built at
+- **Seeded ahead of the DAG:** CON-1's *artifacts* (41-op schemas built at
+  bootstrap; 5 added by the ec92efd wiring wave — the closed registry, the
+  seed golden/negative/raw fixtures) were built at
   bootstrap so the contract could be designed before the engine. CON-1's
   *oracle* — verdict parity against a running server — is live; the
   `golden_dispatch_matches` test runs un-ignored. The per-op
