@@ -381,3 +381,5 @@ consistent. What stands between here and "audit closed" is one semantic hole
 guard/doc honesty items (spec-file token exemptions, the false goldens-moved
 marker), one self-contradictory doc, and a mechanical MINOR sweep. No red
 main, no re-litigated rulings, nothing silently dropped this time.
+
+> **Repair SHA:** 01b4957c3f95288053285fdad267c837392f8aca (2026-07-23)
