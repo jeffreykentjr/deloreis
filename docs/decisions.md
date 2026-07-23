@@ -606,6 +606,11 @@ special-case plumbing. Agents author through Door T and review rendered diffs;
 a comment channel Door T cannot read is drift waiting to happen. The docs
 channel is gate-checked and staleness is partially caught.
 
+**Scope:** generic-world commentary (camelot, norse) lives in
+`docs/cards/examples-walkthrough.md`; TPtH pack commentary lives in
+`docs/worlds/tpth/packs.md` (worldbook channel, oracle-checked). The
+french-deck example is a JSON ruleset corpus — no `.dli` commentary existed.
+
 ## DL-0026 — Token-lint file-exemption policy; DL-0023 erratum
 
 **Ruling (1):** File-level token-lint exemption scope. Design notes, the

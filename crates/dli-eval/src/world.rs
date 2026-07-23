@@ -1089,12 +1089,6 @@ fn merge_into(
 ) -> Option<GroundAtom> {
     if let Some(row) = relation.get_mut(&atom) {
         row.grade = Grade::join_alt([row.grade, grade]);
-        // Collect the pre-merge monomial grades for grade-folding on absorption.
-        let _pre_grades: BTreeMap<Monomial, Grade> = row
-            .monomial_grades
-            .iter()
-            .map(|(m, g)| (m.clone(), g))
-            .collect();
         let merged = CondSupport::of_row(row).or_(cond);
         let changed = merged.support != row.support;
         row.support = merged.support;

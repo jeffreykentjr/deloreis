@@ -1,6 +1,6 @@
 ---
 status: draft
-verdict: "Validation of the 12-commit audit remediation (268fe41..4d1bceb): gate/CI green and roughly half the audit genuinely fixed — but the negation 'alignment' reverted the b8243cc/13605cd red-team soundness fix (with test assertions inverted under kept names), the canonicality sweep silently deleted `assumes` clauses from three committed worlds, plan Tasks 15/17 never ran, the promised DL entries were not minted, and 13 new issues were introduced. Evidence, not authority — mints no DL ids. RE-AUDIT ADDENDUM (§7, at 4806776): the 5-commit repair round is genuine — negation byte-restored, assumes clauses back with the strong safety invariant, DL-0024 minted clean — but one MAJOR semantic hole remains (the grade absorption fold launders, pinned by the repair's own test) plus three MAJOR doc/guard items and a MINOR tail."
+verdict: "Validation of the 12-commit audit remediation (268fe41..4d1bceb): gate/CI green and roughly half the audit genuinely fixed — but the negation 'alignment' reverted the b8243cc/13605cd red-team soundness fix (with test assertions inverted under kept names), the canonicality sweep silently deleted `assumes` clauses from three committed worlds, plan Tasks 15/17 never ran, the promised DL entries were not minted, and 13 new issues were introduced. Evidence, not authority — mints no DL ids. RE-AUDIT ADDENDUM (§7, at 4806776): the 5-commit repair round is genuine — negation byte-restored, assumes clauses back with the strong safety invariant, DL-0024 minted clean — but one MAJOR semantic hole remains (the grade absorption fold launders, pinned by the repair's own test) plus three MAJOR doc/guard items and a MINOR tail. CLOSE-ROUND ADDENDUM (§8, at ea1f4e3): the engineering core is closed — grade fix complete and verified, specs de-exempted with proven lint bite, ledger discipline held — remaining MAJORs are record-keeping only: DL-0025's migration claim is false for the worlds/tpth commentary, the walkthrough's fenced examples contradict the shipped worlds, and the followups registration was skipped a third time."
 ---
 
 # Audit-remediation validation — 2026-07
@@ -382,4 +382,113 @@ guard/doc honesty items (spec-file token exemptions, the false goldens-moved
 marker), one self-contradictory doc, and a mechanical MINOR sweep. No red
 main, no re-litigated rulings, nothing silently dropped this time.
 
-> **Repair SHA:** 01b4957c3f95288053285fdad267c837392f8aca (2026-07-23)
+> **Closed at:** ea1f4e3b11ec41617b53c8fc5e6367ab59f1611e (2026-07-23)
+
+## 8. Close-round re-audit — the audit-close commits (4806776..ea1f4e3)
+
+*Added 2026-07-23. Scope: the five `audit-close:` commits (2ac4808 grade /
+f51b819 tokens / dd12f11 doc-tail / 01b4957 migration+DL-0025 / ea1f4e3
+stamps). Ground truth: `cargo xtask gate` **PASSED — 17 steps green** at
+ea1f4e3 (receipt `out/greengate/audit-close-reaudit/receipt.json`); green
+greengate receipts sha-matched for all five commits; CI green by SHA; tree
+clean; ledger pure-append. Method: four adversarial validators plus
+orchestrator cross-examination. 55 obligations: **16 FIXED · 14 OK · 11
+PARTIAL · 10 NEW-ISSUE · 4 UNADDRESSED · 0 REGRESSED · 0 BLOCKER.***
+
+### 8.1 The engineering core is done
+
+- **Grade fix complete and honest.** The absorption fold is deleted with
+  absorbed entries retained; `grade_under` joins ν-true *entries* (Asserted
+  empty-fallback); both pooled sites (`fire_rules` seed, `join_body`
+  accumulate) use the conservative `weakest_entry()`; the pinning test is
+  flipped and pins **both** valuations; `multi_path_body_no_over_claim`
+  provably fails under the pre-close code (replayed); the order-independence
+  test is byte-identical and coherent; no committed fixture serializes
+  `monomial_grades`, so no wire delta was owed.
+- **Token de-exemption real and proven.** All six spec files out of
+  `ALLOWED_FILES`; a faithful static port of the scanner over all 66 docs
+  reports zero leaks, with detector fidelity proven by a disabled-exemption
+  run producing the expected 22 hits; SKILL.md now matches the contract
+  table; the charter comment cites DL-0026.
+- **Ledger and markers.** DL-0025/DL-0026 each minted-and-used in one commit,
+  pure append; the erratum arithmetic is exact; the goldens marker,
+  two-vs-three drift, posbool counterexample, load.rs pointer, PLAN.md
+  attribution (verified against f85f69b), redteam banner, and
+  mutation-coverage.md internal consistency are all genuinely fixed; both
+  `option x implies`/`option x assumes` dangling-keyword swallows now emit
+  error-class diagnostics.
+
+### 8.2 Remaining MAJORs — all record-keeping, none semantic
+
+1. **DL-0025 Ruling (2) is false in the ledger.** "Historical teaching
+   commentary is migrated to the docs channel …, not dropped" — true only
+   for camelot and norse. The five `worlds/tpth` files' ~180 stripped
+   comment lines (saltmarket 71, spoken-proof 30, cymric-fringe 29,
+   true-naming 26, second-practice 23, cycles 10) were migrated nowhere, and
+   french-deck is absent from the walkthrough. The ledger outranks every
+   doc; it now asserts a migration that did not happen. Fix by making it
+   true — migrate the TPtH pack commentary into the prefix-exempt
+   `docs/worlds/tpth/` worldbook (or append a scope corrigendum in the next
+   entry); cover or explicitly scope french-deck.
+2. **The walkthrough teaches invented content that contradicts the shipped
+   examples.** Its fenced blocks parse (so the docs-oracle is green) but
+   diverge from the committed worlds it claims to walk through: `practice
+   galdr` vs committed `seidr`; `dialect elder-futhark` vs `old-norse`; a
+   3-era norse spine vs the committed 4-era spine; `person baldr` vs
+   odin/thor/loki/heimdall; invented camelot eras/events/question/practice.
+   Prose headers are genuinely derived from baseline commentary, but only a
+   fraction of it (117 camelot + 158 norse comment lines) was migrated. Fix:
+   fenced blocks become verbatim excerpts of the committed files.
+3. **Deferral registration skipped for the third consecutive round.**
+   `followups-2026-07.md` is untouched; none of the seven mandated rows
+   (defeat asymmetry, join_body path-B precision, option.assumes wiring,
+   question-body junk drop, ci_parity residuals, block-comment cfg poison,
+   F5S-5) exists anywhere durable — the defeat-asymmetry "future design
+   ruling" lives only in a code comment. This is now a pattern: each round
+   executes the code mandates and skips the bookkeeping mandates.
+
+### 8.3 MINOR tail (anchored)
+
+- Stamps mislabeled: both docs stamp `01b4957` as "Remediation SHA" /
+  "Repair SHA" — by these docs' own definitions those rounds ended at
+  4d1bceb and 4806776; honest label is "Closed at". No exit-verification /
+  planted-token note was written (mitigated: the de-exemption's bite was
+  independently proven — see §8.1).
+- tpth-separation-plan.md:68 target layout still promises a never-existing
+  `worlds/tpth/contract/`, contradicting the fixed marker at :174 in the
+  same file (the one Task-4 sub-item missed).
+- The two new parser diagnostics shipped with zero tests; and a bare
+  `option` (no name) is still silently dropped from question bodies
+  (parser.rs:1195 + the :1164 filter_map) — one sibling left of the family.
+- Grade-fix hygiene: dead `_pre_grades` clone under a stale fold comment
+  (world.rs:1092-1097); caller-less `MonomialGrades::remove` with stale doc
+  (:150-152); struct doc still claims the map mirrors minimal support
+  (:103-104) — false under retention; test name
+  `true_absorption_folds_absorbed_grade` describes the deleted mechanism;
+  the fork-seam test calls `store.diff` but discards the delta unasserted
+  (a one-line `assert_eq!(delta.grade_changed, …)` was buildable);
+  spec 02 §2 still defines grade as "meet of its variables' kinds" — never
+  the implementation, still cited by `grade_under`'s doc.
+- props.rs `_num_vars` dead input with its false "(mod num_vars)" comment
+  survives; draft.yaml kernel_outcome fields (:249/:272/:286) still read
+  pending-gate for the three craft operators the doc and harness count as
+  caught; mutation-coverage.md's matrix names entry point `apply` where the
+  harness verifies `check_payload`; spec/10's "generic" example keeps
+  TPtH-flavored `salt-fringe`/`debt_spread` identifiers outside
+  WORLD_TOKENS' reach; the charter cite list is again imprecise (charter:44
+  is the Wyrd line; Turning lines :151-152/:184 uncited); DL-0026 lacks the
+  ledger's mandated Date line; 00-overview's two inline worldbook links
+  shadow entire multi-item lists from the lint.
+
+### 8.4 Bottom line
+
+The audit's semantic content is closed: negation restored and
+property-guarded, grades honest under the declared conservative path, the
+data loss restored behind a strong invariant, guards tightened with proven
+bite, and the ledger discipline held mechanically. What remains is entirely
+record-keeping: one false ruling sentence in DL-0025, one teaching doc that
+contradicts the worlds it teaches, the thrice-skipped followups
+registration, and a nit sweep. One more mop-up commit-pair closes it: (1)
+make DL-0025 true (migrate the TPtH commentary, fix the walkthrough to
+verbatim excerpts, cover french-deck); (2) register the seven followups
+rows, relabel the stamps, and sweep the anchored nits above.

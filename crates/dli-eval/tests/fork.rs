@@ -527,7 +527,13 @@ fn fork_add_grade_vector_per_monomial() {
     // empty valuation). But we verify the diff ran without error and the grade
     // path was exercised.
     // (If vars are set in valuation, it would show up in grade_changed.)
-    let _ = delta;
+    // Under the empty base valuation, both before/after grade_under == Asserted
+    // (no monomial fires), so no grade_changed entry for `p`.
+    assert!(
+        delta.grade_changed.is_empty(),
+        "under empty valuation, no grade change expected; got: {:?}",
+        delta.grade_changed
+    );
 
     // Also verify using a direct world with the fork's addition for correctness.
     let mut program = world.clone();

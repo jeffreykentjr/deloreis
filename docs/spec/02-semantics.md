@@ -118,8 +118,9 @@ deliberate position: a claim is certain when resolved events *alone* force it,
 not when it would follow under any resolution.
 
 **Grade is a second evaluation on the same polynomial**, not a level in the
-support lattice. The grade of a monomial is the **meet** of its variables'
-kinds; the grade of an atom is the **join** over its ν-true monomials.
+support lattice. The grade of a monomial is **stored at derivation time** as the weakest-link
+of the deriving rule's grade and the body atoms' grades; the grade of an atom
+under a valuation ν is the **join** over its ν-true monomials' stored grades.
 Join-of-meets over a finite chain is monotone and polynomial-time (annotated
 deduction). This is strictly stronger than a flat per-record status:
 **provisionality propagates through derivation** — anything whose every live

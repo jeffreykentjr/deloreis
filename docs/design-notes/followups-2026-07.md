@@ -88,3 +88,43 @@ and empty-resource caps now error. Remaining by-design: a duplicate
 `--cap res=3 --cap res=9` silently last-wins (BTreeMap), no diagnostic; a cap for a
 resource the practice does not declare `affine bounded` is simply unused (stays
 deferred). Neither is wrong; a warning would be friendlier. Found by R-A3.
+
+### F7 — grade_under ignores per-monomial defeat (LOW/pre-existing asymmetry)
+`crates/dli-eval/src/world.rs` (`grade_under`). A defeated Checked monomial
+still lends its grade — the status and grade channels are asymmetric. Closing
+this requires a design ruling on whether defeated paths should lend grade.
+Found by audit-validation-2026-07 §7.2.1(b).
+
+### F8 — option.assumes semantic wiring (INFO/AST-home-only)
+`crates/dli-ast/src/decl.rs:224` (`OptionClause.assumes`). The field is parsed
+and formatted but neither `lower_options` (world.rs) nor `process_options`
+(loader.rs) consumes it, no spec defines its semantics, and Door T cannot
+author it. Loss-free surface; semantics deferred to a feature decision.
+Found by audit-validation-2026-07 §7.3.
+
+### F9 — join_body precision under path (B) conservative (LOW)
+`crates/dli-eval/src/world.rs` (`join_body`). Uses `weakest_entry()` (the row's
+weakest stored grade) instead of the specific monomial's grade. Under-claims
+for multi-path bodies; guarded by `multi_path_body_no_over_claim` test.
+Found by audit-close plan, path (B) registered.
+
+### F10 — question-body junk clause filter_map drop (LOW/pre-existing)
+`crates/dli-syntax/src/parser.rs:1161` (`parse_question_decl`). Non-option
+clauses in a question body are silently dropped via `filter_map`. Same class
+as the fixed option/assumes channel but for arbitrary junk lines.
+Found by audit-validation-2026-07 §7.3.
+
+### F11 — ci_parity residuals (LOW)
+`xtask/tests/ci_parity.rs`. paths-ignore, pull_request presence, job-level
+continue-on-error still invisible to the parity check.
+Found by audit-validation-2026-07 §7.3.
+
+### F12 — F5S-5 finding-family severity verification (LOW)
+`xtask/src/finding_families.rs`. Severity columns are documented but never
+verified against the actual emitting source code.
+Found by audit-2026-07 §3.10.
+
+### F13 — block-comment `/* #[cfg(test)] */` boundary poisoning (LOW/edge-case)
+`xtask/src/boundary.rs`. A `/* */` block comment containing `#[cfg(test)]` can
+still set the pending_cfg flag and exempt the following block from scanning.
+Found by audit-validation-2026-07 §7.3.
