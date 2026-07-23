@@ -1158,7 +1158,11 @@ fn parse_question(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>
         diags,
         "a `question` reads `question <name> [\"<prompt>\"]`.",
     );
-    let options = record.body.iter().filter_map(parse_option_clause).collect();
+    let options = record
+        .body
+        .iter()
+        .filter_map(|c| parse_option_clause(c, diags))
+        .collect();
     QuestionDecl {
         name,
         prompt,
@@ -1173,7 +1177,7 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
     let mut options = Vec::new();
     let mut body = Vec::new();
     for clause in &record.body {
-        if let Some(opt) = parse_option_clause(clause) {
+        if let Some(opt) = parse_option_clause(clause, diags) {
             options.push(opt);
         } else {
             body.push(clause.clone());
@@ -1199,15 +1203,25 @@ fn parse_option(
     } else {
         None
     };
+    let assumes = if cur.peek_word_text() == Some("assumes") {
+        cur.bump();
+        cur.eat_ident()
+    } else {
+        None
+    };
     expect_consumed(
         cur,
         diags,
-        "an `option` reads `option <name> [implies <atom>]`.",
+        "an `option` reads `option <name> [implies <atom>] [assumes <hyp>]`.",
     );
-    Some(OptionClause { name, implies })
+    Some(OptionClause {
+        name,
+        implies,
+        assumes,
+    })
 }
 
-fn parse_option_clause(clause: &Clause) -> Option<OptionClause> {
+fn parse_option_clause(clause: &Clause, diags: &mut Vec<Diagnostic>) -> Option<OptionClause> {
     let toks: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
         .into_iter()
         .filter(|t| t.kind != TokenKind::Newline)
@@ -1218,8 +1232,7 @@ fn parse_option_clause(clause: &Clause) -> Option<OptionClause> {
     }
     let mut cur = Cursor::new(&toks);
     cur.bump();
-    let mut noop = Vec::new();
-    parse_option(&mut cur, &mut noop, clause.span)
+    parse_option(&mut cur, diags, clause.span)
 }
 
 // --- timeline -------------------------------------------------------------

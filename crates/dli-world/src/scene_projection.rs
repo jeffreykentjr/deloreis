@@ -410,6 +410,7 @@ mod tests {
                 .map(|(opt, implied)| OptionClause {
                     name: id(opt),
                     implies: Some(implied),
+                    assumes: None,
                 })
                 .collect(),
             provenance: None,

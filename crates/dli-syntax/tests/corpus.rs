@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use dli_syntax::parse_document;
+use dli_syntax::{Token, TokenKind, format_document, lex, parse_document};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -240,4 +240,153 @@ fn word_label_and_parts_round_trip() {
     };
     assert_eq!(word2.label.as_deref(), Some("rune-stave"));
     assert_eq!(word2.name_parts.len(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Safety tests: no source token is silently dropped by format(parse(src)).
+// ---------------------------------------------------------------------------
+
+/// Collect the non-whitespace, non-comment token texts from a token stream.
+fn meaningful_tokens(tokens: &[Token]) -> Vec<&str> {
+    tokens
+        .iter()
+        .filter(|t| t.kind != TokenKind::Newline)
+        .map(|t| t.text.as_str())
+        .collect()
+}
+
+/// For every committed `.dli` file, the non-whitespace token sequence of the
+/// formatted output must equal the non-whitespace token sequence of the source.
+/// This guards against the formatter silently dropping any surface token.
+#[test]
+fn source_token_invariant() {
+    let root = repo_root();
+    let dirs = [root.join("examples"), root.join("worlds")];
+    let mut saw = false;
+    for dir in &dirs {
+        for entry in walkdir::WalkDir::new(dir)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let path = entry.path().to_path_buf();
+            if path.extension().and_then(|e| e.to_str()) != Some("dli") {
+                continue;
+            }
+            saw = true;
+            let source = std::fs::read_to_string(&path).unwrap();
+            let src_tokens = lex(&source, dli_ast::span::FileId(0));
+            let (doc, _) = parse_document(&source);
+            let formatted = format_document(&doc);
+            let fmt_tokens = lex(&formatted, dli_ast::span::FileId(0));
+            let src_meaningful = meaningful_tokens(&src_tokens);
+            let fmt_meaningful = meaningful_tokens(&fmt_tokens);
+            assert_eq!(
+                src_meaningful,
+                fmt_meaningful,
+                "token mismatch in {}: source tokens != format(parse(source)) tokens",
+                path.display()
+            );
+        }
+    }
+    assert!(saw, "expected at least one .dli file");
+}
+
+/// For every committed `.dli` file, `parse(format(parse(src)))` must equal
+/// `parse(src)` when compared ignoring source spans.
+#[test]
+fn format_parse_round_trip() {
+    let root = repo_root();
+    let dirs = [root.join("examples"), root.join("worlds")];
+    let mut saw = false;
+    for dir in &dirs {
+        for entry in walkdir::WalkDir::new(dir)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let path = entry.path().to_path_buf();
+            if path.extension().and_then(|e| e.to_str()) != Some("dli") {
+                continue;
+            }
+            saw = true;
+            let source = std::fs::read_to_string(&path).unwrap();
+            let (doc1, _) = parse_document(&source);
+            let formatted = format_document(&doc1);
+            let (doc2, _) = parse_document(&formatted);
+
+            // Compare ASTs ignoring spans by serializing and zeroing spans.
+            let v1 = span_blind_value(&doc1);
+            let v2 = span_blind_value(&doc2);
+            assert_eq!(
+                v1,
+                v2,
+                "round-trip mismatch in {}: parse(format(parse(src))) != parse(src)",
+                path.display()
+            );
+        }
+    }
+    assert!(saw, "expected at least one .dli file");
+}
+
+/// For every committed `.dli` file, `parse(src)` must produce zero error-class
+/// diagnostics.
+#[test]
+fn committed_files_zero_diagnostics() {
+    let root = repo_root();
+    let dirs = [root.join("examples"), root.join("worlds")];
+    let mut saw = false;
+    for dir in &dirs {
+        for entry in walkdir::WalkDir::new(dir)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let path = entry.path().to_path_buf();
+            if path.extension().and_then(|e| e.to_str()) != Some("dli") {
+                continue;
+            }
+            saw = true;
+            let source = std::fs::read_to_string(&path).unwrap();
+            let (_, diags) = parse_document(&source);
+            let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();
+            assert!(
+                errs.is_empty(),
+                "{} produced diagnostics: {errs:?}",
+                path.display()
+            );
+        }
+    }
+    assert!(saw, "expected at least one .dli file");
+}
+
+/// Zero all spans in a serialized AST value so structural comparison ignores
+/// position information.
+fn span_blind_value(doc: &dli_ast::decl::Document) -> serde_json::Value {
+    let mut value = serde_json::to_value(doc).unwrap();
+    zero_spans_value(&mut value);
+    value
+}
+
+fn zero_spans_value(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            let is_span = map.len() == 3
+                && map.contains_key("file")
+                && map.contains_key("start")
+                && map.contains_key("end");
+            if is_span {
+                map.insert("file".into(), 0.into());
+                map.insert("start".into(), 0.into());
+                map.insert("end".into(), 0.into());
+            } else {
+                for child in map.values_mut() {
+                    zero_spans_value(child);
+                }
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                zero_spans_value(item);
+            }
+        }
+        _ => {}
+    }
 }

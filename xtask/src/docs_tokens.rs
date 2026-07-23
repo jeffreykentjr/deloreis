@@ -50,6 +50,7 @@ const ALLOWED_FILES: &[&str] = &[
     "docs/design-notes/prior-art-licenses.md",
     "docs/design-notes/audit-2026-07.md",
     "docs/design-notes/audit-remediation-plan.md",
+    "docs/design-notes/audit-validation-2026-07.md",
 ];
 
 /// The marker that makes a paragraph a worldbook cross-link: a `docs/worlds/tpth/`

@@ -499,10 +499,12 @@ fn options_and_hypotheses_lower_without_status_divergence() {
                     dli_ast::decl::OptionClause {
                         name: id("old-fen"),
                         implies: Some(atom("keeps", &["ledger", "old-fen"])),
+                        assumes: None,
                     },
                     dli_ast::decl::OptionClause {
                         name: id("mara"),
                         implies: None,
+                        assumes: None,
                     },
                 ],
                 provenance: None,

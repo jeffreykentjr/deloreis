@@ -1,5 +1,6 @@
 ---
 source: crates/dli-ast/tests/smoke.rs
+assertion_line: 74
 expression: document
 ---
 {
@@ -2814,6 +2815,14 @@ expression: document
                   }
                 }
               ]
+            },
+            "assumes": {
+              "text": "h-return",
+              "span": {
+                "file": 0,
+                "start": 59,
+                "end": 67
+              }
             }
           }
         ],
@@ -2826,8 +2835,8 @@ expression: document
           "text": "h-merlin-foresaw",
           "span": {
             "file": 0,
-            "start": 5560,
-            "end": 5576
+            "start": 5577,
+            "end": 5593
           }
         },
         "statement": "Merlin foresaw the fall at Camlann from the first"
@@ -2840,8 +2849,8 @@ expression: document
           "text": "the-warning",
           "span": {
             "file": 0,
-            "start": 5635,
-            "end": 5646
+            "start": 5652,
+            "end": 5663
           }
         },
         "label": null,
@@ -2850,8 +2859,8 @@ expression: document
             "text": "arthurs-reign",
             "span": {
               "file": 0,
-              "start": 5655,
-              "end": 5668
+              "start": 5672,
+              "end": 5685
             }
           }
         },
@@ -2864,16 +2873,16 @@ expression: document
               "text": "h-merlin-foresaw",
               "span": {
                 "file": 0,
-                "start": 5686,
-                "end": 5702
+                "start": 5703,
+                "end": 5719
               }
             }
           },
           "tags": [],
           "span": {
             "file": 0,
-            "start": 5669,
-            "end": 5677
+            "start": 5686,
+            "end": 5694
           }
         }
       }
@@ -2884,8 +2893,8 @@ expression: document
           "text": "d-0011",
           "span": {
             "file": 0,
-            "start": 5710,
-            "end": 5716
+            "start": 5727,
+            "end": 5733
           }
         },
         "body": [
@@ -2893,8 +2902,8 @@ expression: document
             "text": "h-merlin-foresaw := true",
             "span": {
               "file": 0,
-              "start": 5721,
-              "end": 5745
+              "start": 5738,
+              "end": 5762
             }
           }
         ]

@@ -215,13 +215,16 @@ pub struct QuestionDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `option <name> [implies <atom>]`.
+/// `option <name> [implies <atom>] [assumes <hyp>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct OptionClause {
     /// The option name.
     pub name: Ident,
     /// The atom this option implies, if written.
     pub implies: Option<AtomExpr>,
+    /// The hypothesis this option assumes, if written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assumes: Option<Ident>,
 }
 
 /// `before <earlier> -> <later>`.

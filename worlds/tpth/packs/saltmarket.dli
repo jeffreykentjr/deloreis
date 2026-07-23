@@ -42,4 +42,4 @@ state the-weir.water = enclosed since the-marsh-enclosure decided d-0008
 hypothesis h-ledger "the salt-ledger was kept by the marsh-folk, not the guild"
 question who-keeps-the-ledger "Who keeps the salt-ledger?"
   option old-fen implies keeps(old-fen, the-salt-ledger)
-  option mara    implies keeps(mara, the-salt-ledger)
+  option mara    implies keeps(mara, the-salt-ledger)    assumes h-ledger
