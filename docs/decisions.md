@@ -588,6 +588,24 @@ guarded by the TQ-N3 property test.
 **Revisit:** when TQ-N3 property demonstrates full commutation, the
 conditioned-support refinement of TQ-N2 may narrow the defeater set.
 
+## DL-0025 — Canonical `.dli` carries no comments; teaching commentary lives in docs
+
+**Ruling (1):** The formatter's comment-free canonical form is ratified. `.dli`
+files committed under `examples/` and `worlds/` carry no `#` comments; the
+`deloreis fmt --check` gate step enforces this. Comment-preservation is not a
+pre-freeze grammar feature (deferred to SURF-4 as an explicit author question).
+
+**Ruling (2):** Historical teaching commentary is migrated to the docs channel
+(`docs/cards/examples-walkthrough.md`), not dropped. Fenced `.dli` blocks in
+that doc are gate-checked by the docs-oracle. Declarations that need human
+labels use the AST `label` field, not comments.
+
+**Rationale:** comments-in-AST would either pollute the JSON Schema (DL-0003:
+the schema is the language definition) or become second-class trivia with
+special-case plumbing. Agents author through Door T and review rendered diffs;
+a comment channel Door T cannot read is drift waiting to happen. The docs
+channel is gate-checked and staleness is partially caught.
+
 ## DL-0026 — Token-lint file-exemption policy; DL-0023 erratum
 
 **Ruling (1):** File-level token-lint exemption scope. Design notes, the
