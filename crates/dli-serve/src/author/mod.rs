@@ -238,22 +238,12 @@ fn settle(request: &Request, outcome: Result<Value, ErrorBody>) -> Response {
 /// idempotency replay is a success response, a missing workspace or moved fence a
 /// typed error.
 fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), Response> {
-    let Some(ws) = store.get(ws_id) else {
-        return Err(error(
-            request,
-            ErrorBody {
-                code: ErrorCode::UnknownDoc,
-                message: format!("no authoring workspace \"{ws_id}\" is open"),
-                data: None,
-            },
-        ));
-    };
     if let Some(key) = &request.idempotency_key
-        && let Some((cached_fingerprint, cached_result)) = ws.idempotency.get(key)
+        && let Some((cached_fingerprint, cached_result)) = store.replay(ws_id, key)
     {
         // A retry with the identical payload replays; the same key with a
         // different payload is a conflict, never a silent cached replay (R3/M9).
-        if cached_fingerprint == &fingerprint(request) {
+        if cached_fingerprint == fingerprint(request) {
             return Err(ok(request, cached_result.clone()));
         }
         return Err(error(
@@ -267,6 +257,16 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
             },
         ));
     }
+    let Some(ws) = store.get(ws_id) else {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::UnknownDoc,
+                message: format!("no authoring workspace \"{ws_id}\" is open"),
+                data: None,
+            },
+        ));
+    };
     if let Some(expected) = &request.expected_digest
         && expected != &ws.digest
     {

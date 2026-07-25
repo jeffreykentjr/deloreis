@@ -5,7 +5,7 @@
 //! that ownership for every subsequent read and mutation. The fallback base
 //! exists only for focused unit tests and explicit demo fixtures.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
 use dli_eval::error::EvalError;
@@ -34,8 +34,12 @@ pub struct Store {
     strict_forks: bool,
     workspaces: BTreeMap<String, Workspace>,
     workspace_bases: BTreeMap<String, String>,
+    discard_replays: BTreeMap<String, (String, String, serde_json::Value)>,
+    discard_replay_order: VecDeque<String>,
     next_id: u32,
 }
+
+const MAX_DISCARD_REPLAYS: usize = 1024;
 
 #[derive(Debug)]
 struct Base {
@@ -76,6 +80,8 @@ impl Default for Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            discard_replays: BTreeMap::new(),
+            discard_replay_order: VecDeque::new(),
             next_id: 0,
         }
     }
@@ -98,6 +104,8 @@ impl Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            discard_replays: BTreeMap::new(),
+            discard_replay_order: VecDeque::new(),
             next_id: 0,
         }
     }
@@ -131,6 +139,8 @@ impl Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            discard_replays: BTreeMap::new(),
+            discard_replay_order: VecDeque::new(),
             next_id: 0,
         })
     }
@@ -173,6 +183,8 @@ impl Store {
             strict_forks: true,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            discard_replays: BTreeMap::new(),
+            discard_replay_order: VecDeque::new(),
             next_id: 0,
         })
     }
@@ -243,7 +255,9 @@ impl Store {
     /// Cache a mutating call's result under its idempotency key together with the
     /// payload fingerprint that produced it, so a retry with the *same* payload
     /// replays and stages nothing, while the same key with a *different* payload
-    /// is caught as a conflict (spec 11 §2; R3/M9). No-op if the workspace is gone.
+    /// is caught as a conflict (spec 11 §2; R3/M9). A whole-workspace discard
+    /// retains a compact tombstone because the successful operation removes the
+    /// live workspace before its result can be cached there.
     pub fn remember(
         &mut self,
         id: &str,
@@ -253,7 +267,36 @@ impl Store {
     ) {
         if let Some(ws) = self.workspaces.get_mut(id) {
             ws.idempotency.insert(key, (fingerprint, result));
+            return;
         }
+
+        while self.discard_replays.len() >= MAX_DISCARD_REPLAYS {
+            let Some(oldest) = self.discard_replay_order.pop_front() else {
+                break;
+            };
+            self.discard_replays.remove(&oldest);
+        }
+        self.discard_replay_order.push_back(id.to_owned());
+        self.discard_replays
+            .insert(id.to_owned(), (key, fingerprint, result));
+    }
+
+    /// Find a live-workspace replay entry or the compact tombstone left by a
+    /// whole-workspace discard.
+    #[must_use]
+    pub fn replay(&self, id: &str, key: &str) -> Option<(&str, &serde_json::Value)> {
+        if let Some((fingerprint, result)) = self
+            .workspaces
+            .get(id)
+            .and_then(|workspace| workspace.idempotency.get(key))
+        {
+            return Some((fingerprint, result));
+        }
+        self.discard_replays
+            .get(id)
+            .and_then(|(cached_key, fingerprint, result)| {
+                (cached_key == key).then_some((fingerprint.as_str(), result))
+            })
     }
 
     /// Discard a whole workspace, returning whether one was present.

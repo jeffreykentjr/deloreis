@@ -155,6 +155,19 @@ fn mcp_only_lifts_fences_for_author_mutations() {
     .unwrap();
     assert_eq!(
         response["error"]["code"], "schema-violation",
-        "fence fields remain unknown on read-only tools"
+        "shared dispatch refuses fence fields on read-only tools"
     );
+
+    let fence_on_batch = rpc(
+        r#"{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"dli.check","arguments":{"document":"camelot","idempotency_key":"not-a-mutation"}}}"#,
+        &mut sessions,
+        &mut author,
+    );
+    let response: Value = serde_json::from_str(
+        fence_on_batch["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(response["error"]["code"], "schema-violation");
 }

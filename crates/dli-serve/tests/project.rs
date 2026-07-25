@@ -321,6 +321,23 @@ fn rejects_a_source_symlink_that_escapes_the_project() {
 
 #[cfg(unix)]
 #[test]
+fn rejects_hard_linked_sources_with_different_logical_owners() {
+    let root = temp("project-source-hard-link-alias");
+    fs::write(root.join("one.dli"), "scope one\n").unwrap();
+    fs::hard_link(root.join("one.dli"), root.join("two.dli")).unwrap();
+    write_manifest(
+        &root,
+        "[documents.one]\nsources = [\"one.dli\"]\n\
+         [documents.two]\nsources = [\"two.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("aliases"), "{error}");
+    assert!(error.contains("owned by both `one` and `two`"), "{error}");
+}
+
+#[cfg(unix)]
+#[test]
 fn rejects_a_storage_path_whose_existing_ancestor_escapes() {
     use std::os::unix::fs::symlink;
 

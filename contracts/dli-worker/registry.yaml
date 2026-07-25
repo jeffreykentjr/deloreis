@@ -175,7 +175,7 @@ fixtures:
 - path: negative/export-run-schema-violation.json
   sha256: a504f4c7de61f8213a8731b31593274cca4c41072dc35e863b9d9bbe9d72f607
 - path: negative/forged-digest.json
-  sha256: 2023bb0a4f8ba9448a401dcd090fb38e8659b800fcbef37d60de080b06c11205
+  sha256: d9bf98e2c96729a66e2624ed43b871bd5ada465c2c1d7d3c89cfe069f46cbd22
 - path: negative/fork-add-schema-violation.json
   sha256: b50eb2c0630965a61e42ca2cefc7adec2fe3b0efb601e17a0ecb22b8d770f420
 - path: negative/fork-diff-schema-violation.json

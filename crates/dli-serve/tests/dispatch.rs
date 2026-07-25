@@ -361,6 +361,29 @@ fn unknown_envelope_field_is_schema_violation() {
 }
 
 #[test]
+fn fences_are_refused_on_native_read_and_batch_operations() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+
+    for request in [
+        serde_json::json!({
+            "dli":"0.1.0", "id":"1", "op":"author.status",
+            "params":{"workspace":"ws-1"}, "expected_digest":"jcs:x"
+        }),
+        serde_json::json!({
+            "dli":"0.1.0", "id":"2", "op":"dli.check",
+            "params":{"document":"camelot"}, "idempotency_key":"not-a-mutation"
+        }),
+    ] {
+        let response = send(&request, &mut sessions, &mut store).expect("frame is answered");
+        assert_eq!(
+            response.error.expect("fence is refused").code.wire_name(),
+            "schema-violation"
+        );
+    }
+}
+
+#[test]
 fn wrong_contract_version_is_version_mismatch() {
     // M1: a well-formed frame declaring a contract this worker does not speak is
     // a `version-mismatch`, not a bad frame.

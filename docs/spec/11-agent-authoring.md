@@ -91,8 +91,8 @@ cannot observe another document or the bundled demo world.
 
 The workspace supports:
 
-- `author.status` — a summary of the workspace (base, staged declaration count,
-  open findings by severity, current digest).
+- `author.status` — the rendered staged declarations, full findings, and current
+  workspace digest.
 - `author.diff` — the **rendered canonical `.dli` surface** of the staged change,
   plus the **full findings**, plus the **derived-consequence diff**: which
   downstream derived atoms became `newly_certain`, `possible`, or `dead`, which
@@ -105,11 +105,11 @@ The workspace supports:
   never writes canon; the calling agent commits the returned bytes through its own
   repository's review.
 
-Every workspace mutation after `author.open` carries the **workspace digest** it
+A workspace mutation after `author.open` may carry the **workspace digest** it
 expects and returns the new digest. (`author.open` creates the first digest, so
-there is no prior fence to present.) A digest that does not match the
-workspace's current state is an error with code `stale-fence` (class `refused`
-— the frame was well-formed; a precondition failed): the agent has an
+there is no prior fence to present.) When supplied, a digest that does not match
+the workspace's current state is an error with code `stale-fence` (class
+`refused` — the frame was well-formed; a precondition failed): the agent has an
 out-of-date view and must re-read before continuing.
 
 ```json
@@ -124,10 +124,10 @@ out-of-date view and must re-read before continuing.
 }
 ```
 
-Every workspace mutation after `author.open` also carries an **idempotency
-key**. A retried call with a key already applied returns the original result and
-stages nothing new — retries are safe under the at-least-once delivery of either
-transport.
+A workspace mutation after `author.open` may also carry an **idempotency key**.
+When supplied, a retried call with a key already applied returns the original
+result and stages nothing new — including a retry of a whole-workspace discard.
+Callers that need retry safety under at-least-once delivery supply the key.
 
 `expected_digest` and `idempotency_key` are declared envelope fields (request
 level, defined for mutating `author.*` calls); the normative wire shape is

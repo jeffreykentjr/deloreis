@@ -15,9 +15,16 @@
   "send": {
     "dli": "0.1.0",
     "id": "1",
-    "op": "author.materialize",
+    "op": "author.add_entity",
     "params": {
-      "workspace": "ws-1"
+      "workspace": "ws-1",
+      "kind": "person",
+      "id": "mara",
+      "name": "Mara",
+      "provenance": {
+        "kind": "proposed",
+        "origin": "forged-fence-probe"
+      }
     },
     "expected_digest": "jcs:forged-deadbeef"
   },

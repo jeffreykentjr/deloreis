@@ -171,6 +171,14 @@ pub fn dispatch(
     if request.dli != PROTOCOL {
         return version_mismatch(request);
     }
+    if !request.op.accepts_author_fences() {
+        if request.expected_digest.is_some() {
+            return fence_schema_violation(request, "expected_digest");
+        }
+        if request.idempotency_key.is_some() {
+            return fence_schema_violation(request, "idempotency_key");
+        }
+    }
     if is_author_op(request.op) {
         return author::dispatch(request, author_store);
     }
@@ -315,6 +323,15 @@ fn schema_violation(id: &str, field: &str) -> Response {
         id,
         ErrorCode::SchemaViolation,
         format!("unknown envelope field '{field}' is not defined by the contract"),
+    )
+}
+
+fn fence_schema_violation(request: &Request, field: &str) -> Response {
+    typed_error(
+        &request.dli,
+        &request.id,
+        ErrorCode::SchemaViolation,
+        format!("envelope field '{field}' is defined only for mutating author.* operations"),
     )
 }
 

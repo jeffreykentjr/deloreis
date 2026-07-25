@@ -176,12 +176,12 @@ fn tools_call(
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let accepts_author_fences = Op::ALL
+    let known_op = Op::ALL
         .iter()
         .copied()
         .find(|op| wire_name(*op) == name)
-        .is_some_and(Op::accepts_author_fences);
-    let (expected_digest, idempotency_key) = if accepts_author_fences {
+        .is_some();
+    let (expected_digest, idempotency_key) = if known_op {
         match arguments.as_object_mut() {
             Some(arguments) => (
                 arguments.remove("expected_digest"),

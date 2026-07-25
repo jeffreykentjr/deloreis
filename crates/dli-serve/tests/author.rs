@@ -288,6 +288,38 @@ fn idempotent_retry_replays_and_stages_nothing() {
 }
 
 #[test]
+fn whole_workspace_discard_replays_without_resurrecting_the_workspace() {
+    let mut store = Store::default();
+    let ws = open_scope(&mut store, "saltmarket");
+    let mut discard = req("2", Op::AuthorDiscard, json!({ "workspace": ws }));
+    discard.idempotency_key = Some("discard-1".to_owned());
+
+    let first = send(&mut store, &discard);
+    assert_eq!(result(&first), &json!({ "discarded": true }));
+    assert_eq!(result(&send(&mut store, &discard)), result(&first));
+
+    let status = send(
+        &mut store,
+        &req("3", Op::AuthorStatus, json!({ "workspace": ws })),
+    );
+    assert_eq!(
+        status.error.expect("discarded workspace stays gone").code,
+        dli_serve::ErrorCode::UnknownDoc
+    );
+
+    let mut conflicting = discard.clone();
+    conflicting.params["decl"] = json!("person nobody \"Nobody\"");
+    let conflict = send(&mut store, &conflicting);
+    assert_eq!(
+        conflict
+            .error
+            .expect("key is bound to the original payload")
+            .code,
+        dli_serve::ErrorCode::Conflict
+    );
+}
+
+#[test]
 fn unknown_workspace_is_unknown_doc() {
     let mut store = Store::default();
     let response = send(

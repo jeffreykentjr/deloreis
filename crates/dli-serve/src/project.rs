@@ -48,6 +48,16 @@ pub struct ProjectDocument {
     source_paths: Vec<PathBuf>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum SourceIdentity {
+    #[cfg(unix)]
+    Unix { device: u64, inode: u64 },
+    #[cfg(windows)]
+    Windows { volume_serial: u32, file_index: u64 },
+    #[cfg(not(unix))]
+    Path(PathBuf),
+}
+
 /// One project game and its export profile registry.
 #[derive(Debug, Clone)]
 pub struct ProjectGame {
@@ -322,17 +332,21 @@ fn load_documents(
     entries: BTreeMap<String, DocumentEntry>,
 ) -> Result<BTreeMap<String, ProjectDocument>, ProjectError> {
     let mut loaded = BTreeMap::new();
-    let mut source_owners = BTreeMap::<PathBuf, String>::new();
+    let mut source_owners = BTreeMap::<SourceIdentity, (String, PathBuf)>::new();
     let mut fork_owners = BTreeMap::<String, String>::new();
     let mut dialect_owners = BTreeMap::<String, String>::new();
     for (id, entry) in entries {
         validate_id("document", &id)?;
         let document = load_document(root, &id, &entry)?;
         for path in &document.source_paths {
-            if let Some(first) = source_owners.insert(path.clone(), id.clone()) {
+            let identity = source_identity(path, &format!("documents.{id}.sources"))?;
+            if let Some((first, first_path)) =
+                source_owners.insert(identity, (id.clone(), path.clone()))
+            {
                 return Err(ProjectError::Invalid(format!(
-                    "source `{}` is owned by both `{first}` and `{id}`; each source file must belong to one logical document",
-                    path.display()
+                    "source `{}` aliases `{}` and is owned by both `{first}` and `{id}`; each source file must belong to one logical document",
+                    path.display(),
+                    first_path.display()
                 )));
             }
         }
@@ -340,6 +354,47 @@ fn load_documents(
         loaded.insert(id, document);
     }
     Ok(loaded)
+}
+
+#[cfg(unix)]
+fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectError> {
+    use std::os::unix::fs::MetadataExt;
+
+    let metadata = fs::metadata(path).map_err(|error| ProjectError::AssetPath {
+        field: field.to_owned(),
+        path: path.display().to_string(),
+        message: error.to_string(),
+    })?;
+    Ok(SourceIdentity::Unix {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+    })
+}
+
+#[cfg(not(unix))]
+fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectError> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+
+        let metadata = fs::metadata(path).map_err(|error| ProjectError::AssetPath {
+            field: field.to_owned(),
+            path: path.display().to_string(),
+            message: error.to_string(),
+        })?;
+        if let (Some(volume_serial), Some(file_index)) =
+            (metadata.volume_serial_number(), metadata.file_index())
+        {
+            return Ok(SourceIdentity::Windows {
+                volume_serial,
+                file_index,
+            });
+        }
+    }
+
+    // Canonical paths still reject symlink aliases on targets where the
+    // standard library exposes no stable file identity.
+    Ok(SourceIdentity::Path(path.to_path_buf()))
 }
 
 fn load_document(
