@@ -28,8 +28,13 @@ pub fn run_authority(root: &Path) -> Result<()> {
 }
 
 fn validate_ledger(ledger: &str) -> Result<()> {
+    let active = active_markdown_lines(ledger);
     let mut entries = Vec::new();
-    for (line_index, line) in ledger.lines().enumerate() {
+    for (line_index, line) in ledger
+        .lines()
+        .enumerate()
+        .filter(|(index, _)| active[*index])
+    {
         let Some(rest) = line.strip_prefix("## DL-") else {
             continue;
         };
@@ -48,7 +53,7 @@ fn validate_ledger(ledger: &str) -> Result<()> {
     if entries.is_empty() {
         bail!("{LEDGER} contains no decision entries");
     }
-    let corrected_dates = corrected_dates(ledger, &entries)?;
+    let corrected_dates = corrected_dates(ledger, &entries, &active)?;
 
     for (expected, (id, start)) in (1_u32..).zip(entries.iter().copied()) {
         if id != expected {
@@ -60,27 +65,37 @@ fn validate_ledger(ledger: &str) -> Result<()> {
             .unwrap_or_else(|| ledger.lines().count());
         let section: Vec<&str> = ledger
             .lines()
+            .enumerate()
             .skip(start + 1)
             .take(end - start - 1)
+            .filter(|(index, _)| active[*index])
+            .map(|(_, line)| line)
             .collect();
         if !section.iter().any(|line| valid_date_line(line)) && !corrected_dates.contains_key(&id) {
             bail!("DL-{id:04} has no valid `*Date: YYYY-MM-DD*` line");
         }
-        if !section.iter().any(|line| line.starts_with("**Ruling")) {
+        if !section.iter().any(|line| valid_ruling_line(line)) {
             bail!("DL-{id:04} has no ruling");
         }
     }
     Ok(())
 }
 
-fn corrected_dates(ledger: &str, entries: &[(u32, usize)]) -> Result<BTreeMap<u32, String>> {
+fn corrected_dates(
+    ledger: &str,
+    entries: &[(u32, usize)],
+    active: &[bool],
+) -> Result<BTreeMap<u32, String>> {
     let mut corrections = BTreeMap::new();
     let lines: Vec<&str> = ledger.lines().collect();
     for (entry_index, (corrector, start)) in entries.iter().copied().enumerate() {
         let end = entries
             .get(entry_index + 1)
             .map_or(lines.len(), |(_, line)| *line);
-        for line in &lines[start + 1..end] {
+        for (line_index, line) in lines.iter().enumerate().take(end).skip(start + 1) {
+            if !active[line_index] {
+                continue;
+            }
             let Some(rest) = line.strip_prefix("*Corrected date: DL-") else {
                 continue;
             };
@@ -108,6 +123,80 @@ fn corrected_dates(ledger: &str, entries: &[(u32, usize)]) -> Result<BTreeMap<u3
         }
     }
     Ok(corrections)
+}
+
+fn active_markdown_lines(markdown: &str) -> Vec<bool> {
+    let mut active = Vec::new();
+    let mut fence: Option<(u8, usize)> = None;
+    for line in markdown.lines() {
+        let indent = line
+            .as_bytes()
+            .iter()
+            .take(3)
+            .take_while(|byte| **byte == b' ')
+            .count();
+        let candidate = &line[indent..];
+        let marker = candidate.as_bytes().first().copied();
+        let run = marker.map_or(0, |byte| {
+            candidate
+                .as_bytes()
+                .iter()
+                .take_while(|candidate| **candidate == byte)
+                .count()
+        });
+
+        if let Some((fence_marker, minimum_run)) = fence {
+            active.push(false);
+            if marker == Some(fence_marker)
+                && run >= minimum_run
+                && candidate[run..].trim().is_empty()
+            {
+                fence = None;
+            }
+        } else if let Some(marker @ (b'`' | b'~')) = marker
+            && run >= 3
+        {
+            active.push(false);
+            fence = Some((marker, run));
+        } else {
+            active.push(true);
+        }
+    }
+    active
+}
+
+fn valid_ruling_line(line: &str) -> bool {
+    if line
+        .strip_prefix("**Ruling.**")
+        .is_some_and(marker_is_followed_by_prose)
+    {
+        return true;
+    }
+    if let Some(rest) = line.strip_prefix("**Ruling** (") {
+        return rest.split_once("):").is_some_and(|(detail, prose)| {
+            !detail.is_empty() && marker_is_followed_by_prose(prose)
+        });
+    }
+    let Some(rest) = line.strip_prefix("**Ruling (") else {
+        return false;
+    };
+    let Some((number, suffix)) = rest.split_once(')') else {
+        return false;
+    };
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+    if let Some(prose) = suffix.strip_prefix(":**") {
+        return marker_is_followed_by_prose(prose);
+    }
+    suffix
+        .strip_prefix(" — ")
+        .and_then(|detail| detail.split_once(":**"))
+        .is_some_and(|(detail, prose)| !detail.is_empty() && marker_is_followed_by_prose(prose))
+}
+
+fn marker_is_followed_by_prose(rest: &str) -> bool {
+    rest.is_empty() || rest.starts_with(char::is_whitespace)
 }
 
 fn valid_date_line(line: &str) -> bool {
@@ -293,6 +382,72 @@ mod tests {
 **Ruling.** yes
 ";
         validate_ledger(later_correction).expect("later entry may correct an earlier date");
+    }
+
+    #[test]
+    fn ledger_ignores_fenced_authority_lookalikes() {
+        let fake_entry = "\
+```markdown
+## DL-0001 — fake
+*Date: 2026-07-25*
+**Ruling.** fake
+```
+";
+        assert!(validate_ledger(fake_entry).is_err());
+
+        let fake_correction = "\
+## DL-0001 — one
+
+**Ruling.** yes
+
+## DL-0002 — correction
+
+*Date: 2026-07-25*
+
+~~~markdown
+*Corrected date: DL-0001 = 2026-07-24*
+~~~
+
+**Ruling.** yes
+";
+        assert!(validate_ledger(fake_correction).is_err());
+
+        let fake_ruling = "\
+## DL-0001 — one
+
+*Date: 2026-07-25*
+
+````markdown
+**Ruling.** fake
+````
+";
+        assert!(validate_ledger(fake_ruling).is_err());
+    }
+
+    #[test]
+    fn ledger_requires_exact_ruling_markers() {
+        let rulingish = "\
+## DL-0001 — one
+
+*Date: 2026-07-25*
+
+**Rulingish.** no
+";
+        assert!(validate_ledger(rulingish).is_err());
+        assert!(
+            validate_ledger(&rulingish.replace("**Rulingish.** no", "**Ruling** (unterminated"))
+                .is_err()
+        );
+
+        for ruling in [
+            "**Ruling.** yes",
+            "**Ruling (1):** yes",
+            "**Ruling (2) — clarification:** yes",
+            "**Ruling** (supersedes an earlier ruling): yes",
+        ] {
+            let ledger = format!("## DL-0001 — one\n\n*Date: 2026-07-25*\n\n{ruling}\n");
+            validate_ledger(&ledger).expect("accepted ruling marker");
+        }
     }
 
     #[test]

@@ -151,6 +151,61 @@ fn report_does_not_duplicate_loader_findings() {
 }
 
 #[test]
+fn report_includes_killed_syntax_forms_as_checked_findings() {
+    let dir = tmp("report-killed-form");
+    let doc = dir.join("killed.dli");
+    fs::write(
+        &doc,
+        "scope demo\nquestion route\n  option north assumes h-north\n",
+    )
+    .unwrap();
+
+    let output = bin()
+        .args(["report", "--corpus"])
+        .arg(&doc)
+        .output()
+        .unwrap();
+    let out = stdout(&output);
+    assert_eq!(output.status.code(), Some(1), "{out}");
+    assert!(out.contains("error  dli::syntax::killed-form —"), "{out}");
+    assert!(out.contains("report: 1 finding(s)"), "{out}");
+
+    let checked = bin()
+        .args(["report", "--corpus"])
+        .arg(&doc)
+        .args(["--min-grade", "checked"])
+        .output()
+        .unwrap();
+    let checked_out = stdout(&checked);
+    assert_eq!(checked.status.code(), Some(1), "{checked_out}");
+    assert!(
+        checked_out.contains("report: 1 finding(s) at grade checked or stronger"),
+        "{checked_out}"
+    );
+}
+
+#[test]
+fn report_includes_malformed_question_children() {
+    let dir = tmp("report-malformed-question-child");
+    let doc = dir.join("question.dli");
+    fs::write(
+        &doc,
+        "scope demo\nquestion route {\n  option north implies\n}\n",
+    )
+    .unwrap();
+
+    let output = bin()
+        .args(["report", "--corpus"])
+        .arg(&doc)
+        .output()
+        .unwrap();
+    let out = stdout(&output);
+    assert_eq!(output.status.code(), Some(1), "{out}");
+    assert!(out.contains("error  dli::syntax::malformed —"), "{out}");
+    assert!(out.contains("report: 1 finding(s)"), "{out}");
+}
+
+#[test]
 fn fmt_check_is_idempotent_on_the_corpus() {
     let dir = tmp("fmt-idempotent");
     let doc = dir.join("saltmarket.dli");

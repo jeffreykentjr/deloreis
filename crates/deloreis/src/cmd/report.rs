@@ -60,6 +60,23 @@ pub(crate) fn run(args: &ReportArgs) -> CmdResult {
     // Every finding paired with its verification grade. `check::run` includes
     // loader findings, so they must not be collected independently here.
     let mut graded = Vec::new();
+    for file in &files {
+        for diagnostic in &file.diagnostics {
+            let severity = if diagnostic.class.is_error() {
+                "error"
+            } else {
+                "warn"
+            };
+            graded.push((
+                Grade::Checked,
+                format!(
+                    "{severity}  {} — {}",
+                    diagnostic.class.code(),
+                    diagnostic.message
+                ),
+            ));
+        }
+    }
     for finding in check::run(&world) {
         graded.push((finding.grade, cmd::render_world_finding(&finding)));
     }
