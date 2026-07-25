@@ -193,6 +193,16 @@ pub enum LoadFinding {
         /// Source location.
         span: Span,
     },
+    /// A bare top-level world rule could not be read as Datalog, so lowering it
+    /// would otherwise discard the declaration without producing a rule.
+    MalformedWorldRule {
+        /// The rule name.
+        rule: String,
+        /// The body text that could not be read, if one was present.
+        body: String,
+        /// Source location.
+        span: Span,
+    },
     /// A rule head variable was not bound in the body (range restriction; spec
     /// 08 §1).
     UnboundHeadVariable {
@@ -241,6 +251,7 @@ impl LoadFinding {
         match self {
             Self::MissingProvenance { .. } => "load.missing-provenance",
             Self::MalformedProvenance { .. } => "load.malformed-provenance",
+            Self::MalformedWorldRule { .. } => "load.malformed-world-rule",
             Self::UnboundHeadVariable { .. } => "load.unbound-head-variable",
             Self::DuplicateDeclaration { .. } => "load.duplicate-declaration",
             Self::CrossPackCollision { .. } => "load.cross-pack-collision",
@@ -263,6 +274,16 @@ impl LoadFinding {
             } => {
                 format!(
                     "{decl} in pack '{pack}' has provenance that cannot be read ({reason}); it is held fail-closed until the annotation is fixed"
+                )
+            }
+            Self::MalformedWorldRule { rule, body, .. } => {
+                let detail = if body.is_empty() {
+                    "it has no derivation body".to_owned()
+                } else {
+                    format!("`{body}` is not a Datalog derivation")
+                };
+                format!(
+                    "rule '{rule}' is a bare world rule, but {detail}; write `<head> :- <premise>, ...`, use `over order` or `over season` for a checker rule, or put `rule ... requires` inside a practice"
                 )
             }
             Self::UnboundHeadVariable { rule, variable, .. } => {

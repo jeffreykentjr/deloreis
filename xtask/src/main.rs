@@ -11,7 +11,7 @@ fn main() -> Result<()> {
 
     let Some((command, rest)) = args.split_first() else {
         eprintln!(
-            "usage: xtask <gate|schema|fixtures|docgen|docs-oracle|docs-tokens|book|loc|boundary|hooks-check>"
+            "usage: xtask <gate|authority|schema|fixtures|docgen|docs-oracle|docs-tokens|book|loc|boundary|hooks-check>"
         );
         std::process::exit(2);
     };
@@ -27,6 +27,7 @@ fn main() -> Result<()> {
             }
         }
         "schema" => xtask::schema::run_schema(&root, has_flag(rest, "--check")),
+        "authority" => xtask::authority::run_authority(&root),
         "docgen" => xtask::docgen::run_docgen(&root, has_flag(rest, "--check")),
         "book" => xtask::book::run_book(&root),
         "fixtures" => {

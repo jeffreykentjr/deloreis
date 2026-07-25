@@ -63,12 +63,18 @@ and renames are cheap now, expensive after.
 | `fork` | `fork <id>` with `  option …` children |
 | `hypothesis` | `hypothesis <id>` (mints the fork-scoped supposition variable) |
 
+Question bodies contain options only. Fork bodies may also retain fork commands
+such as `suppose` and `add fact`; a malformed line beginning with `option` is
+still an error. `option ... assumes` is a killed form: hypothesis gating belongs
+on the provenance of the claim being gated, for example
+`<claim> proposed assumes <hypothesis>`.
+
 ### Rules and doctrine
 
 | Keyword | Line form(s) |
 |---|---|
 | `rule` | `rule <id> [over order\|season] [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body (body clauses are captured text; atoms extracted via the one clause→atom bridge). Bare = world rule; `over order` constrains a timeline; `over season` is a season-ledger rule |
-| `rule` (world, datalog) | a bare `rule` derives its head from a `<head> :- <lit>, <lit>, …` body; a body literal `not <atom>` is **negated** (tests the certain layer, poisons the conclusion's defeaters — spec/02 §4). Range-restricted (every head/`not` variable also in a positive atom) and stratified (no negative-dependency cycle) — spec/08 §1 |
+| `rule` (world, datalog) | a bare `rule` derives its head from a `<head> :- <lit>, <lit>, …` body; a body literal `not <atom>` is **negated** (tests the certain layer, poisons the conclusion's defeaters — spec/02 §4). Range-restricted (every head/`not` variable also in a positive atom) and stratified (no negative-dependency cycle). A bare rule that is not valid Datalog is a load error, never an empty lowering — spec/08 §1 |
 | `principle` | `principle <id> …` (craft KB; interior captured) |
 
 ### Time

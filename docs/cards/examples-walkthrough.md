@@ -120,15 +120,20 @@ name myrdin "Myrdin" person.given in old-speech
 ### Forks, options, and hypotheses
 
 A `question` models open uncertainty; a `fork` is the exploration frame. An
-option may `implies` a consequent and `assumes` a hypothesis — the assumption
-links the option to the hypothesis it would settle:
+option may `implies` a consequent; the option itself gates that consequent:
 
 ```dli
 hypothesis h-return "Excalibur was always the Lake's to reclaim, never the king's to keep"
 question who-holds-excalibur "Who holds Excalibur after Camlann?"
   option arthur   implies keeps(arthur, excalibur)
-  option the-lake implies keeps(the-lake, excalibur) assumes h-return
+  option the-lake
+keeps(the-lake, excalibur) proposed assumes the-lake and h-return
 ```
+
+When a separate hypothesis gates a claim, put the condition on that claim's
+provenance. Here the Lake claim rests on both the selected option and
+`h-return`; the retired `option ... assumes` form is refused rather than
+silently discarded.
 
 A `fork` works similarly but in speculative frame — no question requires an
 answer, and it explores cost:

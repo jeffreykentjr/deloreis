@@ -31,7 +31,7 @@
 //! - **Builds the entity and sort registry** and records what each pack
 //!   contributed.
 //!
-//! # Rules: the two load-time checks of spec 08 §1
+//! # Rules: the load-time checks of spec 08 §1
 //!
 //! A **bare** world `rule` is a derivation rule. The loader parses its captured
 //! `head :- body` clause into typed literals
@@ -39,8 +39,12 @@
 //! prefixed by `not` is negated — and routes it through the evaluator's
 //! negation-aware intake
 //! ([`World::define_rule`](dli_eval::world::World::define_rule)), populating
-//! `world.rules`. The two load-time checks of spec 08 §1 fire from there:
+//! `world.rules`. Three load-time checks fire from there:
 //!
+//! - **Rule shape** — every bare top-level rule must parse as Datalog; a
+//!   malformed clause or body-less declaration is a
+//!   [`MalformedWorldRule`](crate::model::LoadFinding::MalformedWorldRule)
+//!   finding rather than an empty lowering.
 //! - **Range restriction** — every variable in the head or in a negated literal
 //!   must appear in a positive body atom — is checked as each rule is defined; a
 //!   violation is an [`UnboundHeadVariable`](crate::model::LoadFinding::UnboundHeadVariable)
@@ -409,23 +413,41 @@ impl LoadCtx {
             return;
         }
 
-        // The datalog `head :- body` may live either in a captured body clause
-        // (the block form `rule <name>` + indented `head :- body`) or inline on
-        // the rule line (`rule head(args) : body`). Try the body clauses first,
-        // then the inline reconstruction; a rule that is not datalog-shaped (a
-        // checker `requires` body, free text) simply lowers no world rule.
-        let mut lowered = false;
-        for clause in &rule.body {
-            if let Some((head, body)) = dli_syntax::parse_rule_clause(clause) {
-                self.lower_world_rule(&rule.name, head, body, clause.span);
-                lowered = true;
+        // The Datalog `head :- body` may live in captured body clauses or inline
+        // on the rule line. Every captured clause must lower or surface a
+        // finding; a body-less or malformed inline declaration likewise fails
+        // closed instead of silently producing no rule.
+        if !rule.body.is_empty() {
+            for clause in &rule.body {
+                if let Some((head, body)) = dli_syntax::parse_rule_clause(clause) {
+                    self.lower_world_rule(&rule.name, head, body, clause.span);
+                } else {
+                    self.findings.push(LoadFinding::MalformedWorldRule {
+                        rule: rule.name.text.clone(),
+                        body: clause.text.clone(),
+                        span: clause.span,
+                    });
+                }
             }
+            return;
         }
-        if !lowered
-            && let Some(clause) = inline_rule_clause(rule)
-            && let Some((head, body)) = dli_syntax::parse_rule_clause(&clause)
-        {
-            self.lower_world_rule(&rule.name, head, body, rule.name.span);
+
+        if let Some(clause) = inline_rule_clause(rule) {
+            if let Some((head, body)) = dli_syntax::parse_rule_clause(&clause) {
+                self.lower_world_rule(&rule.name, head, body, rule.name.span);
+            } else {
+                self.findings.push(LoadFinding::MalformedWorldRule {
+                    rule: rule.name.text.clone(),
+                    body: clause.text,
+                    span: rule.name.span,
+                });
+            }
+        } else {
+            self.findings.push(LoadFinding::MalformedWorldRule {
+                rule: rule.name.text.clone(),
+                body: String::new(),
+                span: rule.name.span,
+            });
         }
     }
 
@@ -669,10 +691,7 @@ impl LoadCtx {
         self.findings.extend(collisions);
 
         // The load-time stratification handoff: consume the evaluator seam and
-        // surface a negative-dependency cycle as a finding (spec 08 §1). The
-        // loader lowers no typed rules today (rule bodies are captured text), so
-        // this is `Ok` over an empty rule set; it lights up the moment structured
-        // rules reach the world through `World::define_rule`.
+        // surface a negative-dependency cycle as a finding (spec 08 §1).
         if let Err(EvalError::Unstratifiable { reason }) = dli_eval::stratify(&self.wm.world) {
             self.findings.push(LoadFinding::Unstratifiable { reason });
         }

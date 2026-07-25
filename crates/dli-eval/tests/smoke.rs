@@ -80,7 +80,6 @@ fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
     OptionClause {
         name: Ident::synthetic(name),
         implies: Some(atom(pred, args)),
-        assumes: None,
     }
 }
 

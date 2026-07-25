@@ -2784,49 +2784,81 @@ expression: document
                 "end": 15
               }
             },
-            "implies": {
-              "pred": {
-                "text": "keeps",
-                "span": {
-                  "file": 0,
-                  "start": 24,
-                  "end": 29
-                }
-              },
-              "args": [
-                {
-                  "Sym": {
-                    "text": "the-lake",
-                    "span": {
-                      "file": 0,
-                      "start": 30,
-                      "end": 38
-                    }
-                  }
-                },
-                {
-                  "Sym": {
-                    "text": "excalibur",
-                    "span": {
-                      "file": 0,
-                      "start": 40,
-                      "end": 49
-                    }
-                  }
-                }
-              ]
-            },
-            "assumes": {
-              "text": "h-return",
-              "span": {
-                "file": 0,
-                "start": 59,
-                "end": 67
-              }
-            }
+            "implies": null
           }
         ],
         "provenance": null
+      }
+    },
+    {
+      "Fact": {
+        "atom": {
+          "pred": {
+            "text": "keeps",
+            "span": {
+              "file": 0,
+              "start": 5514,
+              "end": 5519
+            }
+          },
+          "args": [
+            {
+              "Sym": {
+                "text": "the-lake",
+                "span": {
+                  "file": 0,
+                  "start": 5520,
+                  "end": 5528
+                }
+              }
+            },
+            {
+              "Sym": {
+                "text": "excalibur",
+                "span": {
+                  "file": 0,
+                  "start": 5530,
+                  "end": 5539
+                }
+              }
+            }
+          ]
+        },
+        "triple": false,
+        "provenance": {
+          "marker": "Proposed",
+          "citations": [],
+          "condition": {
+            "And": [
+              {
+                "Hyp": {
+                  "text": "the-lake",
+                  "span": {
+                    "file": 0,
+                    "start": 5558,
+                    "end": 5566
+                  }
+                }
+              },
+              {
+                "Hyp": {
+                  "text": "h-return",
+                  "span": {
+                    "file": 0,
+                    "start": 5571,
+                    "end": 5579
+                  }
+                }
+              }
+            ]
+          },
+          "tags": [],
+          "span": {
+            "file": 0,
+            "start": 5541,
+            "end": 5549
+          }
+        }
       }
     },
     {
@@ -2835,8 +2867,8 @@ expression: document
           "text": "h-merlin-foresaw",
           "span": {
             "file": 0,
-            "start": 5577,
-            "end": 5593
+            "start": 5591,
+            "end": 5607
           }
         },
         "statement": "Merlin foresaw the fall at Camlann from the first"
@@ -2849,8 +2881,8 @@ expression: document
           "text": "the-warning",
           "span": {
             "file": 0,
-            "start": 5652,
-            "end": 5663
+            "start": 5666,
+            "end": 5677
           }
         },
         "label": null,
@@ -2859,8 +2891,8 @@ expression: document
             "text": "arthurs-reign",
             "span": {
               "file": 0,
-              "start": 5672,
-              "end": 5685
+              "start": 5686,
+              "end": 5699
             }
           }
         },
@@ -2873,16 +2905,16 @@ expression: document
               "text": "h-merlin-foresaw",
               "span": {
                 "file": 0,
-                "start": 5703,
-                "end": 5719
+                "start": 5717,
+                "end": 5733
               }
             }
           },
           "tags": [],
           "span": {
             "file": 0,
-            "start": 5686,
-            "end": 5694
+            "start": 5700,
+            "end": 5708
           }
         }
       }
@@ -2893,8 +2925,8 @@ expression: document
           "text": "d-0011",
           "span": {
             "file": 0,
-            "start": 5727,
-            "end": 5733
+            "start": 5741,
+            "end": 5747
           }
         },
         "body": [
@@ -2902,8 +2934,8 @@ expression: document
             "text": "h-merlin-foresaw := true",
             "span": {
               "file": 0,
-              "start": 5738,
-              "end": 5762
+              "start": 5752,
+              "end": 5776
             }
           }
         ]

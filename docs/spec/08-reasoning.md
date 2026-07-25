@@ -23,10 +23,14 @@ nonstandard annotation algebra. That is not a hedge to be walked back — it is
 the committed center of the design, and building it seriously entails a named
 bill:
 
-- **Load-time stratification and range restriction.** The negation regime (see
-  `02-semantics.md`) needs an acyclicity discipline on negative dependencies,
-  exactly as stratified datalog does, and every rule must be range-restricted.
-  Both are checked when a pack loads, before any evaluation runs.
+- **Load-time rule shape, stratification, and range restriction.** A bare
+  top-level world rule must be valid Datalog; malformed or body-less forms are
+  error findings, never empty lowerings. The negation regime (see
+  `02-semantics.md`) also needs an acyclicity discipline on negative
+  dependencies, exactly as stratified datalog does, and every rule must be
+  range-restricted. All three are checked when a pack loads, before any
+  evaluation runs. Domain checker rules and practice-internal
+  `rule ... requires` forms remain in their owning lanes.
 - **Annotation-aware seminaive evaluation.** The delta semantics is not the
   textbook one: an atom re-enters the worklist when its support *strictly grows
   in the lattice*, not only when it is first derived. Termination is guaranteed

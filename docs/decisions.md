@@ -626,3 +626,63 @@ ops, 3 read-only state ops (status, diff, materialize), and 5 read queries
 (query, check, why, findings, list_workspaces). The contract §3.2 table is
 authoritative for the mutating/read classification; DL-0023's loose "14
 mutating" was editorial shorthand, not a count. Propagated copies corrected.
+
+## DL-0027 — Ledger integrity is checked without rewriting history
+
+*Date: 2026-07-25*
+
+**Ruling.** Existing decision entries remain byte-for-byte immutable. Missing
+metadata and accidental post-mint edits are corrected only by a later entry,
+and the compiled gate checks entry sequence, dates, rulings, and append-only
+history whenever the comparison revision is available.
+
+*Corrected date: DL-0025 = 2026-07-23*
+
+*Corrected date: DL-0026 = 2026-07-23*
+
+DL-0025 was minted by `01b4957c3f95288053285fdad267c837392f8aca` without a
+date. DL-0026 was minted by
+`f51b819095f03ed799a3a23a25e8945e834ef5f3` without a date. Commit
+`6aa87263a8a0d32e4e5a14a46b92f1d5e6c23c9e` later appended a scope paragraph
+inside DL-0025 instead of recording it as a new decision. Those bytes are now
+historical evidence; this entry records the defects rather than hiding them.
+
+**Rationale.** An append-only authority cannot repair its own history by
+silently rewriting it. A replayable checker plus an explicit corrigendum makes
+the integrity failure visible and prevents a recurrence.
+
+## DL-0028 — The standalone source release is open
+
+*Date: 2026-07-25*
+
+**Ruling.** The sentence in DL-0022 calling the engine build otherwise complete
+is superseded. The kernel and domain engines are substantial, but the
+standalone source release remains open until the PLAN status matrix closes its
+local `open` nodes: the worker must load caller projects rather than embedded
+demos, advertised operations must implement their contracts, evidence and jobs
+must have their promised durability, and the assurance gate must test those
+behaviors honestly. Consumer cutover, live Ludii comparison, the authoring
+benchmark, the human probe, and grammar freeze remain separately deferred or
+external-blocked; they are not release-completion evidence.
+
+**Rationale.** A green gate over demo-bound handlers and exempt fixtures is not
+evidence that a general caller can use the release. Status must follow
+replayable behavior, not the existence of dispatch arms.
+
+## DL-0029 — Accepted syntax may not disappear or become an inert declaration
+
+*Date: 2026-07-25*
+
+**Ruling.** Every parsed declaration or child clause either has defined
+semantics or produces an error-class diagnostic before formatting or loading.
+Question bodies accept only well-formed options; fork command bodies remain
+part of the defined fork surface. A bare world rule must
+be valid Datalog; checker-style `requires` clauses remain legal only in their
+defined domain and practice contexts. The semantically inert
+`option ... assumes` form is retired and registered as a killed form whose
+repair directs authors to claim-level hypothesis provenance.
+
+**Rationale.** Silently deleting source during canonicalization and silently
+accepting declarations that lower to nothing both violate the loss and truth
+triads. Keeping an unimplemented field in the normative AST would falsely make
+it part of the language.

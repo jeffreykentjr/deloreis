@@ -1,15 +1,15 @@
 ---
 status: reference
-verdict: "The engineering follow-ups outstanding after the 2026-07 items-2/3/4 + Tier-A work: LOW/by-design remainders the red-teams surfaced and left on purpose, each with a file:line anchor. The big roadmap (Tier B/C/D) lives in PLAN.md + decisions.md + integration/STATUS.md; this note captures only what those don't."
+verdict: "The engineering follow-ups surfaced by the July audit, including closure records for items resolved by later ledger decisions. Open release work is authoritative in PLAN.md."
 ---
 
 # Outstanding follow-ups (2026-07)
 
 This note exists so the small engineering follow-ups surfaced during the
 items-2/3/4 build and the Tier-A round are **tracked in a committed file**, not
-only in ephemeral red-team task outputs. Every CRITICAL/HIGH/MEDIUM finding from
-those red-teams was fixed and committed; what remains below is LOW-or-by-design,
-kept on purpose. Each item names its `file:line` and how it was found.
+only in ephemeral red-team task outputs. The later standalone audit found
+release blockers outside that round; those live in the PLAN matrix and
+`standalone-audit-2026-07.md`. Each item below records its current disposition.
 
 The **larger roadmap is tracked elsewhere** — this note does not duplicate it:
 
@@ -95,12 +95,12 @@ still lends its grade — the status and grade channels are asymmetric. Closing
 this requires a design ruling on whether defeated paths should lend grade.
 Found by audit-validation-2026-07 §7.2.1(b).
 
-### F8 — option.assumes semantic wiring (INFO/AST-home-only)
-`crates/dli-ast/src/decl.rs:224` (`OptionClause.assumes`). The field is parsed
-and formatted but neither `lower_options` (world.rs) nor `process_options`
-(loader.rs) consumes it, no spec defines its semantics, and Door T cannot
-author it. Loss-free surface; semantics deferred to a feature decision.
-Found by audit-validation-2026-07 §7.3.
+### F8 — option.assumes semantic wiring (RESOLVED by DL-0029)
+The inert AST field and surface form were retired. The parser now reports
+`dli::syntax::killed-form` with a claim-level hypothesis-provenance repair;
+examples that intended the condition express it on an explicit claim. The AST,
+schema, formatter, specs, examples, and negative tests were updated together.
+Found by audit-validation-2026-07 §7.3; closed 2026-07-25.
 
 ### F9 — join_body precision under path (B) conservative (LOW)
 `crates/dli-eval/src/world.rs` (`join_body`). Uses `weakest_entry()` (the row's
@@ -108,11 +108,11 @@ weakest stored grade) instead of the specific monomial's grade. Under-claims
 for multi-path bodies; guarded by `multi_path_body_no_over_claim` test.
 Found by audit-close plan, path (B) registered.
 
-### F10 — question-body junk clause filter_map drop (LOW/pre-existing)
-`crates/dli-syntax/src/parser.rs:1161` (`parse_question_decl`). Non-option
-clauses in a question body are silently dropped via `filter_map`. Same class
-as the fixed option/assumes channel but for arbitrary junk lines.
-Found by audit-validation-2026-07 §7.3.
+### F10 — question-body junk clause filter_map drop (RESOLVED by DL-0029)
+Question parsing now emits one error-class diagnostic for every non-option
+child, malformed and bare options are diagnosed, and `fmt` refuses the source.
+Fork command bodies remain intentionally preserved. Found by
+audit-validation-2026-07 §7.3; closed 2026-07-25.
 
 ### F11 — ci_parity residuals (LOW)
 `xtask/tests/ci_parity.rs`. paths-ignore, pull_request presence, job-level

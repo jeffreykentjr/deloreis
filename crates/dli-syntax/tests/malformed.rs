@@ -38,6 +38,81 @@ fn bare_question_diagnoses() {
 }
 
 #[test]
+fn bare_option_diagnoses_at_top_level_and_in_a_question() {
+    for source in ["option\n", "question q\n  option\n"] {
+        assert!(
+            error_classes(source).contains(&DiagClass::Malformed),
+            "bare option was not diagnosed: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn every_non_option_question_child_diagnoses() {
+    let source = "question q\n  fact mara keeps ledger proposed\n  stray words\n";
+    let malformed = error_classes(source)
+        .into_iter()
+        .filter(|class| *class == DiagClass::Malformed)
+        .count();
+    assert_eq!(malformed, 2, "each dropped child needs its own error");
+    assert!(format_source(source).is_err(), "fmt must refuse the loss");
+}
+
+#[test]
+fn fork_commands_are_preserved_without_error() {
+    let source = "fork q\n  suppose h\n  add fact mara keeps ledger\n";
+    assert!(
+        error_classes(source).is_empty(),
+        "fork commands are intentional body clauses"
+    );
+    assert!(format_source(source).is_ok());
+}
+
+#[test]
+fn malformed_fork_options_still_diagnose() {
+    for source in ["fork q\n  option\n", "fork q\n  option x implies\n"] {
+        assert!(
+            error_classes(source).contains(&DiagClass::Malformed),
+            "malformed fork option was not diagnosed: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn malformed_option_forms_diagnose() {
+    for source in [
+        "question q\n  option x implies\n",
+        "question q\n  option x trailing\n",
+    ] {
+        assert!(
+            error_classes(source).contains(&DiagClass::Malformed),
+            "malformed option was not diagnosed: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn option_assumes_is_a_killed_form_with_claim_level_repair() {
+    for source in [
+        "question q\n  option x assumes h-x\n",
+        "question q\n  option x implies p(x) assumes h-x\n",
+        "question q\n  option x assumes\n",
+    ] {
+        let diagnostics = parse_document(source).1;
+        let killed = diagnostics
+            .iter()
+            .find(|diag| diag.class == DiagClass::KilledForm)
+            .unwrap_or_else(|| panic!("retired option form was not diagnosed: {source:?}"));
+        assert!(killed.message.contains("claim's provenance"));
+        assert!(killed.message.contains("hypothesis gate"));
+        assert!(
+            format_source(source).is_err(),
+            "fmt must refuse killed syntax"
+        );
+    }
+}
+
+#[test]
 fn trailing_junk_after_fact_diagnoses() {
     assert!(error_classes("fact a b c d\n").contains(&DiagClass::Malformed));
 }

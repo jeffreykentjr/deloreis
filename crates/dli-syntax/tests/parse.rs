@@ -98,6 +98,37 @@ fn question_options_lower_into_the_question() {
 }
 
 #[test]
+fn option_hypothesis_gating_lives_on_the_claim() {
+    let source = "\
+hypothesis h-return
+question who-holds
+  option the-lake
+keeps(the-lake, excalibur) proposed assumes the-lake and h-return
+";
+    let (doc, diags) = parse_document(source);
+    assert!(
+        errors(&diags).is_empty(),
+        "unexpected errors: {:?}",
+        errors(&diags)
+    );
+    let Decl::Question(question) = &doc.decls[1] else {
+        panic!("expected a question");
+    };
+    assert!(question.options[0].implies.is_none());
+    let Decl::Fact(claim) = &doc.decls[2] else {
+        panic!("expected the option-gated claim");
+    };
+    let Some(dli_ast::annot::CondExpr::And(parts)) = claim
+        .provenance
+        .as_ref()
+        .and_then(|provenance| provenance.condition.as_ref())
+    else {
+        panic!("expected a conjunctive claim-level gate");
+    };
+    assert_eq!(parts.len(), 2);
+}
+
+#[test]
 fn column_free_options_fold_into_the_question() {
     // The committed examples write options at column zero, not indented.
     let source = "question who-keeps-the-ledger\noption old-fen\noption mara\n";

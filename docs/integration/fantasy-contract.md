@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The deloreis ↔ fantasy worker contract: parties, transport, the dli.* and author.* inventories, the closed fixture registry, authority and sync, versioning, guarantees, requirements, the error taxonomy, and change control."
+verdict: "The pre-v1 generic worker contract and intended guarantees. DL-0028 records that the current server does not yet satisfy this contract for a standalone release; consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -17,6 +17,12 @@ This document defines the boundary between **De Lore Is** and the **fantasy**
 repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) and
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
+
+> **Implementation status:** this is still a pre-release contract. All operation
+> names have schemas and dispatch arms, but several handlers are demo-bound,
+> incomplete, or non-durable, and the fixture census has framing exemptions.
+> The PLAN matrix therefore keeps CON-1, SERVE-1, and AUTH-1 open. Nothing in
+> this document is evidence that consumer cutover is ready.
 
 ## 1. Parties
 
@@ -92,17 +98,14 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-**All 46 operations are wired and live (DL-0021).**
-`capabilities()` advertises `Op::ALL` — every op in the contract is available and
-exercised. `dli.check-proof` compiles the corpus, projects the certain-layer
-scene, replays the diegetic proof block, and returns the rich `ProofReport`
-(per-step structural-class verdicts, weakest-link grade, `fails-at`) the Returns
-column above describes; the earlier transitional thin-violations shape is gone and
-the committed `dli.check-proof.response` schema now **is** the `ProofReport`
-shape. `dli.simulate.*` runs the seeded battery and `dli.export.run` renders a
-compiled world under a profile — both live, both pinning an honest manifest.
-`dli.fork.add` and the five `dli.timeline.*` ops are fully wired; their goldens
-follow the same fixture schema as every other op.
+All 46 operation names have request/response schemas and dispatch arms.
+That census is not a readiness claim. At the DL-0028 baseline,
+`capabilities()` incorrectly advertises `Op::ALL`; simulation is synchronous
+and session-local; payload and attestation mutations do not store evidence;
+timeline, query, naming, export, and Door-T responses omit promised semantics;
+and resolution is restricted to embedded demo worlds. CON-1 closes only when
+the handlers satisfy these Returns columns over a caller-supplied project and
+the complete fixture oracle passes.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -178,8 +181,8 @@ flow families and every declared error code, not yet every op.
   harness only.
 - **Expected outcome.** A fixture declares an `expected_outcome` so replay is
   unambiguous: `replay` (the default — each frame's response equals its `expect`),
-  or `gated` (reserved outcome for future capability-gated ops; no op carries
-  this outcome today as all 46 are wired).
+  or `gated` (reserved for an operation unavailable under the loaded project or
+  current implementation).
 - **Cold replay.** Every registered fixture — golden, negative, framing, and
   author — is driven through the server **cold**, from a fresh session, with its
   declared precondition, and the declared outcome is asserted (`fixture_replay` in

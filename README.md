@@ -10,10 +10,12 @@ declarative claim about what the world holds, which is the name, read one way.
 
 ## Status
 
-The engine build is complete; the grammar is **unfrozen** — the surface freezes
-at the G1 grammar gate, not before. The build is a dependency graph, not a
-schedule; what is runnable now is the graph's frontier. See
-[`docs/PLAN.md`](docs/PLAN.md) for the frontier and the milestone node-sets.
+The kernel and most domain engines are implemented, but the standalone source
+release is **not complete**. The current worker still has demo-bound resolution,
+placeholder contract behavior, and assurance gaps recorded in the PLAN's
+machine-checked node matrix. The grammar is **unfrozen** and remains open until
+the G1 grammar gate. See [`docs/PLAN.md`](docs/PLAN.md) for current evidence,
+deferred work, and release blockers.
 
 ## Where to start (in order)
 

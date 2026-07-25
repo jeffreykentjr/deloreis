@@ -105,6 +105,28 @@ fn check_bad_file_exits_one_with_ladder() {
 }
 
 #[test]
+fn check_reports_a_malformed_bare_world_rule() {
+    let dir = tmp("check-malformed-world-rule");
+    let doc = dir.join("bad-rule.dli");
+    fs::write(
+        &doc,
+        "scope demo\n\
+         ratify d-0001\n\
+         rule checker decided d-0001\n\
+           beat $b requires slot >= 10\n",
+    )
+    .unwrap();
+
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let out = stdout(&output);
+    assert!(
+        out.contains("load.malformed-world-rule"),
+        "expected a load/check finding:\n{out}"
+    );
+}
+
+#[test]
 fn fmt_check_is_idempotent_on_the_corpus() {
     let dir = tmp("fmt-idempotent");
     let doc = dir.join("saltmarket.dli");

@@ -1,6 +1,6 @@
 ---
 status: reference
-verdict: "BENCH-1 (the authoring-benchmark rig) and BENCH-2 (the two-door run) are deferred: the dli engine build is otherwise complete, and the door-decision benchmark is the remaining, human-probe-gated, live-LLM piece."
+verdict: "BENCH-1 and BENCH-2 remain deferred behind the human probe and an authorized spend cap. DL-0028 supersedes this note's former claim that the rest of the engine was complete."
 ---
 
 # Deferring the authoring benchmark (BENCH-1 / BENCH-2)
@@ -20,7 +20,8 @@ No rig code and no run exist as of this note; both nodes are parked (see
 
 ## Why deferred (not dropped)
 
-The dli engine build is otherwise complete: the core spine, the plateau (queries,
+The benchmark deferral is independent of source-release readiness. The core
+spine, the plateau (queries,
 forks, checks, time, practices, language, attestations), the integration layer
 (server, Door T, CLI, proof checker, simulator), the stretch lanes (Turning
 engine, exports, craft rules, payloads), and the TPtH/general separation have all

@@ -117,6 +117,12 @@ const FAMILIES: &[Family] = &[
                 meaning: "the provenance annotation cannot be read; held fail-closed until the annotation is fixed.",
             },
             Code {
+                code: "load.malformed-world-rule",
+                severity: "error",
+                repair: "—",
+                meaning: "a bare top-level world rule is not valid Datalog and is refused instead of lowering no rule.",
+            },
+            Code {
                 code: "load.unbound-head-variable",
                 severity: "error",
                 repair: "—",

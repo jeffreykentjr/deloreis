@@ -1,6 +1,6 @@
 [package]
 name = "deloreis"
-description = "Deloreis Lore Interchange command-line toolchain (spike scaffold)."
+description = "De Lore Is knowledge-language command-line toolchain and local worker."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

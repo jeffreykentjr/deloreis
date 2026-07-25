@@ -1154,20 +1154,9 @@
       ]
     },
     "OptionClause": {
-      "description": "`option <name> [implies <atom>] [assumes <hyp>]`.",
+      "description": "`option <name> [implies <atom>]`.",
       "type": "object",
       "properties": {
-        "assumes": {
-          "description": "The hypothesis this option assumes, if written.",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Ident"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "implies": {
           "description": "The atom this option implies, if written.",
           "anyOf": [

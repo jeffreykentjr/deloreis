@@ -93,7 +93,6 @@ pub fn render_option(question: &str, option: &str) -> Vec<String> {
         options: vec![OptionClause {
             name: Ident::synthetic(escape_controls(option)),
             implies: None,
-            assumes: None,
         }],
         provenance: None,
     };
@@ -250,7 +249,6 @@ fn sanitize_option(option: &OptionClause) -> OptionClause {
     OptionClause {
         name: sanitize_ident(&option.name),
         implies: option.implies.as_ref().map(sanitize_atom),
-        assumes: option.assumes.as_ref().map(sanitize_ident),
     }
 }
 

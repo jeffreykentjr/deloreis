@@ -183,12 +183,12 @@ fn negated_world_rule_evaluates_through_compile() {
 }
 
 // ---------------------------------------------------------------------------
-// Boundary: a checker `over season`/`over order` body and a `requires`-style
-// body must lower NO world rule and must not crash the loader.
+// Boundary: checker `over season`/`over order` bodies lower no world rule, while
+// a bare top-level `requires` body is an explicit load finding.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn over_domain_and_requires_bodies_lower_no_world_rule() {
+fn over_domain_rules_are_preserved_and_bare_requires_is_refused() {
     let compiled = compile(&pack(vec![
         ratify("D-1"),
         rule(
@@ -204,11 +204,19 @@ fn over_domain_and_requires_bodies_lower_no_world_rule() {
         // A bare rule whose body is a checker `requires` clause: not datalog.
         rule("checker", None, "beat $b requires slot >= 10"),
     ]))
-    .expect("compiles; unlowerable bodies are skipped, not errors");
+    .expect("load findings are reported without crashing compilation");
     assert_eq!(
         compiled.model().world.rules.len(),
         0,
         "no world rule lowers from checker/over-domain bodies: {:?}",
         compiled.model().world.rules
+    );
+    assert!(
+        compiled
+            .model()
+            .findings
+            .iter()
+            .any(|finding| finding.code() == "load.malformed-world-rule"),
+        "the bare requires-style body must not disappear"
     );
 }

@@ -177,6 +177,23 @@ pub fn ladder(class: DiagClass) -> Ladder {
                 spec: "01-syntax.md §2",
             },
         ),
+        DiagClass::KilledForm => (
+            "the line uses a retired surface form whose meaning now belongs on a different \
+             declaration",
+            Repair::Recast {
+                into: "follow the message's replacement path; put hypothesis provenance on the \
+                       claim that carries the gate",
+            },
+            Rule {
+                statement: "retired forms remain registered and are refused with a repair path, \
+                            so old syntax can never return silently",
+                koan: Koan {
+                    n: 4,
+                    name: "nothing is silently dropped",
+                },
+                spec: "01-syntax.md §7",
+            },
+        ),
         DiagClass::OriginRequired => (
             "a ruling marker stands here (`ratified`, `decided`, `provisional`) but names no \
              decision, so the claim is ruled true by nothing",

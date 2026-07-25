@@ -324,6 +324,69 @@ fn an_over_domain_rule_is_not_lowered_as_a_world_rule() {
     });
     let out = Loader::load(&[doc("order", vec![rule])]);
     assert_eq!(out.world.rule_count(), 0);
+    assert!(
+        !has_code(&out, "load.malformed-world-rule"),
+        "domain rules are owned by their checker engines"
+    );
+}
+
+#[test]
+fn malformed_bare_world_rules_are_load_findings() {
+    for body in [None, Some("beat $b requires slot >= 10")] {
+        let rule = Decl::Rule(RuleDecl {
+            name: ident("checker"),
+            domain: None,
+            head: Vec::new(),
+            body: body
+                .map(|text| {
+                    vec![Clause {
+                        text: text.to_owned(),
+                        span: Span::synthetic(),
+                    }]
+                })
+                .unwrap_or_default(),
+            provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+        });
+        let out = Loader::load(&[doc("world", vec![rule])]);
+        assert!(
+            has_code(&out, "load.malformed-world-rule"),
+            "invalid bare rule was silently dropped: {body:?}"
+        );
+        assert_eq!(out.world.rule_count(), 0);
+    }
+}
+
+#[test]
+fn each_malformed_world_rule_clause_is_reported() {
+    let rule = Decl::Rule(RuleDecl {
+        name: ident("mixed"),
+        domain: None,
+        head: Vec::new(),
+        body: vec![
+            Clause {
+                text: "reachable($x) :- adjacent($x)".to_owned(),
+                span: Span::synthetic(),
+            },
+            Clause {
+                text: "free text".to_owned(),
+                span: Span {
+                    file: dli_ast::span::FileId(0),
+                    start: 10,
+                    end: 19,
+                },
+            },
+        ],
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
+    });
+    let out = Loader::load(&[doc("world", vec![rule])]);
+    assert_eq!(out.world.rule_count(), 1, "valid Datalog must still lower");
+    assert_eq!(
+        out.findings
+            .iter()
+            .filter(|finding| finding.code() == "load.malformed-world-rule")
+            .count(),
+        1
+    );
 }
 
 #[test]

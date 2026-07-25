@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The build as a dependency DAG: a node schema, seventeen lanes, the node registry with per-node oracles, the mermaid graph, the frontier, and the milestone node-sets. No durations, by design."
+verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone runtime, contract closure, and release proof remain open; deferred and consumer-blocked work is named explicitly."
 ---
 
 # The plan
@@ -510,9 +510,9 @@ EXT-F5 (the runnable frontier), plus the deferred DEF-3 and DEF-4.
 
 ## The frontier
 
-The tables below are the DAG's **zero state** — the frontier as it stands
-before any node completes. For what is actually done in this tree, see
-"Current state" at the end of this section; the two are read together.
+The tables below preserve the DAG's **zero state** — the frontier before any
+node completes. For the state of this tree, use the machine-checked node matrix
+after the graph; it is the release-status authority.
 
 **Six nodes are runnable at zero** — nothing must precede them:
 
@@ -536,21 +536,75 @@ the AST, the evaluator, the verdict lattice, and the loader exist, eleven nodes
 across nine lanes are simultaneously unblocked. The build's rate from there is
 set by how many of them run at once, not by any single node's length.
 
-### Current state
+## Node status matrix
 
-- **Done:** INFRA-1, DOCS-1, DOCS-2. CORE-1 is **done**: the AST types, the
-  schemars-derived schema, and the recursive-descent parser
-  (`dli_syntax::parse_document`) are live and gate-enforced; zero `todo!()`
-  bodies remain in the codebase.
-- **Seeded ahead of the DAG:** CON-1's *artifacts* (41-op schemas built at
-  bootstrap; 5 added by the f85f69b wiring wave — the closed registry, the
-  seed golden/negative/raw fixtures) were built at
-  bootstrap so the contract could be designed before the engine. CON-1's
-  *oracle* — verdict parity against a running server — is live; the
-  `golden_dispatch_matches` test runs un-ignored. The per-op
-  fixture-completeness rule (contract §4) is likewise a CON-1/cutover
-  obligation, not a seed-state fact: the seed set covers the flow families, not
-  every op.
+`cargo xtask authority` requires every registry node to appear exactly once
+with one of four states. `done` means the node's stated oracle is replayable in
+this tree. `open` means local engineering remains. `deferred` names work parked
+by a ledger ruling or explicit release boundary. `external-blocked` requires an
+author or consumer artifact that this repository does not own.
+
+| Node | State | Evidence |
+|---|---|---|
+| INFRA-1 | done | `cargo xtask gate` |
+| DOCS-1 | done | `cargo xtask authority` and `cargo xtask docs-oracle` |
+| DOCS-2 | done | `cargo xtask docs-oracle` |
+| EXT-A1 | external-blocked | Author ruling queue is owned by the consuming project |
+| CORE-1 | done | `cargo test -p dli-ast -p dli-syntax` and schema gate |
+| CORE-2 | done | `cargo test -p dli-eval` |
+| CORE-3 | done | `cargo test -p dli-core -p dli-eval` |
+| FRONT-1 | done | `cargo test -p dli-world` |
+| DEF-3 | deferred | DL-0005 arithmetic-law trigger has not fired |
+| DEF-4 | deferred | v1 remains single-authority |
+| ENG-1 | done | `cargo test -p dli-eval --test query` |
+| ENG-2 | done | `cargo test -p dli-eval --test fork` |
+| CHECK-1 | done | `cargo test -p dli-world` |
+| TIME-1 | done | `cargo test -p dli-time` |
+| TIME-2 | done | `cargo test -p dli-time` |
+| TIME-3 | done | `cargo test -p dli-time` |
+| DEF-1 | deferred | No soft or disjunctive propose-order workflow has triggered it |
+| PRAC-1 | done | `cargo test -p dli-ledger` |
+| PRAC-2 | done | `cargo test -p dli-ledger` |
+| SIM-1 | done | `cargo test -p dli-sim` |
+| SIM-2 | done | `cargo test -p dli-game` |
+| EXT-A2 | external-blocked | Final author ratification remains consumer-owned |
+| DEF-2 | deferred | Generative legality has not triggered the enumerator |
+| LANG-1 | done | `cargo test -p dli-world` language suites |
+| LANG-2 | done | `cargo test -p dli-world` name-vet suites |
+| EPI-1 | done | `cargo test -p dli-world` episode suites |
+| CRAFT-1 | done | `cargo test -p dli-world` craft suites |
+| CRAFT-2 | done | `cargo test -p dli-world` craft suites |
+| CRAFT-3 | done | `cargo test -p dli-world` principle suites |
+| ATT-1 | done | `cargo test -p dli-world` attestation suites |
+| PAY-1 | done | `cargo test -p dli-world` payload suites |
+| PAY-2 | done | `cargo test -p dli-world` payload suites |
+| PAY-3 | done | `cargo test -p dli-world` payload suites |
+| SURF-1 | done | `deloreis fmt --check examples/ worlds/` |
+| SURF-2 | done | syntax and loader diagnostic snapshots |
+| SURF-3 | done | docs oracle over reference-card examples |
+| SURF-4 | deferred | DL-0022 defers BENCH and the human probe; grammar is unfrozen |
+| BENCH-1 | deferred | DL-0022 requires human-probe priority and an authorized spend cap |
+| BENCH-2 | deferred | DL-0022; depends on BENCH-1 |
+| CON-1 | open | Per-operation framing coverage and real-project replay are incomplete |
+| SERVE-1 | open | Worker resolution is demo-bound and jobs are not durable |
+| CLI-1 | open | Project-backed serve and release smoke coverage remain |
+| AUTH-1 | open | Door T is Camelot-bound and drops or misroutes authored fields |
+| AUTH-2 | external-blocked | Consumer worked scenario is excluded from this source-release round |
+| EXT-F3 | external-blocked | Fantasy worker adaptation is consumer-owned |
+| EXT-F4 | external-blocked | Fantasy transcript is consumer-owned |
+| EXP-1 | done | `cargo test -p dli-export` |
+| EXP-2 | done | `cargo test -p dli-export` context-pack suites |
+| EXP-3 | deferred | Live Ludii trace differential is non-gating and not provisioned |
+| EXP-4 | open | Articy exists; CSV and static-wiki profiles remain unimplemented |
+| PROOF-1 | done | mutation harness in `cargo xtask gate` |
+| PROOF-2 | done | pinned differential harness and detection tests |
+| MIG-1 | done | world loader replay suites |
+| MIG-2 | done | vendored snapshots and mutation detection corpus |
+| MIG-3 | external-blocked | Consumer source deletion and cutover are consumer-owned |
+| MIG-4 | external-blocked | Consumer batch ruling and chronology cutover are not in this release |
+| EXT-F1 | done | `worlds/tpth/vendor/fantasy-40f6679/MANIFEST.txt` |
+| EXT-F2 | done | vendored corpus manifests under `worlds/tpth/vendor/` |
+| EXT-F5 | done | mutation corpus under `worlds/tpth/mutation/` |
 
 ## Milestones (node-sets, not dates)
 

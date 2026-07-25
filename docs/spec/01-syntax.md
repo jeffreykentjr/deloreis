@@ -148,6 +148,13 @@ question q-0001 "Who drew Excalibur from the stone?"
   option mordred implies drawn-by(excalibur, mordred)
 ```
 
+Question bodies accept only `option <name> [implies <atom>]`; every other child
+is an error rather than discarded text. Fork bodies retain their command clauses
+(`suppose`, `add fact`, and the other fork operations), while malformed children
+that begin with `option` are errors. The former `option ... assumes` clause is a
+killed form. A hypothesis condition gates the claim itself through provenance
+(`<claim> proposed assumes <hypothesis>`), not the option declaration.
+
 `deloreis check` answers in the same register the file is written in:
 
 > *camelot: 10 claims certain, 3 proposed, 1 open question (q-0001).
@@ -188,7 +195,10 @@ restriction** — every variable in the head or in a negated literal must also
 appear in a positive body atom, because a negated literal binds nothing — and
 **stratification**, which refuses a negative-dependency cycle (`p :- not q`,
 `q :- not p`) rather than evaluate it. `rule … over order` and `rule … over
-season` are checker rules for other engines, not world derivation rules.
+season` are checker rules for other engines, not world derivation rules. A bare
+top-level rule that cannot be read as Datalog emits an error-class load finding;
+it never silently lowers no rule. Practice-internal `rule ... requires` remains
+a practice law, not a top-level world rule.
 
 ---
 

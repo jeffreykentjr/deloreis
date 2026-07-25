@@ -66,7 +66,6 @@ fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
     OptionClause {
         name: Ident::synthetic(name),
         implies: Some(atom_expr(pred, args)),
-        assumes: None,
     }
 }
 

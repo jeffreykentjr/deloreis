@@ -463,12 +463,7 @@ fn option_lines(options: &[OptionClause]) -> Vec<String> {
                 .as_ref()
                 .map(|atom| format!("implies {}", render_atom(atom)))
                 .unwrap_or_default();
-            let assumes = opt
-                .assumes
-                .as_ref()
-                .map(|id| format!("assumes {}", id.text))
-                .unwrap_or_default();
-            vec!["option".to_owned(), opt.name.text.clone(), implies, assumes]
+            vec!["option".to_owned(), opt.name.text.clone(), implies]
         })
         .collect();
     align(&rows)

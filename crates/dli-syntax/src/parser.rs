@@ -1158,11 +1158,14 @@ fn parse_question(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>
         diags,
         "a `question` reads `question <name> [\"<prompt>\"]`.",
     );
-    let options = record
-        .body
-        .iter()
-        .filter_map(|c| parse_option_clause(c, diags))
-        .collect();
+    let mut options = Vec::new();
+    for clause in &record.body {
+        match parse_option_clause(clause, diags) {
+            ChildOption::Parsed(option) => options.push(option),
+            ChildOption::Malformed => {}
+            ChildOption::NotOption => non_option_child("question", clause, diags),
+        }
+    }
     QuestionDecl {
         name,
         prompt,
@@ -1177,10 +1180,12 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
     let mut options = Vec::new();
     let mut body = Vec::new();
     for clause in &record.body {
-        if let Some(opt) = parse_option_clause(clause, diags) {
-            options.push(opt);
-        } else {
-            body.push(clause.clone());
+        match parse_option_clause(clause, diags) {
+            ChildOption::Parsed(option) => options.push(option),
+            ChildOption::Malformed => {}
+            ChildOption::NotOption => {
+                body.push(clause.clone());
+            }
         }
     }
     ForkDecl {
@@ -1192,7 +1197,14 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
 }
 
 fn parse_option(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<OptionClause> {
-    let name = cur.eat_ident()?;
+    let Some(name) = cur.eat_ident() else {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "an `option` needs a name — write `option <name> [implies <atom>]`.",
+            span,
+        ));
+        return None;
+    };
     let implies = if cur.peek_word_text() == Some("implies") {
         cur.bump();
         if let Some(atom) = parse_atom(cur) {
@@ -1208,45 +1220,55 @@ fn parse_option(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     } else {
         None
     };
-    let assumes = if cur.peek_word_text() == Some("assumes") {
+    if cur.peek_word_text() == Some("assumes") {
+        let killed_span = cur.peek().map_or(span, |token| token.span);
         cur.bump();
-        if let Some(hyp) = cur.eat_ident() {
-            Some(hyp)
-        } else {
-            diags.push(Diagnostic::new(
-                DiagClass::Malformed,
-                "`assumes` requires a hypothesis name.",
-                span,
-            ));
-            None
-        }
-    } else {
-        None
-    };
+        let _ = cur.eat_ident();
+        diags.push(Diagnostic::new(
+            DiagClass::KilledForm,
+            "`option ... assumes` was retired — put `assumes <hypothesis>` on the claim's provenance so the claim itself carries the hypothesis gate.",
+            killed_span,
+        ));
+    }
     expect_consumed(
         cur,
         diags,
-        "an `option` reads `option <name> [implies <atom>] [assumes <hyp>]`.",
+        "an `option` reads `option <name> [implies <atom>]`.",
     );
-    Some(OptionClause {
-        name,
-        implies,
-        assumes,
-    })
+    Some(OptionClause { name, implies })
 }
 
-fn parse_option_clause(clause: &Clause, diags: &mut Vec<Diagnostic>) -> Option<OptionClause> {
+enum ChildOption {
+    NotOption,
+    Malformed,
+    Parsed(OptionClause),
+}
+
+fn parse_option_clause(clause: &Clause, diags: &mut Vec<Diagnostic>) -> ChildOption {
     let toks: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
         .into_iter()
         .filter(|t| t.kind != TokenKind::Newline)
         .collect();
-    let first = toks.first()?;
+    let Some(first) = toks.first() else {
+        return ChildOption::NotOption;
+    };
     if first.kind != TokenKind::Word || first.text != "option" {
-        return None;
+        return ChildOption::NotOption;
     }
     let mut cur = Cursor::new(&toks);
     cur.bump();
-    parse_option(&mut cur, diags, clause.span)
+    parse_option(&mut cur, diags, clause.span).map_or(ChildOption::Malformed, ChildOption::Parsed)
+}
+
+fn non_option_child(container: &str, clause: &Clause, diags: &mut Vec<Diagnostic>) {
+    diags.push(Diagnostic::new(
+        DiagClass::Malformed,
+        format!(
+            "a `{container}` body contains only `option` lines — move `{}` to its own declaration.",
+            clause.text
+        ),
+        clause.span,
+    ));
 }
 
 // --- timeline -------------------------------------------------------------

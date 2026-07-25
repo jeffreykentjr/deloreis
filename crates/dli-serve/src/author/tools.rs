@@ -285,7 +285,6 @@ pub(super) fn add_option(
         question.options.push(OptionClause {
             name: ident(&params.id),
             implies: None,
-            assumes: None,
         });
         Some(Decl::Question(question))
     } else {
