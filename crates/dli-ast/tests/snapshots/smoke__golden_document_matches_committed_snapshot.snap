@@ -2686,8 +2686,8 @@ expression: document
               "text": "a-year-of-life",
               "span": {
                 "file": 0,
-                "start": 7,
-                "end": 21
+                "start": 5251,
+                "end": 5265
               }
             },
             "implies": null
@@ -2697,8 +2697,8 @@ expression: document
               "text": "a-truth-told",
               "span": {
                 "file": 0,
-                "start": 7,
-                "end": 19
+                "start": 5275,
+                "end": 5287
               }
             },
             "implies": null
@@ -2738,8 +2738,8 @@ expression: document
               "text": "arthur",
               "span": {
                 "file": 0,
-                "start": 7,
-                "end": 13
+                "start": 5454,
+                "end": 5460
               }
             },
             "implies": {
@@ -2747,8 +2747,8 @@ expression: document
                 "text": "keeps",
                 "span": {
                   "file": 0,
-                  "start": 22,
-                  "end": 27
+                  "start": 5471,
+                  "end": 5476
                 }
               },
               "args": [
@@ -2757,8 +2757,8 @@ expression: document
                     "text": "arthur",
                     "span": {
                       "file": 0,
-                      "start": 28,
-                      "end": 34
+                      "start": 5477,
+                      "end": 5483
                     }
                   }
                 },
@@ -2767,8 +2767,8 @@ expression: document
                     "text": "excalibur",
                     "span": {
                       "file": 0,
-                      "start": 36,
-                      "end": 45
+                      "start": 5485,
+                      "end": 5494
                     }
                   }
                 }
@@ -2780,8 +2780,8 @@ expression: document
               "text": "the-lake",
               "span": {
                 "file": 0,
-                "start": 7,
-                "end": 15
+                "start": 5505,
+                "end": 5513
               }
             },
             "implies": null

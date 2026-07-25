@@ -50,7 +50,6 @@ use dli_ast::decl::Document;
 use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 use dli_syntax::{Diagnostic, parse_clause_atom, parse_document};
-use dli_world::model::LoadFinding;
 use dli_world::{CompiledWorld, Pack, Severity, WorldFinding, compile};
 
 /// A handler's result: the verdict exit code, or a message describing an
@@ -244,16 +243,5 @@ pub(crate) fn render_world_finding(finding: &WorldFinding) -> String {
         sev = severity_word(finding.severity),
         code = finding.code,
         msg = finding.message,
-    )
-}
-
-/// Render one load-time finding as a stable single line, in the same shape as a
-/// world finding (load findings are always errors — fail-closed provenance is
-/// the assertability gate).
-pub(crate) fn render_load_finding(finding: &LoadFinding) -> String {
-    format!(
-        "error  {code} — {msg}",
-        code = finding.code(),
-        msg = finding.message()
     )
 }

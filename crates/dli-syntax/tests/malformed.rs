@@ -97,6 +97,7 @@ fn option_assumes_is_a_killed_form_with_claim_level_repair() {
         "question q\n  option x assumes h-x\n",
         "question q\n  option x implies p(x) assumes h-x\n",
         "question q\n  option x assumes\n",
+        "question q {   option   x   assumes h-x }\n",
     ] {
         let diagnostics = parse_document(source).1;
         let killed = diagnostics
@@ -105,6 +106,9 @@ fn option_assumes_is_a_killed_form_with_claim_level_repair() {
             .unwrap_or_else(|| panic!("retired option form was not diagnosed: {source:?}"));
         assert!(killed.message.contains("claim's provenance"));
         assert!(killed.message.contains("hypothesis gate"));
+        let assumes = source.find("assumes").expect("assumes token");
+        assert_eq!(killed.span.start as usize, assumes);
+        assert_eq!(killed.span.end as usize, assumes + "assumes".len());
         assert!(
             format_source(source).is_err(),
             "fmt must refuse killed syntax"

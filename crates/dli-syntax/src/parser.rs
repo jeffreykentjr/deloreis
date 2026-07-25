@@ -28,7 +28,7 @@ use dli_ast::span::{FileId, Span};
 use dli_ast::term::{AtomExpr, Term};
 
 use crate::diag::{DiagClass, Diagnostic};
-use crate::lexer::{Line, Token, TokenKind, lines};
+use crate::lexer::{Line, Token, TokenKind, lines, to_u32};
 
 /// Parse source into the normative AST document plus any diagnostics.
 ///
@@ -422,6 +422,10 @@ enum Item {
 struct Record {
     head: Line,
     body: Vec<Clause>,
+    /// Absolute source tokens for each body clause, before whitespace
+    /// normalization. Kept parallel to `body` so child diagnostics retain
+    /// exact spans without adding parser-only data to the normative AST.
+    body_tokens: Vec<Vec<Token>>,
     /// Header tokens with any trailing `{` block-opener removed.
     head_tokens: Vec<Token>,
 }
@@ -442,7 +446,7 @@ fn assemble_records(lines: &[Line], file: FileId, diags: &mut Vec<Diagnostic>) -
         }
         i += 1;
         if raw_opens_brace(&head.raw) {
-            let (body, next, terminated) = collect_brace_body(head, lines, i, file);
+            let (body, body_tokens, next, terminated) = collect_brace_body(head, lines, i, file);
             i = next;
             if !terminated {
                 diags.push(Diagnostic::new(
@@ -455,9 +459,11 @@ fn assemble_records(lines: &[Line], file: FileId, diags: &mut Vec<Diagnostic>) -
                 head_tokens: tokens_before_brace(&head.tokens),
                 head: head.clone(),
                 body,
+                body_tokens,
             });
         } else {
             let mut body = Vec::new();
+            let mut body_tokens = Vec::new();
             while i < lines.len() {
                 let line = &lines[i];
                 if line.is_blank() || line.indent <= head.indent {
@@ -467,12 +473,14 @@ fn assemble_records(lines: &[Line], file: FileId, diags: &mut Vec<Diagnostic>) -
                     text: normalize_ws(&line.raw),
                     span: line.span,
                 });
+                body_tokens.push(line.tokens.clone());
                 i += 1;
             }
             records.push(Record {
                 head_tokens: head.tokens.clone(),
                 head: head.clone(),
                 body,
+                body_tokens,
             });
         }
     }
@@ -523,26 +531,42 @@ fn collect_brace_body(
     head: &Line,
     lines: &[Line],
     start: usize,
-    _file: FileId,
-) -> (Vec<Clause>, usize, bool) {
+    file: FileId,
+) -> (Vec<Clause>, Vec<Vec<Token>>, usize, bool) {
     let mut body = Vec::new();
+    let mut body_tokens = Vec::new();
     let mut depth = 1i32;
     // The remainder of the header line after its first out-of-string `{`.
     if let Some(pos) = open_brace_pos(&head.raw) {
         let after = &head.raw[pos + 1..];
-        consume_brace_segment(after, head.span, &mut depth, &mut body);
+        let base = head.span.start.saturating_add(to_u32(pos + 1));
+        consume_brace_segment(after, base, file, &mut depth, &mut body, &mut body_tokens);
     }
     let mut i = start;
     while depth > 0 && i < lines.len() {
         let line = &lines[i];
-        consume_brace_segment(&line.raw, line.span, &mut depth, &mut body);
+        consume_brace_segment(
+            &line.raw,
+            line.span.start,
+            file,
+            &mut depth,
+            &mut body,
+            &mut body_tokens,
+        );
         i += 1;
     }
-    (body, i, depth == 0)
+    (body, body_tokens, i, depth == 0)
 }
 
 /// Fold one physical segment of a braced block into `body`, tracking depth.
-fn consume_brace_segment(seg: &str, span: Span, depth: &mut i32, body: &mut Vec<Clause>) {
+fn consume_brace_segment(
+    seg: &str,
+    base: u32,
+    file: FileId,
+    depth: &mut i32,
+    body: &mut Vec<Clause>,
+    body_tokens: &mut Vec<Vec<Token>>,
+) {
     let mut text = String::new();
     let mut in_str = false;
     for c in seg.chars() {
@@ -563,7 +587,31 @@ fn consume_brace_segment(seg: &str, span: Span, depth: &mut i32, body: &mut Vec<
     }
     let norm = normalize_ws(&text);
     if !norm.is_empty() {
-        body.push(Clause { text: norm, span });
+        let leading = text.len().saturating_sub(text.trim_start().len());
+        let start = base.saturating_add(to_u32(leading));
+        body.push(Clause {
+            text: norm,
+            span: Span {
+                file,
+                start,
+                end: base.saturating_add(to_u32(text.len())),
+            },
+        });
+        body_tokens.push(
+            crate::lexer::lex(seg, file)
+                .into_iter()
+                .filter(|token| {
+                    token.kind != TokenKind::Newline
+                        && token.kind != TokenKind::LBrace
+                        && token.kind != TokenKind::RBrace
+                })
+                .map(|mut token| {
+                    token.span.start = token.span.start.saturating_add(base);
+                    token.span.end = token.span.end.saturating_add(base);
+                    token
+                })
+                .collect(),
+        );
     }
 }
 
@@ -1159,8 +1207,8 @@ fn parse_question(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>
         "a `question` reads `question <name> [\"<prompt>\"]`.",
     );
     let mut options = Vec::new();
-    for clause in &record.body {
-        match parse_option_clause(clause, diags) {
+    for (clause, tokens) in record.body.iter().zip(&record.body_tokens) {
+        match parse_option_clause(clause, tokens, diags) {
             ChildOption::Parsed(option) => options.push(option),
             ChildOption::Malformed => {}
             ChildOption::NotOption => non_option_child("question", clause, diags),
@@ -1179,8 +1227,8 @@ fn parse_fork(cur: &mut Cursor, record: &Record, diags: &mut Vec<Diagnostic>) ->
     let provenance = parse_provenance(cur, diags);
     let mut options = Vec::new();
     let mut body = Vec::new();
-    for clause in &record.body {
-        match parse_option_clause(clause, diags) {
+    for (clause, tokens) in record.body.iter().zip(&record.body_tokens) {
+        match parse_option_clause(clause, tokens, diags) {
             ChildOption::Parsed(option) => options.push(option),
             ChildOption::Malformed => {}
             ChildOption::NotOption => {
@@ -1244,18 +1292,18 @@ enum ChildOption {
     Parsed(OptionClause),
 }
 
-fn parse_option_clause(clause: &Clause, diags: &mut Vec<Diagnostic>) -> ChildOption {
-    let toks: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
-        .into_iter()
-        .filter(|t| t.kind != TokenKind::Newline)
-        .collect();
-    let Some(first) = toks.first() else {
+fn parse_option_clause(
+    clause: &Clause,
+    tokens: &[Token],
+    diags: &mut Vec<Diagnostic>,
+) -> ChildOption {
+    let Some(first) = tokens.first() else {
         return ChildOption::NotOption;
     };
     if first.kind != TokenKind::Word || first.text != "option" {
         return ChildOption::NotOption;
     }
-    let mut cur = Cursor::new(&toks);
+    let mut cur = Cursor::new(tokens);
     cur.bump();
     parse_option(&mut cur, diags, clause.span).map_or(ChildOption::Malformed, ChildOption::Parsed)
 }

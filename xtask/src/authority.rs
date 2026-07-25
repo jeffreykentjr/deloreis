@@ -28,7 +28,6 @@ pub fn run_authority(root: &Path) -> Result<()> {
 }
 
 fn validate_ledger(ledger: &str) -> Result<()> {
-    let corrected_dates = corrected_dates(ledger)?;
     let mut entries = Vec::new();
     for (line_index, line) in ledger.lines().enumerate() {
         let Some(rest) = line.strip_prefix("## DL-") else {
@@ -49,6 +48,7 @@ fn validate_ledger(ledger: &str) -> Result<()> {
     if entries.is_empty() {
         bail!("{LEDGER} contains no decision entries");
     }
+    let corrected_dates = corrected_dates(ledger, &entries)?;
 
     for (expected, (id, start)) in (1_u32..).zip(entries.iter().copied()) {
         if id != expected {
@@ -73,27 +73,38 @@ fn validate_ledger(ledger: &str) -> Result<()> {
     Ok(())
 }
 
-fn corrected_dates(ledger: &str) -> Result<BTreeMap<u32, String>> {
+fn corrected_dates(ledger: &str, entries: &[(u32, usize)]) -> Result<BTreeMap<u32, String>> {
     let mut corrections = BTreeMap::new();
-    for line in ledger.lines() {
-        let Some(rest) = line.strip_prefix("*Corrected date: DL-") else {
-            continue;
-        };
-        let Some((raw_id, raw_date)) = rest
-            .strip_suffix('*')
-            .and_then(|value| value.split_once(" = "))
-        else {
-            bail!("{LEDGER} has a malformed corrected-date line");
-        };
-        let id = raw_id
-            .parse::<u32>()
-            .context("ledger corrected-date line has a non-numeric id")?;
-        let date_line = format!("*Date: {raw_date}*");
-        if !valid_date_line(&date_line) {
-            bail!("{LEDGER} has an invalid corrected date for DL-{id:04}");
-        }
-        if corrections.insert(id, raw_date.to_owned()).is_some() {
-            bail!("{LEDGER} corrects the date for DL-{id:04} more than once");
+    let lines: Vec<&str> = ledger.lines().collect();
+    for (entry_index, (corrector, start)) in entries.iter().copied().enumerate() {
+        let end = entries
+            .get(entry_index + 1)
+            .map_or(lines.len(), |(_, line)| *line);
+        for line in &lines[start + 1..end] {
+            let Some(rest) = line.strip_prefix("*Corrected date: DL-") else {
+                continue;
+            };
+            let Some((raw_id, raw_date)) = rest
+                .strip_suffix('*')
+                .and_then(|value| value.split_once(" = "))
+            else {
+                bail!("{LEDGER} has a malformed corrected-date line");
+            };
+            let id = raw_id
+                .parse::<u32>()
+                .context("ledger corrected-date line has a non-numeric id")?;
+            if id == 0 || id >= corrector {
+                bail!(
+                    "DL-{corrector:04} cannot correct its own or a later entry's date (DL-{id:04})"
+                );
+            }
+            let date_line = format!("*Date: {raw_date}*");
+            if !valid_date_line(&date_line) {
+                bail!("{LEDGER} has an invalid corrected date for DL-{id:04}");
+            }
+            if corrections.insert(id, raw_date.to_owned()).is_some() {
+                bail!("{LEDGER} corrects the date for DL-{id:04} more than once");
+            }
         }
     }
     Ok(corrections)
@@ -106,11 +117,32 @@ fn valid_date_line(line: &str) -> bool {
     else {
         return false;
     };
-    date.len() == 10
-        && date.bytes().enumerate().all(|(index, byte)| match index {
+    if date.len() != 10
+        || !date.bytes().enumerate().all(|(index, byte)| match index {
             4 | 7 => byte == b'-',
             _ => byte.is_ascii_digit(),
         })
+    {
+        return false;
+    }
+    let Ok(year) = date[0..4].parse::<u32>() else {
+        return false;
+    };
+    let Ok(month) = date[5..7].parse::<u32>() else {
+        return false;
+    };
+    let Ok(day) = date[8..10].parse::<u32>() else {
+        return false;
+    };
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    year > 0 && (1..=days).contains(&day)
 }
 
 fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
@@ -211,7 +243,10 @@ mod tests {
     #[test]
     fn date_line_is_strict() {
         assert!(valid_date_line("*Date: 2026-07-25*"));
+        assert!(valid_date_line("*Date: 2024-02-29*"));
         assert!(!valid_date_line("*Date: 2026-7-25*"));
+        assert!(!valid_date_line("*Date: 2026-99-99*"));
+        assert!(!valid_date_line("*Date: 2026-02-29*"));
         assert!(!valid_date_line("Date: 2026-07-25"));
     }
 
@@ -223,6 +258,41 @@ mod tests {
         assert!(validate_ledger(missing_date).is_err());
         let gap = "## DL-0002 — two\n\n*Date: 2026-07-25*\n\n**Ruling.** yes\n";
         assert!(validate_ledger(gap).is_err());
+
+        let self_correction = "\
+## DL-0001 — one
+
+*Corrected date: DL-0001 = 2026-07-25*
+
+**Ruling.** yes
+";
+        assert!(validate_ledger(self_correction).is_err());
+
+        let nonexistent_correction = "\
+## DL-0001 — one
+
+*Date: 2026-07-25*
+
+*Corrected date: DL-0000 = 2026-07-24*
+
+**Ruling.** yes
+";
+        assert!(validate_ledger(nonexistent_correction).is_err());
+
+        let later_correction = "\
+## DL-0001 — one
+
+**Ruling.** yes
+
+## DL-0002 — correction
+
+*Date: 2026-07-25*
+
+*Corrected date: DL-0001 = 2026-07-24*
+
+**Ruling.** yes
+";
+        validate_ledger(later_correction).expect("later entry may correct an earlier date");
     }
 
     #[test]

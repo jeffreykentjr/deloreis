@@ -110,10 +110,7 @@ fn check_reports_a_malformed_bare_world_rule() {
     let doc = dir.join("bad-rule.dli");
     fs::write(
         &doc,
-        "scope demo\n\
-         ratify d-0001\n\
-         rule checker decided d-0001\n\
-           beat $b requires slot >= 10\n",
+        "scope demo\nratify d-0001\nrule checker decided d-0001\n  beat $b requires slot >= 10\n",
     )
     .unwrap();
 
@@ -123,6 +120,33 @@ fn check_reports_a_malformed_bare_world_rule() {
     assert!(
         out.contains("load.malformed-world-rule"),
         "expected a load/check finding:\n{out}"
+    );
+    assert!(
+        out.contains("1 finding(s)"),
+        "finding was duplicated:\n{out}"
+    );
+}
+
+#[test]
+fn report_does_not_duplicate_loader_findings() {
+    let dir = tmp("report-malformed-world-rule");
+    let doc = dir.join("bad-rule.dli");
+    fs::write(
+        &doc,
+        "scope demo\nratify d-0001\nrule checker decided d-0001\n  beat $b requires slot >= 10\n",
+    )
+    .unwrap();
+
+    let output = bin()
+        .args(["report", "--corpus"])
+        .arg(&doc)
+        .output()
+        .unwrap();
+    let out = stdout(&output);
+    assert_eq!(out.matches("load.malformed-world-rule").count(), 1, "{out}");
+    assert!(
+        out.contains("report: 1 finding(s)"),
+        "finding was duplicated:\n{out}"
     );
 }
 

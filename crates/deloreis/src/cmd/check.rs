@@ -47,9 +47,6 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
     let mut lines: Vec<String> = Vec::new();
     match cmd::compile_corpus(&files, "check") {
         Ok(world) => {
-            for finding in world.model.findings() {
-                lines.push(cmd::render_load_finding(finding));
-            }
             for finding in check::run(&world) {
                 lines.push(cmd::render_world_finding(&finding));
             }

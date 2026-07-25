@@ -57,12 +57,9 @@ pub(crate) fn run(args: &ReportArgs) -> CmdResult {
     let world = cmd::compile_corpus(&files, "report")?;
     let floor = args.min_grade.map(GradeArg::grade);
 
-    // Every finding paired with its verification grade. Load findings are
-    // fail-closed and re-derive exactly, so they carry `Checked`.
-    let mut graded: Vec<(Grade, String)> = Vec::new();
-    for finding in world.model.findings() {
-        graded.push((Grade::Checked, cmd::render_load_finding(finding)));
-    }
+    // Every finding paired with its verification grade. `check::run` includes
+    // loader findings, so they must not be collected independently here.
+    let mut graded = Vec::new();
     for finding in check::run(&world) {
         graded.push((finding.grade, cmd::render_world_finding(&finding)));
     }
