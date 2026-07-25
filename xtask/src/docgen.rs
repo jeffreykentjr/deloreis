@@ -331,8 +331,14 @@ const CLI_COMMANDS: &[(&str, &str)] = &[
     ),
     ("export", "Export under a profile."),
     ("report", "Render the findings report."),
-    ("serve", "Run the JSON-over-stdio worker."),
-    ("mcp", "Run the MCP tool transport over stdio"),
+    (
+        "serve",
+        "Run JSON-over-stdio with `--project <path>` or explicit `--demo`.",
+    ),
+    (
+        "mcp",
+        "Run MCP over stdio with `--project <path>` or explicit `--demo`.",
+    ),
 ];
 
 /// The `deloreis` command reference, from [`CLI_COMMANDS`]. The CLI is a rendering

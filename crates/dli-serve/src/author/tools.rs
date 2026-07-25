@@ -58,7 +58,13 @@ pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value
             ));
         }
     };
-    let ws = store.open(mode, base_name);
+    let ws = store
+        .open(mode, base_name.clone())
+        .ok_or_else(|| ErrorBody {
+            code: ErrorCode::UnknownDoc,
+            message: format!("no project document named \"{base_name}\" is loaded"),
+            data: None,
+        })?;
     Ok(value(&AuthorOpenResult {
         workspace: ws.id.clone(),
         workspace_digest: ws.digest.clone(),
@@ -128,7 +134,7 @@ pub(super) fn materialize(
     params: &AuthorMaterializeParams,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let base = store.base();
+    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
     let blocking = dedup(
         workspace_findings(ws, base)
             .into_iter()

@@ -38,5 +38,5 @@ verdict: "The deloreis CLI command reference, mirroring the clap surface in crat
 | `deloreis name check` | Vet a candidate name against the settled name-space. |
 | `deloreis export` | Export under a profile. |
 | `deloreis report` | Render the findings report. |
-| `deloreis serve` | Run the JSON-over-stdio worker. |
-| `deloreis mcp` | Run the MCP tool transport over stdio |
+| `deloreis serve` | Run JSON-over-stdio with `--project <path>` or explicit `--demo`. |
+| `deloreis mcp` | Run MCP over stdio with `--project <path>` or explicit `--demo`. |

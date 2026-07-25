@@ -13,6 +13,7 @@ pub mod finding;
 pub mod handlers;
 pub mod mcp;
 pub mod ops;
+pub mod project;
 pub mod schema;
 pub mod serve;
 pub mod session;

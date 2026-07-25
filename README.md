@@ -11,11 +11,12 @@ declarative claim about what the world holds, which is the name, read one way.
 ## Status
 
 The kernel and most domain engines are implemented, but the standalone source
-release is **not complete**. The current worker still has demo-bound resolution,
-placeholder contract behavior, and assurance gaps recorded in the PLAN's
-machine-checked node matrix. The grammar is **unfrozen** and remains open until
-the G1 grammar gate. See [`docs/PLAN.md`](docs/PLAN.md) for current evidence,
-deferred work, and release blockers.
+release is **not complete**. The worker now loads strict, versioned caller
+projects, but contract semantics, durable evidence/jobs, export profiles, and
+assurance gaps remain open in the PLAN's machine-checked node matrix. The
+grammar is **unfrozen** and remains open until the G1 grammar gate. See
+[`docs/PLAN.md`](docs/PLAN.md) for current evidence, deferred work, and release
+blockers.
 
 ## Where to start (in order)
 
@@ -35,6 +36,20 @@ cargo xtask gate
 
 One command runs the full CI-parity gate. Details, discipline, and the commit
 ritual are in [`AGENTS.md`](AGENTS.md).
+
+## Run a project
+
+Both worker transports require an explicit project manifest (or the containing
+directory). The bundled neutral fixtures are available only through explicit
+`--demo` mode.
+
+```bash
+deloreis serve --project examples/norse
+deloreis mcp --project examples/norse
+```
+
+See [`docs/spec/10-serving.md`](docs/spec/10-serving.md) for the versioned
+`deloreis.toml` shape and path-isolation rules.
 
 ## Layout
 

@@ -57,9 +57,7 @@ use dli_world::{check, check_draft, sweep};
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
-use crate::session::{
-    Scope, Sessions, SimJob, builtin_episodes, builtin_pack, builtin_ruleset, demo_language_model,
-};
+use crate::session::{Scope, Sessions, SimJob};
 
 /// A handler failure: a typed wire code and a domain-spoken message.
 type Fault = (ErrorCode, String);
@@ -83,7 +81,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::ForkPromote => handle_fork_promote(request, sessions),
         Op::CheckDraft => handle_check_draft(request, sessions),
         Op::PayloadSubmit => handle_payload_submit(request, sessions),
-        Op::NameCheck => handle_name_check(request),
+        Op::NameCheck => handle_name_check(request, sessions),
         Op::AttestMissing => handle_attest_missing(request, sessions),
         Op::AttestationSweep => handle_attestation_sweep(request),
         // check-proof replays the document's proof block against its practice and
@@ -100,9 +98,9 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::ForkAdd => handle_fork_add(request, sessions),
         Op::TimelineShow => handle_timeline_show(request, sessions),
         Op::TimelineOrder => handle_timeline_order(request, sessions),
-        Op::TimelineKnows => handle_timeline_knows(request),
-        Op::TimelineEpisodes => handle_timeline_episodes(request),
-        Op::TimelinePhases => handle_timeline_phases(request),
+        Op::TimelineKnows => handle_timeline_knows(request, sessions),
+        Op::TimelineEpisodes => handle_timeline_episodes(request, sessions),
+        Op::TimelinePhases => handle_timeline_phases(request, sessions),
         // author.* is routed through the Door T seam before reaching here.
         Op::AuthorOpen
         | Op::AuthorStatus
@@ -167,7 +165,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     // Resolve an optional fork handle to its valuation overlay first, so its
     // (owned) valuation outlives the query scope borrow (H9, `--fork`).
     let fork = match &p.fork {
-        Some(handle) => Some(fork_valuation(sessions, handle)?),
+        Some(handle) => Some(fork_valuation(sessions, handle, &p.document)?),
         None => None,
     };
     let opts = QueryOpts {
@@ -204,12 +202,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
 fn handle_fork_new(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkNewParams = params(request)?;
     let base = match &p.base {
-        Some(handle) => Some(
-            sessions
-                .fork_handle(handle)
-                .ok_or_else(|| unknown_fork(handle))?
-                .1,
-        ),
+        Some(handle) => Some(fork_id_for_document(sessions, handle, &p.document)?),
         None => None,
     };
     let scope = resolve(sessions, &p.document)?;
@@ -223,6 +216,7 @@ fn handle_fork_new(request: &Request, sessions: &mut Sessions) -> Result<Respons
 
 fn handle_fork_list(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkListParams = params(request)?;
+    resolve(sessions, &p.document)?;
     Ok(ok_response(
         request,
         &ForkListResult {
@@ -382,7 +376,7 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
     // The document's source declarations carry both the proof block and the
     // practices; they resolve deterministically from the same corpus the scope
     // compiles, so the report is projected against exactly the checked world.
-    let pack = builtin_pack(&p.document).ok_or_else(|| {
+    let pack = sessions.pack(&p.document).ok_or_else(|| {
         (
             ErrorCode::UnknownDoc,
             format!("no document named '{}' is loaded", p.document),
@@ -456,7 +450,7 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
         // lore corpus (which carries no ruleset). A lore doc-id is refused, never
         // half-rendered.
         ExportProfile::Cards | ExportProfile::LudiiGdl => {
-            let (ruleset, registry) = builtin_ruleset(&p.document).ok_or_else(|| {
+            let (ruleset, registry) = sessions.ruleset(&p.document).ok_or_else(|| {
                 (
                     ErrorCode::SchemaViolation,
                     format!(
@@ -487,7 +481,7 @@ fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<R
     let p: SimulateStartParams = params(request)?;
     // Source the first declared practice from the document (the same corpus the
     // scope compiles); `turns` is the trial count.
-    let pack = builtin_pack(&p.document).ok_or_else(|| {
+    let pack = sessions.pack(&p.document).ok_or_else(|| {
         (
             ErrorCode::UnknownDoc,
             format!("no document named '{}' is loaded", p.document),
@@ -657,18 +651,16 @@ fn header_value(head: &[String], key: &str) -> Option<String> {
         .cloned()
 }
 
-fn handle_name_check(request: &Request) -> Result<Response, Fault> {
+fn handle_name_check(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
     let p: NameCheckParams = params(request)?;
-    // The op carries no corpus reference, so a NAMED dialect resolves its register
-    // in the worker's demo language model (the one engine-owned corpus that
-    // declares a dialect); register-fit + phonotactics are vetted against it (spec
-    // `05-language-layer.md` §2). An empty dialect keeps the register-free default:
-    // the bare-candidate screens against an empty model.
+    // The op carries no document id, so a named dialect resolves against the
+    // selected project's combined language model (or the explicit demo model).
+    // An empty dialect keeps the register-free default.
     let dialect = p.dialect.trim();
     let findings = if dialect.is_empty() {
         view::vet_candidate(&LanguageModel::default(), &p.name)
     } else {
-        vet_candidate_in_dialect(&demo_language_model(), &p.name, dialect)
+        vet_candidate_in_dialect(&sessions.language_model(), &p.name, dialect)
     };
     Ok(ok_response(
         request,
@@ -817,9 +809,9 @@ fn handle_timeline_order(request: &Request, sessions: &mut Sessions) -> Result<R
     Ok(ok_response(request, &TimelineResult { findings }))
 }
 
-fn handle_timeline_knows(request: &Request) -> Result<Response, Fault> {
+fn handle_timeline_knows(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
     let p: TimelineKnowsParams = params(request)?;
-    let episodes = resolve_season(&p.document)?;
+    let episodes = resolve_season(sessions, &p.document)?;
     let folded = fold(&episodes);
     let slot = match &p.at {
         Some(at) => at.parse::<u32>().map_err(|_| {
@@ -843,9 +835,9 @@ fn handle_timeline_knows(request: &Request) -> Result<Response, Fault> {
     Ok(ok_response(request, &TimelineResult { findings }))
 }
 
-fn handle_timeline_episodes(request: &Request) -> Result<Response, Fault> {
+fn handle_timeline_episodes(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
     let p: TimelineEpisodesParams = params(request)?;
-    let episodes = resolve_season(&p.document)?;
+    let episodes = resolve_season(sessions, &p.document)?;
     let folded = fold(&episodes);
     let mut ordered: Vec<&Episode> = episodes.iter().collect();
     ordered.sort_by_key(|ep| ep.production_order);
@@ -874,9 +866,9 @@ fn handle_timeline_episodes(request: &Request) -> Result<Response, Fault> {
     Ok(ok_response(request, &TimelineResult { findings }))
 }
 
-fn handle_timeline_phases(request: &Request) -> Result<Response, Fault> {
+fn handle_timeline_phases(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
     let p: TimelinePhasesParams = params(request)?;
-    let episodes = resolve_season(&p.document)?;
+    let episodes = resolve_season(sessions, &p.document)?;
     let episode = episodes
         .iter()
         .find(|ep| ep.id == p.episode)
@@ -910,11 +902,11 @@ fn handle_timeline_phases(request: &Request) -> Result<Response, Fault> {
 }
 
 /// The season for a document, or a typed fault when none is loaded. Episodes are
-/// serde payloads the compiled world does not carry, so the worker resolves a
-/// season by doc-id from an engine-owned neutral fixture, exactly as it resolves a
-/// corpus.
-fn resolve_season(document: &str) -> Result<Vec<Episode>, Fault> {
-    builtin_episodes(document).ok_or_else(|| {
+/// serde payloads the compiled world does not carry, so the session resolves
+/// them beside the document pack: from the caller manifest in project mode, or
+/// from the neutral fixture registry in explicit demo mode.
+fn resolve_season(sessions: &Sessions, document: &str) -> Result<Vec<Episode>, Fault> {
+    sessions.episodes(document).ok_or_else(|| {
         (
             ErrorCode::UnknownDoc,
             format!("no episode season is loaded for document '{document}'"),
@@ -1164,9 +1156,31 @@ fn fork_scope<'a>(
 
 /// Resolve a fork handle to its valuation overlay — the seam `dli.query --fork`
 /// consumes (the theory pass is baked in by [`ForkStore::valuation`]).
-fn fork_valuation(sessions: &mut Sessions, handle: &str) -> Result<Valuation, Fault> {
+fn fork_valuation(
+    sessions: &mut Sessions,
+    handle: &str,
+    document: &str,
+) -> Result<Valuation, Fault> {
+    fork_id_for_document(sessions, handle, document)?;
     let (id, scope) = fork_scope(sessions, handle)?;
     scope.forks.valuation(id).map_err(fork_fault)
+}
+
+fn fork_id_for_document(
+    sessions: &Sessions,
+    handle: &str,
+    document: &str,
+) -> Result<dli_eval::fork::ForkId, Fault> {
+    let (owner, id) = sessions
+        .fork_handle(handle)
+        .ok_or_else(|| unknown_fork(handle))?;
+    if owner != document {
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!("fork '{handle}' belongs to document '{owner}', not '{document}'"),
+        ));
+    }
+    Ok(id)
 }
 
 fn unknown_fork(handle: &str) -> Fault {

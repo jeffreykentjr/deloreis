@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract and intended guarantees. DL-0028 records that the current server does not yet satisfy this contract for a standalone release; consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract and intended guarantees. Caller-project isolation is implemented; semantic, durability, and assurance closure remain open under DL-0028, and consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -19,8 +19,9 @@ vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. All operation
-> names have schemas and dispatch arms, but several handlers are demo-bound,
-> incomplete, or non-durable, and the fixture census has framing exemptions.
+> names have schemas and dispatch arms, and both transports load strict caller
+> projects. Several handlers remain incomplete or non-durable, and the fixture
+> census has framing exemptions.
 > The PLAN matrix therefore keeps CON-1, SERVE-1, and AUTH-1 open. Nothing in
 > this document is evidence that consumer cutover is ready.
 
@@ -99,13 +100,13 @@ in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
 All 46 operation names have request/response schemas and dispatch arms.
-That census is not a readiness claim. At the DL-0028 baseline,
-`capabilities()` incorrectly advertises `Op::ALL`; simulation is synchronous
-and session-local; payload and attestation mutations do not store evidence;
-timeline, query, naming, export, and Door-T responses omit promised semantics;
-and resolution is restricted to embedded demo worlds. CON-1 closes only when
-the handlers satisfy these Returns columns over a caller-supplied project and
-the complete fixture oracle passes.
+That census is not a readiness claim. Caller-project isolation now loads a
+strict versioned manifest and refuses demo fallback, but `capabilities()` still
+advertises operations whose full Returns semantics are open; simulation is
+synchronous and session-local; payload and attestation mutations do not store
+evidence; and several responses omit promised semantics. CON-1 closes only when
+the handlers satisfy these Returns columns and the complete fixture oracle
+passes.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 

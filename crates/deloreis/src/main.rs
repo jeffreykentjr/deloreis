@@ -61,10 +61,10 @@ enum Command {
     Export(cmd::drafts::ExportArgs),
     /// Render the findings report.
     Report(cmd::report::ReportArgs),
-    /// Run the JSON-over-stdio worker.
-    Serve,
-    /// Run the MCP tool transport over stdio.
-    Mcp,
+    /// Run JSON-over-stdio with `--project <path>` or explicit `--demo`.
+    Serve(cmd::serve::ServeArgs),
+    /// Run MCP over stdio with `--project <path>` or explicit `--demo`.
+    Mcp(cmd::serve::ServeArgs),
 }
 
 /// Route a parsed command to its handler, returning the verdict exit code.
@@ -82,8 +82,8 @@ fn run(command: Command) -> cmd::CmdResult {
         Command::Name(args) => cmd::name::run(&args),
         Command::Export(args) => cmd::drafts::run_export(&args),
         Command::Report(args) => cmd::report::run(&args),
-        Command::Serve => cmd::serve::run(),
-        Command::Mcp => cmd::serve::run_mcp(),
+        Command::Serve(args) => cmd::serve::run(&args),
+        Command::Mcp(args) => cmd::serve::run_mcp(&args),
     }
 }
 

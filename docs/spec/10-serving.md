@@ -13,12 +13,13 @@ consumer gets the same ops, the same envelope, and the same guarantees.
 
 ## 1. Process model
 
-`deloreis serve` speaks **JSON over stdio**. An MCP transport wrapper exposes the
-same operations to MCP clients without changing their semantics. There is **no
-network, no model call, and no background service** inside the worker — a
-determinism the gate depends on (DL-0013). The consuming application keeps its
-own orchestration, its own UI, and all of its LLM work; the worker keeps all
-evaluation and verdicts.
+`deloreis serve --project <path>` speaks **JSON over stdio**.
+`deloreis mcp --project <path>` exposes the same operations to MCP clients
+without changing their semantics. `<path>` is a `deloreis.toml` manifest or its
+containing directory. There is **no network, no model call, and no background
+service** inside the worker — a determinism the gate depends on (DL-0013). The
+consuming application keeps its own orchestration, its own UI, and all of its
+LLM work; the worker keeps all evaluation and verdicts.
 
 The MCP transport is a thin wrapper, not a second protocol: it registers the
 same ops as MCP tools and forwards their JSON payloads unchanged, so an MCP
@@ -38,6 +39,52 @@ homes. The `author.*` tool contract is specified in `spec/11-agent-authoring.md`
 and `integration/fantasy-contract.md` §3; this document specifies the `dli.*`
 batch surface. The split is noted here so the process model is complete; the
 authoring tools are not re-specified.
+
+### 1.1 Caller projects
+
+Production startup always names one versioned caller project. The v1 manifest is
+strict TOML: unknown fields, versions other than `1`, duplicate sources,
+ambiguous document/game ids, and unsafe paths stop startup.
+
+```toml
+version = 1
+name = "nine-realms"
+
+[paths]
+evidence = ".dli-evidence"
+cache = ".dli-cache"
+
+[documents.norse]
+sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
+# episodes = "episodes.yaml"
+# killed_tokens = "killed-tokens.yaml"
+
+[games.rune-wheel]
+rules = "games/rune-wheel/rules.json"
+profiles = "games/rune-wheel/profiles.json"
+```
+
+The keys under `documents` and `games` are stable logical wire ids. A request's
+`document` names one of those ids; it is not a filesystem path. Source files for
+one logical document are canonicalized, sorted, parsed by the real front end,
+and compiled together before the worker accepts traffic. Episode, killed-token,
+game, and game-profile assets are loaded as typed data.
+
+Every manifest path is non-empty, normalized, relative to the manifest
+directory, and may not contain `.` or `..` components. Existing assets and their
+symlinks must resolve beneath that directory. Evidence and cache paths must be
+dedicated, non-overlapping project subdirectories; their nearest existing
+ancestor must also remain beneath the project root. A project with duplicate
+fork question ids is rejected because a
+Door-T fork must have one document owner. Dialect ids are also unique across the
+project: the current `dli.name.check` shape has no document field and therefore
+resolves its dialect against the project's combined language model.
+
+Project mode never falls back to bundled content. An unknown logical id returns
+`unknown-doc`, including when it happens to be a bundled demo id. The neutral
+fixtures are available only through explicit `deloreis serve --demo` or
+`deloreis mcp --demo`; that mode is for examples and contract replay, not caller
+discovery.
 
 ## 2. The envelope
 

@@ -11,25 +11,41 @@
 //! gating all behave exactly as they do on the native surface.
 
 use serde_json::{Value, json};
+use std::sync::Arc;
 
 use crate::author::store::Store;
 use crate::ops::Op;
+use crate::project::Project;
 use crate::schema::contract_schemas;
 use crate::session::Sessions;
 
 /// Run the MCP JSON-RPC loop over stdio: one JSON-RPC message per line in, one
 /// reply per line out (notifications get no reply). The session cache and Door T
 /// store live for the life of the loop, exactly as the native worker's do.
-pub fn run_mcp() -> std::io::Result<()> {
+pub fn run_mcp_demo() -> std::io::Result<()> {
+    run_mcp_with(None)
+}
+
+/// Run MCP over an explicitly loaded caller project.
+pub fn run_mcp_project(project: Project) -> std::io::Result<()> {
+    run_mcp_with(Some(Arc::new(project)))
+}
+
+fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
     use std::io::{BufRead, Write};
 
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut reader = stdin.lock();
     let mut out = stdout.lock();
-    let mut sessions = Sessions::new();
+    let mut sessions = project.as_ref().map_or_else(Sessions::new, |project| {
+        Sessions::from_project(Arc::clone(project))
+    });
     // The read-complete Door T store (base + staged), same as the stdio worker.
-    let mut author = crate::serve::author_store()?;
+    let mut author = match project {
+        Some(project) => crate::serve::project_author_store(&project)?,
+        None => crate::serve::demo_author_store()?,
+    };
     let mut buf = Vec::new();
 
     loop {

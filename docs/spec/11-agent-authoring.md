@@ -31,13 +31,15 @@ There are two supported authoring doors, one per author population (`DL-0004`).
   it back. The agent never emits `.dli` text and never touches the AST directly.
 
 Door T speaks over two transports carrying the same tool surface: **JSON over
-stdio** (`deloreis serve` — one JSON request per line, one JSON response per line)
-and **MCP** (`deloreis mcp` — each `author.*` tool registered as a provider tool
-with its own small request schema, natively enforced at the provider boundary, and
-called via JSON-RPC `tools/call`). Both entry points reach identical kernel paths;
-an agent picks whichever its harness speaks. The op namespace is `author.*` for
-the authoring tools and `dli.*` for the worker-protocol operations they invoke
-(for example `dli.name.check`, the naming oracle).
+stdio** (`deloreis serve --project <path>` — one JSON request per line, one JSON
+response per line) and **MCP** (`deloreis mcp --project <path>` — each
+`author.*` tool registered as a provider tool with its own small request schema,
+natively enforced at the provider boundary, and called via JSON-RPC
+`tools/call`). Both entry points load the same strict `deloreis.toml` project and
+reach identical kernel paths; an agent picks whichever its harness speaks. The
+op namespace is `author.*` for the authoring tools and `dli.*` for the
+worker-protocol operations they invoke (for example `dli.name.check`, the naming
+oracle).
 
 Two things that look like doors are not:
 
@@ -63,11 +65,17 @@ happens in a **workspace**: an in-memory staged layer over the compiled world.
 `author.open` creates a workspace and returns its id and digest. It opens in one
 of two modes:
 
-- `{"scope": "<name>"}` — stage over an existing scope. Additions accrue to that
-  scope's surface.
-- `{"fork": "<question>"}` — open a fork-scoped workspace (koan 2: a fork is
-  exploration over an unchanged store). Hypotheses and suppositions made here are
-  fork-local and never leak into canon.
+- `{"scope": "<name>"}` — stage over a logical document declared by the loaded
+  project. Additions accrue to that document's surface.
+- `{"fork": "<question>"}` — open a fork-scoped workspace over the one project
+  document that declares that question (koan 2: a fork is exploration over an
+  unchanged store). Hypotheses and suppositions made here are fork-local and
+  never leak into canon.
+
+Unknown scopes, unknown forks, and fork ids declared by more than one document
+are refused. Once opened, a workspace remains bound to that one document base
+for mutation findings, read tools, staged recompilation, and materialization; it
+cannot observe another document or the bundled demo world.
 
 ```json
 { "op": "author.open", "params": { "scope": "tpth" } }

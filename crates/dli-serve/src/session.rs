@@ -8,15 +8,13 @@
 //! the later fork ops resolve that handle back to the owning scope's
 //! [`ForkStore`].
 //!
-//! The corpus resolver is deliberately small at v0: the built-in `camelot`
-//! corpus (the crate's neutral demo world, `dli_world::loader::example_docs`)
-//! resolves hermetically, and any other id is [`ErrorCode::UnknownDoc`]. Pointing
-//! the resolver at a corpus directory — parse each `<id>.dli` through
-//! `dli_syntax::parse_document` and compile it — is the single seam that opens the
-//! surface to arbitrary corpora; the cache, handle registry, and every handler
-//! above are already corpus-agnostic.
+//! Production sessions resolve only logical ids declared by a versioned
+//! [`Project`]. The embedded neutral corpora remain available solely through the
+//! explicit demo constructor used by fixtures and examples. Neither source can
+//! fall back to the other.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
@@ -26,9 +24,10 @@ use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
 use dli_world::language::LanguageModel;
 use dli_world::loader::example_docs;
-use dli_world::{CompiledWorld, KilledTokens, Pack, compile};
+use dli_world::{CompiledWorld, Pack, compile};
 
 use crate::envelope::ErrorCode;
+use crate::project::Project;
 
 /// The built-in `french-deck` game ruleset — the shipped standard 52-card
 /// exemplar (`examples/games/french-deck/`). It gives the card / Ludii export
@@ -120,8 +119,9 @@ pub struct SimJob {
 /// the global fork-handle registry. One `Sessions` lives for the life of the
 /// `serve` loop; nothing here is persisted (the worker holds no cross-process job
 /// state — `10-serving.md` §5).
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Sessions {
+    source: CorpusSource,
     scopes: BTreeMap<String, Scope>,
     /// Wire fork handle → the scope and fork it names.
     fork_handles: BTreeMap<String, (String, ForkId)>,
@@ -135,24 +135,64 @@ pub struct Sessions {
     next_job: u64,
 }
 
+#[derive(Debug)]
+enum CorpusSource {
+    Demo,
+    Project(Arc<Project>),
+}
+
+impl Default for Sessions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Sessions {
-    /// An empty session store.
+    /// An empty session store over the explicit bundled demo corpus.
+    ///
+    /// Production entry points use [`from_project`](Self::from_project);
+    /// `new` remains the fixture/test constructor for the contract's demo ids.
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            source: CorpusSource::Demo,
+            scopes: BTreeMap::new(),
+            fork_handles: BTreeMap::new(),
+            next_handle: 0,
+            jobs: BTreeMap::new(),
+            next_job: 0,
+        }
+    }
+
+    /// A session store resolving only assets declared by `project`.
+    #[must_use]
+    pub fn from_project(project: Arc<Project>) -> Self {
+        Self {
+            source: CorpusSource::Project(project),
+            scopes: BTreeMap::new(),
+            fork_handles: BTreeMap::new(),
+            next_handle: 0,
+            jobs: BTreeMap::new(),
+            next_job: 0,
+        }
     }
 
     /// Resolve a document id to its compiled scope, compiling and caching on first
-    /// use. Only the built-in `camelot` corpus is wired at v0; every other id is
-    /// [`ErrorCode::UnknownDoc`] until the resolver is pointed at a corpus root.
+    /// use. Project sessions accept only manifest-declared logical ids; demo
+    /// sessions accept only their embedded fixture ids.
     ///
     /// A compile failure maps through the frozen [`ErrorCode`] conversion — an
     /// unstratifiable or contradictory corpus surfaces as its typed error, never a
     /// panic.
     pub fn scope(&mut self, document: &str) -> Result<&mut Scope, ErrorCode> {
         if !self.scopes.contains_key(document) {
-            let pack = builtin_pack(document).ok_or(ErrorCode::UnknownDoc)?;
-            let world = compile(&pack).map_err(ErrorCode::from)?;
+            let pack = self.pack(document).ok_or(ErrorCode::UnknownDoc)?;
+            let mut world = compile(&pack).map_err(ErrorCode::from)?;
+            if let CorpusSource::Project(project) = &self.source
+                && let Some(loaded) = project.document(document)
+            {
+                world.killed = loaded.killed.clone();
+            }
             let forks = ForkStore::new(world.model.world.clone());
             self.scopes
                 .insert(document.to_owned(), Scope { world, forks });
@@ -161,25 +201,6 @@ impl Sessions {
             .scopes
             .get_mut(document)
             .expect("scope was just resolved into the cache"))
-    }
-
-    /// Resolve a document and attach killed-token guardrails from a
-    /// [`KilledTokens`] store. When a world's craft config directory ships a
-    /// killed-token registry, the caller compiles it and passes it here so the
-    /// scope's `check_draft` runs enforce rejected-lore constraints.
-    // REVISIT(DL-0021): wire when corpus channel lands
-    pub fn scope_with_killed_tokens(
-        &mut self,
-        document: &str,
-        killed: KilledTokens,
-    ) -> Result<&mut Scope, ErrorCode> {
-        self.scope(document)?;
-        let scope = self
-            .scopes
-            .get_mut(document)
-            .expect("scope was just resolved");
-        scope.world.killed = killed;
-        Ok(scope)
     }
 
     /// Mint a fresh, stable wire handle bound to a fork within a document.
@@ -225,6 +246,48 @@ impl Sessions {
     /// `simulate.cancel` seam over a synchronous, already-complete run.
     pub fn cancel_job(&mut self, handle: &str) -> bool {
         self.jobs.remove(handle).is_some()
+    }
+
+    /// Resolve and clone a logical document's source pack.
+    #[must_use]
+    pub fn pack(&self, document: &str) -> Option<Pack> {
+        match &self.source {
+            CorpusSource::Demo => builtin_pack(document),
+            CorpusSource::Project(project) => {
+                project.document(document).map(|loaded| loaded.pack.clone())
+            }
+        }
+    }
+
+    /// Resolve and clone a logical document's episode season.
+    #[must_use]
+    pub fn episodes(&self, document: &str) -> Option<Vec<Episode>> {
+        match &self.source {
+            CorpusSource::Demo => builtin_episodes(document),
+            CorpusSource::Project(project) => project
+                .document(document)
+                .and_then(|loaded| loaded.episodes.clone()),
+        }
+    }
+
+    /// Resolve and clone a game plus its profile catalog.
+    #[must_use]
+    pub fn ruleset(&self, document: &str) -> Option<(Ruleset, Registry)> {
+        match &self.source {
+            CorpusSource::Demo => builtin_ruleset(document),
+            CorpusSource::Project(project) => project
+                .game(document)
+                .map(|game| (game.ruleset.clone(), game.profiles.clone())),
+        }
+    }
+
+    /// The language model visible to the current name-check wire operation.
+    #[must_use]
+    pub fn language_model(&self) -> LanguageModel {
+        match &self.source {
+            CorpusSource::Demo => demo_language_model(),
+            CorpusSource::Project(project) => project.language().clone(),
+        }
     }
 }
 

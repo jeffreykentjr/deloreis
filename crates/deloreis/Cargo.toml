@@ -25,5 +25,8 @@ miette = { workspace = true, features = ["fancy"] }
 serde.workspace = true
 serde_yaml_ng.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

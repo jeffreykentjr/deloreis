@@ -21,6 +21,7 @@
 //!   the contract version, and the arguments.
 
 use std::io::{self, BufRead, Write};
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -28,6 +29,7 @@ use crate::author;
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::handlers;
 use crate::ops::Op;
+use crate::project::Project;
 use crate::session::Sessions;
 
 /// The protocol/contract tag this worker speaks — the envelope's `dli` field. A
@@ -75,14 +77,21 @@ enum Frame {
 /// Run the newline-delimited JSON serve loop over stdio: read one frame per line,
 /// dispatch, write one response frame per line. Skipped noise lines produce no
 /// output. The session cache and the Door T store live for the life of the loop.
-pub fn serve() -> io::Result<()> {
+pub fn serve_demo() -> io::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     serve_io(&mut stdin.lock(), &mut stdout.lock())
 }
 
+/// Run the newline-delimited worker over an explicitly loaded caller project.
+pub fn serve_project(project: Project) -> io::Result<()> {
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    serve_project_io(&mut stdin.lock(), &mut stdout.lock(), project)
+}
+
 /// The serve loop over an arbitrary reader/writer — the testable core of
-/// [`serve`], and the seam an embedder drives directly.
+/// [`serve_demo`], and the seam demo fixtures drive directly.
 ///
 /// Lines are read as **raw bytes** (`read_until`) and lossy-decoded, never as
 /// `str`: a single hostile non-UTF-8 byte must not abort the loop (a `lines()`
@@ -92,7 +101,28 @@ pub fn serve() -> io::Result<()> {
 /// underlying stream ends the loop.
 pub fn serve_io<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> io::Result<()> {
     let mut sessions = Sessions::new();
-    let mut author_store = author_store()?;
+    let mut author_store = demo_author_store()?;
+    serve_with_stores(reader, writer, &mut sessions, &mut author_store)
+}
+
+/// The serve loop over a caller project and arbitrary I/O.
+pub fn serve_project_io<R: BufRead, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    project: Project,
+) -> io::Result<()> {
+    let project = Arc::new(project);
+    let mut sessions = Sessions::from_project(Arc::clone(&project));
+    let mut author_store = project_author_store(&project)?;
+    serve_with_stores(reader, writer, &mut sessions, &mut author_store)
+}
+
+fn serve_with_stores<R: BufRead, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    sessions: &mut Sessions,
+    author_store: &mut author::store::Store,
+) -> io::Result<()> {
     let mut buf = Vec::new();
 
     loop {
@@ -101,7 +131,7 @@ pub fn serve_io<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> io::Res
             break; // EOF
         }
         let line = String::from_utf8_lossy(&buf);
-        if let Some(response) = respond(&line, &mut sessions, &mut author_store) {
+        if let Some(response) = respond(&line, sessions, author_store) {
             let encoded =
                 serde_json::to_string(&response).unwrap_or_else(|_| INTERNAL_LINE.to_owned());
             writeln!(writer, "{encoded}")?;
@@ -147,15 +177,27 @@ pub fn dispatch(
     handlers::handle(request, sessions)
 }
 
-/// Construct the Door T store over the v0 built-in corpus, so the author read
+/// Construct the explicit demo Door T store, so the author read
 /// tools (`author.query`/`check`/`why`) evaluate `base + staged` — the base world
 /// the agent is authoring into, not the staged declarations alone (spec 11 §1). It
 /// resolves the pack through the same [`crate::session::builtin_pack`] the read
 /// surface uses, so the store base and the query scope never diverge.
-pub(crate) fn author_store() -> io::Result<author::store::Store> {
+pub(crate) fn demo_author_store() -> io::Result<author::store::Store> {
     let pack = crate::session::builtin_pack("camelot")
         .expect("the built-in camelot corpus is always present");
     author::store::Store::with_pack(pack).map_err(io::Error::other)
+}
+
+/// Construct a strict Door T store over every manifest-declared document.
+pub(crate) fn project_author_store(project: &Project) -> io::Result<author::store::Store> {
+    let packs = project.documents().map(|(id, document)| {
+        (
+            id.to_owned(),
+            document.pack.clone(),
+            document.killed.clone(),
+        )
+    });
+    author::store::Store::with_packs(packs).map_err(io::Error::other)
 }
 
 // -- framing -----------------------------------------------------------------

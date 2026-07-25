@@ -90,7 +90,8 @@ pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, 
 /// is silent (it is candidate lore, not a defect). Findings are deduplicated.
 pub(super) fn check(store: &Store, params: &AuthorCheckParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let mut findings = workspace_findings(ws, store.base());
+    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
+    let mut findings = workspace_findings(ws, base);
     match staged_world(store, ws) {
         Ok(world) => {
             for finding in check::run(&world) {
@@ -141,7 +142,8 @@ pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, Erro
 /// `materializable` answers "could I materialize now?".
 pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let all = dedup_findings(workspace_findings(ws, store.base()));
+    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
+    let all = dedup_findings(workspace_findings(ws, base));
     let (errors, warnings): (Vec<Finding>, Vec<Finding>) = all
         .into_iter()
         .partition(|finding| finding.severity == Severity::Error);
@@ -179,7 +181,10 @@ pub(super) fn list_workspaces(store: &Store) -> Value {
 /// empty). The staged declarations enter under the workspace's own scope header so
 /// they merge into the base pack and entity references resolve across both.
 fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalError> {
-    let mut documents = store.base_docs().to_vec();
+    let mut documents = store
+        .workspace_base_docs(&ws.id)
+        .unwrap_or_default()
+        .to_vec();
     documents.push(Document {
         scope: Some(ScopeHeader {
             name: Ident::synthetic(&ws.base_name),
@@ -191,7 +196,11 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
         name: ws.base_name.clone(),
         documents,
     })?;
-    Ok(world.with_killed_tokens(store.base().killed.clone()))
+    let killed = store
+        .workspace_base(&ws.id)
+        .map(|base| base.killed.clone())
+        .unwrap_or_default();
+    Ok(world.with_killed_tokens(killed))
 }
 
 /// The binary claim atoms a workspace's relations and facts assert — the input to

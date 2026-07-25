@@ -48,11 +48,12 @@ author.open                          open a workspace over a scope (or a fork)
 ```
 
 You reach the tools over a running `deloreis` server, on either of two
-transports carrying the identical tool surface: **`deloreis mcp`** registers every
-tool for MCP (call them with JSON-RPC `tools/list` then `tools/call`), and
-**`deloreis serve`** speaks the same tools as newline-delimited JSON over stdio.
-Pick whichever your harness speaks — the tools, findings, and rendered surface are
-the same on both.
+transports carrying the identical tool surface: **`deloreis mcp --project
+<path>`** registers every tool for MCP (call them with JSON-RPC `tools/list` then
+`tools/call`), and **`deloreis serve --project <path>`** speaks the same tools as
+newline-delimited JSON over stdio. `<path>` is `deloreis.toml` or its containing
+directory. Pick whichever your harness speaks; the tools, findings, and rendered
+surface are the same on both. `--demo` is only for the bundled neutral fixtures.
 
 Nothing you do touches disk or changes canon. All authoring happens in a
 **workspace**: an in-memory staged layer over the compiled world. `author.open`
