@@ -154,6 +154,18 @@ fn golden_session_flows_end_to_end() {
             "mara.home = the-shallows proposed session-fx01"
         ])
     );
+    assert!(
+        result(&diff)["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|f| f["code"] == "name.unvetted")),
+        "diff carries the full workspace findings"
+    );
+    assert!(
+        result(&diff)["consequences"]["newly_possible"]
+            .as_array()
+            .is_some(),
+        "diff carries a typed derived-consequence result"
+    );
 
     let materialized = send(
         &mut store,
@@ -661,6 +673,21 @@ fn control_char_in_origin_cannot_forge_and_bars_materialize() {
         &req("3", Op::AuthorDiff, json!({ "workspace": ws })),
     );
     assert_eq!(result(&diff)["rendered"].as_array().map(Vec::len), Some(1));
+    assert!(
+        result(&diff)["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|f| f["code"] == "field.control-char"))
+    );
+
+    let status = send(
+        &mut store,
+        &req("status", Op::AuthorStatus, json!({ "workspace": ws })),
+    );
+    assert!(
+        result(&status)["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|f| f["code"] == "field.control-char"))
+    );
 
     // Materialize refuses while the error finding is open.
     let blocked = send(

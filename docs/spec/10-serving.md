@@ -22,9 +22,12 @@ consuming application keeps its own orchestration, its own UI, and all of its
 LLM work; the worker keeps all evaluation and verdicts.
 
 The MCP transport is a thin wrapper, not a second protocol: it registers the
-same ops as MCP tools and forwards their JSON payloads unchanged, so an MCP
-client and a stdio client exercise identical kernel paths and identical
-fixtures. There is one worker surface; MCP is a way to reach it.
+same ops as MCP tools and forwards their arguments through the same request
+envelope, so an MCP client and a stdio client exercise identical kernel paths
+and identical fixtures. For a mutating Door-T tool, `expected_digest` and
+`idempotency_key` appear as ordinary MCP tool arguments; the adapter lifts those
+two reserved keys into the shared envelope before dispatch. There is one worker
+surface; MCP is a way to reach it.
 
 The surface serves **two op families** over the same process:
 

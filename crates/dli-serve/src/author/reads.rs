@@ -26,7 +26,7 @@
 //! Findings are data, never instructions (spec 11 §4), and instruction-shaped
 //! goal strings are parsed as atoms, never interpreted.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
@@ -34,6 +34,7 @@ use dli_ast::decl::{Decl, Document, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
+use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_eval::error::EvalError;
 use dli_eval::query::{Answer, Query, QueryOpts};
@@ -47,7 +48,7 @@ use dli_world::{CompiledWorld, compile};
 use crate::contract::{
     AuthorCheckParams, AuthorCheckResult, AuthorFindingsParams, AuthorFindingsResult,
     AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult, AuthorWhyParams,
-    AuthorWhyResult, WorkspaceDigest, WorkspaceMode,
+    AuthorWhyResult, DiffDelta, WorkspaceDigest, WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
@@ -90,26 +91,68 @@ pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, 
 /// is silent (it is candidate lore, not a defect). Findings are deduplicated.
 pub(super) fn check(store: &Store, params: &AuthorCheckParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
+    let findings = workspace_report(store, ws).findings;
+    let ok = findings
+        .iter()
+        .all(|finding| finding.severity != Severity::Error);
+    Ok(value(&AuthorCheckResult { ok, findings }))
+}
+
+/// The full staged-world report shared by status, diff, and check.
+pub(super) struct WorkspaceReport {
+    /// Every deduplicated finding over base plus staged declarations.
+    pub findings: Vec<Finding>,
+    /// The base-to-staged derived-consequence diff.
+    pub consequences: DiffDelta,
+}
+
+/// Compile and check one workspace without mutating it.
+pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport {
+    let Some(base) = store.workspace_base(&ws.id) else {
+        return WorkspaceReport {
+            findings: vec![Finding {
+                severity: Severity::Error,
+                code: "workspace.base-missing".to_owned(),
+                message: "the workspace's document base is no longer loaded".to_owned(),
+                grade: Grade::Checked,
+                repair: None,
+                citations: Vec::new(),
+            }],
+            consequences: DiffDelta::default(),
+        };
+    };
     let mut findings = workspace_findings(ws, base);
     match staged_world(store, ws) {
         Ok(world) => {
-            for finding in check::run(&world) {
-                findings.push(world_finding(&finding));
-            }
+            findings.extend(check::run(&world).iter().map(world_finding));
             for report in factcheck(&world, &staged_claims(&ws.decls)) {
                 if report.verdict == Verdict::Contradicted {
                     findings.push(contradiction_finding(&report));
                 }
             }
+            let findings = dedup_findings(findings);
+            let consequences = classify_standings(base, &world, &findings);
+            WorkspaceReport {
+                findings,
+                consequences,
+            }
         }
-        Err(err) => findings.push(uncompilable(&err)),
+        Err(err) => {
+            findings.push(uncompilable(&err));
+            let findings = dedup_findings(findings);
+            WorkspaceReport {
+                consequences: DiffDelta {
+                    conflicts: findings
+                        .iter()
+                        .filter(|finding| finding.severity == Severity::Error)
+                        .map(|finding| finding.message.clone())
+                        .collect(),
+                    ..DiffDelta::default()
+                },
+                findings,
+            }
+        }
     }
-    let findings = dedup_findings(findings);
-    let ok = findings
-        .iter()
-        .all(|finding| finding.severity != Severity::Error);
-    Ok(value(&AuthorCheckResult { ok, findings }))
 }
 
 // -- author.why --------------------------------------------------------------
@@ -192,15 +235,88 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
         }),
         decls: ws.decls.clone(),
     });
-    let world = compile(&Pack {
+    let mut world = compile(&Pack {
         name: ws.base_name.clone(),
         documents,
     })?;
+    for hypothesis in &ws.suppositions {
+        if let Some(index) = world
+            .model
+            .world
+            .interner
+            .names()
+            .iter()
+            .position(|name| name == hypothesis)
+            .and_then(|index| u32::try_from(index).ok())
+        {
+            world
+                .model
+                .world
+                .valuation
+                .set(dli_core::atom::Atom(index), true);
+        }
+    }
     let killed = store
         .workspace_base(&ws.id)
         .map(|base| base.killed.clone())
         .unwrap_or_default();
     Ok(world.with_killed_tokens(killed))
+}
+
+fn classify_standings(
+    base: &CompiledWorld,
+    staged: &CompiledWorld,
+    findings: &[Finding],
+) -> DiffDelta {
+    let before = standings(base);
+    let after = standings(staged);
+    let mut atoms: BTreeSet<&String> = before.keys().collect();
+    atoms.extend(after.keys());
+    let mut delta = DiffDelta::default();
+    for atom in atoms {
+        let (before_status, before_grade) = before
+            .get(atom)
+            .copied()
+            .unwrap_or((Status::Dead, Grade::Asserted));
+        let (after_status, after_grade) = after
+            .get(atom)
+            .copied()
+            .unwrap_or((Status::Dead, Grade::Asserted));
+        if before_status == after_status {
+            if after_status != Status::Dead && before_grade != after_grade {
+                delta.grade_changed.push(atom.clone());
+            }
+            continue;
+        }
+        match after_status {
+            Status::Certain => delta.newly_certain.push(atom.clone()),
+            Status::Possible => delta.newly_possible.push(atom.clone()),
+            Status::Dead => delta.newly_dead.push(atom.clone()),
+        }
+    }
+    delta.conflicts = findings
+        .iter()
+        .filter(|finding| finding.severity == Severity::Error)
+        .map(|finding| finding.message.clone())
+        .collect();
+    delta
+}
+
+fn standings(world: &CompiledWorld) -> BTreeMap<String, (Status, Grade)> {
+    let inner = &world.model.world;
+    inner
+        .derived
+        .iter()
+        .map(|derived| {
+            (
+                derived.atom.render(),
+                (
+                    derived.ann().status(&inner.valuation, &inner.theory),
+                    inner.grade_under(derived, &inner.valuation),
+                ),
+            )
+        })
+        .collect()
 }
 
 /// The binary claim atoms a workspace's relations and facts assert — the input to

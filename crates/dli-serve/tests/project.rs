@@ -162,6 +162,14 @@ fn rejects_ambiguous_ids_duplicate_sources_and_duplicate_forks() {
     let error = Project::load(&root).unwrap_err().to_string();
     assert!(error.contains("same source more than once"), "{error}");
 
+    write_manifest(
+        &root,
+        "[documents.one]\nsources = [\"world.dli\"]\n\
+         [documents.two]\nsources = [\"world.dli\"]\n",
+    );
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("owned by both `one` and `two`"), "{error}");
+
     fs::write(
         root.join("one.dli"),
         "scope one\nfork shared-question\n  option first\n",
@@ -329,4 +337,24 @@ fn rejects_a_storage_path_whose_existing_ancestor_escapes() {
 
     let error = Project::load(&root).unwrap_err().to_string();
     assert!(error.contains("traverses a symlink outside"), "{error}");
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_storage_paths_that_alias_the_same_directory() {
+    use std::os::unix::fs::symlink;
+
+    let root = temp("project-storage-symlink-alias");
+    fs::create_dir_all(root.join("shared")).unwrap();
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    symlink("shared", root.join("evidence")).unwrap();
+    symlink("shared", root.join("cache")).unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"evidence\"\ncache = \"cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("non-overlapping"), "{error}");
 }

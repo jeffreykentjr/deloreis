@@ -39,6 +39,7 @@ use crate::contract::{
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, Severity};
 
+use super::reads;
 use super::render::{render_decls, render_option, render_scoped};
 use super::store::Store;
 use super::workspace::{Mode, Workspace};
@@ -76,17 +77,22 @@ pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value
 /// The workspace's staged canonical surface and current digest.
 pub(super) fn status(store: &Store, params: &AuthorStatusParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    let report = reads::workspace_report(store, ws);
     Ok(value(&AuthorStatusResult {
         rendered: render_decls(&ws.decls),
+        findings: report.findings,
         workspace_digest: ws.digest.clone(),
     }))
 }
 
-/// The rendered canonical block of the whole staged change (spec 11 §2).
+/// The rendered canonical block, findings, and consequences of the staged change.
 pub(super) fn diff(store: &Store, params: &AuthorDiffParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    let report = reads::workspace_report(store, ws);
     Ok(value(&AuthorDiffResult {
         rendered: render_decls(&ws.decls),
+        findings: report.findings,
+        consequences: report.consequences,
     }))
 }
 

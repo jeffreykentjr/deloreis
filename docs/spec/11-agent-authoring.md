@@ -105,11 +105,12 @@ The workspace supports:
   never writes canon; the calling agent commits the returned bytes through its own
   repository's review.
 
-Every mutating call carries the **workspace digest** it expects and returns the
-new digest. A digest that does not match the workspace's current state is an
-error with code `stale-fence` (class `refused` — the frame was well-formed; a
-precondition failed): the agent has an out-of-date view and must re-read before
-continuing.
+Every workspace mutation after `author.open` carries the **workspace digest** it
+expects and returns the new digest. (`author.open` creates the first digest, so
+there is no prior fence to present.) A digest that does not match the
+workspace's current state is an error with code `stale-fence` (class `refused`
+— the frame was well-formed; a precondition failed): the agent has an
+out-of-date view and must re-read before continuing.
 
 ```json
 {
@@ -123,15 +124,21 @@ continuing.
 }
 ```
 
-Every mutating call also carries an **idempotency key**. A retried call with a
-key already applied returns the original result and stages nothing new — retries
-are safe under the at-least-once delivery of either transport.
+Every workspace mutation after `author.open` also carries an **idempotency
+key**. A retried call with a key already applied returns the original result and
+stages nothing new — retries are safe under the at-least-once delivery of either
+transport.
 
 `expected_digest` and `idempotency_key` are declared envelope fields (request
 level, defined for mutating `author.*` calls); the normative wire shape is
 `docs/integration/fantasy-contract.md` §2, and "unknown fields are errors"
 stands because these are known fields. Workspace digests are RFC 8785 JCS digests
 (contract §4); the short forms shown here are illustrative.
+
+On MCP, both fields are exposed as reserved top-level tool arguments beside the
+tool's semantic parameters. The adapter removes those two keys from `params` and
+lifts them into the shared worker envelope before dispatch, preserving the same
+stale-fence and idempotency behavior as native stdio.
 
 An `author.diff` for a two-fact workspace renders as canonical surface:
 

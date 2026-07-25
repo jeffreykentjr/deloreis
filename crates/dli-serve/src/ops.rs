@@ -210,6 +210,24 @@ impl Op {
         Op::AuthorListWorkspaces,
     ];
 
+    /// Whether this workspace mutation accepts digest/idempotency fences.
+    #[must_use]
+    pub const fn accepts_author_fences(self) -> bool {
+        matches!(
+            self,
+            Op::AuthorDiscard
+                | Op::AuthorAddEntity
+                | Op::AuthorAddFact
+                | Op::AuthorAddRelation
+                | Op::AuthorAddEvent
+                | Op::AuthorAddBefore
+                | Op::AuthorOpenQuestion
+                | Op::AuthorAddOption
+                | Op::AuthorAddHypothesis
+                | Op::AuthorSuppose
+        )
+    }
+
     /// A one-line, role-bearing description of what the op does and when to reach
     /// for it — the tool-**selection** text an agent reads when choosing among the
     /// tools (the MCP `tools/list` description; the per-field schema documents

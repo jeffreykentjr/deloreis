@@ -556,10 +556,12 @@ pub struct AuthorStatusParams {
 }
 
 /// `author.status` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorStatusResult {
     /// The rendered workspace state.
     pub rendered: Vec<String>,
+    /// Every current graded finding over the staged world.
+    pub findings: Vec<Finding>,
     /// The current workspace digest.
     pub workspace_digest: String,
 }
@@ -575,10 +577,14 @@ pub struct AuthorDiffParams {
 }
 
 /// `author.diff` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorDiffResult {
     /// The rendered diff lines.
     pub rendered: Vec<String>,
+    /// Every current graded finding over the staged world.
+    pub findings: Vec<Finding>,
+    /// The base-to-staged derived-consequence diff.
+    pub consequences: DiffDelta,
 }
 
 // -- author.discard ----------------------------------------------------------

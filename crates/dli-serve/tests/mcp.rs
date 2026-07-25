@@ -55,6 +55,18 @@ fn mcp_session_registers_tools_and_forwards_calls() {
         tools.iter().all(|t| t["inputSchema"].is_object()),
         "every tool carries an input schema"
     );
+    let add_entity = tools
+        .iter()
+        .find(|tool| tool["name"] == "author.add_entity")
+        .expect("mutating author tool");
+    assert!(
+        add_entity["inputSchema"]["properties"]["expected_digest"].is_object(),
+        "MCP exposes the digest fence as a standard tool argument"
+    );
+    assert!(
+        add_entity["inputSchema"]["properties"]["idempotency_key"].is_object(),
+        "MCP exposes the retry key as a standard tool argument"
+    );
 
     // tools/call a batch op — identical kernel path to the stdio worker
     let call = rpc(
@@ -87,6 +99,26 @@ fn mcp_session_registers_tools_and_forwards_calls() {
     assert_eq!(author_response["ok"], true);
     assert!(author_response["result"]["workspace"].is_string());
 
+    let stale = rpc(
+        r#"{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"author.add_entity","arguments":{"workspace":"ws-1","kind":"person","id":"sif","name":"Sif","provenance":{"kind":"proposed","origin":"probe"},"expected_digest":"jcs:sha256:deadbeef","idempotency_key":"entity-sif"}}}"#,
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(stale["result"]["isError"], true);
+    let stale_response: Value =
+        serde_json::from_str(stale["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(stale_response["error"]["code"], "stale-fence");
+
+    let digest = author_response["result"]["workspace_digest"]
+        .as_str()
+        .expect("open digest");
+    let add_line = format!(
+        r#"{{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{{"name":"author.add_entity","arguments":{{"workspace":"ws-1","kind":"person","id":"sif","name":"Sif","provenance":{{"kind":"proposed","origin":"probe"}},"expected_digest":"{digest}","idempotency_key":"entity-sif"}}}}}}"#
+    );
+    let first = rpc(&add_line, &mut sessions, &mut author);
+    let replay = rpc(&add_line, &mut sessions, &mut author);
+    assert_eq!(first["result"]["content"], replay["result"]["content"]);
+
     // an unknown tool routes to unknown-op, surfaced as isError (not a transport error)
     let unknown_tool = rpc(
         r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"dli.frobnicate","arguments":{}}}"#,
@@ -102,4 +134,27 @@ fn mcp_session_registers_tools_and_forwards_calls() {
         &mut author,
     );
     assert_eq!(unknown_method["error"]["code"], -32601);
+}
+
+#[test]
+fn mcp_only_lifts_fences_for_author_mutations() {
+    let mut sessions = Sessions::new();
+    let mut author = Store::default();
+    let fence_on_read = rpc(
+        r#"{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"author.status","arguments":{"workspace":"ws-1","expected_digest":"jcs:sha256:deadbeef"}}}"#,
+        &mut sessions,
+        &mut author,
+    );
+
+    assert_eq!(fence_on_read["result"]["isError"], true);
+    let response: Value = serde_json::from_str(
+        fence_on_read["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        response["error"]["code"], "schema-violation",
+        "fence fields remain unknown on read-only tools"
+    );
 }

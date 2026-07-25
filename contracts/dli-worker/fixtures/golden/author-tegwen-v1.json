@@ -173,6 +173,45 @@
         "id": "6",
         "ok": true,
         "result": {
+          "consequences": {
+            "conflicts": [],
+            "grade_changed": [],
+            "newly_certain": [],
+            "newly_dead": [],
+            "newly_possible": [
+              "located_in(tegwen, gwern)"
+            ]
+          },
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"gwern\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "gwern"
+                }
+              },
+              "severity": "warn"
+            },
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"tegwen\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "tegwen"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
           "rendered": [
             "place gwern \"Gwern\" proposed agent:factory/ep9-cast",
             "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast",

@@ -4,6 +4,13 @@
   "description": "`author.status` result.",
   "type": "object",
   "properties": {
+    "findings": {
+      "description": "Every current graded finding over the staged world.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Finding"
+      }
+    },
     "rendered": {
       "description": "The rendered workspace state.",
       "type": "array",
@@ -18,6 +25,88 @@
   },
   "required": [
     "rendered",
+    "findings",
     "workspace_digest"
-  ]
+  ],
+  "$defs": {
+    "Finding": {
+      "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "A stable finding code.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The grade at which the finding is asserted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable message.",
+          "type": "string"
+        },
+        "repair": {
+          "description": "An optional structured repair suggestion."
+        },
+        "severity": {
+          "description": "The severity, which gates materialization.",
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "grade"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
+      "oneOf": [
+        {
+          "description": "Blocks `author.materialize`.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "Advisory; does not block materialization.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    }
+  }
 }

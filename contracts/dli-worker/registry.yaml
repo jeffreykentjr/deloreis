@@ -65,13 +65,13 @@ fixtures:
 - path: golden/author-query-v1.json
   sha256: 098324ed98d85815e79921f4631e54b3b13b5b16defe474230090f36afad1ecb
 - path: golden/author-session-v1.json
-  sha256: ce44612aa9a7cf51ddc2cc11d161c29e5a6e0cf30e16307a2c94653c75854c5c
+  sha256: e8f809fbd6a933aebaa781f76023df397bb0b77925b28dd01f1a6b2db22aea87
 - path: golden/author-status-v1.json
-  sha256: 7d2172c9521957a4533437c472573fe831cd1d6ce887e1b92b65a72b87a81e3b
+  sha256: f1ebdd1694b9e00d7c08c20aea7422cf23fd8efdd5a8767a91e02f07b6948afe
 - path: golden/author-suppose-v1.json
   sha256: f964f89585b5c64da9dd8f15145691f26601613cc1a59d5de6b9f889ac1e74b7
 - path: golden/author-tegwen-v1.json
-  sha256: f1858a4f1e5250d92ec68f81656ef2aaf4372926aaff3ab0d6f685c50bdf0355
+  sha256: e893e81f10195798fd31c3202d132e9568b328adc72f9e1bde676352e864c773
 - path: golden/author-why-v1.json
   sha256: 7b78c7cfd3f4241e5f9401607ddca4f56008654d606c8c2be92e84b3859dfe1e
 - path: golden/check-basic-v1.json

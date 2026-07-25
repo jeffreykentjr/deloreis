@@ -53,7 +53,9 @@ model utterance is one of four declared classes, or it does not enter.*
   caller never clobbers a moved fence — and `idempotency_key` — a retry-safe key,
   so a re-sent mutating `author.*` call is applied at most once. Both are
   **declared** fields; "unknown fields are errors" still stands — these are now
-  known.
+  known. Native stdio carries them in the request envelope. MCP exposes them as
+  reserved tool arguments and lifts them into that same envelope before shared
+  dispatch.
 - **Every mutating call returns immediately.** No mutating operation defers its
   verdict; the graded findings, the rendered canonical lines, and the workspace
   or fork digest come back on the same call.

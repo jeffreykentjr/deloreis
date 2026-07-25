@@ -195,6 +195,19 @@ fn end_to_end_self_check_session() {
         "why:true attaches the support antichain"
     );
 
+    let diff = send(
+        &mut store,
+        "diff",
+        Op::AuthorDiff,
+        json!({ "workspace": ws }),
+    );
+    assert!(
+        result(&diff)["consequences"]["newly_possible"]
+            .as_array()
+            .is_some_and(|atoms| { atoms.iter().any(|atom| atom == "serves(mara, the-warden)") }),
+        "the supervision diff carries staged derived consequences"
+    );
+
     // author.why — why the staged claim can't be certain yet: it is proposed, so
     // it awaits a ruling (an open hypothesis stands between it and certainty).
     let why = send(

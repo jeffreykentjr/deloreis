@@ -3,12 +3,11 @@
 //! The MCP transport is a **thin wrapper, not a second protocol** (DL-0014;
 //! `docs/spec/10-serving.md` §1). It speaks JSON-RPC 2.0 over stdio, registers
 //! every `dli.*` and `author.*` op as an MCP tool (`tools/list`), and forwards a
-//! `tools/call` payload **unchanged** through the very same [`crate::serve::respond`]
-//! path the stdio worker uses. An MCP client and a stdio client therefore
-//! exercise identical kernel paths and identical fixtures: a `tools/call` builds
-//! the ordinary wire frame `{dli, id, op, params}` and routes it through the
-//! shared dispatch, so killed forms, unknown ops, schema errors, and capability
-//! gating all behave exactly as they do on the native surface.
+//! `tools/call` payload through the very same [`crate::serve::respond`] path the
+//! stdio worker uses. An MCP client and a stdio client therefore exercise
+//! identical kernel paths and identical fixtures: a `tools/call` builds the
+//! ordinary wire frame `{dli, id, op, params}`, lifting the two reserved Door-T
+//! fence arguments into the envelope, and routes it through shared dispatch.
 
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -127,10 +126,30 @@ fn tool_descriptors() -> Vec<Value> {
         .iter()
         .map(|op| {
             let wire = wire_name(*op);
-            let input_schema = schemas
+            let mut input_schema = schemas
                 .get(&format!("{wire}.request"))
                 .cloned()
                 .unwrap_or_else(|| json!({ "type": "object" }));
+            if op.accepts_author_fences()
+                && let Some(properties) = input_schema
+                    .get_mut("properties")
+                    .and_then(Value::as_object_mut)
+            {
+                properties.insert(
+                    "expected_digest".to_owned(),
+                    json!({
+                        "type": "string",
+                        "description": "The caller's last-seen workspace digest."
+                    }),
+                );
+                properties.insert(
+                    "idempotency_key".to_owned(),
+                    json!({
+                        "type": "string",
+                        "description": "A retry-safe key for this mutation."
+                    }),
+                );
+            }
             json!({
                 "name": wire,
                 "description": op.summary(),
@@ -153,12 +172,34 @@ fn tools_call(
         .get("name")
         .and_then(Value::as_str)
         .ok_or_else(|| (-32602, "tools/call requires a string `name`".to_owned()))?;
-    let arguments = params
+    let mut arguments = params
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
+    let accepts_author_fences = Op::ALL
+        .iter()
+        .copied()
+        .find(|op| wire_name(*op) == name)
+        .is_some_and(Op::accepts_author_fences);
+    let (expected_digest, idempotency_key) = if accepts_author_fences {
+        match arguments.as_object_mut() {
+            Some(arguments) => (
+                arguments.remove("expected_digest"),
+                arguments.remove("idempotency_key"),
+            ),
+            None => (None, None),
+        }
+    } else {
+        (None, None)
+    };
 
-    let frame = json!({ "dli": "0.1.0", "id": "mcp", "op": name, "params": arguments });
+    let mut frame = json!({ "dli": "0.1.0", "id": "mcp", "op": name, "params": arguments });
+    if let Some(expected_digest) = expected_digest {
+        frame["expected_digest"] = expected_digest;
+    }
+    if let Some(idempotency_key) = idempotency_key {
+        frame["idempotency_key"] = idempotency_key;
+    }
     let response = crate::serve::respond(&frame.to_string(), sessions, author)
         .ok_or_else(|| (-32603, "the worker produced no response".to_owned()))?;
     let text = serde_json::to_string(&response).map_err(|e| (-32603, e.to_string()))?;

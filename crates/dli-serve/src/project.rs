@@ -44,6 +44,8 @@ pub struct ProjectDocument {
     pub episodes: Option<Vec<Episode>>,
     /// Optional rejected-lore token registry.
     pub killed: KilledTokens,
+    /// Canonical source paths, retained to enforce one logical owner per file.
+    source_paths: Vec<PathBuf>,
 }
 
 /// One project game and its export profile registry.
@@ -320,11 +322,20 @@ fn load_documents(
     entries: BTreeMap<String, DocumentEntry>,
 ) -> Result<BTreeMap<String, ProjectDocument>, ProjectError> {
     let mut loaded = BTreeMap::new();
+    let mut source_owners = BTreeMap::<PathBuf, String>::new();
     let mut fork_owners = BTreeMap::<String, String>::new();
     let mut dialect_owners = BTreeMap::<String, String>::new();
     for (id, entry) in entries {
         validate_id("document", &id)?;
         let document = load_document(root, &id, &entry)?;
+        for path in &document.source_paths {
+            if let Some(first) = source_owners.insert(path.clone(), id.clone()) {
+                return Err(ProjectError::Invalid(format!(
+                    "source `{}` is owned by both `{first}` and `{id}`; each source file must belong to one logical document",
+                    path.display()
+                )));
+            }
+        }
         reject_duplicate_decls(&id, &document.pack, &mut fork_owners, &mut dialect_owners)?;
         loaded.insert(id, document);
     }
@@ -336,7 +347,7 @@ fn load_document(
     id: &str,
     entry: &DocumentEntry,
 ) -> Result<ProjectDocument, ProjectError> {
-    let pack = load_pack(root, id, &entry.sources)?;
+    let (pack, source_paths) = load_pack(root, id, &entry.sources)?;
     compile(&pack).map_err(|error| ProjectError::Compile {
         document: id.to_owned(),
         message: error.to_string(),
@@ -356,10 +367,15 @@ fn load_document(
         pack,
         episodes,
         killed,
+        source_paths,
     })
 }
 
-fn load_pack(root: &Path, id: &str, sources: &[PathBuf]) -> Result<Pack, ProjectError> {
+fn load_pack(
+    root: &Path,
+    id: &str,
+    sources: &[PathBuf],
+) -> Result<(Pack, Vec<PathBuf>), ProjectError> {
     if sources.is_empty() {
         return Err(ProjectError::Invalid(format!(
             "document `{id}` has no sources"
@@ -388,8 +404,8 @@ fn load_pack(root: &Path, id: &str, sources: &[PathBuf]) -> Result<Pack, Project
     }
 
     let mut documents = Vec::with_capacity(paths.len());
-    for path in paths {
-        let source = fs::read_to_string(&path).map_err(|error| ProjectError::AssetPath {
+    for path in &paths {
+        let source = fs::read_to_string(path).map_err(|error| ProjectError::AssetPath {
             field: format!("documents.{id}.sources"),
             path: path.display().to_string(),
             message: error.to_string(),
@@ -404,10 +420,13 @@ fn load_pack(root: &Path, id: &str, sources: &[PathBuf]) -> Result<Pack, Project
         }
         documents.push(document);
     }
-    Ok(Pack {
-        name: id.to_owned(),
-        documents,
-    })
+    Ok((
+        Pack {
+            name: id.to_owned(),
+            documents,
+        },
+        paths,
+    ))
 }
 
 fn reject_duplicate_decls(
@@ -562,7 +581,14 @@ fn resolve_storage(root: &Path, field: &str, path: &Path) -> Result<PathBuf, Pro
             message: "the nearest existing ancestor is not a directory".into(),
         });
     }
-    Ok(joined)
+    let suffix = joined
+        .strip_prefix(ancestor)
+        .map_err(|_| ProjectError::AssetPath {
+            field: field.to_owned(),
+            path: path.display().to_string(),
+            message: "the storage path could not be normalized".into(),
+        })?;
+    Ok(canonical.join(suffix))
 }
 
 fn load_yaml<T: for<'de> Deserialize<'de>>(
