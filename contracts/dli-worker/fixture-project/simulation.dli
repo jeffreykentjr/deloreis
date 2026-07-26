@@ -1,0 +1,5 @@
+scope simulation
+
+practice accounting proposed {
+  resource balance : linear conserved
+}

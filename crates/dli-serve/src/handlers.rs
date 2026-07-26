@@ -59,7 +59,7 @@ use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::evidence::{self, EvidenceError};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
-use crate::session::{Scope, Sessions, SimJob};
+use crate::session::{Scope, Sessions};
 
 /// A handler failure: a typed wire code and a domain-spoken message.
 type Fault = (ErrorCode, String);
@@ -69,20 +69,6 @@ type Fault = (ErrorCode, String);
 /// `author.*` op reaching here is an internal routing bug, reported as such.
 #[must_use]
 pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
-    if !is_implemented(request.op) {
-        if let Err((code, message)) = validate_gated_params(request) {
-            return error_response(request, code, message);
-        }
-        return error_response(
-            request,
-            ErrorCode::NotWired,
-            format!(
-                "{} is defined by contract {CONTRACT_VERSION} but this build does not yet \
-                 implement its promised semantics",
-                wire_name(request.op)
-            ),
-        );
-    }
     let outcome = match request.op {
         Op::Version => handle_version(request),
         Op::Check => handle_check(request, sessions),
@@ -695,6 +681,13 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
 
 fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: SimulateStartParams = params(request)?;
+    let project = require_project(sessions)?;
+    if p.checkpoint_every == 0 {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "`checkpoint_every` must be at least 1".to_owned(),
+        ));
+    }
     // Source the first declared practice from the document (the same corpus the
     // scope compiles); `trials` is the trial count.
     let pack = sessions.pack(&p.document).ok_or_else(|| {
@@ -726,59 +719,59 @@ fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<R
         invariants: default_invariants(&pack),
         affine_caps: std::collections::BTreeMap::new(),
     };
-    let manifest = battery.run();
-    let job_id = sessions.register_job(SimJob {
-        status: SimulateJobStatus::Complete,
-        trials_done: p.trials,
-        trials_total: p.trials,
-        manifest,
-    });
+    let job = crate::simulation::start_job(&project, &p.document, battery, p.checkpoint_every)
+        .map_err(|error| evidence_fault(&error))?;
+    if matches!(
+        job.status,
+        SimulateJobStatus::Pending | SimulateJobStatus::Running
+    ) {
+        sessions.queue_simulation_worker(job.job_id.clone());
+    }
     Ok(ok_response(
         request,
         &SimulateStartResult {
-            job_id,
-            status: SimulateJobStatus::Complete,
+            job_id: job.job_id,
+            status: job.status,
         },
     ))
 }
 
 fn handle_simulate_status(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: SimulateStatusParams = params(request)?;
-    let job = sessions.job(&p.job_id).ok_or_else(|| {
-        (
-            ErrorCode::UnknownDoc,
-            format!("no simulation job named '{}' is running", p.job_id),
-        )
-    })?;
+    let project = require_project(sessions)?;
+    let job = crate::simulation::status_job(&project, &p.job_id)
+        .map_err(|error| evidence_fault(&error))?;
+    if matches!(
+        job.status,
+        SimulateJobStatus::Pending | SimulateJobStatus::Running
+    ) {
+        sessions.queue_simulation_worker(job.job_id.clone());
+    }
     Ok(ok_response(
         request,
         &SimulateStatusResult {
-            job_id: p.job_id,
+            job_id: job.job_id,
             status: job.status,
             trials_done: job.trials_done,
             trials_total: job.trials_total,
-            manifest: Some(job.manifest.clone()),
-            manifest_digest: Some(job.manifest.digest()),
+            manifest: job.manifest,
+            manifest_digest: job.manifest_digest,
         },
     ))
 }
 
 fn handle_simulate_cancel(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: SimulateCancelParams = params(request)?;
-    if sessions.cancel_job(&p.job_id) {
-        Ok(ok_response(
-            request,
-            &SimulateCancelResult {
-                job_id: p.job_id,
-                status: SimulateJobStatus::Cancelled,
-            },
-        ))
-    } else {
-        Err((
-            ErrorCode::UnknownDoc,
-            format!("no simulation job named '{}' is running", p.job_id),
-        ))
-    }
+    let project = require_project(sessions)?;
+    let job = crate::simulation::cancel_job(&project, &p.job_id)
+        .map_err(|error| evidence_fault(&error))?;
+    Ok(ok_response(
+        request,
+        &SimulateCancelResult {
+            job_id: job.job_id,
+            status: job.status,
+        },
+    ))
 }
 
 /// The generator bound on deltas drawn per resource per trial for the default
@@ -1603,6 +1596,7 @@ fn require_project(sessions: &Sessions) -> Result<std::sync::Arc<crate::project:
 
 fn evidence_fault(error: &EvidenceError) -> Fault {
     let code = match error {
+        EvidenceError::NotFound(_) => ErrorCode::UnknownJob,
         EvidenceError::Conflict(_) => ErrorCode::Conflict,
         EvidenceError::Corrupt(_) => ErrorCode::EvidenceCorrupt,
         EvidenceError::Invalid(_) => ErrorCode::SchemaViolation,
@@ -1611,41 +1605,9 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
     (code, error.to_string())
 }
 
-/// Whether this build satisfies the operation's documented semantics.
-///
-/// The gated evidence and simulation operations retain typed schemas and
-/// fixtures, but are not advertised until their persistence and restart
-/// guarantees land.
-fn is_implemented(op: Op) -> bool {
-    !matches!(
-        op,
-        Op::SimulateStart | Op::SimulateStatus | Op::SimulateCancel
-    )
-}
-
-/// Validate a gated operation's request shape without executing its unfinished
-/// semantics. Capability gating must not weaken the contract's field checks.
-fn validate_gated_params(request: &Request) -> Result<(), Fault> {
-    match request.op {
-        Op::CheckDraft => params::<CheckDraftParams>(request).map(drop),
-        Op::SimulateStart => params::<SimulateStartParams>(request).map(drop),
-        Op::SimulateStatus => params::<SimulateStatusParams>(request).map(drop),
-        Op::SimulateCancel => params::<SimulateCancelParams>(request).map(drop),
-        Op::AttestMissing => params::<AttestMissingParams>(request).map(drop),
-        Op::AttestationSweep => params::<AttestationSweepParams>(request).map(drop),
-        Op::PayloadSubmit => params::<PayloadSubmitParams>(request).map(drop),
-        _ => Ok(()),
-    }
-}
-
 /// The wire op names this build currently implements.
 fn capabilities() -> Vec<String> {
-    Op::ALL
-        .iter()
-        .copied()
-        .filter(|op| is_implemented(*op))
-        .map(wire_name)
-        .collect()
+    Op::ALL.iter().copied().map(wire_name).collect()
 }
 
 /// The op's wire identifier (its serde encoding).

@@ -589,7 +589,7 @@ fn null_valued_unknown_fields_are_rejected_recursively() {
 }
 
 #[test]
-fn capabilities_exclude_operations_whose_promised_semantics_are_gated() {
+fn capabilities_include_durable_simulation_jobs() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
     let version = send(
@@ -608,14 +608,16 @@ fn capabilities_exclude_operations_whose_promised_semantics_are_gated() {
         .as_ref()
         .and_then(|result| result["capabilities"].as_array())
         .expect("version capabilities");
-    for gated in [
+    for implemented in [
         "dli.simulate.start",
         "dli.simulate.status",
         "dli.simulate.cancel",
     ] {
         assert!(
-            !capabilities.iter().any(|capability| capability == gated),
-            "{gated} must not be advertised before its promised semantics land"
+            capabilities
+                .iter()
+                .any(|capability| capability == implemented),
+            "{implemented} must be advertised with its durable semantics"
         );
     }
 }

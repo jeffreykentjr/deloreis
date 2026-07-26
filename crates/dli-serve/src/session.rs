@@ -13,13 +13,12 @@
 //! explicit demo constructor used by fixtures and examples. Neither source can
 //! fall back to the other.
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Mutex};
 
 use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
 use dli_game::model::Ruleset;
-use dli_sim::RunManifest;
 use dli_syntax::parse_document;
 use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
@@ -27,7 +26,6 @@ use dli_world::language::LanguageModel;
 use dli_world::loader::example_docs;
 use dli_world::{CompiledWorld, Pack, compile};
 
-use crate::contract::SimulateJobStatus;
 use crate::envelope::ErrorCode;
 use crate::project::Project;
 
@@ -101,27 +99,11 @@ pub struct Scope {
     pub forks: ForkStore,
 }
 
-/// A completed simulation job held for the life of the serve loop. The worker
-/// runs a battery synchronously on `simulate.start` (bounded, replayable), so a
-/// job is `complete` the instant it is registered; `simulate.status` reads it back
-/// and `simulate.cancel` drops it. This legacy seam remains private while the
-/// public operations are capability-gated pending the durable job store.
-#[derive(Debug, Clone)]
-pub struct SimJob {
-    /// The job status (`complete` for a finished synchronous run).
-    pub status: SimulateJobStatus,
-    /// Trials folded into the current state.
-    pub trials_done: u64,
-    /// Trials requested.
-    pub trials_total: u64,
-    /// The completed run manifest.
-    pub manifest: RunManifest,
-}
-
 /// The session store shared across one serve process: the doc-id→scope cache and
 /// the global fork-handle registry. One `Sessions` lives for the life of the
-/// `serve` loop. Session scopes, forks, and simulation jobs are not persisted;
-/// project evidence is owned separately by the durable evidence store.
+/// `serve` loop. Session scopes and forks are process-local; simulation jobs are
+/// durable project evidence, with this store retaining only post-response worker
+/// scheduling state.
 #[derive(Debug)]
 pub struct Sessions {
     source: CorpusSource,
@@ -131,11 +113,11 @@ pub struct Sessions {
     /// Monotonic handle counter, so handles (`fork-1`, `fork-2`, …) are stable
     /// and never reused within a process.
     next_handle: u64,
-    /// Wire job handle → the completed simulation job it names.
-    jobs: BTreeMap<String, SimJob>,
-    /// Monotonic job counter, so handles (`job-1`, `job-2`, …) are stable and
-    /// never reused within a process.
-    next_job: u64,
+    /// Jobs to start only after the response that exposed their durable state has
+    /// been flushed.
+    queued_jobs: BTreeSet<String>,
+    /// Jobs currently owned by a background worker in this process.
+    active_jobs: Arc<Mutex<BTreeSet<String>>>,
 }
 
 #[derive(Debug)]
@@ -162,8 +144,8 @@ impl Sessions {
             scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
-            jobs: BTreeMap::new(),
-            next_job: 0,
+            queued_jobs: BTreeSet::new(),
+            active_jobs: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -175,8 +157,8 @@ impl Sessions {
             scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
-            jobs: BTreeMap::new(),
-            next_job: 0,
+            queued_jobs: BTreeSet::new(),
+            active_jobs: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -241,24 +223,56 @@ impl Sessions {
             .collect()
     }
 
-    /// Register a completed simulation job, minting a fresh stable wire handle.
-    pub fn register_job(&mut self, job: SimJob) -> String {
-        self.next_job += 1;
-        let handle = format!("job-{}", self.next_job);
-        self.jobs.insert(handle.clone(), job);
-        handle
+    /// Queue a durable job for background advancement after the current response
+    /// is visible to the caller.
+    pub fn queue_simulation_worker(&mut self, job_id: String) {
+        if matches!(&self.source, CorpusSource::Project(_)) {
+            self.queued_jobs.insert(job_id);
+        }
     }
 
-    /// Resolve a wire job handle to the completed job it names.
-    #[must_use]
-    pub fn job(&self, handle: &str) -> Option<&SimJob> {
-        self.jobs.get(handle)
-    }
+    /// Start every queued simulation worker.
+    ///
+    /// The serve and MCP loops call this only after flushing their response. A
+    /// direct dispatch test therefore observes deterministic `pending` state,
+    /// while a real transport never performs the long-running work before
+    /// acknowledging `simulate.start`.
+    pub fn release_simulation_workers(&mut self) {
+        let CorpusSource::Project(project) = &self.source else {
+            self.queued_jobs.clear();
+            return;
+        };
+        let queued = std::mem::take(&mut self.queued_jobs);
+        for job_id in queued {
+            let mut active = self
+                .active_jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if !active.insert(job_id.clone()) {
+                continue;
+            }
+            drop(active);
 
-    /// Drop a job by handle, returning whether it was present — the
-    /// `simulate.cancel` seam over a synchronous, already-complete run.
-    pub fn cancel_job(&mut self, handle: &str) -> bool {
-        self.jobs.remove(handle).is_some()
+            let project = Arc::clone(project);
+            let active_jobs = Arc::clone(&self.active_jobs);
+            let worker_id = job_id.clone();
+            let spawn = std::thread::Builder::new()
+                .name(format!("dli-sim-{}", &job_id[7..15]))
+                .spawn(move || {
+                    let _ = crate::simulation::run_to_terminal(&project, &worker_id);
+                    active_jobs
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .remove(&worker_id);
+                });
+            if spawn.is_err() {
+                self.active_jobs
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .remove(&job_id);
+                self.queued_jobs.insert(job_id);
+            }
+        }
     }
 
     /// Resolve and clone a logical document's source pack.

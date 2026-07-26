@@ -216,6 +216,68 @@ fn resume_rejects_a_foreign_checkpoint() {
 }
 
 #[test]
+fn resume_rejects_forged_accumulators() {
+    let battery = battery(
+        3,
+        40,
+        GenBounds {
+            max_steps: 3,
+            max_magnitude: 2,
+        },
+    );
+    let (_, snapshots) = battery.run_checkpointing(10);
+    let mut forged = snapshots[1].clone();
+    forged.metrics[0].sum = forged.metrics[0].sum.saturating_add(1);
+
+    let result = std::panic::catch_unwind(|| resume(&battery, &forged));
+    assert!(result.is_err(), "forged checkpoint state must be rejected");
+}
+
+#[test]
+fn durable_boundary_steps_match_uninterrupted_checkpointing() {
+    let battery = battery(
+        37,
+        23,
+        GenBounds {
+            max_steps: 4,
+            max_magnitude: 3,
+        },
+    );
+    let (expected, snapshots) = battery.run_checkpointing(6);
+    let mut checkpoint = dli_sim::Checkpoint::initial(&battery, Some(6));
+    let mut stepped = Vec::new();
+    while !checkpoint.advance_boundary(&battery).unwrap() {
+        stepped.push(checkpoint.clone());
+    }
+    stepped.push(checkpoint.clone());
+
+    assert_eq!(stepped, snapshots);
+    assert_eq!(
+        checkpoint.finalize(&battery).canonical_bytes(),
+        expected.canonical_bytes()
+    );
+}
+
+#[test]
+fn durable_checkpoint_validation_rejects_malformed_state() {
+    let battery = battery(
+        41,
+        12,
+        GenBounds {
+            max_steps: 4,
+            max_magnitude: 3,
+        },
+    );
+    let (_, snapshots) = battery.run_checkpointing(4);
+    let mut checkpoint = snapshots[0].clone();
+    checkpoint.metrics[0].trials += 1;
+
+    let error = checkpoint.validate_for(&battery).unwrap_err();
+    assert!(error.contains("metric accumulators"), "{error}");
+    assert!(checkpoint.advance_boundary(&battery).is_err());
+}
+
+#[test]
 fn invariant_violation_caught_with_a_real_witness() {
     let b = battery(
         20_260_720,

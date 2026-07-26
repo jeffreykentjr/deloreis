@@ -792,3 +792,27 @@ path leaves callers with a durable archive but no replayable verdict. Domain
 tags prevent structurally overlapping finding shapes from deserializing into
 the wrong variant, and retaining payload identity plus anchors preserves the
 evidence a caller needs to render or repair the defect.
+
+## DL-0034 — Contract 0.4.1 opens durable simulation jobs
+
+*Date: 2026-07-26*
+
+**Ruling** (supersedes DL-0031's remaining capability gate):
+`dli.simulate.start`, `dli.simulate.status`, and `dli.simulate.cancel` are
+advertised at contract `0.4.1`. A job id is the SHA-256 address of its canonical
+specification. The specification, cadence checkpoints, cancellation marker, and
+final manifest are project-owned evidence under `.dli-evidence/simulations/`.
+Committed records are immutable and canonical; checkpoints are replayed from
+their battery, seed, and trial count before use, and corruption fails closed.
+
+Start publishes pending state before the transport flushes its response and
+releases a background worker. Status verifies the durable head and schedules an
+unfinished job after process restart. Cancellation is serialized by the
+project evidence lock and takes effect at a checkpoint boundary. An exact start
+retry reopens the same pending, running, cancelled, or completed job.
+
+**Rationale.** A content-addressed job with replay-verified checkpoints can
+survive a worker crash without treating process memory as evidence. Publishing
+pending state before work begins makes acknowledgment honest, while
+boundary-serialized cancellation preserves both resumability and an observable
+cancel operation.

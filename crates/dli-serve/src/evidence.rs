@@ -26,6 +26,9 @@ const PAYLOAD_RECORD_VERSION: u32 = 1;
 /// A durable-evidence read or write failed.
 #[derive(Debug, Error)]
 pub enum EvidenceError {
+    /// A referenced durable record does not exist in this project.
+    #[error("evidence record does not exist: {0}")]
+    NotFound(String),
     /// Storage I/O failed.
     #[error("evidence storage failed at {path}: {source}")]
     Io {
@@ -128,12 +131,12 @@ struct LoadedAttestations {
     record_ids: BTreeSet<(QuestionKey, String)>,
 }
 
-struct EvidenceLock {
+pub(crate) struct EvidenceLock {
     _file: File,
 }
 
 impl EvidenceLock {
-    fn acquire(project: &Project) -> Result<Self, EvidenceError> {
+    pub(crate) fn acquire(project: &Project) -> Result<Self, EvidenceError> {
         validate_evidence_root(project)?;
         let path = project.evidence_dir().join(".write.lock");
         if let Ok(metadata) = fs::symlink_metadata(&path)
@@ -673,7 +676,10 @@ fn require_document<'a>(
     })
 }
 
-fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf, EvidenceError> {
+pub(crate) fn evidence_directory(
+    project: &Project,
+    components: &[&str],
+) -> Result<PathBuf, EvidenceError> {
     validate_evidence_root(project)?;
     let mut path = project.evidence_dir().to_path_buf();
     for component in components {
@@ -719,7 +725,7 @@ fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf,
     Ok(path)
 }
 
-fn validate_evidence_root(project: &Project) -> Result<(), EvidenceError> {
+pub(crate) fn validate_evidence_root(project: &Project) -> Result<(), EvidenceError> {
     let path = project.evidence_dir();
     let metadata = fs::symlink_metadata(path).map_err(|source| io_error(path, source))?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
@@ -738,7 +744,7 @@ fn validate_evidence_root(project: &Project) -> Result<(), EvidenceError> {
     Ok(())
 }
 
-fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
+pub(crate) fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
     let directory = path
         .parent()
         .expect("an evidence file always has a parent directory");
@@ -807,7 +813,7 @@ fn remove_stale_publication(temp: &Path, publication_dir: &Path) -> Result<(), E
     Ok(())
 }
 
-fn require_regular_json(path: &Path, kind: &str) -> Result<(), EvidenceError> {
+pub(crate) fn require_regular_json(path: &Path, kind: &str) -> Result<(), EvidenceError> {
     let metadata = fs::symlink_metadata(path).map_err(|source| io_error(path, source))?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {
         return Err(EvidenceError::Corrupt(format!(
@@ -824,7 +830,7 @@ fn require_regular_json(path: &Path, kind: &str) -> Result<(), EvidenceError> {
     Ok(())
 }
 
-fn validate_content_address<T: Serialize>(
+pub(crate) fn validate_content_address<T: Serialize>(
     path: &Path,
     bytes: &[u8],
     value: &T,
@@ -859,7 +865,7 @@ fn sync_directory(path: &Path) -> Result<(), EvidenceError> {
         .map_err(|source| io_error(path, source))
 }
 
-fn digest_bytes(bytes: &[u8]) -> String {
+pub(crate) fn digest_bytes(bytes: &[u8]) -> String {
     let hash = Sha256::digest(bytes);
     let mut out = String::with_capacity(71);
     out.push_str("sha256:");
@@ -870,7 +876,7 @@ fn digest_bytes(bytes: &[u8]) -> String {
     out
 }
 
-fn io_error(path: &Path, source: std::io::Error) -> EvidenceError {
+pub(crate) fn io_error(path: &Path, source: std::io::Error) -> EvidenceError {
     EvidenceError::Io {
         path: path.display().to_string(),
         source,

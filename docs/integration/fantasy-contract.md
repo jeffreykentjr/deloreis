@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.4.1. Caller-project isolation, typed response semantics, durable payload and attestation evidence, Door T, and complete paired framing replay are implemented; resumable simulation jobs remain open, and consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.4.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -21,9 +21,8 @@ either side disagrees with this document, this document wins.
 > **Implementation status:** this is still a pre-release contract. Version
 > `0.4.1` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
-> Durable fat-payload and attestation evidence is implemented. The three
-> `dli.simulate.*` operations remain capability-gated until resumable jobs land.
-> `CON-1` and `AUTH-1` are closed; `SERVE-1` remains open.
+> Durable fat-payload, attestation, and restart-resumable simulation evidence is
+> implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are closed.
 > Consumer cutover is excluded from this source-release round.
 
 ## 1. Parties
@@ -67,10 +66,7 @@ model utterance is one of four declared classes, or it does not enter.*
 
 ### 3.1 Batch operations — `dli.*`
 
-The table states the semantics an advertised operation must satisfy. The three
-capability-gated simulation operations retain reservation schemas and fixtures
-at `0.4.1`; their request/response shapes are already migrated to the durable
-job model that must land before they are enabled.
+The table states the semantics every advertised operation satisfies.
 
 | Op | Purpose | Returns |
 |---|---|---|
@@ -110,11 +106,10 @@ in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
 All 46 operation names have request/response schemas, dispatch arms, and golden
-+ negative + paired-framing fixtures. Capability-gated fixtures assert
-`not-wired`; they do not pretend that a placeholder response implements the
-Returns column. The complete fixture oracle passes against the real front end
-and a digest-pinned replay project. This closes contract shape and replay
-coverage (`CON-1`), not the unfinished `SERVE-1` runtime.
++ negative + paired-framing fixtures. The complete fixture oracle passes
+against the real front end and a digest-pinned replay project. This closes
+contract shape and replay coverage (`CON-1`) and the standalone worker runtime
+(`SERVE-1`).
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -264,8 +259,8 @@ code, is the authority.
 - **Quote anchors on encodings.** Every encoded item carries a verbatim quote and
   line; the kernel verifies the quote appears at the claimed position.
 - **Job orchestration.** The consumer owns queue policy, retries, and UI around
-  worker-owned durable jobs. It must not treat the gated `0.4.1` simulation
-  reservation as restart-safe.
+  worker-owned durable jobs. Exact start retries are content-addressed and
+  idempotent; status polling resumes pending or running work after restart.
 - **Digest-checked vendoring.** The contract copy is pinned to a digest and the
   gate fails if it drifts.
 - **Authorship through Door T.** Agents author lore through the `author.*` tools,

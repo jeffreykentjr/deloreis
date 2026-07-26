@@ -177,6 +177,121 @@ impl Checkpoint {
         self.battery_digest == battery.digest()
     }
 
+    /// Validate serialized running state before resuming it.
+    ///
+    /// A checkpoint is durable input once it has crossed a process boundary.
+    /// Digest agreement alone is not enough: counters, accumulator identities,
+    /// and cadence lineage must also agree with the battery. Callers loading a
+    /// checkpoint from disk must reject a malformed record rather than indexing
+    /// mismatched vectors or committing a forged partial result.
+    pub fn validate_for(&self, battery: &Battery) -> Result<(), String> {
+        if !self.matches(battery) {
+            return Err(format!(
+                "checkpoint belongs to battery {}, not {}",
+                self.battery_digest,
+                battery.digest()
+            ));
+        }
+        if self.seed != battery.seed || self.trials_total != battery.trials {
+            return Err("checkpoint seed or trial total differs from its battery".to_owned());
+        }
+        if self.trials_done > self.trials_total {
+            return Err("checkpoint has folded more trials than the battery declares".to_owned());
+        }
+        if self.every == Some(0) {
+            return Err("checkpoint cadence must be positive".to_owned());
+        }
+        if self.metrics.len() != battery.metrics.len()
+            || self
+                .metrics
+                .iter()
+                .zip(&battery.metrics)
+                .any(|(accum, spec)| {
+                    accum.metric != spec.name
+                        || accum.trials != self.trials_done
+                        || accum.sum_of_squares < 0
+                })
+        {
+            return Err(
+                "checkpoint metric accumulators do not match the battery and trial count"
+                    .to_owned(),
+            );
+        }
+        if self.invariants.len() != battery.invariants.len()
+            || self
+                .invariants
+                .iter()
+                .zip(&battery.invariants)
+                .any(|(accum, spec)| {
+                    accum.invariant != spec.name
+                        || accum
+                            .first_breach
+                            .as_ref()
+                            .is_some_and(|breach| breach.trial >= self.trials_done)
+                })
+        {
+            return Err("checkpoint invariant accumulators do not match the battery".to_owned());
+        }
+
+        let expected_lineage = match self.every {
+            Some(every) => {
+                let mut expected = Vec::new();
+                let mut boundary = every;
+                while boundary <= self.trials_done {
+                    expected.push(boundary);
+                    boundary = boundary.saturating_add(every);
+                    if boundary == u64::MAX && expected.last() == Some(&u64::MAX) {
+                        break;
+                    }
+                }
+                if self.trials_done == self.trials_total
+                    && self.trials_done > 0
+                    && expected.last() != Some(&self.trials_done)
+                {
+                    expected.push(self.trials_done);
+                }
+                expected
+            }
+            None if self.trials_done == 0 => Vec::new(),
+            None => vec![self.trials_done],
+        };
+        if self.lineage != expected_lineage {
+            return Err("checkpoint lineage does not match its cadence and trial count".to_owned());
+        }
+        let mut replayed = Self::initial(battery, self.every);
+        replayed.advance_to(battery, self.trials_done);
+        replayed.lineage = expected_lineage;
+        if replayed != *self {
+            return Err(
+                "checkpoint accumulators do not replay from its battery, seed, and trial count"
+                    .to_owned(),
+            );
+        }
+        Ok(())
+    }
+
+    /// Fold one durable cadence boundary and report whether the run is complete.
+    ///
+    /// This is the incremental counterpart to [`Battery::run_checkpointing`].
+    /// It validates the incoming state first and appends exactly one lineage
+    /// boundary, making it suitable for a job runner that commits after each
+    /// call.
+    pub fn advance_boundary(&mut self, battery: &Battery) -> Result<bool, String> {
+        self.validate_for(battery)?;
+        if self.is_complete() {
+            return Ok(true);
+        }
+        let every = self
+            .every
+            .ok_or_else(|| "a durable checkpoint must declare a cadence".to_owned())?;
+        let next = (self.trials_done / every + 1)
+            .saturating_mul(every)
+            .min(self.trials_total);
+        self.advance_to(battery, next);
+        self.lineage.push(self.trials_done);
+        Ok(self.is_complete())
+    }
+
     /// Fold trials `[trials_done, target)` into this checkpoint, in order.
     fn advance_to(&mut self, battery: &Battery, target: u64) {
         let target = target.min(self.trials_total);
@@ -315,16 +430,14 @@ impl Battery {
 /// every metric and invariant — matches straight-through byte-for-byte.
 ///
 /// # Panics
-/// Panics if the checkpoint does not belong to `battery` (its digest mismatches):
-/// resuming foreign state would silently corrupt the run, so it fails loudly.
+/// Panics if the checkpoint does not replay exactly against `battery`.
+/// Resuming foreign or forged state would silently corrupt the run, so it fails
+/// loudly.
 #[must_use]
 pub fn resume(battery: &Battery, checkpoint: &Checkpoint) -> RunManifest {
-    assert!(
-        checkpoint.matches(battery),
-        "checkpoint belongs to a different battery: {} vs {}",
-        checkpoint.battery_digest,
-        battery.digest()
-    );
+    checkpoint
+        .validate_for(battery)
+        .unwrap_or_else(|error| panic!("checkpoint cannot be resumed: {error}"));
     let mut cp = checkpoint.clone();
     let every = cp.every.unwrap_or_else(|| battery.trials.max(1));
     // The next boundary is the smallest multiple of `every` strictly above what

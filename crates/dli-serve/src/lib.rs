@@ -19,6 +19,7 @@ mod query_goal;
 pub mod schema;
 pub mod serve;
 pub mod session;
+mod simulation;
 
 /// The pre-v1 worker contract and envelope protocol version.
 pub const CONTRACT_VERSION: &str = "0.4.1";

@@ -1,7 +1,8 @@
 {
   "fixture": "golden/simulate-cancel-v1",
   "version": 1,
-  "expected_outcome": "gated",
+  "expected_outcome": "replay",
+  "project": true,
   "steps": [
     {
       "send": {
@@ -9,7 +10,7 @@
         "id": "1",
         "op": "dli.simulate.start",
         "params": {
-          "document": "warding-vows",
+          "document": "simulation",
           "seed": 42,
           "trials": 3,
           "checkpoint_every": 1
@@ -18,10 +19,10 @@
       "expect": {
         "dli": "0.4.1",
         "id": "1",
-        "ok": false,
-        "error": {
-          "code": "not-wired",
-          "message": "dli.simulate.start is defined by contract 0.4.1 but this build does not yet implement its promised semantics"
+        "ok": true,
+        "result": {
+          "job_id": "sha256:f5b0d84a285c48024ce69728bdf1b910675de462937473b13274b436fa04f501",
+          "status": "pending"
         }
       }
     },
@@ -31,16 +32,16 @@
         "id": "2",
         "op": "dli.simulate.cancel",
         "params": {
-          "job_id": "job-1"
+          "job_id": "sha256:f5b0d84a285c48024ce69728bdf1b910675de462937473b13274b436fa04f501"
         }
       },
       "expect": {
         "dli": "0.4.1",
         "id": "2",
-        "ok": false,
-        "error": {
-          "code": "not-wired",
-          "message": "dli.simulate.cancel is defined by contract 0.4.1 but this build does not yet implement its promised semantics"
+        "ok": true,
+        "result": {
+          "job_id": "sha256:f5b0d84a285c48024ce69728bdf1b910675de462937473b13274b436fa04f501",
+          "status": "cancelled"
         }
       }
     }

@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.4.1, offline and deterministic. Typed responses, durable payload and attestation evidence, and fixture closure are complete; resumable simulation jobs remain open."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.4.1, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
 ---
 
 # Serving
@@ -186,11 +186,7 @@ The full `dli.*` inventory is normatively specified in
 `integration/fantasy-contract.md`, where each op carries its request/response
 JSON Schema and its golden, negative, and framing fixtures. What follows is the
 semantics-side description: what each op means and which spec organ owns its
-behavior. Three rows are capability-gated at contract `0.4.1`:
-`dli.simulate.start`, `dli.simulate.status`, and `dli.simulate.cancel`. Their
-rows describe the semantics required before they may be advertised; the
-retained schemas are reservations, not implemented behavior. The inventory, by
-family:
+behavior. The inventory, by family:
 
 | Op | Meaning | Owning spec |
 |---|---|---|
@@ -269,9 +265,9 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-This scenario is the target job behavior. Contract `0.4.1` already reserves the
-request and response shapes, but the operations remain unadvertised until the
-durability and restart semantics exist.
+Contract `0.4.1` implements this job behavior. A job id is the SHA-256 address
+of its canonical specification (document, battery, seed, trial count, and
+checkpoint cadence), so an exact retry reopens the same job.
 
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
@@ -283,25 +279,35 @@ enqueues one job per candidate:
 ← {"job_id": "sha256:…", "status": "pending"}
 ```
 
-The consumer polls `dli.simulate.status`; checkpoints mean a killed job resumes
-rather than restarts. On completion the manifest and verdicts carry **honest
-grades**:
+The consumer polls `dli.simulate.status`; a pending or running poll after a
+worker restart schedules continuation from the greatest verified checkpoint,
+never trial zero. Checkpoints and final manifests are immutable JCS records
+under the caller project's `.dli-evidence/simulations/` root. Every loaded
+checkpoint is replayed from its battery, seed, and trial count before use. A
+cancel races only at checkpoint boundaries and is terminal once committed. On
+completion the manifest and verdicts carry **honest grades**:
 
 ```json
-← {"job_id": "sim-0042", "games": 100000, "seed": 41,
-   "manifest": "lab/campaign-081/runs/sim-0042.manifest.json",
-   "invariants": {
-     "debt_conservation": {"verdict": "checked"},
-     "no-forced-loss-from-opening": {"verdict": "tested",
-       "violations": 0, "note": "100000 games, 0 hits"}},
-   "metrics": {"game_length": {"mean": 34.2, "p50": 33, "p95": 51},
-     "forced_loss_rate": 0.031, "debt_spread": {"mean": 2.4, "max": 7}}}
+← {"job_id": "sha256:…", "status": "complete",
+   "trials_done": 100000, "trials_total": 100000,
+   "manifest": {
+     "battery_digest": "sha256:…", "seed": 41, "trials": 100000,
+     "checkpoint_lineage": [10000, 20000, 30000, 40000, 50000,
+                            60000, 70000, 80000, 90000, 100000],
+     "metrics": [
+       {"metric": "forced-loss-rate", "trials": 100000,
+        "sum": 3100, "sum_of_squares": 3100,
+        "mean": 0.031, "half_width": 0.0011, "grade": "tested"}],
+     "invariants": [
+       {"invariant": "debt-conservation",
+        "outcome": {"outcome": "held"}, "grade": "checked"}]},
+   "manifest_digest": "sha256:…"}
 ```
 
-Debt conservation is `checked` (exact bookkeeping over every game); the
-no-forced-loss claim is `tested` (Monte Carlo evidence, never laundered into a
-proof). The grade lattice (koan 6; see `07-verdicts-and-llm-boundary.md`) does
-its job in the payload.
+Debt conservation is `checked` (exact bookkeeping over every game); the forced
+loss rate is `tested` (a Monte Carlo estimate, never laundered into a proof).
+The grade lattice (koan 6; see `07-verdicts-and-llm-boundary.md`) does its job in
+the payload.
 
 ### 3.3 Diegetic proof checking
 
@@ -357,8 +363,8 @@ source atom survives.
 
 Rejected payloads and attestation records publish no evidence file. RQ drafts
 are returned **as data** in the response (§3.1), and the worker never files
-them. Simulation checkpoint and run-manifest writes remain gated until Phase
-5B's durable job path lands.
+them. Simulation specifications, checkpoints, cancellation records, and final
+manifests use the same locked, immutable publication path.
 
 The worker never writes canon, and it never writes a ruling-request file
 directly. An open question surfaced by the worker is a debt the consumer files
@@ -370,12 +376,13 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and implemented check ops are synchronous and cheap. At contract `0.4.1`,
-`dli.simulate.*` is capability-gated: the existing in-process synchronous seam
-does not satisfy the promised asynchronous, checkpointed, restart-resumable job
-contract and is therefore not advertised. The target remains detached
-start/status/cancel operations with durable checkpoints while the consumer owns
-queue policy and UI.
+Query and check ops are synchronous and cheap. At contract `0.4.1`,
+`dli.simulate.start` durably publishes pending state before its response is
+flushed; only then does the transport release a background worker.
+`dli.simulate.status` verifies durable state and schedules an unfinished job
+after restart, while `dli.simulate.cancel` commits terminal cancellation at a
+checkpoint boundary. The consumer still owns queue policy, retries, polling,
+and UI.
 
 ## 6. Postgres posture
 

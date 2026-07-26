@@ -1,0 +1,236 @@
+//! Durable simulation job behavior through the public worker dispatch.
+
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+use std::fs;
+use std::path::Path;
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use dli_serve::author::store::Store;
+use dli_serve::project::Project;
+use dli_serve::serve::respond;
+use dli_serve::session::Sessions;
+use serde_json::Value;
+use sha2::{Digest as _, Sha256};
+
+fn write_project(root: &Path) -> Arc<Project> {
+    fs::write(
+        root.join("deloreis.toml"),
+        r#"
+version = 1
+name = "simulation-test"
+
+[paths]
+evidence = ".dli-evidence"
+cache = ".dli-cache"
+
+[documents.simulation]
+sources = ["simulation.dli"]
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("simulation.dli"),
+        "scope simulation\n\npractice accounting proposed {\n  resource balance : linear conserved\n}\n",
+    )
+    .unwrap();
+    Arc::new(Project::load(root).unwrap())
+}
+
+fn stores(project: Arc<Project>) -> (Sessions, Store) {
+    let packs = project
+        .documents()
+        .map(|(id, document)| {
+            (
+                id.to_owned(),
+                document.pack.clone(),
+                document.killed.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    (
+        Sessions::from_project(project),
+        Store::with_packs(packs).unwrap(),
+    )
+}
+
+fn drive(request: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {
+    let response = respond(&request.to_string(), sessions, store).expect("request has a response");
+    serde_json::to_value(response).unwrap()
+}
+
+fn start(seed: u64, trials: u64, every: u64) -> Value {
+    serde_json::json!({
+        "dli": "0.4.1",
+        "id": "start",
+        "op": "dli.simulate.start",
+        "params": {
+            "document": "simulation",
+            "seed": seed,
+            "trials": trials,
+            "checkpoint_every": every
+        }
+    })
+}
+
+fn status(job_id: &str) -> Value {
+    serde_json::json!({
+        "dli": "0.4.1",
+        "id": "status",
+        "op": "dli.simulate.status",
+        "params": {"job_id": job_id}
+    })
+}
+
+fn cancel(job_id: &str) -> Value {
+    serde_json::json!({
+        "dli": "0.4.1",
+        "id": "cancel",
+        "op": "dli.simulate.cancel",
+        "params": {"job_id": job_id}
+    })
+}
+
+#[test]
+fn job_resumes_after_restart_and_reopens_idempotently() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = write_project(temp.path());
+    let (mut sessions, mut store) = stores(Arc::clone(&project));
+
+    let started = drive(&start(41, 5, 2), &mut sessions, &mut store);
+    assert_eq!(started["ok"], true, "{started}");
+    assert_eq!(started["result"]["status"], "pending", "{started}");
+    let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
+    assert!(job_id.starts_with("sha256:"));
+
+    drop(sessions);
+    drop(store);
+    let (mut sessions, mut store) = stores(Arc::clone(&project));
+    let resumed = drive(&status(&job_id), &mut sessions, &mut store);
+    assert_eq!(resumed["result"]["status"], "pending", "{resumed}");
+
+    sessions.release_simulation_workers();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let completed = loop {
+        let response = drive(&status(&job_id), &mut sessions, &mut store);
+        if response["result"]["status"] == "complete" {
+            break response;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "simulation did not complete: {response}"
+        );
+        sessions.release_simulation_workers();
+        thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(completed["result"]["trials_done"], 5, "{completed}");
+    assert_eq!(completed["result"]["trials_total"], 5, "{completed}");
+    assert_eq!(
+        completed["result"]["manifest"]["checkpoint_lineage"],
+        serde_json::json!([2, 4, 5]),
+        "{completed}"
+    );
+    assert!(
+        completed["result"]["manifest_digest"]
+            .as_str()
+            .is_some_and(|digest| digest.starts_with("sha256:")),
+        "{completed}"
+    );
+
+    drop(sessions);
+    drop(store);
+    let (mut sessions, mut store) = stores(project);
+    let reopened = drive(&start(41, 5, 2), &mut sessions, &mut store);
+    assert_eq!(reopened["result"]["job_id"], job_id, "{reopened}");
+    assert_eq!(reopened["result"]["status"], "complete", "{reopened}");
+}
+
+#[test]
+fn cancellation_is_terminal_across_restart() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = write_project(temp.path());
+    let (mut sessions, mut store) = stores(Arc::clone(&project));
+    let started = drive(&start(42, 10, 2), &mut sessions, &mut store);
+    let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
+
+    let cancelled = drive(&cancel(&job_id), &mut sessions, &mut store);
+    assert_eq!(cancelled["result"]["status"], "cancelled", "{cancelled}");
+
+    drop(sessions);
+    drop(store);
+    let (mut sessions, mut store) = stores(project);
+    let status = drive(&status(&job_id), &mut sessions, &mut store);
+    assert_eq!(status["result"]["status"], "cancelled", "{status}");
+    assert_eq!(status["result"]["trials_done"], 0, "{status}");
+}
+
+#[test]
+fn committed_checkpoint_corruption_fails_closed() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = write_project(temp.path());
+    let (mut sessions, mut store) = stores(Arc::clone(&project));
+    let started = drive(&start(43, 2, 1), &mut sessions, &mut store);
+    let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
+    sessions.release_simulation_workers();
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let response = drive(&status(&job_id), &mut sessions, &mut store);
+        if response["result"]["status"] == "complete" {
+            break;
+        }
+        assert!(Instant::now() < deadline, "{response}");
+        sessions.release_simulation_workers();
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    let hex = job_id.strip_prefix("sha256:").unwrap();
+    let checkpoint_dir = project
+        .evidence_dir()
+        .join("simulations")
+        .join(hex)
+        .join("checkpoints");
+    let (checkpoint, mut value) = fs::read_dir(checkpoint_dir)
+        .unwrap()
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            let value: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            (path, value)
+        })
+        .max_by_key(|(_, value)| value["checkpoint"]["trials_done"].as_u64().unwrap())
+        .unwrap();
+    value["checkpoint"]["metrics"][0]["sum"] =
+        serde_json::json!(value["checkpoint"]["metrics"][0]["sum"].as_i64().unwrap() + 1);
+    let forged = serde_json_canonicalizer::to_vec(&value).unwrap();
+    let forged_name = format!("{:x}.json", Sha256::digest(&forged));
+    fs::remove_file(checkpoint).unwrap();
+    fs::write(
+        project
+            .evidence_dir()
+            .join("simulations")
+            .join(hex)
+            .join("checkpoints")
+            .join(forged_name),
+        forged,
+    )
+    .unwrap();
+
+    let response = drive(&status(&job_id), &mut sessions, &mut store);
+    assert_eq!(response["ok"], false, "{response}");
+    assert_eq!(response["error"]["code"], "evidence-corrupt", "{response}");
+}
+
+#[test]
+fn invalid_or_unknown_job_ids_are_typed_unknown_job_errors() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = write_project(temp.path());
+    let (mut sessions, mut store) = stores(project);
+
+    for job_id in ["job-1", &format!("sha256:{}", "0".repeat(64))] {
+        let response = drive(&status(job_id), &mut sessions, &mut store);
+        assert_eq!(response["ok"], false, "{response}");
+        assert_eq!(response["error"]["code"], "unknown-job", "{response}");
+    }
+}

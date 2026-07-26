@@ -131,6 +131,7 @@ fn serve_with_stores<R: BufRead, W: Write>(
             let encoded = serde_json::to_string(&response).unwrap_or_else(|_| internal_line());
             writeln!(writer, "{encoded}")?;
             writer.flush()?;
+            sessions.release_simulation_workers();
         }
     }
     Ok(())
