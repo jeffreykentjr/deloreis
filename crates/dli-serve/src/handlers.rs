@@ -430,13 +430,8 @@ fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Resp
         .as_ref()
         .and_then(|project| project.document(&p.document))
     {
-        if let Some(outline) = document.outlines.as_ref().and_then(|season| {
-            season
-                .episodes
-                .iter()
-                .find(|episode| episode.id == p.payload.meta.episode)
-        }) {
-            context = context.with_outline(outline);
+        if let Some(outlines) = &document.outlines {
+            context = context.with_outlines(&outlines.episodes);
         }
         if let Some(season) = &document.craft_ledger {
             context = context.with_season(season);
@@ -462,13 +457,8 @@ fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<R
     let scope = resolve(sessions, &p.document)?;
     let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
     if let Some(document) = project.document(&p.document) {
-        if let Some(outline) = document.outlines.as_ref().and_then(|season| {
-            season
-                .episodes
-                .iter()
-                .find(|episode| episode.id == p.payload.meta.episode)
-        }) {
-            context = context.with_outline(outline);
+        if let Some(outlines) = &document.outlines {
+            context = context.with_outlines(&outlines.episodes);
         }
         if let Some(season) = &document.craft_ledger {
             context = context.with_season(season);

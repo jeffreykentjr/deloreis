@@ -78,7 +78,7 @@ pub struct AttestationAppend {
 struct LoadedAttestations {
     store: AttestationStore,
     head: Option<String>,
-    batches: Vec<(String, Vec<Attestation>)>,
+    batches: Vec<(String, AttestationBatch)>,
     record_ids: BTreeSet<(QuestionKey, String)>,
 }
 
@@ -198,11 +198,17 @@ pub fn append_attestations(
         .collect::<BTreeMap<_, _>>();
     let _lock = EvidenceLock::acquire(project)?;
     let loaded = load_attestations(project, document)?;
-    if let Some((digest, _)) = loaded
+    if let Some((digest, batch)) = loaded
         .batches
         .iter()
-        .find(|(_, committed)| committed == records)
+        .find(|(_, committed)| committed.records == records)
     {
+        let bytes = canonical_bytes(batch)?;
+        let hex = digest
+            .strip_prefix("sha256:")
+            .expect("validated batch digests carry the sha256 prefix");
+        let directory = evidence_directory(project, &["attestations", document, "batches"])?;
+        publish_immutable(&directory.join(format!("{hex}.json")), &bytes)?;
         return Ok(AttestationAppend {
             accepted: records.len(),
             batch_digest: digest.clone(),
@@ -383,7 +389,7 @@ fn linearize_batches(
         let batch = batches
             .get(&current)
             .expect("a traversed digest came from the batch map");
-        ordered_batches.push((current.clone(), batch.records.clone()));
+        ordered_batches.push((current.clone(), batch.clone()));
         for record in &batch.records {
             validate_attestation(record).map_err(|error| {
                 EvidenceError::Corrupt(format!("batch {current} contains {error}"))

@@ -179,6 +179,24 @@ fn attestation_history_is_linear_current_and_retry_safe() {
     )
     .unwrap();
     assert_eq!(first, retry);
+    let first_hex = first.batch_digest.trim_start_matches("sha256:");
+    let temp = project
+        .evidence_dir()
+        .join("attestations/world")
+        .join(format!(".batches.{first_hex}.json.tmp"));
+    fs::write(&temp, b"interrupted retry").unwrap();
+    let recovered = append_attestations(
+        &project,
+        "world",
+        std::slice::from_ref(&first_record),
+        &world.model,
+    )
+    .unwrap();
+    assert_eq!(first, recovered);
+    assert!(
+        !temp.exists(),
+        "an attestation retry completes stale-temp recovery"
+    );
     assert!(
         missing_attestations(&project, "world", &world.model)
             .unwrap()

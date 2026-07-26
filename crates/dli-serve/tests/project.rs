@@ -383,14 +383,40 @@ fn payload_handler_reads_project_owned_outline_context() {
             }
         }
     });
+    let typo = serde_json::json!({
+        "dli": "0.4.0",
+        "id": "outline-typo",
+        "op": "dli.payload-submit",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": {
+                "meta": {
+                    "episode": "typo",
+                    "source": {
+                        "file": "draft.md",
+                        "sha256": source_hash(source),
+                        "words": 1
+                    },
+                    "extracted": "2026-07-26",
+                    "extractors": {"schema": "payload/v1", "fields": {}}
+                }
+            }
+        }
+    });
     let mut output = Vec::new();
     serve_project_io(
-        &mut Cursor::new(format!("{request}\n")),
+        &mut Cursor::new(format!("{request}\n{typo}\n")),
         &mut output,
         project,
     )
     .unwrap();
-    let response: Value = serde_json::from_slice(&output).unwrap();
+    let responses = String::from_utf8(output)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    let response = &responses[0];
     let codes = response["result"]["findings"]
         .as_array()
         .unwrap()
@@ -398,6 +424,23 @@ fn payload_handler_reads_project_owned_outline_context() {
         .map(|finding| finding["code"].as_str().unwrap())
         .collect::<Vec<_>>();
     assert!(codes.contains(&"outline.beat-unaccounted"), "{response}");
+    let typo_response = &responses[1];
+    assert_eq!(
+        typo_response["result"]["accepted"], false,
+        "{typo_response}"
+    );
+    assert!(
+        typo_response["result"]["payload_digest"].is_null(),
+        "{typo_response}"
+    );
+    assert!(
+        typo_response["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings
+                .iter()
+                .any(|finding| { finding["code"] == "payload.outline-episode-unknown" })),
+        "{typo_response}"
+    );
 }
 
 #[cfg(unix)]

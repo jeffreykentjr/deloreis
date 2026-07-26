@@ -658,8 +658,9 @@ fn line_of_byte(source: &str, byte: usize) -> u32 {
 /// The context a full [`check_payload`] run needs beyond the payload itself.
 ///
 /// The [`source`](Self::source) draft is required (anchoring + staleness). The
-/// [`outline`](Self::outline) enables the two-sided outline-conformance diff
-/// (`PAY-3`); the [`season`](Self::season) is the committed season ledger the
+/// [`outline`](Self::outline) or [`outlines`](Self::outlines) enables the
+/// two-sided outline-conformance diff (`PAY-3`); the [`season`](Self::season) is
+/// the committed season ledger the
 /// payload's beats merge into so the craft-season joins reach across episodes
 /// (empty = the payload is checked against itself alone); and
 /// [`thresholds`](Self::thresholds) is the craft policy data
@@ -670,6 +671,9 @@ pub struct BatteryContext<'a> {
     pub source: &'a str,
     /// The episode outline to diff against (two-sided outline-conformance).
     pub outline: Option<&'a EpisodeOutline>,
+    /// The caller project's reviewed episode outlines. When supplied, the
+    /// payload episode must resolve to exactly one of them.
+    pub outlines: Option<&'a [EpisodeOutline]>,
     /// The committed season ledger the payload's beats merge into.
     pub season: Option<&'a CraftLedger>,
     /// The craft-rule thresholds (policy data).
@@ -689,6 +693,7 @@ impl<'a> BatteryContext<'a> {
         Self {
             source,
             outline: None,
+            outlines: None,
             season: None,
             thresholds: DEFAULT_THRESHOLDS,
             kb: Kb::builtin(),
@@ -700,6 +705,13 @@ impl<'a> BatteryContext<'a> {
     #[must_use]
     pub fn with_outline(mut self, outline: &'a EpisodeOutline) -> Self {
         self.outline = Some(outline);
+        self
+    }
+
+    /// Add the caller project's reviewed outline catalog, builder-style.
+    #[must_use]
+    pub fn with_outlines(mut self, outlines: &'a [EpisodeOutline]) -> Self {
+        self.outlines = Some(outlines);
         self
     }
 
@@ -788,7 +800,20 @@ pub fn check_payload(
     out.extend(proof_family(world, payload, ctx));
 
     // (3) two-sided outline-conformance, when an outline is supplied (PAY-3).
-    if let Some(outline) = ctx.outline {
+    let catalog_outline = ctx.outlines.and_then(|outlines| {
+        outlines
+            .iter()
+            .find(|outline| outline.id == payload.meta.episode)
+    });
+    if ctx.outlines.is_some() && catalog_outline.is_none() {
+        out.push(PayloadFinding::error(
+            "payload.outline-episode-unknown",
+            format!(
+                "payload episode '{}' has no matching reviewed outline",
+                payload.meta.episode
+            ),
+        ));
+    } else if let Some(outline) = catalog_outline.or(ctx.outline) {
         out.extend(outline_conformance(payload, outline, &ctx.kb));
     }
 
@@ -1812,11 +1837,9 @@ pub fn outline_conformance(
     );
 
     for outline_scene in &outline.scenes {
-        let Some(payload_scene) = payload.scenes.iter().find(|s| s.id == outline_scene.id) else {
-            continue;
-        };
+        let payload_scene = payload.scenes.iter().find(|s| s.id == outline_scene.id);
         for member in &outline_scene.speaking_cast {
-            if !payload_scene.cast.contains(member) {
+            if payload_scene.is_none_or(|scene| !scene.cast.contains(member)) {
                 out.push(PayloadFinding::error(
                     "outline.cast-unaccounted",
                     format!(
@@ -1827,14 +1850,34 @@ pub fn outline_conformance(
                 ));
             }
         }
-        for member in &payload_scene.cast {
-            if !outline_scene.speaking_cast.contains(member) {
+        if let Some(payload_scene) = payload_scene {
+            for member in &payload_scene.cast {
+                if !outline_scene.speaking_cast.contains(member) {
+                    out.push(PayloadFinding::error(
+                        "outline.cast-undeclared",
+                        format!(
+                            "the payload casts '{member}' in scene '{}' the outline never declared — \
+                             draft drift, or a stale outline",
+                            outline_scene.id
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+    for payload_scene in &payload.scenes {
+        if !outline
+            .scenes
+            .iter()
+            .any(|scene| scene.id == payload_scene.id)
+        {
+            for member in &payload_scene.cast {
                 out.push(PayloadFinding::error(
                     "outline.cast-undeclared",
                     format!(
                         "the payload casts '{member}' in scene '{}' the outline never declared — \
                          draft drift, or a stale outline",
-                        outline_scene.id
+                        payload_scene.id
                     ),
                 ));
             }

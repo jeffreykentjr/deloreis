@@ -207,6 +207,8 @@ fn a_clean_payload_produces_no_findings() {
 
 #[test]
 fn scene_keyed_rows_require_a_declared_scene_even_when_the_scene_list_is_empty() {
+    use dli_world::payload::{DeltaKind, DeltaRow};
+
     let world = saltcast_world();
     let source = "the ward held\n";
     let mut payload = complete_payload(source);
@@ -226,6 +228,13 @@ fn scene_keyed_rows_require_a_declared_scene_even_when_the_scene_list_is_empty()
         scene: "missing".to_owned(),
         ledger: ProofLedger::default(),
     });
+    payload.deltas.push(DeltaRow {
+        kind: DeltaKind::Knowledge,
+        who: "listener".to_owned(),
+        fact: "the ward held".to_owned(),
+        scene: "missing".to_owned(),
+        line: 1,
+    });
 
     let findings = check_payload(&world, &payload, &BatteryContext::new(source));
     assert!(
@@ -234,6 +243,10 @@ fn scene_keyed_rows_require_a_declared_scene_even_when_the_scene_list_is_empty()
     );
     assert!(
         finding(&findings, "payload.proof-unknown-scene").is_some(),
+        "{findings:?}"
+    );
+    assert!(
+        finding(&findings, "payload.delta-unknown-scene").is_some(),
         "{findings:?}"
     );
 }
@@ -771,6 +784,36 @@ fn outline_conformance_cast_diff_states_both_readings() {
         "both readings: {}",
         undeclared.message
     );
+}
+
+#[test]
+fn outline_conformance_cast_diff_covers_unmatched_scene_ids() {
+    let payload = Payload {
+        scenes: vec![SceneRow {
+            id: "payload-scene".to_owned(),
+            cast: vec!["carys".to_owned()],
+            ..SceneRow::default()
+        }],
+        ..Payload::default()
+    };
+    let outline = EpisodeOutline {
+        id: "e01".to_owned(),
+        title: "T".to_owned(),
+        scenes: vec![OutlineScene {
+            id: "outline-scene".to_owned(),
+            summary: "s".to_owned(),
+            speaking_cast: vec!["aled".to_owned()],
+            advances: Vec::new(),
+            silence_beat: false,
+        }],
+        ..EpisodeOutline::default()
+    };
+
+    let findings = outline_conformance(&payload, &outline, &Kb::builtin());
+    let unaccounted = finding(&findings, "outline.cast-unaccounted").expect("aled is unaccounted");
+    assert!(unaccounted.message.contains("outline-scene"));
+    let undeclared = finding(&findings, "outline.cast-undeclared").expect("carys is undeclared");
+    assert!(undeclared.message.contains("payload-scene"));
 }
 
 #[test]
