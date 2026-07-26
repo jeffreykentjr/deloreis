@@ -415,29 +415,28 @@ fn close_map(map: &mut serde_json::Map<String, Value>) {
     }
 }
 
-/// Close the four flattened attestation outcome branches without breaking their
-/// tagged-union composition. `additionalProperties: false` is not safe for a
-/// flattened branch; draft 2020-12 `unevaluatedProperties` accounts for all
-/// fields selected by the branch before rejecting extras.
+/// Close the composed attestation finding without breaking its flattened tagged
+/// union. `additionalProperties: false` is not safe here; draft 2020-12
+/// `unevaluatedProperties` at the outer object accounts for both the `domain`
+/// discriminator and every field selected by the outcome branch.
 fn close_attestation_outcomes(root: Option<&mut serde_json::Map<String, Value>>) {
     fn visit(value: &mut Value) {
         match value {
             Value::Array(items) => items.iter_mut().for_each(visit),
             Value::Object(map) => {
-                let attestation_outcome = map
+                let attestation_finding = map
                     .get("properties")
                     .and_then(Value::as_object)
-                    .and_then(|properties| properties.get("outcome"))
+                    .and_then(|properties| properties.get("domain"))
                     .and_then(Value::as_object)
-                    .and_then(|outcome| outcome.get("const"))
+                    .and_then(|domain| domain.get("const"))
                     .and_then(Value::as_str)
-                    .is_some_and(|outcome| {
-                        matches!(outcome, "pass" | "fail" | "missing" | "stale")
-                    });
+                    == Some("attestation")
+                    && map.contains_key("oneOf");
                 for child in map.values_mut() {
                     visit(child);
                 }
-                if attestation_outcome {
+                if attestation_finding {
                     map.insert("unevaluatedProperties".to_owned(), Value::Bool(false));
                 }
             }
