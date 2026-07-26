@@ -718,7 +718,8 @@ fn a_judge_bound_principle_reports_attested() {
     let finding = kb::evaluate_judge(principle, &store, "ppp(episode-01)", "episode-01")
         .expect("a judge principle yields a finding");
     assert_eq!(finding.grade.to_string(), "attested");
-    assert_eq!(finding.code, "craft.promise-progress-payoff");
+    assert_eq!(finding.code, "craft.judge-attested");
+    assert!(finding.message.contains("promise-progress-payoff"));
 }
 
 #[test]

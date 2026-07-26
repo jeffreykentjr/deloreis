@@ -177,7 +177,10 @@ open caller-owned identifiers; bindings must resolve through the supplied
 registries.
 
 Grade rollup applies to craft like everything else: an "episode passes craft"
-claim that includes judge dimensions is honestly `attested` overall, and
+claim that includes judge dimensions is honestly `attested` overall. Judge
+outcomes use the stable codes `craft.judge-attested` and
+`craft.attestation-missing`; the caller-owned principle id remains in the
+finding message rather than becoming an unbounded code suffix, and
 `deloreis report --min-grade` filters to what rides on stronger evidence.
 
 ```dli
@@ -335,6 +338,14 @@ that has no reviewed outline input. Loaded policy owns its data, so repeated
 library/project loads do not accumulate leaked config allocations. Config file
 names, fields, overlays, and finding-code rows are closed and fail on unknown or
 duplicate entries.
+
+The craft-config directory is a closed interface of eleven TOML file shapes.
+Each accepted filename has its own versioned JSON Schema under
+`schemas/craft/`, derived from the exact serde type `load_config` consumes.
+`cargo run -p xtask -- schema --check` validates the committed example and TPtH
+TOML files against those per-file schemas as well as checking schema drift.
+`craft-config-v1.schema.json` remains the aggregate `CraftConfig` library shape;
+it is not the schema for any one TOML file.
 
 ### 7.3 Two-sided outline-conformance
 

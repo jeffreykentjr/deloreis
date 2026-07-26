@@ -43,6 +43,8 @@ walkdir = "2"
 fs2 = "0.4"
 serde_json_canonicalizer = "0.3"
 tempfile = "3"
+syn = { version = "2", features = ["full", "visit"] }
+proc-macro2 = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

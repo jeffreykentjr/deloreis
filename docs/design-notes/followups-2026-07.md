@@ -116,10 +116,15 @@ rejects path/branch bypass filters, and rejects job- and step-level
 `continue-on-error` or conditions on the gate. Found by
 audit-validation-2026-07 §7.3; closed by the standalone release polish.
 
-### F12 — F5S-5 finding-family severity verification (LOW)
-`xtask/src/finding_families.rs`. Severity columns are documented but never
-verified against the actual emitting source code.
-Found by audit-2026-07 §3.10.
+### F12 — F5S-5 finding-family severity verification (RESOLVED)
+`xtask/src/finding_families.rs` derives severity observations from direct
+constructors, Door-T `Finding` structs, craft-rule call sites, and the language
+finding enum across nine families and fails closed on unsupported source shapes.
+The five uniform-severity families have an explicit closed contract
+(`attest.pass` is the sole non-error row). Five data-driven outline codes are
+enumerated and pinned by runtime severity assertions; no additional code can
+enter that exception set silently.
+Found by audit-2026-07 §3.10; closed by the standalone release hardening.
 
 ### F13 — block-comment `/* #[cfg(test)] */` boundary poisoning (RESOLVED)
 The boundary scanner now recognizes `#[cfg(test)]` only outside block/line

@@ -28,6 +28,7 @@ use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_world::CompiledWorld;
+use dli_world::check::factcheck::{Verdict, factcheck};
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
@@ -141,9 +142,9 @@ pub(super) fn materialize(
     params: &AuthorMaterializeParams,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
     let blocking = dedup(
-        workspace_findings(ws, base)
+        reads::workspace_report(store, ws)
+            .findings
             .into_iter()
             .filter(|f| f.severity == Severity::Error)
             .map(|f| f.code),
@@ -278,7 +279,7 @@ pub(super) fn add_option(
     store: &mut Store,
     params: &AuthorAddOptionParams,
 ) -> Result<Value, ErrorBody> {
-    let (_, ws) = parts_mut(store, &params.workspace)?;
+    let (base, ws) = parts_mut(store, &params.workspace)?;
     let mut findings: Vec<Finding> = [("id", params.id.as_str()), ("label", params.label.as_str())]
         .into_iter()
         .filter_map(|(field, text)| field_control(field, text))
@@ -305,6 +306,7 @@ pub(super) fn add_option(
         None
     };
     if let Some(decl) = updated {
+        findings.extend(declaration_rejected_lore_findings(base, &decl));
         ws.replace_decl(i, decl);
     }
     let rendered = render_option(&params.question, &params.id, &params.label);
@@ -317,12 +319,13 @@ pub(super) fn add_hypothesis(
     store: &mut Store,
     params: &AuthorAddHypothesisParams,
 ) -> Result<Value, ErrorBody> {
-    let (_, ws) = parts_mut(store, &params.workspace)?;
+    let (base, ws) = parts_mut(store, &params.workspace)?;
     let decl = Decl::Hypothesis(HypothesisDecl {
         name: ident(&params.id),
         statement: Some(params.statement.clone()),
     });
     let mut findings = control_char_findings(&decl);
+    findings.extend(declaration_rejected_lore_findings(base, &decl));
     if ws.mode != Mode::Fork {
         findings.push(hypothesis_not_in_fork());
     }
@@ -390,17 +393,66 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
 /// fields (R3/C1); the world declarations then add their resolution findings.
 fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = control_char_findings(decl);
+    out.extend(declaration_rejected_lore_findings(base, decl));
     match decl {
-        Decl::Entity(e) if e.kind == AstEntityKind::Event => {
-            out.extend(event_findings(e, ws, base));
+        Decl::Entity(e) => {
+            if e.kind == AstEntityKind::Event {
+                out.extend(event_findings(e, ws, base));
+            } else {
+                out.push(name_unvetted(&e.name.text));
+            }
         }
-        Decl::Entity(e) => out.push(name_unvetted(&e.name.text)),
         Decl::Attr(a) => out.extend(attr_findings(a, ws, base)),
         Decl::Fact(f) => out.extend(relation_findings(f, ws, base)),
         Decl::Before(b) => out.extend(before_findings(b, ws, base)),
         _ => {}
     }
     out
+}
+
+fn declaration_rejected_lore_findings(base: &CompiledWorld, decl: &Decl) -> Vec<Finding> {
+    let args = free_text_fields(decl)
+        .into_iter()
+        .map(|(_, text)| Term::Str(text))
+        .collect::<Vec<_>>();
+    if args.is_empty() {
+        return Vec::new();
+    }
+    rejected_lore_findings(
+        base,
+        AtomExpr {
+            pred: ident("declaration"),
+            args,
+        },
+    )
+}
+
+fn rejected_lore_findings(base: &CompiledWorld, claim: AtomExpr) -> Vec<Finding> {
+    let realizes_killed_token = claim
+        .args
+        .iter()
+        .filter_map(|term| match term {
+            Term::Sym(id) => Some(id.text.as_str()),
+            Term::Str(text) => Some(text.as_str()),
+            Term::Var(_) | Term::Int(_) | Term::Time(_) => None,
+        })
+        .chain(std::iter::once(claim.pred.text.as_str()))
+        .any(|text| base.killed.hits(text).next().is_some());
+    if !realizes_killed_token {
+        return Vec::new();
+    }
+    factcheck(base, &[claim])
+        .into_iter()
+        .filter(|report| report.verdict == Verdict::Contradicted)
+        .map(|report| Finding {
+            severity: Severity::Error,
+            code: "factcheck.contradicted".to_owned(),
+            message: format!("{}: {}", report.claim, report.reason),
+            grade: Grade::Checked,
+            repair: None,
+            citations: report.citations,
+        })
+        .collect()
 }
 
 fn event_findings(entity: &EntityDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
@@ -666,6 +718,19 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             fields.push(("id", e.name.text.clone()));
             if let Some(label) = &e.label {
                 fields.push(("name", label.clone()));
+            }
+            if let Some(time) = &e.time {
+                match time {
+                    TimeClause::After(point)
+                    | TimeClause::During(point)
+                    | TimeClause::Since(point)
+                    | TimeClause::Until(point) => {
+                        fields.push(("time", point.text.clone()));
+                    }
+                    TimeClause::Order(points) => {
+                        fields.extend(points.iter().map(|point| ("time", point.text.clone())));
+                    }
+                }
             }
             annotation_fields(&mut fields, e.provenance.as_ref());
         }

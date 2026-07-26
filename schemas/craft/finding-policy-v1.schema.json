@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FindingPolicyFile",
+  "type": "object",
+  "properties": {
+    "rules": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FindingRuleCfg"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FindingRuleCfg": {
+      "description": "The citation (+ optional severity override) a finding code carries — the loadable\nform of [`super::config::FindingRule`] (design §3 item 4).",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "The citations attached to the finding, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "The dotted finding code this rule governs.",
+          "type": "string"
+        },
+        "severity": {
+          "description": "An optional severity override; `None` keeps the code's intrinsic severity.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ]
+    },
+    "Severity": {
+      "description": "How much a [`WorldFinding`] must be attended to.",
+      "oneOf": [
+        {
+          "description": "A violation: the world (or a draft) contradicts canon or asserts what it\nmay not.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "A defect worth a look that does not, on its own, break canon.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    }
+  }
+}

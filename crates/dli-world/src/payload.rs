@@ -876,18 +876,17 @@ fn factcheck_family(world: &CompiledWorld, claims: &[ParsedClaim<'_>]) -> Vec<Pa
     check::factcheck::factcheck(world, &atoms)
         .into_iter()
         .zip(claims)
-        .filter(|(report, _)| report.is_defect())
-        .map(|(report, parsed)| {
+        .filter_map(|(report, parsed)| {
             let code = match report.verdict {
-                Verdict::Contradicted => "factcheck.contradicted",
-                Verdict::Unsupported => "factcheck.unsupported",
-                Verdict::Supported => "factcheck.supported",
+                Verdict::Contradicted => Some("factcheck.contradicted"),
+                Verdict::Unsupported => Some("factcheck.unsupported"),
+                Verdict::Supported => None,
             };
-            let mut finding = PayloadFinding::error(code, report.reason)
+            let mut finding = PayloadFinding::error(code?, report.reason)
                 .at_line(parsed.claim.line)
                 .with_quote(&parsed.claim.quote);
             finding.citations = report.citations;
-            finding
+            Some(finding)
         })
         .collect()
 }

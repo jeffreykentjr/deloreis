@@ -134,6 +134,7 @@
               "$ref": "#/$defs/KernelRule"
             }
           },
+          "additionalProperties": false,
           "required": [
             "binding",
             "spec"
@@ -159,12 +160,14 @@
                   "type": "string"
                 }
               },
+              "additionalProperties": false,
               "required": [
                 "namespace",
                 "symbol"
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "binding",
             "spec"
@@ -182,6 +185,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "binding",
             "spec"
@@ -196,6 +200,7 @@
               "const": "declaration"
             }
           },
+          "additionalProperties": false,
           "required": [
             "binding"
           ]
@@ -260,7 +265,7 @@
           "const": "audio"
         },
         {
-          "description": "Pillar: a mission-specific principle that overrides generic advice (D-0128).",
+          "description": "Pillar: a project-specific principle that overrides generic advice.",
           "type": "string",
           "const": "pillar"
         }
@@ -402,7 +407,7 @@
       "type": "string"
     },
     "MissionFilter": {
-      "description": "How the mission filters a principle (D-0128).\n\nThe two off-`Pass` arms carry their required companion fields inline, which is\nhow the spec's \"a `tension` requires a `resolution`\" invariant becomes a\n**compile** rule rather than a runtime check: the value cannot be built without\nit.\n\n```compile_fail\nuse dli_world::craft::kb::MissionFilter;\n// A tension without a resolution is not a value that exists.\nlet _bad = MissionFilter::Tension { note: \"generic advice loses to the pillar\" };\n```",
+      "description": "How a project filters a principle.\n\nThe two off-`Pass` arms carry their required companion fields inline, which is\nhow the spec's \"a `tension` requires a `resolution`\" invariant becomes a\n**compile** rule rather than a runtime check: the value cannot be built without\nit.\n\n```compile_fail\nuse dli_world::craft::kb::MissionFilter;\n// A tension without a resolution is not a value that exists.\nlet _bad = MissionFilter::Tension { note: \"generic advice loses to the pillar\" };\n```",
       "oneOf": [
         {
           "description": "The principle applies to the mission unchanged.",
@@ -413,6 +418,7 @@
               "const": "pass"
             }
           },
+          "additionalProperties": false,
           "required": [
             "mission_filter"
           ]
@@ -430,6 +436,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "mission_filter",
             "note"
@@ -452,6 +459,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "mission_filter",
             "note",

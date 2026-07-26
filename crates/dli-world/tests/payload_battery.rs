@@ -121,6 +121,24 @@ fn finding<'a>(findings: &'a [PayloadFinding], code: &str) -> Option<&'a Payload
     findings.iter().find(|f| f.code == code)
 }
 
+fn assert_default_dynamic_conformance_severities(payload: &Payload, outline: &EpisodeOutline) {
+    let findings = outline_conformance(payload, outline, &Kb::builtin());
+    for code in [
+        "outline.beat-unaccounted",
+        "outline.beat-undeclared",
+        "outline.promise-unaccounted",
+        "outline.promise-undeclared",
+    ] {
+        assert_eq!(
+            finding(&findings, code)
+                .unwrap_or_else(|| panic!("missing default {code}"))
+                .severity,
+            Severity::Error,
+            "{code}"
+        );
+    }
+}
+
 fn complete_payload(source: &str) -> Payload {
     let extractor = ExtractorRef {
         model: "fixture-extractor".to_owned(),
@@ -846,6 +864,7 @@ fn outline_conformance_obeys_caller_citations_and_severity() {
         }],
         ..EpisodeOutline::default()
     };
+    assert_default_dynamic_conformance_severities(&payload, &outline);
     let policy = FindingPolicy {
         rules: Cow::Owned(
             CODES

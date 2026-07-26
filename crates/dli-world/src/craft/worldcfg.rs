@@ -42,7 +42,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use schemars::{JsonSchema, Schema, SchemaGenerator};
+use schemars::{JsonSchema, Schema, SchemaGenerator, schema_for};
 use serde::{Deserialize, Serialize};
 
 use super::config::{
@@ -1245,13 +1245,14 @@ fn read_opt<T: for<'de> Deserialize<'de>>(
 }
 
 /// The one-file wrappers `load_config` reads (each file holds a named list/record).
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct PacksFile {
     #[serde(default)]
+    #[schemars(schema_with = "unique_pack_names_schema")]
     packs: Vec<Cow<'static, str>>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RegistriesFile {
     #[serde(default)]
@@ -1259,37 +1260,37 @@ struct RegistriesFile {
     #[serde(default)]
     judge_kinds: Vec<Cow<'static, str>>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct OverlaysFile {
     #[serde(default)]
     overlays: Vec<PrincipleOverlay>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WorldPrinciplesFile {
     #[serde(default)]
     world_principles: Vec<WorldPrinciple>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct FindingPolicyFile {
     #[serde(default)]
     rules: Vec<FindingRuleCfg>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct MaterialCatalogFile {
     #[serde(default)]
     categories: Vec<MaterialCategoryCfg>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct BeatLexiconsFile {
     #[serde(default)]
     rules: Vec<TextMatchRuleCfg>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ThresholdsFile {
     #[serde(default)]
@@ -1312,6 +1313,79 @@ pub const CONFIG_FILES: &[&str] = &[
     "beat-lexicons.toml",
     "thresholds.toml",
 ];
+
+/// One published JSON Schema for a file in the closed [`CONFIG_FILES`] directory.
+#[derive(Debug)]
+pub struct ConfigFileSchema {
+    /// The TOML filename consumed by [`load_config`].
+    pub config_file: &'static str,
+    /// The versioned stem used under `schemas/craft/`.
+    pub schema_name: &'static str,
+    /// The schema derived from the exact serde type the loader consumes.
+    pub schema: Schema,
+}
+
+/// Derive the schemas for every TOML file accepted by [`load_config`].
+#[must_use]
+pub fn config_file_schemas() -> Vec<ConfigFileSchema> {
+    vec![
+        ConfigFileSchema {
+            config_file: "enabled-packs.toml",
+            schema_name: "enabled-packs-v1",
+            schema: schema_for!(PacksFile),
+        },
+        ConfigFileSchema {
+            config_file: "registries.toml",
+            schema_name: "registries-v1",
+            schema: schema_for!(RegistriesFile),
+        },
+        ConfigFileSchema {
+            config_file: "overlays.toml",
+            schema_name: "overlays-v1",
+            schema: schema_for!(OverlaysFile),
+        },
+        ConfigFileSchema {
+            config_file: "world-principles.toml",
+            schema_name: "world-principles-v1",
+            schema: schema_for!(WorldPrinciplesFile),
+        },
+        ConfigFileSchema {
+            config_file: "precedence.toml",
+            schema_name: "precedence-v1",
+            schema: schema_for!(PrecedenceTier),
+        },
+        ConfigFileSchema {
+            config_file: "finding-policy.toml",
+            schema_name: "finding-policy-v1",
+            schema: schema_for!(FindingPolicyFile),
+        },
+        ConfigFileSchema {
+            config_file: "narrator-policy.toml",
+            schema_name: "narrator-policy-v1",
+            schema: schema_for!(NarratorPolicyCfg),
+        },
+        ConfigFileSchema {
+            config_file: "provenance.toml",
+            schema_name: "provenance-v1",
+            schema: schema_for!(ProvenanceCfg),
+        },
+        ConfigFileSchema {
+            config_file: "material-catalog.toml",
+            schema_name: "material-catalog-v1",
+            schema: schema_for!(MaterialCatalogFile),
+        },
+        ConfigFileSchema {
+            config_file: "beat-lexicons.toml",
+            schema_name: "beat-lexicons-v1",
+            schema: schema_for!(BeatLexiconsFile),
+        },
+        ConfigFileSchema {
+            config_file: "thresholds.toml",
+            schema_name: "thresholds-v1",
+            schema: schema_for!(ThresholdsFile),
+        },
+    ]
+}
 
 fn reject_unknown_config_files(dir: &Path) -> Result<(), ConfigLoadError> {
     for entry in std::fs::read_dir(dir)? {
@@ -1871,6 +1945,24 @@ mod tests {
             schema["properties"]["enabled_packs"]["uniqueItems"],
             serde_json::Value::Bool(true)
         );
+        let file_schemas = config_file_schemas();
+        assert_eq!(
+            file_schemas
+                .iter()
+                .map(|schema| schema.config_file)
+                .collect::<Vec<_>>(),
+            CONFIG_FILES,
+            "every accepted config filename must publish its exact loader schema"
+        );
+        let file_schema = file_schemas
+            .into_iter()
+            .find(|schema| schema.config_file == "enabled-packs.toml")
+            .expect("enabled-packs file schema");
+        let file_schema = serde_json::to_value(file_schema.schema).expect("serialize file schema");
+        assert_eq!(
+            file_schema["properties"]["packs"]["uniqueItems"],
+            serde_json::Value::Bool(true)
+        );
     }
 
     #[test]
@@ -2064,6 +2156,55 @@ mod tests {
             load_config(&root),
             Err(ConfigLoadError::Parse { file, .. }) if file == "enabled-packs.toml"
         ));
+
+        std::fs::remove_file(root.join("enabled-packs.toml"))
+            .expect("remove config with unknown field");
+        for invalid_overlay in [
+            r#"
+[[overlays]]
+principle_id = "test-principle"
+[overlays.mission_filter]
+mission_filter = "pass"
+unknown_nested_field = true
+[overlays.binding]
+binding = "declaration"
+"#,
+            r#"
+[[overlays]]
+principle_id = "test-principle"
+[overlays.mission_filter]
+mission_filter = "adapted"
+note = "test"
+unknown_nested_field = true
+[overlays.binding]
+binding = "declaration"
+"#,
+            r#"
+[[overlays]]
+principle_id = "test-principle"
+[overlays.binding]
+binding = "attest"
+spec = "judge-test"
+unknown_nested_field = true
+"#,
+            r#"
+[[overlays]]
+principle_id = "test-principle"
+[overlays.binding]
+binding = "factory"
+[overlays.binding.spec]
+namespace = "test"
+symbol = "check"
+unknown_nested_field = true
+"#,
+        ] {
+            std::fs::write(root.join("overlays.toml"), invalid_overlay)
+                .expect("write config with unknown nested field");
+            assert!(matches!(
+                load_config(&root),
+                Err(ConfigLoadError::Parse { file, .. }) if file == "overlays.toml"
+            ));
+        }
         std::fs::remove_dir_all(root).expect("remove closed-config test directory");
     }
 }

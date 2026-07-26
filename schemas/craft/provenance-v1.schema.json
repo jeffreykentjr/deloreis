@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProvenanceCfg",
+  "description": "The reference-format patterns provenance guards accept — loadable form of\n[`super::config::ProvenanceFormats`] (design §3 item 6).",
+  "type": "object",
+  "properties": {
+    "canon_digits": {
+      "description": "The exact digit count following the canon prefix.",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "canon_prefix": {
+      "description": "The canon-decision prefix (`D-`).",
+      "type": "string"
+    },
+    "research_id_digits": {
+      "description": "The exact digit count following the research-id prefix.",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "research_id_prefix": {
+      "description": "The research-id prefix (`RR-`).",
+      "type": "string"
+    },
+    "research_path_digits": {
+      "description": "The digit count following the research-doc path prefix.",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "research_path_prefix": {
+      "description": "The research-doc path prefix.",
+      "type": "string"
+    },
+    "research_path_suffix": {
+      "description": "The research-doc path suffix.",
+      "type": "string"
+    },
+    "research_url_schemes": {
+      "description": "Accepted research-URL scheme prefixes, tried in order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "canon_prefix",
+    "canon_digits",
+    "research_id_prefix",
+    "research_id_digits",
+    "research_path_prefix",
+    "research_path_digits",
+    "research_path_suffix"
+  ]
+}

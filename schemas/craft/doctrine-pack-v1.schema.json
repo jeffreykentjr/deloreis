@@ -48,7 +48,7 @@
       ]
     },
     "DoctrineFamily": {
-      "description": "The doctrine axis of a shipped principle — [`Family`] minus [`Family::Pillar`].\n\nA pillar is a *world-chosen* precedence tier (D-0128 for one world), never a\ndoctrine axis, so the shipped record cannot name it: this enum simply has no\npillar variant, making `Family::Pillar` unrepresentable in the shipped library\n**by construction** (design §1.1/§2.4). It composes into a runtime [`Family`] via\n[`DoctrineFamily::family`].",
+      "description": "The doctrine axis of a shipped principle — [`Family`] minus [`Family::Pillar`].\n\nA pillar is a *project-chosen* precedence tier, never a\ndoctrine axis, so the shipped record cannot name it: this enum simply has no\npillar variant, making `Family::Pillar` unrepresentable in the shipped library\n**by construction** (design §1.1/§2.4). It composes into a runtime [`Family`] via\n[`DoctrineFamily::family`].",
       "oneOf": [
         {
           "description": "Plot: promises, causality, try/fail, arc shape.",

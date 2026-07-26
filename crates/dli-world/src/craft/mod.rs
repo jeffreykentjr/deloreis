@@ -51,11 +51,11 @@
 //! | `cast-over-four` | `outline.cast-over-four` | warn² | scenes |
 //! | `scene-idles` | `outline.scene-idles` | warn | scenes |
 //! | `no-audio-plan` | `outline.no-audio-plan` | warn¹ | audio |
-//! | `narrator-direct-address` | `outline.narrator-direct-address` | error | audio (D-0176) |
-//! | `narrator-host-frame` | `outline.narrator-host-frame` | error | audio (D-0176) |
+//! | `narrator-direct-address` | `outline.narrator-direct-address` | error | caller policy |
+//! | `narrator-host-frame` | `outline.narrator-host-frame` | error | caller policy |
 //! | `narrator-needed-for-orientation` | `outline.narrator-needed-for-orientation` | warn | audio |
 //! | `no-narrator-sfx-burden` | `outline.no-narrator-sfx-burden` | warn | audio |
-//! | `sfx-not-sparse` | `outline.sfx-not-sparse` | warn | audio (D-0179) |
+//! | `sfx-not-sparse` | `outline.sfx-not-sparse` | warn | caller policy |
 //! | `sfx-load-bearing` | `outline.sfx-load-bearing` | warn | audio |
 //! | `narrator-tasks-missing` | `outline.narrator-tasks-missing` | warn | audio |
 //! | `no-material-assumption-ledger` | `outline.no-material-assumption-ledger` | warn³ | material |
@@ -63,7 +63,7 @@
 //! | `unsupported-material-assumption` | `outline.unsupported-material-assumption` | warn | material |
 //! | `no-loop-opened` | `outline.no-loop-opened` | warn | loops |
 //! | `no-loop-closed` | `outline.no-loop-closed` | warn | loops |
-//! | `ten-reads-as-battle` | `outline.ten-reads-as-battle` | warn² | ten (D-0052) |
+//! | `ten-reads-as-battle` | `outline.ten-reads-as-battle` | warn² | caller policy |
 //! | `hook-late` | `outline.hook-late` | warn² | hook |
 //! | `no-season-promise-ledger` | `outline.no-season-promise-ledger` | warn¹ | season promises |
 //! | `season-promise-duplicate` | `outline.season-promise-duplicate` | error | season promises |

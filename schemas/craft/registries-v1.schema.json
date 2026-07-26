@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegistriesFile",
+  "type": "object",
+  "properties": {
+    "factory_namespaces": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FactoryNs"
+      }
+    },
+    "judge_kinds": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FactoryNs": {
+      "description": "A caller-declared factory-side check namespace (spec §6: prose checks stay\nfactory-invoked).\n\nThis is an open identifier rather than an engine-owned enum: projects may\nregister any factory namespace and [`super::worldcfg::validate`] checks every\nfactory binding against that registry.",
+      "type": "string"
+    }
+  }
+}

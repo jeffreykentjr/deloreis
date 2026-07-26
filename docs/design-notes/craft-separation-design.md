@@ -211,9 +211,12 @@ dli_world::craft::load {
 }
 ```
 The engine also **publishes versioned JSON Schemas** for `DoctrinePack`,
-`DoctrinePrinciple`, `PrincipleOverlay`, `WorldPrinciple`, and `CraftConfig`
-under `schemas/craft/*-v1.schema.json`; `cargo run -p xtask -- schema --check`
-guards them against drift.
+`DoctrinePrinciple`, `PrincipleOverlay`, `WorldPrinciple`, and the aggregate
+`CraftConfig` library shape, plus one schema for each of the eleven TOML files
+accepted by `load_config`. `cargo run -p xtask -- schema --check` guards every
+schema against drift and validates the committed example and TPtH TOML files
+against their exact loader types. Factory output conforms to the schema for
+each filename, not to the aggregate `CraftConfig` schema.
 
 **Factory PRODUCES (fantasy repo owns the D-nnnn → record mapping):**
 ```

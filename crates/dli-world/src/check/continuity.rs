@@ -213,27 +213,44 @@ fn certain_rejected_lore(world: &CompiledWorld) -> Vec<WorldFinding> {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
-        for token in atom
+        let hits = atom
             .atom
             .args
             .iter()
-            .filter_map(term_symbol)
+            .filter_map(|term| match term {
+                Term::Sym(id) => Some(id.text.as_str()),
+                Term::Str(text) => Some(text.as_str()),
+                Term::Var(_) | Term::Int(_) | Term::Time(_) => None,
+            })
             .chain(std::iter::once(atom.atom.pred.text.as_str()))
-        {
-            if let Some(hit) = world.killed.hit(token) {
-                out.push(
-                    WorldFinding::error(
-                        "continuity.rejected-lore",
-                        format!(
-                            "certain fact '{}' realizes killed token '{}': {}",
-                            atom.atom.pred.text, hit.token, hit.scope
-                        ),
-                    )
-                    .with_citations(vec![hit.decision.clone()]),
-                );
-                break;
-            }
+            .flat_map(|token| world.killed.hits(token))
+            .collect::<Vec<_>>();
+        if hits.is_empty() {
+            continue;
         }
+        let citations = hits
+            .iter()
+            .map(|hit| hit.decision.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let rejected = hits
+            .iter()
+            .map(|hit| format!("'{}' ({}): {}", hit.token, hit.decision, hit.scope))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .join("; ");
+        out.push(
+            WorldFinding::error(
+                "continuity.rejected-lore",
+                format!(
+                    "certain fact '{}' realizes killed token ruling(s): {rejected}",
+                    atom.atom.pred.text
+                ),
+            )
+            .with_citations(citations),
+        );
     }
     out
 }

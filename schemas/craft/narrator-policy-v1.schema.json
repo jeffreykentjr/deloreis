@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NarratorPolicyCfg",
+  "description": "The narrator-framing policy — loadable form of [`super::config::NarratorPolicy`].",
+  "type": "object",
+  "properties": {
+    "direct_address": {
+      "description": "The disposition a direct-audience-address plan earns.",
+      "$ref": "#/$defs/Disposition",
+      "default": "allowed"
+    },
+    "mode_rules": {
+      "description": "Per-mode dispositions; modes absent here are [`Disposition::Allowed`].",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NarratorModeRuleCfg"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Disposition": {
+      "description": "What a narrator-framing choice earns: an error, a warning, or nothing.",
+      "oneOf": [
+        {
+          "description": "The framing is forbidden — an error finding.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "The framing is discouraged — a warn finding.",
+          "type": "string",
+          "const": "warn"
+        },
+        {
+          "description": "The framing is permitted — no finding.",
+          "type": "string",
+          "const": "allowed"
+        }
+      ]
+    },
+    "NarratorMode": {
+      "description": "The narrator framing of an audio packet.",
+      "oneOf": [
+        {
+          "description": "No narrator at all.",
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "description": "A windowpane narrator — transparent orientation, no personality.",
+          "type": "string",
+          "const": "windowpane"
+        },
+        {
+          "description": "A frame narrator.",
+          "type": "string",
+          "const": "frame"
+        },
+        {
+          "description": "A tale-host narrator (a host-narrator ban is world policy).",
+          "type": "string",
+          "const": "host"
+        }
+      ]
+    },
+    "NarratorModeRuleCfg": {
+      "description": "The disposition a single narrator mode earns — loadable form of\n[`super::config::NarratorModeRule`] (design §3 item 5).",
+      "type": "object",
+      "properties": {
+        "disposition": {
+          "description": "Its disposition.",
+          "$ref": "#/$defs/Disposition"
+        },
+        "mode": {
+          "description": "The narrator mode this rule governs.",
+          "$ref": "#/$defs/NarratorMode"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "disposition"
+      ]
+    }
+  }
+}

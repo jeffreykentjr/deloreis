@@ -322,13 +322,20 @@ pub fn check_draft(world: &CompiledWorld, draft: &DraftPayload) -> Vec<DraftFind
         });
     }
     for name in &draft.names {
-        if let Some(hit) = world.killed.hit(name) {
+        let hits = world.killed.hits(name).collect::<Vec<_>>();
+        if !hits.is_empty() {
+            let rejected = hits
+                .iter()
+                .map(|hit| format!("'{}' ({}): {}", hit.token, hit.decision, hit.scope))
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join("; ");
             out.push(DraftFinding {
                 claim: name.clone(),
                 grade: Grade::Checked,
                 message: format!(
-                    "introduced name '{name}' realizes killed token '{}' ({}): {}",
-                    hit.token, hit.decision, hit.scope
+                    "introduced name '{name}' realizes killed token ruling(s): {rejected}"
                 ),
             });
         }

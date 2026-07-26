@@ -2193,10 +2193,13 @@ dependencies = [
  "dli-syntax",
  "dli-world",
  "jsonschema",
+ "proc-macro2",
  "schemars",
  "serde_json",
  "serde_yaml_ng",
  "sha2",
+ "syn 2.0.119",
+ "toml",
  "walkdir",
 ]
 

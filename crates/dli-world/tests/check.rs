@@ -220,7 +220,10 @@ fn killed_tokens_match_by_word_and_phrase() {
     ]);
     assert!(killed.hit("the road to Irondale").is_some());
     assert!(killed.hit("Doom Wight rises").is_some()); // hyphen/space fold
+    assert!(killed.hit("Doomwight rises").is_some()); // run-together fold
     assert!(killed.hit("the ironclad gate").is_none()); // word boundary, not substring
+    assert!(killed.hit("the iron dale gate").is_none()); // adjacent words do not merge
+    assert!(killed.hit("a do omwight rises").is_none()); // arbitrary fragments do not merge
 }
 
 #[test]
@@ -235,6 +238,127 @@ fn factcheck_contradicts_a_claim_that_revives_a_killed_token() {
     let reports = factcheck(&world, &[atom("home", &["anchor", "irondale"])]);
     assert_eq!(reports[0].verdict, Verdict::Contradicted);
     assert_eq!(reports[0].citations, vec!["D-0101".to_owned()]);
+}
+
+#[test]
+fn factcheck_scans_quoted_multiword_values_for_killed_phrases() {
+    let killed = KilledTokens::new(vec![KilledToken {
+        token: "demon king".to_owned(),
+        mode: MatchMode::Phrase,
+        decision: "D-0010".to_owned(),
+        scope: "singular antagonist".to_owned(),
+    }]);
+    let world = saltcast_world().with_killed_tokens(killed);
+    let claim = AtomExpr {
+        pred: id("identity"),
+        args: vec![
+            Term::Sym(id("antagonist")),
+            Term::Str("demon king".to_owned()),
+        ],
+    };
+
+    let reports = factcheck(&world, &[claim]);
+
+    assert_eq!(reports[0].verdict, Verdict::Contradicted);
+    assert_eq!(reports[0].citations, vec!["D-0010".to_owned()]);
+}
+
+#[test]
+fn factcheck_preserves_every_ruling_for_one_killed_form() {
+    let killed = KilledTokens::new(
+        ["D-0010", "D-0033"]
+            .into_iter()
+            .map(|decision| KilledToken {
+                token: "demon king".to_owned(),
+                mode: MatchMode::Phrase,
+                decision: decision.to_owned(),
+                scope: "singular antagonist".to_owned(),
+            })
+            .collect(),
+    );
+    let world = saltcast_world().with_killed_tokens(killed);
+    let claim = AtomExpr {
+        pred: id("identity"),
+        args: vec![
+            Term::Sym(id("antagonist")),
+            Term::Str("demon king".to_owned()),
+        ],
+    };
+
+    let reports = factcheck(&world, &[claim]);
+
+    assert_eq!(reports[0].verdict, Verdict::Contradicted);
+    assert_eq!(
+        reports[0].citations,
+        vec!["D-0010".to_owned(), "D-0033".to_owned()]
+    );
+    assert!(reports[0].reason.contains("D-0010"));
+    assert!(reports[0].reason.contains("D-0033"));
+}
+
+#[test]
+fn continuity_scans_quoted_values_and_preserves_every_killed_ruling() {
+    let world = compile(&pack(
+        "rejected",
+        vec![
+            ratify_decl("D-0010"),
+            Decl::Fact(FactDecl {
+                atom: AtomExpr {
+                    pred: id("identity"),
+                    args: vec![
+                        Term::Sym(id("antagonist")),
+                        Term::Str("demon king".to_owned()),
+                    ],
+                },
+                triple: false,
+                provenance: Some(ratified("D-0010")),
+            }),
+        ],
+    ))
+    .expect("compiles")
+    .with_killed_tokens(KilledTokens::new(
+        ["D-0010", "D-0033"]
+            .into_iter()
+            .map(|decision| KilledToken {
+                token: "demon king".to_owned(),
+                mode: MatchMode::Phrase,
+                decision: decision.to_owned(),
+                scope: "singular antagonist".to_owned(),
+            })
+            .collect(),
+    ));
+
+    let finding = check::continuity::run(&world)
+        .into_iter()
+        .find(|finding| finding.code == "continuity.rejected-lore")
+        .expect("quoted rejected lore is detected");
+    assert_eq!(
+        finding.citations,
+        vec!["D-0010".to_owned(), "D-0033".to_owned()]
+    );
+}
+
+#[test]
+fn factcheck_does_not_merge_adjacent_words_into_a_single_killed_word() {
+    let killed = KilledTokens::new(vec![KilledToken {
+        token: "auditor".to_owned(),
+        mode: MatchMode::Word,
+        decision: "D-0009".to_owned(),
+        scope: "protagonist identity".to_owned(),
+    }]);
+    let world = saltcast_world().with_killed_tokens(killed);
+    let claim = AtomExpr {
+        pred: id("identity"),
+        args: vec![
+            Term::Sym(id("protagonist")),
+            Term::Str("audit or".to_owned()),
+        ],
+    };
+
+    let reports = factcheck(&world, &[claim]);
+
+    assert_eq!(reports[0].verdict, Verdict::Unsupported);
+    assert!(reports[0].citations.is_empty());
 }
 
 #[test]

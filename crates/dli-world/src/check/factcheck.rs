@@ -22,6 +22,7 @@ use dli_ast::term::AtomExpr;
 use dli_core::grade::Grade;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 use super::CompiledWorld;
 use super::continuity::{certain_values, render_term, slot_citations, slot_of};
@@ -87,26 +88,38 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     let rendered = render_atom(claim);
 
     // Rejected lore first: a claim naming a killed token is contradicted outright.
-    for token in claim
+    // Keep every matching ruling; one rejected form may have several authorities.
+    let killed_hits = claim
         .args
         .iter()
         .filter_map(|term| match term {
             dli_ast::term::Term::Sym(id) => Some(id.text.as_str()),
+            dli_ast::term::Term::Str(text) => Some(text.as_str()),
             _ => None,
         })
         .chain(std::iter::once(claim.pred.text.as_str()))
-    {
-        if let Some(hit) = world.killed.hit(token) {
-            return ClaimReport {
-                claim: rendered,
-                verdict: Verdict::Contradicted,
-                citations: vec![hit.decision.clone()],
-                reason: format!(
-                    "realizes killed token '{}' ({}): {}",
-                    hit.token, hit.decision, hit.scope
-                ),
-            };
-        }
+        .flat_map(|token| world.killed.hits(token))
+        .collect::<Vec<_>>();
+    if !killed_hits.is_empty() {
+        let citations = killed_hits
+            .iter()
+            .map(|hit| hit.decision.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let reasons = killed_hits
+            .iter()
+            .map(|hit| format!("'{}' ({}): {}", hit.token, hit.decision, hit.scope))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .join("; ");
+        return ClaimReport {
+            claim: rendered,
+            verdict: Verdict::Contradicted,
+            citations,
+            reason: format!("realizes killed token ruling(s): {reasons}"),
+        };
     }
 
     let Some((slot, value)) = slot_of(claim) else {
@@ -223,7 +236,10 @@ impl KilledToken {
         let haystack = normalize(text);
         match self.mode {
             MatchMode::Substring => strip_spaces(&haystack).contains(&strip_spaces(&needle)),
-            MatchMode::Word | MatchMode::Phrase => token_run_present(&haystack, &needle),
+            MatchMode::Word if !needle.contains(' ') => {
+                haystack.split(' ').any(|word| word == needle)
+            }
+            MatchMode::Word | MatchMode::Phrase => phrase_present(&haystack, &needle),
         }
     }
 }
@@ -249,6 +265,11 @@ impl KilledTokens {
     #[must_use]
     pub fn hit(&self, text: &str) -> Option<&KilledToken> {
         self.tokens.iter().find(|token| token.matches(text))
+    }
+
+    /// Every killed-token ruling that matches `text`, in registry order.
+    pub fn hits<'a>(&'a self, text: &'a str) -> impl Iterator<Item = &'a KilledToken> + 'a {
+        self.tokens.iter().filter(move |token| token.matches(text))
     }
 
     /// Whether the store carries no tokens.
@@ -285,36 +306,29 @@ fn strip_spaces(normalized: &str) -> String {
     normalized.split(' ').collect()
 }
 
-/// Whether some contiguous run of `haystack` words, concatenated, equals the
-/// concatenated `needle`. Both are already [`normalize`]d.
+/// Whether `haystack` contains the normalized phrase or its run-together form.
+/// Both inputs are already [`normalize`]d.
 ///
 /// This treats hyphen, space, and concatenation as equivalent at token
 /// boundaries: `tide-bell` (normalized to `tide bell`) matches `tidebell` and
-/// `tide bell` alike, because both reduce to the run `tidebell`. It never matches
-/// a longer word that merely contains the needle (`tidebells`), because a run
-/// must equal the needle exactly — that boundary is what separates
+/// `tide bell` alike. It does not join arbitrary fragments such as `ti debell`,
+/// and it never matches a longer word that merely contains the needle
+/// (`tidebells`). Those boundaries separate
 /// [`Word`](MatchMode::Word)/[`Phrase`](MatchMode::Phrase) from the liberal
 /// [`Substring`](MatchMode::Substring).
-fn token_run_present(haystack: &str, needle: &str) -> bool {
-    let needle_concat = strip_spaces(needle);
-    if needle_concat.is_empty() {
+fn phrase_present(haystack: &str, needle: &str) -> bool {
+    let needle_words: Vec<&str> = needle.split(' ').filter(|word| !word.is_empty()).collect();
+    if needle_words.is_empty() {
         return false;
     }
-    let words: Vec<&str> = haystack
+    let haystack_words: Vec<&str> = haystack
         .split(' ')
         .filter(|word| !word.is_empty())
         .collect();
-    for start in 0..words.len() {
-        let mut acc = String::new();
-        for word in &words[start..] {
-            acc.push_str(word);
-            if acc == needle_concat {
-                return true;
-            }
-            if acc.len() >= needle_concat.len() {
-                break;
-            }
-        }
-    }
-    false
+    haystack_words
+        .windows(needle_words.len())
+        .any(|window| window == needle_words)
+        || haystack_words
+            .iter()
+            .any(|word| *word == strip_spaces(needle))
 }

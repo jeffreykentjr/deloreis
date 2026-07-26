@@ -1533,10 +1533,14 @@ fn attestation_check_finding(checked: evidence::CheckedAttestation) -> Attestati
 }
 
 /// Map a language-layer finding onto the wire [`Finding`]. The kernel vetting is
-/// deterministic, so it grades `checked`; a name defect warns rather than blocks.
+/// deterministic, so it grades `checked`; preserve whether the kernel classified
+/// the defect as blocking or advisory.
 fn lang_finding(finding: &LangFinding) -> Finding {
     Finding {
-        severity: Severity::Warn,
+        severity: match finding.severity() {
+            dli_world::check::Severity::Error => Severity::Error,
+            dli_world::check::Severity::Warn => Severity::Warn,
+        },
         code: finding.code().to_owned(),
         message: finding.message(),
         grade: Grade::Checked,
@@ -1800,6 +1804,8 @@ fn error_response(request: &Request, code: ErrorCode, message: impl Into<String>
 
 #[cfg(test)]
 mod tests {
+    use dli_ast::span::Span;
+    use dli_world::language::LangFinding;
     use dli_world::payload::PayloadFinding;
 
     use super::*;
@@ -1850,5 +1856,24 @@ mod tests {
             complete_check_grade([Grade::Checked, Grade::Tested, Grade::Attested]),
             Grade::Attested
         );
+    }
+
+    #[test]
+    fn language_findings_preserve_kernel_severity() {
+        let error = LangFinding::RegisterFit {
+            name: "candidate".to_owned(),
+            register: "missing".to_owned(),
+            reason: "unknown dialect".to_owned(),
+            span: Span::synthetic(),
+        };
+        assert_eq!(lang_finding(&error).severity, Severity::Error);
+
+        let warn = LangFinding::SayabilityCap {
+            name: "candidate".to_owned(),
+            syllables: 9,
+            cap: 6,
+            span: Span::synthetic(),
+        };
+        assert_eq!(lang_finding(&warn).severity, Severity::Warn);
     }
 }

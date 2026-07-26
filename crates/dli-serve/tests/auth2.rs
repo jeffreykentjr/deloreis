@@ -19,7 +19,7 @@ use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
 use dli_syntax::{format_document, parse_document};
 use dli_world::model::{LoadedAtom, Provenance};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 const FIXTURE_NAME: &str = "worlds/tpth/auth2/author-tegwen-v1";
@@ -51,8 +51,18 @@ fn copy_project() -> tempfile::TempDir {
     )
     .unwrap();
     fs::copy(
+        tpth_root().join("auth2/pinned-constraints.dli"),
+        temp.path().join("auth2/pinned-constraints.dli"),
+    )
+    .unwrap();
+    fs::copy(
         tpth_root().join("auth2/fork.dli"),
         temp.path().join("auth2/fork.dli"),
+    )
+    .unwrap();
+    fs::copy(
+        tpth_root().join("auth2/pinned-guardrails.yaml"),
+        temp.path().join("auth2/pinned-guardrails.yaml"),
     )
     .unwrap();
     fs::copy(
@@ -330,7 +340,6 @@ fn pinned_projection() -> String {
     for row in &facts.facts {
         decisions.extend(row.decisions.iter().cloned());
     }
-
     let mut decls = decisions
         .into_iter()
         .map(|decision| {
@@ -402,6 +411,81 @@ fn pinned_projection() -> String {
         }),
         decls,
     })
+}
+
+fn pinned_constraints_projection() -> String {
+    let facts = pinned_facts();
+    let mut decisions = facts
+        .constraints
+        .iter()
+        .flat_map(|row| row.decisions.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|decision| {
+            Decl::Ratify(RatifyDecl {
+                decision: ident(&decision),
+                body: Vec::new(),
+            })
+        })
+        .collect::<Vec<_>>();
+    decisions.extend(facts.constraints.iter().flat_map(constraint_decls));
+    format_document(&Document {
+        scope: Some(ScopeHeader {
+            name: ident("tpth-pinned-constraints"),
+            span: Span::synthetic(),
+        }),
+        decls: decisions,
+    })
+}
+
+fn constraint_decls(row: &ConstraintRow) -> Vec<Decl> {
+    let provenance = || Some(annotation("ratified", &row.decisions));
+    [
+        (
+            "constraint-status",
+            vec![Term::Sym(ident(&row.id)), Term::Sym(ident("rejected"))],
+        ),
+        (
+            "constraint-description",
+            vec![
+                Term::Sym(ident(&row.id)),
+                Term::Str(row.description.clone()),
+            ],
+        ),
+        (
+            "constraint-kind",
+            vec![
+                Term::Sym(ident(&row.id)),
+                Term::Sym(ident(&row.machine_check.kind)),
+            ],
+        ),
+        (
+            "constraint-pattern",
+            vec![
+                Term::Sym(ident(&row.id)),
+                Term::Str(row.machine_check.pattern.clone()),
+            ],
+        ),
+        (
+            "constraint-target",
+            vec![
+                Term::Sym(ident(&row.id)),
+                Term::Sym(ident(&row.machine_check.target)),
+            ],
+        ),
+    ]
+    .into_iter()
+    .map(|(predicate, args)| {
+        Decl::Fact(FactDecl {
+            atom: AtomExpr {
+                pred: ident(predicate),
+                args,
+            },
+            triple: true,
+            provenance: provenance(),
+        })
+    })
+    .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -507,6 +591,12 @@ fn expected_projection_rows(facts: &FactsDoc) -> Vec<SemanticRow> {
             row.decisions.clone(),
         )
     }));
+    rows.extend(facts.constraints.iter().flat_map(|row| {
+        constraint_decls(row).into_iter().map(|decl| match decl {
+            Decl::Fact(fact) => semantic_row(&fact.atom, "ratified", row.decisions.clone()),
+            _ => unreachable!("constraint_decls emits facts only"),
+        })
+    }));
     rows.sort();
     rows
 }
@@ -552,7 +642,7 @@ fn parsed_projection_rows(document: &Document) -> Vec<SemanticRow> {
 fn loaded_projection_rows(atoms: &[LoadedAtom]) -> Vec<SemanticRow> {
     let mut rows = atoms
         .iter()
-        .filter(|atom| atom.pack == "tpth-pinned-facts")
+        .filter(|atom| atom.pack.starts_with("tpth-pinned-"))
         .map(|atom| {
             semantic_row(
                 &atom.atom,
@@ -565,7 +655,61 @@ fn loaded_projection_rows(atoms: &[LoadedAtom]) -> Vec<SemanticRow> {
     rows
 }
 
-fn assert_constraints_are_separately_recognized(facts: &FactsDoc) {
+fn loaded_constraint_rows() -> Vec<SemanticRow> {
+    let temp = copy_project();
+    let project = Project::load(temp.path()).expect("AUTH-2 project loads");
+    let constraints = project
+        .document("tpth-constraints")
+        .expect("AUTH-2 project exposes the pinned constraint document");
+    let world = dli_world::compile(&constraints.pack).expect("pinned constraints compile");
+    loaded_projection_rows(world.model.atoms())
+}
+
+#[derive(Serialize)]
+struct GuardrailFile {
+    killed: Vec<GuardrailRow>,
+}
+
+#[derive(Serialize)]
+struct GuardrailRow {
+    token: String,
+    #[serde(rename = "match")]
+    mode: &'static str,
+    decision: String,
+    scope: String,
+}
+
+fn token_from_pattern(pattern: &str) -> String {
+    pattern.replace("\\b", "").trim().to_owned()
+}
+
+fn pinned_guardrails() -> String {
+    let killed = pinned_facts()
+        .constraints
+        .into_iter()
+        .flat_map(|constraint| {
+            let token = token_from_pattern(&constraint.machine_check.pattern);
+            let mode = match constraint.machine_check.kind.as_str() {
+                "vocabulary" if token.contains(' ') => "phrase",
+                "name_ban" | "vocabulary" => "word",
+                _ => return Vec::new(),
+            };
+            constraint
+                .decisions
+                .into_iter()
+                .map(|decision| GuardrailRow {
+                    token: token.clone(),
+                    mode,
+                    decision,
+                    scope: constraint.description.clone(),
+                })
+                .collect()
+        })
+        .collect();
+    serde_yaml_ng::to_string(&GuardrailFile { killed }).expect("render pinned guardrails")
+}
+
+fn assert_constraints_are_preserved(facts: &FactsDoc) {
     let ids = facts
         .constraints
         .iter()
@@ -585,7 +729,168 @@ fn assert_constraints_are_separately_recognized(facts: &FactsDoc) {
             "no-singular-demon-king",
             "no-monster-of-the-week"
         ],
-        "constraints are a separately owned guardrail surface, not atomic fact rows"
+        "the pinned constraint inventory must remain closed"
+    );
+}
+
+fn parse_projection(source: &str) -> Document {
+    let (document, diagnostics) = parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    document
+}
+
+fn assert_guardrail_rejected(
+    value: &str,
+    citations: &[&str],
+    workspace: &str,
+    sessions: &mut Sessions,
+    store: &mut Store,
+) {
+    let id = citations.join("-");
+    let added = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": format!("guardrail-add-{id}"),
+            "op": "author.add_fact",
+            "params": {
+                "workspace": workspace,
+                "entity": "protagonist",
+                "key": "identity",
+                "value": value,
+                "provenance": {
+                    "kind": "proposed",
+                    "origin": "agent:redteam/auth2"
+                }
+            }
+        }),
+        sessions,
+        store,
+    );
+    assert!(
+        added["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|finding| {
+                finding["code"] == "factcheck.contradicted"
+                    && citations.iter().all(|citation| {
+                        finding["citations"]
+                            .as_array()
+                            .is_some_and(|actual| actual.iter().any(|value| value == citation))
+                    })
+            })),
+        "lexical guardrail `{value}` was not returned immediately: {added:#}"
+    );
+    let rejected = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": format!("guardrail-check-{id}"),
+            "op": "author.check",
+            "params": {"workspace": workspace}
+        }),
+        sessions,
+        store,
+    );
+    assert!(
+        rejected["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|finding| {
+                finding["code"] == "factcheck.contradicted"
+                    && citations.iter().all(|citation| {
+                        finding["citations"]
+                            .as_array()
+                            .is_some_and(|actual| actual.iter().any(|value| value == citation))
+                    })
+            })),
+        "lexical guardrail `{value}` did not execute: {rejected:#}"
+    );
+    let findings = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": format!("guardrail-findings-{id}"),
+            "op": "author.findings",
+            "params": {"workspace": workspace}
+        }),
+        sessions,
+        store,
+    );
+    assert_eq!(
+        findings["result"]["materializable"],
+        json!(false),
+        "{findings:#}"
+    );
+    let materialized = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": format!("guardrail-materialize-{id}"),
+            "op": "author.materialize",
+            "params": {"workspace": workspace}
+        }),
+        sessions,
+        store,
+    );
+    assert_eq!(
+        materialized["error"]["code"], "materialize-blocked",
+        "{materialized:#}"
+    );
+}
+
+fn assert_entity_guardrail_rejected(
+    id: &str,
+    name: &str,
+    citation: &str,
+    workspace: &str,
+    sessions: &mut Sessions,
+    store: &mut Store,
+) {
+    let added = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": format!("guardrail-entity-{id}"),
+            "op": "author.add_entity",
+            "params": {
+                "workspace": workspace,
+                "kind": "person",
+                "id": id,
+                "name": name,
+                "provenance": {
+                    "kind": "proposed",
+                    "origin": "agent:redteam/auth2"
+                }
+            }
+        }),
+        sessions,
+        store,
+    );
+    assert!(
+        added["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|finding| {
+                finding["code"] == "factcheck.contradicted"
+                    && finding["citations"]
+                        .as_array()
+                        .is_some_and(|citations| citations.iter().any(|value| value == citation))
+            })),
+        "killed entity `{id}` / `{name}` was not rejected immediately: {added:#}"
+    );
+}
+
+fn assert_guardrail_finding(response: &Value, citations: &[&str]) {
+    assert!(
+        response["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|finding| {
+                finding["code"] == "factcheck.contradicted"
+                    && citations.iter().all(|citation| {
+                        finding["citations"]
+                            .as_array()
+                            .is_some_and(|actual| actual.iter().any(|value| value == citation))
+                    })
+            })),
+        "guardrail finding missing from response: {response:#}"
     );
 }
 
@@ -620,15 +925,12 @@ fn fixture_base_preserves_every_pinned_atomic_row() {
 
     let projection = fs::read_to_string(tpth_root().join("auth2/pinned-facts.dli")).unwrap();
     assert_eq!(projection, pinned_projection());
+    let constraints = fs::read_to_string(tpth_root().join("auth2/pinned-constraints.dli")).unwrap();
+    assert_eq!(constraints, pinned_constraints_projection());
     assert!(projection.contains("ratify D-0108"));
     assert!(projection.contains("ratify D-0111"));
-    let (document, diagnostics) = parse_document(&projection);
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| !diagnostic.class.is_error()),
-        "{diagnostics:?}"
-    );
+    let document = parse_projection(&projection);
+    let constraint_document = parse_projection(&constraints);
     let gwern = document
         .decls
         .iter()
@@ -674,15 +976,19 @@ fn fixture_base_preserves_every_pinned_atomic_row() {
         );
     }
     assert_eq!(entity_rows.len(), facts.entities.len());
+    let mut parsed_rows = parsed_projection_rows(&document);
+    parsed_rows.extend(parsed_projection_rows(&constraint_document));
+    parsed_rows.sort();
     assert_eq!(
-        parsed_projection_rows(&document),
+        parsed_rows,
         expected_projection_rows(&facts),
-        "the parser must preserve every projected entity, relation, fact, source kind, and note"
+        "the parser must preserve every projected entity, relation, fact, constraint, source kind, and note"
     );
 
     let projected_decisions = document
         .decls
         .iter()
+        .chain(&constraint_document.decls)
         .filter_map(|decl| match decl {
             Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
             _ => None,
@@ -694,11 +1000,17 @@ fn fixture_base_preserves_every_pinned_atomic_row() {
         .flat_map(|row| &row.decisions)
         .chain(facts.relations.iter().flat_map(|row| &row.decisions))
         .chain(facts.facts.iter().flat_map(|row| &row.decisions))
+        .chain(facts.constraints.iter().flat_map(|row| &row.decisions))
         .map(String::as_str)
         .collect::<BTreeSet<_>>();
     assert_eq!(projected_decisions, expected_decisions);
 
-    assert_constraints_are_separately_recognized(&facts);
+    assert_constraints_are_preserved(&facts);
+    assert_eq!(
+        fs::read_to_string(tpth_root().join("auth2/pinned-guardrails.yaml")).unwrap(),
+        pinned_guardrails(),
+        "the executable lexical guardrails must be regenerated from the pinned constraints"
+    );
 }
 
 #[test]
@@ -707,13 +1019,17 @@ fn fixture_project_observes_the_full_pinned_corpus() {
     assert_eq!(facts.entities.len(), 23);
     assert_eq!(facts.relations.len(), 12);
     assert_eq!(facts.facts.len(), 156);
+    assert_eq!(facts.constraints.len(), 3);
 
     let (_temp, mut sessions, mut store) = runtime();
     let opened = drive(&requests()[0], &mut sessions, &mut store);
     let workspace = opened["result"]["workspace"].as_str().unwrap();
     let base = store.workspace_base(workspace).expect("opened AUTH-2 base");
+    let mut loaded_rows = loaded_projection_rows(base.model.atoms());
+    loaded_rows.extend(loaded_constraint_rows());
+    loaded_rows.sort();
     assert_eq!(
-        loaded_projection_rows(base.model.atoms()),
+        loaded_rows,
         expected_projection_rows(&facts),
         "the real project loader must retain every projected semantic row"
     );
@@ -744,6 +1060,158 @@ fn fixture_project_observes_the_full_pinned_corpus() {
                 .any(|finding| finding["code"] == "fact.contradiction")),
         "{contradiction:#}"
     );
+
+    assert_guardrail_rejected("auditor", &["D-0009"], workspace, &mut sessions, &mut store);
+    assert_guardrail_rejected(
+        "demon king",
+        &["D-0010", "D-0033"],
+        workspace,
+        &mut sessions,
+        &mut store,
+    );
+}
+
+#[test]
+fn fixture_project_rejects_killed_entity_ids_and_labels() {
+    let (_temp, mut sessions, mut store) = runtime();
+    let opened = drive(&requests()[0], &mut sessions, &mut store);
+    let workspace = opened["result"]["workspace"].as_str().unwrap();
+
+    assert_entity_guardrail_rejected(
+        "auditor",
+        "Harmless Label",
+        "D-0009",
+        workspace,
+        &mut sessions,
+        &mut store,
+    );
+    assert_entity_guardrail_rejected(
+        "harmless-id",
+        "The Auditor",
+        "D-0009",
+        workspace,
+        &mut sessions,
+        &mut store,
+    );
+
+    let findings = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-entity-findings",
+            "op": "author.findings",
+            "params": {"workspace": workspace}
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(findings["result"]["materializable"], json!(false));
+    assert!(
+        findings["result"]["errors"]
+            .as_array()
+            .is_some_and(|errors| errors
+                .iter()
+                .any(|finding| finding["code"] == "factcheck.contradicted")),
+        "{findings:#}"
+    );
+}
+
+#[test]
+fn fixture_project_rejects_killed_question_option_and_hypothesis_text() {
+    let (_temp, mut sessions, mut store) = runtime();
+    let opened = drive(&requests()[0], &mut sessions, &mut store);
+    let workspace = opened["result"]["workspace"].as_str().unwrap();
+
+    let question = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-question",
+            "op": "author.open_question",
+            "params": {
+                "workspace": workspace,
+                "id": "protagonist-role",
+                "prompt": "Could the protagonist be an Auditor?"
+            }
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_guardrail_finding(&question, &["D-0009"]);
+
+    let clean_question = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-clean-question",
+            "op": "author.open_question",
+            "params": {
+                "workspace": workspace,
+                "id": "antagonist-shape",
+                "prompt": "What shape does the antagonist take?"
+            }
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        clean_question["result"]["findings"]
+            .as_array()
+            .is_some_and(Vec::is_empty),
+        "{clean_question:#}"
+    );
+    let option = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-option",
+            "op": "author.add_option",
+            "params": {
+                "workspace": workspace,
+                "question": "antagonist-shape",
+                "id": "singular-foe",
+                "label": "Demon King"
+            }
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_guardrail_finding(&option, &["D-0010", "D-0033"]);
+
+    let hypothesis = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-hypothesis",
+            "op": "author.add_hypothesis",
+            "params": {
+                "workspace": workspace,
+                "id": "protagonist-office",
+                "statement": "The protagonist serves as the auditor."
+            }
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_guardrail_finding(&hypothesis, &["D-0009"]);
+
+    let findings = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-text-findings",
+            "op": "author.findings",
+            "params": {"workspace": workspace}
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(findings["result"]["materializable"], json!(false));
+    let materialized = drive(
+        &json!({
+            "dli": "0.5.1",
+            "id": "guardrail-text-materialize",
+            "op": "author.materialize",
+            "params": {"workspace": workspace}
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(materialized["error"]["code"], "materialize-blocked");
 }
 
 #[test]
@@ -801,4 +1269,14 @@ fn regenerate_pinned_facts_projection() {
         pinned_projection(),
     )
     .expect("write pinned facts projection");
+    fs::write(
+        tpth_root().join("auth2/pinned-constraints.dli"),
+        pinned_constraints_projection(),
+    )
+    .expect("write pinned constraints projection");
+    fs::write(
+        tpth_root().join("auth2/pinned-guardrails.yaml"),
+        pinned_guardrails(),
+    )
+    .expect("write pinned guardrails");
 }

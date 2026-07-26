@@ -1,0 +1,13 @@
+killed:
+- token: auditor
+  match: word
+  decision: D-0009
+  scope: The 'Auditor' concept/identity for the protagonist is rejected.
+- token: demon king
+  match: phrase
+  decision: D-0010
+  scope: No singular Demon King antagonist; antagonism is systemic.
+- token: demon king
+  match: phrase
+  decision: D-0033
+  scope: No singular Demon King antagonist; antagonism is systemic.

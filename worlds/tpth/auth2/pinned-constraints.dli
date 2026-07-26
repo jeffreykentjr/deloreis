@@ -1,0 +1,21 @@
+scope tpth-pinned-constraints
+
+ratify D-0009
+ratify D-0010
+ratify D-0012
+ratify D-0033
+fact no-auditor-concept constraint-status rejected                                                                     ratified D-0009
+fact no-auditor-concept constraint-description "The 'Auditor' concept/identity for the protagonist is rejected."       ratified D-0009
+fact no-auditor-concept constraint-kind name_ban                                                                       ratified D-0009
+fact no-auditor-concept constraint-pattern "\\bauditor\\b"                                                             ratified D-0009
+fact no-auditor-concept constraint-target name                                                                         ratified D-0009
+fact no-singular-demon-king constraint-status rejected                                                                 ratified D-0010 D-0033
+fact no-singular-demon-king constraint-description "No singular Demon King antagonist; antagonism is systemic."        ratified D-0010 D-0033
+fact no-singular-demon-king constraint-kind vocabulary                                                                 ratified D-0010 D-0033
+fact no-singular-demon-king constraint-pattern "\\bdemon king\\b"                                                      ratified D-0010 D-0033
+fact no-singular-demon-king constraint-target text                                                                     ratified D-0010 D-0033
+fact no-monster-of-the-week constraint-status rejected                                                                 ratified D-0012
+fact no-monster-of-the-week constraint-description "Monster-of-the-week around one big hunt is rejected as the spine." ratified D-0012
+fact no-monster-of-the-week constraint-kind structure                                                                  ratified D-0012
+fact no-monster-of-the-week constraint-pattern "monster-of-the-week"                                                   ratified D-0012
+fact no-monster-of-the-week constraint-target structure                                                                ratified D-0012

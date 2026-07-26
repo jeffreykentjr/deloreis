@@ -6,7 +6,7 @@
 
 use dli_syntax::parse_document;
 
-use dli_world::check;
+use dli_world::check::{self, Severity};
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
 
@@ -98,6 +98,11 @@ fn a_proof_citing_an_undeclared_decision_is_caught() {
         findings.iter().any(|m| m.contains("d-9999")),
         "a forged proof-premise citation is caught: {findings:?}",
     );
+    let finding = check::run(&world)
+        .into_iter()
+        .find(|finding| finding.code == "citation.unknown-decision")
+        .expect("citation finding");
+    assert_eq!(finding.severity, Severity::Error);
 }
 
 #[test]

@@ -38,7 +38,7 @@
 //!
 //! **Coverage is a query, kept honest** ([`checkable_debt`]): the principles bound
 //! `judge` or `none` are the standing roadmap of rules not yet written. **Pillars
-//! win** (D-0128): [`why`] renders the principles behind a finding pillar-first, so
+//! win**: [`why`] renders the principles behind a finding pillar-first, so
 //! a mission-specific pillar overrides generic advice.
 
 use std::borrow::Cow;
@@ -134,12 +134,12 @@ pub enum Family {
     Serial,
     /// Audio: narrator/SFX load, aural distinctness, performability.
     Audio,
-    /// Pillar: a mission-specific principle that overrides generic advice (D-0128).
+    /// Pillar: a project-specific principle that overrides generic advice.
     Pillar,
 }
 
 impl Family {
-    /// Whether this is the pillar family — the one that wins a conflict (D-0128).
+    /// Whether this is the pillar family — the one that wins a conflict.
     #[must_use]
     pub fn is_pillar(self) -> bool {
         matches!(self, Self::Pillar)
@@ -160,7 +160,7 @@ pub enum Phase {
     Revision,
 }
 
-/// How the mission filters a principle (D-0128).
+/// How a project filters a principle.
 ///
 /// The two off-`Pass` arms carry their required companion fields inline, which is
 /// how the spec's "a `tension` requires a `resolution`" invariant becomes a
@@ -172,8 +172,8 @@ pub enum Phase {
 /// // A tension without a resolution is not a value that exists.
 /// let _bad = MissionFilter::Tension { note: "generic advice loses to the pillar" };
 /// ```
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "mission_filter", rename_all = "kebab-case")]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "mission_filter", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum MissionFilter {
     /// The principle applies to the mission unchanged.
     #[default]
@@ -191,6 +191,32 @@ pub enum MissionFilter {
         /// The mission-side ruling that resolves it — where the pillar wins.
         resolution: Cow<'static, str>,
     },
+}
+
+impl<'de> Deserialize<'de> for MissionFilter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(tag = "mission_filter", rename_all = "kebab-case", deny_unknown_fields)]
+        enum Wire {
+            Pass {},
+            Adapted { note: String },
+            Tension { note: String, resolution: String },
+        }
+
+        Ok(match Wire::deserialize(deserializer)? {
+            Wire::Pass {} => Self::Pass,
+            Wire::Adapted { note } => Self::Adapted {
+                note: Cow::Owned(note),
+            },
+            Wire::Tension { note, resolution } => Self::Tension {
+                note: Cow::Owned(note),
+                resolution: Cow::Owned(resolution),
+            },
+        })
+    }
 }
 
 impl MissionFilter {
@@ -344,7 +370,12 @@ impl FactoryNs {
 /// let _bad = Binding::Rule(KernelRule::NoSuchRule);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "binding", content = "spec", rename_all = "kebab-case")]
+#[serde(
+    tag = "binding",
+    content = "spec",
+    rename_all = "kebab-case",
+    deny_unknown_fields
+)]
 pub enum Binding {
     /// A deterministic kernel rule (the reference cannot dangle — closed enum).
     Rule(KernelRule),
@@ -454,7 +485,7 @@ impl Principle {
         self.binding.checkable()
     }
 
-    /// Whether this is a pillar principle (wins a conflict — D-0128).
+    /// Whether this is a pillar principle (wins a conflict).
     #[must_use]
     pub fn is_pillar(&self) -> bool {
         self.family.is_pillar()
@@ -579,7 +610,7 @@ pub enum CheckableKind {
 
 /// The doctrine axis of a shipped principle — [`Family`] minus [`Family::Pillar`].
 ///
-/// A pillar is a *world-chosen* precedence tier (D-0128 for one world), never a
+/// A pillar is a *project-chosen* precedence tier, never a
 /// doctrine axis, so the shipped record cannot name it: this enum simply has no
 /// pillar variant, making `Family::Pillar` unrepresentable in the shipped library
 /// **by construction** (design §1.1/§2.4). It composes into a runtime [`Family`] via
@@ -802,8 +833,7 @@ impl<'a> Kb<'a> {
         c
     }
 
-    /// The principles behind a finding, **pillars first** (D-0128 — the pillar
-    /// wins).
+    /// The principles behind a finding, **pillars first**.
     ///
     /// A `craft.<rule>` finding resolves to the principles binding that season rule;
     /// an `outline.<item>` finding resolves to the principles behind the `CRAFT-1`
@@ -822,7 +852,7 @@ impl<'a> Kb<'a> {
                     .any(|code| code == finding_code)
             })
             .collect();
-        // Pillars win: stable-sort the pillar family to the front (D-0128).
+        // Pillars win: stable-sort the pillar family to the front.
         hits.sort_by_key(|p| !p.is_pillar());
         hits
     }
@@ -903,7 +933,7 @@ pub fn coverage() -> Coverage {
     Kb::builtin().coverage()
 }
 
-/// The principles behind a finding, **pillars first** (D-0128 — the pillar wins).
+/// The principles behind a finding, **pillars first**.
 ///
 /// A `craft.<rule>` finding resolves to the principles binding that season rule; an
 /// `outline.<item>` finding resolves to the principles behind the `CRAFT-1`
@@ -930,7 +960,8 @@ pub fn why(finding_code: &str) -> Vec<&'static Principle> {
 /// `None` for a principle that is not judge-bound (there is no attestation to
 /// consume).
 ///
-/// A present attestation yields an `attested` finding carrying the model's answer;
+/// A present attestation yields a stable `craft.judge-attested` finding carrying
+/// the principle id and model answer in its message;
 /// an absent one yields a deterministic `craft.attestation-missing` — the kernel
 /// never guesses a judgment ([`crate::attest::require_attestation`]).
 #[must_use]
@@ -953,7 +984,7 @@ pub fn evaluate_judge(
 #[must_use]
 pub fn attested_finding(principle: &Principle, attestation: &Attestation) -> WorldFinding {
     WorldFinding::warn(
-        format!("craft.{}", principle.id),
+        "craft.judge-attested",
         format!(
             "{}: judge dimension attested `{}` ({}) — grade attested, the kernel \
              surfaces the factory's judgment, it does not re-run it",

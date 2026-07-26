@@ -186,8 +186,7 @@ pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, Erro
 /// `materializable` answers "could I materialize now?".
 pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let base = store.workspace_base(&params.workspace).ok_or_else(gone)?;
-    let all = dedup_findings(workspace_findings(ws, base));
+    let all = workspace_report(store, ws).findings;
     let (errors, warnings): (Vec<Finding>, Vec<Finding>) = all
         .into_iter()
         .partition(|finding| finding.severity == Severity::Error);

@@ -343,6 +343,20 @@ fn material_review_warns_on_incomplete_and_unsupported_assertions() {
     let findings = check_episode(&ep, opts, policy());
     assert!(has(&findings, "material-assumption-incomplete"));
     assert!(has(&findings, "unsupported-material-assumption"));
+    for code in [
+        "outline.material-assumption-incomplete",
+        "outline.unsupported-material-assumption",
+    ] {
+        assert_eq!(
+            findings
+                .iter()
+                .find(|finding| finding.code == code)
+                .expect("material-review finding")
+                .severity,
+            Severity::Warn,
+            "{code} is advisory by default"
+        );
+    }
 }
 
 #[test]
@@ -639,10 +653,12 @@ fn season_boundary_excuses_unclosed_loop() {
 fn ten_reading_as_battle_warns() {
     let mut ep = clean_episode();
     ep.ten = "the hero draws a blade and cuts down the magister in a final blow".to_owned();
-    assert!(has(
-        &check_episode(&ep, CheckOptions::default(), policy()),
-        "ten-reads-as-battle"
-    ));
+    let findings = check_episode(&ep, CheckOptions::default(), policy());
+    let finding = findings
+        .iter()
+        .find(|finding| finding.code == "outline.ten-reads-as-battle")
+        .expect("configured lexical rule emits");
+    assert_eq!(finding.severity, Severity::Warn);
 }
 
 #[test]
