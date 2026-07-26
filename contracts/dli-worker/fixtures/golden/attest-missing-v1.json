@@ -15,9 +15,10 @@
       "expect": {
         "dli": "0.3.0",
         "id": "1",
-        "ok": true,
-        "result": {
-          "questions": []
+        "ok": false,
+        "error": {
+          "code": "not-wired",
+          "message": "dli.attest.missing is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
         }
       }
     }

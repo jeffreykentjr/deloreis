@@ -300,6 +300,16 @@ fn fingerprint(request: &Request) -> String {
 /// an unknown top-level or nested field fails this deserialize and is reported
 /// here as a `schema-violation` (R3/H2).
 fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
+    if !request.params.is_object() {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "params must be an object".to_owned(),
+                data: None,
+            },
+        ));
+    }
     serde_json::from_value(request.params.clone()).map_err(|err| {
         error(
             request,

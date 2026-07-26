@@ -48,40 +48,10 @@
       "expect": {
         "dli": "0.3.0",
         "id": "1",
-        "ok": true,
-        "result": {
-          "stale": [
-            {
-              "answer": "yes",
-              "fingerprint": "fnv1a64:0000000000000000",
-              "model": {
-                "as_of": "2026-07-19",
-                "id": "example-model",
-                "provider": "bedrock"
-              },
-              "params": {
-                "agreement": "3/3",
-                "max_tokens": 400,
-                "samples": 3,
-                "temperature": "0.0"
-              },
-              "policy": {
-                "reattest": "on-model-change"
-              },
-              "prompt": {
-                "hash": "sha256:88d1",
-                "template": "naming/dialect-basis@v3"
-              },
-              "question": {
-                "atom": "name-basis(mara, saltmarket-common)",
-                "kind": "dialect-real-basis",
-                "subject": "mara"
-              },
-              "rationale_hash": "sha256:c41a",
-              "supersedes": null,
-              "sweep": "lab/campaign-082/runs/attest-0007.manifest.json"
-            }
-          ]
+        "ok": false,
+        "error": {
+          "code": "not-wired",
+          "message": "dli.attestation-sweep is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
         }
       }
     }

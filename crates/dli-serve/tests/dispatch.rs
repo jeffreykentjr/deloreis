@@ -305,6 +305,25 @@ fn killed_and_unknown_ops_are_refused() {
 }
 
 #[test]
+fn empty_param_structs_still_require_json_objects() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    for op in ["dli.version", "author.list_workspaces"] {
+        let response = send(
+            &serde_json::json!({"dli":"0.3.0","id":"shape","op":op,"params":[]}),
+            &mut sessions,
+            &mut store,
+        )
+        .unwrap();
+        assert_eq!(
+            response.error.unwrap().code.wire_name(),
+            "schema-violation",
+            "{op} accepted array params despite its object schema"
+        );
+    }
+}
+
+#[test]
 fn timeline_and_fork_add_are_wired() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();

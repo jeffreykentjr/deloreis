@@ -446,6 +446,17 @@ fn validate_fixture(path: &str, value: &serde_json::Value, schemas_dir: &Path) -
     if let Some(steps) = value.get("steps").and_then(serde_json::Value::as_array) {
         for (index, step) in steps.iter().enumerate() {
             validate_golden_step(step, schemas_dir).with_context(|| format!("step {index}"))?;
+            if value
+                .get("expected_outcome")
+                .and_then(serde_json::Value::as_str)
+                == Some("gated")
+                && step
+                    .pointer("/expect/error/code")
+                    .and_then(serde_json::Value::as_str)
+                    != Some("not-wired")
+            {
+                bail!("{path}: gated step {index} must expect a not-wired error");
+            }
         }
     } else if let Some(error) = value.get("expect_error") {
         let code = error

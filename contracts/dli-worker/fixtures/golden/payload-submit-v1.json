@@ -40,10 +40,10 @@
       "expect": {
         "dli": "0.3.0",
         "id": "1",
-        "ok": true,
-        "result": {
-          "accepted": true,
-          "findings": []
+        "ok": false,
+        "error": {
+          "code": "not-wired",
+          "message": "dli.payload-submit is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
         }
       }
     }

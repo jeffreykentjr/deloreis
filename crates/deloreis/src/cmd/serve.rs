@@ -10,9 +10,10 @@
 //! ops, not a second protocol, so both reach identical kernel paths.
 //!
 //! The loop never panics on any traffic. All 19 `author.*` tools are fully
-//! implemented (`author::dispatch` routes through Door T); all `dli.*` ops are
-//! wired. No capability-gated or unimplemented paths remain — the DL-0021 and
-//! ec92efd wiring waves completed the dispatch table.
+//! implemented (`author::dispatch` routes through Door T). Batch operations
+//! advertise only the capabilities implemented by this build; recognized
+//! reservation rows for unfinished durable evidence and job behavior return a
+//! typed `not-wired` fault.
 
 use std::path::PathBuf;
 

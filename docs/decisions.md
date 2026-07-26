@@ -686,3 +686,23 @@ repair directs authors to claim-level hypothesis provenance.
 accepting declarations that lower to nothing both violate the loss and truth
 triads. Keeping an unimplemented field in the normative AST would falsely make
 it part of the language.
+
+## DL-0030 — Capability claims follow complete runtime semantics
+
+*Date: 2026-07-25*
+
+**Ruling** (supersedes DL-0021's server-wiring and gated-set status): a worker
+operation is advertised only when it implements its full documented semantics,
+including required durability and restart behavior. Contract `0.3.0` therefore
+capability-gates `dli.check-draft`, `dli.attest.missing`,
+`dli.attestation-sweep`, `dli.payload-submit`, and all three `dli.simulate.*`
+operations. Their typed reservation schemas remain available, and valid calls
+return `not-wired`; malformed calls still fail schema validation first.
+`dli.check-proof`, `dli.export.run`, `dli.fork.add`, and all five
+`dli.timeline.*` operations remain advertised because their documented
+semantics are implemented.
+
+**Rationale.** Dispatching to a synchronous or in-memory approximation does not
+implement a durable evidence or resumable-job contract. Capability negotiation
+must describe behavior a general caller can rely on, not merely the existence
+of a handler arm.

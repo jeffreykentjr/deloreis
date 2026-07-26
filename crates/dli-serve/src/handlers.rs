@@ -1246,6 +1246,12 @@ fn is_decision_id(name: &str) -> bool {
 /// this crate reject extras directly; the recursive normalized comparison also
 /// catches extras inside imported nested types.
 fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault> {
+    if !request.params.is_object() {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "params do not satisfy the operation schema: expected an object".to_owned(),
+        ));
+    }
     let typed: T = serde_json::from_value(request.params.clone()).map_err(|e| {
         (
             ErrorCode::SchemaViolation,

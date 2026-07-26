@@ -7,8 +7,9 @@
 //! the author fixtures were never replayed).
 //!
 //! Outcomes: `replay` (default) asserts each frame's response equals its `expect`
-//! (goldens/framing) or its `expect_error` code (negatives); `gated` asserts a
-//! capability-gated op answers `not-wired`.
+//! (goldens/framing) or its `expect_error` code (negatives); `gated` executes
+//! every declared step, asserts its exact error response, and additionally
+//! requires `not-wired`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::fs;
@@ -351,18 +352,23 @@ fn every_fixture_replays_cold() {
             .unwrap_or("replay");
 
         if outcome == "gated" {
-            let send = fixture
+            let steps = fixture
                 .get("steps")
-                .and_then(|steps| steps.get(0))
-                .and_then(|step| step.get("send"))
-                .or_else(|| fixture.get("send"))
-                .unwrap();
-            let response = drive(send, &mut sessions, &mut store);
-            assert_eq!(
-                error_code(&response),
-                Some("not-wired"),
-                "{name}: a capability-gated op must answer not-wired, got {response}"
-            );
+                .and_then(Value::as_array)
+                .expect("a gated golden carries explicit steps");
+            for step in steps {
+                let response = drive(&step["send"], &mut sessions, &mut store);
+                assert_eq!(
+                    error_code(&response),
+                    Some("not-wired"),
+                    "{name}: a capability-gated op must answer not-wired, got {response}"
+                );
+                assert_eq!(
+                    response, step["expect"],
+                    "{name} @ id {}",
+                    step["send"]["id"]
+                );
+            }
         } else if let Some(steps) = fixture.get("steps").and_then(Value::as_array) {
             for step in steps {
                 let response = drive(&step["send"], &mut sessions, &mut store);

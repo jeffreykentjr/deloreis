@@ -17,10 +17,10 @@
       "expect": {
         "dli": "0.3.0",
         "id": "1",
-        "ok": true,
-        "result": {
-          "job_id": "job-1",
-          "status": "complete"
+        "ok": false,
+        "error": {
+          "code": "not-wired",
+          "message": "dli.simulate.start is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
         }
       }
     },
@@ -36,62 +36,10 @@
       "expect": {
         "dli": "0.3.0",
         "id": "2",
-        "ok": true,
-        "result": {
-          "manifest": {
-            "battery_digest": "fnv1a64:59a4e54ef5fc2aa1",
-            "checkpoint_lineage": [
-              3
-            ],
-            "invariants": [
-              {
-                "grade": "checked",
-                "invariant": "all-laws-hold",
-                "outcome": {
-                  "detail": "resource 'debt' violated its law (overspent) at trial 2",
-                  "outcome": "violated",
-                  "trial": 2
-                }
-              },
-              {
-                "grade": "checked",
-                "invariant": "debt-never-violated",
-                "outcome": {
-                  "detail": "resource 'debt' violated its law (overspent) at trial 2",
-                  "outcome": "violated",
-                  "trial": 2
-                }
-              }
-            ],
-            "metrics": [
-              {
-                "grade": "tested",
-                "half_width": 0.6533333333333334,
-                "mean": 0.3333333333333333,
-                "metric": "any-violation",
-                "sum": 1,
-                "sum_of_squares": 1,
-                "trials": 3
-              },
-              {
-                "grade": "tested",
-                "half_width": 0.6533333333333334,
-                "mean": 0.3333333333333333,
-                "metric": "debt-violated",
-                "sum": 1,
-                "sum_of_squares": 1,
-                "trials": 3
-              }
-            ],
-            "seed": 42,
-            "trials": 3
-          },
-          "status": "complete",
-          "trace": [
-            "turn 0: all laws held",
-            "turn 1: all laws held",
-            "turn 2: a law was broken"
-          ]
+        "ok": false,
+        "error": {
+          "code": "not-wired",
+          "message": "dli.simulate.status is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
         }
       }
     }
