@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Contract smoke coverage: wire names and schema emission.
 
+use dli_serve::CONTRACT_VERSION;
 use dli_serve::ops::Op;
 use dli_serve::schema::contract_schemas;
 
@@ -95,4 +96,34 @@ fn golden_dispatch_matches() {
     let response = respond(&line, &mut sessions, &mut store).expect("a frame is answered");
     let got = serde_json::to_value(&response).unwrap();
     assert_eq!(got, step["expect"]);
+}
+
+#[test]
+fn contract_version_is_consistent_across_registry_and_handshake() {
+    use dli_serve::author::store::Store;
+    use dli_serve::serve::respond;
+    use dli_serve::session::Sessions;
+
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let registry =
+        std::fs::read_to_string(root.join("contracts/dli-worker/registry.yaml")).unwrap();
+    let registry: serde_yaml_ng::Value = serde_yaml_ng::from_str(&registry).unwrap();
+    assert_eq!(
+        registry["contract_version"].as_str(),
+        Some(CONTRACT_VERSION)
+    );
+
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let frame = serde_json::json!({
+        "dli": CONTRACT_VERSION,
+        "id": "version-consistency",
+        "op": "dli.version",
+        "params": {}
+    });
+    let response = respond(&frame.to_string(), &mut sessions, &mut store).unwrap();
+    assert_eq!(
+        response.result.unwrap()["contract_version"],
+        CONTRACT_VERSION
+    );
 }

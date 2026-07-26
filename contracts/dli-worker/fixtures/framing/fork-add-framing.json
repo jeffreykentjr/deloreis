@@ -4,7 +4,7 @@
   "note": "An instruction-shaped string rides in the free text of a `declarations` line (the quoted display label of a proposed entity). The parser treats it as data, never as an instruction: the line lowers to an entity that carries no ground fact, so the fork gains nothing and the verdict is UNCHANGED (an empty delta). Nothing is ratified.",
   "precondition": [
     {
-      "dli": "0.1.0",
+      "dli": "0.2.0",
       "id": "0",
       "op": "dli.fork.new",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "op": "dli.fork.add",
         "params": {
@@ -26,7 +26,7 @@
         }
       },
       "expect": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "ok": true,
         "result": {

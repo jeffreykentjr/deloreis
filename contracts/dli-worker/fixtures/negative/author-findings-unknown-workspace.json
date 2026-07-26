@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.findings on a workspace that does not exist is an unknown-doc error.",
   "send": {
-    "dli": "0.1.0",
+    "dli": "0.2.0",
     "id": "1",
     "op": "author.findings",
     "params": {

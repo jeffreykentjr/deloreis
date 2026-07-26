@@ -4,18 +4,18 @@
   "steps": [
     {
       "send": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "op": "dli.version",
         "params": {}
       },
       "expect": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "ok": true,
         "result": {
           "contract": "dli-worker",
-          "contract_version": "0.1.0",
+          "contract_version": "0.2.0",
           "server": "deloreis 0.1.0",
           "capabilities": [
             "dli.version",

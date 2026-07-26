@@ -54,6 +54,7 @@ use dli_world::model::WorldModel;
 use dli_world::scene_projection::project_scene;
 use dli_world::{check, check_draft, sweep};
 
+use crate::CONTRACT_VERSION;
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
@@ -139,7 +140,7 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
         request,
         &VersionResult {
             contract: "dli-worker".to_owned(),
-            contract_version: "0.1.0".to_owned(),
+            contract_version: CONTRACT_VERSION.to_owned(),
             server: concat!("deloreis ", env!("CARGO_PKG_VERSION")).to_owned(),
             capabilities: capabilities(),
         },

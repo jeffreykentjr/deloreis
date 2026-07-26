@@ -193,7 +193,8 @@ fn tools_call(
         (None, None)
     };
 
-    let mut frame = json!({ "dli": "0.1.0", "id": "mcp", "op": name, "params": arguments });
+    let mut frame =
+        json!({ "dli": crate::CONTRACT_VERSION, "id": "mcp", "op": name, "params": arguments });
     if let Some(expected_digest) = expected_digest {
         frame["expected_digest"] = expected_digest;
     }

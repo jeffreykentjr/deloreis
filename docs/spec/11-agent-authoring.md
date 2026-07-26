@@ -165,7 +165,7 @@ request is:
 
 ```json
 {
-  "dli": "0.1",
+  "dli": "0.2.0",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",

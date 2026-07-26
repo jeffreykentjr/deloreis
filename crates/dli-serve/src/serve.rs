@@ -25,17 +25,13 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
+use crate::CONTRACT_VERSION;
 use crate::author;
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::handlers;
 use crate::ops::Op;
 use crate::project::Project;
 use crate::session::Sessions;
-
-/// The protocol/contract tag this worker speaks — the envelope's `dli` field. A
-/// frame declaring a different contract is refused rather than silently
-/// misinterpreted (the version handshake of `10-serving.md` §2).
-const PROTOCOL: &str = "0.1.0";
 
 /// The killed wire forms the server refuses, each paired with its successor. A
 /// killed form is never silently accepted or quietly removed — it is refused with
@@ -168,7 +164,7 @@ pub fn dispatch(
     sessions: &mut Sessions,
     author_store: &mut author::store::Store,
 ) -> Response {
-    if request.dli != PROTOCOL {
+    if request.dli != CONTRACT_VERSION {
         return version_mismatch(request);
     }
     if !request.op.accepts_author_fences() {
@@ -292,7 +288,7 @@ fn is_author_op(op: Op) -> bool {
 // -- error responses ---------------------------------------------------------
 
 /// A fallback line for the impossible case that a response cannot be serialized.
-const INTERNAL_LINE: &str = r#"{"dli":"0.1.0","id":"","ok":false,"error":{"code":"internal","message":"response could not be serialized"}}"#;
+const INTERNAL_LINE: &str = r#"{"dli":"0.2.0","id":"","ok":false,"error":{"code":"internal","message":"response could not be serialized"}}"#;
 
 fn typed_error(dli: &str, id: &str, code: ErrorCode, message: String) -> Response {
     Response {
@@ -310,7 +306,7 @@ fn typed_error(dli: &str, id: &str, code: ErrorCode, message: String) -> Respons
 
 fn bad_frame(id: &str) -> Response {
     typed_error(
-        PROTOCOL,
+        CONTRACT_VERSION,
         id,
         ErrorCode::BadFrame,
         "the line is not a well-formed request frame".to_owned(),
@@ -319,7 +315,7 @@ fn bad_frame(id: &str) -> Response {
 
 fn schema_violation(id: &str, field: &str) -> Response {
     typed_error(
-        PROTOCOL,
+        CONTRACT_VERSION,
         id,
         ErrorCode::SchemaViolation,
         format!("unknown envelope field '{field}' is not defined by the contract"),
@@ -349,7 +345,7 @@ fn refuse_op(id: &str, op: &str, successor: Option<&str>) -> Response {
             format!("no operation named '{op}' is defined by the contract"),
         ),
     };
-    typed_error(PROTOCOL, id, code, message)
+    typed_error(CONTRACT_VERSION, id, code, message)
 }
 
 fn version_mismatch(request: &Request) -> Response {
@@ -358,7 +354,7 @@ fn version_mismatch(request: &Request) -> Response {
         &request.id,
         ErrorCode::VersionMismatch,
         format!(
-            "this worker speaks contract '{PROTOCOL}', not '{}'; pin the vendored contract",
+            "this worker speaks contract '{CONTRACT_VERSION}', not '{}'; pin the vendored contract",
             request.dli
         ),
     )

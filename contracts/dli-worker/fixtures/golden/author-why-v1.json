@@ -4,7 +4,7 @@
   "note": "author.why explains a staged atom's standing \u2014 the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
   "precondition": [
     {
-      "dli": "0.1.0",
+      "dli": "0.2.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "op": "author.why",
         "params": {
@@ -24,7 +24,7 @@
         }
       },
       "expect": {
-        "dli": "0.1.0",
+        "dli": "0.2.0",
         "id": "1",
         "ok": true,
         "result": {

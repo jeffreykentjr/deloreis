@@ -98,17 +98,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.1.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.2.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.1.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.2.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.1.0", "id": "<correlation>", "ok": false,
+{"dli": "0.2.0", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 

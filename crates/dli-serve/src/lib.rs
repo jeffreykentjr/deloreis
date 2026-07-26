@@ -18,6 +18,9 @@ pub mod schema;
 pub mod serve;
 pub mod session;
 
+/// The pre-v1 worker contract and envelope protocol version.
+pub const CONTRACT_VERSION: &str = "0.2.0";
+
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
 pub use finding::{Finding, Provenance, Severity};
 pub use ops::Op;

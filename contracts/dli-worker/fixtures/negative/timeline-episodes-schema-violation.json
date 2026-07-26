@@ -3,7 +3,7 @@
   "version": 1,
   "note": "params omit every required field, violating the op schema.",
   "send": {
-    "dli": "0.1.0",
+    "dli": "0.2.0",
     "id": "1",
     "op": "dli.timeline.episodes",
     "params": {}
