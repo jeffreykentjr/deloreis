@@ -138,6 +138,7 @@ fn attestation_schema_matches_runtime_cardinality_rules() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn check_finding_domains_round_trip_without_losing_payload_fields() {
     use dli_core::Grade;
     use dli_serve::contract::{
