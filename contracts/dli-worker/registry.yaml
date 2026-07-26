@@ -27,7 +27,7 @@ fixtures:
 - path: framing/author-framing-attack.json
   sha256: ff38f755fbc748a668b8e00598ac070c603b577ef75548c5f9eddf24f374789f
 - path: framing/author-open-framing.json
-  sha256: 444208c11b0b63ecbe75178acad7b9266cd35e23d7e0490c5d1bdb7336f1536c
+  sha256: adf9a72eadd99594c88205e7fdfdab1619e0e771145a120d2e4e3e4db77ef5e3
 - path: framing/author-open-question-framing.json
   sha256: 323d0f627400604b60b430fd9d8df1d388c94782f410b7bd2a571f8424b08750
 - path: framing/author-query-framing.json

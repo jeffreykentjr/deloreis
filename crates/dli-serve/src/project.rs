@@ -243,6 +243,8 @@ impl Project {
             ));
         }
 
+        let input_paths =
+            collect_input_paths(&root, &manifest.documents, &manifest.games, &manifest_path)?;
         let documents = load_documents(&root, manifest.documents)?;
         let games = load_games(&root, manifest.games, &documents)?;
 
@@ -260,6 +262,15 @@ impl Project {
             return Err(ProjectError::Invalid(
                 "evidence and cache paths must be distinct, non-overlapping directories".into(),
             ));
+        }
+        if let Some(input) = input_paths
+            .iter()
+            .find(|input| input.starts_with(&evidence_dir) || input.starts_with(&cache_dir))
+        {
+            return Err(ProjectError::Invalid(format!(
+                "evidence and cache paths must not contain project input `{}`; machine-written storage must be dedicated",
+                input.display()
+            )));
         }
         let language_docs = documents
             .values()
@@ -325,6 +336,53 @@ impl Project {
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
+}
+
+fn collect_input_paths(
+    root: &Path,
+    documents: &BTreeMap<String, DocumentEntry>,
+    games: &BTreeMap<String, GameEntry>,
+    manifest_path: &Path,
+) -> Result<Vec<PathBuf>, ProjectError> {
+    let mut paths = vec![manifest_path.to_path_buf()];
+    for (id, entry) in documents {
+        for source in &entry.sources {
+            paths.push(resolve_existing(
+                root,
+                &format!("documents.{id}.sources"),
+                source,
+            )?);
+        }
+        for (field, path) in [
+            ("episodes", entry.episodes.as_deref()),
+            ("killed_tokens", entry.killed_tokens.as_deref()),
+        ] {
+            if let Some(path) = path {
+                paths.push(resolve_existing(
+                    root,
+                    &format!("documents.{id}.{field}"),
+                    path,
+                )?);
+            }
+        }
+    }
+    for (id, entry) in games {
+        paths.push(resolve_existing(
+            root,
+            &format!("games.{id}.rules"),
+            &entry.rules,
+        )?);
+        if let Some(profiles) = &entry.profiles {
+            paths.push(resolve_existing(
+                root,
+                &format!("games.{id}.profiles"),
+                profiles,
+            )?);
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
 }
 
 fn load_documents(

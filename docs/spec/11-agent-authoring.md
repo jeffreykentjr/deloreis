@@ -127,7 +127,11 @@ out-of-date view and must re-read before continuing.
 A workspace mutation after `author.open` may also carry an **idempotency key**.
 When supplied, a retried call with a key already applied returns the original
 result and stages nothing new — including a retry of a whole-workspace discard.
-Callers that need retry safety under at-least-once delivery supply the key.
+Callers that need retry safety under at-least-once delivery supply the key. Live
+workspaces retain their applied-key cache for their lifetime. After a whole
+workspace discard, the worker retains compact tombstones for the 1,024 most
+recently discarded workspaces; an older retry is refused as `unknown-doc` and
+can never recreate or mutate the discarded workspace.
 
 `expected_digest` and `idempotency_key` are declared envelope fields (request
 level, defined for mutating `author.*` calls); the normative wire shape is

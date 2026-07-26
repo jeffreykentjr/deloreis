@@ -47,14 +47,15 @@ model utterance is one of four declared classes, or it does not enter.*
 - **Unknown fields are errors.** An envelope or payload carrying a field the
   contract does not define is a `schema` error (§9), never a silently ignored
   extra. This is "nothing is silently dropped" at the wire.
-- **Two declared optional request fields.** A mutating call may carry
-  `expected_digest` — the caller's last-seen workspace or fork digest, for
+- **Two declared optional request fields.** A post-open mutating `author.*` call
+  may carry `expected_digest` — the caller's last-seen workspace digest, for
   optimistic concurrency: a mismatch is a `stale-fence` error (§9), so a stale
   caller never clobbers a moved fence — and `idempotency_key` — a retry-safe key,
-  so a re-sent mutating `author.*` call is applied at most once. Both are
-  **declared** fields; "unknown fields are errors" still stands — these are now
-  known. Native stdio carries them in the request envelope. MCP exposes them as
-  reserved tool arguments and lifts them into that same envelope before shared
+  so a re-sent mutation is applied at most once. Read tools, `author.open`, and
+  batch `dli.*` operations do not accept either field. Both are **declared**
+  fields; "unknown fields are errors" still stands. Native stdio carries them in
+  the request envelope. MCP exposes them as reserved arguments on those ten
+  author mutation tools and lifts them into that same envelope before shared
   dispatch.
 - **Every mutating call returns immediately.** No mutating operation defers its
   verdict; the graded findings, the rendered canonical lines, and the workspace
@@ -189,9 +190,11 @@ flow families and every declared error code, not yet every op.
 - **Cold replay.** Every registered fixture — golden, negative, framing, and
   author — is driven through the server **cold**, from a fresh session, with its
   declared precondition, and the declared outcome is asserted (`fixture_replay` in
-  `dli-serve`, mirrored on the fantasy side). A fixture that pins a verdict the
-  running engine does not produce **fails the gate**: the manifest cannot silently
-  document a fiction.
+  `dli-serve`, mirrored on the fantasy side). Author fixtures use a strict
+  minimal loaded corpus that declares the fixture scope and fork ids; unknown
+  ids are refused exactly as they are in project mode. A fixture that pins a
+  verdict the running engine does not produce **fails the gate**: the manifest
+  cannot silently document a fiction.
 - **Verdict parity.** The same fixture input yields the same verdict on the
   deloreis side and the fantasy side. Parity is checked in both trees.
 - **Digest domains.** Fixture files are pinned by **sha256 over exact file

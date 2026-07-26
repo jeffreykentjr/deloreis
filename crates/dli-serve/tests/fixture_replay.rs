@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use dli_serve::author::store::Store;
 use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
+use dli_world::{KilledTokens, Pack};
 use serde_json::Value;
 
 fn fixtures_dir() -> PathBuf {
@@ -37,6 +38,32 @@ fn error_code(response: &Value) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
+fn fixture_author_store() -> Store {
+    let source = "\
+scope saltmarket
+fork exploration
+  option baseline
+fork ep9-cast
+  option baseline
+";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "the strict fixture corpus parses: {diagnostics:?}"
+    );
+    Store::with_packs([(
+        "saltmarket".to_owned(),
+        Pack {
+            name: "saltmarket".to_owned(),
+            documents: vec![document],
+        },
+        KilledTokens::default(),
+    )])
+    .expect("the strict fixture corpus compiles")
+}
+
 #[test]
 fn every_fixture_replays_cold() {
     let mut replayed = 0;
@@ -54,7 +81,7 @@ fn every_fixture_replays_cold() {
 
             // A fresh session per fixture: handles (ws-1, fork-1) are deterministic.
             let mut sessions = Sessions::new();
-            let mut store = Store::default();
+            let mut store = fixture_author_store();
 
             // Precondition frames set up state (open a workspace, stage a finding)
             // and must succeed; they are not asserted against any expect.

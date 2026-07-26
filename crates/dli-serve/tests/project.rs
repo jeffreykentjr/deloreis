@@ -375,3 +375,23 @@ fn rejects_storage_paths_that_alias_the_same_directory() {
     let error = Project::load(&root).unwrap_err().to_string();
     assert!(error.contains("non-overlapping"), "{error}");
 }
+
+#[cfg(unix)]
+#[test]
+fn rejects_storage_that_contains_a_manifest_input() {
+    use std::os::unix::fs::symlink;
+
+    let root = temp("project-storage-contains-input");
+    fs::create_dir_all(root.join("canon")).unwrap();
+    fs::write(root.join("canon/world.dli"), "scope world\n").unwrap();
+    symlink("canon", root.join("evidence")).unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"evidence\"\ncache = \".cache\"\n\
+         [documents.world]\nsources = [\"canon/world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("must not contain project input"), "{error}");
+    assert!(error.contains("world.dli"), "{error}");
+}
