@@ -271,7 +271,7 @@
                 "record_id",
                 "stored_fingerprint",
                 "current_fingerprint"
-          ]
+              ]
             },
             {
               "description": "A current negative answer.",
@@ -342,7 +342,7 @@
                 "record_id",
                 "stored_fingerprint",
                 "current_fingerprint"
-          ]
+              ]
             },
             {
               "description": "No answer has been committed.",
@@ -385,7 +385,7 @@
                 "message",
                 "question",
                 "current_fingerprint"
-          ]
+              ]
             },
             {
               "description": "The committed answer is not current.",
@@ -456,13 +456,13 @@
                 "record_id",
                 "stored_fingerprint",
                 "current_fingerprint"
-          ]
+              ]
             }
           ],
-      "required": [
-        "domain"
-      ],
-      "unevaluatedProperties": false
+          "required": [
+            "domain"
+          ],
+          "unevaluatedProperties": false
         }
       ]
     },
