@@ -35,6 +35,8 @@ fn loads_the_second_world_as_one_logical_document() {
     let document = project.document("norse").expect("logical document");
     assert_eq!(document.pack.documents.len(), 3);
     assert!(project.document("camelot").is_none());
+    assert!(project.evidence_dir().is_dir());
+    assert!(project.cache_dir().is_dir());
 }
 
 #[test]
@@ -45,7 +47,8 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
 {\"dli\":\"0.1.0\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
 {\"dli\":\"0.1.0\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
 {\"dli\":\"0.1.0\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.1.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n";
+{\"dli\":\"0.1.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
+{\"dli\":\"0.1.0\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -54,7 +57,7 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
 
-    assert_eq!(responses.len(), 5);
+    assert_eq!(responses.len(), 6);
     assert_eq!(responses[0]["ok"], true);
     assert_ne!(responses[0]["result"]["support"], false);
     assert_eq!(responses[1]["error"]["code"], "unknown-doc");
@@ -64,6 +67,7 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
         "adjacent(asgard, midgard)"
     );
     assert_eq!(responses[4]["error"]["code"], "unknown-doc");
+    assert_eq!(responses[5]["error"]["code"], "unknown-doc");
 }
 
 #[test]
@@ -353,12 +357,12 @@ fn rejects_a_storage_path_whose_existing_ancestor_escapes() {
     );
 
     let error = Project::load(&root).unwrap_err().to_string();
-    assert!(error.contains("traverses a symlink outside"), "{error}");
+    assert!(error.contains("must not traverse symlinks"), "{error}");
 }
 
 #[cfg(unix)]
 #[test]
-fn rejects_storage_paths_that_alias_the_same_directory() {
+fn rejects_storage_path_symlinks_even_when_they_resolve_internally() {
     use std::os::unix::fs::symlink;
 
     let root = temp("project-storage-symlink-alias");
@@ -373,25 +377,95 @@ fn rejects_storage_paths_that_alias_the_same_directory() {
     );
 
     let error = Project::load(&root).unwrap_err().to_string();
-    assert!(error.contains("non-overlapping"), "{error}");
+    assert!(error.contains("must not traverse symlinks"), "{error}");
 }
 
 #[cfg(unix)]
 #[test]
-fn rejects_storage_that_contains_a_manifest_input() {
+fn rejects_an_internal_storage_symlink_without_materializing_other_paths() {
     use std::os::unix::fs::symlink;
 
+    let root = temp("project-storage-internal-symlink");
+    fs::create_dir_all(root.join("state/evidence")).unwrap();
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    symlink("state/evidence", root.join("evidence")).unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"evidence\"\ncache = \"future/cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("must not traverse symlinks"), "{error}");
+    assert!(!root.join("future").exists());
+}
+
+#[test]
+fn invalid_overlapping_storage_has_no_filesystem_side_effect() {
+    let root = temp("project-storage-overlap-no-write");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"state\"\ncache = \"state/cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("non-overlapping"), "{error}");
+    assert!(!root.join("state").exists());
+}
+
+#[test]
+fn rejects_storage_that_contains_a_manifest_input() {
     let root = temp("project-storage-contains-input");
     fs::create_dir_all(root.join("canon")).unwrap();
     fs::write(root.join("canon/world.dli"), "scope world\n").unwrap();
-    symlink("canon", root.join("evidence")).unwrap();
     write_manifest(
         &root,
-        "[paths]\nevidence = \"evidence\"\ncache = \".cache\"\n\
+        "[paths]\nevidence = \"canon\"\ncache = \".cache\"\n\
          [documents.world]\nsources = [\"canon/world.dli\"]\n",
     );
 
     let error = Project::load(&root).unwrap_err().to_string();
     assert!(error.contains("must not contain project input"), "{error}");
     assert!(error.contains("world.dli"), "{error}");
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_storage_file_hard_linked_to_a_manifest_input() {
+    let root = temp("project-storage-hard-link-input");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::create_dir_all(root.join("evidence")).unwrap();
+    fs::hard_link(
+        root.join("world.dli"),
+        root.join("evidence/source-alias.dli"),
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"evidence\"\ncache = \"cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("aliases project input"), "{error}");
+    assert!(error.contains("source-alias.dli"), "{error}");
+}
+
+#[test]
+fn materializes_missing_storage_suffixes_before_serving() {
+    let root = temp("project-storage-missing-suffix");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"state/future/evidence\"\ncache = \"state/future/cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let project = Project::load(&root).expect("nested storage roots are materialized");
+    assert!(project.evidence_dir().is_dir());
+    assert!(project.cache_dir().is_dir());
+    assert!(project.evidence_dir().starts_with(&root));
+    assert!(project.cache_dir().starts_with(&root));
 }

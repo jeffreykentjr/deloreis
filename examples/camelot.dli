@@ -120,7 +120,7 @@ fork what-does-the-word-cost
   option a-truth-told
 hypothesis h-return "Excalibur was always the Lake's to reclaim, never the king's to keep"
 question who-holds-excalibur "Who holds Excalibur after Camlann?"
-  option arthur   implies keeps(arthur, excalibur)
+  option arthur    implies keeps(arthur, excalibur)
   option the-lake
 keeps(the-lake, excalibur) proposed assumes the-lake and h-return
 hypothesis h-merlin-foresaw "Merlin foresaw the fall at Camlann from the first"

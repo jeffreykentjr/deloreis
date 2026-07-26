@@ -19,9 +19,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "event the-drowning \"The Drowning\" proposed session-fx01"
+            "event the-drowning \"The Drowning\" during first-tides proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:e86cf55345eed1730610feeb49a7e016c0782c0a2389d90bac26da87c5fd1741"
+          "workspace_digest": "jcs:sha256:94acf12d0770cf35b503f0df4f08abf221c3b114c4963b995aea552ae57d474d"
         }
       },
       "send": {
@@ -30,6 +30,7 @@
         "op": "author.add_event",
         "params": {
           "id": "the-drowning",
+          "era": "first-tides",
           "name": "The Drowning",
           "provenance": {
             "kind": "proposed",

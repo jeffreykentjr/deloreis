@@ -498,10 +498,12 @@ fn options_and_hypotheses_lower_without_status_divergence() {
                 options: vec![
                     dli_ast::decl::OptionClause {
                         name: id("old-fen"),
+                        label: None,
                         implies: Some(atom("keeps", &["ledger", "old-fen"])),
                     },
                     dli_ast::decl::OptionClause {
                         name: id("mara"),
+                        label: None,
                         implies: None,
                     },
                 ],

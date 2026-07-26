@@ -1154,7 +1154,7 @@
       ]
     },
     "OptionClause": {
-      "description": "`option <name> [implies <atom>]`.",
+      "description": "`option <name> [\"label\"] [implies <atom>]`.",
       "type": "object",
       "properties": {
         "implies": {
@@ -1166,6 +1166,13 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "label": {
+          "description": "The display label, if written.",
+          "type": [
+            "string",
+            "null"
           ]
         },
         "name": {

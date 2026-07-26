@@ -58,7 +58,7 @@ and renames are cheap now, expensive after.
 
 | Keyword | Line form(s) |
 |---|---|
-| `question` | `question <id> ["prompt"]` with children `  option <id> [implies <atom>]` |
+| `question` | `question <id> ["prompt"]` with children `  option <id> ["label"] [implies <atom>]` |
 | `option` | child of `question`/`fork` (column-0 also folds into the preceding question) |
 | `fork` | `fork <id>` with `  option …` children |
 | `hypothesis` | `hypothesis <id>` (mints the fork-scoped supposition variable) |

@@ -17,13 +17,13 @@ cross_document_bindings:
   path_b: send.dli
 fixtures:
 - path: framing/author-add-event-framing.json
-  sha256: 848d30184d5df3d3be05a6c0601228c43bde9d8df81369add38459ed9b89e0a8
+  sha256: 182aec61b0adc6757cca456ce3e28c2eb68aa059d421ace3705ffff25ad9e7ee
 - path: framing/author-add-fact-framing.json
   sha256: 39024245eb36de5bc080e8fb26a9ff0f58261ca483eeb3ffdb67e5d9c6d144de
 - path: framing/author-add-hypothesis-framing.json
   sha256: b215f502ca84214b7a0716a6c9814c4049a5ef5647f62b384f020fc739d63c96
 - path: framing/author-add-option-framing.json
-  sha256: efff3f2990c9934373a19a552b19b43aba07d20c543ae6a0fc68d2cffed20b9f
+  sha256: fa24d8fea5b7b2bfd2ce9ec416dbd388bc98f3534642c61abf4e07f675c2c95e
 - path: framing/author-framing-attack.json
   sha256: ff38f755fbc748a668b8e00598ac070c603b577ef75548c5f9eddf24f374789f
 - path: framing/author-open-framing.json
@@ -43,13 +43,13 @@ fixtures:
 - path: golden/attestation-sweep-v1.json
   sha256: e07aad7f38cb02723ff05157653b484790603084cadc333968d70b9a9a6c346c
 - path: golden/author-add-before-v1.json
-  sha256: fda46d2eb72ff707f6505753080a09ca3b323e816abb8c5e3b645cb05b0ce67e
+  sha256: ea6c238e5e79db61d886c407a63390792ad0822b89efda0440a33f31e9b75df1
 - path: golden/author-add-event-v1.json
-  sha256: 6f5374a6bd18b7c622bd65868868d9f84c8b33be68d0c8ea2f249552480b712d
+  sha256: e720c03c55aaaf254619bfb2aeebd8266ea96673771154996a1bf2c6696d2327
 - path: golden/author-add-hypothesis-v1.json
   sha256: 8e37ce54ee7f1a3d0caca4df18e2d48837a71b69279971abb6f392b34ea21dc7
 - path: golden/author-add-option-v1.json
-  sha256: f150ef8b55612e35832c11e813fae04b8df8191ed42940b92044bb2a3880f120
+  sha256: 0acf8b44b49285d156b1267118e32498e200f77b7c682bd61d14c00804f163ec
 - path: golden/author-add-relation-v1.json
   sha256: 7c37bb06607f8f80d363afe76fc10483ca31cc41c77d212436aa93cf1836710d
 - path: golden/author-check-v1.json

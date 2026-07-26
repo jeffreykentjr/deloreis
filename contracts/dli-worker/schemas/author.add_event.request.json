@@ -4,13 +4,20 @@
   "description": "`author.add_event` params.",
   "type": "object",
   "properties": {
+    "era": {
+      "description": "The era that contains the event.",
+      "type": "string"
+    },
     "id": {
       "description": "The event id.",
       "type": "string"
     },
     "name": {
-      "description": "The event name.",
-      "type": "string"
+      "description": "Optional event display name.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "provenance": {
       "description": "The provenance of this addition.",
@@ -25,7 +32,7 @@
   "required": [
     "workspace",
     "id",
-    "name",
+    "era",
     "provenance"
   ],
   "$defs": {

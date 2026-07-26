@@ -458,12 +458,16 @@ fn option_lines(options: &[OptionClause]) -> Vec<String> {
     let rows: Vec<Vec<String>> = options
         .iter()
         .map(|opt| {
+            let label = opt
+                .label
+                .as_ref()
+                .map_or_else(String::new, |label| quote(label));
             let implies = opt
                 .implies
                 .as_ref()
                 .map(|atom| format!("implies {}", render_atom(atom)))
                 .unwrap_or_default();
-            vec!["option".to_owned(), opt.name.text.clone(), implies]
+            vec!["option".to_owned(), opt.name.text.clone(), label, implies]
         })
         .collect();
     align(&rows)

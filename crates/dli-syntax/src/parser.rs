@@ -1248,11 +1248,12 @@ fn parse_option(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     let Some(name) = cur.eat_ident() else {
         diags.push(Diagnostic::new(
             DiagClass::Malformed,
-            "an `option` needs a name — write `option <name> [implies <atom>]`.",
+            "an `option` needs a name — write `option <name> [\"<label>\"] [implies <atom>]`.",
             span,
         ));
         return None;
     };
+    let label = cur.eat_string();
     let implies = if cur.peek_word_text() == Some("implies") {
         cur.bump();
         if let Some(atom) = parse_atom(cur) {
@@ -1281,9 +1282,13 @@ fn parse_option(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     expect_consumed(
         cur,
         diags,
-        "an `option` reads `option <name> [implies <atom>]`.",
+        "an `option` reads `option <name> [\"<label>\"] [implies <atom>]`.",
     );
-    Some(OptionClause { name, implies })
+    Some(OptionClause {
+        name,
+        label,
+        implies,
+    })
 }
 
 enum ChildOption {

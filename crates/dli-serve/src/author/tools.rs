@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, Decl, EntityDecl, EntityKind as AstEntityKind, FactDecl, HypothesisDecl,
-    OptionClause, QuestionDecl,
+    OptionClause, QuestionDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -233,8 +233,8 @@ pub(super) fn add_event(
     let decl = Decl::Entity(EntityDecl {
         kind: AstEntityKind::Event,
         name: ident(&params.id),
-        label: Some(params.name.clone()),
-        time: None,
+        label: params.name.clone(),
+        time: Some(TimeClause::During(ident(&params.era))),
         slots: Vec::new(),
         provenance: Some(annotation(&params.provenance)),
     });
@@ -296,6 +296,7 @@ pub(super) fn add_option(
         let mut question = q.clone();
         question.options.push(OptionClause {
             name: ident(&params.id),
+            label: Some(params.label.clone()),
             implies: None,
         });
         Some(Decl::Question(question))
@@ -305,7 +306,7 @@ pub(super) fn add_option(
     if let Some(decl) = updated {
         ws.replace_decl(i, decl);
     }
-    let rendered = render_option(&params.question, &params.id);
+    let rendered = render_option(&params.question, &params.id, &params.label);
     Ok(mutation(findings, rendered, &ws.digest))
 }
 
@@ -389,7 +390,9 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
 fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = control_char_findings(decl);
     match decl {
-        Decl::Entity(e) if e.kind == AstEntityKind::Event => {}
+        Decl::Entity(e) if e.kind == AstEntityKind::Event => {
+            out.extend(event_findings(e, ws, base));
+        }
         Decl::Entity(e) => out.push(name_unvetted(&e.name.text)),
         Decl::Attr(a) => out.extend(attr_findings(a, ws, base)),
         Decl::Fact(f) => out.extend(relation_findings(f, ws, base)),
@@ -397,6 +400,21 @@ fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Findi
         _ => {}
     }
     out
+}
+
+fn event_findings(entity: &EntityDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+    let Some(TimeClause::During(era)) = &entity.time else {
+        return vec![event_era_missing(&entity.name.text)];
+    };
+    let known = known_entities(base, &ws.decls);
+    if !known.contains(&era.text) {
+        return vec![entity_unknown(&era.text, &known)];
+    }
+    match entity_sort(base, &ws.decls, &era.text) {
+        Some("era") => Vec::new(),
+        Some(sort) => vec![event_era_kind(&entity.name.text, &era.text, sort)],
+        None => vec![event_era_kind(&entity.name.text, &era.text, "untyped")],
+    }
 }
 
 /// `add_fact` findings: an unknown subject (error) and a slot that contradicts a
@@ -493,6 +511,23 @@ fn known_entities(base: &CompiledWorld, decls: &[Decl]) -> BTreeSet<String> {
         }
     }
     set
+}
+
+fn entity_sort<'a>(base: &'a CompiledWorld, decls: &'a [Decl], name: &str) -> Option<&'a str> {
+    decls
+        .iter()
+        .rev()
+        .find_map(|decl| match decl {
+            Decl::Entity(entity) if entity.name.text == name => Some(entity.kind.keyword()),
+            _ => None,
+        })
+        .or_else(|| {
+            base.model
+                .entities()
+                .iter()
+                .find(|entity| entity.name == name)
+                .and_then(|entity| entity.sort.as_deref())
+        })
 }
 
 /// The distinct certain values the base holds for a `(pred, subject)` slot — the
@@ -658,6 +693,9 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             }
             for option in &q.options {
                 fields.push(("option", option.name.text.clone()));
+                if let Some(label) = &option.label {
+                    fields.push(("option-label", label.clone()));
+                }
             }
             annotation_fields(&mut fields, q.provenance.as_ref());
         }
@@ -812,6 +850,32 @@ fn question_unknown(id: &str) -> Finding {
         code: "question.unknown".to_owned(),
         message: format!(
             "No question \"{id}\" is open in this workspace; open it before adding options."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+    }
+}
+
+fn event_era_missing(event: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "event.era-missing".to_owned(),
+        message: format!(
+            "Event \"{event}\" has no era anchor; every event must occur during an era."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+    }
+}
+
+fn event_era_kind(event: &str, era: &str, actual: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "event.era-kind".to_owned(),
+        message: format!(
+            "Event \"{event}\" names \"{era}\" as its era, but that entity is {actual}; choose an era entity."
         ),
         grade: Grade::Checked,
         repair: None,

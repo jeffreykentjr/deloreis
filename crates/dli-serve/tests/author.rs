@@ -454,6 +454,7 @@ fn add_before_that_closes_a_cycle_is_an_error() {
                 "e",
                 Op::AuthorAddEvent,
                 json!({ "workspace": ws, "id": id, "name": id,
+                        "era": "first-tides",
                         "provenance": { "kind": "proposed", "origin": "s" } }),
             ),
         );
@@ -481,7 +482,18 @@ fn add_before_that_closes_a_cycle_is_an_error() {
 
 #[test]
 fn add_event_carries_no_naming_nudge() {
-    let mut store = Store::default();
+    let source = "scope tpth\nratify D-0001\nera first-tides \"First Tides\" ratified D-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.is_empty(),
+        "base source parses: {diagnostics:?}"
+    );
+    let world = dli_world::compile(&dli_world::pack::Pack {
+        name: "tpth".to_owned(),
+        documents: vec![document],
+    })
+    .expect("base compiles");
+    let mut store = Store::with_base(world);
     let ws = open_scope(&mut store, "tpth");
     let response = send(
         &mut store,
@@ -489,6 +501,7 @@ fn add_event_carries_no_naming_nudge() {
             "1",
             Op::AuthorAddEvent,
             json!({ "workspace": ws, "id": "the-drowning", "name": "The Drowning",
+                    "era": "first-tides",
                     "provenance": { "kind": "proposed", "origin": "s7" } }),
         ),
     );
@@ -496,8 +509,52 @@ fn add_event_carries_no_naming_nudge() {
     assert!(codes(result(&response)).is_empty());
     assert_eq!(
         result(&response)["rendered"],
-        json!(["event the-drowning \"The Drowning\" proposed s7"])
+        json!(["event the-drowning \"The Drowning\" during first-tides proposed s7"])
     );
+}
+
+#[test]
+fn add_event_requires_a_known_era_entity() {
+    let source = "\
+scope world
+ratify d-1
+era first-age decided d-1
+place first-city decided d-1
+";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.is_empty(),
+        "base source parses: {diagnostics:?}"
+    );
+    let world = dli_world::compile(&dli_world::pack::Pack {
+        name: "world".to_owned(),
+        documents: vec![document],
+    })
+    .expect("base compiles");
+    let mut store = Store::with_base(world);
+    let ws = open_scope(&mut store, "world");
+
+    let unknown = send(
+        &mut store,
+        &req(
+            "unknown",
+            Op::AuthorAddEvent,
+            json!({ "workspace": ws, "id": "lost-event", "era": "missing-age",
+                    "provenance": { "kind": "proposed", "origin": "s7" } }),
+        ),
+    );
+    assert_eq!(codes(result(&unknown)), vec!["entity.unknown"]);
+
+    let wrong_kind = send(
+        &mut store,
+        &req(
+            "wrong-kind",
+            Op::AuthorAddEvent,
+            json!({ "workspace": ws, "id": "city-event", "era": "first-city",
+                    "provenance": { "kind": "proposed", "origin": "s7" } }),
+        ),
+    );
+    assert_eq!(codes(result(&wrong_kind)), vec!["event.era-kind"]);
 }
 
 #[test]
@@ -594,7 +651,10 @@ fn open_question_then_add_option_and_a_missing_question() {
         ),
     );
     assert!(codes(result(&option)).is_empty());
-    assert_eq!(result(&option)["rendered"], json!(["  option saltmere"]));
+    assert_eq!(
+        result(&option)["rendered"],
+        json!(["  option saltmere \"Saltmere\""])
+    );
 
     let missing = send(
         &mut store,

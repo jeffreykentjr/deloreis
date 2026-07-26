@@ -77,21 +77,22 @@ pub fn render_scoped(scope: &str, decls: &[Decl]) -> Vec<String> {
 }
 
 /// Render the option lines a single `author.add_option` produced: the canonical
-/// `option <id>` line the formatter emits beneath its question, without the
+/// `option <id> "<label>"` line the formatter emits beneath its question, without the
 /// question header (the mutation added an option, not a question).
 ///
 /// ```
 /// use dli_serve::author::render::render_option;
-/// assert_eq!(render_option("where-the-first-ward-stood", "the-tidewall"),
-///            vec!["  option the-tidewall"]);
+/// assert_eq!(render_option("where-the-first-ward-stood", "the-tidewall", "The Tidewall"),
+///            vec!["  option the-tidewall \"The Tidewall\""]);
 /// ```
 #[must_use]
-pub fn render_option(question: &str, option: &str) -> Vec<String> {
+pub fn render_option(question: &str, option: &str, label: &str) -> Vec<String> {
     let synthetic = QuestionDecl {
         name: Ident::synthetic(escape_controls(question)),
         prompt: None,
         options: vec![OptionClause {
             name: Ident::synthetic(escape_controls(option)),
+            label: Some(escape_controls(label)),
             implies: None,
         }],
         provenance: None,
@@ -248,6 +249,7 @@ fn sanitize_attr(attr: &AttrDecl) -> AttrDecl {
 fn sanitize_option(option: &OptionClause) -> OptionClause {
     OptionClause {
         name: sanitize_ident(&option.name),
+        label: option.label.as_ref().map(|label| escape_controls(label)),
         implies: option.implies.as_ref().map(sanitize_atom),
     }
 }

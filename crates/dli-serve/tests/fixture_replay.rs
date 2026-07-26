@@ -41,6 +41,8 @@ fn error_code(response: &Value) -> Option<&str> {
 fn fixture_author_store() -> Store {
     let source = "\
 scope saltmarket
+ratify d-1
+era first-tides decided d-1
 fork exploration
   option baseline
 fork ep9-cast

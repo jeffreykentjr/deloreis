@@ -49,7 +49,7 @@ pub struct ProjectDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum SourceIdentity {
+enum FileIdentity {
     #[cfg(unix)]
     Unix { device: u64, inode: u64 },
     #[cfg(windows)]
@@ -245,11 +245,9 @@ impl Project {
 
         let input_paths =
             collect_input_paths(&root, &manifest.documents, &manifest.games, &manifest_path)?;
-        let documents = load_documents(&root, manifest.documents)?;
-        let games = load_games(&root, manifest.games, &documents)?;
-
-        let evidence_dir = resolve_storage(&root, "paths.evidence", &manifest.paths.evidence)?;
-        let cache_dir = resolve_storage(&root, "paths.cache", &manifest.paths.cache)?;
+        let evidence_dir =
+            validate_storage_path(&root, "paths.evidence", &manifest.paths.evidence)?;
+        let cache_dir = validate_storage_path(&root, "paths.cache", &manifest.paths.cache)?;
         if evidence_dir == root || cache_dir == root {
             return Err(ProjectError::Invalid(
                 "evidence and cache paths must be dedicated project subdirectories".into(),
@@ -272,11 +270,24 @@ impl Project {
                 input.display()
             )));
         }
+        let input_identities = input_paths
+            .iter()
+            .map(|path| {
+                file_identity(path, "manifest input").map(|identity| (identity, path.clone()))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        validate_storage_tree("paths.evidence", &evidence_dir, &input_identities)?;
+        validate_storage_tree("paths.cache", &cache_dir, &input_identities)?;
+
+        let documents = load_documents(&root, manifest.documents)?;
+        let games = load_games(&root, manifest.games, &documents)?;
         let language_docs = documents
             .values()
             .flat_map(|document| document.pack.documents.iter().cloned())
             .collect::<Vec<_>>();
         let language = LanguageModel::from_documents(&language_docs).model;
+        materialize_storage("paths.evidence", &evidence_dir)?;
+        materialize_storage("paths.cache", &cache_dir)?;
         Ok(Self {
             name: manifest.name,
             root,
@@ -390,14 +401,14 @@ fn load_documents(
     entries: BTreeMap<String, DocumentEntry>,
 ) -> Result<BTreeMap<String, ProjectDocument>, ProjectError> {
     let mut loaded = BTreeMap::new();
-    let mut source_owners = BTreeMap::<SourceIdentity, (String, PathBuf)>::new();
+    let mut source_owners = BTreeMap::<FileIdentity, (String, PathBuf)>::new();
     let mut fork_owners = BTreeMap::<String, String>::new();
     let mut dialect_owners = BTreeMap::<String, String>::new();
     for (id, entry) in entries {
         validate_id("document", &id)?;
         let document = load_document(root, &id, &entry)?;
         for path in &document.source_paths {
-            let identity = source_identity(path, &format!("documents.{id}.sources"))?;
+            let identity = file_identity(path, &format!("documents.{id}.sources"))?;
             if let Some((first, first_path)) =
                 source_owners.insert(identity, (id.clone(), path.clone()))
             {
@@ -415,7 +426,7 @@ fn load_documents(
 }
 
 #[cfg(unix)]
-fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectError> {
+fn file_identity(path: &Path, field: &str) -> Result<FileIdentity, ProjectError> {
     use std::os::unix::fs::MetadataExt;
 
     let metadata = fs::metadata(path).map_err(|error| ProjectError::AssetPath {
@@ -423,14 +434,14 @@ fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectEr
         path: path.display().to_string(),
         message: error.to_string(),
     })?;
-    Ok(SourceIdentity::Unix {
+    Ok(FileIdentity::Unix {
         device: metadata.dev(),
         inode: metadata.ino(),
     })
 }
 
 #[cfg(not(unix))]
-fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectError> {
+fn file_identity(path: &Path, field: &str) -> Result<FileIdentity, ProjectError> {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
@@ -443,7 +454,7 @@ fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectEr
         if let (Some(volume_serial), Some(file_index)) =
             (metadata.volume_serial_number(), metadata.file_index())
         {
-            return Ok(SourceIdentity::Windows {
+            return Ok(FileIdentity::Windows {
                 volume_serial,
                 file_index,
             });
@@ -452,7 +463,7 @@ fn source_identity(path: &Path, field: &str) -> Result<SourceIdentity, ProjectEr
 
     // Canonical paths still reject symlink aliases on targets where the
     // standard library exposes no stable file identity.
-    Ok(SourceIdentity::Path(path.to_path_buf()))
+    Ok(FileIdentity::Path(path.to_path_buf()))
 }
 
 fn load_document(
@@ -664,44 +675,120 @@ fn resolve_existing(root: &Path, field: &str, path: &Path) -> Result<PathBuf, Pr
     Ok(resolved)
 }
 
-fn resolve_storage(root: &Path, field: &str, path: &Path) -> Result<PathBuf, ProjectError> {
+fn validate_storage_path(root: &Path, field: &str, path: &Path) -> Result<PathBuf, ProjectError> {
     validate_relative(field, path)?;
     let joined = root.join(path);
-    let mut ancestor = joined.as_path();
-    while !ancestor.exists() {
-        ancestor = ancestor.parent().ok_or_else(|| ProjectError::AssetPath {
-            field: field.to_owned(),
-            path: path.display().to_string(),
-            message: "the path has no existing ancestor".into(),
-        })?;
+    let mut current = root.to_path_buf();
+    for component in path.components() {
+        let Component::Normal(component) = component else {
+            unreachable!("validate_relative accepts only normal components");
+        };
+        current.push(component);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: format!(
+                        "machine-written storage must not traverse symlinks; `{}` is a symlink",
+                        current.display()
+                    ),
+                });
+            }
+            Ok(metadata) if !metadata.is_dir() => {
+                return Err(ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: format!(
+                        "storage path component `{}` is not a directory",
+                        current.display()
+                    ),
+                });
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+            Err(error) => {
+                return Err(ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: error.to_string(),
+                });
+            }
+        }
     }
-    let canonical = fs::canonicalize(ancestor).map_err(|error| ProjectError::AssetPath {
+    Ok(joined)
+}
+
+fn materialize_storage(field: &str, path: &Path) -> Result<(), ProjectError> {
+    fs::create_dir_all(path).map_err(|error| ProjectError::AssetPath {
         field: field.to_owned(),
         path: path.display().to_string(),
         message: error.to_string(),
     })?;
-    if !canonical.starts_with(root) {
+    let canonical = fs::canonicalize(path).map_err(|error| ProjectError::AssetPath {
+        field: field.to_owned(),
+        path: path.display().to_string(),
+        message: error.to_string(),
+    })?;
+    if canonical != path {
         return Err(ProjectError::AssetPath {
             field: field.to_owned(),
             path: path.display().to_string(),
-            message: "the path traverses a symlink outside the project directory".into(),
+            message: "storage path changed while the project was loading".into(),
         });
     }
-    if !ancestor.is_dir() {
-        return Err(ProjectError::AssetPath {
-            field: field.to_owned(),
-            path: path.display().to_string(),
-            message: "the nearest existing ancestor is not a directory".into(),
-        });
+    Ok(())
+}
+
+fn validate_storage_tree(
+    field: &str,
+    root: &Path,
+    inputs: &BTreeMap<FileIdentity, PathBuf>,
+) -> Result<(), ProjectError> {
+    if !root.exists() {
+        return Ok(());
     }
-    let suffix = joined
-        .strip_prefix(ancestor)
-        .map_err(|_| ProjectError::AssetPath {
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        let entries = fs::read_dir(&directory).map_err(|error| ProjectError::AssetPath {
             field: field.to_owned(),
-            path: path.display().to_string(),
-            message: "the storage path could not be normalized".into(),
+            path: directory.display().to_string(),
+            message: error.to_string(),
         })?;
-    Ok(canonical.join(suffix))
+        for entry in entries {
+            let entry = entry.map_err(|error| ProjectError::AssetPath {
+                field: field.to_owned(),
+                path: directory.display().to_string(),
+                message: error.to_string(),
+            })?;
+            let path = entry.path();
+            let metadata =
+                fs::symlink_metadata(&path).map_err(|error| ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: error.to_string(),
+                })?;
+            if metadata.file_type().is_symlink() {
+                return Err(ProjectError::Invalid(format!(
+                    "machine-written storage must not contain symlinks; `{}` is a symlink",
+                    path.display()
+                )));
+            }
+            if metadata.is_dir() {
+                pending.push(path);
+            } else if metadata.is_file() {
+                let identity = file_identity(&path, field)?;
+                if let Some(input) = inputs.get(&identity) {
+                    return Err(ProjectError::Invalid(format!(
+                        "machine-written storage file `{}` aliases project input `{}`; storage must be dedicated",
+                        path.display(),
+                        input.display()
+                    )));
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn load_yaml<T: for<'de> Deserialize<'de>>(

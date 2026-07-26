@@ -588,7 +588,7 @@ author or consumer artifact that this repository does not own.
 | CON-1 | open | Per-operation framing coverage and semantic response parity remain incomplete |
 | SERVE-1 | open | Caller-project resolution is done; durable evidence and resumable jobs remain |
 | CLI-1 | open | Project-backed serve is done; standalone release smoke coverage remains |
-| AUTH-1 | open | Project isolation is done; option labels and event-anchor semantics remain incomplete |
+| AUTH-1 | open | Project isolation, option labels, and event anchors are done; remaining Door-T response semantics close with CON-1 |
 | AUTH-2 | external-blocked | Consumer worked scenario is excluded from this source-release round |
 | EXT-F3 | external-blocked | Fantasy worker adaptation is consumer-owned |
 | EXT-F4 | external-blocked | Fantasy transcript is consumer-owned |

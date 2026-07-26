@@ -144,7 +144,13 @@ fn atom() -> impl Strategy<Value = AtomExpr> {
 }
 
 fn option_clause() -> impl Strategy<Value = OptionClause> {
-    (ident(), prop::option::of(atom())).prop_map(|(name, implies)| OptionClause { name, implies })
+    (ident(), prop::option::of(label()), prop::option::of(atom())).prop_map(
+        |(name, label, implies)| OptionClause {
+            name,
+            label,
+            implies,
+        },
+    )
 }
 
 fn entity() -> impl Strategy<Value = Decl> {

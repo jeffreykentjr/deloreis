@@ -82,6 +82,7 @@ fn decided_fact(pred: &str, args: Vec<Term>, decision: &str) -> Decl {
 fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
     OptionClause {
         name: Ident::synthetic(name),
+        label: None,
         implies: Some(atom(pred, args)),
     }
 }

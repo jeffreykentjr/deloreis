@@ -68,7 +68,7 @@ fork what-does-wisdom-cost
   option a-nine-day-hanging
 hypothesis h-return "the world rises again, green, out of the sea after the fire"
 question who-holds-the-reborn-world "Who holds the world after the fire?"
-  option the-sons-of-thor implies holds(the-sons-of-thor, after-ragnarok)
+  option the-sons-of-thor  implies holds(the-sons-of-thor, after-ragnarok)
   option baldr-returned
 holds(baldr, after-ragnarok) proposed assumes baldr-returned and h-return
 hypothesis h-seer-foresaw "the seeress foresaw the doom from the first, and sang it before it came"

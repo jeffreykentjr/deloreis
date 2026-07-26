@@ -75,12 +75,12 @@ game, and game-profile assets are loaded as typed data.
 
 Every manifest path is non-empty, normalized, relative to the manifest
 directory, and may not contain `.` or `..` components. Existing assets and their
-symlinks must resolve beneath that directory. Evidence and cache paths must be
-dedicated, non-overlapping project subdirectories; their nearest existing
-ancestor must also remain beneath the project root, and neither storage tree may
-contain the manifest or any manifest-referenced source, episode, killed-token,
-game, or profile input. A project with duplicate fork question ids is rejected
-because a
+symlinks must resolve beneath that directory. Evidence and cache paths are
+materialized and canonicalized before the worker accepts traffic. They must be
+dedicated, non-overlapping project subdirectories with no symlinks anywhere in
+either storage tree. Neither tree may contain or hard-link the manifest or any
+manifest-referenced source, episode, killed-token, game, or profile input. A
+project with duplicate fork question ids is rejected because a
 Door-T fork must have one document owner. Dialect ids are also unique across the
 project: the current `dli.name.check` shape has no document field and therefore
 resolves its dialect against the project's combined language model.

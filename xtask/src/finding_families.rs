@@ -527,6 +527,18 @@ const FAMILIES: &[Family] = &[
                 meaning: "no entity of that id is in scope; the claim is staged but cannot materialize until it exists.",
             },
             Code {
+                code: "event.era-missing",
+                severity: "error",
+                repair: "—",
+                meaning: "an event has no era anchor; every event must occur during a declared era.",
+            },
+            Code {
+                code: "event.era-kind",
+                severity: "error",
+                repair: "—",
+                meaning: "an event's era anchor names an entity that is not an era.",
+            },
+            Code {
                 code: "fact.contradiction",
                 severity: "error",
                 repair: "—",

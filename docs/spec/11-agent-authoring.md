@@ -307,7 +307,7 @@ Provenance required.
 
 ```json
 { "ok": true, "workspace_digest": "wd-04",
-  "rendered": ["event(the-drowning)", "  during(the-drowning, the-salt-years)", "  proposed session-7c9"],
+  "rendered": ["event the-drowning during the-salt-years proposed session-7c9"],
   "findings": [] }
 ```
 
@@ -349,7 +349,7 @@ options; options are added separately with `author.add_option`.
 ### 3.7 `author.add_option`
 
 Add one option to a question already open in the workspace. `label` is stored as
-data; the rendered line is just `  option <id>`.
+data in the AST and canonical surface.
 
 ```json
 { "op": "author.add_option",
@@ -358,7 +358,8 @@ data; the rendered line is just `  option <id>`.
 ```
 
 ```json
-{ "ok": true, "workspace_digest": "wd-07", "rendered": ["  option the-tidewall"], "findings": [] }
+{ "ok": true, "workspace_digest": "wd-07",
+  "rendered": ["  option the-tidewall \"The Tidewall\""], "findings": [] }
 ```
 
 ### 3.8 `author.add_hypothesis`
@@ -486,7 +487,8 @@ discipline is: read the findings, act on the typed repairs, re-check.
 **Errors carry two layers, one on the wire.** Every non-success return carries a
 **code** from the closed registry `bad-frame | unknown-op | schema-violation |
 unknown-doc | unstratifiable | contradiction | stale-fence | materialize-blocked |
-internal`. The contract's §9 registry assigns each code a **class** — one of
+ killed-form | not-wired | version-mismatch | conflict | internal`. The
+contract's §9 registry assigns each code a **class** — one of
 `schema | refused | finding | internal` — so the class is derived from the code
 and never carried as a separate wire field. A `schema`- or `refused`-class error
 is the call's own fault; a `finding`-class error is the graded channel above;

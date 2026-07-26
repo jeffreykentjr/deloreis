@@ -1,6 +1,5 @@
 ---
 source: crates/dli-ast/tests/smoke.rs
-assertion_line: 74
 expression: document
 ---
 {
@@ -2690,6 +2689,7 @@ expression: document
                 "end": 5265
               }
             },
+            "label": null,
             "implies": null
           },
           {
@@ -2701,6 +2701,7 @@ expression: document
                 "end": 5287
               }
             },
+            "label": null,
             "implies": null
           }
         ],
@@ -2742,13 +2743,14 @@ expression: document
                 "end": 5460
               }
             },
+            "label": null,
             "implies": {
               "pred": {
                 "text": "keeps",
                 "span": {
                   "file": 0,
-                  "start": 5471,
-                  "end": 5476
+                  "start": 5472,
+                  "end": 5477
                 }
               },
               "args": [
@@ -2757,8 +2759,8 @@ expression: document
                     "text": "arthur",
                     "span": {
                       "file": 0,
-                      "start": 5477,
-                      "end": 5483
+                      "start": 5478,
+                      "end": 5484
                     }
                   }
                 },
@@ -2767,8 +2769,8 @@ expression: document
                     "text": "excalibur",
                     "span": {
                       "file": 0,
-                      "start": 5485,
-                      "end": 5494
+                      "start": 5486,
+                      "end": 5495
                     }
                   }
                 }
@@ -2780,10 +2782,11 @@ expression: document
               "text": "the-lake",
               "span": {
                 "file": 0,
-                "start": 5505,
-                "end": 5513
+                "start": 5506,
+                "end": 5514
               }
             },
+            "label": null,
             "implies": null
           }
         ],
@@ -2797,8 +2800,8 @@ expression: document
             "text": "keeps",
             "span": {
               "file": 0,
-              "start": 5514,
-              "end": 5519
+              "start": 5515,
+              "end": 5520
             }
           },
           "args": [
@@ -2807,8 +2810,8 @@ expression: document
                 "text": "the-lake",
                 "span": {
                   "file": 0,
-                  "start": 5520,
-                  "end": 5528
+                  "start": 5521,
+                  "end": 5529
                 }
               }
             },
@@ -2817,8 +2820,8 @@ expression: document
                 "text": "excalibur",
                 "span": {
                   "file": 0,
-                  "start": 5530,
-                  "end": 5539
+                  "start": 5531,
+                  "end": 5540
                 }
               }
             }
@@ -2835,8 +2838,8 @@ expression: document
                   "text": "the-lake",
                   "span": {
                     "file": 0,
-                    "start": 5558,
-                    "end": 5566
+                    "start": 5559,
+                    "end": 5567
                   }
                 }
               },
@@ -2845,8 +2848,8 @@ expression: document
                   "text": "h-return",
                   "span": {
                     "file": 0,
-                    "start": 5571,
-                    "end": 5579
+                    "start": 5572,
+                    "end": 5580
                   }
                 }
               }
@@ -2855,8 +2858,8 @@ expression: document
           "tags": [],
           "span": {
             "file": 0,
-            "start": 5541,
-            "end": 5549
+            "start": 5542,
+            "end": 5550
           }
         }
       }
@@ -2867,8 +2870,8 @@ expression: document
           "text": "h-merlin-foresaw",
           "span": {
             "file": 0,
-            "start": 5591,
-            "end": 5607
+            "start": 5592,
+            "end": 5608
           }
         },
         "statement": "Merlin foresaw the fall at Camlann from the first"
@@ -2881,8 +2884,8 @@ expression: document
           "text": "the-warning",
           "span": {
             "file": 0,
-            "start": 5666,
-            "end": 5677
+            "start": 5667,
+            "end": 5678
           }
         },
         "label": null,
@@ -2891,8 +2894,8 @@ expression: document
             "text": "arthurs-reign",
             "span": {
               "file": 0,
-              "start": 5686,
-              "end": 5699
+              "start": 5687,
+              "end": 5700
             }
           }
         },
@@ -2905,16 +2908,16 @@ expression: document
               "text": "h-merlin-foresaw",
               "span": {
                 "file": 0,
-                "start": 5717,
-                "end": 5733
+                "start": 5718,
+                "end": 5734
               }
             }
           },
           "tags": [],
           "span": {
             "file": 0,
-            "start": 5700,
-            "end": 5708
+            "start": 5701,
+            "end": 5709
           }
         }
       }
@@ -2925,8 +2928,8 @@ expression: document
           "text": "d-0011",
           "span": {
             "file": 0,
-            "start": 5741,
-            "end": 5747
+            "start": 5742,
+            "end": 5748
           }
         },
         "body": [
@@ -2934,8 +2937,8 @@ expression: document
             "text": "h-merlin-foresaw := true",
             "span": {
               "file": 0,
-              "start": 5752,
-              "end": 5776
+              "start": 5753,
+              "end": 5777
             }
           }
         ]

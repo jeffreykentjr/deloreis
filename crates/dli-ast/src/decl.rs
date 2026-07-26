@@ -215,11 +215,13 @@ pub struct QuestionDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `option <name> [implies <atom>]`.
+/// `option <name> ["label"] [implies <atom>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct OptionClause {
     /// The option name.
     pub name: Ident,
+    /// The display label, if written.
+    pub label: Option<String>,
     /// The atom this option implies, if written.
     pub implies: Option<AtomExpr>,
 }

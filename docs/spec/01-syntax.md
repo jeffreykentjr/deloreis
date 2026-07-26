@@ -148,7 +148,8 @@ question q-0001 "Who drew Excalibur from the stone?"
   option mordred implies drawn-by(excalibur, mordred)
 ```
 
-Question bodies accept only `option <name> [implies <atom>]`; every other child
+Question bodies accept only
+`option <name> ["<label>"] [implies <atom>]`; every other child
 is an error rather than discarded text. Fork bodies retain their command clauses
 (`suppose`, `add fact`, and the other fork operations), while malformed children
 that begin with `option` are errors. The former `option ... assumes` clause is a

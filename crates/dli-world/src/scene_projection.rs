@@ -409,6 +409,7 @@ mod tests {
                 .into_iter()
                 .map(|(opt, implied)| OptionClause {
                     name: id(opt),
+                    label: None,
                     implies: Some(implied),
                 })
                 .collect(),

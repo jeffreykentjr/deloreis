@@ -14,6 +14,7 @@
       "id": "pre-2",
       "op": "author.add_event",
       "params": {
+        "era": "first-tides",
         "id": "the-drowning",
         "name": "The Drowning",
         "provenance": {
@@ -28,6 +29,7 @@
       "id": "pre-3",
       "op": "author.add_event",
       "params": {
+        "era": "first-tides",
         "id": "the-reclaiming",
         "name": "The Reclaiming",
         "provenance": {
@@ -49,7 +51,7 @@
           "rendered": [
             "before the-drowning -> the-reclaiming proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:dd5ef670aa161274d6f55c2d03b017d3cd45d6e84f9f0b28634e9236102ec04e"
+          "workspace_digest": "jcs:sha256:0cdcaf6431b589eb5eb9fe71c6e4efb3d58792f96b5afde1b54e6714bd87fc45"
         }
       },
       "send": {

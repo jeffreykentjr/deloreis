@@ -451,14 +451,21 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
         // half-rendered.
         ExportProfile::Cards | ExportProfile::LudiiGdl => {
             let (ruleset, registry) = sessions.ruleset(&p.document).ok_or_else(|| {
-                (
-                    ErrorCode::SchemaViolation,
-                    format!(
-                        "the requested profile renders a card ruleset; document '{}' names no \
-                         card game (a lore corpus carries no ruleset)",
-                        p.document
-                    ),
-                )
+                if sessions.pack(&p.document).is_some() {
+                    (
+                        ErrorCode::SchemaViolation,
+                        format!(
+                            "the requested profile renders a card ruleset; document '{}' names no \
+                             card game (a lore corpus carries no ruleset)",
+                            p.document
+                        ),
+                    )
+                } else {
+                    (
+                        ErrorCode::UnknownDoc,
+                        format!("no document or game named '{}' is loaded", p.document),
+                    )
+                }
             })?;
             let target = if matches!(p.profile, ExportProfile::Cards) {
                 ExportTarget::Cards

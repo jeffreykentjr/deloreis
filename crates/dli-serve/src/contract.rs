@@ -687,8 +687,11 @@ pub struct AuthorAddEventParams {
     pub workspace: String,
     /// The event id.
     pub id: String,
-    /// The event name.
-    pub name: String,
+    /// Optional event display name.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub name: Option<String>,
+    /// The era that contains the event.
+    pub era: String,
     /// The provenance of this addition.
     pub provenance: Provenance,
 }
