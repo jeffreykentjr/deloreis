@@ -176,7 +176,7 @@ delimited request frames to the worker:
 target/debug/deloreis serve < frames.jsonl
 ```
 
-Each line is one `{"dli":"0.1.0","id":"…","op":"author.…","params":{…}}` frame;
+Each line is one `{"dli":"0.2.0","id":"…","op":"author.…","params":{…}}` frame;
 responses come back one per line, in order, over a single persistent workspace
 store. The MCP surface is now reachable directly with `target/debug/deloreis mcp`
 (JSON-RPC over stdio: `initialize`, then `tools/list` / `tools/call`); it was

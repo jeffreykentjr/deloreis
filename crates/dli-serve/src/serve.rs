@@ -128,8 +128,7 @@ fn serve_with_stores<R: BufRead, W: Write>(
         }
         let line = String::from_utf8_lossy(&buf);
         if let Some(response) = respond(&line, sessions, author_store) {
-            let encoded =
-                serde_json::to_string(&response).unwrap_or_else(|_| INTERNAL_LINE.to_owned());
+            let encoded = serde_json::to_string(&response).unwrap_or_else(|_| internal_line());
             writeln!(writer, "{encoded}")?;
             writer.flush()?;
         }
@@ -288,7 +287,11 @@ fn is_author_op(op: Op) -> bool {
 // -- error responses ---------------------------------------------------------
 
 /// A fallback line for the impossible case that a response cannot be serialized.
-const INTERNAL_LINE: &str = r#"{"dli":"0.2.0","id":"","ok":false,"error":{"code":"internal","message":"response could not be serialized"}}"#;
+fn internal_line() -> String {
+    format!(
+        r#"{{"dli":"{CONTRACT_VERSION}","id":"","ok":false,"error":{{"code":"internal","message":"response could not be serialized"}}}}"#
+    )
+}
 
 fn typed_error(dli: &str, id: &str, code: ErrorCode, message: String) -> Response {
     Response {

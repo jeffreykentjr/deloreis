@@ -399,6 +399,61 @@ fn wrong_contract_version_is_version_mismatch() {
 }
 
 #[test]
+fn old_contract_mutation_is_refused_without_side_effects() {
+    use dli_serve::CONTRACT_VERSION;
+
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let opened = send(
+        &serde_json::json!({
+            "dli": CONTRACT_VERSION,
+            "id": "open",
+            "op": "author.open",
+            "params": {"scope": "camelot"}
+        }),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    let initial_digest = opened.result.unwrap()["workspace_digest"].clone();
+
+    let rejected = send(
+        &serde_json::json!({
+            "dli": "0.1.0",
+            "id": "old-mutation",
+            "op": "author.add_entity",
+            "params": {
+                "workspace": "ws-1",
+                "kind": "person",
+                "id": "intruder",
+                "name": "Intruder",
+                "provenance": {"kind": "proposed", "origin": "old-client"}
+            }
+        }),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert_eq!(rejected.error.unwrap().code.wire_name(), "version-mismatch");
+
+    let status = send(
+        &serde_json::json!({
+            "dli": CONTRACT_VERSION,
+            "id": "status",
+            "op": "author.status",
+            "params": {"workspace": "ws-1"}
+        }),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(status["workspace_digest"], initial_digest);
+    assert_eq!(status["rendered"], serde_json::json!([]));
+}
+
+#[test]
 fn query_modifiers_layer_and_fork() {
     // H9: --layer filters by standing floor; --fork evaluates under a fork's
     // valuation overlay.
