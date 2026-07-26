@@ -1,7 +1,7 @@
 {
   "fixture": "golden/timeline-order-v1",
   "version": 1,
-  "note": "dli.timeline.order is the partial-order report: it confirms the chronology is acyclic and enumerates every load-bearing UNORDERED pair as a first-class verdict (`a ? b`), never a silent tie-break. Read over the neutral round-table teaching world.",
+  "note": "dli.timeline.order is the partial-order report: it confirms the chronology is acyclic and enumerates every UNORDERED pair as a first-class verdict (`a ? b`), never a silent tie-break. Consumers correlate pairs with check findings when they need the load-bearing subset. Read over the neutral round-table teaching world.",
   "steps": [
     {
       "send": {

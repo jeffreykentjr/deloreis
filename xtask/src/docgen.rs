@@ -304,7 +304,7 @@ const CLI_COMMANDS: &[(&str, &str)] = &[
     ),
     (
         "timeline order",
-        "The partial-order report: cycles and load-bearing unordered pairs.",
+        "The partial-order report: cycles and unordered pairs.",
     ),
     (
         "timeline knows",

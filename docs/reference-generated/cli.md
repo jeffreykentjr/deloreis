@@ -27,7 +27,7 @@ verdict: "The deloreis CLI command reference, mirroring the clap surface in crat
 | `deloreis preflight` | Run the ratification pre-flight over a fork. |
 | `deloreis timeline` | Read the timeline: chronology and the episode fold. |
 | `deloreis timeline show` | Render the era/event partial order (optionally around a cursor). |
-| `deloreis timeline order` | The partial-order report: cycles and load-bearing unordered pairs. |
+| `deloreis timeline order` | The partial-order report: cycles and unordered pairs. |
 | `deloreis timeline knows` | What a knower knows once the listener reaches a production slot. |
 | `deloreis timeline episodes` | Fold the season and check its production-order layout and open loops. |
 | `deloreis timeline phases` | The cyclic phases an episode pins. |

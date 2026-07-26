@@ -20,10 +20,10 @@
     },
     {
       "op": "dli.query",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "missing", "goal": "note(\"control\")"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "missing", "goal": "note(\"__DLI_FRAME_ATTACK__\")"}},
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(control)"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(__DLI_FRAME_ATTACK__)"}},
       "changed_paths": ["/params/goal"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok", "/result/rows"]
     },
     {
       "op": "dli.fork.new",
@@ -51,31 +51,39 @@
     },
     {
       "op": "dli.fork.suppose",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppose", "params": {"fork": "missing", "assume": ["control"]}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppose", "params": {"fork": "missing", "assume": ["__DLI_FRAME_ATTACK__"]}},
+      "precondition": [{"dli": "0.3.0", "id": "pre", "op": "dli.fork.new", "params": {"document": "saltmarket"}}],
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppose", "params": {"fork": "fork-1", "assume": ["control"]}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppose", "params": {"fork": "fork-1", "assume": ["__DLI_FRAME_ATTACK__"]}},
       "changed_paths": ["/params/assume/0"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.fork.add",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.add", "params": {"fork": "missing", "declarations": ["note(\"control\") proposed"]}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.add", "params": {"fork": "missing", "declarations": ["note(\"__DLI_FRAME_ATTACK__\") proposed"]}},
+      "precondition": [{"dli": "0.3.0", "id": "pre", "op": "dli.fork.new", "params": {"document": "saltmarket"}}],
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.add", "params": {"fork": "fork-1", "declarations": ["note(\"control\") proposed"]}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.add", "params": {"fork": "fork-1", "declarations": ["note(\"__DLI_FRAME_ATTACK__\") proposed"]}},
       "changed_paths": ["/params/declarations/0"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok"],
+      "allow_taint_paths": ["/result"]
     },
     {
       "op": "dli.fork.suppress",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppress", "params": {"fork": "missing", "assumption": "control"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppress", "params": {"fork": "missing", "assumption": "__DLI_FRAME_ATTACK__"}},
+      "precondition": [{"dli": "0.3.0", "id": "pre", "op": "dli.fork.new", "params": {"document": "saltmarket"}}],
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppress", "params": {"fork": "fork-1", "assumption": "control"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.suppress", "params": {"fork": "fork-1", "assumption": "__DLI_FRAME_ATTACK__"}},
       "changed_paths": ["/params/assumption"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.fork.restrict",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.restrict", "params": {"fork": "missing", "scope": ["control"]}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.restrict", "params": {"fork": "missing", "scope": ["__DLI_FRAME_ATTACK__"]}},
+      "precondition": [{"dli": "0.3.0", "id": "pre", "op": "dli.fork.new", "params": {"document": "saltmarket"}}],
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.fork.restrict", "params": {"fork": "fork-1", "scope": ["control"]}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.restrict", "params": {"fork": "fork-1", "scope": ["__DLI_FRAME_ATTACK__"]}},
       "changed_paths": ["/params/scope/0"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok"],
+      "allow_taint_paths": ["/result"]
     },
     {
       "op": "dli.fork.preflight",
@@ -134,10 +142,11 @@
     },
     {
       "op": "dli.timeline.show",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.show", "params": {"document": "missing", "at": "control"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.show", "params": {"document": "missing", "at": "__DLI_FRAME_ATTACK__"}},
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.show", "params": {"document": "saltmarket", "at": "control"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.show", "params": {"document": "saltmarket", "at": "__DLI_FRAME_ATTACK__"}},
       "changed_paths": ["/params/at"],
-      "compare_paths": ["/ok", "/error/code"]
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.timeline.order",
@@ -149,10 +158,11 @@
     },
     {
       "op": "dli.timeline.knows",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.knows", "params": {"document": "missing", "at": "control"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.knows", "params": {"document": "missing", "at": "__DLI_FRAME_ATTACK__"}},
-      "changed_paths": ["/params/at"],
-      "compare_paths": ["/ok", "/error/code"]
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.knows", "params": {"document": "missing-control", "at": "1"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.knows", "params": {"document": "__DLI_FRAME_ATTACK__", "at": "1"}},
+      "changed_paths": ["/params/document"],
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.timeline.episodes",
@@ -164,10 +174,11 @@
     },
     {
       "op": "dli.timeline.phases",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.phases", "params": {"document": "missing", "episode": "control"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.phases", "params": {"document": "missing", "episode": "__DLI_FRAME_ATTACK__"}},
-      "changed_paths": ["/params/episode"],
-      "compare_paths": ["/ok", "/error/code"]
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.phases", "params": {"document": "missing-control", "episode": "episode"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.timeline.phases", "params": {"document": "__DLI_FRAME_ATTACK__", "episode": "episode"}},
+      "changed_paths": ["/params/document"],
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.export.run",

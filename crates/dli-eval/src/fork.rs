@@ -406,8 +406,29 @@ impl ForkStore {
     /// exclusivity siblings out at evaluation time; supposing `false` knocks a
     /// bundle out (spec 02 §5). The base world is untouched.
     pub fn suppose(&mut self, id: ForkId, target: &str, value: bool) -> Result<(), ForkError> {
-        let atom = self.resolve(target)?;
-        self.get_mut(id)?.overlay.insert(atom, value);
+        self.suppose_all(id, [target], value)?;
+        Ok(())
+    }
+
+    /// Suppose several targets atomically.
+    ///
+    /// Every target and the fork handle are validated before the overlay changes,
+    /// so a malformed batch cannot leave a successful prefix behind.
+    pub fn suppose_all<'a>(
+        &mut self,
+        id: ForkId,
+        targets: impl IntoIterator<Item = &'a str>,
+        value: bool,
+    ) -> Result<(), ForkError> {
+        self.get(id)?;
+        let atoms = targets
+            .into_iter()
+            .map(|target| self.resolve(target))
+            .collect::<Result<Vec<_>, _>>()?;
+        let state = self.get_mut(id)?;
+        for atom in atoms {
+            state.overlay.insert(atom, value);
+        }
         Ok(())
     }
 

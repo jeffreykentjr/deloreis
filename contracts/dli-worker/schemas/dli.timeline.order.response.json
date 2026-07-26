@@ -16,7 +16,7 @@
       }
     },
     "unordered": {
-      "description": "Pairs for which neither order is declared.",
+      "description": "Every pair for which neither order is declared.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/TimelinePair"

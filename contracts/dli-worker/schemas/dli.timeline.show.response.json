@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "cursor": {
-      "description": "Cursor-relative ordering, when `at` was supplied.",
+      "description": "Cursor-relative ordering, when `at` was supplied and the chronology is acyclic.",
       "anyOf": [
         {
           "$ref": "#/$defs/TimelineCursor"

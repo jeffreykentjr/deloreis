@@ -241,9 +241,9 @@ The **scrubbable cursor is the tool**: drag through story-time and watch
 world-state and every character's knowledge change. The subcommands:
 
 - `deloreis timeline show [--at <era | event | episode>]`
-- `deloreis timeline order` — the partial-order report: cycles, plus the
-  **load-bearing unordered pairs** (those some check is currently indeterminate
-  over) surfaced as ready-made ruling requests;
+- `deloreis timeline order` — the partial-order report: cycles, plus every
+  unordered pair. Consumers may correlate these with check findings; the
+  chronology report itself does not claim that every pair is load-bearing;
 - `deloreis timeline knows --at <pos> [--who <id>]`
 - `deloreis timeline episodes --check` — ordering constraints and slack;
   `--propose` is **reserved**, gated on the T15 flip (`08-reasoning.md`);

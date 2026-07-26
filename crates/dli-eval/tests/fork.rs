@@ -437,6 +437,21 @@ fn unknown_targets_and_handles_error() {
 }
 
 #[test]
+fn suppose_batch_is_atomic_when_a_later_target_is_unknown() {
+    let mut store = ForkStore::new(base_world());
+    let fork = store.fork();
+
+    assert!(matches!(
+        store.suppose_all(fork, ["old-fen", "no-such-option"], true),
+        Err(ForkError::UnknownTarget(_))
+    ));
+    assert!(
+        store.get(fork).unwrap().overlay.is_empty(),
+        "a rejected batch must not retain its valid prefix"
+    );
+}
+
+#[test]
 fn fork_add_grade_vector_per_monomial() {
     use dli_core::posbool::PosBool;
     use dli_core::valuation::Valuation;

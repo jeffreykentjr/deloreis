@@ -31,7 +31,7 @@ pub(crate) struct TimelineArgs {
 pub(crate) enum TimelineRead {
     /// Render the era/event partial order (optionally around a cursor).
     Show(ShowArgs),
-    /// The partial-order report: cycles and load-bearing unordered pairs.
+    /// The partial-order report: cycles and unordered pairs.
     Order(CorpusArgs),
     /// What a knower knows once the listener reaches a production slot.
     Knows(KnowsArgs),

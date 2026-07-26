@@ -173,7 +173,7 @@ behavior. The inventory, by family:
 
 | Op | Meaning | Owning spec |
 |---|---|---|
-| `dli.version` | Contract/grammar version handshake | `integration/fantasy-contract.md` |
+| `dli.version` | Worker contract version and capability handshake | `integration/fantasy-contract.md` |
 | `dli.check` | Validate a corpus or scope; return findings | `02-semantics.md` |
 | `dli.query` | Query the compiled world — status, reach, `--why`/blame | `02-semantics.md`, `08-reasoning.md` |
 | `dli.fork.new` | Create a fork | `02-semantics.md` |

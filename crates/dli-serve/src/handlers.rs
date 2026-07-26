@@ -278,9 +278,10 @@ fn handle_fork_diff(request: &Request, sessions: &mut Sessions) -> Result<Respon
 fn handle_fork_suppose(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkSupposeParams = params(request)?;
     let (id, scope) = fork_scope(sessions, &p.fork)?;
-    for target in &p.assume {
-        scope.forks.suppose(id, target, true).map_err(fork_fault)?;
-    }
+    scope
+        .forks
+        .suppose_all(id, p.assume.iter().map(String::as_str), true)
+        .map_err(fork_fault)?;
     let delta = scope.forks.diff(id).map_err(fork_fault)?;
     Ok(ok_response(request, &diff_delta(&delta)))
 }
@@ -834,25 +835,29 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
                     format!("unknown timeline point '{at}'"),
                 )
             })?;
-        let mut before = Vec::new();
-        let mut after = Vec::new();
-        let mut unordered = Vec::new();
-        for &other in &points {
-            if other == cursor {
-                continue;
+        if cycle.is_empty() {
+            let mut before = Vec::new();
+            let mut after = Vec::new();
+            let mut unordered = Vec::new();
+            for &other in &points {
+                if other == cursor {
+                    continue;
+                }
+                match world.chronology.precedes(other, cursor) {
+                    TemporalVerdict::Before => before.push(point_name(world, other)),
+                    TemporalVerdict::After => after.push(point_name(world, other)),
+                    TemporalVerdict::Unordered => unordered.push(point_name(world, other)),
+                }
             }
-            match world.chronology.precedes(other, cursor) {
-                TemporalVerdict::Before => before.push(point_name(world, other)),
-                TemporalVerdict::After => after.push(point_name(world, other)),
-                TemporalVerdict::Unordered => unordered.push(point_name(world, other)),
-            }
+            Some(TimelineCursor {
+                at: at.clone(),
+                before,
+                after,
+                unordered,
+            })
+        } else {
+            None
         }
-        Some(TimelineCursor {
-            at: at.clone(),
-            before,
-            after,
-            unordered,
-        })
     } else {
         None
     };

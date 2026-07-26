@@ -501,7 +501,7 @@ pub struct TimelineShowResult {
     pub layers: Vec<TimelineLayer>,
     /// Cycle blame edges, if the chronology is cyclic.
     pub cycle: Vec<TimelineEdge>,
-    /// Cursor-relative ordering, when `at` was supplied.
+    /// Cursor-relative ordering, when `at` was supplied and the chronology is acyclic.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub cursor: Option<TimelineCursor>,
     /// Episode fact placements projected onto story-time.
@@ -524,7 +524,7 @@ pub struct TimelineOrderResult {
     pub acyclic: bool,
     /// Cycle blame edges, when not acyclic.
     pub cycle: Vec<TimelineEdge>,
-    /// Pairs for which neither order is declared.
+    /// Every pair for which neither order is declared.
     pub unordered: Vec<TimelinePair>,
 }
 

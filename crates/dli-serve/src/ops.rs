@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum Op {
-    /// Report the contract and grammar versions.
+    /// Report the worker contract version and wired capabilities.
     #[serde(rename = "dli.version")]
     Version,
     /// Validate a document.
@@ -237,7 +237,7 @@ impl Op {
     pub const fn summary(self) -> &'static str {
         match self {
             Op::Version => {
-                "Report the contract and grammar versions and this build's wired capabilities."
+                "Report the worker contract version and this build's wired capabilities."
             }
             Op::Check => {
                 "Validate a loaded document: self-consistency findings over the compiled world."

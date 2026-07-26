@@ -137,6 +137,40 @@ fn project_stateful_handles_and_workspaces_cannot_cross_documents() {
 }
 
 #[test]
+fn cyclic_timeline_reports_blame_without_cursor_order_claims() {
+    let root = temp("project-cyclic-timeline");
+    fs::write(
+        root.join("world.dli"),
+        "scope world\n\
+         use chronology\n\
+         ratify d-1\n\
+         era age decided d-1\n\
+         event first during age decided d-1\n\
+         event second during age decided d-1\n\
+         before first -> second decided d-1\n\
+         before second -> first decided d-1\n",
+    )
+    .unwrap();
+    write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
+    let project = Project::load(&root).expect("cyclic chronology remains diagnosable");
+    let input = b"{\"dli\":\"0.3.0\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
+    let mut output = Vec::new();
+    serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
+    let response: Value = serde_json::from_slice(&output).unwrap();
+
+    assert_eq!(response["ok"], true);
+    assert!(
+        response["result"]["cycle"]
+            .as_array()
+            .is_some_and(|cycle| !cycle.is_empty())
+    );
+    assert!(
+        response["result"].get("cursor").is_none(),
+        "reachability is undefined while cycle blame exists"
+    );
+}
+
+#[test]
 fn rejects_unknown_manifest_fields_and_parent_traversal() {
     let root = temp("project-invalid-manifest");
     fs::write(root.join("world.dli"), "scope world\n").unwrap();

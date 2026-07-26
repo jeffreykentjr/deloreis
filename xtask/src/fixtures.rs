@@ -147,7 +147,7 @@ fn check_op_completeness(fixtures_dir: &Path) -> Result<()> {
         );
     }
     println!(
-        "fixtures: CON-1 op completeness OK ({} ops: golden+negative+framing)",
+        "fixtures: CON-1 fixture inventory OK ({} ops: golden+negative+paired framing)",
         Op::ALL.len()
     );
     Ok(())

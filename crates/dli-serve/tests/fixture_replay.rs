@@ -137,6 +137,19 @@ fn assert_taint_confined(response: &Value, case: &Value, name: &str) {
     }
 }
 
+fn assert_changed_parameter_was_reached(control: &Value, attack: &Value, name: &str) {
+    let both_succeeded = control.get("ok") == Some(&Value::Bool(true))
+        && attack.get("ok") == Some(&Value::Bool(true));
+    let mut marker = Vec::new();
+    marker_paths(attack, "", &mut marker);
+    assert!(
+        both_succeeded || !marker.is_empty(),
+        "{name}: neither branch succeeded and the attack marker is absent from the response; \
+         the handler may have failed before consuming the changed parameter\n\
+         control={control}\nattack={attack}"
+    );
+}
+
 fn assert_materialized_reparses(response: &Value, name: &str) {
     let Some(rendered) = response
         .pointer("/result/rendered")
@@ -187,6 +200,7 @@ fn replay_framing_case(case: &Value, name: &str) {
 
     let control = drive(&case["control"], &mut control_sessions, &mut control_store);
     let attack = drive(&case["attack"], &mut attack_sessions, &mut attack_store);
+    assert_changed_parameter_was_reached(&control, &attack, name);
     let compare = case["compare_paths"].as_array().expect("validated paths");
     assert_pointer_pairs_equal(&control, &attack, compare, name);
     assert_taint_confined(&attack, case, name);

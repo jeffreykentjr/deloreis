@@ -1,5 +1,6 @@
 //! Shared parsing for query goals carried on the worker wire.
 
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use dli_ast::clause::Clause;
@@ -22,6 +23,7 @@ pub(crate) fn parse(text: &str) -> Option<AtomExpr> {
 }
 
 fn rewrite_variables(text: &str) -> String {
+    let named = named_variables(text);
     let mut out = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
     let mut quoted = false;
@@ -62,11 +64,56 @@ fn rewrite_variables(text: &str) -> String {
                 out.push(chars.next().expect("peeked query variable character"));
             }
         } else {
-            let _ = write!(out, "__query_{fresh}");
-            fresh += 1;
+            loop {
+                let candidate = format!("__query_{fresh}");
+                fresh += 1;
+                if !named.contains(&candidate) {
+                    let _ = write!(out, "{candidate}");
+                    break;
+                }
+            }
         }
     }
     out
+}
+
+fn named_variables(text: &str) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    let mut chars = text.chars().peekable();
+    let mut quoted = false;
+    let mut escaped = false;
+    while let Some(ch) = chars.next() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                quoted = false;
+            }
+            continue;
+        }
+        if ch == '"' {
+            quoted = true;
+            continue;
+        }
+        if ch != '?'
+            || chars
+                .peek()
+                .is_none_or(|next| !next.is_alphanumeric() && !matches!(next, '_' | '-'))
+        {
+            continue;
+        }
+        let mut name = String::new();
+        while chars
+            .peek()
+            .is_some_and(|next| next.is_alphanumeric() || matches!(next, '_' | '-'))
+        {
+            name.push(chars.next().expect("peeked query variable character"));
+        }
+        names.insert(name);
+    }
+    names
 }
 
 #[cfg(test)]
@@ -79,6 +126,13 @@ mod tests {
     fn parses_named_and_anonymous_wire_variables() {
         let atom = parse("knows(?who, ?)").expect("wire goal parses");
         assert!(matches!(&atom.args[0], Term::Var(var) if var.text == "who"));
+        assert!(matches!(&atom.args[1], Term::Var(var) if var.text == "__query_0"));
+    }
+
+    #[test]
+    fn anonymous_variables_do_not_alias_legal_named_variables() {
+        let atom = parse("pair(?, ?__query_0)").expect("wire goal parses");
+        assert!(matches!(&atom.args[0], Term::Var(var) if var.text == "__query_1"));
         assert!(matches!(&atom.args[1], Term::Var(var) if var.text == "__query_0"));
     }
 

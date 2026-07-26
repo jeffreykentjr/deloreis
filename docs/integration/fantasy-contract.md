@@ -68,7 +68,7 @@ model utterance is one of four declared classes, or it does not enter.*
 
 | Op | Purpose | Returns |
 |---|---|---|
-| `dli.version` | Report the contract/grammar versions and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
+| `dli.version` | Report the worker contract version and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
 | `dli.check` | Compile and check a scope or corpus. | graded findings + rendered lines |
 | `dli.query` | Query the compiled world (`--layer/--as-of/--fork/--why`). | every matching row: atom, bindings, status, support, grade, citations, optional why, rendered |
 | `dli.fork.new` | Create a fork. | fork handle |
@@ -86,7 +86,7 @@ model utterance is one of four declared classes, or it does not enter.*
 | `dli.simulate.status` | Poll a battery. | progress, or final manifest + metrics + invariant verdicts |
 | `dli.simulate.cancel` | Cancel a battery. | status |
 | `dli.timeline.show` | The timeline at a position (`--at`). | topological layers, cycle blame, cursor relations, placements |
-| `dli.timeline.order` | Partial-order report. | cycles + load-bearing unordered pairs (ready-made RQs) |
+| `dli.timeline.order` | Partial-order report. | cycles + every unordered pair |
 | `dli.timeline.knows` | Who-knows-what matrix at a position. | characters × facts (listener included) |
 | `dli.timeline.episodes` | Episode-order check + slack. | episode summaries, loop ledger, integrity findings, earliest/latest slots |
 | `dli.timeline.phases` | Phase-walk verdict for an episode. | resolved anchors + consistency findings |

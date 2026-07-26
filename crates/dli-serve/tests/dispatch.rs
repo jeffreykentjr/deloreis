@@ -228,6 +228,45 @@ fn fork_flow_threads_session_state() {
 }
 
 #[test]
+fn rejected_fork_suppose_batch_has_no_partial_side_effect() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    send(
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.fork.new","params":{"document":"camelot"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+
+    let rejected = send(
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0","missing-target"]}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(!rejected.ok);
+
+    let listed = send(
+        &serde_json::json!({"dli":"0.3.0","id":"3","op":"dli.fork.list","params":{"document":"camelot"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(listed["forks"][0]["assumes"], serde_json::json!({}));
+    let diff = send(
+        &serde_json::json!({"dli":"0.3.0","id":"4","op":"dli.fork.diff","params":{"fork":"fork-1"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(diff["newly_certain"], serde_json::json!([]));
+}
+
+#[test]
 fn unknown_document_is_unknown_doc() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
