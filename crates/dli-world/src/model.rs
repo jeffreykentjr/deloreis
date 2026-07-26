@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Ann;
-use dli_core::atom::{Atom, Interner};
+use dli_core::atom::{Atom, Interner, Rail};
 use dli_eval::world::World;
 use dli_ledger::{LedgerEntry, PracticeDef};
 use dli_time::cycle::Cycle;
@@ -364,6 +364,22 @@ impl WorldModel {
         self.atoms.iter().filter(|a| a.mentions(entity)).collect()
     }
 
+    /// Fingerprint all semantic facts about one subject.
+    ///
+    /// The row includes the atom, its derived standing, and support/defeater
+    /// variables resolved back to stable names. A ratification or support
+    /// change therefore stales an attestation even when the atom text survives.
+    #[must_use]
+    pub fn subject_fingerprint(&self, entity: &str) -> crate::attest::ContentHash {
+        crate::attest::fingerprint_strings(
+            self.world
+                .derived
+                .iter()
+                .filter(|derived| derived.atom.args.iter().any(|argument| argument == entity))
+                .map(|derived| self.fingerprint_derived_row(derived)),
+        )
+    }
+
     /// The number of derivation rules in the compiled world.
     #[must_use]
     pub fn rule_count(&self) -> usize {
@@ -417,5 +433,53 @@ impl WorldModel {
     #[must_use]
     pub fn interner(&self) -> &Interner {
         &self.world.interner
+    }
+
+    fn fingerprint_derived_row(&self, derived: &dli_eval::world::Derived) -> String {
+        let ann = derived.ann();
+        let status = ann.status(&self.world.valuation, &self.world.theory);
+        let support = self.render_polynomial(&ann.support);
+        let defeaters = self.render_polynomial(&ann.defeaters);
+        let conditions = ann
+            .conditions
+            .iter()
+            .map(|(path, poison)| {
+                format!(
+                    "{}=>{}",
+                    self.render_monomial(path),
+                    self.render_polynomial(poison)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let atom = serde_json::to_string(&derived.atom)
+            .expect("a ground atom always serializes for a fingerprint");
+        format!(
+            "{atom}|{status:?}|{support}|{defeaters}|{conditions}|{:?}",
+            derived.grade
+        )
+    }
+
+    fn render_polynomial(&self, value: &dli_core::posbool::PosBool) -> String {
+        value
+            .monomials()
+            .map(|monomial| self.render_monomial(monomial))
+            .collect::<Vec<_>>()
+            .join("|")
+    }
+
+    fn render_monomial(&self, value: &dli_core::posbool::Monomial) -> String {
+        value
+            .lits()
+            .map(|literal| {
+                let rail = match literal.rail {
+                    Rail::Pos => '+',
+                    Rail::Neg => '-',
+                };
+                let name = self.var_name(literal.atom).unwrap_or("<unknown>");
+                format!("{rail}{name}")
+            })
+            .collect::<Vec<_>>()
+            .join("&")
     }
 }

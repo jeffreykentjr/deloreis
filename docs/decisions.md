@@ -731,3 +731,32 @@ the contract version therefore advances once from `0.3.0` to `0.4.0`.
 replayable cross-process artifact without granting the machine any canon write
 authority. Advertising only the four operations whose complete storage and
 validation semantics now exist preserves DL-0030's capability rule.
+
+## DL-0032 — Evidence replay and payload acceptance fail closed across restarts
+
+*Date: 2026-07-25*
+
+**Ruling** (clarifies DL-0031 without changing the `0.4.0` wire version):
+durable idempotency recognizes any previously committed attestation batch, not
+only the current head. Every committed payload for a document is verified
+before another payload is published. Attestation staleness fingerprints cover
+the saturated subject relation, including derived standing and resolved
+support, not source-atom spelling alone. Publication
+temporaries live outside committed-only directories, newly created directory
+entries are parent-synced, and stale interrupted temporaries are recoverable.
+
+The advertised payload operations run every semantic family represented by
+`payload/v1`: scene-keyed deltas are structurally and referentially checked;
+phase observations are checked against declared cycles and contiguous walks;
+the deterministic banned-word scan is independently recomputed; and a proof
+shadow must match a declared proof and replay through its declared practice.
+Optional outline and prior-season craft context is project-owned input declared
+by `outlines` and `craft_ledger` manifest assets. The attestation schema now
+states the positive cardinalities the runtime has always required, and dates
+must be calendar-valid.
+
+**Rationale.** Immediate-retry tests, clean-store tests, and shape-only payload
+tests are not durability or semantic-completeness evidence. A general caller
+must be able to retry after later writes, restart after an interrupted publish,
+detect corruption elsewhere in the same store, and trust that no accepted
+payload field was ignored.

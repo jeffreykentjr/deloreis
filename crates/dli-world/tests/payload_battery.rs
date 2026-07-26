@@ -26,8 +26,9 @@ use dli_world::craft::outline::{
     EpisodeOutline, Scene as OutlineScene, TryFailBeat, TryFailOutcome,
 };
 use dli_world::payload::{
-    BatteryContext, BeatKind, BeatRow, Claim, Magnitude, Payload, PayloadFinding, ProofClose,
-    ProofLedger, ProofLedgerRow, SceneRow, check_payload, outline_conformance, source_hash,
+    BatteryContext, BeatKind, BeatRow, Claim, ExtractorManifest, ExtractorRef, Magnitude, Payload,
+    PayloadFinding, PayloadMeta, ProofClose, ProofLedger, ProofLedgerRow, SceneRow, SourceRef,
+    check_payload, outline_conformance, source_hash,
 };
 use dli_world::{CompiledWorld, Pack, Severity, compile};
 
@@ -116,6 +117,45 @@ fn finding<'a>(findings: &'a [PayloadFinding], code: &str) -> Option<&'a Payload
     findings.iter().find(|f| f.code == code)
 }
 
+fn complete_payload(source: &str) -> Payload {
+    let extractor = ExtractorRef {
+        model: "fixture-extractor".to_owned(),
+        prompt: format!("sha256:{}", "0".repeat(64)),
+    };
+    Payload {
+        meta: PayloadMeta {
+            episode: "e01".to_owned(),
+            source: SourceRef {
+                file: "episode-01.md".to_owned(),
+                sha256: source_hash(source),
+                words: source
+                    .split(|character: char| !character.is_alphanumeric() && character != '-')
+                    .filter(|word| !word.is_empty())
+                    .count()
+                    .try_into()
+                    .unwrap(),
+            },
+            extracted: "2026-07-25".to_owned(),
+            extractors: ExtractorManifest {
+                schema: "payload/v1".to_owned(),
+                fields: [
+                    "claims",
+                    "deltas",
+                    "scenes",
+                    "beats",
+                    "promises",
+                    "proof_ledgers",
+                    "names",
+                ]
+                .into_iter()
+                .map(|field| (field.to_owned(), extractor.clone()))
+                .collect(),
+            },
+        },
+        ..Payload::default()
+    }
+}
+
 // --- the battery -------------------------------------------------------------
 
 #[test]
@@ -128,9 +168,7 @@ fn a_clean_payload_produces_no_findings() {
     ]
     .join("\n");
 
-    let mut payload = Payload::default();
-    payload.meta.episode = "e01".to_owned();
-    payload.meta.source.sha256 = source_hash(&source);
+    let mut payload = complete_payload(&source);
     payload.claims = vec![
         Claim {
             atom: "gender(anchor, male)".to_owned(),
@@ -143,7 +181,7 @@ fn a_clean_payload_produces_no_findings() {
             line: 2,
         },
     ];
-    // A minor try-beat trips no season join, and a well-formed proof shadow is clean.
+    // A minor try-beat trips no season join.
     payload.beats = vec![BeatRow {
         id: "b1".to_owned(),
         scene: "s01".to_owned(),
@@ -156,18 +194,6 @@ fn a_clean_payload_produces_no_findings() {
         quote: "she set the withy and it held".to_owned(),
         line: 3,
     }];
-    payload.proof_ledgers = vec![ProofLedgerRow {
-        scene: "s01".to_owned(),
-        ledger: ProofLedger {
-            premises: vec!["seated(withy)".to_owned()],
-            steps: vec!["chain from seated(withy)".to_owned()],
-            close: ProofClose {
-                atom: "holds(ward(door))".to_owned(),
-                expect: "holds".to_owned(),
-            },
-        },
-    }];
-
     let findings = check_payload(&world, &payload, &BatteryContext::new(&source));
     assert!(
         findings.is_empty(),
@@ -175,12 +201,241 @@ fn a_clean_payload_produces_no_findings() {
     );
 }
 
+fn semantic_payload_world() -> (CompiledWorld, Vec<Document>) {
+    let source = r#"scope payload-test
+
+ratify d-1
+
+person arden decided d-1
+warded(arden) decided d-1
+cycle tide(4) = ebb | slack | flood | high decided d-1
+banned machine d-1 "modern register"
+
+practice warding proposed {
+  rule ward-form(ground)
+}
+
+proof s01 speaker arden in warding {
+  premise p1 warded(arden) cited d-1 cue "line 1"
+  close warded(arden) expect holds
+}
+"#;
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let documents = vec![document];
+    let world = compile(&Pack {
+        name: "payload-test".to_owned(),
+        documents: documents.clone(),
+    })
+    .unwrap();
+    (world, documents)
+}
+
+#[test]
+fn proof_shadow_replays_the_declared_practice() {
+    let (world, documents) = semantic_payload_world();
+    let source = "the ward held\n";
+    let mut payload = complete_payload(source);
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        cast: vec!["arden".to_owned()],
+        phases: std::collections::BTreeMap::from([("tide".to_owned(), "slack".to_owned())]),
+        ..SceneRow::default()
+    });
+    payload.proof_ledgers.push(ProofLedgerRow {
+        scene: "s01".to_owned(),
+        ledger: ProofLedger {
+            premises: vec!["premise p1 warded(arden) cited d-1 cue \"line 1\"".to_owned()],
+            steps: Vec::new(),
+            close: ProofClose {
+                atom: "warded(arden)".to_owned(),
+                expect: "holds".to_owned(),
+            },
+        },
+    });
+    let context = BatteryContext::new(source).with_documents(&documents);
+    assert!(
+        check_payload(&world, &payload, &context).is_empty(),
+        "{:?}",
+        check_payload(&world, &payload, &context)
+    );
+
+    payload.proof_ledgers[0].ledger.close.atom = "invented(ward)".to_owned();
+    let findings = check_payload(&world, &payload, &context);
+    assert!(finding(&findings, "proof.shadow-mismatch").is_some());
+}
+
+#[test]
+fn phases_lexicon_and_deltas_are_semantically_checked() {
+    use dli_world::payload::{DeltaKind, DeltaRow};
+
+    let (world, documents) = semantic_payload_world();
+    let source = "the machine moved\n";
+    let mut payload = complete_payload(source);
+    payload.scenes = vec![
+        SceneRow {
+            id: "s01".to_owned(),
+            cast: vec!["arden".to_owned()],
+            phases: std::collections::BTreeMap::from([("tide".to_owned(), "ebb".to_owned())]),
+            ..SceneRow::default()
+        },
+        SceneRow {
+            id: "s02".to_owned(),
+            cast: vec!["arden".to_owned()],
+            phases: std::collections::BTreeMap::from([("tide".to_owned(), "high".to_owned())]),
+            ..SceneRow::default()
+        },
+    ];
+    payload.deltas.push(DeltaRow {
+        kind: DeltaKind::Knowledge,
+        who: String::new(),
+        fact: String::new(),
+        scene: String::new(),
+        line: 0,
+    });
+
+    let context = BatteryContext::new(source).with_documents(&documents);
+    let findings = check_payload(&world, &payload, &context);
+    assert!(finding(&findings, "payload.delta-incomplete").is_some());
+    assert!(finding(&findings, "phase.illegal-walk").is_some());
+    assert!(finding(&findings, "lexicon.banned-hit").is_some());
+    assert!(finding(&findings, "lexicon.scan-mismatch").is_some());
+}
+
+#[test]
+fn payload_metadata_and_delta_subjects_fail_closed() {
+    use dli_world::payload::{DeltaKind, DeltaRow};
+
+    let world = saltcast_world();
+    let source = "one two three\n";
+    let mut payload = complete_payload(source);
+    payload.meta.episode.clear();
+    payload.meta.source.file.clear();
+    payload.meta.source.words = 2;
+    payload.meta.extracted = "2026-02-30".to_owned();
+    payload.meta.extractors.schema = "payload/v2".to_owned();
+    payload.meta.extractors.fields.remove("claims");
+    payload.meta.extractors.fields.insert(
+        "invented-field".to_owned(),
+        ExtractorRef {
+            model: "fixture-extractor".to_owned(),
+            prompt: format!("sha256:{}", "0".repeat(64)),
+        },
+    );
+    payload
+        .meta
+        .extractors
+        .fields
+        .get_mut("deltas")
+        .unwrap()
+        .model = " ".to_owned();
+    payload
+        .meta
+        .extractors
+        .fields
+        .get_mut("scenes")
+        .unwrap()
+        .prompt = "sha256:no".to_owned();
+    payload.lexicon.register_tokens = 4;
+    payload.claims.push(Claim {
+        atom: "gender(anchor, male)".to_owned(),
+        quote: "one".to_owned(),
+        line: 1,
+    });
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        ..SceneRow::default()
+    });
+    payload.deltas.push(DeltaRow {
+        kind: DeltaKind::Knowledge,
+        who: "invented".to_owned(),
+        fact: "secret".to_owned(),
+        scene: "s01".to_owned(),
+        line: 1,
+    });
+
+    let findings = check_payload(&world, &payload, &BatteryContext::new(source));
+    for code in [
+        "payload.episode-empty",
+        "payload.source-file-empty",
+        "payload.source-word-count",
+        "payload.extracted-invalid",
+        "payload.schema-unsupported",
+        "payload.extractor-missing",
+        "payload.extractor-field-unknown",
+        "payload.extractor-model-invalid",
+        "payload.extractor-prompt-invalid",
+        "payload.register-token-count",
+        "payload.delta-unknown-subject",
+    ] {
+        assert!(finding(&findings, code).is_some(), "{code}: {findings:?}");
+    }
+}
+
+#[test]
+fn remaining_payload_rows_are_structurally_validated() {
+    use dli_world::craft::outline::PromiseKind;
+    use dli_world::payload::{PromiseLedger, PromiseRow};
+
+    let world = saltcast_world();
+    let source = "beat\npromise\n";
+    let mut payload = complete_payload(source);
+    payload.names.introduced = vec![String::new(), "new-name".to_owned(), "new-name".to_owned()];
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        cast: vec!["anchor".to_owned(), "anchor".to_owned()],
+        location: Some("unknown-place".to_owned()),
+        off_mic: vec!["anchor".to_owned()],
+        ..SceneRow::default()
+    });
+    payload.beats.push(BeatRow {
+        id: String::new(),
+        scene: "s01".to_owned(),
+        kind: BeatKind::Try,
+        thread: String::new(),
+        magnitude: Magnitude::Minor,
+        outcome: None,
+        by: "unknown-person".to_owned(),
+        assisted: true,
+        quote: "beat".to_owned(),
+        line: 1,
+    });
+    let promise = PromiseRow {
+        id: "p1".to_owned(),
+        kind: PromiseKind::Mystery,
+        quote: "promise".to_owned(),
+        line: 2,
+    };
+    payload.promises = PromiseLedger {
+        opened: vec![promise.clone(), promise],
+        closed: Vec::new(),
+    };
+
+    let findings = check_payload(&world, &payload, &BatteryContext::new(source));
+    for code in [
+        "payload.cast-duplicate",
+        "payload.presence-conflict",
+        "payload.location-unknown",
+        "payload.beat-incomplete",
+        "payload.beat-unknown-performer",
+        "payload.promise-duplicate",
+        "payload.name-empty",
+        "payload.name-duplicate",
+    ] {
+        assert!(finding(&findings, code).is_some(), "{code}: {findings:?}");
+    }
+}
+
 #[test]
 fn a_contradicted_claim_is_attributed_to_its_line_and_quote() {
     let world = saltcast_world();
     let source = "the anchor was no man at all\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, female)".to_owned(),
         quote: "the anchor was no man at all".to_owned(),
@@ -209,8 +464,7 @@ fn an_unsupported_claim_surfaces_factcheck_unsupported() {
     // Canon bears no certain `origin` fact for the anchor, so any origin claim is
     // unsupported (not contradicted — nothing certain to clash with).
     let source = "some say the anchor hails from gwern\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "origin(anchor, gwern)".to_owned(),
         quote: "some say the anchor hails from gwern".to_owned(),
@@ -233,8 +487,7 @@ fn stating_shadow_lore_as_settled_flags_continuity() {
     // `origin(anchor, swartby)` is proposed shadow lore. Stated as settled fact it
     // draws the continuity class AND stays unsupported (a shadow is never certain).
     let source = "the anchor was born in swartby, plainly\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "origin(anchor, swartby)".to_owned(),
         quote: "the anchor was born in swartby, plainly".to_owned(),
@@ -262,8 +515,7 @@ fn stating_shadow_lore_as_settled_flags_continuity() {
 fn an_unparseable_claim_atom_is_a_defect() {
     let world = saltcast_world();
     let source = "here is a line the extractor mis-shadowed\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         // A bare token has no `pred(args)` / triple / slot shape: not an atom.
         atom: "not-an-atom".to_owned(),
@@ -294,8 +546,7 @@ fn a_moved_source_flags_the_payload_stale() {
         "she set the withy and it held",              // line 2
     ]
     .join("\n");
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(&source);
+    let mut payload = complete_payload(&source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, male)".to_owned(),
         quote: "the anchor is a man, and canon holds it so".to_owned(),
@@ -314,9 +565,9 @@ fn a_moved_source_flags_the_payload_stale() {
         line: 2,
     }];
 
-    // Append a line: the two existing anchors still land and the claim still holds,
-    // so staleness is the SOLE finding — the hash catches a move the anchors miss.
-    let edited = format!("{source}\nand the tide came in");
+    // Append a blank line: the anchors and lexical count are unchanged, so
+    // staleness is the sole finding and the hash catches a move they miss.
+    let edited = format!("{source}\n");
     let findings = check_payload(&world, &payload, &BatteryContext::new(&edited));
     assert_eq!(
         findings.len(),
@@ -331,8 +582,7 @@ fn a_moved_source_flags_the_payload_stale() {
 fn a_forged_quote_anchor_is_a_hard_error() {
     let world = saltcast_world();
     let source = "the anchor is a man, and canon holds it so\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, male)".to_owned(),
         quote: "the anchor rode a dragon over the fen".to_owned(), // absent from the draft
@@ -359,9 +609,7 @@ fn a_forged_quote_anchor_is_a_hard_error() {
 fn outline_conformance_is_gated_on_the_outline_and_states_both_readings() {
     let world = saltcast_world();
     let source = "she tried the latch, and it did not give\n";
-    let mut payload = Payload::default();
-    payload.meta.episode = "e01".to_owned();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.beats = vec![BeatRow {
         id: "b-drafted".to_owned(),
         scene: "s01".to_owned(),
@@ -488,8 +736,7 @@ fn findings_are_returned_in_sorted_order() {
         "and here the shadow broke",    // line 2
     ]
     .join("\n");
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(&source);
+    let mut payload = complete_payload(&source);
     payload.claims = vec![
         Claim {
             atom: "gender(anchor, female)".to_owned(),
@@ -529,8 +776,7 @@ fn findings_are_returned_in_sorted_order() {
 fn a_proof_ledger_unknown_verdict_surfaces_through_the_battery() {
     let world = saltcast_world();
     let source = "the withy was seated and the ward closed\n";
-    let mut payload = Payload::default();
-    payload.meta.source.sha256 = source_hash(source);
+    let mut payload = complete_payload(source);
     payload.proof_ledgers = vec![ProofLedgerRow {
         scene: "s01".to_owned(),
         ledger: ProofLedger {

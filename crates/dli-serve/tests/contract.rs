@@ -108,6 +108,28 @@ fn request_schemas_close_every_declared_object() {
 }
 
 #[test]
+fn attestation_schema_matches_runtime_cardinality_rules() {
+    let schema = contract_schemas()
+        .into_iter()
+        .find(|(name, _)| name == "dli.attestation-sweep.request")
+        .expect("attestation request schema")
+        .1;
+    let value = schema.as_value();
+    assert_eq!(
+        value.pointer("/properties/records/minItems"),
+        Some(&1.into())
+    );
+    assert_eq!(
+        value.pointer("/$defs/Sampling/properties/max_tokens/minimum"),
+        Some(&1.into())
+    );
+    assert_eq!(
+        value.pointer("/$defs/Sampling/properties/samples/minimum"),
+        Some(&1.into())
+    );
+}
+
+#[test]
 fn golden_dispatch_matches() {
     // Drive a golden fixture request through the real dispatch and assert the
     // response equals the fixture's expectation. The exhaustive multi-step and

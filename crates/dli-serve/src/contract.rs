@@ -690,6 +690,7 @@ pub struct AttestationSweepParams {
     /// The project document whose demand these answers satisfy.
     pub document: String,
     /// New records to append transactionally.
+    #[schemars(length(min = 1))]
     pub records: Vec<Attestation>,
 }
 

@@ -417,11 +417,35 @@ fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>,
 
 fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckDraftParams = params(request)?;
+    let project = sessions.project_handle();
+    let pack = sessions.pack(&p.document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document named '{}' is loaded", p.document),
+        )
+    })?;
     let scope = resolve(sessions, &p.document)?;
+    let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
+    if let Some(document) = project
+        .as_ref()
+        .and_then(|project| project.document(&p.document))
+    {
+        if let Some(outline) = document.outlines.as_ref().and_then(|season| {
+            season
+                .episodes
+                .iter()
+                .find(|episode| episode.id == p.payload.meta.episode)
+        }) {
+            context = context.with_outline(outline);
+        }
+        if let Some(season) = &document.craft_ledger {
+            context = context.with_season(season);
+        }
+    }
     Ok(ok_response(
         request,
         &CheckDraftResult {
-            findings: check_payload(&scope.world, &p.payload, &BatteryContext::new(&p.source)),
+            findings: check_payload(&scope.world, &p.payload, &context),
         },
     ))
 }
@@ -429,8 +453,28 @@ fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Resp
 fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: PayloadSubmitParams = params(request)?;
     let project = require_project(sessions)?;
+    let pack = sessions.pack(&p.document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document named '{}' is loaded", p.document),
+        )
+    })?;
     let scope = resolve(sessions, &p.document)?;
-    let findings = check_payload(&scope.world, &p.payload, &BatteryContext::new(&p.source));
+    let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
+    if let Some(document) = project.document(&p.document) {
+        if let Some(outline) = document.outlines.as_ref().and_then(|season| {
+            season
+                .episodes
+                .iter()
+                .find(|episode| episode.id == p.payload.meta.episode)
+        }) {
+            context = context.with_outline(outline);
+        }
+        if let Some(season) = &document.craft_ledger {
+            context = context.with_season(season);
+        }
+    }
+    let findings = check_payload(&scope.world, &p.payload, &context);
     let accepted = findings
         .iter()
         .all(|finding| finding.severity != PayloadSeverity::Error);

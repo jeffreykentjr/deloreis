@@ -39,7 +39,7 @@
               },
               "supersedes": null,
               "sweep": "sweeps/test.json",
-              "fingerprint": "fnv1a64:5d05d822f6cb8be9"
+              "fingerprint": "fnv1a64:0188e5c00ba334ce"
             }
           ]
         }
@@ -50,7 +50,7 @@
         "ok": true,
         "result": {
           "accepted": 1,
-          "batch_digest": "sha256:641bd656b077d6a7982b3b041ee49910715ffd0b6a00a48246da2256dfe3c62c"
+            "batch_digest": "sha256:31e6ff05c0eec8f64fa100c9a06bafa616938db695a95c6cc35d402fb423c2fd"
         }
       }
     },

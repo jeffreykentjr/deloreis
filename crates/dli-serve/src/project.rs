@@ -15,6 +15,8 @@ use dli_export::profile::Registry;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
 use dli_world::attest::Question;
+use dli_world::craft::outline::SeasonOutline;
+use dli_world::craft::season::CraftLedger;
 use dli_world::episode::Episode;
 use dli_world::language::LanguageModel;
 use dli_world::{KilledToken, KilledTokens, MatchMode, Pack, compile};
@@ -43,6 +45,10 @@ pub struct ProjectDocument {
     pub pack: Pack,
     /// Optional production/story-time episode data.
     pub episodes: Option<Vec<Episode>>,
+    /// Optional reviewed outline set used by payload conformance.
+    pub outlines: Option<SeasonOutline>,
+    /// Optional committed season craft state merged into payload checks.
+    pub craft_ledger: Option<CraftLedger>,
     /// Optional rejected-lore token registry.
     pub killed: KilledTokens,
     /// Bounded model-judgment questions demanded by this document's checks.
@@ -161,6 +167,8 @@ struct Manifest {
 struct DocumentEntry {
     sources: Vec<PathBuf>,
     episodes: Option<PathBuf>,
+    outlines: Option<PathBuf>,
+    craft_ledger: Option<PathBuf>,
     killed_tokens: Option<PathBuf>,
     attestation_questions: Option<PathBuf>,
 }
@@ -376,6 +384,8 @@ fn collect_input_paths(
         }
         for (field, path) in [
             ("episodes", entry.episodes.as_deref()),
+            ("outlines", entry.outlines.as_deref()),
+            ("craft_ledger", entry.craft_ledger.as_deref()),
             ("killed_tokens", entry.killed_tokens.as_deref()),
             (
                 "attestation_questions",
@@ -495,6 +505,16 @@ fn load_document(
         .as_deref()
         .map(|path| load_yaml(root, &format!("documents.{id}.episodes"), path))
         .transpose()?;
+    let outlines = entry
+        .outlines
+        .as_deref()
+        .map(|path| load_yaml(root, &format!("documents.{id}.outlines"), path))
+        .transpose()?;
+    let craft_ledger = entry
+        .craft_ledger
+        .as_deref()
+        .map(|path| load_yaml(root, &format!("documents.{id}.craft_ledger"), path))
+        .transpose()?;
     let killed = entry
         .killed_tokens
         .as_deref()
@@ -512,6 +532,8 @@ fn load_document(
     Ok(ProjectDocument {
         pack,
         episodes,
+        outlines,
+        craft_ledger,
         killed,
         attestation_questions,
         source_paths,

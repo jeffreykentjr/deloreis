@@ -40,13 +40,13 @@ use dli_core::Grade;
 ///
 /// Rendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —
 /// a deterministic, offline digest recomputed by [`crate::sweep`] and compared
-/// for change detection; it needs no cryptographic strength because the factory
-/// that writes the store is trusted and the threat is accidental drift, not
-/// adversarial collision. It is deliberately distinct from the factory-supplied
-/// `sha256:` hashes carried in [`Attestation::rationale_hash`] and
-/// [`PromptRef::hash`], which the kernel only stores and compares, never
-/// computes. The type is format-agnostic: swapping the one-line body of
-/// [`fingerprint_facts`] for a `sha256` digest is the upgrade seam.
+/// for change detection. Subject fingerprints cover fact content, standing,
+/// and resolved support; [`fingerprint_facts`] remains the atom-only primitive
+/// for callers that explicitly need that projection. It needs no cryptographic
+/// strength because the factory that writes the store is trusted and the threat
+/// is accidental drift, not adversarial collision. It is deliberately distinct
+/// from the factory-supplied `sha256:` hashes carried in
+/// [`Attestation::rationale_hash`] and [`PromptRef::hash`].
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
@@ -135,8 +135,10 @@ pub struct Sampling {
     /// the kernel does arithmetic on.
     pub temperature: String,
     /// The token ceiling.
+    #[schemars(range(min = 1))]
     pub max_tokens: u32,
     /// How many samples were drawn.
+    #[schemars(range(min = 1))]
     pub samples: u32,
     /// The agreement across samples, e.g. `3/3`. Three models agreeing is still
     /// `attested`; the grade changes only when the *procedure class* changes.
@@ -490,7 +492,16 @@ pub fn ratification_exit(head: &Attestation, ruling: impl Into<String>) -> Optio
 /// ```
 #[must_use]
 pub fn fingerprint_facts<'a>(facts: impl IntoIterator<Item = &'a AtomExpr>) -> ContentHash {
-    let mut rendered: Vec<String> = facts.into_iter().map(render_atom).collect();
+    fingerprint_strings(facts.into_iter().map(render_atom))
+}
+
+/// Fingerprint canonical semantic rows, order-independently.
+///
+/// This is the shared primitive for richer staleness projections whose rows
+/// include standing and resolved support in addition to the rendered atom.
+#[must_use]
+pub fn fingerprint_strings(values: impl IntoIterator<Item = String>) -> ContentHash {
+    let mut rendered: Vec<String> = values.into_iter().collect();
     rendered.sort_unstable();
     rendered.dedup();
     let preimage = rendered.join("\n");

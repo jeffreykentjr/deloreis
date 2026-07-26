@@ -286,12 +286,7 @@ pub fn sweep(store: &AttestationStore, model: &WorldModel) -> Vec<Attestation> {
         .heads()
         .into_iter()
         .filter(|head| {
-            let current = crate::attest::fingerprint_facts(
-                model
-                    .facts_about(head.subject())
-                    .into_iter()
-                    .map(|loaded| &loaded.atom),
-            );
+            let current = model.subject_fingerprint(head.subject());
             head.is_stale(&current)
         })
         .cloned()

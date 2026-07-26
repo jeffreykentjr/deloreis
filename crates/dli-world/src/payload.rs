@@ -34,9 +34,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use dli_ast::clause::Clause;
+use dli_ast::decl::{Decl, Document, ProofDecl};
 use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 use dli_core::grade::Grade;
+use dli_ledger::check_proof;
+use dli_ledger::practice::compile_practices;
 use dli_syntax::parse_clause_atom;
 
 use crate::check::factcheck::Verdict;
@@ -49,6 +52,7 @@ use crate::craft::season::{
 };
 use crate::craft::{PromiseKind, TryFailOutcome};
 use crate::language::{aural_clash, vet_candidate};
+use crate::scene_projection::project_scene;
 
 // --- the merged report finding (the seam `PAY-2` fills) ----------------------
 
@@ -57,11 +61,12 @@ use crate::language::{aural_clash, vet_candidate};
 /// The battery over a [`Payload`] emits these; `PAY-1` emits the anchoring and
 /// staleness families, and the remaining families (continuity, factcheck,
 /// outline-conformance, craft, proof, naming, phase, lexicon) merge in here in
-/// `PAY-2`. Every finding is fully attributed: the draft [`line`](Self::line) and
-/// verbatim [`quote`](Self::quote) it turns on, the [`code`](Self::code) of the
-/// rule or check that raised it, the [`principle`](Self::principle) it cites when
-/// the check is craft, its supporting [`citations`](Self::citations), and the
-/// [`grade`](Self::grade) of the evidence.
+/// `PAY-2`. Every finding carries the [`code`](Self::code) of the rule or check
+/// that raised it and the [`grade`](Self::grade) of the evidence. Findings that
+/// turn on an extracted source item also carry its draft [`line`](Self::line)
+/// and verbatim [`quote`](Self::quote); craft and lore findings additionally
+/// carry their [`principle`](Self::principle) and
+/// [`citations`](Self::citations) when available.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PayloadFinding {
@@ -672,6 +677,8 @@ pub struct BatteryContext<'a> {
     /// The knowledge base the craft family queries for governing principles
     /// ([`Kb::builtin`] by default).
     pub kb: Kb<'a>,
+    /// Parsed source documents containing practices and declared proof blocks.
+    pub documents: &'a [Document],
 }
 
 impl<'a> BatteryContext<'a> {
@@ -685,6 +692,7 @@ impl<'a> BatteryContext<'a> {
             season: None,
             thresholds: DEFAULT_THRESHOLDS,
             kb: Kb::builtin(),
+            documents: &[],
         }
     }
 
@@ -715,6 +723,14 @@ impl<'a> BatteryContext<'a> {
         self.kb = kb;
         self
     }
+
+    /// Add the source documents whose declared practices and proofs the payload
+    /// shadows.
+    #[must_use]
+    pub fn with_documents(mut self, documents: &'a [Document]) -> Self {
+        self.documents = documents;
+        self
+    }
 }
 
 /// Run the full battery over one payload — the merged eight-family report (§7.2).
@@ -728,10 +744,13 @@ impl<'a> BatteryContext<'a> {
 /// 2. **Factcheck** — claims resolve to supported / contradicted / unsupported.
 /// 3. **Outline-conformance** — the two-sided diff, when an outline is supplied (`PAY-3`).
 /// 4. **Craft rules** — §3's season battery, with the payload's beats merged in.
-/// 5. **Proof checks** — the proof ledgers' close verdicts and completeness.
+/// 5. **Proof checks** — proof shadows match declared proofs and replay through
+///    their declared practice.
 /// 6. **Naming** — introduced names vetted by the oracle.
-/// 7. **Quote anchoring** — every quote verbatim at its line (a hard error).
-/// 8. **Staleness** — the source hash still pins the draft.
+/// 7. **Phase and lexicon checks** — observations follow declared cycle walks;
+///    deterministic banned-word scans are independently reproduced.
+/// 8. **Quote anchoring and staleness** — every quote is verbatim and the source
+///    hash still pins the draft.
 ///
 /// This is the fat-payload sibling of the wire-frozen [`check_draft`](crate::check_draft);
 /// wiring `dli.check-draft` / `dli.payload-submit` to it is an announced additive
@@ -759,9 +778,14 @@ pub fn check_payload(
     // (4) craft season rules over the merged ledger.
     out.extend(craft_family(payload, ctx));
 
-    // (6) naming and (5) proof-ledger.
+    // Structured rows that used to be accepted without semantics.
+    out.extend(payload_structure_family(world, payload, ctx.source));
+    out.extend(phase_family(world, payload));
+    out.extend(lexicon_family(world, payload, ctx.source));
+
+    // (6) naming and (5) proof-ledger replay.
     out.extend(naming_family(world, payload));
-    out.extend(proof_family(payload));
+    out.extend(proof_family(world, payload, ctx));
 
     // (3) two-sided outline-conformance, when an outline is supplied (PAY-3).
     if let Some(outline) = ctx.outline {
@@ -1010,16 +1034,17 @@ fn naming_family(world: &CompiledWorld, payload: &Payload) -> Vec<PayloadFinding
     out
 }
 
-/// The proof-ledger family: the payload carries a proof *shadow* ({premises,
-/// steps, close}), not a full castable proof block with a named practice, so this
-/// validates what the shadow can prove on its own — the close atom is present,
-/// the expected verdict is a real verdict (an unknown token silently reading as
-/// `holds` would gut the discipline), and the ledger rests on something. The
-/// close atom's grammar is left unchecked: it is proof-language, not kernel
-/// Datalog, so a `holds(ward(door))`-style nested term is legitimate. Full replay
-/// through the practice checker awaits an extractor that carries the practice
-/// reference and the castable block.
-fn proof_family(payload: &Payload) -> Vec<PayloadFinding> {
+/// The proof-ledger family: basic shape checks run first, then the shadow must
+/// match the canonical body of a declared `proof <episode>-<scene>` (or
+/// `proof <scene>`) block. The declaration supplies the practice and speaker;
+/// the existing practice checker replays it against the world projection with
+/// the payload scene's observed phases. An invented or stale shadow therefore
+/// fails closed rather than becoming an unearned verdict.
+fn proof_family(
+    world: &CompiledWorld,
+    payload: &Payload,
+    ctx: &BatteryContext<'_>,
+) -> Vec<PayloadFinding> {
     let mut out = Vec::new();
     for row in &payload.proof_ledgers {
         let scene = &row.scene;
@@ -1045,8 +1070,692 @@ fn proof_family(payload: &Payload) -> Vec<PayloadFinding> {
                 format!("proof ledger for scene '{scene}' carries neither premises nor steps"),
             ));
         }
+        out.extend(replay_proof_shadow(world, payload, ctx, row));
     }
     out
+}
+
+fn replay_proof_shadow(
+    world: &CompiledWorld,
+    payload: &Payload,
+    ctx: &BatteryContext<'_>,
+    row: &ProofLedgerRow,
+) -> Vec<PayloadFinding> {
+    let scene = &row.scene;
+    let qualified_scene = format!("{}-{scene}", payload.meta.episode);
+    let declared = ctx.documents.iter().find_map(|document| {
+        document.decls.iter().find_map(|decl| match decl {
+            Decl::Proof(proof)
+                if proof.name.text == *scene
+                    || (!payload.meta.episode.is_empty() && proof.name.text == qualified_scene) =>
+            {
+                Some(proof)
+            }
+            _ => None,
+        })
+    });
+    let Some(declared) = declared else {
+        return vec![PayloadFinding::error(
+            "proof.undeclared-shadow",
+            format!(
+                "proof ledger for scene '{scene}' has no matching declared `proof {scene}` block"
+            ),
+        )];
+    };
+
+    if !proof_shadow_matches(&row.ledger, declared) {
+        return vec![PayloadFinding::error(
+            "proof.shadow-mismatch",
+            format!(
+                "proof ledger for scene '{scene}' does not match the declared proof's canonical premises, steps, and close"
+            ),
+        )];
+    }
+
+    let Some(practice_name) = header_value(&declared.head, "in") else {
+        return vec![PayloadFinding::error(
+            "proof.practice-missing",
+            format!("declared proof '{scene}' names no practice"),
+        )];
+    };
+    let practice = ctx
+        .documents
+        .iter()
+        .flat_map(compile_practices)
+        .find(|practice| practice.name.text == practice_name);
+    let Some(practice) = practice else {
+        return vec![PayloadFinding::error(
+            "proof.practice-unknown",
+            format!("declared proof '{scene}' names unknown practice '{practice_name}'"),
+        )];
+    };
+
+    let mut out = Vec::new();
+    let speaker = header_value(&declared.head, "speaker");
+    let mut projection = project_scene(world, speaker.as_deref());
+    if let Some(payload_scene) = payload
+        .scenes
+        .iter()
+        .find(|candidate| candidate.id == *scene)
+    {
+        projection.phases.clone_from(&payload_scene.phases);
+        if let Some(speaker) = &speaker
+            && !payload_scene.cast.contains(speaker)
+            && !payload_scene.off_mic.contains(speaker)
+        {
+            out.push(PayloadFinding::error(
+                    "proof.speaker-absent",
+                    format!(
+                        "proof '{scene}' is spoken by '{speaker}', who is not present in that payload scene"
+                    ),
+                ));
+        }
+    }
+    let report = check_proof(&practice, declared, &projection);
+    out.extend(report.findings.into_iter().map(|proof_finding| {
+        let mut finding = PayloadFinding::error(proof_finding.code(), proof_finding.message());
+        finding.grade = report.grade;
+        finding
+    }));
+    out
+}
+
+fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
+    let premises = declared
+        .body
+        .iter()
+        .filter(|clause| clause.text.starts_with("premise "))
+        .map(|clause| clause.text.clone())
+        .collect::<Vec<_>>();
+    let steps = declared
+        .body
+        .iter()
+        .filter(|clause| {
+            ["step ", "spend ", "release ", "assume "]
+                .iter()
+                .any(|prefix| clause.text.starts_with(prefix))
+        })
+        .map(|clause| clause.text.clone())
+        .collect::<Vec<_>>();
+    let close = declared
+        .body
+        .iter()
+        .find_map(|clause| parse_declared_close(&clause.text));
+    premises == shadow.premises
+        && steps == shadow.steps
+        && close.is_some_and(|(atom, expect)| {
+            atom == shadow.close.atom && expect == shadow.close.expect
+        })
+}
+
+fn parse_declared_close(text: &str) -> Option<(&str, &str)> {
+    let body = text.strip_prefix("close ")?;
+    body.rsplit_once(" expect ")
+}
+
+fn header_value(head: &[String], key: &str) -> Option<String> {
+    head.iter()
+        .position(|token| token == key)
+        .and_then(|index| head.get(index + 1))
+        .cloned()
+}
+
+fn payload_structure_family(
+    world: &CompiledWorld,
+    payload: &Payload,
+    source: &str,
+) -> Vec<PayloadFinding> {
+    let mut out = payload_metadata_findings(payload, source);
+    let (scene_findings, scene_ids) = scene_structure_findings(world, payload);
+    out.extend(scene_findings);
+    out.extend(delta_structure_findings(world, payload, source, &scene_ids));
+    out.extend(beat_structure_findings(world, payload, &scene_ids));
+    out.extend(promise_structure_findings(payload));
+    out.extend(name_structure_findings(payload));
+    for proof in &payload.proof_ledgers {
+        if !payload.scenes.is_empty() && !scene_ids.contains(proof.scene.as_str()) {
+            out.push(PayloadFinding::error(
+                "payload.proof-unknown-scene",
+                format!("proof shadow references undeclared scene '{}'", proof.scene),
+            ));
+        }
+    }
+    out.extend(cast_findings(world, payload));
+    out
+}
+
+fn scene_structure_findings<'a>(
+    world: &CompiledWorld,
+    payload: &'a Payload,
+) -> (Vec<PayloadFinding>, BTreeSet<&'a str>) {
+    let mut out = Vec::new();
+    let mut scene_ids = BTreeSet::new();
+    for scene in &payload.scenes {
+        if scene.id.trim().is_empty() {
+            out.push(PayloadFinding::error(
+                "payload.scene-id-empty",
+                "a payload scene must carry a non-empty id",
+            ));
+        } else if !scene_ids.insert(scene.id.as_str()) {
+            out.push(PayloadFinding::error(
+                "payload.scene-duplicate",
+                format!("payload scene '{}' is declared more than once", scene.id),
+            ));
+        }
+        let mut present = BTreeSet::new();
+        for cast in &scene.cast {
+            if !present.insert(cast.as_str()) {
+                out.push(PayloadFinding::error(
+                    "payload.cast-duplicate",
+                    format!("scene '{}' repeats an on-mic cast member", scene.id),
+                ));
+            }
+        }
+        for cast in &scene.off_mic {
+            if !present.insert(cast.as_str()) {
+                out.push(PayloadFinding::error(
+                    "payload.presence-conflict",
+                    format!(
+                        "scene '{}' repeats a cast member or marks them both on-mic and off-mic",
+                        scene.id
+                    ),
+                ));
+            }
+        }
+        if let Some(location) = &scene.location
+            && (location.trim().is_empty()
+                || (!world
+                    .model()
+                    .entities()
+                    .iter()
+                    .any(|entity| entity.name == *location)
+                    && !payload.names.introduced.contains(location)))
+        {
+            out.push(PayloadFinding::error(
+                "payload.location-unknown",
+                format!(
+                    "scene '{}' location is empty or not a declared or introduced entity",
+                    scene.id
+                ),
+            ));
+        }
+    }
+    (out, scene_ids)
+}
+
+fn delta_structure_findings(
+    world: &CompiledWorld,
+    payload: &Payload,
+    source: &str,
+    scene_ids: &BTreeSet<&str>,
+) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    let source_lines = u32::try_from(source.lines().count()).unwrap_or(u32::MAX);
+    for delta in &payload.deltas {
+        if delta.who.trim().is_empty()
+            || delta.fact.trim().is_empty()
+            || delta.scene.trim().is_empty()
+            || delta.line == 0
+        {
+            out.push(
+                PayloadFinding::error(
+                    "payload.delta-incomplete",
+                    "every delta requires non-empty `who`, `fact`, and `scene` plus a 1-based line",
+                )
+                .at_line(delta.line),
+            );
+            continue;
+        }
+        if delta.who != "listener"
+            && !world
+                .model()
+                .entities()
+                .iter()
+                .any(|entity| entity.name == delta.who)
+            && !payload.names.introduced.contains(&delta.who)
+        {
+            out.push(
+                PayloadFinding::error(
+                    "payload.delta-unknown-subject",
+                    format!(
+                        "delta subject '{}' is neither a declared entity, the listener, nor a name introduced by this payload",
+                        delta.who
+                    ),
+                )
+                .at_line(delta.line),
+            );
+        }
+        if !scene_ids.contains(delta.scene.as_str()) {
+            out.push(
+                PayloadFinding::error(
+                    "payload.delta-unknown-scene",
+                    format!("delta references undeclared scene '{}'", delta.scene),
+                )
+                .at_line(delta.line),
+            );
+        }
+        if delta.line > source_lines {
+            out.push(
+                PayloadFinding::error(
+                    "payload.delta-line-out-of-range",
+                    format!(
+                        "delta line {} lies beyond the draft's {source_lines} line(s)",
+                        delta.line
+                    ),
+                )
+                .at_line(delta.line),
+            );
+        }
+    }
+    out
+}
+
+fn beat_structure_findings(
+    world: &CompiledWorld,
+    payload: &Payload,
+    scene_ids: &BTreeSet<&str>,
+) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    let mut beat_ids = BTreeSet::new();
+    for beat in &payload.beats {
+        if beat.id.trim().is_empty()
+            || beat.scene.trim().is_empty()
+            || beat.thread.trim().is_empty()
+            || beat.line == 0
+        {
+            out.push(
+                PayloadFinding::error(
+                    "payload.beat-incomplete",
+                    "every beat requires non-empty `id`, `scene`, and `thread` plus a 1-based line",
+                )
+                .at_line(beat.line)
+                .with_quote(&beat.quote),
+            );
+        } else if !beat_ids.insert(beat.id.as_str()) {
+            out.push(
+                PayloadFinding::error(
+                    "payload.beat-duplicate",
+                    format!("payload beat '{}' is declared more than once", beat.id),
+                )
+                .at_line(beat.line)
+                .with_quote(&beat.quote),
+            );
+        }
+        if !payload.scenes.is_empty() && !scene_ids.contains(beat.scene.as_str()) {
+            out.push(
+                PayloadFinding::error(
+                    "payload.beat-unknown-scene",
+                    format!(
+                        "beat '{}' references undeclared scene '{}'",
+                        beat.id, beat.scene
+                    ),
+                )
+                .at_line(beat.line)
+                .with_quote(&beat.quote),
+            );
+        }
+        if !beat.by.is_empty()
+            && !world
+                .model()
+                .entities()
+                .iter()
+                .any(|entity| entity.name == beat.by)
+            && !payload.names.introduced.contains(&beat.by)
+        {
+            out.push(
+                PayloadFinding::error(
+                    "payload.beat-unknown-performer",
+                    format!("beat '{}' names an unknown performer", beat.id),
+                )
+                .at_line(beat.line)
+                .with_quote(&beat.quote),
+            );
+        }
+        if beat.assisted && beat.by.is_empty() {
+            out.push(
+                PayloadFinding::error(
+                    "payload.beat-assistance-without-performer",
+                    format!("assisted beat '{}' names no performer", beat.id),
+                )
+                .at_line(beat.line)
+                .with_quote(&beat.quote),
+            );
+        }
+    }
+    out
+}
+
+fn promise_structure_findings(payload: &Payload) -> Vec<PayloadFinding> {
+    let mut out = promise_list_findings(&payload.promises.opened, "opened");
+    out.extend(promise_list_findings(&payload.promises.closed, "closed"));
+    out
+}
+
+fn promise_list_findings(promises: &[PromiseRow], action: &str) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    for promise in promises {
+        if promise.id.trim().is_empty() {
+            out.push(
+                PayloadFinding::error(
+                    "payload.promise-id-empty",
+                    format!("a {action} promise must carry a non-empty id"),
+                )
+                .at_line(promise.line)
+                .with_quote(&promise.quote),
+            );
+        } else if !seen.insert(promise.id.as_str()) {
+            out.push(
+                PayloadFinding::error(
+                    "payload.promise-duplicate",
+                    format!("promise '{}' is {action} more than once", promise.id),
+                )
+                .at_line(promise.line)
+                .with_quote(&promise.quote),
+            );
+        }
+    }
+    out
+}
+
+fn name_structure_findings(payload: &Payload) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    let mut introduced_names = BTreeSet::new();
+    for name in &payload.names.introduced {
+        if name.trim().is_empty() {
+            out.push(PayloadFinding::error(
+                "payload.name-empty",
+                "an introduced name must not be empty",
+            ));
+        } else if !introduced_names.insert(name.as_str()) {
+            out.push(PayloadFinding::error(
+                "payload.name-duplicate",
+                format!("introduced name '{name}' is repeated"),
+            ));
+        }
+    }
+    out
+}
+
+fn payload_metadata_findings(payload: &Payload, source: &str) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    if payload.meta.episode.trim().is_empty() {
+        out.push(PayloadFinding::error(
+            "payload.episode-empty",
+            "payload metadata requires a non-empty episode id",
+        ));
+    }
+    if payload.meta.source.file.trim().is_empty() {
+        out.push(PayloadFinding::error(
+            "payload.source-file-empty",
+            "payload metadata requires a non-empty source file",
+        ));
+    }
+    if payload.meta.extractors.schema != "payload/v1" {
+        out.push(PayloadFinding::error(
+            "payload.schema-unsupported",
+            "payload extractor schema must be exactly 'payload/v1'",
+        ));
+    }
+    if !valid_calendar_date(&payload.meta.extracted) {
+        out.push(PayloadFinding::error(
+            "payload.extracted-invalid",
+            "payload extraction date must be a valid YYYY-MM-DD calendar date",
+        ));
+    }
+
+    let source_words = lexical_tokens(source).count();
+    if u32::try_from(source_words).unwrap_or(u32::MAX) != payload.meta.source.words {
+        out.push(PayloadFinding::error(
+            "payload.source-word-count",
+            format!(
+                "payload source word count {} does not match the draft's {source_words} lexical token(s)",
+                payload.meta.source.words
+            ),
+        ));
+    }
+    if u64::from(payload.lexicon.register_tokens) > source_words as u64 {
+        out.push(PayloadFinding::error(
+            "payload.register-token-count",
+            format!(
+                "payload register token count {} exceeds the draft's {source_words} lexical token(s)",
+                payload.lexicon.register_tokens
+            ),
+        ));
+    }
+
+    let extracted_fields = [
+        ("claims", !payload.claims.is_empty()),
+        ("deltas", !payload.deltas.is_empty()),
+        ("scenes", !payload.scenes.is_empty()),
+        ("beats", !payload.beats.is_empty()),
+        (
+            "promises",
+            !payload.promises.opened.is_empty() || !payload.promises.closed.is_empty(),
+        ),
+        ("proof_ledgers", !payload.proof_ledgers.is_empty()),
+        ("names", !payload.names.introduced.is_empty()),
+    ];
+    for &(field, non_empty) in &extracted_fields {
+        if non_empty && !payload.meta.extractors.fields.contains_key(field) {
+            out.push(PayloadFinding::error(
+                "payload.extractor-missing",
+                format!("non-empty extracted field '{field}' has no extractor provenance"),
+            ));
+        }
+    }
+    let supported_fields = extracted_fields
+        .iter()
+        .map(|(field, _)| *field)
+        .collect::<BTreeSet<_>>();
+    for (field, extractor) in &payload.meta.extractors.fields {
+        if !supported_fields.contains(field.as_str()) {
+            out.push(PayloadFinding::error(
+                "payload.extractor-field-unknown",
+                "extractor manifest contains a field outside payload/v1",
+            ));
+        }
+        if extractor.model.trim().is_empty() {
+            out.push(PayloadFinding::error(
+                "payload.extractor-model-invalid",
+                "extractor provenance requires a non-empty model",
+            ));
+        }
+        if !valid_sha256(&extractor.prompt) {
+            out.push(PayloadFinding::error(
+                "payload.extractor-prompt-invalid",
+                "extractor provenance requires a lowercase sha256: prompt digest",
+            ));
+        }
+    }
+    out
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn valid_calendar_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes
+            .iter()
+            .enumerate()
+            .any(|(index, byte)| index != 4 && index != 7 && !byte.is_ascii_digit())
+    {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().unwrap_or(0);
+    let month = value[5..7].parse::<u32>().unwrap_or(0);
+    let day = value[8..10].parse::<u32>().unwrap_or(0);
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    year != 0 && day != 0 && day <= max_day
+}
+
+fn cast_findings(world: &CompiledWorld, payload: &Payload) -> Vec<PayloadFinding> {
+    let known_entities = world
+        .model()
+        .entities()
+        .iter()
+        .map(|entity| entity.name.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut out = Vec::new();
+    for scene in &payload.scenes {
+        for cast in scene.cast.iter().chain(&scene.off_mic) {
+            if cast.trim().is_empty() {
+                out.push(PayloadFinding::error(
+                    "payload.cast-empty",
+                    format!("scene '{}' carries an empty cast identifier", scene.id),
+                ));
+            } else if !known_entities.contains(cast.as_str())
+                && !payload.names.introduced.contains(cast)
+            {
+                out.push(PayloadFinding::error(
+                    "payload.cast-unknown",
+                    format!(
+                        "scene '{}' names unknown cast member '{cast}'; declare or introduce the name",
+                        scene.id
+                    ),
+                ));
+            }
+        }
+    }
+    out
+}
+
+fn phase_family(world: &CompiledWorld, payload: &Payload) -> Vec<PayloadFinding> {
+    let cycles = world
+        .model()
+        .world
+        .cycles
+        .iter()
+        .map(|cycle| (cycle.name.as_str(), cycle))
+        .collect::<BTreeMap<_, _>>();
+    let mut previous = BTreeMap::<&str, (&str, &str)>::new();
+    let mut out = Vec::new();
+    for scene in &payload.scenes {
+        for (cycle_name, spoke) in &scene.phases {
+            let Some(cycle) = cycles.get(cycle_name.as_str()) else {
+                out.push(PayloadFinding::error(
+                    "phase.unknown-cycle",
+                    format!(
+                        "scene '{}' observes undeclared cycle '{cycle_name}'",
+                        scene.id
+                    ),
+                ));
+                continue;
+            };
+            if cycle.spokes.is_empty() {
+                out.push(PayloadFinding::error(
+                    "phase.empty-cycle",
+                    format!("declared cycle '{cycle_name}' carries no spokes"),
+                ));
+                continue;
+            }
+            let Some(index) = cycle.spokes.iter().position(|candidate| candidate == spoke) else {
+                out.push(PayloadFinding::error(
+                    "phase.unknown-spoke",
+                    format!(
+                        "scene '{}' observes '{spoke}', which cycle '{cycle_name}' does not carry",
+                        scene.id
+                    ),
+                ));
+                continue;
+            };
+            if let Some((previous_scene, previous_spoke)) = previous.get(cycle_name.as_str()) {
+                let previous_index = cycle
+                    .spokes
+                    .iter()
+                    .position(|candidate| candidate == previous_spoke)
+                    .expect("a recorded previous spoke was validated");
+                let legal_next = (previous_index + 1) % cycle.spokes.len();
+                if index != previous_index && index != legal_next {
+                    out.push(PayloadFinding::error(
+                        "phase.illegal-walk",
+                        format!(
+                            "cycle '{cycle_name}' jumps from '{previous_spoke}' in scene '{previous_scene}' to '{spoke}' in scene '{}'; only the same or successor spoke is contiguous",
+                            scene.id
+                        ),
+                    ));
+                }
+            }
+            previous.insert(cycle_name, (&scene.id, spoke));
+        }
+    }
+    out
+}
+
+fn lexicon_family(world: &CompiledWorld, payload: &Payload, source: &str) -> Vec<PayloadFinding> {
+    let normalized = lexical_tokens(source)
+        .map(str::to_lowercase)
+        .collect::<BTreeSet<_>>();
+    let mut expected = world
+        .model()
+        .language
+        .bans
+        .iter()
+        .filter(|ban| normalized.contains(&ban.word.to_lowercase()))
+        .map(|ban| ban.word.to_lowercase())
+        .collect::<Vec<_>>();
+    expected.sort();
+    expected.dedup();
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    let mut supplied = Vec::new();
+    for hit in &payload.lexicon.banned_hits {
+        let normalized = hit.to_lowercase();
+        if normalized.trim().is_empty() {
+            out.push(PayloadFinding::error(
+                "lexicon.empty-hit",
+                "payload banned_hits contains an empty entry",
+            ));
+        } else if !seen.insert(normalized.clone()) {
+            out.push(PayloadFinding::error(
+                "lexicon.duplicate-hit",
+                "payload banned_hits repeats an entry",
+            ));
+        }
+        supplied.push(normalized);
+    }
+    supplied.sort();
+    supplied.dedup();
+
+    out.extend(expected.iter().map(|word| {
+        PayloadFinding::error(
+            "lexicon.banned-hit",
+            format!("the draft contains lexically banned word '{word}'"),
+        )
+        .with_quote(word)
+    }));
+    if expected != supplied {
+        out.push(PayloadFinding::error(
+            "lexicon.scan-mismatch",
+            format!(
+                "payload banned_hits {supplied:?} do not match the kernel's deterministic scan {expected:?}"
+            ),
+        ));
+    }
+    out
+}
+
+fn lexical_tokens(source: &str) -> impl Iterator<Item = &str> {
+    source
+        .split(|character: char| !character.is_alphanumeric() && character != '-')
+        .filter(|word| !word.is_empty())
 }
 
 /// Whether a proof close verdict token is one the ledger checker recognizes.
@@ -1541,7 +2250,18 @@ mod tests {
     }
 
     #[test]
-    fn proof_family_rejects_an_unknown_verdict_and_passes_a_clean_ledger() {
+    fn proof_family_rejects_an_unknown_verdict_before_declared_replay() {
+        use crate::Pack;
+        use crate::compile;
+        use crate::loader::example_docs;
+
+        let documents = example_docs();
+        let world = compile(&Pack {
+            name: "camelot".to_owned(),
+            documents: documents.clone(),
+        })
+        .unwrap();
+        let context = BatteryContext::new("").with_documents(&documents);
         let mut payload = Payload {
             proof_ledgers: vec![ProofLedgerRow {
                 scene: "s04".to_owned(),
@@ -1556,12 +2276,27 @@ mod tests {
             }],
             ..Payload::default()
         };
-        let findings = proof_family(&payload);
-        assert_eq!(findings.len(), 1, "{findings:?}");
-        assert_eq!(findings[0].code, "proof.unknown-verdict");
+        let findings = proof_family(&world, &payload, &context);
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding.code == "proof.unknown-verdict"),
+            "{findings:?}"
+        );
 
-        // A real verdict on a complete ledger is clean.
+        // Correcting the token removes that defect, while the undeclared shadow
+        // still fails closed before any invented proof can be accepted.
         payload.proof_ledgers[0].ledger.close.expect = "holds".to_owned();
-        assert!(proof_family(&payload).is_empty());
+        let findings = proof_family(&world, &payload, &context);
+        assert!(
+            findings
+                .iter()
+                .all(|finding| finding.code != "proof.unknown-verdict")
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding.code == "proof.undeclared-shadow")
+        );
     }
 }

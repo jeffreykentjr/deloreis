@@ -308,6 +308,9 @@ closed set, and each code maps to a class:
 | `not-wired` | refused | a recognized op whose engine is not wired in this build — capability-gated (see `dli.version` capabilities); permanent-until-wired, not a defect |
 | `version-mismatch` | refused | a well-formed frame declaring a contract version this build does not speak |
 | `conflict` | refused | an `idempotency_key` reused with a *different* payload — the key is bound to its first payload (distinct from `stale-fence`, which means the digest moved) |
+| `project-required` | refused | a durable operation was called without a caller-owned project |
+| `evidence-corrupt` | internal | committed evidence is malformed, non-canonical, misaddressed, or has broken lineage |
+| `unknown-job` | schema | a durable simulation job handle does not exist |
 | `internal` | internal | a server defect |
 
 ## 10. Change control

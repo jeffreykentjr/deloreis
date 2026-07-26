@@ -122,7 +122,7 @@
       "attack": {"dli": "0.4.0", "id": "1", "op": "dli.check-draft", "params": {"document": "saltmarket", "source": "baseline", "payload": {"meta": {"source": {"sha256": "__DLI_FRAME_ATTACK__"}}}}},
       "changed_paths": ["/params/payload/meta/source/sha256"],
       "compare_paths": ["/ok", "/result/findings/0/code", "/result/findings/0/severity"],
-      "allow_taint_paths": ["/result/findings/0/message"]
+      "allow_taint_paths": ["/result/findings/5/message"]
     },
     {
       "op": "dli.simulate.start",
@@ -217,8 +217,8 @@
     },
     {
       "op": "dli.attestation-sweep",
-      "control": {"dli": "0.4.0", "id": "1", "op": "dli.attestation-sweep", "params": {"document": "saltmarket", "records": [{"question": {"kind": "marker-basis", "atom": "marker-basis(baseline)", "subject": "baseline"}, "answer": "yes", "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "model": {"provider": "local-test", "id": "control", "as_of": "2026-07-25"}, "prompt": {"template": "marker-basis@v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "params": {"temperature": "0.0", "max_tokens": 20, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-content-change"}, "supersedes": null, "sweep": "sweeps/test.json", "fingerprint": "fnv1a64:5d05d822f6cb8be9"}]}},
-      "attack": {"dli": "0.4.0", "id": "1", "op": "dli.attestation-sweep", "params": {"document": "saltmarket", "records": [{"question": {"kind": "marker-basis", "atom": "marker-basis(baseline)", "subject": "baseline"}, "answer": "yes", "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "model": {"provider": "local-test", "id": "__DLI_FRAME_ATTACK__", "as_of": "2026-07-25"}, "prompt": {"template": "marker-basis@v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "params": {"temperature": "0.0", "max_tokens": 20, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-content-change"}, "supersedes": null, "sweep": "sweeps/test.json", "fingerprint": "fnv1a64:5d05d822f6cb8be9"}]}},
+      "control": {"dli": "0.4.0", "id": "1", "op": "dli.attestation-sweep", "params": {"document": "saltmarket", "records": [{"question": {"kind": "marker-basis", "atom": "marker-basis(baseline)", "subject": "baseline"}, "answer": "yes", "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "model": {"provider": "local-test", "id": "control", "as_of": "2026-07-25"}, "prompt": {"template": "marker-basis@v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "params": {"temperature": "0.0", "max_tokens": 20, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-content-change"}, "supersedes": null, "sweep": "sweeps/test.json", "fingerprint": "fnv1a64:0188e5c00ba334ce"}]}},
+      "attack": {"dli": "0.4.0", "id": "1", "op": "dli.attestation-sweep", "params": {"document": "saltmarket", "records": [{"question": {"kind": "marker-basis", "atom": "marker-basis(baseline)", "subject": "baseline"}, "answer": "yes", "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "model": {"provider": "local-test", "id": "__DLI_FRAME_ATTACK__", "as_of": "2026-07-25"}, "prompt": {"template": "marker-basis@v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "params": {"temperature": "0.0", "max_tokens": 20, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-content-change"}, "supersedes": null, "sweep": "sweeps/test.json", "fingerprint": "fnv1a64:0188e5c00ba334ce"}]}},
       "changed_paths": ["/params/records/0/model/id"],
       "compare_paths": ["/ok", "/result/accepted"],
       "allow_taint_paths": [],
@@ -232,7 +232,7 @@
       "attack": {"dli": "0.4.0", "id": "1", "op": "dli.payload-submit", "params": {"document": "saltmarket", "source": "baseline", "payload": {"meta": {"source": {"sha256": "__DLI_FRAME_ATTACK__"}}}}},
       "changed_paths": ["/params/payload/meta/source/sha256"],
       "compare_paths": ["/ok", "/result/accepted", "/result/findings/0/code", "/result/findings/0/severity"],
-      "allow_taint_paths": ["/result/findings/0/message"]
+      "allow_taint_paths": ["/result/findings/5/message"]
     },
     {
       "op": "author.open",

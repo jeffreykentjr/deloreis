@@ -11,9 +11,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use dli_world::attest::{
-    Attestation, AttestationStore, ContentHash, Question, QuestionKey, fingerprint_facts,
-};
+use dli_world::attest::{Attestation, AttestationStore, ContentHash, Question, QuestionKey};
 use dli_world::model::WorldModel;
 use dli_world::payload::Payload;
 use serde::{Deserialize, Serialize};
@@ -80,7 +78,7 @@ pub struct AttestationAppend {
 struct LoadedAttestations {
     store: AttestationStore,
     head: Option<String>,
-    last_records: Vec<Attestation>,
+    batches: Vec<(String, Vec<Attestation>)>,
     record_ids: BTreeSet<(QuestionKey, String)>,
 }
 
@@ -91,6 +89,14 @@ struct EvidenceLock {
 impl EvidenceLock {
     fn acquire(project: &Project) -> Result<Self, EvidenceError> {
         let path = project.evidence_dir().join(".write.lock");
+        if let Ok(metadata) = fs::symlink_metadata(&path)
+            && (!metadata.is_file() || metadata.file_type().is_symlink())
+        {
+            return Err(EvidenceError::Corrupt(format!(
+                "evidence lock `{}` is not a regular file",
+                path.display()
+            )));
+        }
         let file = OpenOptions::new()
             .create(true)
             .truncate(false)
@@ -99,6 +105,13 @@ impl EvidenceLock {
             .open(&path)
             .map_err(|source| io_error(&path, source))?;
         fs2::FileExt::lock_exclusive(&file).map_err(|source| io_error(&path, source))?;
+        let metadata = file.metadata().map_err(|source| io_error(&path, source))?;
+        if !metadata.is_file() {
+            return Err(EvidenceError::Corrupt(format!(
+                "evidence lock `{}` is not a regular file",
+                path.display()
+            )));
+        }
         Ok(Self { _file: file })
     }
 }
@@ -127,6 +140,7 @@ pub fn submit_payload(
         .strip_prefix("sha256:")
         .expect("digest_bytes always prefixes sha256");
     let _lock = EvidenceLock::acquire(project)?;
+    validate_payloads(project, document)?;
     let directory = evidence_directory(project, &["payloads", document])?;
     publish_immutable(&directory.join(format!("{hex}.json")), &bytes)?;
     Ok(digest)
@@ -184,10 +198,14 @@ pub fn append_attestations(
         .collect::<BTreeMap<_, _>>();
     let _lock = EvidenceLock::acquire(project)?;
     let loaded = load_attestations(project, document)?;
-    if loaded.last_records == records {
+    if let Some((digest, _)) = loaded
+        .batches
+        .iter()
+        .find(|(_, committed)| committed == records)
+    {
         return Ok(AttestationAppend {
             accepted: records.len(),
-            batch_digest: loaded.head.expect("a last batch always has a head digest"),
+            batch_digest: digest.clone(),
         });
     }
 
@@ -257,12 +275,22 @@ pub fn append_attestations(
 /// Recompute a configured question's current staleness fingerprint.
 #[must_use]
 pub fn current_fingerprint(model: &WorldModel, question: &Question) -> ContentHash {
-    fingerprint_facts(
-        model
-            .facts_about(&question.subject)
-            .into_iter()
-            .map(|loaded| &loaded.atom),
-    )
+    model.subject_fingerprint(&question.subject)
+}
+
+fn validate_payloads(project: &Project, document: &str) -> Result<(), EvidenceError> {
+    let directory = evidence_directory(project, &["payloads", document])?;
+    for entry in fs::read_dir(&directory).map_err(|source| io_error(&directory, source))? {
+        let entry = entry.map_err(|source| io_error(&directory, source))?;
+        let path = entry.path();
+        require_regular_json(&path, "payload")?;
+        let bytes = fs::read(&path).map_err(|source| io_error(&path, source))?;
+        let payload: Payload = serde_json::from_slice(&bytes).map_err(|error| {
+            EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
+        })?;
+        validate_content_address(&path, &bytes, &payload)?;
+    }
+    Ok(())
 }
 
 fn load_attestations(
@@ -275,44 +303,13 @@ fn load_attestations(
     for entry in fs::read_dir(&directory).map_err(|source| io_error(&directory, source))? {
         let entry = entry.map_err(|source| io_error(&directory, source))?;
         let path = entry.path();
-        let metadata = fs::symlink_metadata(&path).map_err(|source| io_error(&path, source))?;
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(EvidenceError::Corrupt(format!(
-                "attestation batch entry `{}` is not a regular file",
-                path.display()
-            )));
-        }
-        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
-            return Err(EvidenceError::Corrupt(format!(
-                "unexpected file `{}` in the attestation batch store",
-                path.display()
-            )));
-        }
+        require_regular_json(&path, "attestation batch")?;
         let bytes = fs::read(&path).map_err(|source| io_error(&path, source))?;
         let batch: AttestationBatch = serde_json::from_slice(&bytes).map_err(|error| {
             EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
         })?;
-        let canonical = canonical_bytes(&batch)
-            .map_err(|error| EvidenceError::Corrupt(format!("{}: {error}", path.display())))?;
-        if canonical != bytes {
-            return Err(EvidenceError::Corrupt(format!(
-                "{} is not RFC 8785 canonical JSON",
-                path.display()
-            )));
-        }
+        validate_content_address(&path, &bytes, &batch)?;
         let digest = digest_bytes(&bytes);
-        let expected_name = format!(
-            "{}.json",
-            digest
-                .strip_prefix("sha256:")
-                .expect("digest_bytes always prefixes sha256")
-        );
-        if path.file_name().and_then(|name| name.to_str()) != Some(&expected_name) {
-            return Err(EvidenceError::Corrupt(format!(
-                "{} does not match its content digest {digest}",
-                path.display()
-            )));
-        }
         if batch.version != BATCH_VERSION || batch.document != document {
             return Err(EvidenceError::Corrupt(format!(
                 "{} belongs to version {} document `{}`",
@@ -340,7 +337,7 @@ fn linearize_batches(
         return Ok(LoadedAttestations {
             store: AttestationStore::new(),
             head: None,
-            last_records: Vec::new(),
+            batches: Vec::new(),
             record_ids: BTreeSet::new(),
         });
     }
@@ -376,7 +373,8 @@ fn linearize_batches(
     let mut record_ids = BTreeSet::new();
     let mut visited = BTreeSet::new();
     let mut current = roots[0].clone();
-    let last_records = loop {
+    let mut ordered_batches = Vec::new();
+    loop {
         if !visited.insert(current.clone()) {
             return Err(EvidenceError::Corrupt(format!(
                 "attestation history cycles at {current}"
@@ -385,6 +383,7 @@ fn linearize_batches(
         let batch = batches
             .get(&current)
             .expect("a traversed digest came from the batch map");
+        ordered_batches.push((current.clone(), batch.records.clone()));
         for record in &batch.records {
             validate_attestation(record).map_err(|error| {
                 EvidenceError::Corrupt(format!("batch {current} contains {error}"))
@@ -406,10 +405,10 @@ fn linearize_batches(
             store.append(record.clone());
         }
         let Some(next) = children.get(&current) else {
-            break batch.records.clone();
+            break;
         };
         current.clone_from(next);
-    };
+    }
     if visited.len() != batches.len() {
         return Err(EvidenceError::Corrupt(
             "attestation history contains a disconnected batch".into(),
@@ -418,7 +417,7 @@ fn linearize_batches(
     Ok(LoadedAttestations {
         store,
         head: Some(current),
-        last_records,
+        batches: ordered_batches,
         record_ids,
     })
 }
@@ -491,11 +490,20 @@ fn validate_date(value: &str) -> Result<(), EvidenceError> {
             "`model.as_of` must use YYYY-MM-DD".into(),
         ));
     }
+    let year = value[0..4].parse::<u32>().unwrap_or(0);
     let month = value[5..7].parse::<u32>().unwrap_or(0);
     let day = value[8..10].parse::<u32>().unwrap_or(0);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    if year == 0 || day == 0 || day > max_day {
         return Err(EvidenceError::Invalid(
-            "`model.as_of` contains an invalid month or day".into(),
+            "`model.as_of` is not a valid calendar date".into(),
         ));
     }
     Ok(())
@@ -537,8 +545,37 @@ fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf,
     let mut path = project.evidence_dir().to_path_buf();
     for component in components {
         path.push(component);
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) => {
+                if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                    return Err(EvidenceError::Corrupt(format!(
+                        "evidence directory `{}` is not a regular directory",
+                        path.display()
+                    )));
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let parent = path
+                    .parent()
+                    .expect("an evidence subdirectory always has a parent");
+                match fs::create_dir(&path) {
+                    Ok(()) => sync_directory(parent)?,
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        let metadata = fs::symlink_metadata(&path)
+                            .map_err(|source| io_error(&path, source))?;
+                        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                            return Err(EvidenceError::Corrupt(format!(
+                                "evidence directory `{}` is not a regular directory",
+                                path.display()
+                            )));
+                        }
+                    }
+                    Err(source) => return Err(io_error(&path, source)),
+                }
+            }
+            Err(source) => return Err(io_error(&path, source)),
+        }
     }
-    fs::create_dir_all(&path).map_err(|source| io_error(&path, source))?;
     let canonical = fs::canonicalize(&path).map_err(|source| io_error(&path, source))?;
     if canonical != path || !canonical.starts_with(project.evidence_dir()) {
         return Err(EvidenceError::Corrupt(format!(
@@ -550,7 +587,13 @@ fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf,
 }
 
 fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
-    if path.exists() {
+    if let Ok(metadata) = fs::symlink_metadata(path) {
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(EvidenceError::Corrupt(format!(
+                "content-addressed path `{}` is not a regular file",
+                path.display()
+            )));
+        }
         let existing = fs::read(path).map_err(|source| io_error(path, source))?;
         return if existing == bytes {
             Ok(())
@@ -568,9 +611,15 @@ fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
         .file_name()
         .and_then(|name| name.to_str())
         .expect("evidence filenames are ASCII");
-    let temp = directory.join(format!(".{name}.tmp"));
-    if temp.exists() {
-        let metadata = fs::symlink_metadata(&temp).map_err(|source| io_error(&temp, source))?;
+    let publication_dir = directory
+        .parent()
+        .expect("an evidence content directory has a parent");
+    let directory_name = directory
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("evidence directory names are UTF-8");
+    let temp = publication_dir.join(format!(".{directory_name}.{name}.tmp"));
+    if let Ok(metadata) = fs::symlink_metadata(&temp) {
         if !metadata.is_file() || metadata.file_type().is_symlink() {
             return Err(EvidenceError::Corrupt(format!(
                 "stale publication path `{}` is not a regular file",
@@ -588,10 +637,60 @@ fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
         .and_then(|()| file.sync_all())
         .map_err(|source| io_error(&temp, source))?;
     fs::rename(&temp, path).map_err(|source| io_error(path, source))?;
-    File::open(directory)
-        .and_then(|dir| dir.sync_all())
-        .map_err(|source| io_error(directory, source))?;
+    sync_directory(directory)?;
     Ok(())
+}
+
+fn require_regular_json(path: &Path, kind: &str) -> Result<(), EvidenceError> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| io_error(path, source))?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(EvidenceError::Corrupt(format!(
+            "{kind} entry `{}` is not a regular file",
+            path.display()
+        )));
+    }
+    if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+        return Err(EvidenceError::Corrupt(format!(
+            "unexpected file `{}` in the {kind} store",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_content_address<T: Serialize>(
+    path: &Path,
+    bytes: &[u8],
+    value: &T,
+) -> Result<(), EvidenceError> {
+    let canonical = canonical_bytes(value)
+        .map_err(|error| EvidenceError::Corrupt(format!("{}: {error}", path.display())))?;
+    if canonical != bytes {
+        return Err(EvidenceError::Corrupt(format!(
+            "{} is not RFC 8785 canonical JSON",
+            path.display()
+        )));
+    }
+    let digest = digest_bytes(bytes);
+    let expected_name = format!(
+        "{}.json",
+        digest
+            .strip_prefix("sha256:")
+            .expect("digest_bytes always prefixes sha256")
+    );
+    if path.file_name().and_then(|name| name.to_str()) != Some(&expected_name) {
+        return Err(EvidenceError::Corrupt(format!(
+            "{} does not match its content digest {digest}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn sync_directory(path: &Path) -> Result<(), EvidenceError> {
+    File::open(path)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|source| io_error(path, source))
 }
 
 fn digest_bytes(bytes: &[u8]) -> String {

@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use dli_serve::project::Project;
 use dli_serve::serve::serve_project_io;
+use dli_world::payload::source_hash;
 use serde_json::Value;
 
 fn norse() -> PathBuf {
@@ -309,6 +310,12 @@ fn loads_optional_project_assets_without_demo_resolution() {
         root.join("episodes.yaml"),
     )
     .unwrap();
+    fs::write(
+        root.join("outlines.yaml"),
+        "id: season-1\ntitle: Season One\nepisodes:\n  - {id: e01, title: First}\n",
+    )
+    .unwrap();
+    fs::write(root.join("craft-ledger.yaml"), "{}\n").unwrap();
     fs::copy(
         repo.join("examples/norse/games/rune-wheel/rules.json"),
         root.join("rules.json"),
@@ -323,6 +330,8 @@ fn loads_optional_project_assets_without_demo_resolution() {
         &root,
         "[documents.world]\nsources = [\"world.dli\"]\n\
          episodes = \"episodes.yaml\"\n\
+         outlines = \"outlines.yaml\"\n\
+         craft_ledger = \"craft-ledger.yaml\"\n\
          killed_tokens = \"killed.yaml\"\n\
          [games.rune-wheel]\nrules = \"rules.json\"\nprofiles = \"game-profiles.json\"\n",
     );
@@ -330,6 +339,8 @@ fn loads_optional_project_assets_without_demo_resolution() {
     let project = Project::load(&root).expect("all optional assets load");
     let document = project.document("world").unwrap();
     assert!(!document.episodes.as_ref().unwrap().is_empty());
+    assert_eq!(document.outlines.as_ref().unwrap().episodes[0].id, "e01");
+    assert!(document.craft_ledger.as_ref().unwrap().episodes.is_empty());
     assert!(document.killed.hit("the Old Name returns").is_some());
     assert!(
         project
@@ -339,6 +350,54 @@ fn loads_optional_project_assets_without_demo_resolution() {
             .resolve("cards/rune-wheel")
             .is_some()
     );
+}
+
+#[test]
+fn payload_handler_reads_project_owned_outline_context() {
+    let root = temp("project-payload-context");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::write(
+        root.join("outlines.yaml"),
+        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n",
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\n\
+         outlines = \"outlines.yaml\"\n",
+    );
+    let project = Project::load(&root).unwrap();
+    let source = "draft";
+    let request = serde_json::json!({
+        "dli": "0.4.0",
+        "id": "outline-context",
+        "op": "dli.check-draft",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": {
+                "meta": {
+                    "episode": "e01",
+                    "source": {"sha256": source_hash(source)}
+                }
+            }
+        }
+    });
+    let mut output = Vec::new();
+    serve_project_io(
+        &mut Cursor::new(format!("{request}\n")),
+        &mut output,
+        project,
+    )
+    .unwrap();
+    let response: Value = serde_json::from_slice(&output).unwrap();
+    let codes = response["result"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|finding| finding["code"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert!(codes.contains(&"outline.beat-unaccounted"), "{response}");
 }
 
 #[cfg(unix)]

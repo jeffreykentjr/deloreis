@@ -54,7 +54,7 @@
       ]
     },
     "PayloadFinding": {
-      "description": "One finding in the merged payload report.\n\nThe battery over a [`Payload`] emits these; `PAY-1` emits the anchoring and\nstaleness families, and the remaining families (continuity, factcheck,\noutline-conformance, craft, proof, naming, phase, lexicon) merge in here in\n`PAY-2`. Every finding is fully attributed: the draft [`line`](Self::line) and\nverbatim [`quote`](Self::quote) it turns on, the [`code`](Self::code) of the\nrule or check that raised it, the [`principle`](Self::principle) it cites when\nthe check is craft, its supporting [`citations`](Self::citations), and the\n[`grade`](Self::grade) of the evidence.",
+      "description": "One finding in the merged payload report.\n\nThe battery over a [`Payload`] emits these; `PAY-1` emits the anchoring and\nstaleness families, and the remaining families (continuity, factcheck,\noutline-conformance, craft, proof, naming, phase, lexicon) merge in here in\n`PAY-2`. Every finding carries the [`code`](Self::code) of the rule or check\nthat raised it and the [`grade`](Self::grade) of the evidence. Findings that\nturn on an extracted source item also carry its draft [`line`](Self::line)\nand verbatim [`quote`](Self::quote); craft and lore findings additionally\ncarry their [`principle`](Self::principle) and\n[`citations`](Self::citations) when available.",
       "type": "object",
       "properties": {
         "citations": {

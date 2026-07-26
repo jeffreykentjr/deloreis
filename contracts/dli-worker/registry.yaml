@@ -46,11 +46,11 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: 5be1c4fcc640be71dab56087968410db2a35e96ee1306297e3a4c73dbc7b9f57
 - path: framing/paired-all-ops-v1.json
-  sha256: d3d3e7ef0c107355d5f248c594556a1fa48070d61148c5530b6454952b37ae18
+  sha256: 70dea675e1cc95257e1e360f25abe8ddd292c29920b16034f96eac0fef5ce6f4
 - path: golden/attest-missing-v1.json
-  sha256: 0abe912c78d61747f103257ab7addab6c7f84f40df720803cb64daa406792db5
+  sha256: 0dc07b2226c1a74bcab1d60ba06def4e11ee2bf2bdc68ea0e45ac0880de9439b
 - path: golden/attestation-sweep-v1.json
-  sha256: eb969a7267c393ce8f6c22fa633afb72c8ff8e4e847412e1254808e15f7c2413
+  sha256: dec9005234437a0a9085043fb2eeb513caa653df3fd63eaa1d218a8813455a44
 - path: golden/author-add-before-v1.json
   sha256: bcc0e5bcebbee8cf5ca4c8edd26c06281d4c8906c9d4a824307dce6be9cad4ad
 - path: golden/author-add-event-v1.json

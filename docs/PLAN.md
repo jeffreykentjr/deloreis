@@ -258,8 +258,8 @@ they touch; they are not a lane of their own.
 - **PAY-2** — `check-draft`: the full battery over one payload + the single
   merged report.
   *Needs:* PAY-1, CHECK-1, PRAC-2, CRAFT-2. *Produces:* the merged draft report.
-  *Oracle:* one report; every finding carries draft line + verbatim quote +
-  rule/check id + support + grade.
+  *Oracle:* one report; every finding carries rule/check id + grade, and every
+  source-anchored finding carries its draft line + verbatim quote.
 - **PAY-3** — Outline-conformance as a two-sided diff
   (`beat-unaccounted`/`beat-undeclared`, over promises, casts, and cues).
   *Needs:* PAY-2, CRAFT-1. *Produces:* the conformance findings. *Oracle:* an
@@ -577,7 +577,7 @@ author or consumer artifact that this repository does not own.
 | CRAFT-3 | done | `cargo test -p dli-world` principle suites |
 | ATT-1 | done | `cargo test -p dli-world` attestation suites |
 | PAY-1 | done | `cargo test -p dli-world` payload suites |
-| PAY-2 | done | `cargo test -p dli-world` payload suites |
+| PAY-2 | done | `cargo test -p dli-world --test payload_battery` covers claims, deltas, proof replay, phases, lexicon, craft, and anchors |
 | PAY-3 | done | `cargo test -p dli-world` payload suites |
 | SURF-1 | done | `deloreis fmt --check examples/ worlds/` |
 | SURF-2 | done | syntax and loader diagnostic snapshots |

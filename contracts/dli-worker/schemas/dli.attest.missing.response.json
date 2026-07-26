@@ -56,7 +56,7 @@
       ]
     },
     "ContentHash": {
-      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection; it needs no cryptographic strength because the factory\nthat writes the store is trusted and the threat is accidental drift, not\nadversarial collision. It is deliberately distinct from the factory-supplied\n`sha256:` hashes carried in [`Attestation::rationale_hash`] and\n[`PromptRef::hash`], which the kernel only stores and compares, never\ncomputes. The type is format-agnostic: swapping the one-line body of\n[`fingerprint_facts`] for a `sha256` digest is the upgrade seam.",
+      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection. Subject fingerprints cover fact content, standing,\nand resolved support; [`fingerprint_facts`] remains the atom-only primitive\nfor callers that explicitly need that projection. It needs no cryptographic\nstrength because the factory that writes the store is trusted and the threat\nis accidental drift, not adversarial collision. It is deliberately distinct\nfrom the factory-supplied `sha256:` hashes carried in\n[`Attestation::rationale_hash`] and [`PromptRef::hash`].",
       "type": "string"
     },
     "Question": {

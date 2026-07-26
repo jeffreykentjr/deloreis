@@ -60,6 +60,8 @@ cache = ".dli-cache"
 [documents.norse]
 sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
 # episodes = "episodes.yaml"
+# outlines = "outlines.yaml"
+# craft_ledger = "craft-ledger.yaml"
 # killed_tokens = "killed-tokens.yaml"
 # attestation_questions = "attestation-questions.json"
 
@@ -320,9 +322,18 @@ At contract `0.4.0`, accepted fat payloads are written as RFC 8785 JCS beneath
 batches beneath
 `.dli-evidence/attestations/<document>/batches/<sha256>.json`; batches form one
 verified, unbranched parent chain while each question retains its supersession
-history. Writers take a project-wide advisory lock and publish immutable files
-with a file and directory sync around atomic rename. Reads verify canonical
-bytes, digest filenames, and chain integrity before exposing evidence.
+history. A retry of any committed batch returns that batch's original digest,
+even after later appends. Writers take a project-wide advisory lock and publish
+immutable files from sibling temporaries with file sync, atomic rename, and
+parent-directory sync for every newly created path component. Reads verify
+canonical bytes, digest filenames, and chain integrity before exposing
+evidence; payload submission verifies every prior payload in that document's
+store before publishing another.
+
+Attestation staleness fingerprints cover the saturated subject relation's atom
+text, derived standing, grade, and resolved support/defeater conditions. A rule,
+support, or ratification change therefore queues re-attestation even when a
+source atom survives.
 
 Rejected payloads and attestation records publish no evidence file. RQ drafts
 are returned **as data** in the response (§3.1), and the worker never files

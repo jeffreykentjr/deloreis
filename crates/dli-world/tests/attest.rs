@@ -133,12 +133,7 @@ fn sweep_returns_exactly_the_stale_heads() {
 
     // Fresh: the head's fingerprint equals the world's current facts about the
     // subject, recomputed exactly as sweep will.
-    let current_excalibur = fingerprint_facts(
-        model
-            .facts_about("excalibur")
-            .iter()
-            .map(|loaded| &loaded.atom),
-    );
+    let current_excalibur = model.subject_fingerprint("excalibur");
     let fresh = attestation("name-basis(excalibur, x)", "excalibur", current_excalibur);
     store_with_fresh_and_stale(model, fresh);
 }
