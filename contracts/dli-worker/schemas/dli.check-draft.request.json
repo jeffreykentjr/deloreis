@@ -9,6 +9,7 @@
       "$ref": "#/$defs/DraftPayload"
     }
   },
+  "additionalProperties": false,
   "required": [
     "payload"
   ],
@@ -29,6 +30,7 @@
           "$ref": "#/$defs/Ident"
         }
       },
+      "additionalProperties": false,
       "required": [
         "pred",
         "args"
@@ -48,6 +50,7 @@
           "$ref": "#/$defs/Ident"
         }
       },
+      "additionalProperties": false,
       "required": [
         "resource",
         "amount"
@@ -72,6 +75,7 @@
           "minimum": 0
         }
       },
+      "additionalProperties": false,
       "required": [
         "title",
         "scope",
@@ -143,6 +147,7 @@
           }
         }
       },
+      "additionalProperties": false,
       "required": [
         "meta",
         "claims",
@@ -174,6 +179,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "text",
         "span"
@@ -200,6 +206,7 @@
           "minimum": 0
         }
       },
+      "additionalProperties": false,
       "required": [
         "file",
         "start",

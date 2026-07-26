@@ -9,6 +9,7 @@
       "$ref": "#/$defs/AttestationStore"
     }
   },
+  "additionalProperties": false,
   "required": [
     "store"
   ],
@@ -61,6 +62,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "question",
         "answer",
@@ -85,6 +87,7 @@
           }
         }
       },
+      "additionalProperties": false,
       "required": [
         "attestations"
       ]
@@ -110,6 +113,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "provider",
         "id",
@@ -125,6 +129,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "reattest"
       ]
@@ -142,6 +147,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "template",
         "hash"
@@ -164,6 +170,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "kind",
         "atom",
@@ -195,6 +202,7 @@
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "required": [
         "temperature",
         "max_tokens",

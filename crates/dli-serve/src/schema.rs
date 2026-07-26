@@ -1,6 +1,7 @@
 //! Per-op contract schema emission.
 
 use schemars::{Schema, schema_for};
+use serde_json::Value;
 
 // schema.rs references nearly every contract type; a scoped glob is clearer and
 // less error-prone than a 60-line explicit import list.
@@ -18,7 +19,7 @@ use crate::contract::*;
 #[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn contract_schemas() -> Vec<(String, Schema)> {
-    vec![
+    let mut schemas = vec![
         ("dli.version.request".to_owned(), schema_for!(VersionParams)),
         (
             "dli.version.response".to_owned(),
@@ -369,5 +370,45 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.list_workspaces.response".to_owned(),
             schema_for!(AuthorListWorkspacesResult),
         ),
-    ]
+    ];
+    for (name, schema) in &mut schemas {
+        if name.ends_with(".request") {
+            close_declared_objects(schema.as_object_mut());
+        }
+    }
+    schemas
+}
+
+/// Match the runtime's recursive unknown-field rejection in every published
+/// request schema. Map-shaped objects already carry `additionalProperties`
+/// and remain open by design; struct-shaped objects have `properties` and are
+/// closed here even when their owning type lives in another crate.
+fn close_declared_objects(root: Option<&mut serde_json::Map<String, Value>>) {
+    let Some(root) = root else {
+        return;
+    };
+    close_map(root);
+}
+
+fn close_value(value: &mut Value) {
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                close_value(item);
+            }
+        }
+        Value::Object(map) => {
+            close_map(map);
+        }
+        _ => {}
+    }
+}
+
+fn close_map(map: &mut serde_json::Map<String, Value>) {
+    for child in map.values_mut() {
+        close_value(child);
+    }
+    if map.contains_key("properties") && !map.contains_key("additionalProperties") {
+        map.insert("additionalProperties".to_owned(), Value::Bool(false));
+    }
 }

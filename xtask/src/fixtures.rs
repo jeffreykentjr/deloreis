@@ -261,6 +261,21 @@ fn validate_framing_case(case: &serde_json::Value) -> Result<String> {
     {
         bail!("{op}: probe and nonempty probe_compare_paths must appear together");
     }
+    if let Some(expected) = case.get("probe_expect") {
+        if case.get("probe").is_none() {
+            bail!("{op}: probe_expect requires a probe");
+        }
+        let expected = expected
+            .as_object()
+            .ok_or_else(|| anyhow!("{op}: probe_expect must be an object keyed by JSON pointer"))?;
+        if expected.is_empty()
+            || expected
+                .keys()
+                .any(|path| !path.starts_with('/') || path == "/")
+        {
+            bail!("{op}: probe_expect must contain at least one non-root JSON pointer");
+        }
+    }
     Ok(op)
 }
 

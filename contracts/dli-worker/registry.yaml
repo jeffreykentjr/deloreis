@@ -19,7 +19,7 @@ replay_project:
 - path: fixture-project/deloreis.toml
   sha256: 68b068596017022e7105e3389bd29ba8be277c7638ec25050316d7acf6dcf9f7
 - path: fixture-project/saltmarket.dli
-  sha256: 93d25f5a0372afc61662f1ba681b7b4b6579e9a557bbb4cf8220ffb764cbf35b
+  sha256: de85e42bac853bdfb6344bb01938c7d335c78f89fed97c3690ea958b54566f71
 fixtures:
 - path: framing/author-add-event-framing.json
   sha256: 018c5cc7a120596f570e2cc7041da74d72dc250091b0c854fd6fc387bfad3f7b
@@ -44,7 +44,7 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: d802c5aaa03a0472cfd67600cc00cfd16f69f45a1b4bf0d274c44ada1e32d60d
 - path: framing/paired-all-ops-v1.json
-  sha256: 5fd1db6c131a8ac153d1f7c3a265c35a309d7c872e64aaa01c66667836213eaa
+  sha256: 2b7333302731a3a114c7266cb7f8d1be2076363e98d40df41eada95ba2be312b
 - path: golden/attest-missing-v1.json
   sha256: a32de6a22c641c5a7d423f807e817dad060d05e8ca3be4bc6302ac146a1a2c28
 - path: golden/attestation-sweep-v1.json

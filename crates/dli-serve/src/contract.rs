@@ -100,6 +100,7 @@ pub enum EntityKind {
 
 /// `dli.check` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CheckParams {
     /// The document id to check.
     pub document: String,
@@ -118,6 +119,7 @@ pub struct CheckResult {
 
 /// `dli.query` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct QueryParams {
     /// The document id to query.
     pub document: String,
@@ -173,6 +175,7 @@ pub struct QueryResultRow {
 
 /// `dli.fork.list` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkListParams {
     /// The document id.
     pub document: String,
@@ -205,6 +208,7 @@ pub struct ForkSummary {
 
 /// `dli.fork.new` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkNewParams {
     /// The document id the fork is over.
     pub document: String,
@@ -224,6 +228,7 @@ pub struct ForkNewResult {
 
 /// `dli.fork.diff` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkDiffParams {
     /// The fork handle.
     pub fork: String,
@@ -235,6 +240,7 @@ pub struct ForkDiffParams {
 
 /// `dli.fork.suppose` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkSupposeParams {
     /// The fork handle.
     pub fork: String,
@@ -248,6 +254,7 @@ pub struct ForkSupposeParams {
 
 /// `dli.fork.add` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkAddParams {
     /// The fork handle.
     pub fork: String,
@@ -268,6 +275,7 @@ pub struct ForkAddResult {
 
 /// `dli.fork.suppress` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkSuppressParams {
     /// The fork handle.
     pub fork: String,
@@ -281,6 +289,7 @@ pub struct ForkSuppressParams {
 
 /// `dli.fork.restrict` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkRestrictParams {
     /// The fork handle.
     pub fork: String,
@@ -294,6 +303,7 @@ pub struct ForkRestrictParams {
 
 /// `dli.fork.preflight` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkPreflightParams {
     /// The fork handle.
     pub fork: String,
@@ -314,6 +324,7 @@ pub struct ForkPreflightResult {
 
 /// `dli.fork.promote` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ForkPromoteParams {
     /// The fork handle.
     pub fork: String,
@@ -330,6 +341,7 @@ pub struct ForkPromoteResult {
 
 /// `dli.check-proof` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CheckProofParams {
     /// The document id.
     pub document: String,
@@ -347,6 +359,7 @@ pub struct CheckProofResult {
 
 /// `dli.check-draft` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CheckDraftParams {
     /// The draft payload to check.
     pub payload: DraftPayload,
@@ -363,6 +376,7 @@ pub struct CheckDraftResult {
 
 /// `dli.simulate.start` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SimulateStartParams {
     /// The document id.
     pub document: String,
@@ -385,6 +399,7 @@ pub struct SimulateStartResult {
 
 /// `dli.simulate.status` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SimulateStatusParams {
     /// The job id.
     pub job_id: String,
@@ -406,6 +421,7 @@ pub struct SimulateStatusResult {
 
 /// `dli.simulate.cancel` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SimulateCancelParams {
     /// The job id.
     pub job_id: String,
@@ -422,6 +438,7 @@ pub struct SimulateCancelResult {
 
 /// `dli.timeline.show` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TimelineShowParams {
     /// The document id.
     pub document: String,
@@ -432,6 +449,7 @@ pub struct TimelineShowParams {
 
 /// `dli.timeline.order` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TimelineOrderParams {
     /// The document id.
     pub document: String,
@@ -439,6 +457,7 @@ pub struct TimelineOrderParams {
 
 /// `dli.timeline.knows` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TimelineKnowsParams {
     /// The document id.
     pub document: String,
@@ -449,6 +468,7 @@ pub struct TimelineKnowsParams {
 
 /// `dli.timeline.episodes` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TimelineEpisodesParams {
     /// The document id.
     pub document: String,
@@ -456,6 +476,7 @@ pub struct TimelineEpisodesParams {
 
 /// `dli.timeline.phases` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TimelinePhasesParams {
     /// The document id.
     pub document: String,
@@ -601,6 +622,7 @@ pub struct TimelinePhasesResult {
 
 /// `dli.export.run` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ExportRunParams {
     /// The document id.
     pub document: String,
@@ -633,6 +655,7 @@ pub enum ExportEmission {
 
 /// `dli.attestation-sweep` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttestationSweepParams {
     /// The attestation store to sweep.
     pub store: AttestationStore,
@@ -649,6 +672,7 @@ pub struct AttestationSweepResult {
 
 /// `dli.payload-submit` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PayloadSubmitParams {
     /// The draft payload to submit.
     pub payload: DraftPayload,
@@ -667,6 +691,7 @@ pub struct PayloadSubmitResult {
 
 /// `dli.version` params (empty).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct VersionParams {}
 
 /// `dli.version` result.
@@ -689,6 +714,7 @@ pub struct VersionResult {
 
 /// `dli.name.check` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NameCheckParams {
     /// The proposed name.
     pub name: String,
@@ -709,6 +735,7 @@ pub struct NameCheckResult {
 
 /// `dli.attest.missing` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttestMissingParams {
     /// The document id.
     pub document: String,

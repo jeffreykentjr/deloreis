@@ -21,6 +21,7 @@
       "minimum": 0
     }
   },
+  "additionalProperties": false,
   "required": [
     "document",
     "seed",

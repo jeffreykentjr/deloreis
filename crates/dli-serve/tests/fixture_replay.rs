@@ -137,17 +137,39 @@ fn assert_taint_confined(response: &Value, case: &Value, name: &str) {
     }
 }
 
-fn assert_changed_parameter_was_reached(control: &Value, attack: &Value, name: &str) {
-    let both_succeeded = control.get("ok") == Some(&Value::Bool(true))
-        && attack.get("ok") == Some(&Value::Bool(true));
-    let mut marker = Vec::new();
-    marker_paths(attack, "", &mut marker);
+fn assert_changed_parameter_was_reached(
+    attack: &Value,
+    attack_probe: Option<&Value>,
+    case: &Value,
+    name: &str,
+) {
+    let mut markers = Vec::new();
+    marker_paths(attack, "", &mut markers);
+    if let Some(probe) = attack_probe {
+        marker_paths(probe, "", &mut markers);
+    }
+    let asserted_post_state = case
+        .get("probe_expect")
+        .and_then(Value::as_object)
+        .is_some_and(|expected| !expected.is_empty());
     assert!(
-        both_succeeded || !marker.is_empty(),
-        "{name}: neither branch succeeded and the attack marker is absent from the response; \
-         the handler may have failed before consuming the changed parameter\n\
-         control={control}\nattack={attack}"
+        !markers.is_empty() || asserted_post_state,
+        "{name}: the attack marker is absent from the response and no post-state effect is \
+         asserted; the handler may have ignored the changed parameter\nattack={attack}"
     );
+}
+
+fn assert_probe_expect(response: &Value, case: &Value, name: &str) {
+    let Some(expected) = case.get("probe_expect").and_then(Value::as_object) else {
+        return;
+    };
+    for (path, value) in expected {
+        assert_eq!(
+            response.pointer(path),
+            Some(value),
+            "{name}: post-state probe did not reach expected value at {path}\nprobe={response}"
+        );
+    }
 }
 
 fn assert_materialized_reparses(response: &Value, name: &str) {
@@ -200,13 +222,12 @@ fn replay_framing_case(case: &Value, name: &str) {
 
     let control = drive(&case["control"], &mut control_sessions, &mut control_store);
     let attack = drive(&case["attack"], &mut attack_sessions, &mut attack_store);
-    assert_changed_parameter_was_reached(&control, &attack, name);
     let compare = case["compare_paths"].as_array().expect("validated paths");
     assert_pointer_pairs_equal(&control, &attack, compare, name);
     assert_taint_confined(&attack, case, name);
     assert_materialized_reparses(&attack, name);
 
-    if let Some(probe) = case.get("probe") {
+    let probes = case.get("probe").map(|probe| {
         let control_probe = drive(probe, &mut control_sessions, &mut control_store);
         let attack_probe = drive(probe, &mut attack_sessions, &mut attack_store);
         let probe_paths = case
@@ -227,7 +248,16 @@ fn replay_framing_case(case: &Value, name: &str) {
         );
         assert_taint_confined(&attack_probe, case, name);
         assert_materialized_reparses(&attack_probe, name);
-    }
+        assert_probe_expect(&control_probe, case, name);
+        assert_probe_expect(&attack_probe, case, name);
+        (control_probe, attack_probe)
+    });
+    assert_changed_parameter_was_reached(
+        &attack,
+        probes.as_ref().map(|(_, attack)| attack),
+        case,
+        name,
+    );
 }
 
 fn fixture_stores() -> (Sessions, Store) {
@@ -357,4 +387,21 @@ fn every_fixture_replays_cold() {
         registered.len(),
         "every registered JSON fixture must replay exactly once"
     );
+}
+
+#[test]
+#[should_panic(expected = "handler may have ignored the changed parameter")]
+fn successful_framing_case_without_an_observable_effect_fails() {
+    let response = serde_json::json!({"ok": true, "result": {"accepted": true}});
+    assert_changed_parameter_was_reached(&response, None, &serde_json::json!({}), "shadowed-field");
+}
+
+#[test]
+#[should_panic(expected = "post-state probe did not reach expected value")]
+fn mutation_probe_rejects_a_no_op_post_state() {
+    let response = serde_json::json!({"ok": true, "result": {"forks": [{"local_atoms": 0}]}});
+    let case = serde_json::json!({
+        "probe_expect": {"/result/forks/0/local_atoms": 1}
+    });
+    assert_probe_expect(&response, &case, "no-op-mutation");
 }

@@ -20,10 +20,11 @@
     },
     {
       "op": "dli.query",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(control)"}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(__DLI_FRAME_ATTACK__)"}},
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(\"control\")"}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(\"__DLI_FRAME_ATTACK__\")"}},
       "changed_paths": ["/params/goal"],
-      "compare_paths": ["/ok", "/result/rows"]
+      "compare_paths": ["/ok", "/result/rows/0/status", "/result/rows/0/grade", "/result/rows/0/citations"],
+      "allow_taint_paths": ["/result/rows"]
     },
     {
       "op": "dli.fork.new",
@@ -65,7 +66,10 @@
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.add", "params": {"fork": "fork-1", "declarations": ["note(\"__DLI_FRAME_ATTACK__\") proposed"]}},
       "changed_paths": ["/params/declarations/0"],
       "compare_paths": ["/ok"],
-      "allow_taint_paths": ["/result"]
+      "allow_taint_paths": ["/result"],
+      "probe": {"dli": "0.3.0", "id": "probe", "op": "dli.fork.list", "params": {"document": "saltmarket"}},
+      "probe_compare_paths": ["/ok"],
+      "probe_expect": {"/result/forks/0/local_atoms": 1}
     },
     {
       "op": "dli.fork.suppress",
@@ -83,7 +87,10 @@
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.fork.restrict", "params": {"fork": "fork-1", "scope": ["__DLI_FRAME_ATTACK__"]}},
       "changed_paths": ["/params/scope/0"],
       "compare_paths": ["/ok"],
-      "allow_taint_paths": ["/result"]
+      "allow_taint_paths": ["/result"],
+      "probe": {"dli": "0.3.0", "id": "probe", "op": "dli.fork.list", "params": {"document": "saltmarket"}},
+      "probe_compare_paths": ["/ok"],
+      "probe_expect": {"/result/forks/0/restrictions": 1}
     },
     {
       "op": "dli.fork.preflight",
@@ -111,10 +118,11 @@
     },
     {
       "op": "dli.check-draft",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "control", "scope": "saltmarket", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "__DLI_FRAME_ATTACK__", "scope": "saltmarket", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
-      "changed_paths": ["/params/payload/meta/title"],
-      "compare_paths": ["/ok", "/result/findings"]
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "title", "scope": "missing-control", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "title", "scope": "__DLI_FRAME_ATTACK__", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
+      "changed_paths": ["/params/payload/meta/scope"],
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.simulate.start",
@@ -214,10 +222,11 @@
     },
     {
       "op": "dli.payload-submit",
-      "control": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "control", "scope": "saltmarket", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
-      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "__DLI_FRAME_ATTACK__", "scope": "saltmarket", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
-      "changed_paths": ["/params/payload/meta/title"],
-      "compare_paths": ["/ok", "/result/accepted", "/result/findings"]
+      "control": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "title", "scope": "missing-control", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
+      "attack": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "title", "scope": "__DLI_FRAME_ATTACK__", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
+      "changed_paths": ["/params/payload/meta/scope"],
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "author.open",
@@ -397,16 +406,17 @@
       "op": "author.check",
       "control_precondition": [
         {"dli": "0.3.0", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
-        {"dli": "0.3.0", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "Control label", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+        {"dli": "0.3.0", "id": "stage", "op": "author.add_relation", "params": {"workspace": "ws-1", "relation": "knows", "from": "missing-control", "to": "other", "provenance": {"kind": "proposed", "origin": "framing"}}}
       ],
       "attack_precondition": [
         {"dli": "0.3.0", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
-        {"dli": "0.3.0", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "__DLI_FRAME_ATTACK__", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+        {"dli": "0.3.0", "id": "stage", "op": "author.add_relation", "params": {"workspace": "ws-1", "relation": "knows", "from": "__DLI_FRAME_ATTACK__", "to": "other", "provenance": {"kind": "proposed", "origin": "framing"}}}
       ],
       "control": {"dli": "0.3.0", "id": "1", "op": "author.check", "params": {"workspace": "ws-1"}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "author.check", "params": {"workspace": "ws-1"}},
       "changed_paths": [],
-      "compare_paths": ["/ok", "/result/ok", "/result/findings"]
+      "compare_paths": ["/ok", "/result/ok", "/result/findings/0/code", "/result/findings/0/severity", "/result/findings/0/grade"],
+      "allow_taint_paths": ["/result/findings"]
     },
     {
       "op": "author.why",
@@ -420,16 +430,17 @@
       "op": "author.findings",
       "control_precondition": [
         {"dli": "0.3.0", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
-        {"dli": "0.3.0", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "Control label", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+        {"dli": "0.3.0", "id": "stage", "op": "author.add_relation", "params": {"workspace": "ws-1", "relation": "knows", "from": "missing-control", "to": "other", "provenance": {"kind": "proposed", "origin": "framing"}}}
       ],
       "attack_precondition": [
         {"dli": "0.3.0", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
-        {"dli": "0.3.0", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "__DLI_FRAME_ATTACK__", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+        {"dli": "0.3.0", "id": "stage", "op": "author.add_relation", "params": {"workspace": "ws-1", "relation": "knows", "from": "__DLI_FRAME_ATTACK__", "to": "other", "provenance": {"kind": "proposed", "origin": "framing"}}}
       ],
       "control": {"dli": "0.3.0", "id": "1", "op": "author.findings", "params": {"workspace": "ws-1"}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "author.findings", "params": {"workspace": "ws-1"}},
       "changed_paths": [],
-      "compare_paths": ["/ok", "/result/errors", "/result/warnings", "/result/materializable"]
+      "compare_paths": ["/ok", "/result/errors/0/code", "/result/errors/0/severity", "/result/materializable"],
+      "allow_taint_paths": ["/result/errors"]
     },
     {
       "op": "author.list_workspaces",

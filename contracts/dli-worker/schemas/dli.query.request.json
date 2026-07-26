@@ -43,6 +43,7 @@
       "default": false
     }
   },
+  "additionalProperties": false,
   "required": [
     "document",
     "goal"

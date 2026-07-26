@@ -75,6 +75,39 @@ fn contract_schema_emission_covers_every_op() {
 }
 
 #[test]
+fn request_schemas_close_every_declared_object() {
+    fn assert_closed(value: &serde_json::Value, path: &str) {
+        match value {
+            serde_json::Value::Array(items) => {
+                for (index, item) in items.iter().enumerate() {
+                    assert_closed(item, &format!("{path}/{index}"));
+                }
+            }
+            serde_json::Value::Object(map) => {
+                if map.contains_key("properties") {
+                    assert_eq!(
+                        map.get("additionalProperties"),
+                        Some(&serde_json::Value::Bool(false)),
+                        "declared request object remains open at {path}"
+                    );
+                }
+                for (key, child) in map {
+                    assert_closed(child, &format!("{path}/{key}"));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for (name, schema) in contract_schemas()
+        .into_iter()
+        .filter(|(name, _)| name.ends_with(".request"))
+    {
+        assert_closed(schema.as_value(), &name);
+    }
+}
+
+#[test]
 fn golden_dispatch_matches() {
     // Drive a golden fixture request through the real dispatch and assert the
     // response equals the fixture's expectation. The exhaustive multi-step and

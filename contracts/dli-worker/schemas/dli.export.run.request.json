@@ -13,6 +13,7 @@
       "$ref": "#/$defs/ExportProfile"
     }
   },
+  "additionalProperties": false,
   "required": [
     "document",
     "profile"
