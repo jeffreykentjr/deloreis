@@ -4,6 +4,7 @@
 //! `JsonSchema`. Mutating `author.*` ops share [`AuthorMutationResult`].
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -20,7 +21,9 @@ use dli_ledger::ProofReport;
 use dli_sim::RunManifest;
 use dli_time::cycle::CyclePos;
 use dli_time::slack::EpisodeSlack;
-use dli_world::attest::{Attestation, ContentHash, Question};
+use dli_world::attest::{
+    Attestation, ContentHash, ModelRef, Policy, PromptRef, Question, Sampling,
+};
 use dli_world::episode::{EpisodeAnchor, Knower, OpenLoopLedger, Placement};
 use dli_world::episode_order::OrderIntegrityFinding;
 use dli_world::payload::{Payload, PayloadFinding};
@@ -110,10 +113,259 @@ pub struct CheckParams {
 /// `dli.check` result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct CheckResult {
-    /// Whether the document is clean.
+    /// Whether the document has no blocking error or attestation outcome.
+    /// Advisory findings may be present when this is true.
     pub ok: bool,
-    /// Findings, if any.
-    pub findings: Vec<Finding>,
+    /// The weakest procedure grade used by the complete check.
+    pub grade: Grade,
+    /// World, payload, and attestation findings, if any.
+    pub findings: Vec<CheckFinding>,
+}
+
+/// A document-wide check finding without flattening domain-specific evidence.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "domain", rename_all = "lowercase")]
+pub enum CheckFinding {
+    /// A world/compiler finding.
+    World(Finding),
+    /// A replayed payload finding with durable payload and source identity.
+    Payload(PayloadCheckFinding),
+    /// A durable attestation dependency and its pass/fail state.
+    Attestation(AttestationCheckFinding),
+}
+
+/// A replayed payload finding tied to one committed evidence record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PayloadCheckFinding {
+    /// SHA-256 address of the committed payload record.
+    pub payload_digest: String,
+    /// Episode identifier carried by the payload.
+    pub episode: String,
+    /// Source filename carried by the payload.
+    pub source_file: String,
+    /// Domain-specific finding with line, quote, principle, and citations.
+    #[serde(flatten)]
+    pub finding: PayloadFinding,
+}
+
+/// The outcome-specific attestation evidence consumed by `dli.check`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "outcome", rename_all = "lowercase")]
+pub enum AttestationCheckFinding {
+    /// A current affirmative answer.
+    Pass(Box<AttestationPassFinding>),
+    /// A current negative answer.
+    Fail(Box<AttestationFailFinding>),
+    /// No answer has been committed.
+    Missing(Box<AttestationMissingFinding>),
+    /// The committed answer is not current.
+    Stale(Box<AttestationStaleFinding>),
+}
+
+/// The singleton code serialized by an attestation pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum AttestationPassCode {
+    /// `attest.pass`.
+    #[serde(rename = "attest.pass")]
+    Value,
+}
+
+/// The singleton code serialized by an attestation failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum AttestationFailCode {
+    /// `attest.fail`.
+    #[serde(rename = "attest.fail")]
+    Value,
+}
+
+/// The singleton code serialized by a missing attestation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum AttestationMissingCode {
+    /// `attest.missing`.
+    #[serde(rename = "attest.missing")]
+    Value,
+}
+
+/// The singleton code serialized by a stale attestation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum AttestationStaleCode {
+    /// `attest.stale`.
+    #[serde(rename = "attest.stale")]
+    Value,
+}
+
+/// The only severity carried by a blocking attestation outcome.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AttestationErrorSeverity {
+    /// The outcome blocks the document verdict.
+    Error,
+}
+
+/// The only grade carried by a current model judgment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AttestedProcedureGrade {
+    /// The procedure consumed a stored model judgment.
+    Attested,
+}
+
+/// The only grade carried by deterministic absence or staleness detection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum CheckedProcedureGrade {
+    /// The procedure re-derived the outcome exactly.
+    Checked,
+}
+
+/// A current affirmative attestation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationPassFinding {
+    /// Stable code, fixed to `attest.pass`.
+    pub code: AttestationPassCode,
+    /// Procedure grade, fixed to `attested`.
+    pub grade: AttestedProcedureGrade,
+    /// Domain-spoken rendering.
+    pub message: String,
+    /// The configured bounded question.
+    pub question: Question,
+    /// Identity of the stored head record.
+    pub record_id: String,
+    /// Identity of the record superseded by the head, when one exists.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub supersedes: Option<String>,
+    /// The previous bounded answer, when the head supersedes a typed record.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub previous_answer: Option<AttestationAnswer>,
+    /// Fingerprint captured by the stored head.
+    pub stored_fingerprint: ContentHash,
+    /// Fingerprint recomputed from the current compiled world.
+    pub current_fingerprint: ContentHash,
+}
+
+/// A current negative attestation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationFailFinding {
+    /// Stable code, fixed to `attest.fail`.
+    pub code: AttestationFailCode,
+    /// Blocking severity, fixed to `error`.
+    pub severity: AttestationErrorSeverity,
+    /// Procedure grade, fixed to `attested`.
+    pub grade: AttestedProcedureGrade,
+    /// Domain-spoken rendering.
+    pub message: String,
+    /// The configured bounded question.
+    pub question: Question,
+    /// Identity of the stored head record.
+    pub record_id: String,
+    /// Identity of the record superseded by the head, when one exists.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub supersedes: Option<String>,
+    /// The previous bounded answer, when the head supersedes a typed record.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub previous_answer: Option<AttestationAnswer>,
+    /// Fingerprint captured by the stored head.
+    pub stored_fingerprint: ContentHash,
+    /// Fingerprint recomputed from the current compiled world.
+    pub current_fingerprint: ContentHash,
+}
+
+/// A configured question with no committed answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationMissingFinding {
+    /// Stable code, fixed to `attest.missing`.
+    pub code: AttestationMissingCode,
+    /// Blocking severity, fixed to `error`.
+    pub severity: AttestationErrorSeverity,
+    /// Procedure grade, fixed to `checked`.
+    pub grade: CheckedProcedureGrade,
+    /// Domain-spoken rendering.
+    pub message: String,
+    /// The configured bounded question.
+    pub question: Question,
+    /// Fingerprint recomputed from the current compiled world.
+    pub current_fingerprint: ContentHash,
+}
+
+/// A committed answer that requires re-attestation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationStaleFinding {
+    /// Stable code, fixed to `attest.stale`.
+    pub code: AttestationStaleCode,
+    /// Blocking severity, fixed to `error`.
+    pub severity: AttestationErrorSeverity,
+    /// Procedure grade, fixed to `checked`.
+    pub grade: CheckedProcedureGrade,
+    /// Domain-spoken rendering.
+    pub message: String,
+    /// The configured bounded question.
+    pub question: Question,
+    /// Identity of the stored head record.
+    pub record_id: String,
+    /// Identity of the record superseded by the head, when one exists.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub supersedes: Option<String>,
+    /// The previous bounded answer, when the head supersedes a typed record.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub previous_answer: Option<AttestationAnswer>,
+    /// Fingerprint captured by the stored head.
+    pub stored_fingerprint: ContentHash,
+    /// Fingerprint recomputed from the current compiled world.
+    pub current_fingerprint: ContentHash,
+}
+
+impl AttestationCheckFinding {
+    /// Whether this outcome permits the document verdict to pass.
+    #[must_use]
+    pub const fn passes(&self) -> bool {
+        matches!(self, Self::Pass(_))
+    }
+
+    /// Procedure grade represented by this closed outcome.
+    #[must_use]
+    pub const fn procedure_grade(&self) -> Grade {
+        match self {
+            Self::Pass(_) | Self::Fail(_) => Grade::Attested,
+            Self::Missing(_) | Self::Stale(_) => Grade::Checked,
+        }
+    }
+
+    /// Stable finding code.
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::Pass(_) => "attest.pass",
+            Self::Fail(_) => "attest.fail",
+            Self::Missing(_) => "attest.missing",
+            Self::Stale(_) => "attest.stale",
+        }
+    }
+
+    /// Domain-spoken message.
+    #[must_use]
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Pass(finding) => &finding.message,
+            Self::Fail(finding) => &finding.message,
+            Self::Missing(finding) => &finding.message,
+            Self::Stale(finding) => &finding.message,
+        }
+    }
+}
+
+/// The closed bounded answer accepted by new attestation records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AttestationAnswer {
+    /// The model affirms the bounded proposition.
+    Yes,
+    /// The model rejects the bounded proposition.
+    No,
 }
 
 // -- dli.query ---------------------------------------------------------------
@@ -691,7 +943,86 @@ pub struct AttestationSweepParams {
     pub document: String,
     /// New records to append transactionally.
     #[schemars(length(min = 1))]
-    pub records: Vec<Attestation>,
+    pub records: Vec<AttestationRecord>,
+}
+
+impl AttestationAnswer {
+    /// The canonical wire and storage token.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Yes => "yes",
+            Self::No => "no",
+        }
+    }
+}
+
+impl fmt::Display for AttestationAnswer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<&str> for AttestationAnswer {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "yes" => Ok(Self::Yes),
+            "no" => Ok(Self::No),
+            _ => Err(()),
+        }
+    }
+}
+
+/// A new attestation accepted at the wire boundary.
+///
+/// The durable version-1 record retains a string answer so pre-`0.4.1`
+/// evidence can still be loaded. This request type closes all new writes to
+/// `yes` or `no`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationRecord {
+    /// The bounded question this record answers.
+    pub question: Question,
+    /// The bounded answer.
+    pub answer: AttestationAnswer,
+    /// SHA-256 identity of the model rationale.
+    pub rationale_hash: String,
+    /// The model that produced the judgment.
+    pub model: ModelRef,
+    /// The prompt posed to the model.
+    pub prompt: PromptRef,
+    /// Sampling parameters and agreement.
+    pub params: Sampling,
+    /// Re-attestation policy.
+    pub policy: Policy,
+    /// Record id superseded within this question chain.
+    pub supersedes: Option<String>,
+    /// Sweep manifest reference.
+    pub sweep: String,
+    /// Fingerprint of the world content judged.
+    pub fingerprint: ContentHash,
+}
+
+impl AttestationRecord {
+    /// Convert a validated wire record into the backward-compatible durable
+    /// representation.
+    #[must_use]
+    pub fn into_stored(self) -> Attestation {
+        Attestation {
+            question: self.question,
+            answer: self.answer.as_str().to_owned(),
+            rationale_hash: self.rationale_hash,
+            model: self.model,
+            prompt: self.prompt,
+            params: self.params,
+            policy: self.policy,
+            supersedes: self.supersedes,
+            sweep: self.sweep,
+            fingerprint: self.fingerprint,
+        }
+    }
 }
 
 /// `dli.attestation-sweep` result.

@@ -127,6 +127,114 @@ fn attestation_schema_matches_runtime_cardinality_rules() {
         value.pointer("/$defs/Sampling/properties/samples/minimum"),
         Some(&1.into())
     );
+    let answers = value
+        .pointer("/$defs/AttestationAnswer/oneOf")
+        .and_then(serde_json::Value::as_array)
+        .expect("closed answer variants")
+        .iter()
+        .map(|variant| variant["const"].as_str().expect("string answer"))
+        .collect::<Vec<_>>();
+    assert_eq!(answers, ["yes", "no"]);
+}
+
+#[test]
+fn check_finding_domains_round_trip_without_losing_payload_fields() {
+    use dli_core::Grade;
+    use dli_serve::contract::{
+        AttestationCheckFinding, AttestationPassCode, AttestationPassFinding,
+        AttestedProcedureGrade, CheckFinding, CheckResult, PayloadCheckFinding,
+    };
+    use dli_serve::{Finding, Severity};
+    use dli_world::attest::{ContentHash, Question};
+    use dli_world::check::Severity as PayloadSeverity;
+    use dli_world::payload::PayloadFinding;
+
+    let result = CheckResult {
+        ok: false,
+        grade: Grade::Checked,
+        findings: vec![
+            CheckFinding::World(Finding {
+                severity: Severity::Warn,
+                code: "world.advisory".to_owned(),
+                message: "advisory".to_owned(),
+                grade: Grade::Checked,
+                repair: None,
+                citations: Vec::new(),
+            }),
+            CheckFinding::Payload(PayloadCheckFinding {
+                payload_digest: format!("sha256:{}", "b".repeat(64)),
+                episode: "e01".to_owned(),
+                source_file: "draft.md".to_owned(),
+                finding: PayloadFinding {
+                    code: "factcheck.unsupported".to_owned(),
+                    severity: PayloadSeverity::Error,
+                    grade: Grade::Checked,
+                    message: "unsupported".to_owned(),
+                    line: Some(7),
+                    quote: Some("verbatim".to_owned()),
+                    principle: Some("principle-id".to_owned()),
+                    citations: vec!["d-1".to_owned()],
+                },
+            }),
+            CheckFinding::Attestation(AttestationCheckFinding::Pass(Box::new(
+                AttestationPassFinding {
+                    code: AttestationPassCode::Value,
+                    grade: AttestedProcedureGrade::Attested,
+                    message: "yes".to_owned(),
+                    question: Question {
+                        kind: "basis".to_owned(),
+                        atom: "basis(example)".to_owned(),
+                        subject: "example".to_owned(),
+                    },
+                    record_id: format!("sha256:{}", "a".repeat(64)),
+                    supersedes: None,
+                    previous_answer: None,
+                    stored_fingerprint: ContentHash("fnv1a64:1111111111111111".to_owned()),
+                    current_fingerprint: ContentHash("fnv1a64:1111111111111111".to_owned()),
+                },
+            ))),
+        ],
+    };
+    let value = serde_json::to_value(&result).unwrap();
+    assert_eq!(value["findings"][0]["domain"], "world");
+    assert_eq!(value["findings"][1]["domain"], "payload");
+    assert_eq!(
+        value["findings"][1]["payload_digest"],
+        format!("sha256:{}", "b".repeat(64))
+    );
+    assert_eq!(value["findings"][1]["episode"], "e01");
+    assert_eq!(value["findings"][1]["source_file"], "draft.md");
+    assert_eq!(value["findings"][1]["line"], 7);
+    assert_eq!(value["findings"][1]["quote"], "verbatim");
+    assert_eq!(value["findings"][2]["domain"], "attestation");
+    assert_eq!(
+        value["findings"][2]["record_id"],
+        format!("sha256:{}", "a".repeat(64))
+    );
+    assert_eq!(
+        value["findings"][2]["current_fingerprint"],
+        "fnv1a64:1111111111111111"
+    );
+    let schema = contract_schemas()
+        .into_iter()
+        .find(|(name, _)| name == "dli.check.response")
+        .expect("check response schema")
+        .1;
+    let validator = jsonschema::validator_for(schema.as_value()).unwrap();
+    assert!(validator.is_valid(&value));
+
+    let mut contradictory = value.clone();
+    contradictory["findings"][2]["code"] = "attest.fail".into();
+    contradictory["findings"][2]["grade"] = "checked".into();
+    contradictory["findings"][2]["severity"] = "error".into();
+    assert!(
+        !validator.is_valid(&contradictory),
+        "a pass cannot claim fail/error/checked fields"
+    );
+    assert_eq!(
+        serde_json::from_value::<CheckResult>(value).unwrap(),
+        result
+    );
 }
 
 #[test]

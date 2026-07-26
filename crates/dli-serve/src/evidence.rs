@@ -67,6 +67,15 @@ pub struct CommittedPayload {
     pub source: String,
 }
 
+/// One verified content-addressed payload record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedPayload {
+    /// SHA-256 address of the committed JCS record.
+    pub digest: String,
+    /// The verified durable record.
+    pub record: CommittedPayload,
+}
+
 /// A configured question that currently needs an answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingAttestation {
@@ -76,6 +85,30 @@ pub struct MissingAttestation {
     pub fingerprint: ContentHash,
     /// `missing` when no answer exists, `stale` when the current head moved.
     pub reason: &'static str,
+}
+
+/// One configured question's verified state in the durable store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckedAttestation {
+    /// The configured bounded question.
+    pub question: Question,
+    /// Its current world-content fingerprint.
+    pub fingerprint: ContentHash,
+    /// The record immediately preceding the head, when retained.
+    pub previous: Option<Box<Attestation>>,
+    /// Whether its answer is absent, stale, or current.
+    pub state: AttestationState,
+}
+
+/// The verified durable state of one configured attestation question.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttestationState {
+    /// No answer has been committed.
+    Missing,
+    /// The head answer was posed against different content or question data.
+    Stale(Box<Attestation>),
+    /// The current, fully validated head answer.
+    Current(Box<Attestation>),
 }
 
 /// The result of an atomic attestation append.
@@ -171,7 +204,7 @@ pub fn submit_payload(
 pub fn load_payloads(
     project: &Project,
     document: &str,
-) -> Result<Vec<CommittedPayload>, EvidenceError> {
+) -> Result<Vec<LoadedPayload>, EvidenceError> {
     require_document(project, document)?;
     let directory = evidence_directory(project, &["payloads", document])?;
     let mut paths = fs::read_dir(&directory)
@@ -200,7 +233,10 @@ pub fn load_payloads(
                 record.document
             )));
         }
-        records.push(record);
+        records.push(LoadedPayload {
+            digest: digest_bytes(&bytes),
+            record,
+        });
     }
     Ok(records)
 }
@@ -211,28 +247,60 @@ pub fn missing_attestations(
     document: &str,
     model: &WorldModel,
 ) -> Result<Vec<MissingAttestation>, EvidenceError> {
+    Ok(check_attestations(project, document, model)?
+        .into_iter()
+        .filter_map(|checked| match checked.state {
+            AttestationState::Missing => Some(MissingAttestation {
+                question: checked.question,
+                fingerprint: checked.fingerprint,
+                reason: "missing",
+            }),
+            AttestationState::Stale(_) => Some(MissingAttestation {
+                question: checked.question,
+                fingerprint: checked.fingerprint,
+                reason: "stale",
+            }),
+            AttestationState::Current(_) => None,
+        })
+        .collect())
+}
+
+/// Verify the attestation store and classify every configured question.
+pub fn check_attestations(
+    project: &Project,
+    document: &str,
+    model: &WorldModel,
+) -> Result<Vec<CheckedAttestation>, EvidenceError> {
     let configured = require_document(project, document)?
         .attestation_questions
         .clone();
     let loaded = load_attestations(project, document)?;
     Ok(configured
         .into_iter()
-        .filter_map(|question| {
+        .map(|question| {
             let fingerprint = current_fingerprint(model, &question);
-            match loaded.store.head(&question.key()) {
-                None => Some(MissingAttestation {
-                    question,
-                    fingerprint,
-                    reason: "missing",
-                }),
-                Some(head) if head.question != question || head.is_stale(&fingerprint) => {
-                    Some(MissingAttestation {
-                        question,
-                        fingerprint,
-                        reason: "stale",
-                    })
+            let key = question.key();
+            let chain = loaded.store.chain(&key);
+            let previous = chain
+                .get(chain.len().saturating_sub(2))
+                .filter(|_| chain.len() >= 2)
+                .map(|record| Box::new((*record).clone()));
+            let state = match loaded.store.head(&key) {
+                None => AttestationState::Missing,
+                Some(head)
+                    if head.question != question
+                        || head.is_stale(&fingerprint)
+                        || validate_answer(&head.answer).is_err() =>
+                {
+                    AttestationState::Stale(Box::new(head.clone()))
                 }
-                Some(_) => None,
+                Some(head) => AttestationState::Current(Box::new(head.clone())),
+            };
+            CheckedAttestation {
+                question,
+                fingerprint,
+                previous,
+                state,
             }
         })
         .collect())
@@ -283,6 +351,7 @@ pub fn append_attestations(
     let mut record_ids = loaded.record_ids;
     for record in records {
         validate_attestation(record)?;
+        validate_answer(&record.answer)?;
         let key = record.question.key();
         let expected_question = configured.get(&key).ok_or_else(|| {
             EvidenceError::Invalid(format!(
@@ -483,7 +552,6 @@ fn validate_attestation(record: &Attestation) -> Result<(), EvidenceError> {
         ("question.kind", q.kind.as_str()),
         ("question.atom", q.atom.as_str()),
         ("question.subject", q.subject.as_str()),
-        ("answer", record.answer.as_str()),
         ("model.provider", record.model.provider.as_str()),
         ("model.id", record.model.id.as_str()),
         ("model.as_of", record.model.as_of.as_str()),
@@ -529,6 +597,15 @@ fn validate_attestation(record: &Attestation) -> Result<(), EvidenceError> {
     }
     validate_date(&record.model.as_of)?;
     Ok(())
+}
+
+fn validate_answer(answer: &str) -> Result<(), EvidenceError> {
+    match answer {
+        "yes" | "no" => Ok(()),
+        _ => Err(EvidenceError::Invalid(
+            "`answer` must be either `yes` or `no`".into(),
+        )),
+    }
 }
 
 fn validate_date(value: &str) -> Result<(), EvidenceError> {

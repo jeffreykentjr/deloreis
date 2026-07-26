@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.4.0. Caller-project isolation, typed response semantics, durable payload and attestation evidence, Door T, and complete paired framing replay are implemented; resumable simulation jobs remain open, and consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.4.1. Caller-project isolation, typed response semantics, durable payload and attestation evidence, Door T, and complete paired framing replay are implemented; resumable simulation jobs remain open, and consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -19,7 +19,7 @@ vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. Version
-> `0.4.0` has typed responses for all 46 operations, strict caller projects,
+> `0.4.1` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
 > Durable fat-payload and attestation evidence is implemented. The three
 > `dli.simulate.*` operations remain capability-gated until resumable jobs land.
@@ -69,13 +69,13 @@ model utterance is one of four declared classes, or it does not enter.*
 
 The table states the semantics an advertised operation must satisfy. The three
 capability-gated simulation operations retain reservation schemas and fixtures
-at `0.4.0`; their request/response shapes are already migrated to the durable
+at `0.4.1`; their request/response shapes are already migrated to the durable
 job model that must land before they are enabled.
 
 | Op | Purpose | Returns |
 |---|---|---|
 | `dli.version` | Report the worker contract version and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
-| `dli.check` | Compile and check a scope or corpus. | graded findings + rendered lines |
+| `dli.check` | Compile and check a scope or corpus, replaying its committed evidence. | `ok`, weakest procedure `grade`, and domain-tagged findings with durable evidence identity |
 | `dli.query` | Query the compiled world (`--layer/--as-of/--fork/--why`). | every matching row: atom, bindings, status, support, grade, citations, optional why, rendered |
 | `dli.fork.new` | Create a fork. | fork handle |
 | `dli.fork.list` | List forks. | forks with base/assumes/counts |
@@ -174,7 +174,7 @@ path and commits through fantasy review.
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `0.4.0` enforces it for all 46 operations before v1.
+today: contract `0.4.1` enforces it for all 46 operations before v1.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -264,7 +264,7 @@ code, is the authority.
 - **Quote anchors on encodings.** Every encoded item carries a verbatim quote and
   line; the kernel verifies the quote appears at the claimed position.
 - **Job orchestration.** The consumer owns queue policy, retries, and UI around
-  worker-owned durable jobs. It must not treat the gated `0.4.0` simulation
+  worker-owned durable jobs. It must not treat the gated `0.4.1` simulation
   reservation as restart-safe.
 - **Digest-checked vendoring.** The contract copy is pinned to a digest and the
   gate fails if it drifts.

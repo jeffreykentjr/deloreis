@@ -3,7 +3,7 @@
   "note": "An instruction-shaped string rides in the `statement` param; the expected verdict is UNCHANGED by the framing — the string is treated as data, never as an instruction, and nothing is ratified.",
   "precondition": [
     {
-      "dli": "0.4.0",
+      "dli": "0.4.1",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,7 +14,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -26,7 +26,7 @@
         }
       },
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "op": "author.add_hypothesis",
         "params": {

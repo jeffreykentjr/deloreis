@@ -3,14 +3,18 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
 
+use dli_serve::CONTRACT_VERSION;
+use dli_serve::contract::AttestationAnswer;
 use dli_serve::evidence::{
     EvidenceError, append_attestations, canonical_bytes, current_fingerprint, digest_value,
     load_payloads, missing_attestations, submit_payload,
 };
 use dli_serve::project::Project;
+use dli_serve::serve::serve_project_io;
 use dli_world::attest::{Attestation, ContentHash, ModelRef, Policy, PromptRef, Sampling};
 use dli_world::compile;
 use dli_world::payload::{Payload, source_hash};
@@ -64,7 +68,7 @@ fn attestation(project: &Project, supersedes: Option<String>, id: char) -> Attes
     Attestation {
         fingerprint: current_fingerprint(&world.model, &question),
         question,
-        answer: "yes".to_owned(),
+        answer: AttestationAnswer::Yes.as_str().to_owned(),
         rationale_hash: format!("sha256:{}", id.to_string().repeat(64)),
         model: ModelRef {
             provider: "local-test".to_owned(),
@@ -99,6 +103,42 @@ fn json_files(path: &Path) -> Vec<PathBuf> {
     files
 }
 
+fn write_legacy_batch(project: &Project, mut record: Attestation, answer: &str) {
+    answer.clone_into(&mut record.answer);
+    let batch = serde_json::json!({
+        "version": 1,
+        "document": "world",
+        "parent": null,
+        "records": [record],
+    });
+    let bytes = canonical_bytes(&batch).unwrap();
+    let digest = digest_value(&batch).unwrap();
+    let directory = project.evidence_dir().join("attestations/world/batches");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(
+        directory.join(format!("{}.json", digest.strip_prefix("sha256:").unwrap())),
+        bytes,
+    )
+    .unwrap();
+}
+
+fn check_response(project: Project) -> serde_json::Value {
+    let request = serde_json::json!({
+        "dli": CONTRACT_VERSION,
+        "id": "check",
+        "op": "dli.check",
+        "params": {"document": "world"}
+    });
+    let mut output = Vec::new();
+    serve_project_io(
+        &mut Cursor::new(format!("{request}\n")),
+        &mut output,
+        project,
+    )
+    .unwrap();
+    serde_json::from_slice(&output).unwrap()
+}
+
 #[test]
 fn payload_publication_is_canonical_content_addressed_and_idempotent() {
     let (_temp, project) = write_project();
@@ -123,11 +163,12 @@ fn payload_publication_is_canonical_content_addressed_and_idempotent() {
     let bytes = fs::read(&files[0]).unwrap();
     let records = load_payloads(&project, "world").unwrap();
     assert_eq!(records.len(), 1);
-    assert_eq!(records[0].payload, payload);
-    assert_eq!(records[0].source, "one word");
+    assert_eq!(records[0].digest, first);
+    assert_eq!(records[0].record.payload, payload);
+    assert_eq!(records[0].record.source, "one word");
     assert_eq!(
         bytes,
-        serde_json_canonicalizer::to_vec(&records[0]).unwrap(),
+        serde_json_canonicalizer::to_vec(&records[0].record).unwrap(),
         "persisted evidence is JCS, not merely deterministic serde JSON"
     );
 }
@@ -227,6 +268,147 @@ fn attestation_history_is_linear_current_and_retry_safe() {
     );
     let batches = json_files(&project.evidence_dir().join("attestations/world/batches"));
     assert_eq!(batches.len(), 2);
+}
+
+#[test]
+fn document_check_consumes_current_missing_and_negative_attestations() {
+    let (temp, project) = write_project();
+    let missing = check_response(Project::load(temp.path()).unwrap());
+    assert_eq!(missing["result"]["ok"], false, "{missing}");
+    assert_eq!(missing["result"]["grade"], "checked", "{missing}");
+    assert_eq!(missing["result"]["findings"][0]["domain"], "attestation");
+    assert_eq!(missing["result"]["findings"][0]["severity"], "error");
+    assert_eq!(
+        missing["result"]["findings"][0]["outcome"], "missing",
+        "{missing}"
+    );
+
+    let world = compile(&project.document("world").unwrap().pack).unwrap();
+    let first = attestation(&project, None, 'a');
+    append_attestations(
+        &project,
+        "world",
+        std::slice::from_ref(&first),
+        &world.model,
+    )
+    .unwrap();
+    let passed = check_response(Project::load(temp.path()).unwrap());
+    assert_eq!(passed["result"]["ok"], true, "{passed}");
+    assert_eq!(passed["result"]["grade"], "attested", "{passed}");
+    assert_eq!(passed["result"]["findings"][0]["domain"], "attestation");
+    assert!(passed["result"]["findings"][0].get("severity").is_none());
+    assert_eq!(
+        passed["result"]["findings"][0]["outcome"], "pass",
+        "{passed}"
+    );
+    assert_eq!(
+        passed["result"]["findings"][0]["record_id"], first.rationale_hash,
+        "{passed}"
+    );
+    assert_eq!(
+        passed["result"]["findings"][0]["stored_fingerprint"], first.fingerprint.0,
+        "{passed}"
+    );
+    assert_eq!(
+        passed["result"]["findings"][0]["current_fingerprint"], first.fingerprint.0,
+        "{passed}"
+    );
+
+    fs::write(
+        temp.path().join("world.dli"),
+        "scope world\n\nratify d-1\n\nmarker(baseline) decided d-1\n\
+         marker(changed, baseline) decided d-1\n",
+    )
+    .unwrap();
+    let changed_project = Project::load(temp.path()).unwrap();
+    let stale = check_response(changed_project.clone());
+    assert_eq!(stale["result"]["ok"], false, "{stale}");
+    assert_eq!(stale["result"]["grade"], "checked", "{stale}");
+    assert_eq!(stale["result"]["findings"][0]["outcome"], "stale");
+    assert_eq!(stale["result"]["findings"][0]["severity"], "error");
+    assert_eq!(
+        stale["result"]["findings"][0]["record_id"], first.rationale_hash,
+        "{stale}"
+    );
+    assert_ne!(
+        stale["result"]["findings"][0]["stored_fingerprint"],
+        stale["result"]["findings"][0]["current_fingerprint"],
+        "{stale}"
+    );
+
+    let changed_world = compile(&changed_project.document("world").unwrap().pack).unwrap();
+    let mut second = attestation(&changed_project, Some(first.rationale_hash.clone()), 'c');
+    second.answer = AttestationAnswer::No.as_str().to_owned();
+    append_attestations(
+        &changed_project,
+        "world",
+        std::slice::from_ref(&second),
+        &changed_world.model,
+    )
+    .unwrap();
+    let failed = check_response(Project::load(temp.path()).unwrap());
+    assert_eq!(failed["result"]["ok"], false, "{failed}");
+    assert_eq!(failed["result"]["grade"], "attested", "{failed}");
+    assert_eq!(failed["result"]["findings"][0]["severity"], "error");
+    assert_eq!(
+        failed["result"]["findings"][0]["outcome"], "fail",
+        "{failed}"
+    );
+    assert_eq!(
+        failed["result"]["findings"][0]["record_id"], second.rationale_hash,
+        "{failed}"
+    );
+    assert_eq!(
+        failed["result"]["findings"][0]["supersedes"], first.rationale_hash,
+        "{failed}"
+    );
+    assert_eq!(
+        failed["result"]["findings"][0]["previous_answer"], "yes",
+        "{failed}"
+    );
+
+    let directory = changed_project
+        .evidence_dir()
+        .join("attestations/world/batches");
+    let path = json_files(&directory).remove(0);
+    fs::write(path, b"{}").unwrap();
+    let corrupt = check_response(Project::load(temp.path()).unwrap());
+    assert_eq!(corrupt["error"]["code"], "evidence-corrupt", "{corrupt}");
+}
+
+#[test]
+fn legacy_batch_answers_replay_without_reinterpreting_version_one_storage() {
+    let (yes_temp, yes_project) = write_project();
+    write_legacy_batch(&yes_project, attestation(&yes_project, None, 'a'), "yes");
+    let current = check_response(Project::load(yes_temp.path()).unwrap());
+    assert_eq!(current["result"]["ok"], true, "{current}");
+    assert_eq!(
+        current["result"]["findings"][0]["outcome"], "pass",
+        "{current}"
+    );
+
+    let (legacy_temp, legacy_project) = write_project();
+    write_legacy_batch(
+        &legacy_project,
+        attestation(&legacy_project, None, 'b'),
+        "perhaps",
+    );
+    let stale = check_response(Project::load(legacy_temp.path()).unwrap());
+    assert_eq!(stale["result"]["ok"], false, "{stale}");
+    assert_eq!(
+        stale["result"]["findings"][0]["outcome"], "stale",
+        "{stale}"
+    );
+    assert!(
+        stale["result"]["findings"][0]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("outside the current yes/no contract")),
+        "{stale}"
+    );
+    assert!(
+        stale["error"].is_null(),
+        "legacy evidence is stale, not corrupt: {stale}"
+    );
 }
 
 #[test]
@@ -405,6 +587,18 @@ fn rejected_attestation_writes_nothing() {
             &world.model
         ),
         Err(EvidenceError::Conflict(_))
+    ));
+
+    let mut unbounded = attestation(&project, Some(first_record.rationale_hash.clone()), 'e');
+    unbounded.answer = "perhaps".to_owned();
+    assert!(matches!(
+        append_attestations(
+            &project,
+            "world",
+            std::slice::from_ref(&unbounded),
+            &world.model
+        ),
+        Err(EvidenceError::Invalid(_))
     ));
 
     let mut stale = attestation(&project, Some(first_record.rationale_hash.clone()), 'd');

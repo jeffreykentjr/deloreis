@@ -5,22 +5,480 @@
   "type": "object",
   "properties": {
     "findings": {
-      "description": "Findings, if any.",
+      "description": "World, payload, and attestation findings, if any.",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/Finding"
+        "$ref": "#/$defs/CheckFinding"
       }
     },
+    "grade": {
+      "description": "The weakest procedure grade used by the complete check.",
+      "$ref": "#/$defs/Grade"
+    },
     "ok": {
-      "description": "Whether the document is clean.",
+      "description": "Whether the document has no blocking error or attestation outcome.\nAdvisory findings may be present when this is true.",
       "type": "boolean"
     }
   },
   "required": [
     "ok",
+    "grade",
     "findings"
   ],
   "$defs": {
+    "AttestationAnswer": {
+      "description": "The closed bounded answer accepted by new attestation records.",
+      "oneOf": [
+        {
+          "description": "The model affirms the bounded proposition.",
+          "type": "string",
+          "const": "yes"
+        },
+        {
+          "description": "The model rejects the bounded proposition.",
+          "type": "string",
+          "const": "no"
+        }
+      ]
+    },
+    "AttestationErrorSeverity": {
+      "description": "The only severity carried by a blocking attestation outcome.",
+      "oneOf": [
+        {
+          "description": "The outcome blocks the document verdict.",
+          "type": "string",
+          "const": "error"
+        }
+      ]
+    },
+    "AttestationFailCode": {
+      "description": "The singleton code serialized by an attestation failure.",
+      "oneOf": [
+        {
+          "description": "`attest.fail`.",
+          "type": "string",
+          "const": "attest.fail"
+        }
+      ]
+    },
+    "AttestationMissingCode": {
+      "description": "The singleton code serialized by a missing attestation.",
+      "oneOf": [
+        {
+          "description": "`attest.missing`.",
+          "type": "string",
+          "const": "attest.missing"
+        }
+      ]
+    },
+    "AttestationPassCode": {
+      "description": "The singleton code serialized by an attestation pass.",
+      "oneOf": [
+        {
+          "description": "`attest.pass`.",
+          "type": "string",
+          "const": "attest.pass"
+        }
+      ]
+    },
+    "AttestationStaleCode": {
+      "description": "The singleton code serialized by a stale attestation.",
+      "oneOf": [
+        {
+          "description": "`attest.stale`.",
+          "type": "string",
+          "const": "attest.stale"
+        }
+      ]
+    },
+    "AttestedProcedureGrade": {
+      "description": "The only grade carried by a current model judgment.",
+      "oneOf": [
+        {
+          "description": "The procedure consumed a stored model judgment.",
+          "type": "string",
+          "const": "attested"
+        }
+      ]
+    },
+    "CheckFinding": {
+      "description": "A document-wide check finding without flattening domain-specific evidence.",
+      "oneOf": [
+        {
+          "description": "A world/compiler finding.",
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "const": "world"
+            }
+          },
+          "$ref": "#/$defs/Finding",
+          "required": [
+            "domain"
+          ]
+        },
+        {
+          "description": "A replayed payload finding with durable payload and source identity.",
+          "type": "object",
+          "properties": {
+            "citations": {
+              "description": "Ledger citations backing the finding (`d-nnnn`), when it turns on a ruling.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "description": "The stable dotted class code (`family.item`), e.g. `anchor.quote-missing`.",
+              "type": "string"
+            },
+            "domain": {
+              "type": "string",
+              "const": "payload"
+            },
+            "episode": {
+              "description": "Episode identifier carried by the payload.",
+              "type": "string"
+            },
+            "grade": {
+              "description": "The verification grade of the check that produced it. Every deterministic\nkernel check re-derives exactly, so `PAY-1`'s findings carry\n[`Grade::Checked`].",
+              "$ref": "#/$defs/Grade"
+            },
+            "line": {
+              "description": "The draft line the finding turns on, when it anchors to one.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
+            "message": {
+              "description": "A domain-spoken description of the finding.",
+              "type": "string"
+            },
+            "payload_digest": {
+              "description": "SHA-256 address of the committed payload record.",
+              "type": "string"
+            },
+            "principle": {
+              "description": "The craft principle this finding cites, when the check is a craft rule.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "quote": {
+              "description": "The verbatim quote from the draft the finding renders, when it has one.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "severity": {
+              "description": "How much the finding must be attended to.",
+              "$ref": "#/$defs/Severity2"
+            },
+            "source_file": {
+              "description": "Source filename carried by the payload.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "domain",
+            "payload_digest",
+            "episode",
+            "source_file",
+            "code",
+            "severity",
+            "grade",
+            "message"
+          ]
+        },
+        {
+          "description": "A durable attestation dependency and its pass/fail state.",
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "const": "attestation"
+            }
+          },
+          "oneOf": [
+            {
+              "description": "A current affirmative answer.",
+              "type": "object",
+              "properties": {
+                "code": {
+                  "description": "Stable code, fixed to `attest.pass`.",
+                  "$ref": "#/$defs/AttestationPassCode"
+                },
+                "current_fingerprint": {
+                  "description": "Fingerprint recomputed from the current compiled world.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "grade": {
+                  "description": "Procedure grade, fixed to `attested`.",
+                  "$ref": "#/$defs/AttestedProcedureGrade"
+                },
+                "message": {
+                  "description": "Domain-spoken rendering.",
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "const": "pass"
+                },
+                "previous_answer": {
+                  "description": "The previous bounded answer, when the head supersedes a typed record.",
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/AttestationAnswer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "question": {
+                  "description": "The configured bounded question.",
+                  "$ref": "#/$defs/Question"
+                },
+                "record_id": {
+                  "description": "Identity of the stored head record.",
+                  "type": "string"
+                },
+                "stored_fingerprint": {
+                  "description": "Fingerprint captured by the stored head.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "supersedes": {
+                  "description": "Identity of the record superseded by the head, when one exists.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "outcome",
+                "code",
+                "grade",
+                "message",
+                "question",
+                "record_id",
+                "stored_fingerprint",
+                "current_fingerprint"
+              ]
+            },
+            {
+              "description": "A current negative answer.",
+              "type": "object",
+              "properties": {
+                "code": {
+                  "description": "Stable code, fixed to `attest.fail`.",
+                  "$ref": "#/$defs/AttestationFailCode"
+                },
+                "current_fingerprint": {
+                  "description": "Fingerprint recomputed from the current compiled world.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "grade": {
+                  "description": "Procedure grade, fixed to `attested`.",
+                  "$ref": "#/$defs/AttestedProcedureGrade"
+                },
+                "message": {
+                  "description": "Domain-spoken rendering.",
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "const": "fail"
+                },
+                "previous_answer": {
+                  "description": "The previous bounded answer, when the head supersedes a typed record.",
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/AttestationAnswer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "question": {
+                  "description": "The configured bounded question.",
+                  "$ref": "#/$defs/Question"
+                },
+                "record_id": {
+                  "description": "Identity of the stored head record.",
+                  "type": "string"
+                },
+                "severity": {
+                  "description": "Blocking severity, fixed to `error`.",
+                  "$ref": "#/$defs/AttestationErrorSeverity"
+                },
+                "stored_fingerprint": {
+                  "description": "Fingerprint captured by the stored head.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "supersedes": {
+                  "description": "Identity of the record superseded by the head, when one exists.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "outcome",
+                "code",
+                "severity",
+                "grade",
+                "message",
+                "question",
+                "record_id",
+                "stored_fingerprint",
+                "current_fingerprint"
+              ]
+            },
+            {
+              "description": "No answer has been committed.",
+              "type": "object",
+              "properties": {
+                "code": {
+                  "description": "Stable code, fixed to `attest.missing`.",
+                  "$ref": "#/$defs/AttestationMissingCode"
+                },
+                "current_fingerprint": {
+                  "description": "Fingerprint recomputed from the current compiled world.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "grade": {
+                  "description": "Procedure grade, fixed to `checked`.",
+                  "$ref": "#/$defs/CheckedProcedureGrade"
+                },
+                "message": {
+                  "description": "Domain-spoken rendering.",
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "const": "missing"
+                },
+                "question": {
+                  "description": "The configured bounded question.",
+                  "$ref": "#/$defs/Question"
+                },
+                "severity": {
+                  "description": "Blocking severity, fixed to `error`.",
+                  "$ref": "#/$defs/AttestationErrorSeverity"
+                }
+              },
+              "required": [
+                "outcome",
+                "code",
+                "severity",
+                "grade",
+                "message",
+                "question",
+                "current_fingerprint"
+              ]
+            },
+            {
+              "description": "The committed answer is not current.",
+              "type": "object",
+              "properties": {
+                "code": {
+                  "description": "Stable code, fixed to `attest.stale`.",
+                  "$ref": "#/$defs/AttestationStaleCode"
+                },
+                "current_fingerprint": {
+                  "description": "Fingerprint recomputed from the current compiled world.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "grade": {
+                  "description": "Procedure grade, fixed to `checked`.",
+                  "$ref": "#/$defs/CheckedProcedureGrade"
+                },
+                "message": {
+                  "description": "Domain-spoken rendering.",
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "const": "stale"
+                },
+                "previous_answer": {
+                  "description": "The previous bounded answer, when the head supersedes a typed record.",
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/AttestationAnswer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "question": {
+                  "description": "The configured bounded question.",
+                  "$ref": "#/$defs/Question"
+                },
+                "record_id": {
+                  "description": "Identity of the stored head record.",
+                  "type": "string"
+                },
+                "severity": {
+                  "description": "Blocking severity, fixed to `error`.",
+                  "$ref": "#/$defs/AttestationErrorSeverity"
+                },
+                "stored_fingerprint": {
+                  "description": "Fingerprint captured by the stored head.",
+                  "$ref": "#/$defs/ContentHash"
+                },
+                "supersedes": {
+                  "description": "Identity of the record superseded by the head, when one exists.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "outcome",
+                "code",
+                "severity",
+                "grade",
+                "message",
+                "question",
+                "record_id",
+                "stored_fingerprint",
+                "current_fingerprint"
+              ]
+            }
+          ],
+          "required": [
+            "domain"
+          ]
+        }
+      ]
+    },
+    "CheckedProcedureGrade": {
+      "description": "The only grade carried by deterministic absence or staleness detection.",
+      "oneOf": [
+        {
+          "description": "The procedure re-derived the outcome exactly.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "ContentHash": {
+      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection. Subject fingerprints cover fact content, standing,\nand resolved support; [`fingerprint_facts`] remains the atom-only primitive\nfor callers that explicitly need that projection. It needs no cryptographic\nstrength because the factory that writes the store is trusted and the threat\nis accidental drift, not adversarial collision. It is deliberately distinct\nfrom the factory-supplied `sha256:` hashes carried in\n[`Attestation::rationale_hash`] and [`PromptRef::hash`].",
+      "type": "string"
+    },
     "Finding": {
       "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
       "type": "object",
@@ -85,6 +543,30 @@
         }
       ]
     },
+    "Question": {
+      "description": "The bounded question an attestation answers — a claim with a fact-of-the-\nmatter *outside* the repo (a dialect's real basis, homophone plausibility,\ntone-fit), exactly the kind of question to spend model time and zero author\ntime on.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The question class, e.g. `dialect-real-basis`.",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The world entity whose current content decides staleness, e.g. `enfys`.\nThe staleness anchor: when the world's facts about this subject change,\nthe attestation goes stale and joins the re-attestation queue.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "atom",
+        "subject"
+      ]
+    },
     "Severity": {
       "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
       "oneOf": [
@@ -95,6 +577,21 @@
         },
         {
           "description": "Advisory; does not block materialization.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    },
+    "Severity2": {
+      "description": "How much a [`WorldFinding`] must be attended to.",
+      "oneOf": [
+        {
+          "description": "A violation: the world (or a draft) contradicts canon or asserts what it\nmay not.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "A defect worth a look that does not, on its own, break canon.",
           "type": "string",
           "const": "warn"
         }

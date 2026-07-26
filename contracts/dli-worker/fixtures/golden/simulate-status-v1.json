@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "op": "dli.simulate.start",
         "params": {
@@ -16,18 +16,18 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "ok": false,
         "error": {
           "code": "not-wired",
-          "message": "dli.simulate.start is defined by contract 0.4.0 but this build does not yet implement its promised semantics"
+          "message": "dli.simulate.start is defined by contract 0.4.1 but this build does not yet implement its promised semantics"
         }
       }
     },
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "op": "dli.simulate.status",
         "params": {
@@ -35,12 +35,12 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "ok": false,
         "error": {
           "code": "not-wired",
-          "message": "dli.simulate.status is defined by contract 0.4.0 but this build does not yet implement its promised semantics"
+          "message": "dli.simulate.status is defined by contract 0.4.1 but this build does not yet implement its promised semantics"
         }
       }
     }

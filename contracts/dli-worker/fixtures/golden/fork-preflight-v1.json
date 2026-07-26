@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -12,7 +12,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -22,7 +22,7 @@
     },
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "op": "dli.fork.suppose",
         "params": {
@@ -33,7 +33,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "ok": true,
         "result": {
@@ -66,7 +66,7 @@
     },
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "3",
         "op": "dli.fork.preflight",
         "params": {
@@ -74,7 +74,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "3",
         "ok": true,
         "result": {

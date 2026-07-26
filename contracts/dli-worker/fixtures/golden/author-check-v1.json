@@ -4,7 +4,7 @@
   "note": "author.check runs the full check battery over the staged world — one graded finding list; a freshly-opened workspace is clean.",
   "precondition": [
     {
-      "dli": "0.4.0",
+      "dli": "0.4.1",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "op": "author.check",
         "params": {
@@ -23,7 +23,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "ok": true,
         "result": {

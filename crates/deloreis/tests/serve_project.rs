@@ -56,9 +56,9 @@ fn stdio_project_mode_serves_norse_and_never_camelot() {
     let output = run_with_input(
         &["serve", "--project", &project],
         concat!(
-            "{\"dli\":\"0.4.0\",\"id\":\"1\",\"op\":\"dli.query\",",
+            "{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"dli.query\",",
             "\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\"}}\n",
-            "{\"dli\":\"0.4.0\",\"id\":\"2\",\"op\":\"dli.check\",",
+            "{\"dli\":\"0.4.1\",\"id\":\"2\",\"op\":\"dli.check\",",
             "\"params\":{\"document\":\"camelot\"}}\n"
         ),
     );
@@ -76,7 +76,7 @@ fn stdio_project_mode_serves_norse_and_never_camelot() {
 fn explicit_demo_mode_keeps_the_neutral_fixture_available() {
     let output = run_with_input(
         &["serve", "--demo"],
-        "{\"dli\":\"0.4.0\",\"id\":\"1\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n",
+        "{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n",
     );
     assert!(
         output.status.success(),

@@ -760,3 +760,35 @@ tests are not durability or semantic-completeness evidence. A general caller
 must be able to retry after later writes, restart after an interrupted publish,
 detect corruption elsewhere in the same store, and trust that no accepted
 payload field was ignored.
+
+## DL-0033 — Contract 0.4.1 makes evidence part of the document verdict
+
+*Date: 2026-07-26*
+
+**Ruling.** Contract `0.4.1` changes `dli.check` from a world-only finding list
+to the complete replayed document verdict. The response carries `ok`, the
+weakest procedure `grade`, and domain-tagged world, payload, and attestation
+findings. Payload findings retain their source line, verbatim quote, principle,
+citations, committed payload digest, episode, and source filename. Every
+configured attestation question is consumed explicitly:
+a current `yes` passes at grade `attested`; a current `no` fails at grade
+`attested`; missing or stale evidence fails closed at grade `checked`. New wire
+records use a closed Rust and JSON Schema `yes | no` type. The durable
+batch-version-1 representation remains string-valued so existing `0.4.0`
+evidence can be replayed; a legacy answer outside the closed set is stale and
+requires re-attestation, never evidence corruption. Attestation result states
+are a closed outcome union: each outcome fixes its code, severity, grade, and
+required evidence fields rather than relying on correlated free fields.
+
+This is a pre-v1 wire migration from `0.4.0` to `0.4.1`; it is not a silent
+mutation of the earlier response schema. Request-level retries are therefore
+version-scoped: an exact `0.4.0` request is not reinterpreted as `0.4.1`.
+Durable readers still recognize and replay every committed batch-version-1
+artifact, including batches written through `0.4.0`. Attestations remain
+side-band check evidence and never become canon support.
+
+**Rationale.** Persisting evidence without consuming it in the ordinary check
+path leaves callers with a durable archive but no replayable verdict. Domain
+tags prevent structurally overlapping finding shapes from deserializing into
+the wrong variant, and retaining payload identity plus anchors preserves the
+evidence a caller needs to render or repair the defect.

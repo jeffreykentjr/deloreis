@@ -172,12 +172,14 @@ committed (DL-0006), for three reasons:
 3. **Drift semantics.** When a sweep re-poses `q-3f9c21` to a new model and the
    answer flips yes→no, a superseding record commits, and the next
    `deloreis check` flips the consuming check from pass(attested) to
-   fail(attested) — a diffable finding rendering both records — **while nothing
-   in canon moves.** The name is ratified by its D-entry; the flip generates at
-   most an RQ ("the model no longer believes the basis; keep, re-derive, or rule
-   it explicitly"). If attestations were support, model drift would churn derived
-   canon. Instead the flag flips like any drift finding, and that is the entire
-   drift story.
+   fail(attested) — a diffable finding whose closed outcome implies the new
+   answer and carries the new record id, the superseded record id and prior
+   typed answer, and both staleness fingerprints — **while nothing in canon
+   moves.** The name is ratified by its
+   D-entry; the flip generates at most an RQ ("the model no longer believes the
+   basis; keep, re-derive, or rule it explicitly"). If attestations were support,
+   model drift would churn derived canon. Instead the flag flips like any drift
+   finding, and that is the entire drift story.
 
 **Ratification-exit.** The author may review an attested question whenever they
 please. The ruling converts the question from judgment to fact: support now

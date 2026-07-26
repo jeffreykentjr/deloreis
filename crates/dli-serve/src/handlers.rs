@@ -167,9 +167,12 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     let project = sessions.project_handle();
     let pack = sessions.pack(&p.document);
     let scope = resolve(sessions, &p.document)?;
-    let mut findings = check::run(&scope.world)
+    let world_findings = check::run(&scope.world);
+    let mut procedure_grades = vec![Grade::Checked];
+    procedure_grades.extend(world_findings.iter().map(|finding| finding.grade));
+    let mut findings = world_findings
         .iter()
-        .map(world_finding)
+        .map(|finding| CheckFinding::World(world_finding(finding)))
         .collect::<Vec<_>>();
     if let Some(project) = project {
         let pack = pack.ok_or_else(|| {
@@ -186,7 +189,8 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         })?;
         let records = evidence::load_payloads(&project, &p.document)
             .map_err(|error| evidence_fault(&error))?;
-        for record in records {
+        for loaded in records {
+            let record = loaded.record;
             let mut context = BatteryContext::new(&record.source).with_documents(&pack.documents);
             if let Some(outlines) = &document.outlines {
                 context = context.with_outlines(&outlines.episodes);
@@ -194,27 +198,58 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
             if let Some(season) = &document.craft_ledger {
                 context = context.with_season(season);
             }
-            findings.extend(
-                check_payload(&scope.world, &record.payload, &context)
-                    .iter()
-                    .map(payload_finding),
-            );
+            let payload_findings = check_payload(&scope.world, &record.payload, &context);
+            procedure_grades.extend(payload_findings.iter().map(|finding| finding.grade));
+            let episode = record.payload.meta.episode.clone();
+            let source_file = record.payload.meta.source.file.clone();
+            findings.extend(payload_findings.into_iter().map(|finding| {
+                CheckFinding::Payload(PayloadCheckFinding {
+                    payload_digest: loaded.digest.clone(),
+                    episode: episode.clone(),
+                    source_file: source_file.clone(),
+                    finding,
+                })
+            }));
+        }
+        let checked = evidence::check_attestations(&project, &p.document, &scope.world.model)
+            .map_err(|error| evidence_fault(&error))?;
+        for attestation in checked {
+            let finding = attestation_check_finding(attestation);
+            procedure_grades.push(finding.procedure_grade());
+            findings.push(CheckFinding::Attestation(finding));
         }
     }
-    findings.sort_by(|left, right| {
-        (&left.code, &left.message, &left.citations).cmp(&(
-            &right.code,
-            &right.message,
-            &right.citations,
-        ))
-    });
+    findings.sort_by(|left, right| check_finding_key(left).cmp(&check_finding_key(right)));
+    let ok = findings.iter().all(check_finding_passes);
+    let grade = complete_check_grade(procedure_grades);
     Ok(ok_response(
         request,
         &CheckResult {
-            ok: findings.is_empty(),
+            ok,
+            grade,
             findings,
         },
     ))
+}
+
+fn complete_check_grade(grades: impl IntoIterator<Item = Grade>) -> Grade {
+    Grade::weakest(grades)
+}
+
+fn check_finding_passes(finding: &CheckFinding) -> bool {
+    match finding {
+        CheckFinding::World(finding) => finding.severity != Severity::Error,
+        CheckFinding::Payload(finding) => finding.finding.severity != PayloadSeverity::Error,
+        CheckFinding::Attestation(finding) => finding.passes(),
+    }
+}
+
+fn check_finding_key(finding: &CheckFinding) -> (u8, &str, &str) {
+    match finding {
+        CheckFinding::World(finding) => (0, &finding.code, &finding.message),
+        CheckFinding::Payload(finding) => (1, &finding.finding.code, &finding.finding.message),
+        CheckFinding::Attestation(finding) => (2, finding.code(), finding.message()),
+    }
 }
 
 fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
@@ -858,8 +893,13 @@ fn handle_attestation_sweep(request: &Request, sessions: &mut Sessions) -> Resul
     let p: AttestationSweepParams = params(request)?;
     let project = require_project(sessions)?;
     let scope = resolve(sessions, &p.document)?;
+    let records = p
+        .records
+        .into_iter()
+        .map(AttestationRecord::into_stored)
+        .collect::<Vec<_>>();
     let appended =
-        evidence::append_attestations(&project, &p.document, &p.records, &scope.world.model)
+        evidence::append_attestations(&project, &p.document, &records, &scope.world.model)
             .map_err(|error| evidence_fault(&error))?;
     Ok(ok_response(
         request,
@@ -1266,18 +1306,91 @@ fn world_finding(finding: &WorldFinding) -> Finding {
     }
 }
 
-/// Map a replayed payload finding onto the document-wide check result.
-fn payload_finding(finding: &dli_world::payload::PayloadFinding) -> Finding {
-    Finding {
-        severity: match finding.severity {
-            PayloadSeverity::Error => Severity::Error,
-            PayloadSeverity::Warn => Severity::Warn,
-        },
-        code: finding.code.clone(),
-        message: finding.message.clone(),
-        grade: finding.grade,
-        repair: None,
-        citations: finding.citations.clone(),
+fn attestation_check_finding(checked: evidence::CheckedAttestation) -> AttestationCheckFinding {
+    let evidence::CheckedAttestation {
+        question,
+        fingerprint,
+        previous,
+        state,
+    } = checked;
+    let key = question.key();
+    let previous_answer = previous
+        .as_ref()
+        .and_then(|record| AttestationAnswer::try_from(record.answer.as_str()).ok());
+    match state {
+        evidence::AttestationState::Missing => {
+            AttestationCheckFinding::Missing(Box::new(AttestationMissingFinding {
+                code: AttestationMissingCode::Value,
+                severity: AttestationErrorSeverity::Error,
+                grade: CheckedProcedureGrade::Checked,
+                message: format!(
+                    "the question '{key}' has no attestation; the kernel will not guess an answer"
+                ),
+                question,
+                current_fingerprint: fingerprint,
+            }))
+        }
+        evidence::AttestationState::Stale(attestation) => {
+            let reason = if AttestationAnswer::try_from(attestation.answer.as_str()).is_err() {
+                "uses an answer outside the current yes/no contract"
+            } else {
+                "was posed against different question data or world content"
+            };
+            AttestationCheckFinding::Stale(Box::new(AttestationStaleFinding {
+                code: AttestationStaleCode::Value,
+                severity: AttestationErrorSeverity::Error,
+                grade: CheckedProcedureGrade::Checked,
+                message: format!(
+                    "the stored judgment for question '{key}' {reason}; re-attestation is required"
+                ),
+                question,
+                record_id: attestation.record_id().to_owned(),
+                supersedes: attestation.supersedes.clone(),
+                previous_answer,
+                stored_fingerprint: attestation.fingerprint.clone(),
+                current_fingerprint: fingerprint,
+            }))
+        }
+        evidence::AttestationState::Current(attestation) => {
+            let answer = AttestationAnswer::try_from(attestation.answer.as_str())
+                .expect("evidence classifies only yes/no records as current");
+            let record_id = attestation.record_id().to_owned();
+            let message = match (&attestation.supersedes, previous_answer) {
+                (Some(previous_id), Some(previous)) => format!(
+                    "stored judgment '{record_id}' answers '{answer}' to question '{key}', \
+                     superseding '{previous_id}' which answered '{previous}'"
+                ),
+                _ => {
+                    format!("stored judgment '{record_id}' answers '{answer}' to question '{key}'")
+                }
+            };
+            if answer == AttestationAnswer::Yes {
+                AttestationCheckFinding::Pass(Box::new(AttestationPassFinding {
+                    code: AttestationPassCode::Value,
+                    grade: AttestedProcedureGrade::Attested,
+                    message,
+                    question,
+                    record_id,
+                    supersedes: attestation.supersedes.clone(),
+                    previous_answer,
+                    stored_fingerprint: attestation.fingerprint.clone(),
+                    current_fingerprint: fingerprint,
+                }))
+            } else {
+                AttestationCheckFinding::Fail(Box::new(AttestationFailFinding {
+                    code: AttestationFailCode::Value,
+                    severity: AttestationErrorSeverity::Error,
+                    grade: AttestedProcedureGrade::Attested,
+                    message,
+                    question,
+                    record_id,
+                    supersedes: attestation.supersedes.clone(),
+                    previous_answer,
+                    stored_fingerprint: attestation.fingerprint.clone(),
+                    current_fingerprint: fingerprint,
+                }))
+            }
+        }
     }
 }
 
@@ -1575,5 +1688,60 @@ fn error_response(request: &Request, code: ErrorCode, message: impl Into<String>
             message: message.into(),
             data: None,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use dli_world::payload::PayloadFinding;
+
+    use super::*;
+
+    #[test]
+    fn document_ok_ignores_warnings_but_not_errors() {
+        let world_warn = CheckFinding::World(Finding {
+            severity: Severity::Warn,
+            code: "entity.unknown".to_owned(),
+            message: "advisory".to_owned(),
+            grade: Grade::Checked,
+            repair: None,
+            citations: Vec::new(),
+        });
+        let payload_warn = CheckFinding::Payload(PayloadCheckFinding {
+            payload_digest: format!("sha256:{}", "0".repeat(64)),
+            episode: "e01".to_owned(),
+            source_file: "draft.md".to_owned(),
+            finding: PayloadFinding {
+                code: "fact.contradiction".to_owned(),
+                severity: PayloadSeverity::Warn,
+                grade: Grade::Checked,
+                message: "advisory".to_owned(),
+                line: None,
+                quote: None,
+                principle: None,
+                citations: Vec::new(),
+            },
+        });
+        assert!(check_finding_passes(&world_warn));
+        assert!(check_finding_passes(&payload_warn));
+
+        let world_error = CheckFinding::World(Finding {
+            severity: Severity::Error,
+            code: "fact.contradiction".to_owned(),
+            message: "blocking".to_owned(),
+            grade: Grade::Checked,
+            repair: None,
+            citations: Vec::new(),
+        });
+        assert!(!check_finding_passes(&world_error));
+    }
+
+    #[test]
+    fn document_grade_is_the_weakest_consumed_procedure() {
+        assert_eq!(complete_check_grade([Grade::Checked]), Grade::Checked);
+        assert_eq!(
+            complete_check_grade([Grade::Checked, Grade::Tested, Grade::Attested]),
+            Grade::Attested
+        );
     }
 }

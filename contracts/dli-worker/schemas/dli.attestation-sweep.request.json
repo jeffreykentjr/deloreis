@@ -12,7 +12,7 @@
       "description": "New records to append transactionally.",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/Attestation"
+        "$ref": "#/$defs/AttestationRecord"
       },
       "minItems": 1
     }
@@ -23,16 +23,31 @@
     "records"
   ],
   "$defs": {
-    "Attestation": {
-      "description": "A recorded model answer to a bounded question, carrying everything needed to\nreplay the question and decide whether the record is still current.\n\nThe record is replayable — serialize it, ship it, commit it — but the\njudgment is only weakly so. It is an evidence class that lives with the\ncorpus, machine-written and agent-committed, append-only per question.",
+    "AttestationAnswer": {
+      "description": "The closed bounded answer accepted by new attestation records.",
+      "oneOf": [
+        {
+          "description": "The model affirms the bounded proposition.",
+          "type": "string",
+          "const": "yes"
+        },
+        {
+          "description": "The model rejects the bounded proposition.",
+          "type": "string",
+          "const": "no"
+        }
+      ]
+    },
+    "AttestationRecord": {
+      "description": "A new attestation accepted at the wire boundary.\n\nThe durable version-1 record retains a string answer so pre-`0.4.1`\nevidence can still be loaded. This request type closes all new writes to\n`yes` or `no`.",
       "type": "object",
       "properties": {
         "answer": {
-          "description": "The recorded answer, e.g. `yes`.",
-          "type": "string"
+          "description": "The bounded answer.",
+          "$ref": "#/$defs/AttestationAnswer"
         },
         "fingerprint": {
-          "description": "The content-fingerprint of what the judgment rested on, captured when the\nattestation was taken. Staleness is `fingerprint != current`\n([`Attestation::is_stale`]).",
+          "description": "Fingerprint of the world content judged.",
           "$ref": "#/$defs/ContentHash"
         },
         "model": {
@@ -40,15 +55,15 @@
           "$ref": "#/$defs/ModelRef"
         },
         "params": {
-          "description": "The sampling parameters and consensus.",
+          "description": "Sampling parameters and agreement.",
           "$ref": "#/$defs/Sampling"
         },
         "policy": {
-          "description": "The re-attestation policy.",
+          "description": "Re-attestation policy.",
           "$ref": "#/$defs/Policy"
         },
         "prompt": {
-          "description": "The prompt the question was posed under.",
+          "description": "The prompt posed to the model.",
           "$ref": "#/$defs/PromptRef"
         },
         "question": {
@@ -56,18 +71,18 @@
           "$ref": "#/$defs/Question"
         },
         "rationale_hash": {
-          "description": "A `sha256:` hash of the model's rationale; the full text lives in the\nsweep manifest. Factory-supplied — stored and compared, never recomputed.",
+          "description": "SHA-256 identity of the model rationale.",
           "type": "string"
         },
         "supersedes": {
-          "description": "The `rationale_hash` of the record this one supersedes, or `None` for the\nfirst answer to a question. Provenance metadata: the chain is retained\nand readable positionally in the [`AttestationStore`] regardless.",
+          "description": "Record id superseded within this question chain.",
           "type": [
             "string",
             "null"
           ]
         },
         "sweep": {
-          "description": "The sweep manifest that committed this record, e.g.\n`lab/campaign-082/runs/attest-0007.manifest.json`.",
+          "description": "Sweep manifest reference.",
           "type": "string"
         }
       },

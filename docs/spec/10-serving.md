@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.4.0, offline and deterministic. Typed responses, durable payload and attestation evidence, and fixture closure are complete; resumable simulation jobs remain open."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.4.1, offline and deterministic. Typed responses, durable payload and attestation evidence, and fixture closure are complete; resumable simulation jobs remain open."
 ---
 
 # Serving
@@ -101,17 +101,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.4.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.4.1", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.4.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.4.1", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.4.0", "id": "<correlation>", "ok": false,
+{"dli": "0.4.1", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -143,10 +143,24 @@ lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
 
-Contract `0.4.0` returns complete typed query rows, before/after fork changes,
+Contract `0.4.1` returns complete typed query rows, before/after fork changes,
 named preflight valuations, typed timeline reports, and target-shaped export
 emissions. The generated response schemas under `contracts/dli-worker/schemas/`
 are the machine-readable authority for those shapes.
+
+`dli.check` returns `{ok, grade, findings}`. Every finding is tagged by
+`domain` (`world`, `payload`, or `attestation`) rather than flattened. Payload
+findings retain the committed payload digest, episode, source filename, source
+line, verbatim quote, principle, and citations. Configured attestation questions
+produce a closed union of pass, fail, missing, or stale outcomes: pass/fail
+imply current `yes`/`no` answers at grade `attested`; missing and stale detection
+grades `checked`; every state except pass fixes severity `error` and makes `ok`
+false. Each union branch fixes its code, grade, severity presence, and required
+evidence fields in both Rust and JSON Schema. The result grade is the weakest
+procedure grade actually consumed by the complete check. `ok` means no blocking
+outcome; warning findings may still be present. Current and stale attestation
+findings carry the head record id, supersession link, stored and current
+fingerprints, and the previous typed answer when available.
 
 > **Future gap (not shipped at v0).** An earlier draft of this section described a
 > per-response `meta` block (versions, corpus commit/digest, a `replay` reference)
@@ -172,7 +186,7 @@ The full `dli.*` inventory is normatively specified in
 `integration/fantasy-contract.md`, where each op carries its request/response
 JSON Schema and its golden, negative, and framing fixtures. What follows is the
 semantics-side description: what each op means and which spec organ owns its
-behavior. Three rows are capability-gated at contract `0.4.0`:
+behavior. Three rows are capability-gated at contract `0.4.1`:
 `dli.simulate.start`, `dli.simulate.status`, and `dli.simulate.cancel`. Their
 rows describe the semantics required before they may be advertised; the
 retained schemas are reservations, not implemented behavior. The inventory, by
@@ -255,7 +269,7 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-This scenario is the target job behavior. Contract `0.4.0` already reserves the
+This scenario is the target job behavior. Contract `0.4.1` already reserves the
 request and response shapes, but the operations remain unadvertised until the
 durability and restart semantics exist.
 
@@ -317,7 +331,7 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.4.0`, each accepted fat payload and the exact draft source used
+At contract `0.4.1`, each accepted fat payload and the exact draft source used
 to verify it are written as one versioned RFC 8785 JCS record beneath
 `.dli-evidence/payloads/<document>/<sha256>.json`. Retaining the source is
 required: `dli.check` reloads every record and replays anchoring, staleness, and
@@ -325,13 +339,16 @@ the full payload battery after a restart or corpus change. Attestation sweeps
 append JCS batches beneath
 `.dli-evidence/attestations/<document>/batches/<sha256>.json`; batches form one
 verified, unbranched parent chain while each question retains its supersession
-history. A retry of any committed batch returns that batch's original digest,
-even after later appends. Writers take a project-wide advisory lock and publish
-immutable files from sibling temporaries with file sync, atomic rename, and
-parent-directory sync for every newly created path component. Reads verify
-canonical bytes, digest filenames, and chain integrity before exposing
-evidence; payload submission verifies every prior payload in that document's
-store before publishing another.
+history. A same-version retry of any committed batch returns that batch's
+original digest, even after later appends. Protocol migrations do not
+reinterpret an old request under a new wire version; durable readers
+nevertheless recognize every committed batch-version-1 artifact and replay
+legacy answers as current or re-attestation-required. Writers take a
+project-wide advisory lock and publish immutable files from sibling temporaries
+with file sync, atomic rename, and parent-directory sync for every newly created
+path component. Reads verify canonical bytes, digest filenames, and chain
+integrity before exposing evidence; payload submission verifies every prior
+payload in that document's store before publishing another.
 
 Attestation staleness fingerprints cover the saturated subject relation's atom
 text, derived standing, grade, and resolved support/defeater conditions. A rule,
@@ -353,7 +370,7 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and implemented check ops are synchronous and cheap. At contract `0.4.0`,
+Query and implemented check ops are synchronous and cheap. At contract `0.4.1`,
 `dli.simulate.*` is capability-gated: the existing in-process synchronous seam
 does not satisfy the promised asynchronous, checkpointed, restart-resumable job
 contract and is therefore not advertised. The target remains detached

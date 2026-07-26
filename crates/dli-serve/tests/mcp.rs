@@ -80,7 +80,7 @@ fn mcp_session_registers_tools_and_forwards_calls() {
     assert_eq!(response["ok"], true);
     assert_eq!(
         response["result"],
-        serde_json::json!({"ok": true, "findings": []})
+        serde_json::json!({"ok": true, "grade": "checked", "findings": []})
     );
 
     // tools/call an author.* tool — routes through the Door T seam

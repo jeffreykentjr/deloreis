@@ -28,10 +28,9 @@
 //! (DL-0006): an observation is not a creative fork, and certainty can never be
 //! minted by model opinion. Nothing here ever writes canon.
 
-use std::collections::BTreeMap;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::Grade;
@@ -159,12 +158,16 @@ pub struct Policy {
 /// The record is replayable — serialize it, ship it, commit it — but the
 /// judgment is only weakly so. It is an evidence class that lives with the
 /// corpus, machine-written and agent-committed, append-only per question.
+/// A recorded model answer to a bounded question, carrying everything needed to
+/// replay the question and decide whether the record is still current.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Attestation {
     /// The bounded question this record answers.
     pub question: Question,
-    /// The recorded answer, e.g. `yes`.
+    /// The recorded answer. Version-1 durable records predate the closed wire
+    /// enum, so storage retains the original token for backward-compatible
+    /// replay. New server requests accept only `yes` or `no`.
     pub answer: String,
     /// A `sha256:` hash of the model's rationale; the full text lives in the
     /// sweep manifest. Factory-supplied — stored and compared, never recomputed.

@@ -285,19 +285,42 @@ const FAMILIES: &[Family] = &[
     Family {
         key: "attest",
         title: "attest — the attestation seam",
-        emitter: "the attestation lookup a check consumes, surfaced as `dli.attest.missing`",
-        owner: "dli-world :: attest.rs (AttestFinding)",
-        severity_note: "Error for the consuming check: the kernel reads what a sweep committed \
-            and never fabricates a judgment, so an absent record stops the check rather than \
-            guessing an answer.",
-        sources: &["../crates/dli-world/src/attest.rs"],
+        emitter: "the attestation lookup a check consumes, surfaced by `dli.check` and `dli.attest.missing`",
+        owner: "dli-world :: attest.rs (storage seam); dli-serve :: contract.rs + handlers.rs (document verdict)",
+        severity_note: "Missing, stale, and negative judgments are errors for the consuming \
+            check; a current affirmative judgment is a pass with no severity.",
+        sources: &[
+            "../crates/dli-world/src/attest.rs",
+            "../crates/dli-serve/src/contract.rs",
+            "../crates/dli-serve/src/handlers.rs",
+        ],
         scrape: Scrape::Prefixed("attest"),
-        codes: &[Code {
-            code: "attest.missing",
-            severity: "error",
-            repair: "—",
-            meaning: "the question has no attestation in the store; a sweep must pose it before a check can consume it.",
-        }],
+        codes: &[
+            Code {
+                code: "attest.missing",
+                severity: "error",
+                repair: "—",
+                meaning: "the question has no attestation in the store; a sweep must pose it before a check can consume it.",
+            },
+            Code {
+                code: "attest.stale",
+                severity: "error",
+                repair: "—",
+                meaning: "the stored judgment no longer matches the current world fingerprint.",
+            },
+            Code {
+                code: "attest.pass",
+                severity: "—",
+                repair: "—",
+                meaning: "the current bounded model judgment affirms the configured proposition at grade attested.",
+            },
+            Code {
+                code: "attest.fail",
+                severity: "error",
+                repair: "—",
+                meaning: "the current bounded model judgment rejects the configured proposition at grade attested.",
+            },
+        ],
     },
     Family {
         key: "practice",
@@ -1356,7 +1379,13 @@ mod tests {
                     _ => assert!(is_code(code.code), "bad dotted code {}", code.code),
                 }
                 assert!(
-                    code.severity == "error" || code.severity == "warn",
+                    code.severity == "error"
+                        || code.severity == "warn"
+                        || (code.severity == "—"
+                            && code
+                                .code
+                                .rsplit_once('.')
+                                .is_some_and(|(_, suffix)| suffix == "pass")),
                     "code {} has an unexpected severity {}",
                     code.code,
                     code.severity

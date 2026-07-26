@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "op": "dli.attestation-sweep",
         "params": {
@@ -45,7 +45,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -56,7 +56,7 @@
     },
     {
       "send": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "op": "dli.attest.missing",
         "params": {
@@ -64,7 +64,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.0",
+        "dli": "0.4.1",
         "id": "2",
         "ok": true,
         "result": {

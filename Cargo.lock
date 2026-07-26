@@ -408,6 +408,7 @@ dependencies = [
  "dli-time",
  "dli-world",
  "fs2",
+ "jsonschema",
  "schemars",
  "serde",
  "serde_json",
