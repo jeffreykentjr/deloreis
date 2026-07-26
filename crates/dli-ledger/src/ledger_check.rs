@@ -38,10 +38,14 @@ use serde::{Deserialize, Serialize};
 use dli_ast::clause::Clause;
 use dli_ast::decl::ProofDecl;
 use dli_ast::ident::Ident;
-use dli_ast::span::Span;
+use dli_ast::span::{FileId, Span};
 use dli_ast::term::Term;
 use dli_core::grade::Grade;
-use dli_syntax::parse_clause_atom;
+use dli_syntax::{
+    lexer::{TokenKind, lex},
+    parse_clause_atom, parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts,
+    validate_proof_decl,
+};
 
 use crate::practice::{PracticeDef, StructuralClass};
 use crate::premise::{PremiseStatus, SceneProjection, normalize_atom};
@@ -211,6 +215,14 @@ pub enum ProofFinding {
         /// The step.
         at: String,
     },
+    /// The proof header binds a role the practice does not declare. This is
+    /// malformed proof metadata, not an expected diegetic failure.
+    UnknownRole {
+        /// The undeclared role key.
+        role: String,
+        /// The entity written as its filler.
+        actor: String,
+    },
     /// L5 — a step joins premises by a law the practice does not license, or over
     /// a premise it never established.
     InvalidChain {
@@ -243,9 +255,9 @@ pub enum ProofFinding {
         /// The verdict the checker reached.
         got: ProofVerdict,
     },
-    /// L6 — a `spend`/`release` names a label that is not a declared resource
-    /// premise (an undefined label, or a world/timing premise). The resource
-    /// accounting cannot fold a unit that was never a unit.
+    /// L6 — a resource operation names a label that is not a declared resource
+    /// premise (an undefined label, or a world/timing premise). The accounting
+    /// cannot operate on a unit that was never declared.
     InvalidSpend {
         /// The keyword written (`spend` or `release`).
         keyword: String,
@@ -281,6 +293,23 @@ pub enum ProofFinding {
         /// The practice actually checked against.
         checked: String,
     },
+    /// The direct AST header is not `<role> <actor> in <practice>`. Parser-backed
+    /// callers reject this earlier; the checker retains the invariant.
+    InvalidHeaderLayout,
+    /// Captured proof clauses do not replay through the canonical surface and
+    /// parser. This protects direct AST callers from bypassing proof syntax.
+    MalformedBody {
+        /// Domain diagnostics returned by the real parser.
+        diagnostics: Vec<String>,
+    },
+    /// The proof does not carry exactly one final close. Parser-backed callers
+    /// reject this earlier; the checker keeps the invariant for direct AST users.
+    InvalidCloseLayout {
+        /// Number of close operations present.
+        count: usize,
+        /// Whether the sole close, when there is one, is the final operation.
+        final_operation: bool,
+    },
 }
 
 impl ProofFinding {
@@ -299,7 +328,11 @@ impl ProofFinding {
             Self::ExpectationUnmet { .. }
             | Self::UnknownExpectation { .. }
             | Self::MissingClose
-            | Self::PracticeMismatch { .. } => return None,
+            | Self::PracticeMismatch { .. }
+            | Self::UnknownRole { .. }
+            | Self::InvalidHeaderLayout
+            | Self::MalformedBody { .. }
+            | Self::InvalidCloseLayout { .. } => return None,
         })
     }
 
@@ -312,6 +345,7 @@ impl ProofFinding {
             Self::PremiseContradicted { .. } => "proof.premise-contradicted",
             Self::WrongPhase { .. } => "proof.wrong-phase",
             Self::BadInstantiation { .. } => "proof.bad-instantiation",
+            Self::UnknownRole { .. } => "proof.unknown-role",
             Self::InvalidChain { .. } => "proof.invalid-chain",
             Self::ResourceViolation { .. } => "proof.resource-violation",
             Self::CloseMismatch { .. } => "proof.close-mismatch",
@@ -321,6 +355,9 @@ impl ProofFinding {
             Self::UnknownExpectation { .. } => "proof.unknown-expectation",
             Self::MissingClose => "proof.missing-close",
             Self::PracticeMismatch { .. } => "proof.practice-mismatch",
+            Self::InvalidHeaderLayout => "proof.invalid-header-layout",
+            Self::MalformedBody { .. } => "proof.malformed-body",
+            Self::InvalidCloseLayout { .. } => "proof.invalid-close-layout",
         }
     }
 
@@ -351,9 +388,12 @@ impl ProofFinding {
                      — wrong-phase (L3, timing)"
                 )
             }
-            Self::BadInstantiation { form, binding, at } => format!(
-                "{at}: '{form}' is bound with '{binding}', which is not one of its declared \
-                 parameters (L4)"
+            Self::BadInstantiation { form, binding, at } => {
+                format!("{at}: '{form}' has an invalid binding: {binding} (L4)")
+            }
+            Self::UnknownRole { role, actor } => format!(
+                "the proof binds '{actor}' as '{role}', but this practice declares no such role \
+                 — the proof header is malformed"
             ),
             Self::InvalidChain { law, at } => format!(
                 "{at}: the chain by '{law}' is not licensed — no such law, or it joins a premise \
@@ -375,8 +415,8 @@ impl ProofFinding {
                 describe_verdict(got),
             ),
             Self::InvalidSpend { keyword, label } => format!(
-                "{keyword} '{label}' names no declared resource premise — a resource unit cannot \
-                 be drawn against something that is not one (L6)"
+                "{keyword} '{label}' names no declared resource premise — resource bookkeeping \
+                 cannot operate on something that is not a unit (L6)"
             ),
             Self::UnknownSpoke {
                 label,
@@ -397,6 +437,20 @@ impl ProofFinding {
                 "the proof runs `in {header}` but was checked against '{checked}' — the verdict \
                  would be about the wrong practice"
             ),
+            Self::InvalidHeaderLayout => {
+                "the proof header is malformed — expected `<role> <actor> in <practice>`".to_owned()
+            }
+            Self::MalformedBody { diagnostics } => format!(
+                "the proof body does not replay through the language parser — {}",
+                diagnostics.join("; ")
+            ),
+            Self::InvalidCloseLayout {
+                count,
+                final_operation,
+            } => format!(
+                "the proof has {count} close operation(s), final={final_operation} — a proof must \
+                 carry exactly one final conclusion"
+            ),
         }
     }
 }
@@ -405,7 +459,8 @@ impl ProofFinding {
 ///
 /// This is a frozen seam: `SERVE-1`'s `dli.check-ledger` and the payload battery
 /// (PAY-2) consume it. The [`checks`](ProofReport::checks) flag is the one-bit
-/// verdict — the declared expectation was met — while
+/// verdict — the proof is structurally valid and its declared expectation was
+/// met — while
 /// [`findings`](ProofReport::findings), [`verdict`](ProofReport::verdict), and
 /// [`grade`](ProofReport::grade) carry the why, the where, and the strength.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -428,8 +483,8 @@ pub struct ProofReport {
     pub expectation_met: bool,
     /// The weakest-link grade over the procedure chain (`Grade::weakest`).
     pub grade: Grade,
-    /// Whether the proof checks: shorthand for
-    /// [`expectation_met`](Self::expectation_met).
+    /// Whether the proof checks: its shape is valid and its declared expectation
+    /// was met.
     pub checks: bool,
 }
 
@@ -499,8 +554,21 @@ pub fn check_proof(
     proof: &ProofDecl,
     scene: &SceneProjection,
 ) -> ProofReport {
-    let speaker = header_value(&proof.head, "speaker");
+    let speaker = proof.actor().map(ToOwned::to_owned);
+    let header_valid =
+        proof.role().is_some() && proof.actor().is_some() && proof.practice().is_some();
     let items = reassemble(&proof.body);
+    let close_count = items.iter().filter(|item| item.keyword == "close").count();
+    let close_is_final = items.last().is_some_and(|item| item.keyword == "close");
+    let surface_errors = if header_valid && close_count == 1 && close_is_final {
+        validate_proof_decl(proof)
+            .into_iter()
+            .filter(|diagnostic| diagnostic.class.is_error())
+            .map(|diagnostic| diagnostic.message)
+            .collect()
+    } else {
+        Vec::new()
+    };
     let resources: BTreeSet<&str> = practice
         .resources
         .iter()
@@ -521,6 +589,17 @@ pub fn check_proof(
         close,
     } = run_ledger(&items, practice, scene, &resources, &cycles);
 
+    let unknown_role = if let (Some(role), Some(actor)) = (proof.role(), proof.actor())
+        && role != "speaker"
+        && !practice
+            .roles
+            .iter()
+            .any(|declared| declared.name.text == role)
+    {
+        Some((role, actor))
+    } else {
+        None
+    };
     findings.extend(replay_resources(practice, scene, &deltas, &items));
     findings.sort_by_key(|(pos, _)| *pos);
 
@@ -550,15 +629,18 @@ pub fn check_proof(
         Grade::weakest(grades)
     };
 
-    let header_practice = header_value(&proof.head, "in");
-    let (expected, expectation_met) = weigh_expectation(
-        &mut findings,
-        items.len(),
-        header_practice.as_deref(),
-        &practice.name.text,
-        close.as_ref(),
-        &verdict,
-    );
+    let header_practice = proof.practice().map(ToOwned::to_owned);
+    let shape = ProofShape {
+        header_practice: header_practice.as_deref(),
+        checked_practice: &practice.name.text,
+        close: close.as_ref(),
+        close_layout: (close_count, close_is_final),
+        unknown_role,
+        header_valid,
+        surface_errors,
+    };
+    let (expected, expectation_met, checks) =
+        weigh_expectation(&mut findings, items.len(), &shape, &verdict);
     let practice_name = header_practice.map_or_else(
         || practice.name.clone(),
         |t| Ident {
@@ -577,41 +659,84 @@ pub fn check_proof(
         expected,
         expectation_met,
         grade,
-        checks: expectation_met,
+        checks,
     }
 }
 
 /// Weigh the proof's well-formedness and its declared expectation against the
 /// reached verdict, pushing any meta finding. Returns the (possibly-defaulted)
-/// expectation and whether the report checks: well-formed AND the expectation met.
+/// expectation, whether the reached verdict met it, and whether the complete
+/// proof checks (well-formed AND expectation met).
 ///
 /// Well-formedness is distinct from the casting's verdict — a proof can hold and
 /// still not check because it named the wrong practice, carried no close, or wrote
 /// an `expect` token that is not a verdict.
+struct ProofShape<'a> {
+    header_practice: Option<&'a str>,
+    checked_practice: &'a str,
+    close: Option<&'a (String, Expectation)>,
+    close_layout: (usize, bool),
+    unknown_role: Option<(&'a str, &'a str)>,
+    header_valid: bool,
+    surface_errors: Vec<String>,
+}
+
 fn weigh_expectation(
     findings: &mut Vec<(usize, ProofFinding)>,
     end: usize,
-    header_practice: Option<&str>,
-    checked_practice: &str,
-    close: Option<&(String, Expectation)>,
+    shape: &ProofShape<'_>,
     verdict: &ProofVerdict,
-) -> (Expectation, bool) {
+) -> (Expectation, bool, bool) {
     let mut well_formed = true;
+    let (close_count, close_is_final) = shape.close_layout;
+    if !shape.header_valid {
+        findings.push((end, ProofFinding::InvalidHeaderLayout));
+        well_formed = false;
+    }
     // L3: the header `in <practice>` must name the practice we checked against.
-    if let Some(named) = header_practice
-        && named != checked_practice
+    if let Some(named) = shape.header_practice
+        && named != shape.checked_practice
     {
         findings.push((
             end,
             ProofFinding::PracticeMismatch {
                 header: named.to_owned(),
-                checked: checked_practice.to_owned(),
+                checked: shape.checked_practice.to_owned(),
+            },
+        ));
+        well_formed = false;
+    }
+    if let Some((role, actor)) = shape.unknown_role {
+        findings.push((
+            end,
+            ProofFinding::UnknownRole {
+                role: role.to_owned(),
+                actor: actor.to_owned(),
+            },
+        ));
+        well_formed = false;
+    }
+    if !shape.surface_errors.is_empty() {
+        findings.push((
+            end,
+            ProofFinding::MalformedBody {
+                diagnostics: shape.surface_errors.clone(),
+            },
+        ));
+        well_formed = false;
+    }
+    if close_count != 1 || !close_is_final {
+        findings.push((
+            end,
+            ProofFinding::InvalidCloseLayout {
+                count: close_count,
+                final_operation: close_is_final,
             },
         ));
         well_formed = false;
     }
     // M6: a casting with no close has no conclusion to judge.
-    let expected = if let Some((_, e)) = close {
+    let expected = if let Some((_, e)) = shape.close {
         e.clone()
     } else {
         findings.push((end, ProofFinding::MissingClose));
@@ -641,7 +766,7 @@ fn weigh_expectation(
             },
         ));
     }
-    (expected, well_formed && met)
+    (expected, met, well_formed && met)
 }
 
 /// The running state of a ledger replay, before the verdict is weighed.
@@ -729,7 +854,12 @@ fn run_ledger(
                 // redistribute moves one between accounts (net zero). Neither mints
                 // nor burns, so neither perturbs the multiset.
                 grades.push(Grade::Checked);
-                steps.push(bookkeeping_step(first_word(body), &item.keyword, true));
+                let label = first_word(body);
+                let (verdict, finding) = neutral_resource_step(&item.keyword, label, &premises);
+                if let Some(finding) = finding {
+                    findings.push((pos, finding));
+                }
+                steps.push(verdict);
             }
             "close" => {
                 let (atom, expect) = parse_close(body);
@@ -896,6 +1026,30 @@ fn spend_step(
     }
 }
 
+/// Validate a net-zero resource operation. `reveal` and `redistribute` do not
+/// alter the multiset, but they still have to name a resource unit already
+/// present in the ledger.
+fn neutral_resource_step(
+    keyword: &str,
+    label: &str,
+    premises: &BTreeMap<String, Premise>,
+) -> (StepVerdict, Option<ProofFinding>) {
+    if matches!(
+        premises.get(label).map(|premise| &premise.kind),
+        Some(PremiseKind::Resource { .. })
+    ) {
+        (bookkeeping_step(label, keyword, true), None)
+    } else {
+        (
+            bookkeeping_step(label, keyword, false),
+            Some(ProofFinding::InvalidSpend {
+                keyword: keyword.to_owned(),
+                label: label.to_owned(),
+            }),
+        )
+    }
+}
+
 /// Validate one premise against the scene: a resource draw folds into the
 /// accounts; a timing claim checks the phase in force (L3 on mismatch); a world
 /// fact checks the pool (L2 absent/contradicted); a supposition is taken as given.
@@ -1023,25 +1177,22 @@ struct RawItem {
     span: Span,
 }
 
-/// Fold captured clauses into forms: a clause opening with a proof keyword begins
-/// a form; any other clause continues the form above it (a `chain … conclusion`
-/// wrapped across lines re-joins).
+/// Collect the proof operations recognized by the syntax layer.
+///
+/// Every body clause is one complete operation. Unknown children remain in the
+/// AST so canonical replay can report them, but they must not be appended to a
+/// preceding valid operation and thereby alter its diegetic meaning.
 fn reassemble(body: &[Clause]) -> Vec<RawItem> {
-    let mut items: Vec<RawItem> = Vec::new();
-    for clause in body {
-        let first = clause.text.split_whitespace().next().unwrap_or_default();
-        if PROOF_KEYWORDS.contains(&first) {
-            items.push(RawItem {
+    body.iter()
+        .filter_map(|clause| {
+            let first = clause.text.split_whitespace().next().unwrap_or_default();
+            PROOF_KEYWORDS.contains(&first).then(|| RawItem {
                 keyword: first.to_owned(),
                 text: clause.text.clone(),
                 span: clause.span,
-            });
-        } else if let Some(last) = items.last_mut() {
-            last.text.push(' ');
-            last.text.push_str(&clause.text);
-        }
-    }
-    items
+            })
+        })
+        .collect()
 }
 
 /// How a premise stands relative to the practice's declared law-set.
@@ -1084,7 +1235,14 @@ fn parse_premise(
 ) -> Premise {
     let (label, rest) = split_first_word(body);
     let (atom, mods) = split_atom_and_mods(rest);
-    let grade = premise_grade(&mods);
+    // An assumption is authorial/fork-local ground with no re-runnable
+    // establishing procedure. Parser validation rejects promoted grade words,
+    // and this branch is the semantic backstop for programmatically built ASTs.
+    let grade = if is_assume {
+        Grade::Asserted
+    } else {
+        premise_grade(&mods)
+    };
     let kind = if is_assume {
         PremiseKind::Assumed
     } else {
@@ -1105,6 +1263,11 @@ fn classify_atom(
     cycles: &BTreeSet<&str>,
     span: Span,
 ) -> PremiseKind {
+    if let Some((cycle, spoke)) = phase_comparison(atom, span)
+        && cycles.contains(cycle.as_str())
+    {
+        return PremiseKind::Timing { cycle, spoke };
+    }
     let Some(expr) = parse_clause_atom(&Clause {
         text: atom.to_owned(),
         span,
@@ -1128,6 +1291,27 @@ fn classify_atom(
         return PremiseKind::Timing { cycle, spoke };
     }
     PremiseKind::World
+}
+
+fn phase_comparison(atom: &str, span: Span) -> Option<(String, String)> {
+    let (left, right) = atom.split_once('=')?;
+    let expr = parse_clause_atom(&Clause {
+        text: left.trim().to_owned(),
+        span,
+    })?;
+    if expr.pred.text != "phase" || expr.args.len() != 1 {
+        return None;
+    }
+    let cycle = term_sym(&expr.args[0])?;
+    let spoke = right.trim();
+    if spoke.is_empty()
+        || !spoke
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return None;
+    }
+    Some((cycle, spoke.to_owned()))
 }
 
 /// The grade a premise contributes, read from its provenance tokens
@@ -1157,18 +1341,27 @@ fn premise_grade(mods: &[String]) -> Grade {
 /// modifier tokens. Parenthesized arguments are skipped so a `cited` inside a
 /// nested atom is not mistaken for the provenance keyword.
 fn split_atom_and_mods(rest: &str) -> (String, Vec<String>) {
-    let tokens: Vec<&str> = rest.split_whitespace().collect();
-    let mut depth: i32 = 0;
-    for (i, tok) in tokens.iter().enumerate() {
-        if depth == 0 && PREMISE_MODIFIERS.contains(tok) {
-            return (
-                tokens[..i].join(" "),
-                tokens[i..].iter().map(|t| (*t).to_owned()).collect(),
-            );
+    let tokens = lex(rest, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect::<Vec<_>>();
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => depth = depth.saturating_sub(1),
+            TokenKind::Word if depth == 0 && PREMISE_MODIFIERS.contains(&token.text.as_str()) => {
+                let start = usize::try_from(token.span.start).unwrap_or(rest.len());
+                return (
+                    rest.get(..start).unwrap_or(rest).trim().to_owned(),
+                    tokens[index..]
+                        .iter()
+                        .map(|modifier| modifier.text.clone())
+                        .collect(),
+                );
+            }
+            _ => {}
         }
-        let opens = i32::try_from(tok.matches('(').count()).unwrap_or(0);
-        let closes = i32::try_from(tok.matches(')').count()).unwrap_or(0);
-        depth = (depth + opens - closes).max(0);
     }
     (rest.trim().to_owned(), Vec::new())
 }
@@ -1186,16 +1379,6 @@ fn check_step(
     match verb {
         "instantiate" => {
             let (form, bindings) = split_first_word(tail);
-            let form_args = practice
-                .rules
-                .iter()
-                .find(|r| r.form.text == form)
-                .map(|r| {
-                    r.args
-                        .iter()
-                        .map(|a| a.text.as_str())
-                        .collect::<BTreeSet<_>>()
-                });
             let mut verdict = StepVerdict {
                 label: label.to_owned(),
                 form: ProofForm::Instantiate,
@@ -1203,7 +1386,7 @@ fn check_step(
                 grade: Grade::Checked,
                 note: format!("instantiate {form}"),
             };
-            let Some(args) = form_args else {
+            let Some(rule) = practice.rules.iter().find(|r| r.form.text == form) else {
                 verdict.ok = false;
                 verdict.note = format!("no such form '{form}'");
                 return (
@@ -1215,20 +1398,32 @@ fn check_step(
                     }),
                 );
             };
-            for (key, _) in parse_bindings(bindings) {
-                if !args.contains(key.as_str()) {
-                    verdict.ok = false;
-                    verdict.note = format!("'{key}' is not a parameter of '{form}'");
-                    return (
-                        label.to_owned(),
-                        verdict,
-                        Some(ProofFinding::BadInstantiation {
-                            form: form.to_owned(),
-                            binding: key,
-                            at: label.to_owned(),
-                        }),
-                    );
-                }
+            let Some(bindings) = parse_proof_bindings(bindings) else {
+                verdict.ok = false;
+                let binding = "malformed binding list".to_owned();
+                verdict.note = format!("'{form}' has an invalid binding: {binding}");
+                return (
+                    label.to_owned(),
+                    verdict,
+                    Some(ProofFinding::BadInstantiation {
+                        form: form.to_owned(),
+                        binding,
+                        at: label.to_owned(),
+                    }),
+                );
+            };
+            if let Some(binding) = invalid_bindings(practice, rule, &bindings) {
+                verdict.ok = false;
+                verdict.note = format!("'{form}' has an invalid binding: {binding}");
+                return (
+                    label.to_owned(),
+                    verdict,
+                    Some(ProofFinding::BadInstantiation {
+                        form: form.to_owned(),
+                        binding,
+                        at: label.to_owned(),
+                    }),
+                );
             }
             (label.to_owned(), verdict, None)
         }
@@ -1265,24 +1460,115 @@ fn check_step(
             });
             (label.to_owned(), verdict, finding)
         }
-        other => (
-            label.to_owned(),
-            StepVerdict {
-                label: label.to_owned(),
-                form: ProofForm::Other,
-                ok: true,
-                grade: Grade::Checked,
-                note: other.to_owned(),
-            },
-            None,
-        ),
+        other => custom_step(label, other, tail, practice),
     }
 }
 
+fn custom_step(
+    label: &str,
+    operation: &str,
+    tail: &str,
+    practice: &PracticeDef,
+) -> (String, StepVerdict, Option<ProofFinding>) {
+    let rule = practice
+        .rules
+        .iter()
+        .find(|rule| rule.form.text == operation);
+    let positional = parse_proof_arguments(tail);
+    let invalid = rule.and_then(|rule| {
+        let Some(positional) = positional.as_ref() else {
+            return Some("malformed argument list".to_owned());
+        };
+        let bindings = rule
+            .args
+            .iter()
+            .zip(positional)
+            .map(|(arg, value)| (arg.text.clone(), value.clone()))
+            .collect::<Vec<_>>();
+        if positional.len() == rule.args.len() {
+            invalid_bindings(practice, rule, &bindings)
+        } else {
+            Some(format!(
+                "expected {} argument(s), got {}",
+                rule.args.len(),
+                positional.len()
+            ))
+        }
+    });
+    let declared = rule.is_some();
+    let ok = declared && invalid.is_none();
+    let verdict = StepVerdict {
+        label: label.to_owned(),
+        form: ProofForm::Other,
+        ok,
+        grade: Grade::Checked,
+        note: if let Some(problem) = &invalid {
+            format!("{operation}: {problem}")
+        } else if tail.is_empty() {
+            operation.to_owned()
+        } else {
+            format!("{operation} {tail}")
+        },
+    };
+    let finding = if declared {
+        invalid.map(|binding| ProofFinding::BadInstantiation {
+            form: operation.to_owned(),
+            binding,
+            at: label.to_owned(),
+        })
+    } else {
+        Some(ProofFinding::UnknownForm {
+            form: operation.to_owned(),
+            at: label.to_owned(),
+        })
+    };
+    (label.to_owned(), verdict, finding)
+}
+
+fn invalid_bindings(
+    practice: &PracticeDef,
+    rule: &crate::practice::RuleDef,
+    bindings: &[(String, String)],
+) -> Option<String> {
+    let declared = rule
+        .args
+        .iter()
+        .map(|arg| arg.text.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut seen = BTreeSet::new();
+    for (key, value) in bindings {
+        if !declared.contains(key.as_str()) {
+            return Some(format!("unknown parameter '{key}'"));
+        }
+        if !seen.insert(key.as_str()) {
+            return Some(format!("duplicate parameter '{key}'"));
+        }
+        if let Some(sort) = practice
+            .sorts
+            .iter()
+            .find(|sort| sort.name.text == *key && !sort.variants.is_empty())
+            && !sort.variants.iter().any(|variant| variant.text == *value)
+        {
+            return Some(format!(
+                "{key} = {value} is outside the declared kind '{}'",
+                sort.name.text
+            ));
+        }
+    }
+    rule.args
+        .iter()
+        .find(|arg| !seen.contains(arg.text.as_str()))
+        .map(|arg| format!("missing parameter '{}'", arg.text))
+}
+
 fn parse_close(body: &str) -> (String, Expectation) {
-    match body.split_once(" expect ") {
-        Some((atom, verdict)) => (atom.trim().to_owned(), parse_expectation(verdict.trim())),
-        None => (body.trim().to_owned(), Expectation::Holds),
+    match parse_proof_close_parts(body) {
+        Some((atom, Some(verdict))) => (atom, parse_expectation(&verdict)),
+        Some((atom, None)) => (atom, Expectation::Holds),
+        None => (
+            body.trim().to_owned(),
+            Expectation::Unknown("<malformed-close>".to_owned()),
+        ),
     }
 }
 
@@ -1338,7 +1624,11 @@ fn failed_at(practice: &PracticeDef, finding: &ProofFinding) -> ProofVerdict {
         ProofFinding::ExpectationUnmet { .. }
         | ProofFinding::UnknownExpectation { .. }
         | ProofFinding::MissingClose
-        | ProofFinding::PracticeMismatch { .. } => (None, "close".to_owned()),
+        | ProofFinding::PracticeMismatch { .. }
+        | ProofFinding::UnknownRole { .. }
+        | ProofFinding::InvalidHeaderLayout
+        | ProofFinding::MalformedBody { .. }
+        | ProofFinding::InvalidCloseLayout { .. } => (None, "close".to_owned()),
     };
     ProofVerdict::FailedAt { class, error, at }
 }
@@ -1396,13 +1686,6 @@ fn parse_cap_int(cap: &str) -> Option<i64> {
 
 // --- small parsing helpers --------------------------------------------------
 
-fn header_value(head: &[String], key: &str) -> Option<String> {
-    head.iter()
-        .position(|t| t == key)
-        .and_then(|i| head.get(i + 1))
-        .cloned()
-}
-
 fn split_first_word(text: &str) -> (&str, &str) {
     let text = text.trim_start();
     match text.split_once(char::is_whitespace) {
@@ -1413,22 +1696,6 @@ fn split_first_word(text: &str) -> (&str, &str) {
 
 fn first_word(text: &str) -> &str {
     text.split_whitespace().next().unwrap_or_default()
-}
-
-/// Parse `with k = v, k2 = v2` bindings into pairs (the leading `with` keyword,
-/// where present, is dropped).
-fn parse_bindings(text: &str) -> Vec<(String, String)> {
-    let after = text
-        .trim()
-        .strip_prefix("with ")
-        .unwrap_or_else(|| text.trim());
-    after
-        .split(',')
-        .filter_map(|pair| {
-            let (k, v) = pair.split_once('=')?;
-            Some((k.trim().to_owned(), v.trim().to_owned()))
-        })
-        .collect()
 }
 
 /// The labels a chain joins: the words between `from` and `by`.

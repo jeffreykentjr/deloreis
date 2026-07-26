@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, bail};
+use schemars::schema_for;
 
 /// Emit (or, with `check`, verify) the AST and contract schemas.
 pub fn run_schema(root: &Path, check: bool) -> Result<()> {
@@ -13,6 +14,34 @@ pub fn run_schema(root: &Path, check: bool) -> Result<()> {
         root.join("schemas/ast/document.schema.json"),
         serde_json::to_string_pretty(&ast)? + "\n",
     ));
+
+    for (name, schema) in [
+        (
+            "doctrine-pack-v1",
+            schema_for!(dli_world::craft::DoctrinePack),
+        ),
+        (
+            "doctrine-principle-v1",
+            schema_for!(dli_world::craft::DoctrinePrinciple),
+        ),
+        (
+            "principle-overlay-v1",
+            schema_for!(dli_world::craft::worldcfg::PrincipleOverlay),
+        ),
+        (
+            "world-principle-v1",
+            schema_for!(dli_world::craft::worldcfg::WorldPrinciple),
+        ),
+        (
+            "craft-config-v1",
+            schema_for!(dli_world::craft::worldcfg::CraftConfig),
+        ),
+    ] {
+        targets.push((
+            root.join(format!("schemas/craft/{name}.schema.json")),
+            serde_json::to_string_pretty(&schema)? + "\n",
+        ));
+    }
 
     for (name, schema) in dli_serve::schema::contract_schemas() {
         targets.push((

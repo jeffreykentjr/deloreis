@@ -11,7 +11,7 @@
       "minimum": 0
     },
     "knowers": {
-      "description": "Complete matrix rows for the listener and every recorded cast knower.",
+      "description": "Complete matrix rows for the listener and every season-declared cast knower.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/KnowledgeRow"

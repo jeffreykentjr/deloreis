@@ -19,6 +19,13 @@ source = "Sanderson, BYU Creative Writing Lectures; Kowal, MICE Quotient (thread
 phases = ["outline", "revision"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.promise-made-in-unknown",
+    "outline.dangling-payoff",
+    "outline.promise-payoff-xor-carry",
+    "outline.promise-unaccounted",
+    "outline.promise-undeclared",
+]
 
 [[principles]]
 id = "arc-promise-ledger"
@@ -28,6 +35,15 @@ source = "Sanderson, BYU Creative Writing Lectures (promises/progress/payoff); K
 phases = ["outline", "revision"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-season"
+finding_codes = [
+    "outline.no-season-promise-ledger",
+    "outline.season-promise-duplicate",
+    "outline.season-promise-open-unknown",
+    "outline.season-promise-payoff-unknown",
+    "outline.arc-promise-payoff-xor-carry",
+    "craft.mystery-starved",
+    "craft.promise-density",
+]
 
 [[principles]]
 id = "core-vs-umbrella-plot"

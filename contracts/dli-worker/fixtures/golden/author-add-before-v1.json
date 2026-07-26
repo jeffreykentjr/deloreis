@@ -2,7 +2,7 @@
   "fixture": "golden/author-add-before-v1",
   "precondition": [
     {
-      "dli": "0.5.0",
+      "dli": "0.5.1",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -10,7 +10,7 @@
       }
     },
     {
-      "dli": "0.5.0",
+      "dli": "0.5.1",
       "id": "pre-2",
       "op": "author.add_event",
       "params": {
@@ -25,7 +25,7 @@
       }
     },
     {
-      "dli": "0.5.0",
+      "dli": "0.5.1",
       "id": "pre-3",
       "op": "author.add_event",
       "params": {
@@ -43,7 +43,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -55,7 +55,7 @@
         }
       },
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "author.add_before",
         "params": {

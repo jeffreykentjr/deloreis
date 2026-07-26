@@ -25,7 +25,7 @@ use dli_ast::decl::{
 use dli_ast::ident::Ident;
 use dli_ast::literal::BodyLiteral;
 use dli_ast::span::{FileId, Span};
-use dli_ast::term::{AtomExpr, Term};
+use dli_ast::term::{AtomExpr, Term, TimeRef};
 
 use crate::diag::{DiagClass, Diagnostic};
 use crate::lexer::{Line, Token, TokenKind, lines, to_u32};
@@ -252,6 +252,111 @@ pub fn parse_clause_atom(clause: &Clause) -> Option<AtomExpr> {
     }
 
     None
+}
+
+/// Parse a comma-separated proof argument list into semantic values.
+///
+/// This uses the language lexer, so a comma inside a quoted string is part of
+/// one value rather than an argument separator. The proof parser validates the
+/// same term/comma shape before a document can be replayed.
+#[must_use]
+pub fn parse_proof_arguments(text: &str) -> Option<Vec<String>> {
+    let tokens: Vec<Token> = crate::lexer::lex(text, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect();
+    let mut cur = Cursor::new(&tokens);
+    let mut values = Vec::new();
+    if cur.at_end() {
+        return Some(values);
+    }
+    loop {
+        values.push(proof_term_value(cur.eat_term()?));
+        if cur.at_end() {
+            return Some(values);
+        }
+        if cur.peek_kind() != Some(TokenKind::Comma) {
+            return None;
+        }
+        cur.bump();
+        if cur.at_end() {
+            return None;
+        }
+    }
+}
+
+/// Parse `with <name> = <term>, ...` proof bindings into semantic values.
+///
+/// The leading `with` is required. Quoted values are unquoted by the lexer and
+/// may contain commas without changing the binding count.
+#[must_use]
+pub fn parse_proof_bindings(text: &str) -> Option<Vec<(String, String)>> {
+    let tokens: Vec<Token> = crate::lexer::lex(text, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect();
+    let mut cur = Cursor::new(&tokens);
+    if cur.peek_word_text() != Some("with") {
+        return None;
+    }
+    cur.bump();
+    let mut bindings = Vec::new();
+    loop {
+        let name = cur.eat_ident()?.text;
+        if cur.peek_kind() != Some(TokenKind::Equals) {
+            return None;
+        }
+        cur.bump();
+        let value = proof_term_value(cur.eat_term()?);
+        bindings.push((name, value));
+        if cur.at_end() {
+            return Some(bindings);
+        }
+        if cur.peek_kind() != Some(TokenKind::Comma) {
+            return None;
+        }
+        cur.bump();
+        if cur.at_end() {
+            return None;
+        }
+    }
+}
+
+/// Split a proof close body into its claim and optional expectation.
+///
+/// The separator is the `expect` token after the complete balanced claim, not
+/// matching text inside a quoted argument.
+#[must_use]
+pub fn parse_proof_close_parts(text: &str) -> Option<(String, Option<String>)> {
+    let tokens: Vec<Token> = crate::lexer::lex(text, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect();
+    let mut cur = Cursor::new(&tokens);
+    if !parse_proof_claim(&mut cur) {
+        return None;
+    }
+    let atom_end = usize::try_from(tokens.get(cur.pos.checked_sub(1)?)?.span.end).ok()?;
+    let atom = text.get(..atom_end)?.trim().to_owned();
+    if cur.at_end() {
+        return Some((atom, None));
+    }
+    if cur.peek_word_text() != Some("expect") {
+        return None;
+    }
+    cur.bump();
+    let verdict_start = usize::try_from(cur.peek()?.span.start).ok()?;
+    let verdict = text.get(verdict_start..)?.trim();
+    (!verdict.is_empty()).then(|| (atom, Some(verdict.to_owned())))
+}
+
+fn proof_term_value(term: Term) -> String {
+    match term {
+        Term::Var(value) => format!("${}", value.text),
+        Term::Sym(value) | Term::Time(TimeRef::Era(value) | TimeRef::Event(value)) => value.text,
+        Term::Str(value) => value,
+        Term::Int(value) => value.to_string(),
+    }
 }
 
 /// Structure a captured [`Clause`] into a derivation rule's head atom and its
@@ -569,8 +674,17 @@ fn consume_brace_segment(
 ) {
     let mut text = String::new();
     let mut in_str = false;
+    let mut escaped = false;
     for c in seg.chars() {
         match c {
+            _ if escaped => {
+                escaped = false;
+                text.push(c);
+            }
+            '\\' if in_str => {
+                escaped = true;
+                text.push(c);
+            }
             '"' => {
                 in_str = !in_str;
                 text.push(c);
@@ -617,7 +731,38 @@ fn consume_brace_segment(
 
 /// Collapse whitespace runs to single spaces and trim the ends.
 fn normalize_ws(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    let mut out = String::with_capacity(text.len());
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut pending_space = false;
+    for ch in text.trim().chars() {
+        if in_string {
+            out.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+        } else if ch == '"' {
+            if pending_space && !out.is_empty() {
+                out.push(' ');
+            }
+            pending_space = false;
+            in_string = true;
+            out.push(ch);
+        } else if ch.is_whitespace() {
+            pending_space = !out.is_empty();
+        } else {
+            if pending_space {
+                out.push(' ');
+                pending_space = false;
+            }
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Parse one record into zero or more items, recording any diagnostics.
@@ -895,6 +1040,8 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         "proof" => match cur.eat_ident() {
             Some(name) => {
                 let (head, provenance) = split_head_prov(&mut cur, diags);
+                validate_proof_head(&head, span, diags);
+                validate_proof_body(record, diags);
                 items.push(Item::Decl(Decl::Proof(ProofDecl {
                     name,
                     head,
@@ -950,6 +1097,502 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             ));
         }
     }
+}
+
+const PROOF_CHILD_KEYWORDS: &[&str] = &[
+    "premise",
+    "step",
+    "spend",
+    "release",
+    "redistribute",
+    "reveal",
+    "assume",
+    "close",
+];
+
+fn validate_proof_head(head: &[String], span: Span, diags: &mut Vec<Diagnostic>) {
+    if head.len() != 4
+        || head[2] != "in"
+        || head
+            .iter()
+            .any(|token| token.is_empty() || token.starts_with('"'))
+    {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a proof header reads `proof <name> <role> <speaker> in <practice>`.",
+            span,
+        ));
+    }
+}
+
+/// Guard the captured proof body before a malformed child can be folded into the
+/// preceding operation and disappear during formatting or replay.
+fn validate_proof_body(record: &Record, diags: &mut Vec<Diagnostic>) {
+    let nonempty = record
+        .body_tokens
+        .iter()
+        .filter(|tokens| !tokens.is_empty())
+        .collect::<Vec<_>>();
+    let closes = nonempty
+        .iter()
+        .enumerate()
+        .filter(|(_, tokens)| {
+            tokens
+                .first()
+                .is_some_and(|token| token.kind == TokenKind::Word && token.text == "close")
+        })
+        .collect::<Vec<_>>();
+    match closes.as_slice() {
+        [] => diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a proof must end with exactly one `close`.",
+            record.head.span,
+        )),
+        [(position, tokens)] if *position + 1 != nonempty.len() => {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "the proof's single `close` must be its final operation.",
+                tokens[0].span,
+            ));
+        }
+        [_, second, ..] => diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a proof carries more than one `close`; its conclusion must be unique.",
+            second.1[0].span,
+        )),
+        [_] => {}
+    }
+
+    for (clause, tokens) in record.body.iter().zip(&record.body_tokens) {
+        let Some(first) = tokens.first() else {
+            continue;
+        };
+        if first.kind != TokenKind::Word {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "a proof line opens with an operation keyword, not quoted text.",
+                first.span,
+            ));
+            continue;
+        }
+        let keyword = first.text.as_str();
+        if !PROOF_CHILD_KEYWORDS.contains(&keyword) {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                format!(
+                    "a proof line cannot begin with `{keyword}` — write premise, assume, step, \
+                     spend, release, redistribute, reveal, or close."
+                ),
+                first.span,
+            ));
+            continue;
+        }
+
+        match keyword {
+            "spend" | "release" | "redistribute" | "reveal" => {
+                if tokens.len() != 2 || tokens[1].kind != TokenKind::Word {
+                    let span = tokens.get(2).map_or(clause.span, |token| token.span);
+                    diags.push(Diagnostic::new(
+                        DiagClass::Malformed,
+                        format!("unexpected proof text — `{keyword}` reads `{keyword} <label>`."),
+                        span,
+                    ));
+                }
+            }
+            "close" => validate_proof_close(tokens, clause.span, diags),
+            "premise" | "assume" => {
+                validate_proof_premise(keyword, tokens, clause.span, diags);
+            }
+            "step" => validate_proof_step(tokens, clause.span, diags),
+            _ => {}
+        }
+    }
+}
+
+fn validate_proof_close(tokens: &[Token], span: Span, diags: &mut Vec<Diagnostic>) {
+    let mut cur = Cursor::new(tokens);
+    cur.bump();
+    if !parse_proof_claim(&mut cur) {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a proof close reads `close <atom> [expect holds|blocked|fails-at <error>]`.",
+            span,
+        ));
+        return;
+    }
+    if cur.at_end() {
+        return;
+    }
+    if cur.peek_word_text() != Some("expect") {
+        proof_unexpected(
+            &cur,
+            diags,
+            "a proof close ends after its atom or continues with `expect <verdict>`.",
+        );
+        return;
+    }
+    cur.bump();
+    match cur.peek_word_text() {
+        Some("holds" | "blocked") => cur.bump(),
+        Some("fails-at") => {
+            cur.bump();
+            if cur.eat_ident().is_none() {
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    "`expect fails-at` must name the expected error.",
+                    span,
+                ));
+                return;
+            }
+        }
+        Some(_) => {
+            // The proof checker owns the domain finding for an unknown verdict
+            // token. Consume exactly one here so surplus text is still syntax.
+            cur.bump();
+        }
+        None => {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "`expect` must name holds, blocked, or fails-at <error>.",
+                span,
+            ));
+            return;
+        }
+    }
+    proof_expect_end(
+        &cur,
+        diags,
+        "a proof close reads `close <atom> [expect holds|blocked|fails-at <error>]`.",
+    );
+}
+
+fn validate_proof_premise(
+    keyword: &str,
+    tokens: &[Token],
+    span: Span,
+    diags: &mut Vec<Diagnostic>,
+) {
+    let mut cur = Cursor::new(tokens);
+    cur.bump();
+    if cur.eat_ident().is_none() || !parse_proof_claim(&mut cur) {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            format!("a proof {keyword} reads `{keyword} <label> <claim> [evidence]`."),
+            span,
+        ));
+        return;
+    }
+    if cur.peek_kind() == Some(TokenKind::Equals) {
+        cur.bump();
+        if cur.eat_term().is_none() {
+            proof_unexpected(
+                &cur,
+                diags,
+                "a proof comparison must name one value after `=`.",
+            );
+            return;
+        }
+    }
+    let mut grade_seen: Option<&Token> = None;
+    while !cur.at_end() {
+        let Some(token) = cur.peek() else {
+            break;
+        };
+        match token.text.as_str() {
+            "cited" | "drawn-against" => {
+                let modifier = token.text.clone();
+                cur.bump();
+                if cur.eat_ident().is_none() {
+                    diags.push(Diagnostic::new(
+                        DiagClass::Malformed,
+                        format!("`{modifier}` must name one source label."),
+                        token.span,
+                    ));
+                    return;
+                }
+            }
+            "cue" => {
+                let token_span = token.span;
+                cur.bump();
+                if cur.eat_string().is_none() {
+                    diags.push(Diagnostic::new(
+                        DiagClass::Malformed,
+                        "`cue` must carry one quoted source cue.",
+                        token_span,
+                    ));
+                    return;
+                }
+            }
+            "from-scene" | "observed" | "asserted" | "attested" | "tested" | "checked" => {
+                if matches!(
+                    token.text.as_str(),
+                    "asserted" | "attested" | "tested" | "checked"
+                ) {
+                    if !validate_proof_grade(keyword, token, grade_seen, diags) {
+                        return;
+                    }
+                    grade_seen = Some(token);
+                }
+                cur.bump();
+            }
+            _ => {
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    format!(
+                        "unexpected `{}` after proof evidence — write a cited source, cue, \
+                         observation, draw, or grade.",
+                        token.text
+                    ),
+                    token.span,
+                ));
+                return;
+            }
+        }
+    }
+}
+
+fn validate_proof_grade(
+    keyword: &str,
+    grade: &Token,
+    prior: Option<&Token>,
+    diags: &mut Vec<Diagnostic>,
+) -> bool {
+    if let Some(prior) = prior {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            format!(
+                "a proof {keyword} carries both `{}` and `{}` — write one evidence grade.",
+                prior.text, grade.text
+            ),
+            grade.span,
+        ));
+        return false;
+    }
+    if keyword == "assume" && grade.text != "asserted" {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            format!(
+                "an assumption is always `asserted`; it cannot claim `{}`.",
+                grade.text
+            ),
+            grade.span,
+        ));
+        return false;
+    }
+    true
+}
+
+/// Consume one proof claim. A bare identifier is a nullary atom; parenthesized
+/// atoms may carry nested function terms such as
+/// `holds(person, consent(group, act))`.
+fn parse_proof_claim(cur: &mut Cursor<'_>) -> bool {
+    if cur.eat_ident().is_none() {
+        return false;
+    }
+    if cur.peek_kind() != Some(TokenKind::LParen) {
+        return true;
+    }
+    cur.bump();
+    if cur.peek_kind() == Some(TokenKind::RParen) {
+        cur.bump();
+        return true;
+    }
+    loop {
+        let nested = cur.remaining().get(1).map(|token| token.kind) == Some(TokenKind::LParen);
+        if (nested && !parse_proof_claim(cur)) || (!nested && cur.eat_term().is_none()) {
+            return false;
+        }
+        match cur.peek_kind() {
+            Some(TokenKind::Comma) => cur.bump(),
+            Some(TokenKind::RParen) => {
+                cur.bump();
+                return true;
+            }
+            _ => return false,
+        }
+    }
+}
+
+fn validate_proof_step(tokens: &[Token], span: Span, diags: &mut Vec<Diagnostic>) {
+    if tokens.len() < 3 || tokens[1].kind != TokenKind::Word || tokens[2].kind != TokenKind::Word {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a proof step reads `step <label> <operation> ...`.",
+            span,
+        ));
+        return;
+    }
+    match tokens[2].text.as_str() {
+        "instantiate" => validate_instantiate_step(tokens, span, diags),
+        "chain" => validate_chain_step(tokens, span, diags),
+        _ => validate_custom_step(tokens, span, diags),
+    }
+}
+
+fn validate_custom_step(tokens: &[Token], span: Span, diags: &mut Vec<Diagnostic>) {
+    let mut cur = Cursor::new(tokens);
+    cur.bump();
+    let _ = cur.eat_ident();
+    cur.bump();
+    if cur.at_end() {
+        return;
+    }
+    loop {
+        if cur.eat_term().is_none() {
+            proof_unexpected(
+                &cur,
+                diags,
+                "a custom step reads `step <label> <declared-rule> [<value>, ...]`.",
+            );
+            return;
+        }
+        if cur.at_end() {
+            return;
+        }
+        if cur.peek_kind() != Some(TokenKind::Comma) {
+            proof_unexpected(
+                &cur,
+                diags,
+                "custom-step arguments are comma-separated terms.",
+            );
+            return;
+        }
+        cur.bump();
+        if cur.at_end() {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "a custom step cannot end with an empty argument.",
+                span,
+            ));
+            return;
+        }
+    }
+}
+
+fn validate_instantiate_step(tokens: &[Token], span: Span, diags: &mut Vec<Diagnostic>) {
+    let mut cur = Cursor::new(tokens);
+    cur.bump();
+    let _ = cur.eat_ident();
+    cur.bump();
+    if cur.eat_ident().is_none() || cur.peek_word_text() != Some("with") {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "an instantiate step reads `step <label> instantiate <form> with <name> = <value> ...`.",
+            span,
+        ));
+        return;
+    }
+    cur.bump();
+    loop {
+        if cur.eat_ident().is_none() || cur.peek_kind() != Some(TokenKind::Equals) {
+            proof_unexpected(
+                &cur,
+                diags,
+                "a binding reads `<name> = <value>`, with bindings separated by commas.",
+            );
+            return;
+        }
+        cur.bump();
+        if cur.eat_term().is_none() {
+            proof_unexpected(&cur, diags, "a binding must carry one value after `=`.");
+            return;
+        }
+        if cur.peek_kind() != Some(TokenKind::Comma) {
+            break;
+        }
+        cur.bump();
+    }
+    proof_expect_end(
+        &cur,
+        diags,
+        "an instantiate step ends after its comma-separated bindings.",
+    );
+}
+
+fn validate_chain_step(tokens: &[Token], span: Span, diags: &mut Vec<Diagnostic>) {
+    let mut cur = Cursor::new(tokens);
+    cur.bump();
+    let _ = cur.eat_ident();
+    cur.bump();
+    if cur.peek_word_text() != Some("from") {
+        proof_unexpected(
+            &cur,
+            diags,
+            "a chain step reads `step <label> chain from <labels> by <law> conclusion <atom>`.",
+        );
+        return;
+    }
+    cur.bump();
+    let mut joins = 0usize;
+    loop {
+        if cur.peek_word_text() == Some("by") {
+            break;
+        }
+        if cur.eat_ident().is_none() {
+            proof_unexpected(&cur, diags, "a chain's `from` list names prior labels.");
+            return;
+        }
+        joins += 1;
+        if cur.peek_kind() == Some(TokenKind::Comma) {
+            cur.bump();
+            if cur.at_end() || cur.peek_word_text() == Some("by") {
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    "a chain's `from` list cannot end with an empty label.",
+                    cur.here(),
+                ));
+                return;
+            }
+        } else if cur.peek_word_text() != Some("by") {
+            proof_unexpected(
+                &cur,
+                diags,
+                "chain labels are comma-separated and followed by `by <law>`.",
+            );
+            return;
+        }
+    }
+    if joins == 0 {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a chain step must name at least one prior label after `from`.",
+            span,
+        ));
+        return;
+    }
+    cur.bump();
+    if cur.eat_ident().is_none() || cur.peek_word_text() != Some("conclusion") {
+        proof_unexpected(
+            &cur,
+            diags,
+            "a chain's law is followed by `conclusion <atom>`.",
+        );
+        return;
+    }
+    cur.bump();
+    if !parse_proof_claim(&mut cur) {
+        diags.push(Diagnostic::new(
+            DiagClass::Malformed,
+            "a chain's conclusion must be one relation atom.",
+            span,
+        ));
+        return;
+    }
+    proof_expect_end(&cur, diags, "a chain step ends after its conclusion atom.");
+}
+
+fn proof_expect_end(cur: &Cursor, diags: &mut Vec<Diagnostic>, shape: &str) {
+    if !cur.at_end() {
+        proof_unexpected(cur, diags, shape);
+    }
+}
+
+fn proof_unexpected(cur: &Cursor, diags: &mut Vec<Diagnostic>, shape: &str) {
+    let message = cur.peek().map_or_else(
+        || format!("unexpected end of proof line — {shape}"),
+        |token| format!("unexpected `{}` — {shape}", token.text),
+    );
+    diags.push(Diagnostic::new(DiagClass::Malformed, message, cur.here()));
 }
 
 /// Fold standalone `option` items into the preceding question or fork.
@@ -1182,9 +1825,10 @@ fn parse_atom(cur: &mut Cursor) -> Option<AtomExpr> {
             }
         }
     }
-    if cur.peek_kind() == Some(TokenKind::RParen) {
-        cur.bump();
+    if cur.peek_kind() != Some(TokenKind::RParen) {
+        return None;
     }
+    cur.bump();
     Some(AtomExpr { pred, args })
 }
 
@@ -1676,7 +2320,10 @@ fn synthetic_ident(cur: &Cursor) -> Ident {
 
 fn token_to_string(tok: &Token) -> String {
     match tok.kind {
-        TokenKind::Str => format!("\"{}\"", tok.text),
+        TokenKind::Str => {
+            let escaped = tok.text.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
+        }
         _ => tok.text.clone(),
     }
 }

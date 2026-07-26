@@ -1,7 +1,7 @@
 //! The `TPtH` round-trip GOLDEN — the hard gate of Step 5 (design §4).
 //!
 //! `apply(load_config("worlds/tpth/craft"), doctrines())` must equal the compiled
-//! 107-principle corpus **field-for-field**. The expectation is a committed golden
+//! 107-principle corpus across its legacy fields. The expectation is a committed golden
 //! snapshot ([`GOLDEN`]) captured from `kb::PRINCIPLES` *before* the const was
 //! removed, so this parity is checkable after the flip: the engine ships zero world
 //! content, and the `TPtH` corpus is reconstructed purely from the shipped generic
@@ -9,7 +9,9 @@
 //!
 //! Corpus **order** is not semantically load-bearing (every engine query is by id or
 //! a family/binding filter), so the comparison is by id: same set of ids, and each
-//! id's [`Principle`] equal field-for-field.
+//! id's pre-separation [`Principle`] fields remain equal. New runtime metadata
+//! (citations, effective parameters, governed finding codes) is checked against
+//! caller config in focused composition tests.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::BTreeMap;
@@ -66,11 +68,18 @@ fn apply_reconstructs_the_107_field_for_field() {
     let want_ids: Vec<&String> = want_map.keys().collect();
     assert_eq!(got_ids, want_ids, "reconstructed ids match the golden ids");
 
-    // Each principle equal field-for-field.
+    // Each principle preserves every field carried by the pre-separation golden.
     let mut mismatches = Vec::new();
     for (id, want_p) in &want_map {
         let got_p = got_map.get(id).expect("id present in both");
-        if got_p != want_p {
+        let legacy_equal = got_p.id == want_p.id
+            && got_p.family == want_p.family
+            && got_p.statement == want_p.statement
+            && got_p.source == want_p.source
+            && got_p.mission_filter == want_p.mission_filter
+            && got_p.phases == want_p.phases
+            && got_p.binding == want_p.binding;
+        if !legacy_equal {
             mismatches.push(format!(
                 "\n  {id}:\n    want={want_p:?}\n    got ={got_p:?}"
             ));
@@ -78,7 +87,7 @@ fn apply_reconstructs_the_107_field_for_field() {
     }
     assert!(
         mismatches.is_empty(),
-        "{} principle(s) did not round-trip field-for-field:{}",
+        "{} principle(s) did not preserve the legacy golden fields:{}",
         mismatches.len(),
         mismatches.join("")
     );

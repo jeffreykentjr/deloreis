@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -12,7 +12,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {

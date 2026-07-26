@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.5.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.5.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -19,7 +19,7 @@ vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. Version
-> `0.5.0` has typed responses for all 46 operations, strict caller projects,
+> `0.5.1` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
 > Durable fat-payload, attestation, and restart-resumable simulation evidence is
 > implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are closed.
@@ -82,7 +82,7 @@ The table states the semantics every advertised operation satisfies.
 | `dli.fork.restrict` | Restrict a fork's valuation scope. | diff delta |
 | `dli.fork.preflight` | Ratification pre-flight: candidate valuation + conflict scan. | named candidate valuation + typed conflicts + affected atoms |
 | `dli.fork.promote` | Emit a ruling-request draft from a fork. | `rq_draft` (slug, ask, affects, diff, evidence) |
-| `dli.check-proof` | Check a diegetic proof `in <practice>`. | verdict + errors (structural classes) + grade |
+| `dli.check-proof` | Check a selected diegetic proof `in <practice>`; `proof` may be omitted only when the document declares one. | verdict + errors (structural classes) + grade |
 | `dli.check-draft` | Run the full battery over a draft payload. | one merged report |
 | `dli.simulate.start` | Start a durable battery over a logical practice document or game ruleset/delta. | `job_id` + status |
 | `dli.simulate.status` | Poll a battery. | progress, or final manifest + metrics + invariant verdicts |
@@ -111,7 +111,7 @@ against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
 (`SERVE-1`).
 
-At `0.5.0`, `dli.export.run.profile` is the closed target selector:
+At `0.5.1`, `dli.export.run.profile` is the closed target selector:
 `context-pack`, `cards`, `ludii-gdl`, `articy`, `csv`, or `static-wiki`.
 Optional `profile_name` selects a qualified entry from the caller project's
 validated catalog. Lore-document catalogs are declared by
@@ -180,7 +180,7 @@ path and commits through fantasy review.
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `0.5.0` enforces it for all 46 operations before v1.
+today: contract `0.5.1` enforces it for all 46 operations before v1.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.

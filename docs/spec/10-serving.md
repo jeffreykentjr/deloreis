@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.5.0, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.5.1, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
 ---
 
 # Serving
@@ -62,6 +62,7 @@ sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
 # episodes = "episodes.yaml"
 # outlines = "outlines.yaml"
 # craft_ledger = "craft-ledger.yaml"
+# craft_config = "craft"
 # killed_tokens = "killed-tokens.yaml"
 # attestation_questions = "attestation-questions.json"
 # profiles = "export-profiles.json"
@@ -74,8 +75,14 @@ profiles = "games/rune-wheel/profiles.json"
 The keys under `documents` and `games` are stable logical wire ids. A request's
 `document` names one of those ids; it is not a filesystem path. Source files for
 one logical document are canonicalized, sorted, parsed by the real front end,
-and compiled together before the worker accepts traffic. Episode, killed-token,
-document-profile, game, and game-profile assets are loaded as typed data.
+and compiled together before the worker accepts traffic. Episode, craft-policy,
+killed-token, document-profile, game, and game-profile assets are loaded as
+typed data. A document's optional `craft_config` is validated as a closed
+caller-owned policy and retained with that document. Its principles, season
+thresholds, finding citations, and severity overrides are applied by ordinary
+check replay, `dli.check-draft`, and `dli.payload-submit`. Narrator,
+provenance, material-catalog, and outline policy remain available through the
+same loaded policy for callers of the outline-checking library API.
 
 Every manifest path is non-empty, normalized, relative to the manifest
 directory, and may not contain `.` or `..` components. Existing assets and their
@@ -102,17 +109,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.5.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.5.1", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.5.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.5.1", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.5.0", "id": "<correlation>", "ok": false,
+{"dli": "0.5.1", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -144,7 +151,7 @@ lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
 
-Contract `0.5.0` returns complete typed query rows, before/after fork changes,
+Contract `0.5.1` returns complete typed query rows, before/after fork changes,
 named preflight valuations, typed timeline reports, and target-shaped export
 emissions. The generated response schemas under `contracts/dli-worker/schemas/`
 are the machine-readable authority for those shapes.
@@ -206,7 +213,7 @@ behavior. The inventory, by family:
 | `dli.simulate.start` | Start a checkpointed practice or game-simulation job | `04-practices.md`, `09-exports.md` |
 | `dli.simulate.status` | Poll a job; a completed job's response carries the final manifest and verdicts | `04-practices.md` |
 | `dli.simulate.cancel` | Cancel a running job | — |
-| `dli.check-proof` | Check a diegetic proof against the scene projection | `04-practices.md` |
+| `dli.check-proof` | Check one named diegetic proof against the scene projection; `proof` is optional only for a single-proof document | `04-practices.md` |
 | `dli.check-draft` | Run the merged payload battery over a draft | `06-craft-and-payloads.md` |
 | `dli.timeline.*` | `show`, `order`, `knows`, `episodes`, `phases` | `03-time.md` |
 | `dli.export.run` | Compile `context-pack`, `cards`, `ludii-gdl`, `articy`, `csv`, or `static-wiki` from the certain layer; optional `profile_name` selects a project profile | `09-exports.md` |
@@ -273,7 +280,7 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-Contract `0.5.0` retains the storage-format-2 job behavior introduced at
+Contract `0.5.1` retains the storage-format-2 job behavior introduced at
 `0.4.2` (DL-0036). The request's `document` field is the stable logical id of either a
 manifest `documents` entry (its first declared practice) or a manifest `games`
 entry (its loaded ruleset). A game entry pins the candidate delta as part of its
@@ -337,14 +344,17 @@ An episode draft carries premise and conclusion cues in its production metadata.
 The consumer submits the formal encoding of the cues:
 
 ```json
-→ {"op": "dli.check-proof", "scene": "e01-s04", "speaker": "protagonist",
-   "proof": {"premises": ["…"], "steps": ["…"], "spends": ["p3"],
-     "close": {"atom": "holds(ward(door))", "expect": "holds"}}}
-← {"verdict": "invalid",
-   "errors": [{"class": "L2", "name": "premise-not-available", "at": "p2",
-     "message": "hour(slack-tide) is not established in e01-s04; last established hour is high-water",
-     "cue": "line 118"}],
-   "expected": "holds", "got": "blocked", "grade": "checked"}
+→ {"dli": "0.5.1", "id": "proof-1", "op": "dli.check-proof",
+   "params": {"document": "round-table", "proof": "lancelots-oath"}}
+← {"dli": "0.5.1", "id": "proof-1", "ok": true,
+   "result": {"report": {
+     "proof": {"text": "lancelots-oath", "span": {"file": 0, "start": 410, "end": 424}},
+     "speaker": "lancelot",
+     "practice": {"text": "oath-binding", "span": {"file": 0, "start": 410, "end": 422}},
+     "steps": [],
+     "findings": [],
+     "verdict": "holds", "expected": "holds",
+     "expectation_met": true, "grade": "checked", "checks": true}}}
 ```
 
 The kernel projects the world as of that scene — *certain ∩ known-by-speaker ∩
@@ -359,7 +369,7 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.5.0`, each accepted fat payload and the exact draft source used
+At contract `0.5.1`, each accepted fat payload and the exact draft source used
 to verify it are written as one versioned RFC 8785 JCS record beneath
 `.dli-evidence/payloads/<document>/<sha256>.json`. Retaining the source is
 required: `dli.check` reloads every record and replays anchoring, staleness, and
@@ -402,7 +412,7 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and check ops are synchronous and cheap. At contract `0.5.0`,
+Query and check ops are synchronous and cheap. At contract `0.5.1`,
 `dli.simulate.start` durably publishes pending state before its response is
 flushed; only then does the transport release a background worker.
 `dli.simulate.status` verifies durable state and schedules an unfinished job

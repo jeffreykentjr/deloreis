@@ -16,8 +16,10 @@ use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
 use dli_world::attest::Question;
-use dli_world::craft::outline::SeasonOutline;
-use dli_world::craft::season::CraftLedger;
+use dli_world::craft::{
+    AppliedCraft, CONFIG_FILES, CraftLedger, EpisodePolicy, SeasonOutline, Thresholds, apply,
+    build_episode_policy, doctrines, load_config, validate,
+};
 use dli_world::episode::Episode;
 use dli_world::language::LanguageModel;
 use dli_world::{KilledToken, KilledTokens, MatchMode, Pack, compile};
@@ -50,6 +52,13 @@ pub struct ProjectDocument {
     pub outlines: Option<SeasonOutline>,
     /// Optional committed season craft state merged into payload checks.
     pub craft_ledger: Option<CraftLedger>,
+    /// Caller-owned craft principles composed from the project's selected
+    /// doctrine packs and overlays.
+    pub craft_principles: Option<AppliedCraft>,
+    /// Caller-owned season thresholds from the same craft configuration.
+    pub craft_thresholds: Option<Thresholds>,
+    /// Caller-owned outline and per-finding policy.
+    pub craft_policy: Option<EpisodePolicy<'static>>,
     /// Optional rejected-lore token registry.
     pub killed: KilledTokens,
     /// Bounded model-judgment questions demanded by this document's checks.
@@ -176,6 +185,7 @@ struct DocumentEntry {
     episodes: Option<PathBuf>,
     outlines: Option<PathBuf>,
     craft_ledger: Option<PathBuf>,
+    craft_config: Option<PathBuf>,
     killed_tokens: Option<PathBuf>,
     attestation_questions: Option<PathBuf>,
     profiles: Option<PathBuf>,
@@ -409,6 +419,13 @@ fn collect_input_paths(
                 )?);
             }
         }
+        if let Some(path) = &entry.craft_config {
+            paths.extend(craft_config_paths(
+                root,
+                &format!("documents.{id}.craft_config"),
+                path,
+            )?);
+        }
     }
     for (id, entry) in games {
         paths.push(resolve_existing(
@@ -524,6 +541,14 @@ fn load_document(
         .as_deref()
         .map(|path| load_yaml(root, &format!("documents.{id}.craft_ledger"), path))
         .transpose()?;
+    let (craft_principles, craft_thresholds, craft_policy) = entry
+        .craft_config
+        .as_deref()
+        .map(|path| load_craft_config(root, &format!("documents.{id}.craft_config"), path))
+        .transpose()?
+        .map_or((None, None, None), |(principles, thresholds, policy)| {
+            (Some(principles), thresholds, Some(policy))
+        });
     let killed = entry
         .killed_tokens
         .as_deref()
@@ -551,12 +576,74 @@ fn load_document(
         episodes,
         outlines,
         craft_ledger,
+        craft_principles,
+        craft_thresholds,
+        craft_policy,
         killed,
         attestation_questions,
         profiles,
         source_digest,
         source_paths,
     })
+}
+
+fn craft_config_paths(root: &Path, field: &str, path: &Path) -> Result<Vec<PathBuf>, ProjectError> {
+    let directory = resolve_existing(root, field, path)?;
+    if !directory.is_dir() {
+        return Err(ProjectError::AssetPath {
+            field: field.to_owned(),
+            path: path.display().to_string(),
+            message: "craft_config must name a directory".into(),
+        });
+    }
+    let mut files = vec![directory];
+    for name in CONFIG_FILES {
+        let relative = path.join(name);
+        if root
+            .join(&relative)
+            .try_exists()
+            .map_err(|error| ProjectError::AssetPath {
+                field: field.to_owned(),
+                path: relative.display().to_string(),
+                message: error.to_string(),
+            })?
+        {
+            files.push(resolve_existing(root, field, &relative)?);
+        }
+    }
+    Ok(files)
+}
+
+fn load_craft_config(
+    root: &Path,
+    field: &str,
+    path: &Path,
+) -> Result<(AppliedCraft, Option<Thresholds>, EpisodePolicy<'static>), ProjectError> {
+    let files = craft_config_paths(root, field, path)?;
+    let directory = resolve_existing(root, field, path)?;
+    let packs = doctrines();
+    let config = load_config(&directory).map_err(|error| ProjectError::ParseAsset {
+        path: directory.display().to_string(),
+        message: error.to_string(),
+    })?;
+    let faults = validate(&config, &packs);
+    if !faults.is_empty() {
+        return Err(ProjectError::Invalid(format!(
+            "{field} is invalid: {}",
+            faults
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; ")
+        )));
+    }
+    debug_assert!(
+        files.iter().all(|file| file.starts_with(&directory)),
+        "validated craft files stay under their config directory"
+    );
+    let thresholds = config.season_thresholds;
+    let policy = build_episode_policy(&config);
+    Ok((apply(&config, &packs), thresholds, policy))
 }
 
 fn load_pack(

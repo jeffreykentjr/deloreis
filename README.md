@@ -10,13 +10,13 @@ declarative claim about what the world holds, which is the name, read one way.
 
 ## Status
 
-The kernel and domain engines are implemented, but the standalone source
-release is **not complete**. The worker now loads strict, versioned caller
-projects; its typed contract, paired fixture oracle, durable payload and
-attestation evidence, restart-resumable simulation jobs, Door T, and generic
-export family are complete. Standalone CLI smoke coverage remains open in the
-PLAN's machine-checked node matrix. The grammar is
-**unfrozen** and remains open until the G1 grammar gate. See
+The standalone source release is **complete in its local scope**. The worker
+loads strict, versioned caller projects; its typed contract, paired fixture
+oracle, durable payload and attestation evidence, restart-resumable simulation
+jobs, Door T, generic export family, and complete CLI command graph are
+gate-checked. The PLAN has no local `open` nodes. Consumer integration and
+explicitly deferred audits remain outside this release, and the grammar is
+**unfrozen** until the G1 grammar gate. See
 [`docs/PLAN.md`](docs/PLAN.md) for current evidence, deferred work, and release
 blockers.
 

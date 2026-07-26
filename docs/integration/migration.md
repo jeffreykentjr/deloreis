@@ -272,6 +272,8 @@ should become ratified canon, promotion is a later `dli.fork.promote` →
 machine never wrote canon at any step.
 
 The seed golden fixture (`contracts/dli-worker/fixtures/golden/author-session-v1.json`)
-demonstrates this same tool flow against the example world; the fixture that
-encodes THIS scenario against the pinned TPtH corpus lands at `AUTH-2` (it
-needs the vendored corpus, `EXT-F2`) and becomes CP-10's replay evidence.
+demonstrates this same tool flow against the example world. The AUTH-2 fixture
+at `worlds/tpth/auth2/author-tegwen-v1.json` encodes this scenario against the
+pinned-corpus-backed TPtH project and replays under
+`cargo test -p dli-serve --test auth2`. It is CP-10's deloreis-side replay
+evidence; the matching consumer transcript remains EXT-F4.

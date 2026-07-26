@@ -12,7 +12,7 @@
 //! durability semantics have not landed remain capability-gated. `dli.version`
 //! advertises only operations that currently satisfy their contract.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 // The contract module is one flat table of param/result structs; a scoped glob
 // is clearer than a 40-line import list, exactly as `schema.rs` does it.
@@ -50,7 +50,7 @@ use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 
 use dli_world::check;
 use dli_world::check::{Severity as PayloadSeverity, Severity as WorldSeverity, WorldFinding};
-use dli_world::episode::{Episode, Knower, fold};
+use dli_world::episode::{Episode, fold, knower_universe};
 use dli_world::episode_order::{order_integrity, season_slack};
 use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, view};
 use dli_world::payload::{BatteryContext, check_payload};
@@ -185,6 +185,15 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
             }
             if let Some(season) = &document.craft_ledger {
                 context = context.with_season(season);
+            }
+            if let Some(principles) = &document.craft_principles {
+                context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
+            }
+            if let Some(thresholds) = document.craft_thresholds {
+                context = context.with_thresholds(thresholds);
+            }
+            if let Some(policy) = &document.craft_policy {
+                context = context.with_episode_policy(policy.clone());
             }
             let payload_findings = check_payload(&scope.world, &record.payload, &context);
             procedure_grades.extend(payload_findings.iter().map(|finding| finding.grade));
@@ -501,6 +510,15 @@ fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Resp
         if let Some(season) = &document.craft_ledger {
             context = context.with_season(season);
         }
+        if let Some(principles) = &document.craft_principles {
+            context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
+        }
+        if let Some(thresholds) = document.craft_thresholds {
+            context = context.with_thresholds(thresholds);
+        }
+        if let Some(policy) = &document.craft_policy {
+            context = context.with_episode_policy(policy.clone());
+        }
     }
     Ok(ok_response(
         request,
@@ -527,6 +545,15 @@ fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<R
         }
         if let Some(season) = &document.craft_ledger {
             context = context.with_season(season);
+        }
+        if let Some(principles) = &document.craft_principles {
+            context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
+        }
+        if let Some(thresholds) = document.craft_thresholds {
+            context = context.with_thresholds(thresholds);
+        }
+        if let Some(policy) = &document.craft_policy {
+            context = context.with_episode_policy(policy.clone());
         }
     }
     let findings = check_payload(&scope.world, &p.payload, &context);
@@ -562,25 +589,70 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
             format!("no document named '{}' is loaded", p.document),
         )
     })?;
-    let proof: &ProofDecl = pack
+    let proofs = pack
         .documents
         .iter()
         .flat_map(|doc| &doc.decls)
-        .find_map(|decl| match decl {
+        .filter_map(|decl| match decl {
             Decl::Proof(proof) => Some(proof),
             _ => None,
         })
-        .ok_or_else(|| {
-            (
-                ErrorCode::SchemaViolation,
-                format!(
-                    "document '{}' declares no proof block to replay",
-                    p.document
-                ),
-            )
-        })?;
+        .collect::<Vec<_>>();
+    let proof: &ProofDecl = match p.proof.as_deref() {
+        Some(name) => {
+            let matches = proofs
+                .iter()
+                .copied()
+                .filter(|proof| proof.name.text == name)
+                .collect::<Vec<_>>();
+            match matches.as_slice() {
+                [proof] => proof,
+                [] => {
+                    return Err((
+                        ErrorCode::SchemaViolation,
+                        format!("document '{}' declares no proof named '{name}'", p.document),
+                    ));
+                }
+                _ => {
+                    return Err((
+                        ErrorCode::SchemaViolation,
+                        format!(
+                            "document '{}' declares proof '{name}' more than once",
+                            p.document
+                        ),
+                    ));
+                }
+            }
+        }
+        None => match proofs.as_slice() {
+            [proof] => proof,
+            [] => {
+                return Err((
+                    ErrorCode::SchemaViolation,
+                    format!(
+                        "document '{}' declares no proof block to replay",
+                        p.document
+                    ),
+                ));
+            }
+            _ => {
+                let names = proofs
+                    .iter()
+                    .map(|proof| proof.name.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err((
+                    ErrorCode::SchemaViolation,
+                    format!(
+                        "document '{}' declares multiple proofs ({names}); pass `proof` to select one",
+                        p.document
+                    ),
+                ));
+            }
+        },
+    };
     let practices: Vec<PracticeDef> = pack.documents.iter().flat_map(compile_practices).collect();
-    let practice_name = header_value(&proof.head, "in").ok_or_else(|| {
+    let practice_name = proof.practice().ok_or_else(|| {
         (
             ErrorCode::SchemaViolation,
             "the proof names no practice — its header carries no `in <practice>`".to_owned(),
@@ -595,7 +667,7 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
                 format!("the document declares no practice named '{practice_name}'"),
             )
         })?;
-    let speaker = header_value(&proof.head, "speaker");
+    let speaker = proof.actor().map(ToOwned::to_owned);
     let scope = resolve(sessions, &p.document)?;
     let scene = project_scene(&scope.world, speaker.as_deref());
     let report = check_proof(practice, proof, &scene);
@@ -922,15 +994,6 @@ fn practice_resource_names(pack: &dli_world::Pack) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Read the value following a header keyword (`in <practice>`, `speaker <who>`)
-/// from a proof declaration's flat header token list.
-fn header_value(head: &[String], key: &str) -> Option<String> {
-    head.iter()
-        .position(|token| token == key)
-        .and_then(|i| head.get(i + 1))
-        .cloned()
-}
-
 fn handle_name_check(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
     let p: NameCheckParams = params(request)?;
     // The op carries no document id, so a named dialect resolves against the
@@ -1143,14 +1206,7 @@ fn handle_timeline_knows(request: &Request, sessions: &Sessions) -> Result<Respo
         })?,
         None => max_slot(&episodes),
     };
-    let mut knowers = BTreeSet::from([Knower::Listener]);
-    knowers.extend(
-        folded
-            .knowledge_records()
-            .iter()
-            .map(|record| record.knower.clone()),
-    );
-    let knowers = knowers
+    let knowers = knower_universe(&episodes)
         .into_iter()
         .map(|knower| KnowledgeRow {
             facts: folded

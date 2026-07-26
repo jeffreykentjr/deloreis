@@ -913,3 +913,65 @@ addresses.
 not satisfy a general caller-facing export contract. A project-owned,
 data-driven profile path keeps world content outside the kernel while making
 each artifact replayable from caller source, profile, valuation, and manifest.
+
+## DL-0038 — The standalone source release closes its local scope
+
+*Date: 2026-07-26*
+
+**Ruling.** The release condition in DL-0028 is satisfied: the PLAN status
+matrix has no local `open` nodes. The executable's built Clap command graph,
+including generated help paths, now generates the CLI reference. The CLI
+end-to-end suite exercises positive and negative timeline, proof, simulation,
+fork, export, query, formatting, naming, fat-payload, craft, and report
+workflows with verdict exit codes; the separate project suite exercises both
+worker transports. The generic worker, durable evidence and jobs, Door T, and
+all six export targets remain available to caller-owned projects without a
+consumer-specific adapter. Proof bodies fail closed before formatting or replay:
+unknown children, opaque custom-step text, undeclared rule verbs, promoted
+assumptions, incomplete or ill-typed bindings, unknown bookkeeping operands,
+ambiguous or non-final closes, unbalanced atoms, surplus proof-header text, and
+surplus text on fixed-shape operations are findings. Quoted proof terms retain
+embedded commas through semantic replay. Caller craft config
+reaches every payload path with its
+principles, season thresholds, finding citations, and severity overrides; its
+outline policy is exposed through the same loaded value to library callers.
+Generic defaults emit no consumer decision IDs or consumer
+narrator/provenance/material policy, and repeated policy loads own and release
+their allocations normally.
+
+This closes the standalone source release only. Consumer/fantasy cutover and
+the worked handshake remain external-blocked. The live Ludii differential,
+multi-authority valuation, authoring benchmark, human probe, and grammar freeze
+remain explicitly deferred; in particular, release closure does not claim a
+frozen surface.
+
+**Rationale.** Release status follows replayable caller-facing behavior, as
+DL-0028 required. Deriving the reference from Clap removes the former
+hand-maintained command inventory, while workflow tests prove dispatch and exit
+semantics rather than treating help text or handler arms as implementation.
+
+## DL-0039 — Contract 0.5.1 makes proof selection explicit and preserves quoted claims
+
+*Date: 2026-07-26*
+
+**Ruling.** Contract `0.5.1` adds an optional `proof` selector to
+`dli.check-proof`. It may be omitted only when the selected logical document
+declares exactly one proof; zero, multiple, missing, or duplicate matches fail
+closed. The CLI follows the same rule through `--proof <name>` and no longer
+offers a practice override that could only produce a practice-mismatch finding.
+
+Proof claim identity removes insignificant whitespace only outside quoted
+values. Quoted spaces, escaped quotes, comment markers, braces, parentheses,
+and modifier words remain literal data through parsing, formatting, premise
+splitting, and close comparison. `expectation_met` reports only verdict versus
+expectation; `checks` additionally requires a structurally valid proof.
+Craft-config directories reject every filename outside their closed registry,
+and assurance scanning examines executable text after a block-comment closer.
+
+This is a pre-v1 wire migration because request variants are closed. It changes
+neither simulation storage format 2 nor durable job addresses.
+
+**Rationale.** Selecting the first proof silently made later declarations
+unreachable, while lossy quote normalization could certify two different claims
+as equal. A general caller needs an unambiguous proof address and literal claim
+identity; both are verdict semantics, not presentation details.

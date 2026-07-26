@@ -302,7 +302,10 @@
       "binding": {
         "binding": "attest",
         "spec": "judge_pillars"
-      }
+      },
+      "finding_codes": [
+        "outline.ten-reads-as-battle"
+      ]
     },
     {
       "id": "subplot-is-the-relationship-question",

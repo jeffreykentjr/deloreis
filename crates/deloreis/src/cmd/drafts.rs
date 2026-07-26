@@ -1,8 +1,8 @@
 //! The payload, proof, simulation, and export ops — all wired to their real engine
 //! crates (`DL-0021`).
 //!
-//! `check-draft` runs the merged fact-check battery (`dli_world::check_draft`) over
-//! a `payload/v1` document. `check-proof` compiles the corpus, projects the
+//! `check-draft` runs the merged eight-family battery (`dli_world::payload::check_payload`)
+//! over a `payload/v1` document. `check-proof` compiles the corpus, projects the
 //! certain-layer scene, and replays a diegetic proof block against its practice
 //! (PRAC-2), returning the rich per-step `ProofReport`. `simulate` runs a bounded
 //! seeded battery over a declared practice — or a card ruleset with `--game` — and
@@ -26,9 +26,11 @@ use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_sim::{
     Battery, GenBounds, Invariant, InvariantOutcome, InvariantSpec, Metric, Observable, RunManifest,
 };
-use dli_syntax::parse_document;
+use dli_syntax::{ladder, parse_document};
+use dli_world::craft::{CraftLedger, Kb, SeasonOutline};
+use dli_world::payload::{BatteryContext, check_payload};
 use dli_world::scene_projection::project_scene;
-use dli_world::{DraftPayload, KilledTokens, check_draft};
+use dli_world::{KilledTokens, Payload};
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
 
@@ -42,7 +44,7 @@ const SIM_DEFAULT_MAX_MAGNITUDE: u32 = 3;
 /// Arguments for `deloreis check-draft`.
 #[derive(Debug, Args)]
 pub(crate) struct CheckDraftArgs {
-    /// The `payload/v1` draft document (YAML) to fact-check.
+    /// The fat `payload/v1` draft document (YAML) to check.
     #[arg(value_name = "PAYLOAD")]
     pub(crate) payload: PathBuf,
     /// The `.dli` corpus (files or directories) to check the draft against.
@@ -52,9 +54,22 @@ pub(crate) struct CheckDraftArgs {
     /// a killed token are flagged as rejected lore.
     #[arg(long = "killed", value_name = "PATH")]
     pub(crate) killed: Option<PathBuf>,
+    /// Draft prose shadowed by the payload. Defaults to `meta.source.file`
+    /// relative to the payload file.
+    #[arg(long, value_name = "PATH")]
+    pub(crate) source: Option<PathBuf>,
+    /// Reviewed season outline YAML enabling the two-sided conformance battery.
+    #[arg(long, value_name = "PATH")]
+    pub(crate) outlines: Option<PathBuf>,
+    /// Prior season craft-ledger YAML merged into the payload battery.
+    #[arg(long = "craft-ledger", value_name = "PATH")]
+    pub(crate) craft_ledger: Option<PathBuf>,
+    /// Caller-owned craft configuration directory.
+    #[arg(long = "craft-config", value_name = "DIR")]
+    pub(crate) craft_config: Option<PathBuf>,
 }
 
-/// Fact-check a draft payload against the compiled world.
+/// Run the merged payload battery against the compiled world and caller context.
 pub(crate) fn run_check_draft(args: &CheckDraftArgs) -> CmdResult {
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "check-draft")?;
@@ -69,31 +84,92 @@ pub(crate) fn run_check_draft(args: &CheckDraftArgs) -> CmdResult {
 
     let text = fs::read_to_string(&args.payload)
         .map_err(|err| format!("cannot read {}: {err}", args.payload.display()))?;
-    let draft: DraftPayload = serde_yaml_ng::from_str(&text).map_err(|err| {
+    let payload: Payload = serde_yaml_ng::from_str(&text).map_err(|err| {
         format!(
             "the draft payload {} is malformed: {err}",
             args.payload.display()
         )
     })?;
+    let source_path = args.source.clone().unwrap_or_else(|| {
+        args.payload
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(&payload.meta.source.file)
+    });
+    let source = fs::read_to_string(&source_path)
+        .map_err(|err| format!("cannot read draft source {}: {err}", source_path.display()))?;
+    let documents = cmd::documents(&files);
+    let outlines: Option<SeasonOutline> =
+        load_yaml_option(args.outlines.as_deref(), "season outlines")?;
+    let craft_ledger: Option<CraftLedger> =
+        load_yaml_option(args.craft_ledger.as_deref(), "craft ledger")?;
+    let (principles, thresholds, episode_policy) = if let Some(path) = &args.craft_config {
+        let (principles, thresholds, policy) = cmd::load_craft_config(path)?;
+        (Some(principles), thresholds, Some(policy))
+    } else {
+        (None, None, None)
+    };
 
-    let mut findings = check_draft(&world, &draft);
-    findings.sort_by(|a, b| (&a.claim, &a.message).cmp(&(&b.claim, &b.message)));
+    let mut context = BatteryContext::new(&source).with_documents(&documents);
+    if let Some(outlines) = &outlines {
+        context = context.with_outlines(&outlines.episodes);
+    }
+    if let Some(craft_ledger) = &craft_ledger {
+        context = context.with_season(craft_ledger);
+    }
+    if let Some(principles) = &principles {
+        context = context.with_kb(Kb::new(principles.principles()));
+    }
+    if let Some(thresholds) = thresholds {
+        context = context.with_thresholds(thresholds);
+    }
+    if let Some(policy) = episode_policy {
+        context = context.with_episode_policy(policy);
+    }
+
+    let findings = check_payload(&world, &payload, &context);
     for finding in &findings {
         outln!(
-            "error  {claim} — {message} ({grade})",
-            claim = finding.claim,
+            "{severity}  {code} — {message} ({grade})",
+            severity = cmd::severity_word(finding.severity),
+            code = finding.code,
             message = finding.message,
             grade = finding.grade,
         );
+        if let Some(line) = finding.line {
+            outln!("  at draft line {line}");
+        }
+        if let Some(quote) = &finding.quote {
+            outln!("  quote: {quote}");
+        }
+        if let Some(principle) = &finding.principle {
+            outln!("  principle: {principle}");
+        }
+        if !finding.citations.is_empty() {
+            outln!("  citations: {}", finding.citations.join(", "));
+        }
     }
 
     if findings.is_empty() {
-        outln!("draft clean: {} claim(s) supported", draft.claims.len());
+        outln!("draft clean: payload battery passed");
         Ok(EXIT_CLEAN)
     } else {
         outln!("draft: {} defect(s)", findings.len());
         Ok(EXIT_FINDINGS)
     }
+}
+
+fn load_yaml_option<T: serde::de::DeserializeOwned>(
+    path: Option<&Path>,
+    label: &str,
+) -> Result<Option<T>, String> {
+    path.map(|path| {
+        let text = fs::read_to_string(path)
+            .map_err(|err| format!("cannot read {label} {}: {err}", path.display()))?;
+        serde_yaml_ng::from_str(&text)
+            .map_err(|err| format!("the {label} {} is malformed: {err}", path.display()))
+    })
+    .transpose()
 }
 
 /// Load a killed-token registry from a YAML file.
@@ -160,10 +236,10 @@ pub(crate) struct CheckProofArgs {
     /// the scene is projected from.
     #[arg(short = 'c', long = "corpus", value_name = "PATH", required = true)]
     pub(crate) corpus: Vec<PathBuf>,
-    /// The practice the casting runs in. Optional — the proof's `in <practice>`
-    /// header names it; `--in` overrides that when supplied.
-    #[arg(long = "in", value_name = "PRACTICE")]
-    pub(crate) practice: Option<String>,
+    /// The proof declaration to replay. May be omitted when the file declares
+    /// exactly one proof.
+    #[arg(long = "proof", value_name = "NAME")]
+    pub(crate) proof_name: Option<String>,
 }
 
 /// Replay a diegetic proof block against its practice and the scene it is spoken
@@ -182,42 +258,88 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     // Parse the proof file and extract its casting.
     let text = fs::read_to_string(&args.proof)
         .map_err(|err| format!("cannot read {}: {err}", args.proof.display()))?;
-    let (proof_doc, _diags) = parse_document(&text);
-    let proof: &ProofDecl = proof_doc
+    let (proof_doc, diags) = parse_document(&text);
+    let errors = diags
+        .into_iter()
+        .filter(|diag| diag.class.is_error())
+        .collect::<Vec<_>>();
+    if !errors.is_empty() {
+        out!("{}", ladder::render(&text, &errors));
+        outln!(
+            "proof: {} syntax finding(s); replay refused because malformed proof text \
+             cannot be discarded",
+            errors.len()
+        );
+        return Ok(EXIT_FINDINGS);
+    }
+    let proofs = proof_doc
         .decls
         .iter()
-        .find_map(|decl| match decl {
+        .filter_map(|decl| match decl {
             Decl::Proof(proof) => Some(proof),
             _ => None,
         })
-        .ok_or_else(|| {
-            format!(
-                "no proof block found in {} — a proof file declares `proof <name> … {{ … }}`",
-                args.proof.display()
-            )
-        })?;
+        .collect::<Vec<_>>();
+    let proof: &ProofDecl = match args.proof_name.as_deref() {
+        Some(name) => {
+            let matches = proofs
+                .iter()
+                .copied()
+                .filter(|proof| proof.name.text == name)
+                .collect::<Vec<_>>();
+            match matches.as_slice() {
+                [proof] => proof,
+                [] => {
+                    return Err(format!(
+                        "no proof named '{name}' found in {}",
+                        args.proof.display()
+                    ));
+                }
+                _ => {
+                    return Err(format!(
+                        "proof '{name}' is declared more than once in {}",
+                        args.proof.display()
+                    ));
+                }
+            }
+        }
+        None => match proofs.as_slice() {
+            [proof] => proof,
+            [] => {
+                return Err(format!(
+                    "no proof block found in {} — a proof file declares `proof <name> … {{ … }}`",
+                    args.proof.display()
+                ));
+            }
+            _ => {
+                let names = proofs
+                    .iter()
+                    .map(|proof| proof.name.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(format!(
+                    "{} declares multiple proofs ({names}); pass --proof <name> to select one",
+                    args.proof.display()
+                ));
+            }
+        },
+    };
 
-    // The practice to check against: `--in` overrides the proof header's `in`.
-    let practice_name = args
-        .practice
-        .clone()
-        .or_else(|| header_value(&proof.head, "in"))
-        .ok_or_else(|| {
-            "the proof names no practice — write `in <practice>` in its header or pass --in"
-                .to_owned()
-        })?;
+    let practice_name = proof.practice().ok_or_else(|| {
+        "the proof names no practice — write `in <practice>` in its header".to_owned()
+    })?;
     let practice = practices
         .iter()
         .find(|practice| practice.name.text == practice_name)
         .ok_or_else(|| {
             format!(
                 "the corpus declares no practice named '{practice_name}' — check the proof's \
-                 `in <practice>` or --in against the corpus"
+                 `in <practice>` against the corpus"
             )
         })?;
 
     // Project the certain-layer scene for the proof's speaker, then check.
-    let speaker = header_value(&proof.head, "speaker");
+    let speaker = proof.actor().map(ToOwned::to_owned);
     let scene = project_scene(&world, speaker.as_deref());
     let report = check_proof(practice, proof, &scene);
 
@@ -228,15 +350,6 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     } else {
         Ok(EXIT_FINDINGS)
     }
-}
-
-/// Read the value following a header keyword (`in <practice>`, `speaker <who>`)
-/// from a proof declaration's flat header token list.
-fn header_value(head: &[String], key: &str) -> Option<String> {
-    head.iter()
-        .position(|token| token == key)
-        .and_then(|i| head.get(i + 1))
-        .cloned()
 }
 
 /// Hand-render a checked proof: its header, per-step verdicts, structural
@@ -270,6 +383,11 @@ fn render_proof_report(report: &ProofReport) {
     outln!("grade: {}", report.grade);
     if report.checks {
         outln!("proof checks: the declared expectation was met");
+    } else if report.expectation_met {
+        outln!(
+            "proof: {} finding(s); the declared expectation was met, but the proof did not check",
+            report.findings.len()
+        );
     } else {
         outln!(
             "proof: {} finding(s); the declared expectation was not met",

@@ -2186,10 +2186,14 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "deloreis",
  "dli-ast",
  "dli-serve",
  "dli-syntax",
+ "dli-world",
  "jsonschema",
+ "schemars",
  "serde_json",
  "serde_yaml_ng",
  "sha2",

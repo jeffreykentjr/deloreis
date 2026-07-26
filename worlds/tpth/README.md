@@ -20,6 +20,7 @@ supplies its own directory like this one.
 | `export/` | Export profiles (`profiles.json`). | landed |
 | `vendor/` | The pinned fantasy-repo snapshot, digest-isolated — provenance and regression corpus. | landed |
 | `mutation/` | The detection corpus (seeded-violation fixtures). | landed |
+| `auth2/` | The pinned-corpus-backed Door-T worked scenario and its exact golden replay; `auth2-project.toml` is its caller manifest. | landed |
 
 ## What does NOT live here
 

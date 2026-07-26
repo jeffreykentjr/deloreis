@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldPrinciple",
+  "description": "A config-only principle — a world row with no shipped generic kernel (design\n§1.2). It converts straight to a runtime [`Principle`]; its\n[`family`](Self::family) may be [`Family::Pillar`].",
+  "type": "object",
+  "properties": {
+    "binding": {
+      "description": "How its check binds.",
+      "$ref": "#/$defs/Binding"
+    },
+    "citations": {
+      "description": "The provenance citations that justify the row.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "family": {
+      "description": "The family (may be [`Family::Pillar`] — the world's precedence tier).",
+      "$ref": "#/$defs/Family"
+    },
+    "finding_codes": {
+      "description": "Exact kernel finding codes governed by this principle.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "id": {
+      "description": "The unique kebab-case slug.",
+      "type": "string"
+    },
+    "mission_filter": {
+      "description": "How the mission filters it (default [`MissionFilter::Pass`]).",
+      "$ref": "#/$defs/MissionFilter",
+      "default": {
+        "mission_filter": "pass"
+      }
+    },
+    "parameters": {
+      "description": "Parameters consumed by this principle's binding.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Scalar"
+      }
+    },
+    "phases": {
+      "description": "The production phases it bears on.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Phase"
+      }
+    },
+    "source": {
+      "description": "The provenance — a canon anchor or `D-nnnn` ruling.",
+      "type": "string"
+    },
+    "statement": {
+      "description": "The principle, stated in the world's own terms (world content allowed).",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "family",
+    "statement",
+    "source",
+    "phases",
+    "binding"
+  ],
+  "$defs": {
+    "Binding": {
+      "description": "How a principle's check binds — the ported `checkable` × `check_ref`, typed.\n\nA kernel binding names a [`KernelRule`], a closed enum, so a dangling deterministic\nreference is a compile error — the legacy `check_ref_resolves` reference checker,\nin the type system:\n\n```compile_fail\nuse dli_world::craft::kb::{Binding, KernelRule};\n// The kernel rules are a closed set; a rule that does not exist is not a variant.\nlet _bad = Binding::Rule(KernelRule::NoSuchRule);\n```",
+      "oneOf": [
+        {
+          "description": "A deterministic kernel rule (the reference cannot dangle — closed enum).",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "rule"
+            },
+            "spec": {
+              "$ref": "#/$defs/KernelRule"
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "A deterministic check that stays factory-side (spec §6), recorded not run.",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "factory"
+            },
+            "spec": {
+              "type": "object",
+              "properties": {
+                "namespace": {
+                  "description": "Which factory battery owns it.",
+                  "$ref": "#/$defs/FactoryNs"
+                },
+                "symbol": {
+                  "description": "The check symbol within that battery.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "namespace",
+                "symbol"
+              ]
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "A judge dimension: consumes a stored attestation of this question kind and\nreports grade [`Grade::Attested`].",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "attest"
+            },
+            "spec": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "Declaration-only: no check, surfaced by brief/phase queries.",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "declaration"
+            }
+          },
+          "required": [
+            "binding"
+          ]
+        }
+      ]
+    },
+    "FactoryNs": {
+      "description": "A caller-declared factory-side check namespace (spec §6: prose checks stay\nfactory-invoked).\n\nThis is an open identifier rather than an engine-owned enum: projects may\nregister any factory namespace and [`super::worldcfg::validate`] checks every\nfactory binding against that registry.",
+      "type": "string"
+    },
+    "Family": {
+      "description": "A doctrine family — the axis a principle speaks to.",
+      "oneOf": [
+        {
+          "description": "Plot: promises, causality, try/fail, arc shape.",
+          "type": "string",
+          "const": "plot"
+        },
+        {
+          "description": "Character: sliders, interiority, voice.",
+          "type": "string",
+          "const": "character"
+        },
+        {
+          "description": "World: material grounding, magic pedagogy, allegory.",
+          "type": "string",
+          "const": "world"
+        },
+        {
+          "description": "Prose: sentence craft, abstraction, said-ratio.",
+          "type": "string",
+          "const": "prose"
+        },
+        {
+          "description": "Serial: open loops, micro-pacing, installment discipline.",
+          "type": "string",
+          "const": "serial"
+        },
+        {
+          "description": "Audio: narrator/SFX load, aural distinctness, performability.",
+          "type": "string",
+          "const": "audio"
+        },
+        {
+          "description": "Pillar: a mission-specific principle that overrides generic advice (D-0128).",
+          "type": "string",
+          "const": "pillar"
+        }
+      ]
+    },
+    "KernelRule": {
+      "description": "The **closed** set of deterministic kernel rules a principle may bind.\n\nA `checkable: deterministic` principle over kernel objects names its rule here,\nso a reference to a rule that does not exist is a compile error — the legacy\n`check_ref_resolves` test, lifted into the type system. The outline entry\npoints are the `CRAFT-1` batteries; the season rules are `CRAFT-2`'s join\nengine ([`super::season`]), and the two layers share this one rule namespace.",
+      "oneOf": [
+        {
+          "description": "The `CRAFT-1` per-episode structural battery ([`super::season::check_episode`]).",
+          "type": "string",
+          "const": "check-outline"
+        },
+        {
+          "description": "The `CRAFT-1` season-scope battery ([`super::season::check_season`]).",
+          "type": "string",
+          "const": "check-season"
+        },
+        {
+          "description": "Accomplishment-earned: a major beat needs a prior same-thread failure.",
+          "type": "string",
+          "const": "accomplishment-earned"
+        },
+        {
+          "description": "The climax refinement: a climax-class beat needs two prior failures.",
+          "type": "string",
+          "const": "accomplishment-earned-climax"
+        },
+        {
+          "description": "A thread that lands its unqualified win may not re-open.",
+          "type": "string",
+          "const": "yes-and-terminal"
+        },
+        {
+          "description": "Competence-consistency: an unearned major win by an under-competent hand.",
+          "type": "string",
+          "const": "competence-consistency"
+        },
+        {
+          "description": "The arc-flat generalization of the flat-slider check, at season scope.",
+          "type": "string",
+          "const": "competence-arc-flat"
+        },
+        {
+          "description": "Kishōtenketsu fair-play: a turn's reframing fact must be on the ledger early.",
+          "type": "string",
+          "const": "reveal-fair-play"
+        },
+        {
+          "description": "A mystery promise untouched for K episodes is starved.",
+          "type": "string",
+          "const": "mystery-starved"
+        },
+        {
+          "description": "Cold-open discipline: open a loop, cast ≤ 2, no deep-time in act 1.",
+          "type": "string",
+          "const": "cold-open-discipline"
+        },
+        {
+          "description": "New named speakers per episode within a band and a season budget.",
+          "type": "string",
+          "const": "cast-introduction-rate"
+        },
+        {
+          "description": "Two names below the aural-distinctness floor may not share a scene.",
+          "type": "string",
+          "const": "scene-name-clash"
+        },
+        {
+          "description": "Promise open/close density banded by season position.",
+          "type": "string",
+          "const": "promise-density"
+        },
+        {
+          "description": "A kishōtenketsu episode places its *ten* in-band, not as a clash resolution.",
+          "type": "string",
+          "const": "arc-shape"
+        },
+        {
+          "description": "No run of N high-orientation-load episodes.",
+          "type": "string",
+          "const": "audio-load-trajectory"
+        }
+      ]
+    },
+    "MissionFilter": {
+      "description": "How the mission filters a principle (D-0128).\n\nThe two off-`Pass` arms carry their required companion fields inline, which is\nhow the spec's \"a `tension` requires a `resolution`\" invariant becomes a\n**compile** rule rather than a runtime check: the value cannot be built without\nit.\n\n```compile_fail\nuse dli_world::craft::kb::MissionFilter;\n// A tension without a resolution is not a value that exists.\nlet _bad = MissionFilter::Tension { note: \"generic advice loses to the pillar\" };\n```",
+      "oneOf": [
+        {
+          "description": "The principle applies to the mission unchanged.",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "pass"
+            }
+          },
+          "required": [
+            "mission_filter"
+          ]
+        },
+        {
+          "description": "The principle applies with a caveat; the caveat is required.",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "adapted"
+            },
+            "note": {
+              "description": "Why the generic principle needs adapting to the mission.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "mission_filter",
+            "note"
+          ]
+        },
+        {
+          "description": "A generic principle conflicts with a pillar or with canon; the resolution\n(the mission-side ruling) is required (spec §5).",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "tension"
+            },
+            "note": {
+              "description": "The conflict between the received principle and the mission.",
+              "type": "string"
+            },
+            "resolution": {
+              "description": "The mission-side ruling that resolves it — where the pillar wins.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "mission_filter",
+            "note",
+            "resolution"
+          ]
+        }
+      ]
+    },
+    "Phase": {
+      "description": "A production phase a principle bears on.",
+      "oneOf": [
+        {
+          "description": "The outline phase.",
+          "type": "string",
+          "const": "outline"
+        },
+        {
+          "description": "The lore-decision phase.",
+          "type": "string",
+          "const": "lore-decision"
+        },
+        {
+          "description": "The generation phase.",
+          "type": "string",
+          "const": "generation"
+        },
+        {
+          "description": "The revision phase.",
+          "type": "string",
+          "const": "revision"
+        }
+      ]
+    },
+    "Scalar": {
+      "description": "A generic default parameter value carried by a shipped [`DoctrinePrinciple`] —\na world may override it in its craft config (design §1.1). Deliberately small:\nthe tunables in the corpus are counts, ratios, flags, and short labels\n(e.g. `said_tag_ratio = 0.85`, `cast_per_scene = 4`, `tryfail_count = 3`).",
+      "anyOf": [
+        {
+          "description": "A boolean flag.",
+          "type": "boolean"
+        },
+        {
+          "description": "An integer count.",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "description": "A real-valued ratio or threshold.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "A short textual value.",
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

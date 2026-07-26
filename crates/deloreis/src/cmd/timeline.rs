@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use clap::{Args, Subcommand};
 use dli_eval::world::World;
 use dli_time::chronology::{TemporalVerdict, TimePoint};
-use dli_world::episode::{Episode, Knower, fold};
+use dli_world::episode::{Episode, Knower, fold, knower_universe};
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
 
@@ -129,6 +129,17 @@ fn run_show(args: &ShowArgs) -> CmdResult {
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "timeline")?.model.world;
     let points = universe(&world);
+    let cursor = args
+        .at
+        .as_ref()
+        .map(|at| {
+            points
+                .iter()
+                .copied()
+                .find(|point| point_name(&world, *point) == *at)
+                .ok_or_else(|| format!("unknown timeline point '{at}'"))
+        })
+        .transpose()?;
     if points.is_empty() {
         outln!("no chronology in this corpus");
         return Ok(EXIT_CLEAN);
@@ -157,12 +168,7 @@ fn run_show(args: &ShowArgs) -> CmdResult {
         }
     }
 
-    if let Some(at) = &args.at {
-        let cursor = points
-            .iter()
-            .copied()
-            .find(|p| &point_name(&world, *p) == at)
-            .ok_or_else(|| format!("unknown timeline point '{at}'"))?;
+    if let (Some(at), Some(cursor)) = (&args.at, cursor) {
         let mut before = Vec::new();
         let mut after = Vec::new();
         for &other in &points {
@@ -231,11 +237,17 @@ fn load_episodes(path: &PathBuf) -> Result<Vec<Episode>, String> {
 
 fn run_knows(args: &KnowsArgs) -> CmdResult {
     let episodes = load_episodes(&args.episodes)?;
-    let folded = fold(&episodes);
     let knower = match &args.who {
-        Some(id) => Knower::cast(id.clone()),
+        Some(id) => {
+            let knower = Knower::cast(id.clone());
+            if !knower_universe(&episodes).contains(&knower) {
+                return Err(format!("unknown cast knower '{id}'"));
+            }
+            knower
+        }
         None => Knower::Listener,
     };
+    let folded = fold(&episodes);
     let facts = folded.knowledge_at(args.at, &knower);
     let who = args
         .who

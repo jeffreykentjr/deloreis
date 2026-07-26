@@ -10,6 +10,11 @@ statement = "In ki-sho-ten-ketsu the third act (ten) is the crux: a turn that re
 source = "Kishotenketsu (classical East Asian four-act structure)."
 phases = ["outline", "generation"]
 checkable_kind = "none"
+finding_codes = [
+    "outline.ten-reads-as-battle",
+    "craft.reveal-fair-play",
+    "craft.arc-shape",
+]
 
 [[principles]]
 id = "climax-is-perspective-shift"

@@ -4,15 +4,16 @@
   "steps": [
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "dli.check-proof",
         "params": {
-          "document": "warding-vows"
+          "document": "warding-vows",
+          "proof": "e01-s04"
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {

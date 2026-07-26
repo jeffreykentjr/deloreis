@@ -177,6 +177,11 @@ fn gate_job_has_no_job_level_if_condition() {
         "the gate job has a job-level `if:` condition — \
          the gate must run unconditionally on every trigger"
     );
+    assert!(
+        gate_job.get("continue-on-error").is_none(),
+        "the gate job has job-level `continue-on-error` — \
+         the canonical verdict must fail the workflow"
+    );
 }
 
 #[test]
@@ -186,14 +191,27 @@ fn ci_on_trigger_matches_expected_pattern() {
     let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
 
     let on = ci.get("on").expect("ci.yml must have an `on:` trigger");
-    let push = on.get("push").expect("ci.yml must trigger on `push`");
-    let branches = push
-        .get("branches")
-        .and_then(|v| v.as_sequence())
-        .expect("push trigger must have a `branches` list");
-
-    assert!(
-        branches.iter().any(|b| b.as_str() == Some("main")),
-        "the push trigger must include `main` in its branches list"
-    );
+    for trigger_name in ["push", "pull_request"] {
+        let trigger = on
+            .get(trigger_name)
+            .unwrap_or_else(|| panic!("ci.yml must trigger on `{trigger_name}`"));
+        let branches = trigger
+            .get("branches")
+            .and_then(|v| v.as_sequence())
+            .unwrap_or_else(|| panic!("{trigger_name} trigger must have a `branches` list"));
+        assert_eq!(
+            branches
+                .iter()
+                .filter_map(|b| b.as_str())
+                .collect::<Vec<_>>(),
+            vec!["main"],
+            "{trigger_name} must run exactly for the main branch"
+        );
+        for bypass in ["paths", "paths-ignore", "branches-ignore"] {
+            assert!(
+                trigger.get(bypass).is_none(),
+                "{trigger_name} carries `{bypass}` and can bypass the canonical gate"
+            );
+        }
+    }
 }

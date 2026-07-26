@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.why params omit the required fields, violating the op schema.",
   "send": {
-    "dli": "0.5.0",
+    "dli": "0.5.1",
     "id": "1",
     "op": "author.why",
     "params": {}

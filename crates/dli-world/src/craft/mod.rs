@@ -110,20 +110,22 @@ pub mod season;
 pub mod worldcfg;
 
 pub use kb::{
-    Binding, Checkable, Coverage, FactoryNs, Family, Kb, KbError, KernelRule, MissionFilter, Phase,
-    Principle, audit, by_id, checkable_debt, coverage, evaluate_judge, principles_binding, why,
+    Binding, Checkable, Coverage, FactoryNs, Family, Kb, KbError, KernelRule, MissionFilter,
+    OUTLINE_FINDING_CODES, Phase, Principle, audit, by_id, checkable_debt, coverage,
+    evaluate_judge, is_outline_finding_code, principles_binding, why,
 };
 pub use load::{LoadError, PrinciplePack, parse_pack, render_pack};
 pub use outline::{
     Advance, ArcPromise, AudioLoad, AudioPlan, CarryScope, CharacterSlider, EpisodeOutline,
-    MaterialAssumptionLedger, MaterialUnknown, MiceKind, MiceThread, NarratorMode, NarratorTask,
-    Promise, PromiseKind, Scene, SceneWork, SeasonOutline, SfxLoad, SfxSemanticLoad, TryFailBeat,
-    TryFailOutcome,
+    MaterialAssumptionLedger, MaterialCategoryId, MaterialUnknown, MiceKind, MiceThread,
+    NarratorMode, NarratorTask, Promise, PromiseKind, Scene, SceneWork, SeasonOutline, SfxLoad,
+    SfxSemanticLoad, TryFailBeat, TryFailOutcome,
 };
 pub use season::{
     ArcShape, BeatKind, CheckOptions, CraftLedger, DEFAULT_EPISODE_POLICY, DEFAULT_THRESHOLDS,
     EpisodeMeta, EpisodePolicy, LedgerBeat, LedgerPromise, LedgerScene, Magnitude, Reveal,
-    SliderState, Thresholds, Turn, check_episode, check_season, check_season_rules, worst_severity,
+    SliderState, TextMatchRule, Thresholds, TokenPair, Turn, check_episode, check_season,
+    check_season_rules, check_season_rules_with_policy, worst_severity,
 };
 
 // Step 4 (craft separation): the shipped generic doctrine library.
@@ -133,7 +135,8 @@ pub use load::doctrines;
 // Step 5 (craft separation): the world craft-config loaded as data, composed with
 // the shipped packs into the runtime corpus.
 pub use worldcfg::{
-    ConfigError, ConfigLoadError, CraftConfig, FindingRuleCfg, MaterialCategoryCfg,
-    NarratorModeRuleCfg, NarratorPolicyCfg, OutlineThresholdsCfg, PrecedenceTier, PrincipleOverlay,
-    ProvenanceCfg, WorldPrinciple, apply, build_episode_policy, load_config, validate,
+    AppliedCraft, CONFIG_FILES, ConfigError, ConfigLoadError, CraftConfig, FindingRuleCfg,
+    MaterialCategoryCfg, NarratorModeRuleCfg, NarratorPolicyCfg, OutlineThresholdsCfg,
+    PrecedenceTier, PrincipleOverlay, ProvenanceCfg, TextMatchRuleCfg, TokenPairCfg,
+    WorldPrinciple, apply, build_episode_policy, load_config, validate,
 };

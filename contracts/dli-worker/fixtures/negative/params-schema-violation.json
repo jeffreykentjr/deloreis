@@ -3,7 +3,7 @@
   "version": 1,
   "note": "dli.check requires `document`; params omit it and add an unknown field.",
   "send": {
-    "dli": "0.5.0",
+    "dli": "0.5.1",
     "id": "1",
     "op": "dli.check",
     "params": {

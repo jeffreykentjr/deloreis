@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "findings": {
-      "description": "Findings from the six-check vetting.",
+      "description": "Findings from the kernel-half dialect and phonotactic vet.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/Finding"

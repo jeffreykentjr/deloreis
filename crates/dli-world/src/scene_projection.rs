@@ -311,11 +311,14 @@ fn render_atom(atom: &AtomExpr) -> String {
     format!("{}({})", atom.pred.text, args.join(", "))
 }
 
-/// Render one term to its ground string form (mirrors the loader's rendering).
+/// Render one term to its canonical ground surface form.
 fn render_term(term: &Term) -> String {
     match term {
         Term::Var(id) | Term::Sym(id) => id.text.clone(),
-        Term::Str(text) => text.clone(),
+        Term::Str(text) => {
+            let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
+        }
         Term::Int(value) => value.to_string(),
         Term::Time(TimeRef::Era(id)) => format!("era:{}", id.text),
         Term::Time(TimeRef::Event(id)) => format!("event:{}", id.text),
@@ -461,6 +464,30 @@ mod tests {
             PremiseStatus::Absent,
         );
         assert!(scene.denied.is_empty(), "denials are never synthesized");
+    }
+
+    #[test]
+    fn quoted_world_facts_retain_string_identity_in_the_pool() {
+        let world = world(vec![
+            ratify("d-1"),
+            fact(
+                "calls",
+                vec![sym("enfys"), Term::Str("warden".to_owned())],
+                "d-1",
+            ),
+        ]);
+        let scene = project_scene(&world, None);
+
+        assert_eq!(
+            scene.availability(r#"calls(enfys, "warden")"#),
+            PremiseStatus::Available,
+            "the quoted world fact must match the same quoted proof atom",
+        );
+        assert_eq!(
+            scene.availability("calls(enfys, warden)"),
+            PremiseStatus::Absent,
+            "a bare symbol must not match a string literal with the same text",
+        );
     }
 
     #[test]

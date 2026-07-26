@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "context-pack",
         "op": "dli.export.run",
         "params": {
@@ -13,7 +13,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "context-pack",
         "ok": true,
         "result": {
@@ -43,7 +43,7 @@
     },
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "cards",
         "op": "dli.export.run",
         "params": {
@@ -52,7 +52,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "cards",
         "ok": true,
         "result": {
@@ -554,7 +554,7 @@
     },
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "dli.export.run",
         "params": {
@@ -563,7 +563,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -590,7 +590,7 @@
     },
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "articy",
         "op": "dli.export.run",
         "params": {
@@ -599,7 +599,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "articy",
         "ok": true,
         "result": {
@@ -670,7 +670,7 @@
     },
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "csv",
         "op": "dli.export.run",
         "params": {
@@ -679,7 +679,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "csv",
         "ok": true,
         "result": {
@@ -704,7 +704,7 @@
     },
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "wiki",
         "op": "dli.export.run",
         "params": {
@@ -713,7 +713,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "wiki",
         "ok": true,
         "result": {

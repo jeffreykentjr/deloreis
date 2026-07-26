@@ -10,6 +10,17 @@ statement = "Show a fraction of what you have built and imply the rest. The felt
 source = "Sanderson (iceberg principle); Hemingway (theory of omission)."
 phases = ["lore-decision", "generation"]
 checkable_kind = "none"
+finding_codes = [
+    "outline.no-material-assumption-ledger",
+    "outline.material-assumption-incomplete",
+    "outline.unsupported-material-assumption",
+    "outline.material-assumption-blank",
+    "outline.material-answer-and-unknown",
+    "outline.material-canon-ref-duplicate",
+    "outline.material-canon-ref-malformed",
+    "outline.material-research-ref-duplicate",
+    "outline.material-research-ref-malformed",
+]
 
 [[principles]]
 id = "world-as-plot-engine"

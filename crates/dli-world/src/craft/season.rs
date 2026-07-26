@@ -24,11 +24,12 @@
 //! rather than crashes.
 //!
 //! **Thresholds are policy data** ([06-craft-and-payloads](../../../../docs/spec/06-craft-and-payloads.md)
-//! §4): the cast ceiling, the hook deadline, the slider floors, and the battle
-//! lexicon live in [`policy`] as D-citable leaf tables, not magic numbers inline.
-//! Each threshold-family finding rides at [`Severity::Warn`] until calibrated —
-//! which is exactly the legacy severity, so parity holds.
+//! §4): the cast ceiling, hook deadline, and slider floors are substitutable
+//! values, while project lexical checks arrive through [`EpisodePolicy`] rather
+//! than engine constants. Each threshold-family finding rides at
+//! [`Severity::Warn`] until calibrated.
 
+use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap};
 
 use super::config::{
@@ -37,8 +38,8 @@ use super::config::{
     NarratorPolicy, ProvenanceFormats,
 };
 use super::outline::{
-    AudioLoad, EpisodeOutline, MaterialAssumptionLedger, MaterialUnknown, NarratorMode, SceneWork,
-    SeasonOutline, SfxLoad, SfxSemanticLoad, TryFailOutcome,
+    AudioLoad, EpisodeOutline, MaterialAssumptionLedger, NarratorMode, SceneWork, SeasonOutline,
+    SfxLoad, SfxSemanticLoad, TryFailOutcome,
 };
 use crate::check::{Severity, WorldFinding};
 
@@ -63,36 +64,37 @@ pub mod policy {
     /// Below this, a character slider needs an explicit compensation note
     /// (`slider-compensation-missing`, keyed on the *lowest* dial).
     pub const SLIDER_LOW_FLOOR: u8 = 4;
+}
 
-    /// Single-word combat vocabulary that, in the *ten*, signals a battle-climax
-    /// habit where a perspective shift belongs (`ten-reads-as-battle`).
-    /// The legacy `_BATTLE_IN_TEN` regex's wordlist, ported to data.
-    pub const BATTLE_SINGLE: &[&str] = &[
-        "battle", "sword", "blade", "army", "armies", "slay", "slain", "behead", "duel", "charge",
-        "warhost",
-    ];
+/// One adjacent-token pattern in a caller-owned text rule.
+#[derive(Debug, Clone)]
+pub struct TokenPair {
+    /// Allowed first tokens.
+    pub leads: Vec<String>,
+    /// Required second token.
+    pub tail: String,
+}
 
-    /// Multi-token combat phrases (each an adjacent pair after tokenizing), with
-    /// the alternative leading tokens the legacy regex allowed.
-    ///
-    /// `(&["strike", "strikes"], "down")` reproduces `strike(?:s)? down`; the
-    /// `war[- ]?host` and `final blow` and `kill(?:s|ed)? the` cases follow.
-    pub const BATTLE_PAIRS: &[(&[&str], &str)] = &[
-        (&["war"], "host"),
-        (&["strike", "strikes"], "down"),
-        (&["kill", "kills", "killed"], "the"),
-        (&["final"], "blow"),
-    ];
+/// A caller-owned lexical finding over one structural turn slot.
+#[derive(Debug, Clone)]
+pub struct TextMatchRule {
+    /// Full dotted finding code.
+    pub code: String,
+    /// Finding message.
+    pub message: String,
+    /// Outline slot to scan.
+    pub slot: super::config::TurnSlot,
+    /// Single-token matches.
+    pub single: Vec<String>,
+    /// Adjacent-token matches.
+    pub pairs: Vec<TokenPair>,
 }
 
 /// The per-episode outline policy — the calibratable thresholds, battle lexicon,
 /// and world-supplied season policy the `CRAFT-1` battery reads, threaded in as an
-/// argument rather than read from a global (design §2.3). The borrowed slices keep
-/// this a `const`-constructible, zero-copy value; [`DEFAULT_EPISODE_POLICY`] wires
-/// each field to the current [`policy`] leaf tables and the
-/// [`config`](super::config) defaults, so passing the default is byte-for-byte the
-/// legacy behavior.
-#[derive(Debug, Clone, Copy)]
+/// argument rather than read from a global (design §2.3). Static defaults borrow
+/// their tables; loaded caller policies own theirs.
+#[derive(Debug, Clone)]
 pub struct EpisodePolicy<'a> {
     /// The most speaking voices a scene may carry before `cast-over-four` warns.
     pub scene_cast_ceiling: usize,
@@ -102,12 +104,12 @@ pub struct EpisodePolicy<'a> {
     pub slider_flat_ceiling: u8,
     /// Below this, a character slider needs an explicit compensation note.
     pub slider_low_floor: u8,
-    /// Single-word combat vocabulary that signals a battle-climax habit in the
-    /// *ten* (`ten-reads-as-battle`).
-    pub battle_single: &'a [&'a str],
-    /// Multi-token combat phrases (each an adjacent pair after tokenizing), with the
-    /// alternative leading tokens the legacy regex allowed.
-    pub battle_pairs: &'a [(&'a [&'a str], &'a str)],
+    /// Caller-owned lexical checks over structural turn slots.
+    pub text_rules: Cow<'a, [TextMatchRule]>,
+    /// Exact finding codes enabled by the selected doctrine corpus. `None` keeps
+    /// the library's unconfigured all-rules behavior; loaded config always uses
+    /// an explicit set, including an empty one.
+    pub enabled_findings: Option<BTreeSet<String>>,
     /// The per-finding-code citation + severity policy (design §3a).
     pub finding_policy: FindingPolicy<'a>,
     /// The narrator-framing dispositions (design §3b).
@@ -120,22 +122,30 @@ pub struct EpisodePolicy<'a> {
     pub arc_shapes: ArcShapeCatalog,
 }
 
-/// The default outline policy — every field wired to the current [`policy`] leaf
-/// tables, so `check_episode(ep, opts, &DEFAULT_EPISODE_POLICY)` reproduces the
-/// legacy `check_outline(ep)` exactly (design §2.3, Step 1: zero behavior change).
+/// The generic outline policy. Structural thresholds remain uncalibrated defaults;
+/// project citations, narrator restrictions, provenance ids, and material
+/// taxonomies are absent unless caller config supplies them.
 pub const DEFAULT_EPISODE_POLICY: EpisodePolicy<'static> = EpisodePolicy {
     scene_cast_ceiling: policy::SCENE_CAST_CEILING,
     hook_seconds_ceiling: policy::HOOK_SECONDS_CEILING,
     slider_flat_ceiling: policy::SLIDER_FLAT_CEILING,
     slider_low_floor: policy::SLIDER_LOW_FLOOR,
-    battle_single: policy::BATTLE_SINGLE,
-    battle_pairs: policy::BATTLE_PAIRS,
+    text_rules: Cow::Borrowed(&[]),
+    enabled_findings: None,
     finding_policy: DEFAULT_FINDING_POLICY,
     narrator_policy: DEFAULT_NARRATOR_POLICY,
     provenance: DEFAULT_PROVENANCE,
     material_catalog: DEFAULT_MATERIAL_CATALOG,
     arc_shapes: DEFAULT_ARC_SHAPES,
 };
+
+impl EpisodePolicy<'_> {
+    fn enables(&self, code: &str) -> bool {
+        self.enabled_findings
+            .as_ref()
+            .is_none_or(|enabled| enabled.contains(code))
+    }
+}
 
 /// The optional review modes that turn on the packet-methodology and
 /// material-worldbuilding checks. The defaults ([`CheckOptions::default`]) run the
@@ -195,7 +205,7 @@ pub fn check_episode(
     check_audio_plan(ep, opts, policy, &mut out);
     check_material_assumptions(ep, opts, policy, &mut out);
     check_loops(ep, &mut out);
-    check_ten(ep, policy, &mut out);
+    check_text_rules(ep, policy, &mut out);
     if ep.hook_by_seconds > policy.hook_seconds_ceiling {
         out.push(warn(
             "hook-late",
@@ -206,6 +216,10 @@ pub fn check_episode(
             ),
         ));
     }
+    for finding in &mut out {
+        apply_finding_policy(&policy.finding_policy, finding);
+    }
+    out.retain(|finding| policy.enables(&finding.code));
     out
 }
 
@@ -260,6 +274,10 @@ pub fn check_season(
             ),
         ));
     }
+    for finding in &mut out {
+        apply_finding_policy(&policy.finding_policy, finding);
+    }
+    out.retain(|finding| policy.enables(&finding.code));
     out
 }
 
@@ -577,17 +595,14 @@ fn check_audio_plan(
     let fp = &policy.finding_policy;
     let Some(plan) = &ep.audio_plan else {
         if opts.require_methodology {
-            let cite = fp.cite_token("outline.no-audio-plan");
+            let cite = policy_citation(fp, "outline.no-audio-plan");
             push_cited(
                 out,
                 fp,
                 warn(
                     "no-audio-plan",
                     &ep.id,
-                    format!(
-                        "packet review needs narrator/SFX load accounting for {cite} \
-                         audio mode"
-                    ),
+                    format!("packet review needs narrator/SFX load accounting{cite}"),
                 ),
             );
         }
@@ -595,25 +610,25 @@ fn check_audio_plan(
     };
 
     if plan.direct_address {
-        let cite = fp.cite_token("outline.narrator-direct-address");
+        let cite = policy_citation(fp, "outline.narrator-direct-address");
         push_disposition(
             out,
             fp,
             policy.narrator_policy.direct_address,
             "narrator-direct-address",
             &ep.id,
-            format!("narrator plan allows direct audience address; {cite} forbids it"),
+            format!("narrator plan allows direct audience address{cite}"),
         );
     }
     if plan.narrator_mode == NarratorMode::Host {
-        let cite = fp.cite_token("outline.narrator-host-frame");
+        let cite = policy_citation(fp, "outline.narrator-host-frame");
         push_disposition(
             out,
             fp,
             policy.narrator_policy.mode(NarratorMode::Host),
             "narrator-host-frame",
             &ep.id,
-            format!("narrator plan uses host framing; {cite} forbids tale-host mode"),
+            format!("narrator plan uses host framing{cite}"),
         );
     }
     if plan.narrator_mode == NarratorMode::None && plan.orientation_load == AudioLoad::High {
@@ -636,7 +651,7 @@ fn check_audio_plan(
         ));
     }
     if matches!(plan.sfx_load, SfxLoad::Moderate | SfxLoad::Heavy) {
-        let cite = fp.cite_token("outline.sfx-not-sparse");
+        let cite = policy_citation(fp, "outline.sfx-not-sparse");
         push_cited(
             out,
             fp,
@@ -644,8 +659,7 @@ fn check_audio_plan(
                 "sfx-not-sparse",
                 &ep.id,
                 format!(
-                    "SFX load is {}; {cite} wants sparse support, not a major \
-                     semantic channel",
+                    "SFX load is {}; sparse-support policy applies{cite}",
                     sfx_load_label(plan.sfx_load)
                 ),
             ),
@@ -691,21 +705,22 @@ fn check_material_assumptions(
 
     check_material_provenance(ep, ledger, policy, out);
 
-    let unknowns: BTreeSet<MaterialUnknown> = ledger.unknowns.iter().copied().collect();
     if opts.material_worldbuilding {
         for category in policy.material_catalog.required() {
-            if ledger.field(category).is_none() && !unknowns.contains(&category) {
+            if ledger.field(category).is_none() && !ledger.unknowns.contains(category) {
                 out.push(warn(
                     "material-assumption-incomplete",
-                    &format!("{}.{}", ep.id, category.field_name()),
+                    &format!("{}.{}", ep.id, category.as_str()),
                     "supply a planning answer or list this category in unknowns",
                 ));
             }
         }
     }
 
-    let asserted = ledger.asserted_fields();
-    if !asserted.is_empty() && ledger.canon_refs.is_empty() && ledger.research_refs.is_empty() {
+    if ledger.asserted_fields().next().is_some()
+        && ledger.canon_refs.is_empty()
+        && ledger.research_refs.is_empty()
+    {
         out.push(warn(
             "unsupported-material-assumption",
             &ep.id,
@@ -725,11 +740,11 @@ fn check_material_provenance(
     out: &mut Vec<WorldFinding>,
 ) {
     // `_assumption_is_nonblank`: a supplied assumption must not be blank.
-    for category in policy.material_catalog.all() {
+    for category in ledger.answers.keys() {
         if ledger.field(category).is_some_and(|v| v.trim().is_empty()) {
             out.push(error(
                 "material-assumption-blank",
-                &format!("{}.{}", ep.id, category.field_name()),
+                &format!("{}.{}", ep.id, category.as_str()),
                 "material assumptions must be non-empty when supplied",
             ));
         }
@@ -737,15 +752,15 @@ fn check_material_provenance(
     // `_answers_are_not_also_unknown`: a category cannot have both an answer and
     // unknown status.
     for category in &ledger.unknowns {
-        if ledger.field(*category).is_some() {
+        if ledger.field(category).is_some() {
             out.push(error(
                 "material-answer-and-unknown",
-                &format!("{}.{}", ep.id, category.field_name()),
+                &format!("{}.{}", ep.id, category.as_str()),
                 "material category cannot have both an answer and unknown status",
             ));
         }
     }
-    // `_canon_refs_are_decisions`: unique `D-nnnn` decision ids.
+    // Canon references are unique and match the caller's configured format.
     report_duplicates(
         &ledger.canon_refs,
         "material-canon-ref-duplicate",
@@ -757,11 +772,11 @@ fn check_material_provenance(
             out.push(error(
                 "material-canon-ref-malformed",
                 &ep.id,
-                format!("canon_ref {r:?} must use an authorial decision id (D-nnnn)"),
+                format!("canon_ref {r:?} must match the configured canon reference format"),
             ));
         }
     }
-    // `_research_refs_are_labelled`: unique `RR-nnn` / research-doc path / URL.
+    // Research references are unique and match the caller's configured format.
     report_duplicates(
         &ledger.research_refs,
         "material-research-ref-duplicate",
@@ -773,10 +788,7 @@ fn check_material_provenance(
             out.push(error(
                 "material-research-ref-malformed",
                 &ep.id,
-                format!(
-                    "research_ref {r:?} must use RR-nnn, a docs/research/RR-nnn*.md \
-                     path, or an http(s) URL"
-                ),
+                format!("research_ref {r:?} must match a configured research reference format"),
             ));
         }
     }
@@ -801,19 +813,17 @@ fn check_loops(ep: &EpisodeOutline, out: &mut Vec<WorldFinding>) {
     }
 }
 
-fn check_ten(ep: &EpisodeOutline, policy: &EpisodePolicy, out: &mut Vec<WorldFinding>) {
-    let turn = policy.arc_shapes.turn_slot.text(ep);
-    if !turn.is_empty() && reads_as_battle(turn, policy) {
-        push_cited(
-            out,
-            &policy.finding_policy,
-            warn(
-                "ten-reads-as-battle",
-                &ep.id,
-                "the ten reads as a battle/confrontation; the turn should be a \
-                 perspective shift dissolved through empathy and logic, not a clash",
-            ),
-        );
+fn check_text_rules(ep: &EpisodeOutline, policy: &EpisodePolicy, out: &mut Vec<WorldFinding>) {
+    for rule in policy.text_rules.iter() {
+        let text = rule.slot.text(ep);
+        if !text.is_empty() && text_matches_rule(text, rule) {
+            let code = rule.code.strip_prefix("outline.").unwrap_or(&rule.code);
+            push_cited(
+                out,
+                &policy.finding_policy,
+                warn(code, &ep.id, &rule.message),
+            );
+        }
     }
 }
 
@@ -909,21 +919,21 @@ fn report_duplicates(items: &[String], code: &str, where_: &str, out: &mut Vec<W
     }
 }
 
-fn reads_as_battle(ten: &str, policy: &EpisodePolicy) -> bool {
-    let tokens: Vec<String> = ten
+fn text_matches_rule(text: &str, rule: &TextMatchRule) -> bool {
+    let tokens: Vec<String> = text
         .to_lowercase()
         .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|t| !t.is_empty())
         .map(str::to_owned)
         .collect();
     for token in &tokens {
-        if policy.battle_single.contains(&token.as_str()) {
+        if rule.single.contains(token) {
             return true;
         }
     }
     for pair in tokens.windows(2) {
-        for (leads, tail) in policy.battle_pairs {
-            if leads.contains(&pair[0].as_str()) && pair[1] == *tail {
+        for pattern in &rule.pairs {
+            if pattern.leads.contains(&pair[0]) && pair[1] == pattern.tail {
                 return true;
             }
         }
@@ -943,19 +953,32 @@ fn with_where(where_: &str, message: impl Into<String>) -> String {
     format!("{where_}: {}", message.into())
 }
 
+fn policy_citation(fp: &FindingPolicy<'_>, code: &str) -> String {
+    let citation = fp.cite_token(code);
+    if citation.is_empty() {
+        String::new()
+    } else {
+        format!(" under {citation}")
+    }
+}
+
 /// Attach a finding's policy citations (and any severity override) and push it —
 /// the drop-in for the inline `.with_citations(vec![…])` calls, keyed by the
 /// finding's own code (design §3a). Called only where the legacy checker attached
 /// a citation, so codes that never carried one stay uncited.
 fn push_cited(out: &mut Vec<WorldFinding>, fp: &FindingPolicy, mut finding: WorldFinding) {
+    apply_finding_policy(fp, &mut finding);
+    out.push(finding);
+}
+
+fn apply_finding_policy(fp: &FindingPolicy, finding: &mut WorldFinding) {
     let cites = fp.citations(&finding.code);
     if !cites.is_empty() {
-        finding = finding.with_citations(cites);
+        finding.citations = cites;
     }
     if let Some(severity) = fp.severity_override(&finding.code) {
         finding.severity = severity;
     }
-    out.push(finding);
 }
 
 /// Emit a narrator-framing finding per its [`Disposition`], then attach its policy
@@ -1310,6 +1333,16 @@ impl Default for Thresholds {
 /// ```
 #[must_use]
 pub fn check_season_rules(ledger: &CraftLedger, thresholds: &Thresholds) -> Vec<WorldFinding> {
+    check_season_rules_with_policy(ledger, thresholds, &DEFAULT_FINDING_POLICY)
+}
+
+/// Run the season-ledger battery with caller-owned citation and severity policy.
+#[must_use]
+pub fn check_season_rules_with_policy(
+    ledger: &CraftLedger,
+    thresholds: &Thresholds,
+    finding_policy: &FindingPolicy<'_>,
+) -> Vec<WorldFinding> {
     let mut out = Vec::new();
     let order = ProductionOrder::new(ledger);
     check_accomplishment_earned(ledger, thresholds, &order, &mut out);
@@ -1323,6 +1356,9 @@ pub fn check_season_rules(ledger: &CraftLedger, thresholds: &Thresholds) -> Vec<
     check_promise_density(ledger, &mut out);
     check_arc_shape(ledger, thresholds, &mut out);
     check_audio_load(ledger, thresholds, &mut out);
+    for finding in &mut out {
+        apply_finding_policy(finding_policy, finding);
+    }
     out
 }
 
@@ -1401,20 +1437,16 @@ fn check_accomplishment_earned(
             .filter(|(fi, f)| f.thread == beat.thread && is_cost(f) && order.before(*fi, bi))
             .count();
         if priors < thresholds.major_prior_failures {
-            push_cited(
-                out,
-                &DEFAULT_FINDING_POLICY,
-                craft_error(
-                    KernelRule::AccomplishmentEarned,
-                    &beat.id,
-                    format!(
-                        "a {} win on thread {:?} lands with no prior failure on that thread; a \
-                         triumph is earned by a cost paid first",
-                        magnitude_label(beat.magnitude),
-                        beat.thread
-                    ),
+            out.push(craft_error(
+                KernelRule::AccomplishmentEarned,
+                &beat.id,
+                format!(
+                    "a {} win on thread {:?} lands with no prior failure on that thread; a \
+                     triumph is earned by a cost paid first",
+                    magnitude_label(beat.magnitude),
+                    beat.thread
                 ),
-            );
+            ));
         } else if beat.magnitude == Magnitude::Climax && priors < thresholds.climax_prior_failures {
             out.push(craft_warn(
                 KernelRule::AccomplishmentEarnedClimax,
@@ -1822,16 +1854,12 @@ fn check_arc_shape(ledger: &CraftLedger, thresholds: &Thresholds, out: &mut Vec<
             .iter()
             .any(|t| t.episode == ep.id && t.resolves_conflict)
         {
-            push_cited(
-                out,
-                &DEFAULT_FINDING_POLICY,
-                craft_warn(
-                    KernelRule::ArcShape,
-                    &ep.id,
-                    "the ten resolves a conflict; the turn should be a perspective shift, not a \
-                     clash resolved",
-                ),
-            );
+            out.push(craft_warn(
+                KernelRule::ArcShape,
+                &ep.id,
+                "the ten resolves a conflict; the turn should be a perspective shift, not a \
+                 clash resolved",
+            ));
         }
     }
 }

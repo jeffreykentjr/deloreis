@@ -32,6 +32,7 @@ macro_rules! out {
 }
 
 pub(crate) mod check;
+pub(crate) mod craft;
 pub(crate) mod drafts;
 pub(crate) mod fmt;
 pub(crate) mod fork;
@@ -50,6 +51,10 @@ use dli_ast::decl::Document;
 use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 use dli_syntax::{Diagnostic, parse_clause_atom, parse_document};
+use dli_world::craft::{
+    AppliedCraft, EpisodePolicy, Thresholds, apply, build_episode_policy, doctrines, load_config,
+    validate,
+};
 use dli_world::{CompiledWorld, Pack, Severity, WorldFinding, compile};
 
 /// A handler's result: the verdict exit code, or a message describing an
@@ -207,6 +212,31 @@ pub(crate) fn parse_goal(goal: &str) -> Result<AtomExpr, String> {
              a triple `fact subject relation object`, or an attribute `subject.slot = value`"
         )
     })
+}
+
+/// Load and validate a caller-owned craft configuration, then compose it with
+/// the shipped generic doctrine packs.
+pub(crate) fn load_craft_config(
+    path: &Path,
+) -> Result<(AppliedCraft, Option<Thresholds>, EpisodePolicy<'static>), String> {
+    let packs = doctrines();
+    let config = load_config(path)
+        .map_err(|err| format!("cannot load craft config {}: {err}", path.display()))?;
+    let faults = validate(&config, &packs);
+    if !faults.is_empty() {
+        let rendered = faults
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(format!(
+            "craft config {} is invalid: {rendered}",
+            path.display()
+        ));
+    }
+    let thresholds = config.season_thresholds;
+    let policy = build_episode_policy(&config);
+    Ok((apply(&config, &packs), thresholds, policy))
 }
 
 /// The lowercase word for a finding's severity, for a stable report line.

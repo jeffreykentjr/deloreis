@@ -144,10 +144,13 @@ pub(crate) fn lines(source: &str, file: FileId) -> Vec<Line> {
 /// Return the prefix of `line` before an unquoted `#` comment marker.
 fn strip_comment(line: &str) -> &str {
     let mut in_string = false;
+    let mut escaped = false;
     let bytes = line.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         match bytes[i] {
+            _ if escaped => escaped = false,
+            b'\\' if in_string => escaped = true,
             b'"' => in_string = !in_string,
             b'#' if !in_string => return &line[..i],
             _ => {}

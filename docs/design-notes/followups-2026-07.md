@@ -38,13 +38,11 @@ surface (`status`/`at_risk`, fork diffs) is correct; only the human-readable "wh
 is opaque. Fix: thread the inverted provenance index into `render_why_not` so the
 defeater renders to its atom name. Found by R-M1 F4 / R-A3 (verify pass).
 
-### F2 — `fork.promote` renders the internal `ForkId`, not the wire handle (LOW, pre-existing)
-`crates/dli-serve/src/handlers.rs:296` (`handle_fork_promote`, `slug`/`ask` at
-:304-305). A consumer opens `fork-1` but the promote draft's `slug`/`ask` say
-`fork-0` (the internal id). Baked into `contracts/dli-worker/fixtures/golden/fork-promote-v1.json`.
-Pre-existing — fork.promote was wired before the 2026-07 work; surfaced only
-because `fork.add` now feeds it. Fix: map the internal `ForkId` back to the wire
-handle in the promote draft. Found by R-A1.
+### F2 — `fork.promote` renders the internal `ForkId` (RESOLVED)
+Fork creation now names the evaluator fork with its registered wire handle.
+Promotion therefore renders `fork-1` rather than the internal zero-based id;
+the dispatch test and golden fixture pin both the slug and prompt. Found by
+R-A1; closed by the standalone-runtime remediation.
 
 ### F3 — L2-contradicted residuals (LOW/by-design)
 `crates/dli-world/src/scene_projection.rs:233` (`denied_by_exclusivity`). A3 made
@@ -69,12 +67,10 @@ introduce a merely-*possible* fact and bypasses the B1 citation-authority check 
 base `check` enforces. Revisit only if forks need graded/provenanced additions.
 Found by R-A1.
 
-### F5 — `name.check` honest-subset over-claim + server `camelot` id-collision (LOW)
-- `crates/dli-serve/src/contract.rs:501` (`NameCheckResult`, doc-comment
-  `"Findings from the six-check vetting"` at :504) over-claims: the wire op runs
-  phonotactics-only against the named dialect, or the empty `LanguageModel::default()`
-  when no dialect is named — no uniqueness/collision check. It is the documented
-  honest subset (`spec/05-language-layer.md §3`); the doc-comment should say so.
+### F5 — `name.check` honest subset + server `camelot` id-collision (PARTIAL)
+- The wire/schema description now says this is the kernel-half dialect and
+  phonotactic vet, matching the operation contract; it no longer claims the
+  complete naming battery.
 - `crates/dli-serve/src/session.rs:220`: the `"camelot"` builtin resolves the
   hand-built `example_docs()` (no proof block), so `dli.check-proof {document:"camelot"}`
   can't check a proof — only the `round-table` / `warding-vows` demo worlds carry
@@ -114,17 +110,19 @@ child, malformed and bare options are diagnosed, and `fmt` refuses the source.
 Fork command bodies remain intentionally preserved. Found by
 audit-validation-2026-07 §7.3; closed 2026-07-25.
 
-### F11 — ci_parity residuals (LOW)
-`xtask/tests/ci_parity.rs`. paths-ignore, pull_request presence, job-level
-continue-on-error still invisible to the parity check.
-Found by audit-validation-2026-07 §7.3.
+### F11 — ci_parity residuals (RESOLVED)
+`xtask/tests/ci_parity.rs` now pins push and pull-request triggers to `main`,
+rejects path/branch bypass filters, and rejects job- and step-level
+`continue-on-error` or conditions on the gate. Found by
+audit-validation-2026-07 §7.3; closed by the standalone release polish.
 
 ### F12 — F5S-5 finding-family severity verification (LOW)
 `xtask/src/finding_families.rs`. Severity columns are documented but never
 verified against the actual emitting source code.
 Found by audit-2026-07 §3.10.
 
-### F13 — block-comment `/* #[cfg(test)] */` boundary poisoning (LOW/edge-case)
-`xtask/src/boundary.rs`. A `/* */` block comment containing `#[cfg(test)]` can
-still set the pending_cfg flag and exempt the following block from scanning.
-Found by audit-validation-2026-07 §7.3.
+### F13 — block-comment `/* #[cfg(test)] */` boundary poisoning (RESOLVED)
+The boundary scanner now recognizes `#[cfg(test)]` only outside block/line
+comments and string/character literals. A regression proves that the commented
+attribute cannot exempt a following world-token leak. Found by
+audit-validation-2026-07 §7.3; closed by the standalone release polish.

@@ -280,104 +280,52 @@ fn render_grammar_keywords() -> String {
     out
 }
 
-/// The `deloreis` CLI surface as `(command path, help line)`, mirroring the clap
-/// definitions in `crates/deloreis/src`. There is no lib target to derive from
-/// (the bin keeps its surface private and a build-dep on the bin is disallowed),
-/// so the table is declared here and kept honest by [`tests::cli_table_matches_source`],
-/// which fails if any help line drifts from the source.
-const CLI_COMMANDS: &[(&str, &str)] = &[
-    ("check", "Validate documents against the world model."),
-    ("query", "Query a saturated world."),
-    ("fmt", "Format documents into the one canonical surface."),
-    ("fork", "Inspect and evaluate forks over a workspace store."),
-    ("fork new", "Create a new fork over a corpus."),
-    ("fork list", "List the open forks and their base corpus."),
-    (
-        "fork diff",
-        "Show a fork's derived-consequence diff against the base.",
-    ),
-    (
-        "fork suppose",
-        "Suppose an option or event value in a fork.",
-    ),
-    ("fork add", "Add a proposed ground fact to a fork."),
-    ("fork suppress", "Retract a supposition from a fork."),
-    (
-        "fork restrict",
-        "Restrict a fork's presented consequences with a keep-stamp.",
-    ),
-    ("fork preflight", "Ratification pre-flight of a fork."),
-    ("fork promote", "Emit a ruling-request draft from a fork."),
-    ("preflight", "Run the ratification pre-flight over a fork."),
-    (
-        "timeline",
-        "Read the timeline: chronology and the episode fold.",
-    ),
-    (
-        "timeline show",
-        "Render the era/event partial order (optionally around a cursor).",
-    ),
-    (
-        "timeline order",
-        "The partial-order report: cycles and unordered pairs.",
-    ),
-    (
-        "timeline knows",
-        "What a knower knows once the listener reaches a production slot.",
-    ),
-    (
-        "timeline episodes",
-        "Fold the season and check its production-order layout and open loops.",
-    ),
-    ("timeline phases", "The cyclic phases an episode pins."),
-    (
-        "check-proof",
-        "Check a diegetic proof block against a practice.",
-    ),
-    (
-        "check-draft",
-        "Fact-check a draft payload against the world model.",
-    ),
-    ("simulate", "Simulate a practice or game."),
-    ("name", "Vet a name — the kernel, world-true half."),
-    (
-        "name check",
-        "Vet a candidate name against the settled name-space.",
-    ),
-    ("export", "Export under a profile."),
-    ("report", "Render the findings report."),
-    (
-        "serve",
-        "Run JSON-over-stdio with `--project <path>` or explicit `--demo`.",
-    ),
-    (
-        "mcp",
-        "Run MCP over stdio with `--project <path>` or explicit `--demo`.",
-    ),
-];
+/// Walk the executable's Clap graph into `(command path, help line)` rows.
+fn cli_commands() -> Vec<(String, String)> {
+    fn walk(command: &clap::Command, prefix: &str, rows: &mut Vec<(String, String)>) {
+        for child in command.get_subcommands() {
+            let path = if prefix.is_empty() {
+                child.get_name().to_owned()
+            } else {
+                format!("{prefix} {}", child.get_name())
+            };
+            let about = child
+                .get_about()
+                .map(ToString::to_string)
+                .unwrap_or_default();
+            rows.push((path.clone(), about));
+            if child.get_name() != "help" {
+                walk(child, &path, rows);
+            }
+        }
+    }
 
-/// The `deloreis` command reference, from [`CLI_COMMANDS`]. The CLI is a rendering
-/// over the same engines the `dli.*` ops serve; this page is its man-page.
+    let command = deloreis::command();
+    let mut rows = Vec::new();
+    walk(&command, "", &mut rows);
+    rows
+}
+
+/// The `deloreis` command reference, derived from the executable's Clap graph.
 fn render_cli() -> String {
-    let count = CLI_COMMANDS
-        .iter()
-        .filter(|(p, _)| !p.contains(' '))
-        .count();
+    let command = deloreis::command();
+    let count = command.get_subcommands().count();
+    let commands = cli_commands();
     let mut out = header(
-        "The deloreis CLI command reference, mirroring the clap surface in \
-         crates/deloreis/src (drift-guarded by a source-parity test).",
+        "The deloreis CLI command reference, generated from the executable's \
+         Clap command graph.",
     );
     out.push_str("# CLI commands\n\n");
     let _ = write!(
         out,
-        "`deloreis` exposes **{count}** top-level subcommands; `fork`, `timeline`, \
-         and `name` carry nested subcommands. Each is a rendering over the same \
-         engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, \
-         `1` findings, `2` a usage or operational error (including an engine not \
-         yet frozen).\n\n"
+        "`deloreis` exposes **{count}** top-level subcommands, including Clap's \
+         generated `help` command; command groups carry nested operations and \
+         generated help paths. Each operation is a rendering over the same engines \
+         the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` \
+         findings, `2` a usage or operational error.\n\n"
     );
     out.push_str("| Command | Description |\n|---|---|\n");
-    for &(path, about) in CLI_COMMANDS {
+    for (path, about) in commands {
         let _ = writeln!(out, "| `deloreis {path}` | {about} |");
     }
     out
@@ -440,39 +388,30 @@ mod tests {
         }
     }
 
-    /// Source-parity for the CLI page: no lib target to derive from and a build-dep
-    /// on the bin is disallowed, so the help table is declared data — this reads the
-    /// deloreis clap source and fails if any help line drifts, if the DL-0016
-    /// `check-proof` rename is absent, or if the killed `check-ledger` reappears.
+    /// The generated page reads the real Clap graph. Keep its command paths
+    /// unique and preserve the live/killed proof-command boundary.
     #[test]
-    fn cli_table_matches_source() {
-        let src_dir =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../crates/deloreis/src");
-        let mut source = String::new();
-        for entry in walkdir::WalkDir::new(&src_dir)
-            .into_iter()
-            .filter_map(Result::ok)
-        {
-            if entry.path().extension().and_then(|e| e.to_str()) == Some("rs")
-                && let Ok(text) = std::fs::read_to_string(entry.path())
-            {
-                source.push_str(&text);
-            }
-        }
-        assert!(!source.is_empty(), "no deloreis CLI source found");
-        for &(path, about) in CLI_COMMANDS {
+    fn cli_metadata_is_closed_and_preserves_killed_forms() {
+        let commands = cli_commands();
+        let paths: BTreeSet<&str> = commands.iter().map(|(path, _)| path.as_str()).collect();
+        assert_eq!(
+            paths.len(),
+            commands.len(),
+            "the Clap graph contains duplicate command paths"
+        );
+        for (path, about) in &commands {
             assert!(
-                source.contains(about),
-                "CLI help drifted for `{path}`: `{about}` not in deloreis source"
+                !about.trim().is_empty(),
+                "the Clap command `{path}` has no help description"
             );
         }
         assert!(
-            source.contains("name = \"check-proof\""),
-            "the DL-0016 check-proof subcommand rename is not in the CLI source"
+            paths.contains("check-proof"),
+            "the DL-0016 `check-proof` command is absent"
         );
         assert!(
-            !source.contains("name = \"check-ledger\""),
-            "the killed `check-ledger` subcommand name reappeared in the CLI source"
+            !paths.contains("check-ledger"),
+            "the killed `check-ledger` command reappeared"
         );
     }
 }

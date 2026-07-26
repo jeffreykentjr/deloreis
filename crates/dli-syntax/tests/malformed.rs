@@ -3,7 +3,10 @@
 //! keyword list must mirror the parser exactly (R3 H11).
 
 use dli_syntax::diag::DiagClass;
-use dli_syntax::{KEYWORDS, LINE_OPEN_KEYWORDS, format_source, line_open_keywords, parse_document};
+use dli_syntax::{
+    KEYWORDS, LINE_OPEN_KEYWORDS, format_document, format_source, line_open_keywords,
+    parse_document, parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts,
+};
 
 /// The error-severity classes a source produces.
 fn error_classes(source: &str) -> Vec<DiagClass> {
@@ -132,6 +135,13 @@ fn trailing_junk_after_relation_diagnoses() {
 }
 
 #[test]
+fn unterminated_relation_atom_diagnoses() {
+    let source = "adjacent(a, b\n";
+    assert!(error_classes(source).iter().any(|class| class.is_error()));
+    assert!(format_source(source).is_err());
+}
+
+#[test]
 fn trailing_junk_after_slot_fact_diagnoses() {
     assert!(error_classes("weir.trade = eel junk\n").contains(&DiagClass::Malformed));
 }
@@ -233,4 +243,172 @@ fn every_listed_keyword_opens_a_line() {
     // A word not in the set is an unknown keyword.
     let (_doc, diags) = parse_document("zorble x\n");
     assert!(diags.iter().any(|d| d.class == DiagClass::UnknownKeyword));
+}
+
+#[test]
+fn malformed_proof_children_and_surplus_tokens_are_refused() {
+    let cases = [
+        "spend p1 trailing",
+        "spend \"p1\"",
+        "release p1 trailing",
+        "redistribute p1 trailing",
+        "reveal p1 trailing",
+        "close holds(a) expect holds trailing",
+        "close holds(a) trailing",
+        "premise p1 holds(a) cited d-1 trailing",
+        "premise p1 holds(a) trailing",
+        "assume p1 holds(a) trailing",
+        "assume p1 holds(a) checked",
+        "premise p1 holds(a) asserted attested",
+        "step s1 instantiate form with x = a trailing",
+        "step s1 instantiate form with x = a,",
+        "step s1 instantiate form with x = a, dangling",
+        "step s1 chain from p1 by law conclusion holds(a) trailing",
+        "step s1 chain from p1, by law conclusion holds(a)",
+        "step s1 chain from p1 by law conclusion holds(a",
+        "step s1 weave = = nonsense",
+        "step s1 weave a b",
+        "step s1 weave a,",
+        "\"assume\" p1 holds(a)",
+        "\"step\" s1 form a",
+        "wholly-invalid proof syntax",
+    ];
+    for child in cases {
+        let source = format!(
+            "proof p speaker a in practice {{\n  premise p1 holds(a)\n  {child}\n  close holds(a) expect holds\n}}\n"
+        );
+        let (_, diagnostics) = parse_document(&source);
+        assert!(
+            diagnostics.iter().any(|diag| diag.class.is_error()),
+            "proof child was accepted: {child}"
+        );
+        assert!(
+            format_source(&source).is_err(),
+            "formatter would discard malformed proof child: {child}"
+        );
+    }
+}
+
+#[test]
+fn nested_chain_conclusions_and_quoted_commas_are_well_formed() {
+    let source = "\
+proof p speaker a in practice {
+  premise p1 holds(a)
+  step s1 instantiate form with role = \"the, witness\"
+  step s2 chain from p1, s1 by law conclusion holds(a, consent(group, act))
+  step s3 form a, \"b, c\"
+  close holds(a, consent(group, act)) expect holds
+}
+";
+    let (_, diagnostics) = parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn proof_term_parsers_preserve_quoted_commas_exactly() {
+    assert_eq!(
+        parse_proof_bindings("with role = \"the, witness\", place = threshold"),
+        Some(vec![
+            ("role".to_owned(), "the, witness".to_owned()),
+            ("place".to_owned(), "threshold".to_owned()),
+        ])
+    );
+    assert_eq!(
+        parse_proof_arguments("threshold, \"withy, twisted\""),
+        Some(vec!["threshold".to_owned(), "withy, twisted".to_owned()])
+    );
+    assert_eq!(
+        parse_proof_close_parts("says(witness, \"we expect victory\") expect holds"),
+        Some((
+            "says(witness, \"we expect victory\")".to_owned(),
+            Some("holds".to_owned()),
+        ))
+    );
+    for malformed in ["with role = a,", "with role = a, dangling", "with role a"] {
+        assert_eq!(parse_proof_bindings(malformed), None, "{malformed}");
+    }
+    for malformed in ["a,", "a,,b", "a b"] {
+        assert_eq!(parse_proof_arguments(malformed), None, "{malformed}");
+    }
+}
+
+#[test]
+fn proof_strings_preserve_whitespace_and_escaped_delimiters() {
+    let source = r#"proof p speaker witness in practice {
+  assume p1 says(witness, "quoted  \" } # value")
+  close says(witness, "quoted  \" } # value") expect holds
+}
+"#;
+    let (document, diagnostics) = parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let rendered = format_document(&document);
+    assert!(rendered.contains(r#""quoted  \" } # value""#), "{rendered}");
+    let (_, reparsed) = parse_document(&rendered);
+    assert!(
+        reparsed
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{reparsed:?}"
+    );
+}
+
+#[test]
+fn quoted_proof_words_are_data_not_operations_or_grades() {
+    let source = r#"proof p speaker witness in practice {
+  premise p1 says(witness, "checked") cited checked tested
+  premise p2 says(witness, "attested") cue "asserted checked" attested
+  close says(witness, "checked") expect holds
+}
+"#;
+    let (_, diagnostics) = parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn proof_headers_and_close_layout_are_closed() {
+    let cases = [
+        "proof p speaker a garbage ignored in practice trailing ignored {\n  close x expect blocked\n}\n",
+        "proof p speaker \"quoted \\\" actor\" in practice {\n  close x expect blocked\n}\n",
+        "proof p speaker a in practice {\n}\n",
+        "proof p speaker a in practice {\n  close x expect blocked\n  close y expect blocked\n}\n",
+        "proof p speaker a in practice {\n  close x expect blocked\n  assume p1 later\n}\n",
+    ];
+    for source in cases {
+        let (_, diagnostics) = parse_document(source);
+        assert!(
+            diagnostics.iter().any(|diag| diag.class.is_error()),
+            "malformed proof shape was accepted: {source}"
+        );
+        assert!(format_source(source).is_err(), "fmt accepted: {source}");
+        let (document, _) = parse_document(source);
+        let rendered = format_document(&document);
+        let (_, reparsed) = parse_document(&rendered);
+        assert!(
+            reparsed
+                .iter()
+                .any(|diagnostic| diagnostic.class.is_error()),
+            "malformed proof header became valid after formatting: {rendered}"
+        );
+    }
+
+    let custom_role = "proof p reader old-fen in the-turning {\n  close x expect blocked\n}\n";
+    assert!(
+        error_classes(custom_role).is_empty(),
+        "a caller-declared role remains valid"
+    );
 }

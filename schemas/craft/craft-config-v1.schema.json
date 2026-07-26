@@ -1,0 +1,1037 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CraftConfig",
+  "description": "A world's full craft config — the aggregate the engine loads as data and\n[`apply`]s over the shipped doctrine packs (design §1.2, §2.4).\n\nOnly [`enabled_packs`](Self::enabled_packs), [`overlays`](Self::overlays), and\n[`world_principles`](Self::world_principles) bear on the composed principle\ncorpus; the remaining fields are season/outline policy consumed by the\nrelevant check entry points (design §2.3).",
+  "type": "object",
+  "properties": {
+    "enabled_packs": {
+      "description": "The doctrine packs this world turns on.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "factory_namespaces": {
+      "description": "The factory-battery namespaces this world runs prose checks through.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FactoryNs"
+      }
+    },
+    "finding_policy": {
+      "description": "Per-finding-code citations / severity overrides.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FindingRuleCfg"
+      }
+    },
+    "judge_kinds": {
+      "description": "The world's judge registry (judge-dimension names).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "material_catalog": {
+      "description": "The material-planning catalog.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MaterialCategoryCfg"
+      }
+    },
+    "narrator_policy": {
+      "description": "The narrator-framing policy.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NarratorPolicyCfg"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "outline_thresholds": {
+      "description": "The outline scalars + turn slot.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutlineThresholdsCfg"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "overlays": {
+      "description": "The overlays riding on shipped generic principles.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PrincipleOverlay"
+      }
+    },
+    "precedence_tier": {
+      "description": "The precedence tier (the pillar mechanism, world-populated).",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PrecedenceTier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provenance": {
+      "description": "The provenance reference-format patterns.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProvenanceCfg"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "season_thresholds": {
+      "description": "The calibrated season-ledger thresholds.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Thresholds"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "text_rules": {
+      "description": "Caller-owned lexical checks over outline slots.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TextMatchRuleCfg"
+      }
+    },
+    "world_principles": {
+      "description": "The config-only principle rows (incl. the pillars).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorldPrinciple"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Binding": {
+      "description": "How a principle's check binds — the ported `checkable` × `check_ref`, typed.\n\nA kernel binding names a [`KernelRule`], a closed enum, so a dangling deterministic\nreference is a compile error — the legacy `check_ref_resolves` reference checker,\nin the type system:\n\n```compile_fail\nuse dli_world::craft::kb::{Binding, KernelRule};\n// The kernel rules are a closed set; a rule that does not exist is not a variant.\nlet _bad = Binding::Rule(KernelRule::NoSuchRule);\n```",
+      "oneOf": [
+        {
+          "description": "A deterministic kernel rule (the reference cannot dangle — closed enum).",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "rule"
+            },
+            "spec": {
+              "$ref": "#/$defs/KernelRule"
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "A deterministic check that stays factory-side (spec §6), recorded not run.",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "factory"
+            },
+            "spec": {
+              "type": "object",
+              "properties": {
+                "namespace": {
+                  "description": "Which factory battery owns it.",
+                  "$ref": "#/$defs/FactoryNs"
+                },
+                "symbol": {
+                  "description": "The check symbol within that battery.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "namespace",
+                "symbol"
+              ]
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "A judge dimension: consumes a stored attestation of this question kind and\nreports grade [`Grade::Attested`].",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "attest"
+            },
+            "spec": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding",
+            "spec"
+          ]
+        },
+        {
+          "description": "Declaration-only: no check, surfaced by brief/phase queries.",
+          "type": "object",
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "declaration"
+            }
+          },
+          "required": [
+            "binding"
+          ]
+        }
+      ]
+    },
+    "Disposition": {
+      "description": "What a narrator-framing choice earns: an error, a warning, or nothing.",
+      "oneOf": [
+        {
+          "description": "The framing is forbidden — an error finding.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "The framing is discouraged — a warn finding.",
+          "type": "string",
+          "const": "warn"
+        },
+        {
+          "description": "The framing is permitted — no finding.",
+          "type": "string",
+          "const": "allowed"
+        }
+      ]
+    },
+    "FactoryNs": {
+      "description": "A caller-declared factory-side check namespace (spec §6: prose checks stay\nfactory-invoked).\n\nThis is an open identifier rather than an engine-owned enum: projects may\nregister any factory namespace and [`super::worldcfg::validate`] checks every\nfactory binding against that registry.",
+      "type": "string"
+    },
+    "Family": {
+      "description": "A doctrine family — the axis a principle speaks to.",
+      "oneOf": [
+        {
+          "description": "Plot: promises, causality, try/fail, arc shape.",
+          "type": "string",
+          "const": "plot"
+        },
+        {
+          "description": "Character: sliders, interiority, voice.",
+          "type": "string",
+          "const": "character"
+        },
+        {
+          "description": "World: material grounding, magic pedagogy, allegory.",
+          "type": "string",
+          "const": "world"
+        },
+        {
+          "description": "Prose: sentence craft, abstraction, said-ratio.",
+          "type": "string",
+          "const": "prose"
+        },
+        {
+          "description": "Serial: open loops, micro-pacing, installment discipline.",
+          "type": "string",
+          "const": "serial"
+        },
+        {
+          "description": "Audio: narrator/SFX load, aural distinctness, performability.",
+          "type": "string",
+          "const": "audio"
+        },
+        {
+          "description": "Pillar: a mission-specific principle that overrides generic advice (D-0128).",
+          "type": "string",
+          "const": "pillar"
+        }
+      ]
+    },
+    "FindingRuleCfg": {
+      "description": "The citation (+ optional severity override) a finding code carries — the loadable\nform of [`super::config::FindingRule`] (design §3 item 4).",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "The citations attached to the finding, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "The dotted finding code this rule governs.",
+          "type": "string"
+        },
+        "severity": {
+          "description": "An optional severity override; `None` keeps the code's intrinsic severity.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ]
+    },
+    "KernelRule": {
+      "description": "The **closed** set of deterministic kernel rules a principle may bind.\n\nA `checkable: deterministic` principle over kernel objects names its rule here,\nso a reference to a rule that does not exist is a compile error — the legacy\n`check_ref_resolves` test, lifted into the type system. The outline entry\npoints are the `CRAFT-1` batteries; the season rules are `CRAFT-2`'s join\nengine ([`super::season`]), and the two layers share this one rule namespace.",
+      "oneOf": [
+        {
+          "description": "The `CRAFT-1` per-episode structural battery ([`super::season::check_episode`]).",
+          "type": "string",
+          "const": "check-outline"
+        },
+        {
+          "description": "The `CRAFT-1` season-scope battery ([`super::season::check_season`]).",
+          "type": "string",
+          "const": "check-season"
+        },
+        {
+          "description": "Accomplishment-earned: a major beat needs a prior same-thread failure.",
+          "type": "string",
+          "const": "accomplishment-earned"
+        },
+        {
+          "description": "The climax refinement: a climax-class beat needs two prior failures.",
+          "type": "string",
+          "const": "accomplishment-earned-climax"
+        },
+        {
+          "description": "A thread that lands its unqualified win may not re-open.",
+          "type": "string",
+          "const": "yes-and-terminal"
+        },
+        {
+          "description": "Competence-consistency: an unearned major win by an under-competent hand.",
+          "type": "string",
+          "const": "competence-consistency"
+        },
+        {
+          "description": "The arc-flat generalization of the flat-slider check, at season scope.",
+          "type": "string",
+          "const": "competence-arc-flat"
+        },
+        {
+          "description": "Kishōtenketsu fair-play: a turn's reframing fact must be on the ledger early.",
+          "type": "string",
+          "const": "reveal-fair-play"
+        },
+        {
+          "description": "A mystery promise untouched for K episodes is starved.",
+          "type": "string",
+          "const": "mystery-starved"
+        },
+        {
+          "description": "Cold-open discipline: open a loop, cast ≤ 2, no deep-time in act 1.",
+          "type": "string",
+          "const": "cold-open-discipline"
+        },
+        {
+          "description": "New named speakers per episode within a band and a season budget.",
+          "type": "string",
+          "const": "cast-introduction-rate"
+        },
+        {
+          "description": "Two names below the aural-distinctness floor may not share a scene.",
+          "type": "string",
+          "const": "scene-name-clash"
+        },
+        {
+          "description": "Promise open/close density banded by season position.",
+          "type": "string",
+          "const": "promise-density"
+        },
+        {
+          "description": "A kishōtenketsu episode places its *ten* in-band, not as a clash resolution.",
+          "type": "string",
+          "const": "arc-shape"
+        },
+        {
+          "description": "No run of N high-orientation-load episodes.",
+          "type": "string",
+          "const": "audio-load-trajectory"
+        }
+      ]
+    },
+    "MaterialCategoryCfg": {
+      "description": "One material-planning category and whether a worldbuilding review requires it —\nloadable form of [`super::config::MaterialCategory`] (design §3 item 7).",
+      "type": "object",
+      "properties": {
+        "category": {
+          "description": "The category key.",
+          "$ref": "#/$defs/MaterialCategoryId"
+        },
+        "required": {
+          "description": "Whether a material-worldbuilding review requires it.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "required"
+      ]
+    },
+    "MaterialCategoryId": {
+      "description": "An open caller-owned material-planning category identifier.",
+      "type": "string"
+    },
+    "MissionFilter": {
+      "description": "How the mission filters a principle (D-0128).\n\nThe two off-`Pass` arms carry their required companion fields inline, which is\nhow the spec's \"a `tension` requires a `resolution`\" invariant becomes a\n**compile** rule rather than a runtime check: the value cannot be built without\nit.\n\n```compile_fail\nuse dli_world::craft::kb::MissionFilter;\n// A tension without a resolution is not a value that exists.\nlet _bad = MissionFilter::Tension { note: \"generic advice loses to the pillar\" };\n```",
+      "oneOf": [
+        {
+          "description": "The principle applies to the mission unchanged.",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "pass"
+            }
+          },
+          "required": [
+            "mission_filter"
+          ]
+        },
+        {
+          "description": "The principle applies with a caveat; the caveat is required.",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "adapted"
+            },
+            "note": {
+              "description": "Why the generic principle needs adapting to the mission.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "mission_filter",
+            "note"
+          ]
+        },
+        {
+          "description": "A generic principle conflicts with a pillar or with canon; the resolution\n(the mission-side ruling) is required (spec §5).",
+          "type": "object",
+          "properties": {
+            "mission_filter": {
+              "type": "string",
+              "const": "tension"
+            },
+            "note": {
+              "description": "The conflict between the received principle and the mission.",
+              "type": "string"
+            },
+            "resolution": {
+              "description": "The mission-side ruling that resolves it — where the pillar wins.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "mission_filter",
+            "note",
+            "resolution"
+          ]
+        }
+      ]
+    },
+    "NarratorMode": {
+      "description": "The narrator framing of an audio packet.",
+      "oneOf": [
+        {
+          "description": "No narrator at all.",
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "description": "A windowpane narrator — transparent orientation, no personality.",
+          "type": "string",
+          "const": "windowpane"
+        },
+        {
+          "description": "A frame narrator.",
+          "type": "string",
+          "const": "frame"
+        },
+        {
+          "description": "A tale-host narrator (a host-narrator ban is world policy).",
+          "type": "string",
+          "const": "host"
+        }
+      ]
+    },
+    "NarratorModeRuleCfg": {
+      "description": "The disposition a single narrator mode earns — loadable form of\n[`super::config::NarratorModeRule`] (design §3 item 5).",
+      "type": "object",
+      "properties": {
+        "disposition": {
+          "description": "Its disposition.",
+          "$ref": "#/$defs/Disposition"
+        },
+        "mode": {
+          "description": "The narrator mode this rule governs.",
+          "$ref": "#/$defs/NarratorMode"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "disposition"
+      ]
+    },
+    "NarratorPolicyCfg": {
+      "description": "The narrator-framing policy — loadable form of [`super::config::NarratorPolicy`].",
+      "type": "object",
+      "properties": {
+        "direct_address": {
+          "description": "The disposition a direct-audience-address plan earns.",
+          "$ref": "#/$defs/Disposition",
+          "default": "allowed"
+        },
+        "mode_rules": {
+          "description": "Per-mode dispositions; modes absent here are [`Disposition::Allowed`].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NarratorModeRuleCfg"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "OutlineThresholdsCfg": {
+      "description": "The world's outline scalars + turn slot — the loadable companion to\n[`super::season::EpisodePolicy`]'s scalars and [`super::config::ArcShapeCatalog`]\n(design §3 items 2, 8).",
+      "type": "object",
+      "properties": {
+        "hook_seconds_ceiling": {
+          "description": "The opening-hook ceiling in seconds.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scene_cast_ceiling": {
+          "description": "The scene speaking-cast ceiling.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "slider_flat_ceiling": {
+          "description": "The flat-slider ceiling.",
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "slider_low_floor": {
+          "description": "The low-slider floor.",
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "turn_slot": {
+          "description": "Which kishōtenketsu slot the battle-scan reads as the turn.",
+          "$ref": "#/$defs/TurnSlot"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scene_cast_ceiling",
+        "hook_seconds_ceiling",
+        "slider_flat_ceiling",
+        "slider_low_floor",
+        "turn_slot"
+      ]
+    },
+    "Phase": {
+      "description": "A production phase a principle bears on.",
+      "oneOf": [
+        {
+          "description": "The outline phase.",
+          "type": "string",
+          "const": "outline"
+        },
+        {
+          "description": "The lore-decision phase.",
+          "type": "string",
+          "const": "lore-decision"
+        },
+        {
+          "description": "The generation phase.",
+          "type": "string",
+          "const": "generation"
+        },
+        {
+          "description": "The revision phase.",
+          "type": "string",
+          "const": "revision"
+        }
+      ]
+    },
+    "PrecedenceTier": {
+      "description": "The world's precedence tier — the generic pillar mechanism, world-populated.\nThe tier that wins a conflict plus the standing-rule text.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The tier name (`pillar`).",
+          "type": "string"
+        },
+        "standing_rule": {
+          "description": "The standing-rule statement (the `pillars-win-standing-rule` meta-rule).",
+          "type": "string"
+        },
+        "wins_over": {
+          "description": "What the tier wins over (`all-other-families`).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "wins_over",
+        "standing_rule"
+      ]
+    },
+    "PrincipleOverlay": {
+      "description": "A world ruling that rides on a shipped [`DoctrinePrinciple`] by id — the config\nhalf of a generic-plus-overlay principle (design §1.2).\n\nIt carries exactly what the shipped record cannot: the world's mission filter,\nits provenance citations, the concrete runtime binding (the factory battery or\njudge dimension the generic record only typed as a *kind*), the pillar-tier\npromotion, and — when the world's authored wording diverges from the shipped\ngeneric body — a statement/source override.",
+      "type": "object",
+      "properties": {
+        "binding": {
+          "description": "The concrete runtime binding — the factory battery / judge dimension / kernel\nrule the composed principle checks by.",
+          "$ref": "#/$defs/Binding"
+        },
+        "citations": {
+          "description": "The provenance citations (`D-nnnn` / canon anchors) that justify the ruling.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "in_precedence_tier": {
+          "description": "Promote this generic principle into the world's precedence tier (→\n[`Family::Pillar`]).",
+          "type": "boolean"
+        },
+        "mission_filter": {
+          "description": "How the mission filters the received principle (default [`MissionFilter::Pass`]).",
+          "$ref": "#/$defs/MissionFilter",
+          "default": {
+            "mission_filter": "pass"
+          }
+        },
+        "param_overrides": {
+          "description": "Overrides for the shipped record's generic default parameters (metadata; the\nruntime [`Principle`] record carries no parameters).",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Scalar"
+          }
+        },
+        "principle_id": {
+          "description": "The shipped principle this overlay rides on; must resolve to an enabled pack.",
+          "type": "string"
+        },
+        "source": {
+          "description": "A world-specific source/citation string that overrides the shipped source\n(absent when unchanged).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "statement": {
+          "description": "A world-specific statement that overrides the shipped generic wording (absent\nwhen the shipped statement already reads world-agnostic and unchanged).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "principle_id",
+        "binding"
+      ]
+    },
+    "ProvenanceCfg": {
+      "description": "The reference-format patterns provenance guards accept — loadable form of\n[`super::config::ProvenanceFormats`] (design §3 item 6).",
+      "type": "object",
+      "properties": {
+        "canon_digits": {
+          "description": "The exact digit count following the canon prefix.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "canon_prefix": {
+          "description": "The canon-decision prefix (`D-`).",
+          "type": "string"
+        },
+        "research_id_digits": {
+          "description": "The exact digit count following the research-id prefix.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "research_id_prefix": {
+          "description": "The research-id prefix (`RR-`).",
+          "type": "string"
+        },
+        "research_path_digits": {
+          "description": "The digit count following the research-doc path prefix.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "research_path_prefix": {
+          "description": "The research-doc path prefix.",
+          "type": "string"
+        },
+        "research_path_suffix": {
+          "description": "The research-doc path suffix.",
+          "type": "string"
+        },
+        "research_url_schemes": {
+          "description": "Accepted research-URL scheme prefixes, tried in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "canon_prefix",
+        "canon_digits",
+        "research_id_prefix",
+        "research_id_digits",
+        "research_path_prefix",
+        "research_path_digits",
+        "research_path_suffix"
+      ]
+    },
+    "Scalar": {
+      "description": "A generic default parameter value carried by a shipped [`DoctrinePrinciple`] —\na world may override it in its craft config (design §1.1). Deliberately small:\nthe tunables in the corpus are counts, ratios, flags, and short labels\n(e.g. `said_tag_ratio = 0.85`, `cast_per_scene = 4`, `tryfail_count = 3`).",
+      "anyOf": [
+        {
+          "description": "A boolean flag.",
+          "type": "boolean"
+        },
+        {
+          "description": "An integer count.",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "description": "A real-valued ratio or threshold.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "A short textual value.",
+          "type": "string"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "How much a [`WorldFinding`] must be attended to.",
+      "oneOf": [
+        {
+          "description": "A violation: the world (or a draft) contradicts canon or asserts what it\nmay not.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "A defect worth a look that does not, on its own, break canon.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    },
+    "TextMatchRuleCfg": {
+      "description": "A caller-defined lexical finding over one outline slot.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Full `outline.*` finding code.",
+          "type": "string"
+        },
+        "message": {
+          "description": "Finding message.",
+          "type": "string"
+        },
+        "pairs": {
+          "description": "Adjacent-token matches.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TokenPairCfg"
+          }
+        },
+        "single": {
+          "description": "Single-token matches.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "slot": {
+          "description": "Outline slot to scan.",
+          "$ref": "#/$defs/TurnSlot"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "slot"
+      ]
+    },
+    "Thresholds": {
+      "description": "The calibratable policy thresholds the season rules read (spec §4) — every\nnumeric band, one place, D-citable. Substituting a table is a data diff citing\na ruling, never a code change. [`DEFAULT_THRESHOLDS`] ships uncalibrated, so the\nband rules ride at [`Severity::Warn`].\n\nCarries `f64` bands, so it is `PartialEq` but not `Eq`.",
+      "type": "object",
+      "properties": {
+        "audio_high_run": {
+          "description": "No run of this many consecutive high-orientation-load episodes.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "calibrated": {
+          "description": "Whether these thresholds are calibrated against the season-1 corpus. Ships\n`false`; band findings ride at warn until it is `true` (spec §4).",
+          "type": "boolean"
+        },
+        "cast_introduction_band": {
+          "description": "New named speakers per episode should sit within this inclusive band.",
+          "type": "array",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          ]
+        },
+        "climax_prior_failures": {
+          "description": "A climax-class accomplishment needs at least this many (a warn below it).",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "cold_open_cast_ceiling": {
+          "description": "A cold open may carry at most this many speaking voices.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "competence_floor": {
+          "description": "Below this competence, a major unassisted win needs an intervening growth\nor price beat.",
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "major_prior_failures": {
+          "description": "A `>= major` accomplishment needs at least this many prior same-thread\nfailures (an error below it — the worked join).",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "mystery_starved_gap": {
+          "description": "An open mystery untouched for this many consecutive episodes is starved.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "reveal_lead_episodes": {
+          "description": "A turn's reframing fact must sit on the listener ledger at least this many\nepisodes before the turn.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "season_cast_budget": {
+          "description": "The season named-cast budget, when set (total introductions ceiling).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "ten_position_band": {
+          "description": "A kishōtenketsu *ten* should land within this inclusive fraction band.",
+          "type": "array",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number",
+              "format": "double"
+            },
+            {
+              "type": "number",
+              "format": "double"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "major_prior_failures",
+        "climax_prior_failures",
+        "competence_floor",
+        "reveal_lead_episodes",
+        "mystery_starved_gap",
+        "cold_open_cast_ceiling",
+        "cast_introduction_band",
+        "ten_position_band",
+        "audio_high_run",
+        "calibrated"
+      ]
+    },
+    "TokenPairCfg": {
+      "description": "One adjacent-token pattern in a configured lexical rule.",
+      "type": "object",
+      "properties": {
+        "leads": {
+          "description": "Allowed first tokens.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tail": {
+          "description": "Required second token.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "leads",
+        "tail"
+      ]
+    },
+    "TurnSlot": {
+      "description": "Which kishōtenketsu slot names the *turn* the outline battle-scan reads. The\n`ki`/`shō`/`ten`/`ketsu` fields stay on the outline (kishōtenketsu is a named\nframework, not world content); the catalog drives only *which* slot is scanned.",
+      "oneOf": [
+        {
+          "description": "The opening image.",
+          "type": "string",
+          "const": "ki"
+        },
+        {
+          "description": "The development.",
+          "type": "string",
+          "const": "sho"
+        },
+        {
+          "description": "The turn.",
+          "type": "string",
+          "const": "ten"
+        },
+        {
+          "description": "The resolution.",
+          "type": "string",
+          "const": "ketsu"
+        }
+      ]
+    },
+    "WorldPrinciple": {
+      "description": "A config-only principle — a world row with no shipped generic kernel (design\n§1.2). It converts straight to a runtime [`Principle`]; its\n[`family`](Self::family) may be [`Family::Pillar`].",
+      "type": "object",
+      "properties": {
+        "binding": {
+          "description": "How its check binds.",
+          "$ref": "#/$defs/Binding"
+        },
+        "citations": {
+          "description": "The provenance citations that justify the row.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "family": {
+          "description": "The family (may be [`Family::Pillar`] — the world's precedence tier).",
+          "$ref": "#/$defs/Family"
+        },
+        "finding_codes": {
+          "description": "Exact kernel finding codes governed by this principle.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "The unique kebab-case slug.",
+          "type": "string"
+        },
+        "mission_filter": {
+          "description": "How the mission filters it (default [`MissionFilter::Pass`]).",
+          "$ref": "#/$defs/MissionFilter",
+          "default": {
+            "mission_filter": "pass"
+          }
+        },
+        "parameters": {
+          "description": "Parameters consumed by this principle's binding.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Scalar"
+          }
+        },
+        "phases": {
+          "description": "The production phases it bears on.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Phase"
+          }
+        },
+        "source": {
+          "description": "The provenance — a canon anchor or `D-nnnn` ruling.",
+          "type": "string"
+        },
+        "statement": {
+          "description": "The principle, stated in the world's own terms (world content allowed).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family",
+        "statement",
+        "source",
+        "phases",
+        "binding"
+      ]
+    }
+  }
+}

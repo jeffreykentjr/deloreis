@@ -19,6 +19,13 @@ source = "Wildbow, Thoughts on Writing Serials; Platt & Truant (open loops); Eya
 phases = ["outline", "generation"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.no-loop-opened",
+    "outline.no-loop-closed",
+    "outline.loop-closed-unopened",
+    "outline.loop-never-closed",
+    "craft.mystery-starved",
+]
 
 [[principles]]
 id = "micro-pacing-every-installment"
@@ -28,6 +35,7 @@ source = "Fox, Write to Market; Platt & Truant, Write. Publish. Repeat."
 phases = ["outline", "generation", "revision"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = ["outline.scene-idles"]
 
 [[principles]]
 id = "promise-payoff-new-promise"
@@ -37,6 +45,7 @@ source = "Platt & Truant, Write. Publish. Repeat.; Sanderson (promise/payoff at 
 phases = ["outline"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = ["craft.promise-density"]
 
 [[principles]]
 id = "escalate-depth-not-pace"
@@ -70,6 +79,7 @@ source = "Wildbow (multi-arc interludes); multi-POV rotation craft."
 phases = ["outline"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = ["craft.cold-open-discipline"]
 
 [[principles]]
 id = "modular-world-generates-arcs"

@@ -2,7 +2,7 @@
   "fixture": "golden/author-suppose-v1",
   "precondition": [
     {
-      "dli": "0.5.0",
+      "dli": "0.5.1",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {
@@ -31,7 +31,7 @@
         }
       },
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "author.suppose",
         "params": {

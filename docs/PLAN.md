@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. Generic exports and the standalone runtime are closed; standalone CLI release proof remains open, with deferred and consumer-blocked work named explicitly."
+verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone source release has no local open nodes; deferred audits and consumer-owned integration remain named explicitly."
 ---
 
 # The plan
@@ -314,9 +314,8 @@ they touch; they are not a lane of their own.
   golden/negative/framing fixtures pass; the envelope carries no timestamps and
   rejects unknown fields.
 - **CLI-1** — The `deloreis` CLI: `check`, `query`, `fmt`, `fork`, `preflight`,
-  `timeline`, `simulate`, `export`, `name`, `check-proof`, `check-draft`,
-  `report`, `serve`. Later lanes extend the surface (`craft why` lands with the
-  craft lane).
+  `timeline`, `simulate`, `export`, `name`, `craft why`, `check-proof`,
+  `check-draft`, `report`, `serve`, `mcp`.
   *Needs:* CHECK-1. *Produces:* the command surface. *Oracle:* the man-page
   operations run; exit codes reflect verdicts.
 - **AUTH-1** — The authoring tool surface: the workspace/staging engine, the
@@ -593,9 +592,9 @@ author or consumer artifact that this repository does not own.
 | BENCH-2 | deferred | DL-0022; depends on BENCH-1 |
 | CON-1 | done | `cargo xtask fixtures` and `cargo test -p dli-serve --test fixture_replay` cover all 46 ops with typed schemas and paired framing |
 | SERVE-1 | done | `cargo test -p dli-serve --test simulation --test fixture_replay` covers practice/game jobs, durable start/status/cancel, restart, terminal rollback refusal, checkpoint-chain corruption, and capability replay |
-| CLI-1 | open | Project-backed serve is done; standalone release smoke coverage remains |
+| CLI-1 | done | The built Clap graph generates the command reference; `cargo test -p deloreis --test cli --test serve_project` covers every command/help path, positive and negative workflows, and project-backed transport |
 | AUTH-1 | done | `cargo test -p dli-serve --test author --test author_read --test fixture_replay` |
-| AUTH-2 | external-blocked | Consumer worked scenario is excluded from this source-release round |
+| AUTH-2 | done | `cargo test -p dli-serve --test auth2` replays `worlds/tpth/auth2/author-tegwen-v1.json` against the pinned-corpus-backed TPtH project |
 | EXT-F3 | external-blocked | Fantasy worker adaptation is consumer-owned |
 | EXT-F4 | external-blocked | Fantasy transcript is consumer-owned |
 | EXP-1 | done | `cargo test -p dli-export` |

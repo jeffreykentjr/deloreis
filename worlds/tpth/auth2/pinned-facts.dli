@@ -1,0 +1,274 @@
+scope tpth-pinned-facts
+
+ratify D-0001
+ratify D-0003
+ratify D-0004
+ratify D-0006
+ratify D-0014
+ratify D-0021
+ratify D-0028
+ratify D-0036
+ratify D-0047
+ratify D-0050
+ratify D-0053
+ratify D-0054
+ratify D-0055
+ratify D-0062
+ratify D-0064
+ratify D-0066
+ratify D-0068
+ratify D-0071
+ratify D-0072
+ratify D-0080
+ratify D-0081
+ratify D-0087
+ratify D-0096
+ratify D-0104
+ratify D-0108
+ratify D-0109
+ratify D-0111
+ratify D-0113
+ratify D-0114
+ratify D-0115
+ratify D-0116
+ratify D-0117
+ratify D-0118
+ratify D-0119
+ratify D-0120
+ratify D-0121
+ratify D-0122
+ratify D-0123
+ratify D-0124
+ratify D-0131
+ratify D-0132
+ratify D-0133
+ratify D-0134
+ratify D-0140
+ratify D-0144
+ratify D-0145
+ratify D-0146
+ratify D-0148
+ratify D-0156
+ratify D-0162
+ratify D-0163
+ratify D-0165
+ratify D-0166
+ratify D-0168
+ratify D-0180
+ratify D-0219
+place whitecombe "Whitecombe" ratified D-0111
+place corsbach   "Corsbach"   ratified D-0111
+place swartby    "Swartby"    ratified D-0111
+place halspetra  "Halspetra"  ratified D-0111
+place gwern      "Gwern"      ratified D-0108 D-0111
+place trefpen    "Trefpen"    ratified D-0108 D-0111
+thing hound                "The Hound"                ratified D-0064 D-0116
+thing silver-bough         "The Silver Bough"         ratified D-0124
+thing iron-actuaries       "The Iron Actuaries"       ratified D-0124
+thing wyrd-and-frith-order "The Wyrd-and-Frith Order" ratified D-0047 D-0117
+thing the-plenty           "The Plenty"               ratified D-0072 D-0132
+thing mortared-wall        "The Mortared Wall"        ratified D-0140 D-0144
+thing laid-hedge           "The Laid Hedge"           ratified D-0140 D-0144
+thing dry-stone-wall       "The Dry-Stone Wall"       ratified D-0144
+thing episode-format       "The Episode Format"       ratified D-0163
+thing frankpledge          "Frankpledge"              ratified D-0145
+thing world                "The World"                ratified D-0004 D-0119
+thing spoken-proof         "Spoken Proof"             ratified D-0003 D-0006 D-0180
+place glass-weald "The Glass Weald" proposed imported:fantasy-40f6679
+place rust-wastes "The Rust Wastes" proposed imported:fantasy-40f6679
+thing hedge-road        "The Hedge Road"        proposed imported:fantasy-40f6679
+thing the-turning       "The Turning"           ratified D-0146 D-0148
+thing keep-stamped-deck "The Keep-Stamped Deck" ratified D-0148
+fact whitecombe source-kind place                                               ratified D-0111
+fact corsbach source-kind place                                                 ratified D-0111
+fact swartby source-kind place                                                  ratified D-0111
+fact halspetra source-kind place                                                ratified D-0111
+fact gwern source-kind place                                                    ratified D-0108 D-0111
+fact trefpen source-kind place                                                  ratified D-0108 D-0111
+fact hound source-kind creature                                                 ratified D-0064 D-0116
+fact silver-bough source-kind faction                                           ratified D-0124
+fact iron-actuaries source-kind faction                                         ratified D-0124
+fact wyrd-and-frith-order source-kind order                                     ratified D-0047 D-0117
+fact the-plenty source-kind order                                               ratified D-0072 D-0132
+fact mortared-wall source-kind concept                                          ratified D-0140 D-0144
+fact laid-hedge source-kind concept                                             ratified D-0140 D-0144
+fact dry-stone-wall source-kind concept                                         ratified D-0144
+fact episode-format source-kind concept                                         ratified D-0163
+fact frankpledge source-kind order                                              ratified D-0145
+fact world source-kind concept                                                  ratified D-0004 D-0119
+fact spoken-proof source-kind concept                                           ratified D-0003 D-0006 D-0180
+fact glass-weald source-kind place                                              proposed imported:fantasy-40f6679
+fact rust-wastes source-kind place                                              proposed imported:fantasy-40f6679
+fact hedge-road source-kind concept                                             proposed imported:fantasy-40f6679
+fact the-turning source-kind concept                                            ratified D-0146 D-0148
+fact keep-stamped-deck source-kind concept                                      ratified D-0148
+fact the-turning source-note "the world's oracular deck"                        ratified D-0146 D-0148
+fact keep-stamped-deck source-note "the empire's rigged licensed deck"          ratified D-0148
+fact whitecombe adjacent_to corsbach                                            ratified D-0119
+fact whitecombe adjacent_to swartby                                             ratified D-0119
+fact whitecombe adjacent_to halspetra                                           ratified D-0119
+fact gwern located_in corsbach                                                  ratified D-0114 D-0119
+fact trefpen located_in gwern                                                   ratified D-0108 D-0114
+fact swartby upstream_of corsbach                                               ratified D-0119
+fact corsbach upstream_of halspetra                                             ratified D-0119
+fact protagonist raised_by silver-bough                                         ratified D-0124
+fact protagonist trained_by iron-actuaries                                      ratified D-0124
+fact narrator member_of wyrd-and-frith-order                                    ratified D-0047 D-0117
+fact keep-stamped-deck rigged_variant_of the-turning                            ratified D-0148
+fact protagonist reads the-turning                                              ratified D-0148
+fact protagonist given-name enfys                                               ratified D-0132
+fact protagonist family-name livia                                              ratified D-0134
+fact protagonist name enfys-livia                                               ratified D-0134
+fact apprentice name ranta-aalto                                                ratified D-0132
+fact apprentice common-address aalto                                            ratified D-0108 D-0132
+fact anchor name geir-ketilson                                                  ratified D-0132
+fact hound call-name bramble                                                    ratified D-0132
+fact hound formal-name frithwed                                                 ratified D-0132
+fact hound meeting freed-from-brambles-and-trap                                 ratified D-0133
+fact the-plenty metaphor the-singularity                                        ratified D-0131
+fact world region-count 4                                                       ratified D-0119
+fact world map-shape core-and-ring                                              ratified D-0119
+fact world technology-level pre-modern                                          ratified D-0004
+fact world sealed-by storm-wrack                                                ratified D-0119
+fact world first-hub trefpen                                                    ratified D-0108 D-0114
+fact world arc-end-region whitecombe                                            ratified D-0119
+fact spoken-proof architecture one-magic-many-interfaces                        ratified D-0180
+fact spoken-proof law lawful-proof-over-wyrd-and-frith                          ratified D-0180
+fact spoken-proof deck-role premise-map-not-spell-engine                        ratified D-0180
+fact spoken-proof knot-role premise-holder-not-rope-magic                       ratified D-0180
+fact spoken-proof animal-role witness-not-caster                                ratified D-0180
+fact spoken-proof circle-role regional-reasoning-infrastructure                 ratified D-0180
+fact spoken-proof excluded-mechanics music-prophecy-intention-elements-violence ratified D-0180
+fact whitecombe map-position core                                               ratified D-0119
+fact whitecombe role imperial-core                                              ratified D-0119
+fact whitecombe biome chalk-uplands                                             provisional D-0081
+fact corsbach map-position ring                                                 ratified D-0119
+fact corsbach biome drowned-lowlands                                            provisional D-0081
+fact corsbach role agricultural-textile-heartland                               provisional D-0081
+fact swartby map-position ring                                                  ratified D-0119
+fact swartby biome industrial-crags                                             provisional D-0081
+fact halspetra map-position ring                                                ratified D-0119
+fact halspetra biome salt-fringes                                               provisional D-0081
+fact gwern kind valley                                                          ratified D-0114
+fact gwern role first-spoke                                                     ratified D-0113 D-0114
+fact gwern industry peat-turf-cutting                                           ratified D-0114
+fact gwern inciting-anomaly enclosure-of-the-parish-water                       ratified D-0114
+fact trefpen kind hub-settlement                                                ratified D-0108
+fact trefpen role first-hub                                                     ratified D-0113 D-0114
+fact protagonist gender female                                                  ratified D-0071
+fact anchor gender male                                                         ratified D-0096
+fact apprentice gender female                                                   ratified D-0219
+fact protagonist origin-region whitecombe                                       provisional D-0080 D-0081
+fact apprentice origin-region halspetra                                         provisional D-0080 D-0081
+fact anchor origin-region swartby                                               provisional D-0080 D-0081
+fact protagonist parentage-structure bastard-of-two-societies                   ratified D-0109
+fact protagonist name-structure mismatched-given-and-family                     ratified D-0109
+fact protagonist apparent-age-band early-thirties                               ratified D-0120
+fact protagonist mortality ageless-seeming-mortal                               ratified D-0120
+fact protagonist nature archive-bearer                                          ratified D-0068 D-0118
+fact protagonist archive-parliament-size 5-to-9                                 ratified D-0120
+fact protagonist default-voice chalk-imperial                                   ratified D-0120
+fact protagonist stance radical-humanism                                        ratified D-0021 D-0053
+fact apprentice craft knot-craft                                                ratified D-0121
+fact apprentice craft-complement weather-sense                                  ratified D-0121
+fact apprentice age-band pre-adolescent                                         ratified D-0066
+fact apprentice pronoun-protocol she-her-universal                              ratified D-0219
+fact apprentice narrative-role viewpoint                                        ratified D-0054 D-0062
+fact apprentice family-name aalto                                               ratified D-0108
+fact anchor age-band older                                                      ratified D-0050
+fact anchor condition disabled                                                  ratified D-0115
+fact anchor disability-cause mine-collapse                                      ratified D-0115
+fact anchor backstory protagonists-extraction-victim                            ratified D-0115
+fact anchor family-name ketilson                                                ratified D-0108
+fact anchor secret-craft perfect-unseen-finish                                  ratified D-0123
+fact hound nature cu-sith-moor-spirit                                           ratified D-0116
+fact hound speaks false                                                         ratified D-0116
+fact hound comprehends-proofs true                                              ratified D-0116
+fact hound relationship consents-not-obeys                                      ratified D-0116
+fact hound treaty-opens-with draw-the-thorn                                     ratified D-0116
+fact hound treaty-sealed-by offered-knot-collar                                 ratified D-0116
+fact narrator identity wyrd-and-frith-scholar                                   ratified D-0047 D-0117
+fact narrator lineage criminalized-skalds                                       ratified D-0117
+fact narrator era centuries-after                                               ratified D-0036 D-0117
+fact narrator stance abstract                                                   ratified D-0104
+fact the-plenty function imperial-legal-framework                               provisional D-0072
+fact the-plenty rhetoric orwellian-doublespeak                                  ratified D-0108
+fact silver-bough role green-reformers-who-patent-the-cure                      ratified D-0124
+fact iron-actuaries role raw-calculation-trainers                               ratified D-0124
+fact wyrd-and-frith-order descends-from hunted-memory-keepers                   ratified D-0117
+fact magic-system form spoken-logical-proof                                     ratified D-0003
+fact magic-system cost immediate-bodily                                         ratified D-0087
+fact structure plot-shape kishotenketsu-hub-and-spoke                           ratified D-0055
+fact structure macro-arc sabotage-breach-world-after                            ratified D-0014
+fact structure master-frame four-act-approx-400                                 ratified D-0168
+fact structure series-ten enclosure-itself-as-antagonist                        ratified D-0168
+fact structure mission-after-ten defeat-to-rebuilding                           ratified D-0168
+fact structure discovery-speed slow-burn-cycles                                 ratified D-0168
+fact structure spoke-cast-breadth broad-recurring-locals                        ratified D-0168
+fact overview medium audio-drama                                                ratified D-0001
+fact mortared-wall builder empire                                               ratified D-0140
+fact mortared-wall permeability impermeable                                     ratified D-0140 D-0144
+fact mortared-wall material standardized-quarry-stone                           ratified D-0144
+fact mortared-wall thesis first-false-proof-made-solid                          ratified D-0144
+fact mortared-wall procedural-expression checkpoint-in-the-wall                 ratified D-0156
+fact episode-format runtime-minutes about-30                                    ratified D-0163
+fact episode-format scale hundreds-of-episodes                                  ratified D-0163
+fact episode-format opening-arc-min-episodes "10"                               ratified D-0162
+fact episode-format opening-arc-working-episodes about-14                       ratified D-0168
+fact laid-hedge permeability animal-permeable                                   ratified D-0140
+fact laid-hedge evolvable true                                                  ratified D-0140
+fact laid-hedge role reclaimed-good                                             ratified D-0140 D-0144
+fact laid-hedge covenant upkeep                                                 ratified D-0144
+fact dry-stone-wall permeability divides                                        ratified D-0144
+fact dry-stone-wall origin-region swartby                                       ratified D-0144
+fact dry-stone-wall standing displaced-native-craft                             ratified D-0144
+fact frankpledge nature mutual-surety-tithing                                   ratified D-0145
+fact frankpledge imperial-use informer-cage                                     ratified D-0145
+fact frankpledge resistance-use genuine-mutual-aid                              ratified D-0145
+fact hound orders-oldest-source true                                            proposed imported:fantasy-40f6679
+fact narrator proposed-name thread-reader                                       proposed imported:fantasy-40f6679
+fact hedge-road role spoke-and-hub-connective-infrastructure                    proposed imported:fantasy-40f6679
+fact hedge-road maintained-by pleaching                                         proposed imported:fantasy-40f6679
+fact the-turning kind oracular-deck                                             ratified D-0146 D-0148
+fact the-turning origin reckoning-game                                          ratified D-0146 D-0148
+fact the-turning function counsel-not-prophecy                                  ratified D-0146
+fact the-turning structure wheel-not-ladder                                     ratified D-0148
+fact the-turning leaf-count 29                                                  ratified D-0148
+fact the-turning leaf-count-basis nights-of-the-moon                            ratified D-0148
+fact the-turning ground-count 4                                                 ratified D-0148
+fact the-turning hand-count 4                                                   ratified D-0148
+fact the-turning weather-count 12                                               ratified D-0148
+fact the-turning hub reckoner                                                   ratified D-0148
+fact the-turning regional-variance canonical                                    ratified D-0148
+fact the-turning cognition-kind extended-cognition                              ratified D-0028 D-0148
+fact the-hands taker draws-from-the-commons                                     ratified D-0148
+fact the-hands keeper holds-the-saved-thing                                     ratified D-0148
+fact the-hands giver returns-gives-back                                         ratified D-0148
+fact the-hands mender repairs-the-wear                                          ratified D-0148
+fact the-grounds textbook-set wood-water-field-hearth                           ratified D-0148
+fact the-grounds variance region-drifting                                       ratified D-0148
+fact the-weathers count 12                                                      ratified D-0148
+fact the-weathers structure closed-ring-no-highest                              ratified D-0148
+fact the-reckoner role self-implicating-hub                                     ratified D-0148
+fact the-reckoner contrast anti-fool                                            ratified D-0148
+fact keep-stamped-deck nature rigged-licensed-deck                              ratified D-0148
+fact keep-stamped-deck mechanism hard-weathers-cut-out                          ratified D-0148
+fact keep-stamped-deck weathers-removed debt-sundering-bourn                    ratified D-0148
+fact keep-stamped-deck allegory false-curriculum-as-object                      ratified D-0148
+fact keep-stamped-deck guardrail never-named-as-rig                             ratified D-0148
+fact protagonist deck-practice imperial-defector-relearning-folk                ratified D-0148
+fact protagonist deck-arc repaints-rigged-grounds-honest                        ratified D-0148
+fact religion seasonal-rites per-region-turnings                                ratified D-0146
+fact religion hearth-practice apotropaic-iron-and-held-frith                    ratified D-0146
+fact religion ancestor-rite naming-the-dead                                     ratified D-0146
+fact wyrd-and-frith everyday-rite asking-leave                                  ratified D-0146
+fact magic-system craft-timing tide-and-moon                                    ratified D-0146
+fact professions cunning-woman-materia herb-lore-as-forensic-evidence           ratified D-0146
+fact protagonist prose-voice ishiguro-wolfe-mckillip-robinson                   ratified D-0122
+fact narrator quote-tone reading-scholar                                        ratified D-0166
+fact protagonist spoken-register courteous-guest                                ratified D-0166
+fact protagonist surfacing-speech distinct-not-muddled                          ratified D-0165 D-0166
+fact apprentice spoken-register counting-voice                                  ratified D-0166
+fact anchor spoken-register sidelong-bennet                                     ratified D-0166
+fact magic-system proof-speech concordance-over-spoken-ledger                   ratified D-0166
+fact magic-system proof-binders attested-loan-words-via-oracle                  ratified D-0166

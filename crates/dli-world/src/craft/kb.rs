@@ -10,7 +10,7 @@
 //! data, which [`super::worldcfg::apply`] composes into the runtime corpus. The
 //! engine's default is the **generic** doctrine corpus ([`Kb::builtin`]); the `TPtH`
 //! corpus (formerly the compiled 107-principle table) is reconstructed from
-//! `worlds/tpth/craft/*` and proven field-for-field against a committed golden.
+//! `worlds/tpth/craft/*` and proven against the committed pre-separation fields.
 //!
 //! **Invariants become compile rules, not test assertions.** The spec asks that a
 //! `tension` require a `resolution` and that a dangling `check_ref` be a *compile*
@@ -50,6 +50,73 @@ use serde::{Deserialize, Serialize};
 
 use crate::attest::{Attestation, Question, QuestionKey};
 use crate::check::WorldFinding;
+
+/// The closed `outline.*` finding namespace emitted by the outline and payload
+/// conformance batteries.
+pub const OUTLINE_FINDING_CODES: &[&str] = &[
+    "outline.arc-promise-payoff-xor-carry",
+    "outline.beat-unaccounted",
+    "outline.beat-undeclared",
+    "outline.cast-over-four",
+    "outline.cast-unaccounted",
+    "outline.cast-undeclared",
+    "outline.character-slider-duplicate",
+    "outline.character-slider-flat",
+    "outline.character-slider-scene-unknown",
+    "outline.dangling-payoff",
+    "outline.hook-late",
+    "outline.loop-closed-unopened",
+    "outline.loop-never-closed",
+    "outline.major-character-slider-missing",
+    "outline.material-answer-and-unknown",
+    "outline.material-assumption-blank",
+    "outline.material-assumption-incomplete",
+    "outline.material-canon-ref-duplicate",
+    "outline.material-canon-ref-malformed",
+    "outline.material-research-ref-duplicate",
+    "outline.material-research-ref-malformed",
+    "outline.mice-beat-unknown",
+    "outline.mice-closes-before-open",
+    "outline.mice-interleaved",
+    "outline.narrator-direct-address",
+    "outline.narrator-host-frame",
+    "outline.narrator-needed-for-orientation",
+    "outline.narrator-tasks-missing",
+    "outline.no-audio-plan",
+    "outline.no-character-slider-ledger",
+    "outline.no-loop-closed",
+    "outline.no-loop-opened",
+    "outline.no-material-assumption-ledger",
+    "outline.no-narrator-sfx-burden",
+    "outline.no-scene-work-ledger",
+    "outline.no-season-promise-ledger",
+    "outline.no-tryfail-cycle",
+    "outline.premature-resolution",
+    "outline.promise-made-in-unknown",
+    "outline.promise-payoff-xor-carry",
+    "outline.promise-unaccounted",
+    "outline.promise-undeclared",
+    "outline.scene-idles",
+    "outline.scene-work-chain-unsettled",
+    "outline.scene-work-duplicate",
+    "outline.scene-work-missing",
+    "outline.scene-work-premature-resolution",
+    "outline.scene-work-unknown-scene",
+    "outline.season-promise-duplicate",
+    "outline.season-promise-open-unknown",
+    "outline.season-promise-payoff-unknown",
+    "outline.sfx-load-bearing",
+    "outline.sfx-not-sparse",
+    "outline.slider-compensation-missing",
+    "outline.ten-reads-as-battle",
+    "outline.unsupported-material-assumption",
+];
+
+/// Whether `code` is a finding the outline or conformance battery can emit.
+#[must_use]
+pub fn is_outline_finding_code(code: &str) -> bool {
+    OUTLINE_FINDING_CODES.contains(&code)
+}
 
 /// A doctrine family — the axis a principle speaks to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -239,27 +306,29 @@ impl KernelRule {
     }
 }
 
-/// A factory-side check namespace (spec §6: prose checks stay factory-invoked).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum FactoryNs {
-    /// The `fantasy.craft.check` prose battery.
-    Check,
-    /// The `fantasy.style` register lint.
-    Style,
-    /// The `fantasy.craft.raise` bar-raiser pass.
-    Raise,
-}
+/// A caller-declared factory-side check namespace (spec §6: prose checks stay
+/// factory-invoked).
+///
+/// This is an open identifier rather than an engine-owned enum: projects may
+/// register any factory namespace and [`super::worldcfg::validate`] checks every
+/// factory binding against that registry.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(transparent)]
+pub struct FactoryNs(pub Cow<'static, str>);
 
 impl FactoryNs {
-    /// The legacy `namespace:` prefix.
+    /// Build a namespace identifier.
     #[must_use]
-    pub fn prefix(self) -> &'static str {
-        match self {
-            Self::Check => "check",
-            Self::Style => "style",
-            Self::Raise => "raise",
-        }
+    pub fn new(namespace: impl Into<Cow<'static, str>>) -> Self {
+        Self(namespace.into())
+    }
+
+    /// The namespace prefix.
+    #[must_use]
+    pub fn prefix(&self) -> &str {
+        self.0.as_ref()
     }
 }
 
@@ -350,7 +419,7 @@ pub enum Checkable {
 /// `check_ref` are folded into the typed [`binding`](Self::binding), and
 /// `tension_note`/`resolution` into the typed
 /// [`mission_filter`](Self::mission_filter).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Principle {
     /// The unique kebab-case slug.
     pub id: Cow<'static, str>,
@@ -366,6 +435,16 @@ pub struct Principle {
     pub phases: Cow<'static, [Phase]>,
     /// How its check binds.
     pub binding: Binding,
+    /// Project provenance attached by the caller-owned overlay/config.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub citations: Vec<Cow<'static, str>>,
+    /// Effective parameters after generic defaults and caller overrides merge.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parameters: BTreeMap<Cow<'static, str>, Scalar>,
+    /// Exact finding codes this principle governs. Doctrine selection therefore
+    /// controls which kernel verdicts are active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub finding_codes: Vec<Cow<'static, str>>,
 }
 
 impl Principle {
@@ -415,8 +494,14 @@ impl Principle {
     pub fn explain(&self) -> String {
         use std::fmt::Write as _;
         let mut out = format!("{} — {}\n{}", self.id, self.family_label(), self.statement);
-        if let Some(note) = self.tension_note() {
-            let _ = write!(out, "\n  tension: {note}");
+        match &self.mission_filter {
+            MissionFilter::Pass => {}
+            MissionFilter::Adapted { note } => {
+                let _ = write!(out, "\n  adaptation: {note}");
+            }
+            MissionFilter::Tension { note, .. } => {
+                let _ = write!(out, "\n  tension: {note}");
+            }
         }
         if let Some(resolution) = self.resolution() {
             let _ = write!(out, "\n  resolution: {resolution}");
@@ -543,6 +628,7 @@ impl DoctrineFamily {
 /// review-checked (design §2.4). A CI lint additionally forbids world tokens in
 /// [`statement`](Self::statement) and [`source`](Self::source).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DoctrinePrinciple {
     /// The stable pack-namespaced slug (shared with the runtime [`Principle`] id).
     pub id: Cow<'static, str>,
@@ -566,6 +652,9 @@ pub struct DoctrinePrinciple {
     /// Generic default parameters a world may override.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub default_params: BTreeMap<Cow<'static, str>, Scalar>,
+    /// Exact kernel finding codes governed by this principle.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub finding_codes: Vec<Cow<'static, str>>,
 }
 
 impl DoctrinePrinciple {
@@ -578,10 +667,11 @@ impl DoctrinePrinciple {
 
 /// A shipped, togglable pack of world-agnostic [`DoctrinePrinciple`]s (design §1.1).
 ///
-/// Packs are fine-grained on purpose; a world's craft config enables them
-/// individually or by coarse group. The `save-the-cat` pack ships as a declared,
-/// **empty** stub (the corpus has no beat-sheet principle to fabricate).
+/// Packs are fine-grained on purpose; a world's craft config enables exact packs.
+/// The `save-the-cat` pack ships as a declared, **empty** stub (the corpus has no
+/// beat-sheet principle to fabricate).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DoctrinePack {
     /// The pack name (e.g. `prose-craft`, `audio-drama`).
     pub pack: Cow<'static, str>,
@@ -597,7 +687,7 @@ pub struct DoctrinePack {
 /// `apply(load_config(dir), doctrines())`. [`Kb::builtin`] reads this corpus.
 static GENERIC_CORPUS: std::sync::LazyLock<Vec<Principle>> = std::sync::LazyLock::new(|| {
     let packs = super::load::doctrines();
-    super::worldcfg::apply(&super::worldcfg::CraftConfig::generic(&packs), &packs)
+    super::worldcfg::apply(&super::worldcfg::CraftConfig::generic(&packs), &packs).into_principles()
 });
 
 /// A borrow-generic handle over a principle corpus (design §2.1, `CRAFT-3`).
@@ -670,6 +760,17 @@ impl<'a> Kb<'a> {
             .collect()
     }
 
+    /// Whether the selected corpus governs `finding_code`.
+    #[must_use]
+    pub fn governs(&self, finding_code: &str) -> bool {
+        self.principles.iter().any(|principle| {
+            principle
+                .finding_codes
+                .iter()
+                .any(|code| code == finding_code)
+        })
+    }
+
     /// The standing checkable-debt report: principles bound `judge` or `none` — the
     /// roadmap of rules not yet written, kept honest rather than hidden (spec §5).
     #[must_use]
@@ -711,24 +812,16 @@ impl<'a> Kb<'a> {
     /// when no principle claims the code.
     #[must_use]
     pub fn why(&self, finding_code: &str) -> Vec<&'a Principle> {
-        let item = finding_code
-            .split_once('.')
-            .map_or(finding_code, |(_, item)| item);
-        let mut hits: Vec<&'a Principle> = if finding_code.starts_with("outline.") {
-            self.principles
-                .iter()
-                .filter(|p| {
-                    matches!(
-                        p.binding.kernel_rule(),
-                        Some(KernelRule::CheckOutline | KernelRule::CheckSeason)
-                    )
-                })
-                .collect()
-        } else if let Some(rule) = KernelRule::from_id(item) {
-            self.principles_binding(rule)
-        } else {
-            Vec::new()
-        };
+        let mut hits: Vec<&'a Principle> = self
+            .principles
+            .iter()
+            .filter(|principle| {
+                principle
+                    .finding_codes
+                    .iter()
+                    .any(|code| code == finding_code)
+            })
+            .collect();
         // Pillars win: stable-sort the pillar family to the front (D-0128).
         hits.sort_by_key(|p| !p.is_pillar());
         hits

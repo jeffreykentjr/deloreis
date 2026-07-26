@@ -239,6 +239,29 @@
           ]
         },
         {
+          "description": "The proof header binds a role the practice does not declare. This is\nmalformed proof metadata, not an expected diegetic failure.",
+          "type": "object",
+          "properties": {
+            "actor": {
+              "description": "The entity written as its filler.",
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "const": "unknown-role"
+            },
+            "role": {
+              "description": "The undeclared role key.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "finding",
+            "role",
+            "actor"
+          ]
+        },
+        {
           "description": "L5 — a step joins premises by a law the practice does not license, or over\na premise it never established.",
           "type": "object",
           "properties": {
@@ -336,7 +359,7 @@
           ]
         },
         {
-          "description": "L6 — a `spend`/`release` names a label that is not a declared resource\npremise (an undefined label, or a world/timing premise). The resource\naccounting cannot fold a unit that was never a unit.",
+          "description": "L6 — a resource operation names a label that is not a declared resource\npremise (an undefined label, or a world/timing premise). The accounting\ncannot operate on a unit that was never declared.",
           "type": "object",
           "properties": {
             "finding": {
@@ -439,6 +462,65 @@
             "header",
             "checked"
           ]
+        },
+        {
+          "description": "The direct AST header is not `<role> <actor> in <practice>`. Parser-backed\ncallers reject this earlier; the checker retains the invariant.",
+          "type": "object",
+          "properties": {
+            "finding": {
+              "type": "string",
+              "const": "invalid-header-layout"
+            }
+          },
+          "required": [
+            "finding"
+          ]
+        },
+        {
+          "description": "Captured proof clauses do not replay through the canonical surface and\nparser. This protects direct AST callers from bypassing proof syntax.",
+          "type": "object",
+          "properties": {
+            "diagnostics": {
+              "description": "Domain diagnostics returned by the real parser.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "finding": {
+              "type": "string",
+              "const": "malformed-body"
+            }
+          },
+          "required": [
+            "finding",
+            "diagnostics"
+          ]
+        },
+        {
+          "description": "The proof does not carry exactly one final close. Parser-backed callers\nreject this earlier; the checker keeps the invariant for direct AST users.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "description": "Number of close operations present.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "final_operation": {
+              "description": "Whether the sole close, when there is one, is the final operation.",
+              "type": "boolean"
+            },
+            "finding": {
+              "type": "string",
+              "const": "invalid-close-layout"
+            }
+          },
+          "required": [
+            "finding",
+            "count",
+            "final_operation"
+          ]
         }
       ]
     },
@@ -498,11 +580,11 @@
       ]
     },
     "ProofReport": {
-      "description": "The full report of checking one proof.\n\nThis is a frozen seam: `SERVE-1`'s `dli.check-ledger` and the payload battery\n(PAY-2) consume it. The [`checks`](ProofReport::checks) flag is the one-bit\nverdict — the declared expectation was met — while\n[`findings`](ProofReport::findings), [`verdict`](ProofReport::verdict), and\n[`grade`](ProofReport::grade) carry the why, the where, and the strength.",
+      "description": "The full report of checking one proof.\n\nThis is a frozen seam: `SERVE-1`'s `dli.check-ledger` and the payload battery\n(PAY-2) consume it. The [`checks`](ProofReport::checks) flag is the one-bit\nverdict — the proof is structurally valid and its declared expectation was\nmet — while\n[`findings`](ProofReport::findings), [`verdict`](ProofReport::verdict), and\n[`grade`](ProofReport::grade) carry the why, the where, and the strength.",
       "type": "object",
       "properties": {
         "checks": {
-          "description": "Whether the proof checks: shorthand for\n[`expectation_met`](Self::expectation_met).",
+          "description": "Whether the proof checks: its shape is valid and its declared expectation\nwas met.",
           "type": "boolean"
         },
         "expectation_met": {

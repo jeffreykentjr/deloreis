@@ -17,7 +17,7 @@ use dli_serve::{Op, Request};
 /// Build a request frame.
 fn req(id: &str, op: Op, params: Value) -> Request {
     Request {
-        dli: "0.5.0".to_owned(),
+        dli: "0.5.1".to_owned(),
         id: id.to_owned(),
         op,
         params,

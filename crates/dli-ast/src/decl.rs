@@ -503,3 +503,23 @@ pub struct ProofDecl {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Annotation>,
 }
+
+impl ProofDecl {
+    /// The role key in a validated proof header.
+    #[must_use]
+    pub fn role(&self) -> Option<&str> {
+        (self.head.len() == 4 && self.head[2] == "in").then(|| self.head[0].as_str())
+    }
+
+    /// The entity filling the proof header's role.
+    #[must_use]
+    pub fn actor(&self) -> Option<&str> {
+        (self.head.len() == 4 && self.head[2] == "in").then(|| self.head[1].as_str())
+    }
+
+    /// The practice named by a validated proof header.
+    #[must_use]
+    pub fn practice(&self) -> Option<&str> {
+        (self.head.len() == 4 && self.head[2] == "in").then(|| self.head[3].as_str())
+    }
+}

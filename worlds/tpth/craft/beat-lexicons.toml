@@ -1,0 +1,34 @@
+# TPtH's D-0052 backstop: a kishotenketsu turn should not read as combat.
+[[rules]]
+code = "outline.ten-reads-as-battle"
+message = "the ten reads as a battle/confrontation; the turn should be a perspective shift dissolved through empathy and logic, not a clash"
+slot = "ten"
+single = [
+    "battle",
+    "sword",
+    "blade",
+    "army",
+    "armies",
+    "slay",
+    "slain",
+    "behead",
+    "duel",
+    "charge",
+    "warhost",
+]
+
+[[rules.pairs]]
+leads = ["war"]
+tail = "host"
+
+[[rules.pairs]]
+leads = ["strike", "strikes"]
+tail = "down"
+
+[[rules.pairs]]
+leads = ["kill", "kills", "killed"]
+tail = "the"
+
+[[rules.pairs]]
+leads = ["final"]
+tail = "blow"

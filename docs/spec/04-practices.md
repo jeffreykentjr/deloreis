@@ -266,6 +266,33 @@ explicitly rather than searching for a derivation:
 - `reveal` — surface a conserved unit already implied by the accounts.
 - `close` — the casting's conclusion, with its expected verdict.
 
+Proof bodies are fail-closed syntax. Only those child keywords may open a proof
+line; fixed-shape operations reject missing fields and surplus tokens before the
+document can be formatted or replayed. `instantiate` and `chain` are parsed to
+their complete shapes. `assume` always contributes grade `asserted`; a promoted
+or conflicting grade is malformed input. An instantiation binds every declared
+parameter exactly once, and a value for a declared finite kind must be one of
+that kind's members. A practice may also invoke a declared rule directly as
+`step <label> <rule> [<value>, ...]`; those positional terms must match the
+rule's exact arity and finite kinds. Opaque custom-step text is not a proof.
+`reveal` and `redistribute` must name an existing resource premise even though
+their accounting delta is zero. A proof header carries exactly one role binding
+(`speaker`, or a role declared by the practice) and one `in <practice>` target,
+and every proof ends with exactly one final `close`; the checker revalidates
+header layout, header roles, close layout, and the complete canonical
+surface-to-parser replay for direct AST callers. Relation atoms must have
+balanced parentheses in every proof position; nested claims use the same grammar
+in premises, chain conclusions, and closes. Binding and positional values are
+tokenized terms, so a comma inside a quoted value never becomes a separator.
+Consequently `check`, `check-proof`, and `fmt` cannot silently turn a malformed
+or unsupported proof into a smaller valid one.
+
+When a CLI proof file or worker document declares more than one proof, the
+caller selects one explicitly with `--proof <name>` or the wire `proof` field.
+The selector may be omitted only for a single-proof input; ambiguity, an unknown
+name, or duplicate names fail closed. The practice always comes from the
+selected proof's `in <practice>` header.
+
 A ledger is written as data and checked, never authored by the machine:
 
 ```dli

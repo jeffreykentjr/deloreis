@@ -3,8 +3,10 @@
 //! A [`Pack`] of documents [`compile`]s into a [`CompiledWorld`]: the loader's
 //! status-gated [`WorldModel`] with its ledger valuation set and its symbolic
 //! fixpoint computed, plus the compiled language layer, craft rules, and the
-//! season ledger. Drafts arrive as [`DraftPayload`]s and are fact-checked with
-//! [`check_draft`]; [`Attestation`]s are recomputed for staleness with [`sweep`].
+//! season ledger. Drafts arrive as fat [`Payload`] shadows and are checked with
+//! [`payload::check_payload`]; [`Attestation`]s are recomputed for staleness with
+//! [`sweep`]. The older [`DraftPayload`] projection remains available only for
+//! legacy library callers.
 
 pub mod attest;
 pub mod check;

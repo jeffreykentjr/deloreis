@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.list_workspaces takes no params; an unknown field violates the (deny-unknown-fields) op schema.",
   "send": {
-    "dli": "0.5.0",
+    "dli": "0.5.1",
     "id": "1",
     "op": "author.list_workspaces",
     "params": {

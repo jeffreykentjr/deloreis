@@ -432,6 +432,7 @@ citations = [
     "D-0052",
     "D-0055",
 ]
+finding_codes = ["outline.ten-reads-as-battle"]
 
 [world_principles.mission_filter]
 mission_filter = "pass"

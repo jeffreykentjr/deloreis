@@ -37,7 +37,7 @@ use super::kb::{DoctrinePack, Kb, Principle};
 /// world-agnostic [`DoctrinePrinciple`](super::kb::DoctrinePrinciple) packs
 /// ([`doctrines`]) plus a world's overlays compose *into* runtime principles via
 /// [`super::worldcfg::apply`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PrinciplePack {
     /// The principles this pack carries, in corpus order.
     pub principles: Vec<Principle>,
@@ -211,7 +211,20 @@ mod tests {
 #[cfg(test)]
 mod doctrine_tests {
     use super::doctrines;
-    use crate::craft::kb::{CheckableKind, Kb};
+    use crate::craft::kb::{CheckableKind, DoctrinePack, Kb};
+
+    #[test]
+    fn doctrine_pack_rejects_unknown_top_level_fields() {
+        let error = toml::from_str::<DoctrinePack>(
+            "pack = \"test\"\nprinciples = []\nmisspelled_policy = true\n",
+        )
+        .expect_err("unknown pack-level fields must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("unknown field `misspelled_policy`")
+        );
+    }
 
     /// The shipped doctrine ids: the 26 pure-generic (G) principles verbatim plus
     /// the 57 stripped generic+overlay (G+) principles = **83** records (design

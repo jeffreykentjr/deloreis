@@ -19,6 +19,14 @@ source = "Card, How to Write SF&F; Kowal, MICE Quotient (try-fail cycles); Writi
 phases = ["outline", "generation"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.no-tryfail-cycle",
+    "outline.premature-resolution",
+    "outline.beat-unaccounted",
+    "outline.beat-undeclared",
+    "craft.accomplishment-earned",
+    "craft.accomplishment-earned-climax",
+]
 
 [[principles]]
 id = "yes-and-is-terminal"
@@ -28,6 +36,7 @@ source = "Card/Kowal try-fail cycles."
 phases = ["outline", "revision"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = ["craft.yes-and-terminal"]
 
 [[principles]]
 id = "tryfail-count-three"

@@ -13,6 +13,8 @@
 //! `check.rs` uses, so `gender`/`nature`/`origin` have known standings a claim can
 //! be checked against.
 
+use std::borrow::Cow;
+
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::decl::{Decl, Document, FactDecl, RatifyDecl, ScopeHeader};
 use dli_ast::ident::Ident;
@@ -21,14 +23,16 @@ use dli_ast::term::{AtomExpr, Term};
 
 use dli_core::grade::Grade;
 
+use dli_world::craft::config::{FindingPolicy, FindingRule};
 use dli_world::craft::kb::Kb;
 use dli_world::craft::outline::{
     EpisodeOutline, Scene as OutlineScene, TryFailBeat, TryFailOutcome,
 };
+use dli_world::craft::season::{DEFAULT_EPISODE_POLICY, EpisodePolicy};
 use dli_world::payload::{
     BatteryContext, BeatKind, BeatRow, Claim, ExtractorManifest, ExtractorRef, Magnitude, Payload,
     PayloadFinding, PayloadMeta, ProofClose, ProofLedger, ProofLedgerRow, SceneRow, SourceRef,
-    check_payload, outline_conformance, source_hash,
+    check_payload, outline_conformance, outline_conformance_with_policy, source_hash,
 };
 use dli_world::{CompiledWorld, Pack, Severity, compile};
 
@@ -732,6 +736,150 @@ fn outline_conformance_is_gated_on_the_outline_and_states_both_readings() {
         "the undeclared reading must state BOTH: {}",
         undeclared.message
     );
+}
+
+#[test]
+fn empty_selected_craft_corpus_suppresses_outline_verdicts_but_not_structure_errors() {
+    let world = saltcast_world();
+    let source = "she tried the latch, and it did not give\n";
+    let mut payload = complete_payload(source);
+    payload.meta.episode = "missing".to_owned();
+    payload.beats.push(BeatRow {
+        id: "draft-beat".to_owned(),
+        scene: "s01".to_owned(),
+        kind: BeatKind::Try,
+        thread: "the-latch".to_owned(),
+        magnitude: Magnitude::Minor,
+        outcome: Some(TryFailOutcome::NoBut),
+        by: String::new(),
+        assisted: false,
+        quote: "she tried the latch, and it did not give".to_owned(),
+        line: 1,
+    });
+    let outline = EpisodeOutline {
+        id: "reviewed".to_owned(),
+        tryfail_beats: vec![TryFailBeat {
+            id: "outline-beat".to_owned(),
+            attempt: "open the door".to_owned(),
+            outcome: TryFailOutcome::NoAnd,
+        }],
+        ..EpisodeOutline::default()
+    };
+    let principles = Vec::new();
+    let outlines = [outline];
+    let context = BatteryContext::new(source)
+        .with_outlines(&outlines)
+        .with_kb(Kb::new(&principles));
+
+    let findings = check_payload(&world, &payload, &context);
+    assert!(findings.iter().all(|finding| finding.family() != "outline"));
+    assert!(
+        finding(&findings, "payload.outline-episode-unknown").is_some(),
+        "a disabled craft corpus must not hide payload/catalog structure errors"
+    );
+}
+
+#[test]
+fn outline_conformance_obeys_caller_citations_and_severity() {
+    use dli_world::craft::outline::{Promise, PromiseKind};
+    use dli_world::payload::{PromiseLedger, PromiseRow};
+
+    const CODES: &[&str] = &[
+        "outline.beat-unaccounted",
+        "outline.beat-undeclared",
+        "outline.promise-unaccounted",
+        "outline.promise-undeclared",
+        "outline.cast-unaccounted",
+        "outline.cast-undeclared",
+    ];
+
+    let world = saltcast_world();
+    let source = "draft";
+    let mut payload = complete_payload(source);
+    payload.beats.push(BeatRow {
+        id: "draft-beat".to_owned(),
+        scene: "s1".to_owned(),
+        kind: BeatKind::Try,
+        thread: "door".to_owned(),
+        magnitude: Magnitude::Minor,
+        outcome: Some(TryFailOutcome::NoBut),
+        by: String::new(),
+        assisted: false,
+        quote: source.to_owned(),
+        line: 1,
+    });
+    payload.promises = PromiseLedger {
+        opened: vec![PromiseRow {
+            id: "draft-promise".to_owned(),
+            kind: PromiseKind::Mystery,
+            quote: source.to_owned(),
+            line: 1,
+        }],
+        closed: Vec::new(),
+    };
+    payload.scenes.push(SceneRow {
+        id: "s1".to_owned(),
+        cast: vec!["draft-cast".to_owned()],
+        ..SceneRow::default()
+    });
+    let outline = EpisodeOutline {
+        id: payload.meta.episode.clone(),
+        tryfail_beats: vec![TryFailBeat {
+            id: "outline-beat".to_owned(),
+            attempt: "open the door".to_owned(),
+            outcome: TryFailOutcome::NoAnd,
+        }],
+        promises: vec![Promise {
+            id: "outline-promise".to_owned(),
+            kind: PromiseKind::Mystery,
+            statement: "who opens the door".to_owned(),
+            made_in: "s1".to_owned(),
+            payoff_ref: None,
+            open_loop_carry: true,
+        }],
+        scenes: vec![OutlineScene {
+            id: "s1".to_owned(),
+            summary: "at the door".to_owned(),
+            speaking_cast: vec!["outline-cast".to_owned()],
+            advances: Vec::new(),
+            silence_beat: false,
+        }],
+        ..EpisodeOutline::default()
+    };
+    let policy = FindingPolicy {
+        rules: Cow::Owned(
+            CODES
+                .iter()
+                .map(|code| FindingRule {
+                    code: Cow::Borrowed(code),
+                    citations: Cow::Owned(vec![Cow::Borrowed("D-9999")]),
+                    severity: Some(Severity::Warn),
+                })
+                .collect(),
+        ),
+    };
+
+    let direct = outline_conformance_with_policy(&payload, &outline, &Kb::builtin(), &policy);
+    for code in CODES {
+        let direct_finding = finding(&direct, code).unwrap_or_else(|| panic!("missing {code}"));
+        assert_eq!(direct_finding.severity, Severity::Warn, "{code}");
+        assert_eq!(direct_finding.citations, vec!["D-9999"], "{code}");
+        assert!(direct_finding.principle.is_some(), "{code}");
+    }
+
+    let episode_policy = EpisodePolicy {
+        finding_policy: policy,
+        ..DEFAULT_EPISODE_POLICY
+    };
+    let context = BatteryContext::new(source)
+        .with_outline(&outline)
+        .with_episode_policy(episode_policy);
+    let merged = check_payload(&world, &payload, &context);
+    for code in CODES {
+        let merged_finding = finding(&merged, code).unwrap_or_else(|| panic!("missing {code}"));
+        assert_eq!(merged_finding.severity, Severity::Warn, "{code}");
+        assert_eq!(merged_finding.citations, vec!["D-9999"], "{code}");
+    }
 }
 
 #[test]

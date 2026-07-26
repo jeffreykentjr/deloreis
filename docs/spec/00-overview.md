@@ -54,9 +54,9 @@ repo:
 3. **A query engine** — `deloreis query` with `--layer/--as-of/--fork/--why`.
 4. **A fork manager** — `fork new/suppose/add/diff/promote`, `preflight`:
    what-if worlds as cheap, reviewable, diffable values.
-5. **A ledger checker for any declared practice** — `deloreis check-proof in
-   <practice>`: any practice's proof ledger is one instance of a generic
-   declarative-ledger checker.
+5. **A ledger checker for any declared practice** — `deloreis check-proof
+   <file> --corpus <path> [--proof <name>]`: any practice's proof ledger is one
+   instance of a generic declarative-ledger checker.
 6. **A practice simulator** — `deloreis simulate`: batteries over any declared
    practice with declared metrics and invariants; the Turning is its first
    instance (see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
@@ -68,9 +68,9 @@ compiled world); `fork` (create/suppose/add/diff/promote/preflight); `check-proo
 (a proof ledger in a practice); `check-draft` (the battery over a draft payload);
 `simulate` (batteries with metrics + invariants); `timeline`
 (show/order/knows/episodes/phases); `export` (one-way compiles to targets);
-`name` (the kernel-half vet); and `serve` (the server hosting the batch `dli.*`
-operations and **Door T** — the `author.*` semantic tools agents author
-through). The full op inventory and its return shapes live in
+`name` (the kernel-half vet); `craft why` (principle explanations); and `serve`
+(the server hosting the batch `dli.*` operations and **Door T** — the
+`author.*` semantic tools agents author through). The full op inventory and its return shapes live in
 `../integration/fantasy-contract.md`.
 
 ## Where the world's specifics live
@@ -90,7 +90,7 @@ A consuming repo holds four residencies, and the distinction is load-bearing:
 
 **The machine's permitted durable write surface is bounded to** `.dli-cache/`
 and `.dli-evidence/`; ruling-request drafts are returned as data for a caller to
-review and file. At contract `0.5.0`, content-addressed payloads and append-only
+review and file. At contract `0.5.1`, content-addressed payloads and append-only
 attestation batches are live, as are content-addressed, checkpointed simulation
 jobs.
 The machine never writes `canon/` or ledger content that does not cite an

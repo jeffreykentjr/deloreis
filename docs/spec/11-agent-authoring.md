@@ -165,7 +165,7 @@ request is:
 
 ```json
 {
-  "dli": "0.5.0",
+  "dli": "0.5.1",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",
@@ -568,7 +568,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `0.5.0` enforces that rule for all 46 operations. Paired cases declare
+Contract `0.5.1` enforces that rule for all 46 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.
@@ -606,7 +606,7 @@ Until the benchmark reports, the working hypothesis stands on the sibling receip
 (`docs/design-notes/sibling-lessons.md`), where path count predicted failure
 surface better than path quality — evidence, not a measured verdict here.
 
-## 8. The worked TPtH scenario
+## 8. The worked consumer scenario
 
 The end-to-end flow an agent runs — `author.open` a scope, `author.add_entity` the
 cast, `author.add_fact` their traits, `author.add_relation` their bonds,
@@ -617,5 +617,8 @@ a call-by-call sequence of **engine-true** requests and responses, captured from
 the running worker — is `docs/cards/authoring-loop.md`; the loop and its error
 surface were validated live in `docs/design-notes/agent-authoring-validation.md`.
 Two PLAN nodes carry it: **AUTH-1** delivers the tool surface, the workspace
-engine, and the per-tool fixtures; **AUTH-2** replays the scenario against the
-pinned fantasy corpus and asserts the rendered-diff output a human would review.
+engine, and the per-tool fixtures; **AUTH-2** replays the scenario against a
+pinned consumer corpus and asserts the rendered-diff output a human would review.
+Its world-owned fixture path is recorded in the PLAN evidence and checked by
+`cargo test -p dli-serve --test auth2`; the consumer's matching transcript is
+separate EXT-F4 evidence.

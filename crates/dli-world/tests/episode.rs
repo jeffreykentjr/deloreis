@@ -5,7 +5,7 @@
 
 use dli_world::episode::{
     Episode, EpisodeAnchor, FactDelta, FactRef, Knower, KnowledgeDelta, Presence, QuestionRef,
-    Scene, fold,
+    Scene, fold, knower_universe,
 };
 
 use dli_time::cycle::CyclePos;
@@ -167,6 +167,33 @@ fn knowledge_at_distinguishes_listener_from_cast() {
 
     // The character catches up at slot 2.
     assert!(world.knowledge_at(2, &enfys).contains(&fact));
+}
+
+#[test]
+fn knower_universe_includes_every_declared_identity_source() {
+    let episodes = vec![episode(
+        "e1",
+        1,
+        "now",
+        vec![Scene {
+            id: "s1".to_owned(),
+            cast: vec![dli_world::episode::EntityRef("cast-only".to_owned())],
+            presence: vec![Presence::OffMic(dli_world::episode::EntityRef(
+                "presence-only".to_owned(),
+            ))],
+            knowledge_deltas: vec![KnowledgeDelta::cast_learns("delta-only", "fact")],
+            ..Scene::default()
+        }],
+    )];
+    let knowers = knower_universe(&episodes);
+    for knower in [
+        Knower::Listener,
+        Knower::cast("cast-only"),
+        Knower::cast("presence-only"),
+        Knower::cast("delta-only"),
+    ] {
+        assert!(knowers.contains(&knower), "missing {knower:?}");
+    }
 }
 
 #[test]

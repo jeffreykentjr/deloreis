@@ -13,7 +13,7 @@
 //!
 //! let mut store = Store::default();
 //! let open = Request {
-//!     dli: "0.5.0".to_owned(),
+//!     dli: "0.5.1".to_owned(),
 //!     id: "1".to_owned(),
 //!     op: Op::AuthorOpen,
 //!     params: json!({ "scope": "demo" }),

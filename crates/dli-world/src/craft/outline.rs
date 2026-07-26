@@ -23,6 +23,8 @@
 //! `load-bearing`, `off-mic-state`, the `snake_case` material categories); every
 //! struct is `deny_unknown_fields`, matching the legacy `extra="forbid"`.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -166,80 +168,41 @@ pub enum NarratorTask {
     ToneFrame,
 }
 
-/// A material-planning category. Serialized in `snake_case` to match the legacy
-/// ledger field names.
+/// An open caller-owned material-planning category identifier.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
-#[serde(rename_all = "snake_case")]
-pub enum MaterialUnknown {
-    /// The season's time pressure.
-    SeasonTimePressure,
-    /// The staple-food dependency.
-    StapleDependency,
-    /// The water dependency.
-    WaterDependency,
-    /// The fuel dependency.
-    FuelDependency,
-    /// The shelter dependency.
-    ShelterDependency,
-    /// The labor group involved.
-    LaborGroup,
-    /// The source of the material.
-    Source,
-    /// How the material is transported.
-    Transport,
-    /// How the material is stored.
-    Storage,
-    /// The failure point.
-    FailurePoint,
-    /// The institution governing access.
-    Institution,
-    /// The ritual obligation attached (never required, only optional).
-    RitualObligation,
-}
+#[serde(transparent)]
+pub struct MaterialCategoryId(pub String);
 
-impl MaterialUnknown {
-    /// Every material category, in ledger order.
-    pub const ALL: [MaterialUnknown; 12] = [
-        Self::SeasonTimePressure,
-        Self::StapleDependency,
-        Self::WaterDependency,
-        Self::FuelDependency,
-        Self::ShelterDependency,
-        Self::LaborGroup,
-        Self::Source,
-        Self::Transport,
-        Self::Storage,
-        Self::FailurePoint,
-        Self::Institution,
-        Self::RitualObligation,
-    ];
-
-    // Which categories a material-worldbuilding review requires is world policy,
-    // not schema: it lives in the world's material catalog
-    // (`craft::config::MaterialCatalog`, default `DEFAULT_MATERIAL_CATALOG`), which
-    // the checker loops. `ALL` above stays — it is the enum's own variant list.
-
-    /// The `snake_case` ledger field name (the legacy wire spelling).
+impl MaterialCategoryId {
+    /// Build a category identifier.
     #[must_use]
-    pub fn field_name(self) -> &'static str {
-        match self {
-            Self::SeasonTimePressure => "season_time_pressure",
-            Self::StapleDependency => "staple_dependency",
-            Self::WaterDependency => "water_dependency",
-            Self::FuelDependency => "fuel_dependency",
-            Self::ShelterDependency => "shelter_dependency",
-            Self::LaborGroup => "labor_group",
-            Self::Source => "source",
-            Self::Transport => "transport",
-            Self::Storage => "storage",
-            Self::FailurePoint => "failure_point",
-            Self::Institution => "institution",
-            Self::RitualObligation => "ritual_obligation",
-        }
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    /// The stable wire key.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
+
+impl std::fmt::Display for MaterialCategoryId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl From<&str> for MaterialCategoryId {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+/// Compatibility name for callers migrating from the former closed taxonomy.
+pub type MaterialUnknown = MaterialCategoryId;
 
 /// One promise made to the listener, with its eventual payoff or its carry.
 ///
@@ -392,42 +355,9 @@ impl Default for AudioPlan {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MaterialAssumptionLedger {
-    /// The season's time pressure, if assumed.
+    /// Working answers keyed by caller-owned material category.
     #[serde(default)]
-    pub season_time_pressure: Option<String>,
-    /// The staple-food dependency, if assumed.
-    #[serde(default)]
-    pub staple_dependency: Option<String>,
-    /// The water dependency, if assumed.
-    #[serde(default)]
-    pub water_dependency: Option<String>,
-    /// The fuel dependency, if assumed.
-    #[serde(default)]
-    pub fuel_dependency: Option<String>,
-    /// The shelter dependency, if assumed.
-    #[serde(default)]
-    pub shelter_dependency: Option<String>,
-    /// The labor group, if assumed.
-    #[serde(default)]
-    pub labor_group: Option<String>,
-    /// The source of the material, if assumed.
-    #[serde(default)]
-    pub source: Option<String>,
-    /// How the material is transported, if assumed.
-    #[serde(default)]
-    pub transport: Option<String>,
-    /// How the material is stored, if assumed.
-    #[serde(default)]
-    pub storage: Option<String>,
-    /// The failure point, if assumed.
-    #[serde(default)]
-    pub failure_point: Option<String>,
-    /// The governing institution, if assumed.
-    #[serde(default)]
-    pub institution: Option<String>,
-    /// The ritual obligation, if assumed.
-    #[serde(default)]
-    pub ritual_obligation: Option<String>,
+    pub answers: BTreeMap<MaterialCategoryId, String>,
     /// Decision-ledger references (`D-nnnn`) supporting planning provenance.
     #[serde(default)]
     pub canon_refs: Vec<String>,
@@ -436,37 +366,19 @@ pub struct MaterialAssumptionLedger {
     pub research_refs: Vec<String>,
     /// Categories deliberately left unknown.
     #[serde(default)]
-    pub unknowns: Vec<MaterialUnknown>,
+    pub unknowns: BTreeSet<MaterialCategoryId>,
 }
 
 impl MaterialAssumptionLedger {
     /// The working answer recorded for a category, if any.
     #[must_use]
-    pub fn field(&self, category: MaterialUnknown) -> Option<&str> {
-        let value = match category {
-            MaterialUnknown::SeasonTimePressure => &self.season_time_pressure,
-            MaterialUnknown::StapleDependency => &self.staple_dependency,
-            MaterialUnknown::WaterDependency => &self.water_dependency,
-            MaterialUnknown::FuelDependency => &self.fuel_dependency,
-            MaterialUnknown::ShelterDependency => &self.shelter_dependency,
-            MaterialUnknown::LaborGroup => &self.labor_group,
-            MaterialUnknown::Source => &self.source,
-            MaterialUnknown::Transport => &self.transport,
-            MaterialUnknown::Storage => &self.storage,
-            MaterialUnknown::FailurePoint => &self.failure_point,
-            MaterialUnknown::Institution => &self.institution,
-            MaterialUnknown::RitualObligation => &self.ritual_obligation,
-        };
-        value.as_deref()
+    pub fn field(&self, category: &MaterialCategoryId) -> Option<&str> {
+        self.answers.get(category).map(String::as_str)
     }
 
     /// Material categories carrying a working answer rather than an unknown.
-    #[must_use]
-    pub fn asserted_fields(&self) -> Vec<MaterialUnknown> {
-        MaterialUnknown::ALL
-            .into_iter()
-            .filter(|category| self.field(*category).is_some())
-            .collect()
+    pub fn asserted_fields(&self) -> impl Iterator<Item = &MaterialCategoryId> {
+        self.answers.keys()
     }
 }
 
@@ -514,7 +426,7 @@ pub struct EpisodeOutline {
     /// The *shō* — the development.
     #[serde(default)]
     pub sho: String,
-    /// The *ten* — the turn (scanned for battle vocabulary).
+    /// The *ten* — the turn (available to caller-configured lexical rules).
     #[serde(default)]
     pub ten: String,
     /// The *ketsu* — the resolution.

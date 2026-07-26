@@ -23,6 +23,22 @@ pub use diag::{DiagClass, Diagnostic, render};
 pub use format::{format_document, format_source};
 pub use lexer::{Token, TokenKind, lex};
 pub use parser::{
-    LINE_OPEN_KEYWORDS, line_open_keywords, parse_clause_atom, parse_document, parse_rule_clause,
+    LINE_OPEN_KEYWORDS, line_open_keywords, parse_clause_atom, parse_document,
+    parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts, parse_rule_clause,
 };
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};
+
+/// Revalidate a proof AST through the canonical surface and real parser.
+///
+/// Parser-backed callers already crossed this boundary. Direct AST callers use
+/// this replay to prove that captured proof clauses still form accepted syntax;
+/// no second proof grammar is maintained by downstream checker crates.
+#[must_use]
+pub fn validate_proof_decl(proof: &dli_ast::decl::ProofDecl) -> Vec<Diagnostic> {
+    let document = dli_ast::decl::Document {
+        scope: None,
+        decls: vec![dli_ast::decl::Decl::Proof(proof.clone())],
+    };
+    let surface = format_document(&document);
+    parse_document(&surface).1
+}

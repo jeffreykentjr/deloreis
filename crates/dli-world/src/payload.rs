@@ -16,15 +16,12 @@
 //!   `sha256`; [`check_staleness`] re-hashes the draft and flags the payload for
 //!   re-extraction the moment the source moves underneath it.
 //!
-//! # Reconciliation with the wire [`DraftPayload`](crate::draft::DraftPayload)
+//! # Legacy thin projection
 //!
-//! [`DraftPayload`](crate::draft::DraftPayload) is the *thin*, wire-frozen
-//! projection consumed by `dli.check-draft` and `dli.payload-submit` (its JSON
-//! schema is committed under `contracts/`). [`Payload`] is the *fat* structured
-//! shadow the merged battery reads. The two are kept apart on purpose: growing
-//! `DraftPayload` in place would drift a frozen wire contract. The merge —
-//! `check_draft` growing into the eight-family battery over a [`Payload`] — lands
-//! in `PAY-2` as an announced additive change to the wire.
+//! [`DraftPayload`](crate::draft::DraftPayload) is the superseded thin library
+//! projection. The contract, worker, CLI, durable evidence store, and merged
+//! battery all consume [`Payload`]; the old type remains only for source
+//! compatibility with library callers that have not migrated.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -40,15 +37,16 @@ use dli_ast::term::AtomExpr;
 use dli_core::grade::Grade;
 use dli_ledger::check_proof;
 use dli_ledger::practice::compile_practices;
-use dli_syntax::parse_clause_atom;
+use dli_syntax::{parse_clause_atom, parse_proof_close_parts};
 
 use crate::check::factcheck::Verdict;
 use crate::check::{self, CompiledWorld, Severity, WorldFinding};
+use crate::craft::config::{DEFAULT_FINDING_POLICY, FindingPolicy};
 use crate::craft::kb::Kb;
 use crate::craft::outline::EpisodeOutline;
 use crate::craft::season::{
-    CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat, LedgerPromise, LedgerScene,
-    Thresholds, check_season_rules,
+    CraftLedger, DEFAULT_EPISODE_POLICY, DEFAULT_THRESHOLDS, EpisodeMeta, EpisodePolicy,
+    LedgerBeat, LedgerPromise, LedgerScene, Thresholds, check_season_rules_with_policy,
 };
 use crate::craft::{PromiseKind, TryFailOutcome};
 use crate::language::{aural_clash, vet_candidate};
@@ -665,7 +663,7 @@ fn line_of_byte(source: &str, byte: usize) -> u32 {
 /// (empty = the payload is checked against itself alone); and
 /// [`thresholds`](Self::thresholds) is the craft policy data
 /// ([`DEFAULT_THRESHOLDS`] when uncalibrated).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct BatteryContext<'a> {
     /// The draft prose the payload shadows (for anchoring + staleness).
     pub source: &'a str,
@@ -678,6 +676,8 @@ pub struct BatteryContext<'a> {
     pub season: Option<&'a CraftLedger>,
     /// The craft-rule thresholds (policy data).
     pub thresholds: Thresholds,
+    /// The caller's outline and finding policy.
+    pub episode_policy: EpisodePolicy<'static>,
     /// The knowledge base the craft family queries for governing principles
     /// ([`Kb::builtin`] by default).
     pub kb: Kb<'a>,
@@ -696,6 +696,7 @@ impl<'a> BatteryContext<'a> {
             outlines: None,
             season: None,
             thresholds: DEFAULT_THRESHOLDS,
+            episode_policy: DEFAULT_EPISODE_POLICY,
             kb: Kb::builtin(),
             documents: &[],
         }
@@ -726,6 +727,13 @@ impl<'a> BatteryContext<'a> {
     #[must_use]
     pub fn with_thresholds(mut self, thresholds: Thresholds) -> Self {
         self.thresholds = thresholds;
+        self
+    }
+
+    /// Override the caller's outline and finding policy, builder-style.
+    #[must_use]
+    pub fn with_episode_policy(mut self, policy: EpisodePolicy<'static>) -> Self {
+        self.episode_policy = policy;
         self
     }
 
@@ -764,9 +772,8 @@ impl<'a> BatteryContext<'a> {
 /// 8. **Quote anchoring and staleness** — every quote is verbatim and the source
 ///    hash still pins the draft.
 ///
-/// This is the fat-payload sibling of the wire-frozen [`check_draft`](crate::check_draft);
-/// wiring `dli.check-draft` / `dli.payload-submit` to it is an announced additive
-/// wire change.
+/// This is the battery behind `dli.check-draft`, `dli.payload-submit`, and the
+/// standalone `deloreis check-draft` command.
 #[must_use]
 pub fn check_payload(
     world: &CompiledWorld,
@@ -814,7 +821,12 @@ pub fn check_payload(
             ),
         ));
     } else if let Some(outline) = catalog_outline.or(ctx.outline) {
-        out.extend(outline_conformance(payload, outline, &ctx.kb));
+        out.extend(outline_conformance_with_policy(
+            payload,
+            outline,
+            &ctx.kb,
+            &ctx.episode_policy.finding_policy,
+        ));
     }
 
     out.sort_by(|a, b| (&a.code, a.line, &a.message).cmp(&(&b.code, b.line, &b.message)));
@@ -914,8 +926,9 @@ fn continuity_family(world: &CompiledWorld, claims: &[ParsedClaim<'_>]) -> Vec<P
 fn craft_family(payload: &Payload, ctx: &BatteryContext) -> Vec<PayloadFinding> {
     let ledger = build_ledger(payload, ctx);
     let anchors = beat_promise_anchors(payload);
-    check_season_rules(&ledger, &ctx.thresholds)
+    check_season_rules_with_policy(&ledger, &ctx.thresholds, &ctx.episode_policy.finding_policy)
         .into_iter()
+        .filter(|finding| ctx.kb.governs(&finding.code))
         .map(|wf| {
             let mut finding = world_finding_to_payload(&wf);
             if let Some(principle) = ctx.kb.why(&wf.code).first() {
@@ -1107,25 +1120,29 @@ fn replay_proof_shadow(
     row: &ProofLedgerRow,
 ) -> Vec<PayloadFinding> {
     let scene = &row.scene;
-    let qualified_scene = format!("{}-{scene}", payload.meta.episode);
-    let declared = ctx.documents.iter().find_map(|document| {
-        document.decls.iter().find_map(|decl| match decl {
-            Decl::Proof(proof)
-                if proof.name.text == *scene
-                    || (!payload.meta.episode.is_empty() && proof.name.text == qualified_scene) =>
-            {
-                Some(proof)
-            }
-            _ => None,
-        })
-    });
-    let Some(declared) = declared else {
-        return vec![PayloadFinding::error(
-            "proof.undeclared-shadow",
-            format!(
-                "proof ledger for scene '{scene}' has no matching declared `proof {scene}` block"
-            ),
-        )];
+    let declared = match select_declared_proof(
+        ctx.documents,
+        payload.meta.episode.as_str(),
+        scene.as_str(),
+    ) {
+        ProofSelection::Selected(declared) => declared,
+        ProofSelection::Missing => {
+            return vec![PayloadFinding::error(
+                "proof.undeclared-shadow",
+                format!(
+                    "proof ledger for scene '{scene}' has no matching declared `proof {scene}` block"
+                ),
+            )];
+        }
+        ProofSelection::Ambiguous { name, count } => {
+            return vec![PayloadFinding::error(
+                "proof.ambiguous-declaration",
+                format!(
+                    "proof ledger for scene '{scene}' matches {count} declarations named \
+                     '{name}' at the selected precedence"
+                ),
+            )];
+        }
     };
 
     if !proof_shadow_matches(&row.ledger, declared) {
@@ -1137,7 +1154,7 @@ fn replay_proof_shadow(
         )];
     }
 
-    let Some(practice_name) = header_value(&declared.head, "in") else {
+    let Some(practice_name) = declared.practice() else {
         return vec![PayloadFinding::error(
             "proof.practice-missing",
             format!("declared proof '{scene}' names no practice"),
@@ -1156,7 +1173,7 @@ fn replay_proof_shadow(
     };
 
     let mut out = Vec::new();
-    let speaker = header_value(&declared.head, "speaker");
+    let speaker = declared.actor().map(ToOwned::to_owned);
     let mut projection = project_scene(world, speaker.as_deref());
     if let Some(payload_scene) = payload
         .scenes
@@ -1185,6 +1202,50 @@ fn replay_proof_shadow(
     out
 }
 
+enum ProofSelection<'a> {
+    Missing,
+    Selected(&'a ProofDecl),
+    Ambiguous { name: String, count: usize },
+}
+
+fn select_declared_proof<'a>(
+    documents: &'a [Document],
+    episode: &str,
+    scene: &str,
+) -> ProofSelection<'a> {
+    let matches = |name: &str| {
+        documents
+            .iter()
+            .flat_map(|document| &document.decls)
+            .filter_map(|decl| match decl {
+                Decl::Proof(proof) if proof.name.text == name => Some(proof),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let qualified_name = (!episode.is_empty()).then(|| format!("{episode}-{scene}"));
+    let (selected_name, selected) = if let Some(name) = qualified_name {
+        let qualified = matches(&name);
+        if qualified.is_empty() {
+            (scene.to_owned(), matches(scene))
+        } else {
+            (name, qualified)
+        }
+    } else {
+        (scene.to_owned(), matches(scene))
+    };
+
+    match selected.as_slice() {
+        [] => ProofSelection::Missing,
+        [declared] => ProofSelection::Selected(declared),
+        duplicates => ProofSelection::Ambiguous {
+            name: selected_name,
+            count: duplicates.len(),
+        },
+    }
+}
+
 fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
     let premises = declared
         .body
@@ -1196,33 +1257,41 @@ fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
         .body
         .iter()
         .filter(|clause| {
-            ["step ", "spend ", "release ", "assume "]
-                .iter()
-                .any(|prefix| clause.text.starts_with(prefix))
+            [
+                "step ",
+                "spend ",
+                "release ",
+                "reveal ",
+                "redistribute ",
+                "assume ",
+            ]
+            .iter()
+            .any(|prefix| clause.text.starts_with(prefix))
         })
         .map(|clause| clause.text.clone())
         .collect::<Vec<_>>();
-    let close = declared
+    let closes = declared
         .body
         .iter()
-        .find_map(|clause| parse_declared_close(&clause.text));
+        .filter_map(|clause| parse_declared_close(&clause.text))
+        .collect::<Vec<_>>();
+    let close_is_final = declared
+        .body
+        .last()
+        .and_then(|clause| parse_declared_close(&clause.text))
+        .is_some();
     premises == shadow.premises
         && steps == shadow.steps
-        && close.is_some_and(|(atom, expect)| {
-            atom == shadow.close.atom && expect == shadow.close.expect
+        && close_is_final
+        && closes.first().is_some_and(|(atom, expect)| {
+            closes.len() == 1 && atom == &shadow.close.atom && expect == &shadow.close.expect
         })
 }
 
-fn parse_declared_close(text: &str) -> Option<(&str, &str)> {
+fn parse_declared_close(text: &str) -> Option<(String, String)> {
     let body = text.strip_prefix("close ")?;
-    body.rsplit_once(" expect ")
-}
-
-fn header_value(head: &[String], key: &str) -> Option<String> {
-    head.iter()
-        .position(|token| token == key)
-        .and_then(|index| head.get(index + 1))
-        .cloned()
+    let (atom, expect) = parse_proof_close_parts(body)?;
+    Some((atom, expect?))
 }
 
 fn payload_structure_family(
@@ -1809,6 +1878,17 @@ pub fn outline_conformance(
     outline: &EpisodeOutline,
     kb: &Kb<'_>,
 ) -> Vec<PayloadFinding> {
+    outline_conformance_with_policy(payload, outline, kb, &DEFAULT_FINDING_POLICY)
+}
+
+/// Run the two-sided outline diff with caller-owned citation and severity policy.
+#[must_use]
+pub fn outline_conformance_with_policy(
+    payload: &Payload,
+    outline: &EpisodeOutline,
+    kb: &Kb<'_>,
+    finding_policy: &FindingPolicy<'_>,
+) -> Vec<PayloadFinding> {
     let mut out = Vec::new();
     let beat_anchors = beat_anchors(payload);
     let promise_anchors = promise_anchors(payload);
@@ -1885,12 +1965,24 @@ pub fn outline_conformance(
     }
     // Attribute each conformance finding to its governing principle. An
     // `outline.*` code resolves to the CRAFT-1 battery principles via the KB.
+    out.retain(|finding| kb.governs(&finding.code));
     for finding in &mut out {
         if let Some(principle) = kb.why(&finding.code).first() {
             finding.principle = Some(principle.id.to_string());
         }
+        apply_finding_policy(finding_policy, finding);
     }
     out
+}
+
+fn apply_finding_policy(policy: &FindingPolicy<'_>, finding: &mut PayloadFinding) {
+    let citations = policy.citations(&finding.code);
+    if !citations.is_empty() {
+        finding.citations = citations;
+    }
+    if let Some(severity) = policy.severity_override(&finding.code) {
+        finding.severity = severity;
+    }
 }
 
 /// The two-sided id diff shared by beats and promises: outline-only ids are
@@ -1975,6 +2067,8 @@ fn beat_promise_anchors(payload: &Payload) -> Vec<(String, (u32, String))> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use std::borrow::Cow;
+
     use super::*;
 
     fn sample_source() -> String {
@@ -2204,6 +2298,13 @@ mod tests {
 
     #[test]
     fn craft_family_flags_an_unearned_major_accomplishment() {
+        const RULES: &[crate::craft::config::FindingRule<'static>] =
+            &[crate::craft::config::FindingRule {
+                code: Cow::Borrowed("craft.accomplishment-earned"),
+                citations: Cow::Borrowed(&[Cow::Borrowed("D-9999")]),
+                severity: None,
+            }];
+
         // A major accomplishment with no prior same-thread failure fails the
         // season `accomplishment-earned` join.
         let mut payload = Payload::default();
@@ -2228,13 +2329,35 @@ mod tests {
             .iter()
             .find(|f| f.code == "craft.accomplishment-earned")
             .expect("an unearned major accomplishment must draw a craft finding");
-        // The finding carries its rule id (the code) and D-citation as support.
-        // (The KB binds this fine season rule to no principle yet — honest
-        // checkable-debt — so `principle` is legitimately None here.)
-        assert!(craft.citations.contains(&"D-0128".to_owned()), "{craft:?}");
+        // Generic engine calls carry no project decision ids.
+        assert!(craft.citations.is_empty(), "{craft:?}");
+        assert_eq!(craft.principle.as_deref(), Some("tryfail-yes-but-no-and"));
         // And it anchors to the beat that triggered it.
         assert_eq!(craft.line, Some(12));
         assert_eq!(craft.quote.as_deref(), Some("she carried it home unaided"));
+
+        let policy = EpisodePolicy {
+            finding_policy: crate::craft::config::FindingPolicy {
+                rules: Cow::Borrowed(RULES),
+            },
+            ..DEFAULT_EPISODE_POLICY
+        };
+        let configured = craft_family(
+            &payload,
+            &BatteryContext::new("").with_episode_policy(policy),
+        );
+        let craft = configured
+            .iter()
+            .find(|f| f.code == "craft.accomplishment-earned")
+            .unwrap();
+        assert_eq!(craft.citations, vec!["D-9999"]);
+
+        let empty = Vec::new();
+        let disabled = craft_family(&payload, &BatteryContext::new("").with_kb(Kb::new(&empty)));
+        assert!(
+            disabled.is_empty(),
+            "an empty selected doctrine corpus must disable craft verdicts"
+        );
     }
 
     #[test]
@@ -2340,6 +2463,189 @@ mod tests {
             findings
                 .iter()
                 .any(|finding| finding.code == "proof.undeclared-shadow")
+        );
+    }
+
+    #[test]
+    fn proof_shadow_refuses_duplicate_or_nonfinal_closes() {
+        use dli_ast::decl::Decl;
+
+        let shadow = ProofLedger {
+            premises: Vec::new(),
+            steps: Vec::new(),
+            close: ProofClose {
+                atom: "first".to_owned(),
+                expect: "blocked".to_owned(),
+            },
+        };
+        for body in [
+            "",
+            "close first expect blocked\n  close second expect blocked",
+            "close first expect blocked\n  assume p1 later",
+        ] {
+            let source = format!("proof p speaker a in practice {{\n  {body}\n}}\n");
+            let (document, diagnostics) = dli_syntax::parse_document(&source);
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.class.is_error()),
+                "parser should reject {body}"
+            );
+            let declared = document
+                .decls
+                .iter()
+                .find_map(|decl| match decl {
+                    Decl::Proof(proof) => Some(proof),
+                    _ => None,
+                })
+                .expect("proof AST remains inspectable");
+            assert!(
+                !proof_shadow_matches(&shadow, declared),
+                "ambiguous proof shadow matched {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn proof_shadow_includes_neutral_resource_operations() {
+        use dli_ast::decl::Decl;
+
+        let source = "\
+proof p speaker a in practice {
+  premise p1 debt(0) from-scene
+  reveal p1
+  redistribute p1
+  close first expect blocked
+}";
+        let (document, diagnostics) = dli_syntax::parse_document(source);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let declared = document
+            .decls
+            .iter()
+            .find_map(|decl| match decl {
+                Decl::Proof(proof) => Some(proof),
+                _ => None,
+            })
+            .expect("proof");
+        let mut shadow = ProofLedger {
+            premises: vec!["premise p1 debt(0) from-scene".to_owned()],
+            steps: vec!["reveal p1".to_owned(), "redistribute p1".to_owned()],
+            close: ProofClose {
+                atom: "first".to_owned(),
+                expect: "blocked".to_owned(),
+            },
+        };
+        assert!(proof_shadow_matches(&shadow, declared));
+        shadow.steps.pop();
+        assert!(!proof_shadow_matches(&shadow, declared));
+    }
+
+    fn proof_document(name: &str, close: &str) -> Document {
+        let source = format!(
+            "proof {name} speaker witness in practice {{\n  close {close} expect holds\n}}\n"
+        );
+        let (document, diagnostics) = dli_syntax::parse_document(&source);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.class.is_error()),
+            "{diagnostics:?}"
+        );
+        document
+    }
+
+    #[test]
+    fn qualified_proof_selection_precedes_unqualified_regardless_of_source_order() {
+        let unqualified = proof_document("s01", "unqualified");
+        let qualified = proof_document("e01-s01", "qualified");
+
+        for documents in [
+            vec![unqualified.clone(), qualified.clone()],
+            vec![qualified.clone(), unqualified.clone()],
+        ] {
+            let ProofSelection::Selected(selected) =
+                select_declared_proof(&documents, "e01", "s01")
+            else {
+                panic!("qualified declaration should be selected");
+            };
+            assert_eq!(selected.name.text, "e01-s01");
+        }
+    }
+
+    #[test]
+    fn duplicate_proofs_at_selected_precedence_fail_closed() {
+        use crate::{Pack, compile};
+
+        let documents = vec![
+            proof_document("s01", "unqualified"),
+            proof_document("e01-s01", "qualified-one"),
+            proof_document("e01-s01", "qualified-two"),
+        ];
+        let world = compile(&Pack {
+            name: "proof-selection".to_owned(),
+            documents: Vec::new(),
+        })
+        .expect("empty world compiles");
+        let payload = Payload {
+            meta: PayloadMeta {
+                episode: "e01".to_owned(),
+                ..PayloadMeta::default()
+            },
+            ..Payload::default()
+        };
+        let row = ProofLedgerRow {
+            scene: "s01".to_owned(),
+            ledger: ProofLedger::default(),
+        };
+        let context = BatteryContext::new("").with_documents(&documents);
+
+        let findings = replay_proof_shadow(&world, &payload, &context, &row);
+        assert_eq!(findings.len(), 1, "{findings:?}");
+        assert_eq!(findings[0].code, "proof.ambiguous-declaration");
+        assert!(findings[0].message.contains("e01-s01"));
+        assert!(findings[0].message.contains('2'));
+    }
+
+    #[test]
+    fn proof_close_parsing_is_quote_safe_and_preserves_atom_identity() {
+        use dli_ast::decl::Decl;
+
+        let source = r#"proof p speaker witness in practice {
+  close says(witness, "we expect victory") expect holds
+}"#;
+        let (document, diagnostics) = dli_syntax::parse_document(source);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let declared = document
+            .decls
+            .iter()
+            .find_map(|decl| match decl {
+                Decl::Proof(proof) => Some(proof),
+                _ => None,
+            })
+            .expect("proof");
+        let mut shadow = ProofLedger {
+            premises: Vec::new(),
+            steps: Vec::new(),
+            close: ProofClose {
+                atom: r#"says(witness, "we expect victory")"#.to_owned(),
+                expect: "holds".to_owned(),
+            },
+        };
+        assert!(proof_shadow_matches(&shadow, declared));
+
+        shadow.close.atom = "says(witness, we expect victory)".to_owned();
+        assert!(
+            !proof_shadow_matches(&shadow, declared),
+            "removing string quotes must change atom identity"
+        );
+        assert_eq!(
+            parse_declared_close(
+                r#"close says(witness, "we said \"expect\" victory") expect blocked"#
+            ),
+            Some((
+                r#"says(witness, "we said \"expect\" victory")"#.to_owned(),
+                "blocked".to_owned(),
+            ))
         );
     }
 }

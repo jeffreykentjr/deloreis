@@ -35,22 +35,22 @@ The engine ships **generic doctrine packs + the checking mechanism**; the factor
 
 Eleven fine-grained, togglable packs (`include_str!`-embedded so no runtime files needed), citing **real published frameworks** as attributed principles. Bucket tally across the 107: **26 pure-generic (G) / 57 generic+overlay (G+) / 24 TPtH-only (T)**. The 26 G + the *stripped* form of the 57 G+ ship here (= 83 `DoctrinePrinciple` records); the 24 T never ship.
 
-| Pack | Frameworks cited | Coarse group |
-|---|---|---|
-| `sanderson-laws-of-magic` | Sanderson Zeroth/First/Second/Third Laws | sanderson-laws |
-| `kishotenketsu` | classical four-act; Truby want/need | kishotenketsu |
-| `mice-quotient` | Card 1990; Kowal MICE | mice |
-| `promise-and-plot` | Sanderson BYU; Writing Excuses | general-fiction |
-| `try-fail-cycles` | Card/Kowal; Stone&Parker "therefore/but"; McKee | general-fiction |
-| `scene-and-sequel` | Swain; Bickham | general-fiction |
-| `character-craft` | Sanderson sliders; Truby; Austen/Brontë; Portis | general-fiction |
-| `prose-craft` | Le Guin; Orwell; King; Leonard; Ira Glass "the Gap"; Tolkien *eucatastrophe* | general-fiction |
-| `worldbuilding` | Sanderson iceberg; Wildbow modular | general-fiction |
-| `serial-fiction` | Wildbow; Platt&Truant; Fox; Eyal | audio-drama |
-| `audio-drama` | Toscan; Wayland; Urbina; Gill (SFWA); Wagner leitmotif; McKee/Mamet | audio-drama |
-| `save-the-cat` *(stub)* | Snyder beat-sheet | — |
+| Pack | Frameworks cited |
+|---|---|
+| `sanderson-laws-of-magic` | Sanderson Zeroth/First/Second/Third Laws |
+| `kishotenketsu` | classical four-act; Truby want/need |
+| `mice-quotient` | Card 1990; Kowal MICE |
+| `promise-and-plot` | Sanderson BYU; Writing Excuses |
+| `try-fail-cycles` | Card/Kowal; Stone&Parker "therefore/but"; McKee |
+| `scene-and-sequel` | Swain; Bickham |
+| `character-craft` | Sanderson sliders; Truby; Austen/Brontë; Portis |
+| `prose-craft` | Le Guin; Orwell; King; Leonard; Ira Glass "the Gap"; Tolkien *eucatastrophe* |
+| `worldbuilding` | Sanderson iceberg; Wildbow modular |
+| `serial-fiction` | Wildbow; Platt&Truant; Fox; Eyal |
+| `audio-drama` | Toscan; Wayland; Urbina; Gill (SFWA); Wagner leitmotif; McKee/Mamet |
+| `save-the-cat` *(stub)* | Snyder beat-sheet |
 
-`save-the-cat` ships as a **declared empty stub** (the author named it; the corpus has no beat-sheet principle — do not fabricate one). A world enables packs individually or by coarse group. Full per-principle classification and the exact "bits to strip" list is the KB analysis §4 — the implementer works from it directly.
+`save-the-cat` ships as a **declared empty stub** (the author named it; the corpus has no beat-sheet principle — do not fabricate one). A world enables packs individually. Full per-principle classification and the exact "bits to strip" list is the KB analysis §4 — the implementer works from it directly.
 
 **Shipped record — `DoctrinePrinciple` (world-agnostic *by construction*):**
 ```
@@ -64,6 +64,7 @@ DoctrinePrinciple {
   checkable_kind: CheckableKind,         // none | deterministic-kernel | deterministic-prose | judge
   kernel_rule:    Option<KernelRule>,    // only for deterministic-kernel; from the engine's closed set
   default_params: BTreeMap<Cow<'static,str>, Scalar>,   // e.g. said_tag_ratio=0.85, cast_per_scene=4
+  finding_codes:  Vec<Cow<'static,str>>, // exact kernel findings governed by this principle
 }
 ```
 This type **cannot carry** a `mission_filter`, a citation, a binding symbol, or `Family::Pillar` — the boundary is type-enforced, not lint-enforced (see §2.4). A CI lint additionally scans shipped statements for forbidden world tokens (`Enfys|Aalto|Turning|proof-speech|Wyrd|Multitude|the-multitude`).
@@ -71,10 +72,10 @@ This type **cannot carry** a `mission_filter`, a citation, a binding symbol, or 
 ### 1.2 World craft-config — `fantasy/worlds/tpth/craft/*.toml` (factory output)
 
 ```
-enabled-packs.toml      # which packs on (+ coarse-group expansion)
+enabled-packs.toml      # exact shipped packs this project enables
 overlays.toml           # 57 PrincipleOverlay — the D-nnnn / mission-filter / binding / pillar-tier bits
 world-principles.toml   # 24 WorldPrinciple (T rows) incl. 5 pillars + wonder-amid-ruin
-pillars.toml            # the precedence tier (D-0128) + the pillars-win standing rule
+precedence.toml         # the precedence tier (D-0128) + the pillars-win standing rule
 registries.toml         # factory_namespaces {Check,Style,Raise} + judge_kinds registry
 thresholds.toml         # outline + season numeric bands, calibrated=true
 finding-policy.toml      # finding-code -> {citations[], severity?}
@@ -103,7 +104,7 @@ CraftConfig { enabled_packs, precedence_tier, factory_namespaces, judge_kinds,
 
 ### 1.3 Where the D-0128 pillars + mission-filters live
 
-**In the fantasy repo, as data.** The four D-0128 pillars + `wonder-amid-ruin` are `WorldPrinciple`s in `pillars.toml` sitting in the precedence tier; `pillars-win-standing-rule` is the `precedence_tier` policy record (it is *world policy, not doctrine*). Every mission-filter (`Adapted`/`Tension` note + resolution) is the `mission_filter` field of a `PrincipleOverlay` in `overlays.toml`. The engine ships only the **mechanism**: the `MissionFilter` enum and `why()`'s pillar-first precedence sort over whatever tier the config populates. Zero pillar/filter *content* in `dli-world`.
+**In the fantasy repo, as data.** The four D-0128 pillars + `wonder-amid-ruin` are `WorldPrinciple`s in `world-principles.toml` sitting in the precedence tier; `pillars-win-standing-rule` is a world principle and `precedence.toml` carries the tier policy (it is *world policy, not doctrine*). Every mission-filter (`Adapted`/`Tension` note + resolution) is the `mission_filter` field of a `PrincipleOverlay` in `overlays.toml`. The engine ships only the **mechanism**: the `MissionFilter` enum and `why()`'s pillar-first precedence sort over whatever tier the config populates. Zero pillar/filter *content* in `dli-world`.
 
 ### 1.4 The engine's own test world — `crates/dli-world/worlds/example/craft/`
 
@@ -209,14 +210,17 @@ dli_world::craft::load {
       // precedence tier well-formed; material catalog keys unique; provenance patterns compile
 }
 ```
-The engine also **publishes the JsonSchema** for `DoctrinePrinciple`, `PrincipleOverlay`, `WorldPrinciple`, `CraftConfig` (all already `JsonSchema`-derivable) as the versioned contract.
+The engine also **publishes versioned JSON Schemas** for `DoctrinePack`,
+`DoctrinePrinciple`, `PrincipleOverlay`, `WorldPrinciple`, and `CraftConfig`
+under `schemas/craft/*-v1.schema.json`; `cargo run -p xtask -- schema --check`
+guards them against drift.
 
 **Factory PRODUCES (fantasy repo owns the D-nnnn → record mapping):**
 ```
 fantasy craft compile   # reads canon/decisions.md + canon craft source-of-truth,
                         # emits worlds/tpth/craft/*.toml conforming to the engine JsonSchema:
                         #   D-0052  -> overlay(mission_filter=Adapted, beat_lexicon)
-                        #   D-0128  -> pillars.toml precedence tier + judge_pillars binding
+                        #   D-0128  -> precedence.toml tier + judge_pillars binding
                         #   D-0176  -> narrator-policy Host/direct_address=Error
                         #   D-0179  -> finding-policy citations[sfx codes]
                         #   D-0056  -> material-catalog categories+required

@@ -4,7 +4,7 @@
   "note": "An injection-shaped token rides as a query argument; it is parsed as DATA (a symbol), so the verdict is unchanged — an ordinary unsupported result, never an instruction.",
   "precondition": [
     {
-      "dli": "0.5.0",
+      "dli": "0.5.1",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "op": "author.query",
         "params": {
@@ -24,7 +24,7 @@
         }
       },
       "expect": {
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "1",
         "ok": true,
         "result": {

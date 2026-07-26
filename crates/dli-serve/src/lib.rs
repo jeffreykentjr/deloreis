@@ -22,7 +22,7 @@ pub mod session;
 mod simulation;
 
 /// The pre-v1 worker contract and envelope protocol version.
-pub const CONTRACT_VERSION: &str = "0.5.0";
+pub const CONTRACT_VERSION: &str = "0.5.1";
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
 pub use finding::{Finding, Provenance, Severity};

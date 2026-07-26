@@ -600,6 +600,10 @@ pub struct ForkPromoteResult {
 pub struct CheckProofParams {
     /// The document id.
     pub document: String,
+    /// The proof declaration to replay. May be omitted only when the document
+    /// declares exactly one proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<String>,
 }
 
 /// `dli.check-proof` result.
@@ -848,7 +852,7 @@ pub struct KnowledgeRow {
 pub struct TimelineKnowsResult {
     /// Production slot queried.
     pub at: u32,
-    /// Complete matrix rows for the listener and every recorded cast knower.
+    /// Complete matrix rows for the listener and every season-declared cast knower.
     pub knowers: Vec<KnowledgeRow>,
 }
 
@@ -1112,7 +1116,7 @@ pub struct NameCheckParams {
 pub struct NameCheckResult {
     /// Whether the name is admissible.
     pub ok: bool,
-    /// Findings from the six-check vetting.
+    /// Findings from the kernel-half dialect and phonotactic vet.
     pub findings: Vec<Finding>,
 }
 

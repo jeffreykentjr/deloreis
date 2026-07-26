@@ -11,6 +11,14 @@ source = "Swain, Techniques of the Selling Writer (scene/sequel); Bickham."
 phases = ["outline", "generation"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.no-scene-work-ledger",
+    "outline.scene-work-duplicate",
+    "outline.scene-work-unknown-scene",
+    "outline.scene-work-missing",
+    "outline.scene-work-premature-resolution",
+    "outline.scene-work-chain-unsettled",
+]
 
 [[principles]]
 id = "sequel-reaction-dilemma-decision"

@@ -7,6 +7,13 @@
     "document": {
       "description": "The document id.",
       "type": "string"
+    },
+    "proof": {
+      "description": "The proof declaration to replay. May be omitted only when the document\ndeclares exactly one proof.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "additionalProperties": false,

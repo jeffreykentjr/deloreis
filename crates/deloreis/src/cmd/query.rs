@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use clap::{Args, ValueEnum};
 use dli_eval::query::{Layer, Query, QueryOpts};
 use dli_eval::world::World;
+use dli_world::language::ratified_names;
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
 
@@ -71,10 +72,21 @@ pub(crate) struct QueryArgs {
     /// Attach the support antichain (`--why`) to every row.
     #[arg(long)]
     pub(crate) why: bool,
+    /// Emit a machine-readable generated view. Currently defined for the
+    /// certain-layer `name` view only.
+    #[arg(long)]
+    pub(crate) json: bool,
 }
 
 /// Answer the query and render its rows.
 pub(crate) fn run(args: &QueryArgs) -> CmdResult {
+    if args.goal == "name" {
+        return run_name_view(args);
+    }
+    if args.json {
+        return Err("--json is defined only for `query name --layer certain --json`".to_owned());
+    }
+
     let goal = cmd::parse_goal(&args.goal)?;
     let query = Query { goal };
 
@@ -138,5 +150,39 @@ pub(crate) fn run(args: &QueryArgs) -> CmdResult {
         }
     }
     outln!("{} row(s)", rows.len());
+    Ok(EXIT_CLEAN)
+}
+
+fn run_name_view(args: &QueryArgs) -> CmdResult {
+    if !args.json {
+        return Err("the generated name view requires --json".to_owned());
+    }
+    if args.layer != LayerArg::Certain {
+        return Err("the generated name view is defined only for --layer certain".to_owned());
+    }
+    if args.as_of.is_some() || args.fork.is_some() || args.why {
+        return Err(
+            "`query name --json` does not define --as-of, --fork, or --why semantics".to_owned(),
+        );
+    }
+    if args.corpus.is_empty() {
+        return Err("the generated name view requires --corpus <path>".to_owned());
+    }
+
+    let files = cmd::load_corpus(&args.corpus)?;
+    let world = cmd::compile_corpus(&files, "query-name")?;
+    let mut names = ratified_names(&world.model.language);
+    names.sort_by(|a, b| {
+        (&a.name, &a.kind, &a.register, &a.decision, &a.bearer).cmp(&(
+            &b.name,
+            &b.kind,
+            &b.register,
+            &b.decision,
+            &b.bearer,
+        ))
+    });
+    let rendered = serde_json::to_string_pretty(&names)
+        .map_err(|err| format!("cannot render the generated name view: {err}"))?;
+    outln!("{rendered}");
     Ok(EXIT_CLEAN)
 }

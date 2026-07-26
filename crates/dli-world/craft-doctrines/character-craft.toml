@@ -19,6 +19,16 @@ source = "Sanderson, BYU Creative Writing Lectures (three sliders and compensati
 phases = ["outline", "revision"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.no-character-slider-ledger",
+    "outline.character-slider-duplicate",
+    "outline.character-slider-scene-unknown",
+    "outline.character-slider-flat",
+    "outline.slider-compensation-missing",
+    "outline.major-character-slider-missing",
+    "craft.competence-consistency",
+    "craft.competence-arc-flat",
+]
 
 [[principles]]
 id = "slider-compensation"

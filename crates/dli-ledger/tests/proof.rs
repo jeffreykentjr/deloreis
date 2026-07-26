@@ -32,10 +32,16 @@ fn fixture(name: &str) -> String {
 /// `worlds/tpth/practices/spoken-proof.dli` pack, then the scene's proof is
 /// parsed in the same document so it resolves against it.
 fn check(proof_block: &str, scene: &SceneProjection) -> ProofReport {
+    check_impl(proof_block, scene, false)
+}
+
+fn check_impl(proof_block: &str, scene: &SceneProjection, allow_parse_errors: bool) -> ProofReport {
     let practice_src = fixture("spoken-proof.dli");
     let src = format!("{practice_src}\n{proof_block}\n");
     let (doc, diags) = parse_document(&src);
-    assert!(diags.is_empty(), "parsed with diagnostics: {diags:?}");
+    if !allow_parse_errors {
+        assert!(diags.is_empty(), "parsed with diagnostics: {diags:?}");
+    }
     let practices = compile_practices(&doc);
     let practice = practices
         .iter()
@@ -136,6 +142,23 @@ proof e01-flood speaker protagonist in spoken-proof {
             .find(|f| f.class() == Some(StructuralClass::L3))
             .map(ProofFinding::code),
         Some("proof.wrong-phase")
+    );
+}
+
+#[test]
+fn phase_comparison_surface_uses_timing_semantics() {
+    let proof = "\
+proof e01-comparison speaker protagonist in spoken-proof {
+  premise p1 phase(tide) = slack from-scene
+  close x expect fails-at wrong-hour
+}";
+    let scene = SceneProjection::new().at_phase("tide", "flood");
+    let report = check(proof, &scene);
+    assert!(has(&report, "proof.wrong-phase"), "{:?}", messages(&report));
+    assert!(
+        !has(&report, "proof.premise-absent"),
+        "phase comparison was misclassified as a world premise: {:?}",
+        messages(&report)
     );
 }
 
@@ -402,6 +425,197 @@ proof e01-nospend speaker protagonist in spoken-proof {
     ));
 }
 
+#[test]
+fn custom_steps_must_name_a_declared_practice_rule() {
+    let declared = "\
+proof custom-step speaker protagonist in spoken-proof {
+  step s1 ward-form door, withy
+  close x expect holds
+}";
+    let typo = "\
+proof custom-step-typo speaker protagonist in spoken-proof {
+  step s1 wrad-form door
+  close x expect holds
+}";
+
+    let declared_report = check(declared, &SceneProjection::new());
+    assert!(
+        !has(&declared_report, "proof.unknown-form"),
+        "{:?}",
+        messages(&declared_report)
+    );
+    assert!(
+        !has(&declared_report, "proof.bad-instantiation"),
+        "{:?}",
+        messages(&declared_report)
+    );
+    let typo_report = check(typo, &SceneProjection::new());
+    assert!(
+        has(&typo_report, "proof.unknown-form"),
+        "{:?}",
+        messages(&typo_report)
+    );
+    assert!(!typo_report.checks);
+}
+
+#[test]
+fn assumptions_are_always_asserted() {
+    let proof = "\
+proof assumed speaker protagonist in spoken-proof {
+  assume p1 holds(a)
+  close holds(a) expect holds
+}";
+    let report = check(proof, &SceneProjection::new());
+    assert!(report.checks, "{:?}", messages(&report));
+    assert_eq!(report.grade, Grade::Asserted);
+    assert_eq!(report.steps[0].grade, Grade::Asserted);
+}
+
+#[test]
+fn nested_claims_share_one_premise_chain_and_close_grammar() {
+    let proof = "\
+proof nested speaker protagonist in spoken-proof {
+  assume p1 holds(enfys, consent(household, door))
+  step s1 chain from p1 by give-and-take conclusion holds(enfys, consent(household, door))
+  close holds(enfys, consent(household, door)) expect holds
+}";
+    let report = check(proof, &SceneProjection::new());
+    assert!(report.checks, "{:?}", messages(&report));
+    assert_eq!(report.verdict, ProofVerdict::Holds);
+    assert_eq!(report.grade, Grade::Asserted);
+}
+
+#[test]
+fn close_expectation_separator_ignores_quoted_atom_text() {
+    let proof = "\
+proof quoted-close speaker protagonist in spoken-proof {
+  assume p1 says(witness, \"we expect victory\")
+  close says(witness, \"we expect victory\") expect holds
+}";
+    let report = check(proof, &SceneProjection::new());
+    assert!(report.checks, "{:?}", messages(&report));
+    assert_eq!(report.verdict, ProofVerdict::Holds);
+}
+
+#[test]
+fn instantiation_requires_each_parameter_exactly_once() {
+    let cases = [
+        (
+            "missing",
+            "step s1 instantiate ward-form with ground = door",
+        ),
+        (
+            "duplicate",
+            "step s1 instantiate ward-form with ground = door, ground = field",
+        ),
+        (
+            "unknown",
+            "step s1 instantiate ward-form with ground = door, fibre = withy, extra = no",
+        ),
+        (
+            "outside-kind",
+            "step s1 instantiate ward-form with ground = no-such-ground, fibre = withy",
+        ),
+    ];
+    for (name, step) in cases {
+        let proof = format!(
+            "proof bad-{name} speaker protagonist in spoken-proof {{\n  {step}\n  close x expect holds\n}}"
+        );
+        let report = check(&proof, &SceneProjection::new());
+        assert!(
+            has(&report, "proof.bad-instantiation"),
+            "{name}: {:?}",
+            messages(&report)
+        );
+        assert!(!report.checks, "{name} certified successfully");
+    }
+
+    let valid = "\
+proof valid-bindings speaker protagonist in spoken-proof {
+  step s1 instantiate ward-form with ground = field, fibre = caller-defined
+  close x expect blocked
+}";
+    let report = check(valid, &SceneProjection::new());
+    assert!(
+        !has(&report, "proof.bad-instantiation"),
+        "{:?}",
+        messages(&report)
+    );
+
+    let quoted_comma = "\
+proof quoted-binding speaker protagonist in spoken-proof {
+  step s1 instantiate ward-form with ground = field, fibre = \"withy, twisted\"
+  close x expect blocked
+}";
+    let report = check(quoted_comma, &SceneProjection::new());
+    assert!(
+        !has(&report, "proof.bad-instantiation"),
+        "{:?}",
+        messages(&report)
+    );
+}
+
+#[test]
+fn custom_steps_validate_declared_arity_and_finite_kinds() {
+    for step in ["ward-form door", "ward-form no-such-ground, withy"] {
+        let proof = format!(
+            "proof bad-custom speaker protagonist in spoken-proof {{\n  step s1 {step}\n  close x expect holds\n}}"
+        );
+        let report = check(&proof, &SceneProjection::new());
+        assert!(
+            has(&report, "proof.bad-instantiation"),
+            "{step}: {:?}",
+            messages(&report)
+        );
+        assert!(!report.checks, "{step} certified successfully");
+    }
+
+    let quoted_comma = "\
+proof quoted-custom speaker protagonist in spoken-proof {
+  step s1 ward-form door, \"withy, twisted\"
+  close x expect blocked
+}";
+    let report = check(quoted_comma, &SceneProjection::new());
+    assert!(
+        !has(&report, "proof.bad-instantiation"),
+        "{:?}",
+        messages(&report)
+    );
+}
+
+#[test]
+fn neutral_resource_operations_require_a_resource_premise() {
+    for operation in ["reveal", "redistribute"] {
+        for label in ["no-such-resource", "p1"] {
+            let proof = format!(
+                "proof bad-{operation}-{label} speaker protagonist in spoken-proof {{\n  \
+                 premise p1 holds(a) from-scene\n  {operation} {label}\n  close x expect \
+                 blocked\n}}"
+            );
+            let report = check(&proof, &SceneProjection::new().seat("holds(a)"));
+            assert!(
+                has(&report, "proof.invalid-spend"),
+                "{operation} {label}: {:?}",
+                messages(&report)
+            );
+        }
+    }
+
+    let valid = "\
+proof valid-reveal speaker protagonist in spoken-proof {
+  premise p1 debt(0) from-scene
+  reveal p1
+  redistribute p1
+  close x expect blocked
+}";
+    let report = check(valid, &SceneProjection::new());
+    assert!(
+        !has(&report, "proof.invalid-spend"),
+        "{:?}",
+        messages(&report)
+    );
+}
+
 /// M4: a timing premise naming a spoke the cycle does not carry is a
 /// bad-instantiation (L4), not merely the wrong hour — caught when the scene pins
 /// the cycle's declared spokes.
@@ -466,20 +680,146 @@ proof e01-typo speaker protagonist in spoken-proof {
 #[test]
 fn an_empty_or_closeless_proof_does_not_silently_check() {
     let empty = "proof e01-empty speaker protagonist in spoken-proof {\n}";
-    let report = check(empty, &SceneProjection::new());
+    let report = check_impl(empty, &SceneProjection::new(), true);
     assert_eq!(report.grade, Grade::Asserted, "no procedure = asserted");
     assert!(has(&report, "proof.missing-close"));
+    assert!(has(&report, "proof.invalid-close-layout"));
     assert!(!report.checks);
 
     let no_close = "\
 proof e01-noclose speaker protagonist in spoken-proof {
   premise p1 holds(a-fact) from-scene
 }";
-    let report = check(no_close, &SceneProjection::new().seat("holds(a-fact)"));
+    let report = check_impl(
+        no_close,
+        &SceneProjection::new().seat("holds(a-fact)"),
+        true,
+    );
     assert!(has(&report, "proof.missing-close"));
+    assert!(has(&report, "proof.invalid-close-layout"));
     assert!(!report.checks);
     // It has a premise, so its grade is that premise's, not the empty-chain default.
     assert_eq!(report.grade, Grade::Checked);
+}
+
+#[test]
+fn duplicate_or_nonfinal_closes_never_check_for_direct_ast_callers() {
+    let duplicate = "\
+proof duplicate speaker protagonist in spoken-proof {
+  close first expect blocked
+  close second expect blocked
+}";
+    let report = check_impl(duplicate, &SceneProjection::new(), true);
+    assert!(has(&report, "proof.invalid-close-layout"));
+    assert!(!report.checks);
+
+    let nonfinal = "\
+proof nonfinal speaker protagonist in spoken-proof {
+  close first expect blocked
+  assume p1 later
+}";
+    let report = check_impl(nonfinal, &SceneProjection::new(), true);
+    assert!(has(&report, "proof.invalid-close-layout"));
+    assert!(!report.checks);
+}
+
+#[test]
+fn proof_header_roles_must_be_generic_or_declared_by_the_practice() {
+    let proof = "\
+proof bad-role invented-role protagonist in spoken-proof {
+  close x expect blocked
+}";
+    let report = check(proof, &SceneProjection::new());
+    assert!(
+        has(&report, "proof.unknown-role"),
+        "{:?}",
+        messages(&report)
+    );
+    assert_eq!(report.speaker.as_deref(), Some("protagonist"));
+    assert!(!report.checks);
+}
+
+#[test]
+fn malformed_direct_ast_headers_never_check() {
+    for proof in [
+        "proof empty {\n  close x expect blocked\n}",
+        "proof surplus speaker protagonist in spoken-proof trailing {\n  close x expect blocked\n}",
+        "proof reordered in spoken-proof speaker protagonist {\n  close x expect blocked\n}",
+    ] {
+        let report = check_impl(proof, &SceneProjection::new(), true);
+        assert!(
+            has(&report, "proof.invalid-header-layout"),
+            "{:?}",
+            messages(&report)
+        );
+        assert!(!report.checks, "malformed header certified: {proof}");
+    }
+}
+
+#[test]
+fn malformed_direct_ast_bodies_never_check() {
+    for child in [
+        "assume p1 holds(a) checked",
+        "step s1 instantiate ward-form with ground = door, junk, fibre = withy",
+        "step s1 instantiate ward-form with ground = door, fibre = withy,",
+        "step s1 instantiate ward-form with ground = door, fibre = withy, dangling",
+        "step s1 chain from p1, by give-and-take conclusion holds(a)",
+        "step s1 chain from p1 by give-and-take conclusion holds(a",
+        "step s1 ward-form door,,withy",
+        "spend p1 trailing",
+        "unknown proof child",
+    ] {
+        let proof = format!(
+            "proof malformed-body speaker protagonist in spoken-proof {{\n  {child}\n  close x expect blocked\n}}"
+        );
+        let report = check_impl(&proof, &SceneProjection::new(), true);
+        assert!(
+            has(&report, "proof.malformed-body"),
+            "{child}: {:?}",
+            messages(&report)
+        );
+        assert!(!report.checks, "malformed body certified: {child}");
+    }
+}
+
+#[test]
+fn malformed_shape_does_not_rewrite_expectation_outcome() {
+    let proof = "\
+proof malformed-body speaker protagonist in spoken-proof {
+  assume p1 holds(a)
+  unknown proof child
+  close holds(a) expect holds
+}";
+    let report = check_impl(proof, &SceneProjection::new(), true);
+    assert_eq!(report.verdict, ProofVerdict::Holds);
+    assert_eq!(report.expected, Expectation::Holds);
+    assert!(report.expectation_met);
+    assert!(!report.checks);
+    assert!(has(&report, "proof.malformed-body"));
+}
+
+#[test]
+fn quoted_claim_values_are_not_collapsed_or_split_as_modifiers() {
+    let distinct = r#"
+proof distinct speaker protagonist in spoken-proof {
+  assume p1 says(the-seeress, "a b")
+  close says(the-seeress, "ab") expect holds
+}"#;
+    let report = check(distinct, &SceneProjection::new());
+    assert!(!report.checks, "distinct quoted values certified as equal");
+    assert!(
+        has(&report, "proof.close-mismatch"),
+        "{:?}",
+        messages(&report)
+    );
+
+    let balanced = r#"
+proof balanced speaker protagonist in spoken-proof {
+  assume p1 says(the-seeress, "a ) cited marker")
+  close says(the-seeress, "a ) cited marker") expect holds
+}"#;
+    let report = check(balanced, &SceneProjection::new());
+    assert!(report.checks, "{:?}", messages(&report));
 }
 
 /// L2: an unmet expectation raises the finding in EVERY direction — a held

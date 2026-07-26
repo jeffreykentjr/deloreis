@@ -29,6 +29,20 @@ fn write_manifest(root: &Path, body: &str) {
     .unwrap();
 }
 
+fn enable_craft_packs(root: &Path, packs: &[&str]) {
+    fs::create_dir_all(root.join("craft")).unwrap();
+    let values = packs
+        .iter()
+        .map(|pack| format!("\"{pack}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    fs::write(
+        root.join("craft/enabled-packs.toml"),
+        format!("packs = [{values}]\n"),
+    )
+    .unwrap();
+}
+
 fn serve_request(project: Project, request: &Value) -> Value {
     let mut output = Vec::new();
     serve_project_io(
@@ -50,7 +64,7 @@ fn claim_payload_request(
     prompt_digit: char,
 ) -> Value {
     serde_json::json!({
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": format!("submit-{episode}"),
         "op": "dli.payload-submit",
         "params": {
@@ -146,7 +160,7 @@ fn document_source_anchor_changes_with_source_bytes() {
 #[test]
 fn project_worker_uses_the_document_profile_catalog() {
     let project = Project::load(norse()).expect("Norse project loads");
-    let input = b"{\"dli\":\"0.5.0\",\"id\":\"csv\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"norse\",\"profile\":\"csv\",\"profile_name\":\"tabular/nine-realms@1\"}}\n";
+    let input = b"{\"dli\":\"0.5.1\",\"id\":\"csv\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"norse\",\"profile\":\"csv\",\"profile_name\":\"tabular/nine-realms@1\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -167,12 +181,12 @@ fn project_worker_uses_the_document_profile_catalog() {
 fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
+{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -202,8 +216,8 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
 fn project_door_t_rejects_invented_forks() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
+{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -236,14 +250,14 @@ fn project_stateful_handles_and_workspaces_cannot_cross_documents() {
     );
     let project = Project::load(&root).expect("two-document project loads");
     let input = b"\
-{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.0\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
+{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.1\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -277,7 +291,7 @@ fn cyclic_timeline_reports_blame_without_cursor_order_claims() {
     .unwrap();
     write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
     let project = Project::load(&root).expect("cyclic chronology remains diagnosable");
-    let input = b"{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
+    let input = b"{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -439,6 +453,22 @@ fn loads_optional_project_assets_without_demo_resolution() {
     )
     .unwrap();
     fs::write(root.join("craft-ledger.yaml"), "{}\n").unwrap();
+    enable_craft_packs(&root, &["try-fail-cycles"]);
+    fs::write(
+        root.join("craft/thresholds.toml"),
+        "[season]\n\
+         major_prior_failures = 2\n\
+         climax_prior_failures = 3\n\
+         competence_floor = 5\n\
+         reveal_lead_episodes = 1\n\
+         mystery_starved_gap = 3\n\
+         cold_open_cast_ceiling = 2\n\
+         cast_introduction_band = [1, 3]\n\
+         ten_position_band = [0.55, 0.8]\n\
+         audio_high_run = 3\n\
+         calibrated = true\n",
+    )
+    .unwrap();
     fs::copy(
         repo.join("examples/norse/games/rune-wheel/rules.json"),
         root.join("rules.json"),
@@ -460,6 +490,7 @@ fn loads_optional_project_assets_without_demo_resolution() {
          episodes = \"episodes.yaml\"\n\
          outlines = \"outlines.yaml\"\n\
          craft_ledger = \"craft-ledger.yaml\"\n\
+         craft_config = \"craft\"\n\
          killed_tokens = \"killed.yaml\"\n\
          profiles = \"document-profiles.json\"\n\
          [games.rune-wheel]\nrules = \"rules.json\"\nprofiles = \"game-profiles.json\"\n",
@@ -470,6 +501,20 @@ fn loads_optional_project_assets_without_demo_resolution() {
     assert!(!document.episodes.as_ref().unwrap().is_empty());
     assert_eq!(document.outlines.as_ref().unwrap().episodes[0].id, "e01");
     assert!(document.craft_ledger.as_ref().unwrap().episodes.is_empty());
+    assert!(
+        document
+            .craft_principles
+            .as_ref()
+            .is_some_and(|principles| !principles.is_empty())
+    );
+    assert_eq!(
+        document
+            .craft_thresholds
+            .expect("configured thresholds")
+            .major_prior_failures,
+        2
+    );
+    assert!(document.craft_policy.is_some());
     assert!(document.killed.hit("the Old Name returns").is_some());
     assert!(document.profiles.resolve("wiki/nine-realms").is_some());
     assert!(
@@ -480,6 +525,113 @@ fn loads_optional_project_assets_without_demo_resolution() {
             .resolve("cards/rune-wheel")
             .is_some()
     );
+}
+
+#[test]
+fn project_timeline_knows_lists_every_declared_knower_source() {
+    let root = temp("project-knower-universe");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::write(
+        root.join("episodes.yaml"),
+        "- id: e01\n\
+         \x20 production_order: 1\n\
+         \x20 story_anchor: {after: [], before: [], phases: []}\n\
+         \x20 scenes:\n\
+         \x20   - id: s1\n\
+         \x20     cast: [cast-only]\n\
+         \x20     presence: [!OffMic presence-only]\n\
+         \x20     location: null\n\
+         \x20     scene_anchor: null\n\
+         \x20     knowledge_deltas:\n\
+         \x20       - {knower: !Cast delta-only, fact: learned-later}\n\
+         \x20     fact_deltas: []\n\
+         \x20     opens: []\n\
+         \x20     closes: []\n",
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\nepisodes = \"episodes.yaml\"\n",
+    );
+    let request = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "knowers",
+        "op": "dli.timeline.knows",
+        "params": {"document": "world", "at": "0"}
+    });
+    let response = serve_request(Project::load(&root).unwrap(), &request);
+    let rows = response["result"]["knowers"].as_array().unwrap();
+    for name in ["cast-only", "presence-only", "delta-only"] {
+        let row = rows
+            .iter()
+            .find(|row| row["knower"]["Cast"] == name)
+            .unwrap_or_else(|| panic!("missing {name}: {response}"));
+        assert_eq!(row["facts"], serde_json::json!([]), "{row}");
+    }
+}
+
+#[test]
+fn project_check_proof_selects_one_named_proof_and_refuses_ambiguity() {
+    let root = temp("project-proof-selection");
+    fs::write(
+        root.join("world.dli"),
+        "scope world\n\
+         practice p proposed {\n\
+         \x20 rule permit\n\
+         }\n\
+         proof first speaker witness in p {\n\
+         \x20 close absent expect blocked\n\
+         }\n\
+         proof second speaker witness in p {\n\
+         \x20 assume p1 present\n\
+         \x20 close present expect holds\n\
+         }\n",
+    )
+    .unwrap();
+    write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
+
+    let ambiguous = serve_request(
+        Project::load(&root).unwrap(),
+        &serde_json::json!({
+            "dli": "0.5.1",
+            "id": "ambiguous",
+            "op": "dli.check-proof",
+            "params": {"document": "world"}
+        }),
+    );
+    assert_eq!(ambiguous["ok"], false, "{ambiguous}");
+    assert_eq!(ambiguous["error"]["code"], "schema-violation");
+    assert!(
+        ambiguous["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("multiple proofs")),
+        "{ambiguous}"
+    );
+
+    let selected = serve_request(
+        Project::load(&root).unwrap(),
+        &serde_json::json!({
+            "dli": "0.5.1",
+            "id": "selected",
+            "op": "dli.check-proof",
+            "params": {"document": "world", "proof": "second"}
+        }),
+    );
+    assert_eq!(selected["ok"], true, "{selected}");
+    assert_eq!(selected["result"]["report"]["proof"]["text"], "second");
+    assert_eq!(selected["result"]["report"]["checks"], true);
+
+    let missing = serve_request(
+        Project::load(&root).unwrap(),
+        &serde_json::json!({
+            "dli": "0.5.1",
+            "id": "missing",
+            "op": "dli.check-proof",
+            "params": {"document": "world", "proof": "missing"}
+        }),
+    );
+    assert_eq!(missing["ok"], false, "{missing}");
+    assert_eq!(missing["error"]["code"], "schema-violation");
 }
 
 #[test]
@@ -576,7 +728,7 @@ fn payload_handler_reads_project_owned_outline_context() {
     let project = Project::load(&root).unwrap();
     let source = "draft";
     let request = serde_json::json!({
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "outline-context",
         "op": "dli.check-draft",
         "params": {
@@ -591,7 +743,7 @@ fn payload_handler_reads_project_owned_outline_context() {
         }
     });
     let typo = serde_json::json!({
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "outline-typo",
         "op": "dli.payload-submit",
         "params": {
@@ -651,8 +803,166 @@ fn payload_handler_reads_project_owned_outline_context() {
 }
 
 #[test]
+fn payload_handler_uses_project_finding_policy() {
+    let root = temp("project-payload-finding-policy");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    enable_craft_packs(&root, &["try-fail-cycles"]);
+    fs::write(
+        root.join("craft/finding-policy.toml"),
+        "[[rules]]\ncode = \"craft.accomplishment-earned\"\ncitations = [\"D-9999\"]\n",
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\ncraft_config = \"craft\"\n",
+    );
+    let source = "triumph";
+    let request = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "finding-policy",
+        "op": "dli.check-draft",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": {
+                "meta": {
+                    "episode": "e01",
+                    "source": {"sha256": source_hash(source)}
+                },
+                "scenes": [{"id": "s1"}],
+                "beats": [{
+                    "id": "triumph",
+                    "scene": "s1",
+                    "kind": "accomplishment",
+                    "thread": "road",
+                    "magnitude": "major",
+                    "quote": source,
+                    "line": 1
+                }]
+            }
+        }
+    });
+    let response = serve_request(Project::load(&root).unwrap(), &request);
+    let finding = response["result"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "craft.accomplishment-earned")
+        .expect("craft finding");
+    assert_eq!(finding["citations"], serde_json::json!(["D-9999"]));
+    assert!(!response.to_string().contains("D-0128"), "{response}");
+}
+
+#[test]
+fn outline_policy_survives_check_submit_and_restart_replay() {
+    let root = temp("project-outline-finding-policy");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::write(
+        root.join("outlines.yaml"),
+        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n",
+    )
+    .unwrap();
+    enable_craft_packs(&root, &["try-fail-cycles"]);
+    fs::write(
+        root.join("craft/finding-policy.toml"),
+        "[[rules]]\ncode = \"outline.beat-unaccounted\"\ncitations = [\"D-9999\"]\nseverity = \"warn\"\n",
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\noutlines = \"outlines.yaml\"\ncraft_config = \"craft\"\n",
+    );
+
+    let source = "baseline";
+    let payload = serde_json::json!({
+        "meta": {
+            "episode": "e01",
+            "source": {
+                "file": "draft.md",
+                "sha256": source_hash(source),
+                "words": 1
+            },
+            "extracted": "2026-07-26",
+            "extractors": {"schema": "payload/v1", "fields": {}}
+        }
+    });
+    let check_draft = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "outline-policy-check",
+        "op": "dli.check-draft",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": payload.clone()
+        }
+    });
+    let checked = serve_request(Project::load(&root).unwrap(), &check_draft);
+    let checked_finding = checked["result"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "outline.beat-unaccounted")
+        .expect("outline finding");
+    assert_eq!(checked_finding["severity"], "warn", "{checked}");
+    assert_eq!(
+        checked_finding["citations"],
+        serde_json::json!(["D-9999"]),
+        "{checked}"
+    );
+
+    let submit = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "outline-policy-submit",
+        "op": "dli.payload-submit",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": payload
+        }
+    });
+    let submitted = serve_request(Project::load(&root).unwrap(), &submit);
+    assert_eq!(submitted["result"]["accepted"], true, "{submitted}");
+    assert!(
+        submitted["result"]["payload_digest"].is_string(),
+        "{submitted}"
+    );
+    assert_eq!(
+        submitted["result"]["findings"][0]["severity"], "warn",
+        "{submitted}"
+    );
+    assert_eq!(
+        submitted["result"]["findings"][0]["citations"],
+        serde_json::json!(["D-9999"]),
+        "{submitted}"
+    );
+
+    let check = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "outline-policy-replay",
+        "op": "dli.check",
+        "params": {"document": "world"}
+    });
+    let replayed = serve_request(Project::load(&root).unwrap(), &check);
+    assert_eq!(replayed["result"]["ok"], true, "{replayed}");
+    let replayed_finding = replayed["result"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "outline.beat-unaccounted")
+        .expect("replayed outline finding");
+    assert_eq!(replayed_finding["domain"], "payload", "{replayed_finding}");
+    assert_eq!(replayed_finding["severity"], "warn", "{replayed_finding}");
+    assert_eq!(
+        replayed_finding["citations"],
+        serde_json::json!(["D-9999"]),
+        "{replayed_finding}"
+    );
+}
+
+#[test]
 fn document_check_replays_committed_payloads_after_restart() {
     let root = temp("project-payload-replay");
+    enable_craft_packs(&root, &["try-fail-cycles"]);
     fs::write(
         root.join("world.dli"),
         "scope world\n\nratify d-1\n\
@@ -671,7 +981,8 @@ fn document_check_replays_committed_payloads_after_restart() {
     write_manifest(
         &root,
         "[documents.world]\nsources = [\"world.dli\"]\n\
-         outlines = \"outlines.yaml\"\n",
+         outlines = \"outlines.yaml\"\n\
+         craft_config = \"craft\"\n",
     );
     let source = "baseline marker";
     let submit = claim_payload_request(
@@ -713,7 +1024,7 @@ fn document_check_replays_committed_payloads_after_restart() {
     .unwrap();
     fs::write(root.join("world.dli"), "scope world\n").unwrap();
     let check = serde_json::json!({
-        "dli": "0.5.0",
+        "dli": "0.5.1",
         "id": "check",
         "op": "dli.check",
         "params": {"document": "world"}

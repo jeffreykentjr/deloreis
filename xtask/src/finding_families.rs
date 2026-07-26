@@ -11,10 +11,9 @@
 //! xtask cannot depend on `dli-world`/`dli-ledger`/`dli-time`/`dli-eval` — so a
 //! coverage test scrapes each emitting crate's source and asserts the
 //! authored code set matches the emitted one exactly, the same source-parity
-//! discipline the CLI and error-code pages already use. The volatile `outline`
-//! family (the season/outline battery, still landing under CRAFT-2) is covered
-//! by a looser no-phantom check so an in-flight craft edit does not gate on this
-//! page; the nine settled families are covered strictly, both directions.
+//! discipline the CLI and error-code pages already use. Configurable `outline`
+//! emitters are checked against the same closed registry that validates caller
+//! text rules, while hardcoded emit sites are included in the exact comparison.
 
 use std::fmt::Write as _;
 
@@ -48,11 +47,11 @@ enum Scrape {
     /// gate on this page).
     #[allow(dead_code)]
     PrefixedSnapshot(&'static str),
-    /// A still-landing family whose codes are bare suffixes handed to the season
-    /// battery's `warn(`/`error(` helpers; covered no-phantom.
-    OutlineSnapshot,
+    /// The closed outline family: bare suffixes from the season battery plus
+    /// registered dotted codes accepted from caller text-rule config.
+    OutlineClosed,
     /// The craft season-rule family: codes are derived from `KernelRule::id()`
-    /// match arms in `kb.rs`, prefixed with `craft.`. Covered no-phantom.
+    /// match arms in `kb.rs`, prefixed with `craft.`. Covered strictly.
     CraftKernelRules,
 }
 
@@ -416,6 +415,12 @@ const FAMILIES: &[Family] = &[
                 meaning: "a form is instantiated with ill-typed arguments (L4).",
             },
             Code {
+                code: "proof.unknown-role",
+                severity: "error",
+                repair: "—",
+                meaning: "the proof header binds a role the practice does not declare.",
+            },
+            Code {
                 code: "proof.invalid-chain",
                 severity: "error",
                 repair: "—",
@@ -468,6 +473,24 @@ const FAMILIES: &[Family] = &[
                 severity: "error",
                 repair: "—",
                 meaning: "the proof's `in <practice>` clause does not match the practice being checked.",
+            },
+            Code {
+                code: "proof.invalid-header-layout",
+                severity: "error",
+                repair: "—",
+                meaning: "the direct proof AST header is not `<role> <actor> in <practice>`.",
+            },
+            Code {
+                code: "proof.malformed-body",
+                severity: "error",
+                repair: "—",
+                meaning: "captured proof clauses do not replay through the canonical parser.",
+            },
+            Code {
+                code: "proof.invalid-close-layout",
+                severity: "error",
+                repair: "—",
+                meaning: "the proof does not carry exactly one final close.",
             },
         ],
     },
@@ -624,7 +647,7 @@ const FAMILIES: &[Family] = &[
         owner: "dli-world :: craft/season.rs + craft/kb.rs (WorldFinding, via KernelRule)",
         severity_note: "Mixed error/warn per rule: structural verdicts (accomplishment-earned, \
             yes-and-terminal, scene-name-clash) are error; band/threshold rules are warn until \
-            calibrated. This lane is landing under CRAFT-2; covered by a no-phantom check.",
+            calibrated. The set is exact against `KernelRule::id()`.",
         sources: &["../crates/dli-world/src/craft/kb.rs"],
         scrape: Scrape::CraftKernelRules,
         codes: CRAFT_CODES,
@@ -633,12 +656,15 @@ const FAMILIES: &[Family] = &[
         key: "outline",
         title: "outline — the season/outline conformance battery",
         emitter: "the season-outline checks, run by `check-draft`'s craft battery",
-        owner: "dli-world :: craft/season.rs (WorldFinding, via CRAFT-1/CRAFT-2)",
-        severity_note: "Mixed error/warn per rule. This lane is landing under CRAFT-2; the list \
-            below is a snapshot as of wave 4 and is covered by a no-phantom check rather than the \
-            strict two-directional gate the settled families use.",
-        sources: &["../crates/dli-world/src/craft/season.rs"],
-        scrape: Scrape::OutlineSnapshot,
+        owner: "dli-world :: craft/season.rs + payload.rs + craft/kb.rs",
+        severity_note: "Mixed error/warn per rule. The list is exact against both hardcoded \
+            emit sites and the closed registry used to validate caller text-rule codes.",
+        sources: &[
+            "../crates/dli-world/src/craft/season.rs",
+            "../crates/dli-world/src/payload.rs",
+            "../crates/dli-world/src/craft/kb.rs",
+        ],
+        scrape: Scrape::OutlineClosed,
         codes: OUTLINE_CODES,
         // OUTLINE_CODES follows this table.
     },
@@ -729,9 +755,33 @@ const CRAFT_CODES: &[Code] = &[
     },
 ];
 
-/// The outline family's codes (snapshot). Severity is the `warn(`/`error(` the
-/// emitting call site uses in `season.rs`.
+/// The closed outline-family codes. Severity follows the hardcoded emitter or
+/// the default severity of the registered configurable rule.
 const OUTLINE_CODES: &[Code] = &[
+    Code {
+        code: "outline.beat-unaccounted",
+        severity: "error",
+        repair: "—",
+        meaning: "the outline declares a beat absent from the payload.",
+    },
+    Code {
+        code: "outline.beat-undeclared",
+        severity: "error",
+        repair: "—",
+        meaning: "the payload carries a beat absent from the outline.",
+    },
+    Code {
+        code: "outline.cast-unaccounted",
+        severity: "error",
+        repair: "—",
+        meaning: "the outline casts a speaker absent from the payload scene.",
+    },
+    Code {
+        code: "outline.cast-undeclared",
+        severity: "error",
+        repair: "—",
+        meaning: "the payload scene casts a speaker absent from the outline.",
+    },
     Code {
         code: "outline.hook-late",
         severity: "warn",
@@ -767,6 +817,18 @@ const OUTLINE_CODES: &[Code] = &[
         severity: "error",
         repair: "—",
         meaning: "a promise must either pay off or carry forward, not both/neither.",
+    },
+    Code {
+        code: "outline.promise-unaccounted",
+        severity: "error",
+        repair: "—",
+        meaning: "the outline declares a promise absent from the payload.",
+    },
+    Code {
+        code: "outline.promise-undeclared",
+        severity: "error",
+        repair: "—",
+        meaning: "the payload carries a promise absent from the outline.",
     },
     Code {
         code: "outline.arc-promise-payoff-xor-carry",
@@ -1197,6 +1259,11 @@ fn scrape_outline(source: &str) -> BTreeSet<String> {
 #[cfg(test)]
 fn scrape_craft_kernel_rules(source: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
+    let source = source
+        .split_once("pub fn id(self) -> &'static str")
+        .map(|(_, tail)| tail)
+        .and_then(|tail| tail.split_once("pub fn from_id").map(|(body, _)| body))
+        .expect("KernelRule::id source body");
     // The id() match arms look like: `Self::Variant => "token",`
     // We find every quoted string that appears as a `=> "..."` return in the
     // function and prefix with `craft.`.
@@ -1207,7 +1274,8 @@ fn scrape_craft_kernel_rules(source: &str) -> BTreeSet<String> {
         if let Some(end) = after.find('"') {
             let token = &after[..end];
             // Accept kebab-case tokens and underscore-bearing entry points.
-            if !token.is_empty()
+            if !matches!(token, "check_outline" | "check_season")
+                && !token.is_empty()
                 && token
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b == b'-' || b == b'_')
@@ -1225,6 +1293,7 @@ fn scrape_craft_kernel_rules(source: &str) -> BTreeSet<String> {
 fn is_code(s: &str) -> bool {
     !s.is_empty()
         && s.contains('.')
+        && s.split('.').all(|part| !part.is_empty())
         && s.bytes()
             .all(|b| b.is_ascii_lowercase() || b == b'.' || b == b'-')
 }
@@ -1262,7 +1331,10 @@ mod tests {
                     out.extend(scrape_prefixed(&source, p));
                 }
                 Scrape::CodeFields => out.extend(scrape_code_fields(&source)),
-                Scrape::OutlineSnapshot => out.extend(scrape_outline(&source)),
+                Scrape::OutlineClosed => {
+                    out.extend(scrape_outline(&source));
+                    out.extend(scrape_prefixed(&source, "outline"));
+                }
                 Scrape::CraftKernelRules => out.extend(scrape_craft_kernel_rules(&source)),
                 Scrape::BareTokens => {}
             }
@@ -1273,17 +1345,18 @@ mod tests {
     /// Every finding family is coverage-checked against the source that emits it.
     /// Settled families (`Prefixed`, `CodeFields`) are checked strictly — the
     /// documented set must equal the emitted set, so a new code that no one
-    /// documents fails the gate. Still-landing families (`PrefixedSnapshot`,
-    /// `OutlineSnapshot`, `CraftKernelRules`) are checked no-phantom — every
-    /// documented code must still be emitted, but a newer source code does not
-    /// gate this page while the lane is in flight.
+    /// documents fails the gate. Only explicitly snapshot families remain
+    /// no-phantom while their owning lane is in flight.
     #[test]
     fn families_are_covered_against_source() {
         for family in FAMILIES {
             let authored: BTreeSet<String> =
                 family.codes.iter().map(|c| c.code.to_owned()).collect();
             match family.scrape {
-                Scrape::Prefixed(_) | Scrape::CodeFields => {
+                Scrape::Prefixed(_)
+                | Scrape::CodeFields
+                | Scrape::OutlineClosed
+                | Scrape::CraftKernelRules => {
                     let emitted = emitted_codes(family);
                     assert_eq!(
                         authored, emitted,
@@ -1293,9 +1366,7 @@ mod tests {
                         family.key
                     );
                 }
-                Scrape::PrefixedSnapshot(_)
-                | Scrape::OutlineSnapshot
-                | Scrape::CraftKernelRules => {
+                Scrape::PrefixedSnapshot(_) => {
                     let emitted = emitted_codes(family);
                     let mut phantom: Vec<&str> = family
                         .codes

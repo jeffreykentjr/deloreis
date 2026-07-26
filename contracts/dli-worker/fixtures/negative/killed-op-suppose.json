@@ -3,7 +3,7 @@
   "version": 1,
   "note": "dli.suppose is a registered KILLED form, superseded by dli.fork.suppose. The server refuses it with unknown-op and names the successor; a killed form is never silently accepted or quietly removed.",
   "send": {
-    "dli": "0.5.0",
+    "dli": "0.5.1",
     "id": "1",
     "op": "dli.suppose",
     "params": {}

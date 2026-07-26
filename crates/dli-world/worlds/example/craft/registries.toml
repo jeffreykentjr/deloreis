@@ -1,0 +1,2 @@
+factory_namespaces = []
+judge_kinds = ["judge_promise", "judge_causality"]

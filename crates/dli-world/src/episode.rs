@@ -497,3 +497,33 @@ pub fn fold(episodes: &[Episode]) -> EpisodeFold {
         loops,
     }
 }
+
+/// Every knower declared by an episode season.
+///
+/// The listener is always present. Cast identities come from scene cast lists,
+/// explicit on/off-mic presence, and cast knowledge deltas. Keeping this
+/// universe in the library ensures CLI and server reads agree even when a
+/// declared character knows nothing at the queried slot.
+#[must_use]
+pub fn knower_universe(episodes: &[Episode]) -> BTreeSet<Knower> {
+    let mut knowers = BTreeSet::from([Knower::Listener]);
+    for scene in episodes.iter().flat_map(|episode| &episode.scenes) {
+        knowers.extend(scene.cast.iter().cloned().map(Knower::Cast));
+        knowers.extend(
+            scene
+                .presence
+                .iter()
+                .map(|presence| Knower::Cast(presence.entity().clone())),
+        );
+        knowers.extend(
+            scene
+                .knowledge_deltas
+                .iter()
+                .filter_map(|delta| match &delta.knower {
+                    Knower::Listener => None,
+                    Knower::Cast(entity) => Some(Knower::Cast(entity.clone())),
+                }),
+        );
+    }
+    knowers
+}

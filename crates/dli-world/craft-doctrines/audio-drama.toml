@@ -43,6 +43,23 @@ source = "Urbina, Advice for Radio Drama Beginners; Wayland (the hook)."
 phases = ["outline", "generation"]
 checkable_kind = "deterministic-kernel"
 kernel_rule = "check-outline"
+finding_codes = [
+    "outline.hook-late",
+    "outline.cast-over-four",
+    "outline.cast-unaccounted",
+    "outline.cast-undeclared",
+    "outline.no-audio-plan",
+    "outline.narrator-direct-address",
+    "outline.narrator-host-frame",
+    "outline.narrator-needed-for-orientation",
+    "outline.no-narrator-sfx-burden",
+    "outline.sfx-not-sparse",
+    "outline.sfx-load-bearing",
+    "outline.narrator-tasks-missing",
+    "craft.cast-introduction-rate",
+    "craft.scene-name-clash",
+    "craft.audio-load-trajectory",
+]
 
 [[principles]]
 id = "three-four-voices-per-scene"

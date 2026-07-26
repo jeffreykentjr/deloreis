@@ -12,18 +12,21 @@
 //! tension carries its resolution.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 use dli_world::attest::{
     Attestation, AttestationStore, ContentHash, ModelRef, Policy, PromptRef, Question, Sampling,
 };
 use dli_world::check::{Severity, WorldFinding};
+use dli_world::craft::config::{FindingPolicy, FindingRule};
 use dli_world::craft::kb::{self, Binding, Checkable, Kb, KernelRule, MissionFilter, Principle};
 use dli_world::craft::load::doctrines;
 use dli_world::craft::outline::{AudioLoad, PromiseKind, TryFailOutcome};
 use dli_world::craft::season::{
     ArcShape, BeatKind, CraftLedger, DEFAULT_THRESHOLDS, EpisodeMeta, LedgerBeat, LedgerPromise,
     LedgerScene, Magnitude, Reveal, Thresholds, Turn, check_season_rules,
+    check_season_rules_with_policy,
 };
 use dli_world::craft::worldcfg::{apply, load_config, validate};
 
@@ -100,7 +103,39 @@ fn major_win_without_prior_failure_is_an_error() {
         .unwrap();
     assert_eq!(f.severity, Severity::Error);
     assert_eq!(f.grade.to_string(), "checked");
-    assert_eq!(f.citations, vec!["D-0128".to_owned()]);
+    assert!(
+        f.citations.is_empty(),
+        "the generic engine must not emit a consumer decision id"
+    );
+}
+
+#[test]
+fn caller_finding_policy_controls_citations_and_severity() {
+    const RULES: &[FindingRule<'static>] = &[FindingRule {
+        code: Cow::Borrowed("craft.accomplishment-earned"),
+        citations: Cow::Borrowed(&[Cow::Borrowed("D-9999")]),
+        severity: Some(Severity::Warn),
+    }];
+    let ledger = season_of(vec![beat(
+        "b1",
+        "e1",
+        "ward",
+        BeatKind::Accomplishment,
+        Magnitude::Major,
+    )]);
+    let findings = check_season_rules_with_policy(
+        &ledger,
+        &DEFAULT_THRESHOLDS,
+        &FindingPolicy {
+            rules: Cow::Borrowed(RULES),
+        },
+    );
+    let finding = findings
+        .iter()
+        .find(|finding| finding.code == "craft.accomplishment-earned")
+        .unwrap();
+    assert_eq!(finding.citations, vec!["D-9999"]);
+    assert_eq!(finding.severity, Severity::Warn);
 }
 
 #[test]
@@ -530,7 +565,7 @@ fn kishotenketsu_arc_shape_conformance() {
         "out-of-band ten and clash-resolution ten: {:?}",
         codes(&findings)
     );
-    assert!(arc.iter().any(|f| f.citations == vec!["D-0052".to_owned()]));
+    assert!(arc.iter().all(|f| f.citations.is_empty()));
 }
 
 #[test]
@@ -599,7 +634,7 @@ fn example_corpus() -> Vec<Principle> {
         "the example world config is structurally clean: {:?}",
         validate(&cfg, &packs)
     );
-    apply(&cfg, &packs)
+    apply(&cfg, &packs).into_principles()
 }
 
 #[test]
@@ -713,26 +748,36 @@ fn a_non_judge_principle_has_no_attestation_to_consume() {
 
 #[test]
 fn why_renders_pillars_first() {
-    // Every finding the KB explains lists pillar-family doctrine ahead of generic
-    // advice (D-0128 — the pillar wins). The invariant is the stable-sort; the
-    // example corpus binds no pillar to a kernel rule, so the guard holds vacuously
-    // and the *sort* is what is asserted.
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/craft");
+    let cfg = load_config(&dir).expect("TPtH craft config loads");
+    let packs = doctrines();
+    assert!(validate(&cfg, &packs).is_empty());
+    let corpus = apply(&cfg, &packs).into_principles();
+    let kb = Kb::new(&corpus);
+    let principles = kb.why("outline.ten-reads-as-battle");
+    assert!(
+        principles.len() >= 2,
+        "the precedence test needs both pillar and generic doctrine: {principles:?}"
+    );
+    assert_eq!(principles[0].id, "pillar-rhizomatic-restoration");
+    assert!(principles[0].is_pillar());
+    assert!(
+        principles[1..]
+            .iter()
+            .any(|principle| !principle.is_pillar())
+    );
+}
+
+#[test]
+fn why_refuses_invented_outline_codes() {
     let corpus = example_corpus();
     let kb = Kb::new(&corpus);
-    for code in [
-        "outline.premature-resolution",
-        "craft.accomplishment-earned",
-    ] {
-        let principles = kb.why(code);
-        let first_generic = principles.iter().position(|p| !p.is_pillar());
-        let last_pillar = principles.iter().rposition(|p| p.is_pillar());
-        if let (Some(g), Some(pil)) = (first_generic, last_pillar) {
-            assert!(
-                pil < g,
-                "a pillar sorts after generic advice in why({code})"
-            );
-        }
-    }
+    assert!(!kb.why("outline.promise-made-in-unknown").is_empty());
+    assert!(
+        kb.why("outline.cast-over-four").is_empty(),
+        "a disabled audio pack must not govern audio findings"
+    );
+    assert!(kb.why("outline.no-such-rule").is_empty());
 }
 
 #[test]
@@ -746,6 +791,17 @@ fn explain_renders_statement_and_resolution() {
     assert!(rendered.contains(tension.statement.as_ref()));
     assert!(rendered.contains("resolution:"));
     assert!(rendered.contains("source:"));
+}
+
+#[test]
+fn explain_distinguishes_adaptation_from_tension() {
+    let mut adapted = example_corpus()[0].clone();
+    adapted.mission_filter = MissionFilter::Adapted {
+        note: Cow::Borrowed("apply this principle with a narrower scope"),
+    };
+    let rendered = adapted.explain();
+    assert!(rendered.contains("adaptation:"));
+    assert!(!rendered.contains("tension:"));
 }
 
 // -- attestation fixture ------------------------------------------------------

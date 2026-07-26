@@ -201,13 +201,33 @@ impl SceneProjection {
     }
 }
 
-/// The canonical text of an atom: its surface with all whitespace removed, so
-/// `holds(a, b)` and `holds(a,b)` are the one atom. Both sides of the pool seam
-/// pass through here, so a caller's world atoms and a proof's premises compare
-/// without depending on surface spacing.
+/// The canonical text of an atom: insignificant surface whitespace is removed,
+/// while whitespace inside quoted values is preserved. Thus `holds(a, b)` and
+/// `holds(a,b)` are one atom, but `says(a, "a b")` and `says(a, "ab")` remain
+/// distinct claims.
 #[must_use]
 pub fn normalize_atom(atom: &str) -> String {
-    atom.chars().filter(|c| !c.is_whitespace()).collect()
+    let mut out = String::with_capacity(atom.len());
+    let mut in_string = false;
+    let mut escaped = false;
+    for ch in atom.chars() {
+        if in_string {
+            out.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+        } else if ch == '"' {
+            in_string = true;
+            out.push(ch);
+        } else if !ch.is_whitespace() {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -220,6 +240,14 @@ mod tests {
         assert_eq!(
             normalize_atom("  phase( tide , slack ) "),
             "phase(tide,slack)"
+        );
+        assert_ne!(
+            normalize_atom("says(the-seeress, \"a b\")"),
+            normalize_atom("says(the-seeress, \"ab\")")
+        );
+        assert_eq!(
+            normalize_atom("says( the-seeress , \"a  b\" )"),
+            "says(the-seeress,\"a  b\")"
         );
     }
 
