@@ -44,7 +44,7 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: d802c5aaa03a0472cfd67600cc00cfd16f69f45a1b4bf0d274c44ada1e32d60d
 - path: framing/paired-all-ops-v1.json
-  sha256: 905a7b7ebcb13c699152b2f1a0454cf980217b1f6126b9ff93bf756dccc88f1e
+  sha256: a3a9ad7a3767fa30cad82fff32911f79b8857dba72405cdc9a32519c11e8cc8d
 - path: golden/attest-missing-v1.json
   sha256: c3c9886bc68969e649ef9d2d5bbd2099a2d9facfb65e64ca3a20059e0405f8cc
 - path: golden/attestation-sweep-v1.json

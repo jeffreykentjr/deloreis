@@ -223,8 +223,8 @@
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.attestation-sweep", "params": {"store": {"attestations": [{"question": {"kind": "dialect-real-basis", "atom": "name-basis(mara, common)", "subject": "mara"}, "answer": "yes", "rationale_hash": "sha256:a", "model": {"provider": "bedrock", "id": "control", "as_of": "2026-07-19"}, "prompt": {"template": "naming@v1", "hash": "sha256:b"}, "params": {"temperature": "0.0", "max_tokens": 1, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-model-change"}, "supersedes": null, "sweep": "run.json", "fingerprint": "fnv1a64:0"}]}}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.attestation-sweep", "params": {"store": {"attestations": [{"question": {"kind": "dialect-real-basis", "atom": "name-basis(mara, common)", "subject": "mara"}, "answer": "yes", "rationale_hash": "sha256:a", "model": {"provider": "bedrock", "id": "__DLI_FRAME_ATTACK__", "as_of": "2026-07-19"}, "prompt": {"template": "naming@v1", "hash": "sha256:b"}, "params": {"temperature": "0.0", "max_tokens": 1, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-model-change"}, "supersedes": null, "sweep": "run.json", "fingerprint": "fnv1a64:0"}]}}},
       "changed_paths": ["/params/store/attestations/0/model/id"],
-      "compare_paths": ["/ok", "/result/stale/0/answer"],
-      "allow_taint_paths": ["/result/stale"]
+      "compare_paths": ["/ok", "/error/code"],
+      "allow_taint_paths": ["/error/message"]
     },
     {
       "op": "dli.payload-submit",

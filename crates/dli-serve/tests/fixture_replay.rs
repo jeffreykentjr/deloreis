@@ -223,14 +223,14 @@ fn replay_framing_case(case: &Value, name: &str) {
 
     let control = drive(&case["control"], &mut control_sessions, &mut control_store);
     let attack = drive(&case["attack"], &mut attack_sessions, &mut attack_store);
+    let compare = case["compare_paths"].as_array().expect("validated paths");
+    assert_pointer_pairs_equal(&control, &attack, compare, name);
+    assert_taint_confined(&attack, case, name);
     if case.get("expected_outcome").and_then(Value::as_str) == Some("gated") {
         assert_eq!(error_code(&control), Some("not-wired"), "{name}: {control}");
         assert_eq!(error_code(&attack), Some("not-wired"), "{name}: {attack}");
         return;
     }
-    let compare = case["compare_paths"].as_array().expect("validated paths");
-    assert_pointer_pairs_equal(&control, &attack, compare, name);
-    assert_taint_confined(&attack, case, name);
     assert_materialized_reparses(&attack, name);
 
     let probes = case.get("probe").map(|probe| {
