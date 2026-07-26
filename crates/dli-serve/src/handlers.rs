@@ -164,13 +164,55 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
 
 fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckParams = params(request)?;
+    let project = sessions.project_handle();
+    let pack = sessions.pack(&p.document);
     let scope = resolve(sessions, &p.document)?;
-    let findings = check::run(&scope.world);
+    let mut findings = check::run(&scope.world)
+        .iter()
+        .map(world_finding)
+        .collect::<Vec<_>>();
+    if let Some(project) = project {
+        let pack = pack.ok_or_else(|| {
+            (
+                ErrorCode::UnknownDoc,
+                format!("no document named '{}' is loaded", p.document),
+            )
+        })?;
+        let document = project.document(&p.document).ok_or_else(|| {
+            (
+                ErrorCode::UnknownDoc,
+                format!("no document named '{}' is loaded", p.document),
+            )
+        })?;
+        let records = evidence::load_payloads(&project, &p.document)
+            .map_err(|error| evidence_fault(&error))?;
+        for record in records {
+            let mut context = BatteryContext::new(&record.source).with_documents(&pack.documents);
+            if let Some(outlines) = &document.outlines {
+                context = context.with_outlines(&outlines.episodes);
+            }
+            if let Some(season) = &document.craft_ledger {
+                context = context.with_season(season);
+            }
+            findings.extend(
+                check_payload(&scope.world, &record.payload, &context)
+                    .iter()
+                    .map(payload_finding),
+            );
+        }
+    }
+    findings.sort_by(|left, right| {
+        (&left.code, &left.message, &left.citations).cmp(&(
+            &right.code,
+            &right.message,
+            &right.citations,
+        ))
+    });
     Ok(ok_response(
         request,
         &CheckResult {
             ok: findings.is_empty(),
-            findings: findings.iter().map(world_finding).collect(),
+            findings,
         },
     ))
 }
@@ -470,7 +512,7 @@ fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<R
         .all(|finding| finding.severity != PayloadSeverity::Error);
     let payload_digest = if accepted {
         Some(
-            evidence::submit_payload(&project, &p.document, &p.payload)
+            evidence::submit_payload(&project, &p.document, &p.payload, &p.source)
                 .map_err(|error| evidence_fault(&error))?,
         )
     } else {
@@ -1215,6 +1257,21 @@ fn world_finding(finding: &WorldFinding) -> Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
             WorldSeverity::Warn => Severity::Warn,
+        },
+        code: finding.code.clone(),
+        message: finding.message.clone(),
+        grade: finding.grade,
+        repair: None,
+        citations: finding.citations.clone(),
+    }
+}
+
+/// Map a replayed payload finding onto the document-wide check result.
+fn payload_finding(finding: &dli_world::payload::PayloadFinding) -> Finding {
+    Finding {
+        severity: match finding.severity {
+            PayloadSeverity::Error => Severity::Error,
+            PayloadSeverity::Warn => Severity::Warn,
         },
         code: finding.code.clone(),
         message: finding.message.clone(),

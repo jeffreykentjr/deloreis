@@ -112,7 +112,7 @@ fixtures:
 - path: golden/name-check-v1.json
   sha256: d5b1f9becbcfcb9a292a8c725ab35142ffb0c33431f6c62e50ef496e652a78d5
 - path: golden/payload-submit-v1.json
-  sha256: 3cab9885354951f4feda7d633a7320d0bf47df3b8930760124696dcaf6bcf4c9
+  sha256: 45b496dfd3cf5e41208ca6a95484bbda513d591fca285162f2cd47a5c6a566ae
 - path: golden/query-modifiers-v1.json
   sha256: c43b866568a14bfe3b0d67fc6a23ee983a75d39564fb0cfb4f1dd9c9ebdd065c
 - path: golden/query-support-v1.json

@@ -21,6 +21,7 @@ use thiserror::Error;
 use crate::project::Project;
 
 const BATCH_VERSION: u32 = 1;
+const PAYLOAD_RECORD_VERSION: u32 = 1;
 
 /// A durable-evidence read or write failed.
 #[derive(Debug, Error)]
@@ -52,6 +53,18 @@ struct AttestationBatch {
     document: String,
     parent: Option<String>,
     records: Vec<Attestation>,
+}
+
+/// One accepted payload plus the draft source required to replay its battery.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommittedPayload {
+    version: u32,
+    document: String,
+    /// The accepted structured shadow.
+    pub payload: Payload,
+    /// The exact draft prose used for anchoring and staleness checks.
+    pub source: String,
 }
 
 /// A configured question that currently needs an answer.
@@ -88,6 +101,7 @@ struct EvidenceLock {
 
 impl EvidenceLock {
     fn acquire(project: &Project) -> Result<Self, EvidenceError> {
+        validate_evidence_root(project)?;
         let path = project.evidence_dir().join(".write.lock");
         if let Ok(metadata) = fs::symlink_metadata(&path)
             && (!metadata.is_file() || metadata.file_type().is_symlink())
@@ -132,9 +146,16 @@ pub fn submit_payload(
     project: &Project,
     document: &str,
     payload: &Payload,
+    source: &str,
 ) -> Result<String, EvidenceError> {
     require_document(project, document)?;
-    let bytes = canonical_bytes(payload)?;
+    let record = CommittedPayload {
+        version: PAYLOAD_RECORD_VERSION,
+        document: document.to_owned(),
+        payload: payload.clone(),
+        source: source.to_owned(),
+    };
+    let bytes = canonical_bytes(&record)?;
     let digest = digest_bytes(&bytes);
     let hex = digest
         .strip_prefix("sha256:")
@@ -144,6 +165,44 @@ pub fn submit_payload(
     let directory = evidence_directory(project, &["payloads", document])?;
     publish_immutable(&directory.join(format!("{hex}.json")), &bytes)?;
     Ok(digest)
+}
+
+/// Load and verify every committed payload for one document in digest order.
+pub fn load_payloads(
+    project: &Project,
+    document: &str,
+) -> Result<Vec<CommittedPayload>, EvidenceError> {
+    require_document(project, document)?;
+    let directory = evidence_directory(project, &["payloads", document])?;
+    let mut paths = fs::read_dir(&directory)
+        .map_err(|source| io_error(&directory, source))?
+        .map(|entry| {
+            entry
+                .map(|entry| entry.path())
+                .map_err(|source| io_error(&directory, source))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    paths.sort();
+
+    let mut records = Vec::with_capacity(paths.len());
+    for path in paths {
+        require_regular_json(&path, "payload")?;
+        let bytes = fs::read(&path).map_err(|source| io_error(&path, source))?;
+        let record: CommittedPayload = serde_json::from_slice(&bytes).map_err(|error| {
+            EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
+        })?;
+        validate_content_address(&path, &bytes, &record)?;
+        if record.version != PAYLOAD_RECORD_VERSION || record.document != document {
+            return Err(EvidenceError::Corrupt(format!(
+                "{} belongs to version {} document `{}`",
+                path.display(),
+                record.version,
+                record.document
+            )));
+        }
+        records.push(record);
+    }
+    Ok(records)
 }
 
 /// Return configured questions whose durable answer is absent or stale.
@@ -285,17 +344,7 @@ pub fn current_fingerprint(model: &WorldModel, question: &Question) -> ContentHa
 }
 
 fn validate_payloads(project: &Project, document: &str) -> Result<(), EvidenceError> {
-    let directory = evidence_directory(project, &["payloads", document])?;
-    for entry in fs::read_dir(&directory).map_err(|source| io_error(&directory, source))? {
-        let entry = entry.map_err(|source| io_error(&directory, source))?;
-        let path = entry.path();
-        require_regular_json(&path, "payload")?;
-        let bytes = fs::read(&path).map_err(|source| io_error(&path, source))?;
-        let payload: Payload = serde_json::from_slice(&bytes).map_err(|error| {
-            EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
-        })?;
-        validate_content_address(&path, &bytes, &payload)?;
-    }
+    load_payloads(project, document)?;
     Ok(())
 }
 
@@ -548,6 +597,7 @@ fn require_document<'a>(
 }
 
 fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf, EvidenceError> {
+    validate_evidence_root(project)?;
     let mut path = project.evidence_dir().to_path_buf();
     for component in components {
         path.push(component);
@@ -590,6 +640,25 @@ fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf,
         )));
     }
     Ok(path)
+}
+
+fn validate_evidence_root(project: &Project) -> Result<(), EvidenceError> {
+    let path = project.evidence_dir();
+    let metadata = fs::symlink_metadata(path).map_err(|source| io_error(path, source))?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err(EvidenceError::Corrupt(format!(
+            "evidence root `{}` is not a regular directory",
+            path.display()
+        )));
+    }
+    let canonical = fs::canonicalize(path).map_err(|source| io_error(path, source))?;
+    if canonical != path {
+        return Err(EvidenceError::Corrupt(format!(
+            "evidence root `{}` was replaced or traverses a symlink",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {

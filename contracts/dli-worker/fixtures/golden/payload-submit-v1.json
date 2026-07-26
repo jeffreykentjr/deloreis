@@ -50,7 +50,7 @@
         "result": {
           "accepted": true,
           "findings": [],
-          "payload_digest": "sha256:40d974ce778b3e5b2883e274781c914e1107522042c8316f77a07282a58d70a5"
+          "payload_digest": "sha256:62f538f8c3bc6e2bab9978cdf128db95a07d9099c8a1ebae862cdf5a720a1e7e"
         }
       }
     }

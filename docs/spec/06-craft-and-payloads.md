@@ -355,7 +355,10 @@ proof ledger or contradicts episode 5's claim surfaces in the next
 `deloreis check`, not in an author reread. That is fast deterministic reasoning
 delivered at both altitudes — outline objects natively, drafts via their shadows
 — with a model needed exactly **once per draft revision, never once per
-question**.
+question**. The committed evidence record therefore retains both the structured
+payload and the exact source prose used to verify its anchors and source hash;
+`dli.check` verifies and replays those records rather than relying on process
+memory or caller resubmission.
 
 ---
 

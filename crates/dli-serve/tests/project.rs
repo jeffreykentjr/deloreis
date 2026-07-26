@@ -443,6 +443,82 @@ fn payload_handler_reads_project_owned_outline_context() {
     );
 }
 
+#[test]
+fn document_check_replays_committed_payloads_after_restart() {
+    let root = temp("project-payload-replay");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::write(
+        root.join("outlines.yaml"),
+        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n",
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\n\
+         outlines = \"outlines.yaml\"\n",
+    );
+    let source = "draft";
+    let submit = serde_json::json!({
+        "dli": "0.4.0",
+        "id": "submit",
+        "op": "dli.payload-submit",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": {
+                "meta": {
+                    "episode": "e01",
+                    "source": {
+                        "file": "draft.md",
+                        "sha256": source_hash(source),
+                        "words": 1
+                    },
+                    "extracted": "2026-07-26",
+                    "extractors": {"schema": "payload/v1", "fields": {}}
+                }
+            }
+        }
+    });
+    let mut output = Vec::new();
+    serve_project_io(
+        &mut Cursor::new(format!("{submit}\n")),
+        &mut output,
+        Project::load(&root).unwrap(),
+    )
+    .unwrap();
+    let accepted: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(accepted["result"]["accepted"], true, "{accepted}");
+
+    fs::write(
+        root.join("outlines.yaml"),
+        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n",
+    )
+    .unwrap();
+    let check = serde_json::json!({
+        "dli": "0.4.0",
+        "id": "check",
+        "op": "dli.check",
+        "params": {"document": "world"}
+    });
+    output.clear();
+    serve_project_io(
+        &mut Cursor::new(format!("{check}\n")),
+        &mut output,
+        Project::load(&root).unwrap(),
+    )
+    .unwrap();
+    let replayed: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(replayed["result"]["ok"], false, "{replayed}");
+    assert!(
+        replayed["result"]["findings"]
+            .as_array()
+            .is_some_and(|findings| findings
+                .iter()
+                .any(|finding| finding["code"] == "outline.beat-unaccounted")),
+        "{replayed}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn rejects_a_source_symlink_that_escapes_the_project() {

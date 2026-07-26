@@ -8,7 +8,7 @@ use std::sync::{Arc, Barrier};
 
 use dli_serve::evidence::{
     EvidenceError, append_attestations, canonical_bytes, current_fingerprint, digest_value,
-    missing_attestations, submit_payload,
+    load_payloads, missing_attestations, submit_payload,
 };
 use dli_serve::project::Project;
 use dli_world::attest::{Attestation, ContentHash, ModelRef, Policy, PromptRef, Sampling};
@@ -103,14 +103,14 @@ fn json_files(path: &Path) -> Vec<PathBuf> {
 fn payload_publication_is_canonical_content_addressed_and_idempotent() {
     let (_temp, project) = write_project();
     let payload = payload("one word");
-    let first = submit_payload(&project, "world", &payload).unwrap();
+    let first = submit_payload(&project, "world", &payload, "one word").unwrap();
     let hex = first.trim_start_matches("sha256:");
     let temp = project
         .evidence_dir()
         .join("payloads")
         .join(format!(".world.{hex}.json.tmp"));
     fs::write(&temp, b"interrupted retry").unwrap();
-    let second = submit_payload(&project, "world", &payload).unwrap();
+    let second = submit_payload(&project, "world", &payload, "one word").unwrap();
     assert_eq!(first, second);
     assert!(
         !temp.exists(),
@@ -121,11 +121,13 @@ fn payload_publication_is_canonical_content_addressed_and_idempotent() {
     let files = json_files(&directory);
     assert_eq!(files.len(), 1);
     let bytes = fs::read(&files[0]).unwrap();
-    let reparsed: Payload = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(reparsed, payload);
+    let records = load_payloads(&project, "world").unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].payload, payload);
+    assert_eq!(records[0].source, "one word");
     assert_eq!(
         bytes,
-        serde_json_canonicalizer::to_vec(&reparsed).unwrap(),
+        serde_json_canonicalizer::to_vec(&records[0]).unwrap(),
         "persisted evidence is JCS, not merely deterministic serde JSON"
     );
 }
@@ -443,13 +445,13 @@ fn corrupt_committed_batch_fails_closed() {
 #[test]
 fn corrupt_committed_payload_fails_closed_before_another_publish() {
     let (_temp, project) = write_project();
-    submit_payload(&project, "world", &payload("one word")).unwrap();
+    submit_payload(&project, "world", &payload("one word"), "one word").unwrap();
     let directory = project.evidence_dir().join("payloads/world");
     let path = json_files(&directory).remove(0);
     fs::write(&path, b"{}").unwrap();
 
     assert!(matches!(
-        submit_payload(&project, "world", &payload("another word")),
+        submit_payload(&project, "world", &payload("another word"), "another word"),
         Err(EvidenceError::Corrupt(_))
     ));
     assert_eq!(json_files(&directory).len(), 1);
@@ -459,16 +461,41 @@ fn corrupt_committed_payload_fails_closed_before_another_publish() {
 fn stale_publication_temp_outside_payload_store_is_recovered() {
     let (_temp, project) = write_project();
     let value = payload("one word");
-    let digest = digest_value(&value).unwrap();
+    let digest = submit_payload(&project, "world", &value, "one word").unwrap();
     let hex = digest.trim_start_matches("sha256:");
     let payloads = project.evidence_dir().join("payloads");
-    fs::create_dir_all(payloads.join("world")).unwrap();
+    fs::remove_file(payloads.join("world").join(format!("{hex}.json"))).unwrap();
     let temp = payloads.join(format!(".world.{hex}.json.tmp"));
     fs::write(&temp, b"interrupted").unwrap();
 
-    assert_eq!(submit_payload(&project, "world", &value).unwrap(), digest);
+    assert_eq!(
+        submit_payload(&project, "world", &value, "one word").unwrap(),
+        digest
+    );
     assert!(!temp.exists());
     assert_eq!(json_files(&payloads.join("world")).len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn post_load_evidence_root_symlink_is_rejected_without_target_writes() {
+    use std::os::unix::fs::symlink;
+
+    let (temp, project) = write_project();
+    let outside = tempfile::tempdir().unwrap();
+    let original = temp.path().join("original-evidence");
+    fs::rename(project.evidence_dir(), &original).unwrap();
+    symlink(outside.path(), project.evidence_dir()).unwrap();
+
+    assert!(matches!(
+        submit_payload(&project, "world", &payload("one word"), "one word"),
+        Err(EvidenceError::Corrupt(_))
+    ));
+    assert_eq!(
+        fs::read_dir(outside.path()).unwrap().count(),
+        0,
+        "root substitution must be detected before creating a lock or directory"
+    );
 }
 
 #[test]

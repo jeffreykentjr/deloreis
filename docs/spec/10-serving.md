@@ -317,9 +317,12 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.4.0`, accepted fat payloads are written as RFC 8785 JCS beneath
-`.dli-evidence/payloads/<document>/<sha256>.json`. Attestation sweeps append JCS
-batches beneath
+At contract `0.4.0`, each accepted fat payload and the exact draft source used
+to verify it are written as one versioned RFC 8785 JCS record beneath
+`.dli-evidence/payloads/<document>/<sha256>.json`. Retaining the source is
+required: `dli.check` reloads every record and replays anchoring, staleness, and
+the full payload battery after a restart or corpus change. Attestation sweeps
+append JCS batches beneath
 `.dli-evidence/attestations/<document>/batches/<sha256>.json`; batches form one
 verified, unbranched parent chain while each question retains its supersession
 history. A retry of any committed batch returns that batch's original digest,
