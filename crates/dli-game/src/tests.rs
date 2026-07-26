@@ -9,6 +9,8 @@
 use std::collections::BTreeMap;
 
 use dli_core::Grade;
+use dli_core::atom::Atom;
+use dli_core::valuation::Valuation;
 use dli_sim::InvariantVerdict;
 
 use dli_export::profile::{
@@ -22,6 +24,13 @@ use crate::model::{
     AttrValue, DeltaOp, Provenance, Reading, Ruleset, Variant, Verdict,
     enumerate_structural_invariants,
 };
+
+fn export_opts() -> ExportOpts {
+    ExportOpts {
+        source_commit: "content-sha256:test-source".to_owned(),
+        ..ExportOpts::default()
+    }
+}
 
 // -- the synthetic rulesets -------------------------------------------------
 
@@ -392,13 +401,8 @@ fn export_registry() -> Registry {
 #[test]
 fn card_export_honors_the_render_rule() {
     let registry = export_registry();
-    let deck = export::run(
-        &registry,
-        ExportTarget::Cards,
-        &stepped(),
-        &ExportOpts::default(),
-    )
-    .expect("cards export");
+    let deck = export::run(&registry, ExportTarget::Cards, &stepped(), &export_opts())
+        .expect("cards export");
     let cards = deck.artifact.as_cards().expect("a card deck");
     assert_eq!(cards.card_count, 6);
     assert_eq!(cards.cards.len(), 6);
@@ -430,13 +434,145 @@ fn card_export_honors_the_render_rule() {
 }
 
 #[test]
+fn game_exports_require_a_source_anchor() {
+    let error = export::run(
+        &export_registry(),
+        ExportTarget::Cards,
+        &stepped(),
+        &ExportOpts::default(),
+    )
+    .unwrap_err();
+    assert_eq!(error, dli_export::ExportError::MissingSourceAnchor);
+}
+
+#[test]
+fn game_exports_reject_lore_world_fork_valuations() {
+    let mut valuation = Valuation::default();
+    valuation.set(Atom(999), true);
+    let error = export::run(
+        &export_registry(),
+        ExportTarget::Cards,
+        &stepped(),
+        &ExportOpts {
+            fork: Some(valuation),
+            ..export_opts()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        dli_export::ExportError::UnsupportedOption {
+            target: ExportTarget::Cards,
+            option: "fork",
+        }
+    );
+}
+
+#[test]
+fn game_exports_reject_unapplied_lore_options() {
+    let target = ExportTarget::Cards;
+    let mut stamped = export_opts();
+    stamped.keep_stamps =
+        serde_json::from_str(r#"[{"scope":["piece"],"visibility":"removed"}]"#).unwrap();
+    let cases = [
+        (stamped, "keep_stamps"),
+        (
+            ExportOpts {
+                region: Some("elsewhere".to_owned()),
+                ..export_opts()
+            },
+            "region",
+        ),
+        (
+            ExportOpts {
+                variant: Some("alternate".to_owned()),
+                ..export_opts()
+            },
+            "variant",
+        ),
+    ];
+
+    for (opts, option) in cases {
+        let error = export::run(&export_registry(), target, &stepped(), &opts).unwrap_err();
+        assert_eq!(
+            error,
+            dli_export::ExportError::UnsupportedOption { target, option }
+        );
+    }
+}
+
+#[test]
+fn game_exports_reject_proposed_rulesets() {
+    let variant = Variant {
+        name: "proposal".to_owned(),
+        game_id: "stepped-proposal".to_owned(),
+        ops: Vec::new(),
+        provenance: Provenance::proposed("D-9003"),
+    };
+    let error = export::run(
+        &export_registry(),
+        ExportTarget::Cards,
+        &stepped().fork(&variant),
+        &export_opts(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        dli_export::ExportError::UnassertableSource {
+            target: ExportTarget::Cards,
+        }
+    );
+}
+
+#[test]
+fn card_profiles_reject_unknown_selectors_templates_and_kept_fields() {
+    let mut profile = export_registry().profiles.remove(0);
+    profile.selects.relations.push("invented".to_owned());
+    assert!(matches!(
+        export::compile_cards(&stepped(), &profile, "certain"),
+        Err(dli_export::ExportError::InvalidProfile { .. })
+    ));
+
+    profile.selects.relations.clear();
+    profile.renders.get_mut("piece").unwrap().id = "{invented}".to_owned();
+    assert!(matches!(
+        export::compile_cards(&stepped(), &profile, "certain"),
+        Err(dli_export::ExportError::InvalidProfile { .. })
+    ));
+
+    profile.renders.get_mut("piece").unwrap().id = "stray}-{tone}-{mark}".to_owned();
+    assert!(matches!(
+        export::compile_cards(&stepped(), &profile, "certain"),
+        Err(dli_export::ExportError::InvalidProfile { .. })
+    ));
+
+    let rule = profile.renders.get_mut("piece").unwrap();
+    rule.id = "{tone}-{mark}".to_owned();
+    rule.keep.push("invented".to_owned());
+    assert!(matches!(
+        export::compile_cards(&stepped(), &profile, "certain"),
+        Err(dli_export::ExportError::InvalidProfile { .. })
+    ));
+}
+
+#[test]
+fn card_profiles_reject_rendered_id_collisions() {
+    let mut profile = export_registry().profiles.remove(0);
+    profile.renders.get_mut("piece").unwrap().id = "same-id".to_owned();
+    assert!(matches!(
+        export::compile_cards(&stepped(), &profile, "certain"),
+        Err(dli_export::ExportError::InvalidProfile { .. })
+    ));
+}
+
+#[test]
 fn ludii_export_renders_components_and_successor_edges() {
     let registry = export_registry();
     let deck = export::run(
         &registry,
         ExportTarget::LudiiGdl,
         &stepped(),
-        &ExportOpts::default(),
+        &export_opts(),
     )
     .expect("ludii export");
     let ludii = deck.artifact.as_ludii().expect("a ludii export");
@@ -453,6 +589,42 @@ fn ludii_export_renders_components_and_successor_edges() {
 }
 
 #[test]
+fn ludii_export_escapes_every_caller_controlled_string() {
+    let mut ruleset = stepped();
+    ruleset.game_id = "deck\"\n(players 99)\t\\end\u{0001}".to_owned();
+    ruleset.axes[0].values[0].id = "dot\"\n(players 98)\t\\end".to_owned();
+    ruleset.layouts[0].name = "layout\"\r(result win)".to_owned();
+
+    let registry = export_registry();
+    let spec = registry.default_for(ExportTarget::LudiiGdl).unwrap();
+    let ludii = export::compile_ludii(&ruleset, spec, "certain").unwrap();
+
+    assert!(
+        ludii
+            .program
+            .contains("(game \"deck\\\"\\n(players 99)\\t\\\\end\\u0001\"")
+    );
+    assert!(
+        ludii
+            .program
+            .contains("(component \"dot\\\"\\n(players 98)\\t\\\\end-low\")")
+    );
+    assert!(
+        ludii
+            .program
+            .contains("(from \"dot\\\"\\n(players 98)\\t\\\\end-low\")")
+    );
+    assert!(
+        ludii
+            .program
+            .contains("(dealt \"layout\\\"\\r(result win)\")")
+    );
+    assert!(!ludii.program.contains("deck\"\n(players 99)"));
+    assert!(!ludii.program.contains("dot\"\n(players 98)"));
+    assert!(!ludii.program.contains("layout\"\r(result win)"));
+}
+
+#[test]
 fn diff_decks_reports_the_variant_loss() {
     let registry = export_registry();
     let spec = registry.default_for(ExportTarget::Cards).unwrap();
@@ -466,8 +638,8 @@ fn diff_decks_reports_the_variant_loss() {
         }],
         provenance: Provenance::proposed("D-9002"),
     };
-    let honest = export::compile_cards(&stepped(), spec, "certain");
-    let cut = export::compile_cards(&stepped().fork(&variant), spec, "certain");
+    let honest = export::compile_cards(&stepped(), spec, "certain").unwrap();
+    let cut = export::compile_cards(&stepped().fork(&variant), spec, "certain").unwrap();
 
     let diff = export::diff_decks(&honest, &cut);
     assert_eq!((diff.card_count_before, diff.card_count_after), (6, 4));

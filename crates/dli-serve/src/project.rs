@@ -12,6 +12,7 @@ use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::Decl;
 use dli_export::profile::Registry;
+use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
 use dli_world::attest::Question;
@@ -53,6 +54,10 @@ pub struct ProjectDocument {
     pub killed: KilledTokens,
     /// Bounded model-judgment questions demanded by this document's checks.
     pub attestation_questions: Vec<Question>,
+    /// Built-in neutral profiles plus project-owned lore export profiles.
+    pub profiles: Registry,
+    /// Content fingerprint of the caller-owned source files.
+    pub source_digest: String,
     /// Canonical source paths, retained to enforce one logical owner per file.
     source_paths: Vec<PathBuf>,
 }
@@ -74,6 +79,8 @@ pub struct ProjectGame {
     pub ruleset: Ruleset,
     /// Built-in neutral profiles plus project-owned profiles.
     pub profiles: Registry,
+    /// Content fingerprint of the caller-owned rules file.
+    pub source_digest: String,
 }
 
 /// A project manifest or one of its referenced assets is invalid.
@@ -171,6 +178,7 @@ struct DocumentEntry {
     craft_ledger: Option<PathBuf>,
     killed_tokens: Option<PathBuf>,
     attestation_questions: Option<PathBuf>,
+    profiles: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -391,6 +399,7 @@ fn collect_input_paths(
                 "attestation_questions",
                 entry.attestation_questions.as_deref(),
             ),
+            ("profiles", entry.profiles.as_deref()),
         ] {
             if let Some(path) = path {
                 paths.push(resolve_existing(
@@ -495,7 +504,7 @@ fn load_document(
     id: &str,
     entry: &DocumentEntry,
 ) -> Result<ProjectDocument, ProjectError> {
-    let (pack, source_paths) = load_pack(root, id, &entry.sources)?;
+    let (pack, source_paths, source_digest) = load_pack(root, id, &entry.sources)?;
     compile(&pack).map_err(|error| ProjectError::Compile {
         document: id.to_owned(),
         message: error.to_string(),
@@ -529,6 +538,14 @@ fn load_document(
         })
         .transpose()?
         .unwrap_or_default();
+    let profiles = entry
+        .profiles
+        .as_deref()
+        .map(|path| load_profiles(root, &format!("documents.{id}.profiles"), path))
+        .transpose()?
+        .map_or_else(Registry::builtin, |loaded| {
+            Registry::builtin().merge(loaded)
+        });
     Ok(ProjectDocument {
         pack,
         episodes,
@@ -536,6 +553,8 @@ fn load_document(
         craft_ledger,
         killed,
         attestation_questions,
+        profiles,
+        source_digest,
         source_paths,
     })
 }
@@ -544,7 +563,7 @@ fn load_pack(
     root: &Path,
     id: &str,
     sources: &[PathBuf],
-) -> Result<(Pack, Vec<PathBuf>), ProjectError> {
+) -> Result<(Pack, Vec<PathBuf>, String), ProjectError> {
     if sources.is_empty() {
         return Err(ProjectError::Invalid(format!(
             "document `{id}` has no sources"
@@ -573,6 +592,7 @@ fn load_pack(
     }
 
     let mut documents = Vec::with_capacity(paths.len());
+    let mut contents = Vec::with_capacity(paths.len());
     for path in &paths {
         let source = fs::read_to_string(path).map_err(|error| ProjectError::AssetPath {
             field: format!("documents.{id}.sources"),
@@ -588,13 +608,16 @@ fn load_pack(
             });
         }
         documents.push(document);
+        contents.push(source.into_bytes());
     }
+    let source_digest = source_fingerprint(contents.iter().map(Vec::as_slice));
     Ok((
         Pack {
             name: id.to_owned(),
             documents,
         },
         paths,
+        source_digest,
     ))
 }
 
@@ -654,15 +677,48 @@ fn load_games(
                 path: rules_path.display().to_string(),
                 message: error.to_string(),
             })?;
-        let profiles = entry
+        let source_digest = source_fingerprint([rules_text.as_bytes()]);
+        let loaded_profiles = entry
             .profiles
             .as_deref()
-            .map(|path| load_profiles(root, &format!("games.{id}.profiles"), path))
-            .transpose()?
-            .map_or_else(Registry::builtin, |loaded| {
-                Registry::builtin().merge(loaded)
-            });
-        games.insert(id, ProjectGame { ruleset, profiles });
+            .map(|path| {
+                let field = format!("games.{id}.profiles");
+                let resolved = resolve_existing(root, &field, path)?;
+                let registry =
+                    Registry::from_path(&resolved).map_err(|error| ProjectError::ParseAsset {
+                        path: resolved.display().to_string(),
+                        message: error.to_string(),
+                    })?;
+                Ok::<_, ProjectError>((registry, resolved))
+            })
+            .transpose()?;
+        let profile_path = loaded_profiles
+            .as_ref()
+            .map_or_else(|| rules_path.clone(), |(_, path)| path.clone());
+        let profiles = loaded_profiles.map_or_else(Registry::builtin, |(loaded, _)| {
+            Registry::builtin().merge(loaded)
+        });
+        for profile in &profiles.profiles {
+            if matches!(
+                profile.target,
+                dli_export::ExportTarget::Cards | dli_export::ExportTarget::LudiiGdl
+            ) {
+                dli_game::export::validate_game_profile(&ruleset, profile).map_err(|error| {
+                    ProjectError::ParseAsset {
+                        path: profile_path.display().to_string(),
+                        message: error.to_string(),
+                    }
+                })?;
+            }
+        }
+        games.insert(
+            id,
+            ProjectGame {
+                ruleset,
+                profiles,
+                source_digest,
+            },
+        );
     }
     Ok(games)
 }

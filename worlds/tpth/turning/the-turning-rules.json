@@ -196,6 +196,12 @@
     }
   ],
   "ordering": "layer-product",
+  "relations": [
+    "rides-figure",
+    "ring-next",
+    "legal-move",
+    "terminal"
+  ],
   "moves": {
     "rule": "cyclic-reach",
     "reach": 6

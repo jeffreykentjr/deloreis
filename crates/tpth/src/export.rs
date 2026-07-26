@@ -30,12 +30,41 @@ use crate::turning::{keep_stamped, salt_fringe, the_turning};
 /// Select the ruleset a set of options compiles: the salt-fringe regional deck, the
 /// keep-stamped variant, or the honest lowlands deck (the default). The variant is
 /// **lore** (`region`/`variant` selectors), never a profile edit.
-#[must_use]
-pub fn ruleset_for(opts: &ExportOpts) -> Ruleset {
+///
+/// # Errors
+///
+/// [`ExportError::UnsupportedOption`] when a selector value is unknown or when
+/// both region and variant are supplied; no combined materialization is defined.
+pub fn ruleset_for(target: ExportTarget, opts: &ExportOpts) -> Result<Ruleset, ExportError> {
+    if opts
+        .region
+        .as_deref()
+        .is_some_and(|region| region != "salt-fringe")
+    {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "region",
+        });
+    }
+    if opts
+        .variant
+        .as_deref()
+        .is_some_and(|variant| variant != "keep-stamped")
+    {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "variant",
+        });
+    }
     match (opts.region.as_deref(), opts.variant.as_deref()) {
-        (Some("salt-fringe"), _) => salt_fringe(),
-        (_, Some("keep-stamped")) => keep_stamped(),
-        _ => the_turning(),
+        (None, None) => Ok(the_turning()),
+        (Some("salt-fringe"), None) => Ok(salt_fringe()),
+        (None, Some("keep-stamped")) => Ok(keep_stamped()),
+        (Some("salt-fringe"), Some("keep-stamped")) => Err(ExportError::UnsupportedOption {
+            target,
+            option: "variant",
+        }),
+        _ => unreachable!("selectors were validated above"),
     }
 }
 
@@ -48,14 +77,17 @@ pub fn ruleset_for(opts: &ExportOpts) -> Ruleset {
 ///
 /// [`ExportError::UnknownProfile`] / [`ExportError::NoDefaultProfile`] when no
 /// profile resolves, [`ExportError::ProfileTargetMismatch`] when a named profile is
-/// for a different target, and [`ExportError::NoEngineRendererForTarget`] for a
-/// non-card/Ludii target (the context pack and articy scaffold are rendered by the
-/// world-atom export, not here).
+/// for a different target, [`ExportError::UnsupportedOption`] when selectors are
+/// unknown or incompatible, and [`ExportError::NoEngineRendererForTarget`] for a
+/// non-card/Ludii target.
 pub fn run(
     registry: &Registry,
     target: ExportTarget,
     opts: &ExportOpts,
 ) -> Result<GameExport, ExportError> {
-    let ruleset = ruleset_for(opts);
-    dli_game::export::run(registry, target, &ruleset, opts)
+    let ruleset = ruleset_for(target, opts)?;
+    let mut generic_opts = opts.clone();
+    generic_opts.region = None;
+    generic_opts.variant = None;
+    dli_game::export::run(registry, target, &ruleset, &generic_opts)
 }

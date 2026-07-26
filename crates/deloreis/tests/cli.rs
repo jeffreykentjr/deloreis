@@ -373,6 +373,137 @@ fn simulate_practice_runs_an_honest_battery() {
     );
 }
 
+#[test]
+fn export_emits_complete_world_artifacts_and_manifests() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let corpus = repo.join("examples/norse");
+    let profiles = corpus.join("export-profiles.json");
+    for (target, profile_name, artifact_field) in [
+        ("articy", "video/nine-realms@1", "entities"),
+        ("csv", "tabular/nine-realms@1", "content"),
+        ("static-wiki", "wiki/nine-realms@1", "pages"),
+    ] {
+        let output = bin()
+            .args(["export", "--profile", target, "--corpus"])
+            .arg(&corpus)
+            .arg("--profiles")
+            .arg(&profiles)
+            .args(["--profile-name", profile_name, "--commit", "abc123"])
+            .output()
+            .unwrap();
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{target}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let rendered: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(
+            !rendered["artifact"][artifact_field].is_null(),
+            "{target}: {rendered}"
+        );
+        assert_eq!(rendered["manifest"]["commit"], "abc123");
+        assert_eq!(rendered["manifest"]["layer"], "certain");
+    }
+
+    let output = bin()
+        .args(["export", "--profile", "csv", "--corpus"])
+        .arg(&corpus)
+        .arg("--profiles")
+        .arg(&profiles)
+        .args(["--profile-name", "tabular/nine-realms@1"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let rendered: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        rendered["manifest"]["commit"]
+            .as_str()
+            .is_some_and(|commit| commit.starts_with("content-sha256:")),
+        "{rendered}"
+    );
+}
+
+#[test]
+fn game_export_fingerprints_the_rules_bytes_it_parses() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let game = repo.join("examples/games/french-deck");
+    let rules = fs::read(game.join("rules.json")).unwrap();
+    let output = bin()
+        .args(["export", "--profile", "cards", "--game"])
+        .arg(&game)
+        .args(["--profile-name", "cards/french-deck@1"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let rendered: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        rendered["manifest"]["commit"],
+        dli_export::source_fingerprint([rules.as_slice()])
+    );
+    assert!(rendered["artifact"]["cards"].is_array(), "{rendered}");
+}
+
+#[test]
+fn export_rejects_mixed_source_modes() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let corpus = repo.join("examples/norse");
+    let game = repo.join("examples/games/french-deck");
+
+    let game_export = bin()
+        .args(["export", "--profile", "cards", "--game"])
+        .arg(&game)
+        .arg("--corpus")
+        .arg(&corpus)
+        .output()
+        .unwrap();
+    assert_eq!(game_export.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&game_export.stderr).contains("not a lore corpus"),
+        "{}",
+        String::from_utf8_lossy(&game_export.stderr)
+    );
+
+    let lore_export = bin()
+        .args(["export", "--profile", "csv", "--corpus"])
+        .arg(&corpus)
+        .arg("--game")
+        .arg(&game)
+        .output()
+        .unwrap();
+    assert_eq!(lore_export.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&lore_export.stderr).contains("not --game"),
+        "{}",
+        String::from_utf8_lossy(&lore_export.stderr)
+    );
+}
+
+#[test]
+fn export_rejects_a_named_profile_for_another_target() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let corpus = repo.join("examples/norse");
+    let output = bin()
+        .args(["export", "--profile", "csv", "--corpus"])
+        .arg(&corpus)
+        .arg("--profiles")
+        .arg(corpus.join("export-profiles.json"))
+        .args(["--profile-name", "wiki/nine-realms@1"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("requested Csv"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// H7: a downstream consumer closing the pipe early (`head`) must not panic the
 /// process — the standard SIGPIPE-abort a chatty CLI would otherwise hit.
 #[test]

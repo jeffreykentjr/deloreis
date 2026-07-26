@@ -47,7 +47,8 @@ use serde::{Deserialize, Serialize};
 use dli_eval::world::GroundAtom;
 use dli_world::model::LoadedAtom;
 
-use crate::profile::{ProfileSpec, ProvenanceMode};
+use crate::profile::{ExportError, ProfileSpec, ProvenanceMode};
+use crate::projection;
 
 /// A typed articy entity (a person, place, or thing) with its fact scope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -60,6 +61,9 @@ pub struct ArticyEntity {
     /// the claims a dialogue node for this entity may reference. Sorted, deduped.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facts: Vec<String>,
+    /// Cited provenance for the entity declaration (dev-metadata only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cited: Vec<String>,
 }
 
 /// A typed relation between two entities.
@@ -99,6 +103,9 @@ pub struct ArticyQuest {
     /// The stages present for this quest, in flow order (`hook` before `objective`
     /// before `complete`) — the quest's progression, not just its head.
     pub flow: Vec<String>,
+    /// Cited provenance collected from the quest's stages (dev-metadata only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cited: Vec<String>,
 }
 
 /// An articy-shaped export: typed entities, relations, dialogue facts with
@@ -144,6 +151,97 @@ impl QuestStage {
     }
 }
 
+/// Raw id -> (rendered id, sort, carries facts, citations).
+type EntityMap = BTreeMap<String, (String, String, bool, BTreeSet<String>)>;
+type QuestMap = BTreeMap<String, (BTreeSet<QuestStage>, BTreeSet<String>)>;
+
+fn collect_entities(
+    spec: &ProfileSpec,
+    atoms: &[&LoadedAtom],
+    wildcard: bool,
+    with_provenance: bool,
+) -> Result<EntityMap, ExportError> {
+    if let Some(predicate) = spec
+        .renders
+        .keys()
+        .find(|predicate| !spec.selects.sorts.contains(*predicate))
+    {
+        return Err(ExportError::InvalidProfile {
+            profile: spec.qualified(),
+            detail: format!(
+                "articy render rule `{predicate}` does not name a selected entity sort"
+            ),
+        });
+    }
+
+    let mut entities = EntityMap::new();
+    for atom in atoms {
+        let pred = atom.atom.pred.text.as_str();
+        let selected = if wildcard {
+            matches!(pred, "person" | "place" | "thing")
+        } else {
+            spec.selects.sorts.iter().any(|name| name == pred)
+        };
+        if !selected {
+            continue;
+        }
+        require_arity(atom, 1)?;
+        let raw_id = required_arg(atom, 0, pred)?;
+        let rule = spec.renders.get(pred);
+        let carries_facts = articy_keep_facts(spec, pred, rule)?;
+        let rendered_id = if let Some(rule) = rule.filter(|rule| !rule.id.is_empty()) {
+            let mut fields = atom
+                .atom
+                .args
+                .iter()
+                .enumerate()
+                .filter_map(|(index, term)| {
+                    term_arg(term).map(|value| (format!("arg{index}"), value))
+                })
+                .collect::<BTreeMap<_, _>>();
+            fields.insert("id".to_owned(), raw_id.clone());
+            fields.insert("sort".to_owned(), pred.to_owned());
+            projection::render_template(spec, pred, &rule.id, &fields)?
+        } else {
+            raw_id.clone()
+        };
+        if let Some((_, existing_sort, _, _)) = entities.get(&raw_id)
+            && existing_sort != pred
+        {
+            return Err(ExportError::Render {
+                target: "articy".to_owned(),
+                detail: format!(
+                    "entity `{raw_id}` is declared as both `{existing_sort}` and `{pred}`"
+                ),
+            });
+        }
+        if entities
+            .iter()
+            .any(|(existing_raw, (existing_id, _, _, _))| {
+                existing_raw != &raw_id && existing_id == &rendered_id
+            })
+        {
+            return Err(ExportError::Render {
+                target: "articy".to_owned(),
+                detail: format!(
+                    "entity id template maps more than one source entity to `{rendered_id}`"
+                ),
+            });
+        }
+        let cited = if with_provenance {
+            atom.citations.iter().cloned().collect()
+        } else {
+            BTreeSet::new()
+        };
+        if let Some((_, _, _, existing_cited)) = entities.get_mut(&raw_id) {
+            existing_cited.extend(cited);
+        } else {
+            entities.insert(raw_id, (rendered_id, pred.to_owned(), carries_facts, cited));
+        }
+    }
+    Ok(entities)
+}
+
 /// Compile a v1 articy export from the certain visible atoms.
 ///
 /// `person`/`place`/`thing` atoms become typed entities carrying the facts they
@@ -153,41 +251,72 @@ impl QuestStage {
 /// deterministic (every collection sorted) so two runs over the same atoms are
 /// byte-identical. The keep-stamp filter already ran upstream, so any
 /// who-may-not-know atom is absent from `atoms`; proposed lore never reaches here.
-#[must_use]
-pub fn compile(spec: &ProfileSpec, layer: &str, atoms: &[&LoadedAtom]) -> ArticyExport {
+pub fn compile(
+    spec: &ProfileSpec,
+    layer: &str,
+    atoms: &[&LoadedAtom],
+) -> Result<ArticyExport, ExportError> {
     let with_provenance = matches!(spec.carries_provenance, ProvenanceMode::DevMetadata);
+    let wildcard = spec.selects.sorts.is_empty() && spec.selects.relations.is_empty();
+    let entities = collect_entities(spec, atoms, wildcard, with_provenance)?;
+    let declared_entities = declared_entity_ids(atoms)?;
 
-    // id -> sort for the typed entities.
-    let mut sorts: BTreeMap<String, String> = BTreeMap::new();
     // claim -> the scopes licensed to know it.
     let mut scopes: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut scope_citations: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     // quest id -> the stages it has reached.
-    let mut quest_stages: BTreeMap<String, BTreeSet<QuestStage>> = BTreeMap::new();
+    let mut quest_stages = QuestMap::new();
     // (claim, arg ids, citations) for every fact atom.
     let mut fact_rows: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
     let mut relations: Vec<ArticyRelation> = Vec::new();
 
     for atom in atoms {
         let pred = atom.atom.pred.text.as_str();
+        let selected_relation = wildcard || spec.selects.relations.iter().any(|name| name == pred);
+        if !selected_relation {
+            continue;
+        }
+        let selected_sort = if wildcard {
+            matches!(pred, "person" | "place" | "thing")
+        } else {
+            spec.selects.sorts.iter().any(|name| name == pred)
+        };
+        if selected_sort {
+            continue;
+        }
         match pred {
-            "person" | "place" | "thing" => {
-                if let Some(id) = arg(atom, 0) {
-                    sorts.insert(id, pred.to_owned());
-                }
-            }
             "knows" => {
-                if let (Some(scope), Some(claim)) = (arg(atom, 0), arg(atom, 1)) {
-                    scopes.entry(claim).or_default().insert(scope);
+                require_arity(atom, 2)?;
+                let scope =
+                    render_reference(required_arg(atom, 0, pred)?, &entities, &declared_entities)?;
+                let claim = required_arg(atom, 1, pred)?;
+                scopes.entry(claim.clone()).or_default().insert(scope);
+                let citations = scope_citations.entry(claim).or_default();
+                if with_provenance {
+                    citations.extend(atom.citations.iter().cloned());
                 }
             }
-            "promise" => note_quest(&mut quest_stages, atom, QuestStage::Hook),
-            "debt" => note_quest(&mut quest_stages, atom, QuestStage::Objective),
-            "discharge" => note_quest(&mut quest_stages, atom, QuestStage::Complete),
+            "promise" => note_quest(&mut quest_stages, atom, QuestStage::Hook, with_provenance)?,
+            "debt" => note_quest(
+                &mut quest_stages,
+                atom,
+                QuestStage::Objective,
+                with_provenance,
+            )?,
+            "discharge" => note_quest(
+                &mut quest_stages,
+                atom,
+                QuestStage::Complete,
+                with_provenance,
+            )?,
             _ => {
-                let Some(claim) = GroundAtom::from_pattern(&atom.atom).map(|g| g.render()) else {
-                    continue;
-                };
-                let arg_ids: Vec<String> = atom.atom.args.iter().filter_map(term_arg).collect();
+                let claim = GroundAtom::from_pattern(&atom.atom)
+                    .map(|ground| ground.render())
+                    .ok_or_else(|| ExportError::Render {
+                        target: "articy".to_owned(),
+                        detail: format!("selected atom `{pred}` is not ground"),
+                    })?;
+                let arg_ids = render_args(atom, &entities, &declared_entities)?;
                 let cited = if with_provenance {
                     atom.citations.clone()
                 } else {
@@ -207,15 +336,26 @@ pub fn compile(spec: &ProfileSpec, layer: &str, atoms: &[&LoadedAtom]) -> Articy
     relations.sort_by(|a, b| (&a.kind, &a.args).cmp(&(&b.kind, &b.args)));
     relations.dedup();
 
-    ArticyExport {
-        entities: build_entities(sorts, &fact_rows),
+    for (claim, cited) in scope_citations {
+        if let Some((_, _, fact_citations)) = fact_rows.iter_mut().find(|(row, _, _)| row == &claim)
+        {
+            fact_citations.extend(cited);
+            fact_citations.sort();
+            fact_citations.dedup();
+        } else {
+            fact_rows.push((claim, Vec::new(), cited.into_iter().collect()));
+        }
+    }
+
+    Ok(ArticyExport {
+        entities: build_entities(entities, &fact_rows),
         relations,
         facts: build_facts(fact_rows, &scopes),
         quests: fold_quests(quest_stages),
         pending: false,
         profile: spec.qualified(),
         layer: layer.to_owned(),
-    }
+    })
 }
 
 /// A fact atom lowered to `(rendered claim, argument ids, citations)`.
@@ -223,11 +363,14 @@ type FactRow = (String, Vec<String>, Vec<String>);
 
 /// Build the typed entities, each carrying (sorted) the facts it participates in —
 /// its local knowledge slice.
-fn build_entities(sorts: BTreeMap<String, String>, fact_rows: &[FactRow]) -> Vec<ArticyEntity> {
+fn build_entities(entities: EntityMap, fact_rows: &[FactRow]) -> Vec<ArticyEntity> {
     let mut entity_facts: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for (claim, arg_ids, _) in fact_rows {
         for id in arg_ids {
-            if sorts.contains_key(id) {
+            if entities
+                .values()
+                .any(|(rendered, _, carries_facts, _)| *carries_facts && rendered == id)
+            {
                 entity_facts
                     .entry(id.clone())
                     .or_default()
@@ -235,16 +378,43 @@ fn build_entities(sorts: BTreeMap<String, String>, fact_rows: &[FactRow]) -> Vec
             }
         }
     }
-    sorts
+    entities
         .into_iter()
-        .map(|(id, sort)| {
+        .map(|(_, (id, sort, carries_facts, cited))| {
             let facts = entity_facts
                 .get(&id)
+                .filter(|_| carries_facts)
                 .map(|claims| claims.iter().cloned().collect())
                 .unwrap_or_default();
-            ArticyEntity { id, sort, facts }
+            ArticyEntity {
+                id,
+                sort,
+                facts,
+                cited: cited.into_iter().collect(),
+            }
         })
         .collect()
+}
+
+fn articy_keep_facts(
+    spec: &ProfileSpec,
+    predicate: &str,
+    rule: Option<&crate::profile::RenderRule>,
+) -> Result<bool, ExportError> {
+    let Some(rule) = rule else {
+        return Ok(true);
+    };
+    for field in &rule.keep {
+        if !matches!(field.as_str(), "id" | "sort" | "facts") {
+            return Err(ExportError::InvalidProfile {
+                profile: spec.qualified(),
+                detail: format!(
+                    "articy render rule for `{predicate}` keeps unknown field `{field}`"
+                ),
+            });
+        }
+    }
+    Ok(rule.keep.is_empty() || rule.keep.iter().any(|field| field == "facts"))
 }
 
 /// Build the who-may-know facts, deterministically ordered and deduped.
@@ -252,28 +422,29 @@ fn build_facts(
     fact_rows: Vec<FactRow>,
     scopes: &BTreeMap<String, BTreeSet<String>>,
 ) -> Vec<ArticyFact> {
-    let mut facts: Vec<ArticyFact> = fact_rows
+    let mut citations: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (claim, _, cited) in fact_rows {
+        citations.entry(claim).or_default().extend(cited);
+    }
+    citations
         .into_iter()
-        .map(|(claim, _, cited)| ArticyFact {
+        .map(|(claim, cited)| ArticyFact {
             who_may_know: scopes
                 .get(&claim)
-                .map(|s| s.iter().cloned().collect())
+                .map(|values| values.iter().cloned().collect())
                 .unwrap_or_default(),
             claim,
-            cited,
+            cited: cited.into_iter().collect(),
         })
-        .collect();
-    facts.sort_by(|a, b| a.claim.cmp(&b.claim));
-    facts.dedup();
-    facts
+        .collect()
 }
 
 /// Fold the per-id quest stages into quests: `state` is the furthest stage
 /// reached, `flow` the stages present in order.
-fn fold_quests(quest_stages: BTreeMap<String, BTreeSet<QuestStage>>) -> Vec<ArticyQuest> {
+fn fold_quests(quest_stages: QuestMap) -> Vec<ArticyQuest> {
     quest_stages
         .into_iter()
-        .map(|(id, stages)| {
+        .map(|(id, (stages, cited))| {
             let flow: Vec<String> = stages
                 .iter()
                 .map(|stage| stage.label().to_owned())
@@ -282,20 +453,84 @@ fn fold_quests(quest_stages: BTreeMap<String, BTreeSet<QuestStage>>) -> Vec<Arti
                 || QuestStage::Hook.label().to_owned(),
                 |s| s.label().to_owned(),
             );
-            ArticyQuest { id, state, flow }
+            ArticyQuest {
+                id,
+                state,
+                flow,
+                cited: cited.into_iter().collect(),
+            }
         })
         .collect()
 }
 
 /// Record a stage against the quest an atom's first argument names.
 fn note_quest(
-    quests: &mut BTreeMap<String, BTreeSet<QuestStage>>,
+    quests: &mut QuestMap,
     atom: &LoadedAtom,
     stage: QuestStage,
-) {
-    if let Some(id) = arg(atom, 0) {
-        quests.entry(id).or_default().insert(stage);
+    with_provenance: bool,
+) -> Result<(), ExportError> {
+    require_arity(atom, 1)?;
+    let id = required_arg(atom, 0, atom.atom.pred.text.as_str())?;
+    let (stages, cited) = quests.entry(id).or_default();
+    stages.insert(stage);
+    if with_provenance {
+        cited.extend(atom.citations.iter().cloned());
     }
+    Ok(())
+}
+
+fn declared_entity_ids(atoms: &[&LoadedAtom]) -> Result<BTreeSet<String>, ExportError> {
+    atoms
+        .iter()
+        .filter(|atom| matches!(atom.atom.pred.text.as_str(), "person" | "place" | "thing"))
+        .map(|atom| {
+            require_arity(atom, 1)?;
+            required_arg(atom, 0, atom.atom.pred.text.as_str())
+        })
+        .collect()
+}
+
+fn render_args(
+    atom: &LoadedAtom,
+    entities: &EntityMap,
+    declared_entities: &BTreeSet<String>,
+) -> Result<Vec<String>, ExportError> {
+    atom.atom
+        .args
+        .iter()
+        .map(|term| {
+            term_arg(term).ok_or_else(|| ExportError::Render {
+                target: "articy".to_owned(),
+                detail: format!(
+                    "selected atom `{}` contains a non-ground argument",
+                    atom.atom.pred.text
+                ),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|id| render_reference(id, entities, declared_entities))
+        .collect()
+}
+
+fn render_reference(
+    id: String,
+    entities: &EntityMap,
+    declared_entities: &BTreeSet<String>,
+) -> Result<String, ExportError> {
+    if let Some((rendered, _, _, _)) = entities.get(&id) {
+        return Ok(rendered.clone());
+    }
+    if declared_entities.contains(&id) {
+        return Err(ExportError::Render {
+            target: "articy".to_owned(),
+            detail: format!(
+                "selected relation references entity `{id}`, but its sort is not selected"
+            ),
+        });
+    }
+    Ok(id)
 }
 
 /// The i-th constant argument of an atom, or `None`.
@@ -303,13 +538,38 @@ fn arg(atom: &LoadedAtom, index: usize) -> Option<String> {
     atom.atom.args.get(index).and_then(term_arg)
 }
 
+fn required_arg(atom: &LoadedAtom, index: usize, predicate: &str) -> Result<String, ExportError> {
+    arg(atom, index).ok_or_else(|| ExportError::Render {
+        target: "articy".to_owned(),
+        detail: format!(
+            "selected atom `{predicate}` requires a ground argument at position {index}"
+        ),
+    })
+}
+
+fn require_arity(atom: &LoadedAtom, expected: usize) -> Result<(), ExportError> {
+    if atom.atom.args.len() == expected {
+        return Ok(());
+    }
+    Err(ExportError::Render {
+        target: "articy".to_owned(),
+        detail: format!(
+            "selected atom `{}` requires {expected} argument(s), found {}",
+            atom.atom.pred.text,
+            atom.atom.args.len()
+        ),
+    })
+}
+
 /// Render a ground term as a constant string.
 fn term_arg(term: &dli_ast::term::Term) -> Option<String> {
-    use dli_ast::term::Term;
+    use dli_ast::term::{Term, TimeRef};
     match term {
         Term::Sym(id) => Some(id.text.clone()),
         Term::Str(text) => Some(text.clone()),
         Term::Int(value) => Some(value.to_string()),
-        _ => None,
+        Term::Time(TimeRef::Era(id)) => Some(format!("era:{}", id.text)),
+        Term::Time(TimeRef::Event(id)) => Some(format!("event:{}", id.text)),
+        Term::Var(_) => None,
     }
 }

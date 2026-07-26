@@ -42,6 +42,11 @@
     }
   ],
   "ordering": "layer-product",
+  "relations": [
+    "run-successor",
+    "legal-move",
+    "terminal"
+  ],
   "moves": {
     "rule": "ascending",
     "axis": "rank",

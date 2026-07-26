@@ -516,6 +516,9 @@ pub struct Ruleset {
     pub layers: Vec<Layer>,
     /// The order the deck enumerates in — the wheel.
     pub ordering: Ordering,
+    /// Named relations export profiles may select from this ruleset.
+    #[serde(default)]
+    pub relations: Vec<String>,
     /// The move relation.
     pub moves: MoveRule,
     /// The layouts the deck knows.

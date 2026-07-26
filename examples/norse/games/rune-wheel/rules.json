@@ -27,6 +27,11 @@
     }
   ],
   "ordering": "layer-product",
+  "relations": [
+    "reach-successor",
+    "legal-move",
+    "terminal"
+  ],
   "moves": {
     "rule": "cyclic-reach",
     "reach": 3

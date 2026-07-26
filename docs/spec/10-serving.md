@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.4.2, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.5.0, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
 ---
 
 # Serving
@@ -64,6 +64,7 @@ sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
 # craft_ledger = "craft-ledger.yaml"
 # killed_tokens = "killed-tokens.yaml"
 # attestation_questions = "attestation-questions.json"
+# profiles = "export-profiles.json"
 
 [games.rune-wheel]
 rules = "games/rune-wheel/rules.json"
@@ -74,7 +75,7 @@ The keys under `documents` and `games` are stable logical wire ids. A request's
 `document` names one of those ids; it is not a filesystem path. Source files for
 one logical document are canonicalized, sorted, parsed by the real front end,
 and compiled together before the worker accepts traffic. Episode, killed-token,
-game, and game-profile assets are loaded as typed data.
+document-profile, game, and game-profile assets are loaded as typed data.
 
 Every manifest path is non-empty, normalized, relative to the manifest
 directory, and may not contain `.` or `..` components. Existing assets and their
@@ -101,17 +102,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.4.2", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.5.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.4.2", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.5.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.4.2", "id": "<correlation>", "ok": false,
+{"dli": "0.5.0", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -143,7 +144,7 @@ lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
 
-Contract `0.4.2` returns complete typed query rows, before/after fork changes,
+Contract `0.5.0` returns complete typed query rows, before/after fork changes,
 named preflight valuations, typed timeline reports, and target-shaped export
 emissions. The generated response schemas under `contracts/dli-worker/schemas/`
 are the machine-readable authority for those shapes.
@@ -208,11 +209,18 @@ behavior. The inventory, by family:
 | `dli.check-proof` | Check a diegetic proof against the scene projection | `04-practices.md` |
 | `dli.check-draft` | Run the merged payload battery over a draft | `06-craft-and-payloads.md` |
 | `dli.timeline.*` | `show`, `order`, `knows`, `episodes`, `phases` | `03-time.md` |
-| `dli.export.run` | Compile a target profile from the certain layer | `09-exports.md` |
+| `dli.export.run` | Compile `context-pack`, `cards`, `ludii-gdl`, `articy`, `csv`, or `static-wiki` from the certain layer; optional `profile_name` selects a project profile | `09-exports.md` |
 | `dli.name.check` | Vet a name — the kernel, world-true half | `05-language-layer.md` |
 | `dli.attest.missing` | List open attestation questions checks demand | `07-verdicts-and-llm-boundary.md` |
 | `dli.attestation-sweep` | Validate and record a sweep's attestation results | `07-verdicts-and-llm-boundary.md` |
 | `dli.payload-submit` | Submit a `payload/v1` document for checking and storage | `06-craft-and-payloads.md` |
+
+Every successful `dli.export.run` response carries the complete target-shaped
+artifact and its manifest. Because the worker has no git dependency, the
+manifest's historical `commit` field contains an order-independent
+`content-sha256:<hex>` fingerprint of the selected document source set or game
+rules file. The profile itself and artifact-shaping options are covered
+separately by `profile_hash`.
 
 `dli.suppose` is a **killed form**, superseded by `dli.fork.suppose`, and
 `dli.check-ledger` is a killed form superseded by `dli.check-proof` (the
@@ -265,8 +273,8 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-Contract `0.4.2` implements this job behavior under storage format 2
-(DL-0036). The request's `document` field is the stable logical id of either a
+Contract `0.5.0` retains the storage-format-2 job behavior introduced at
+`0.4.2` (DL-0036). The request's `document` field is the stable logical id of either a
 manifest `documents` entry (its first declared practice) or a manifest `games`
 entry (its loaded ruleset). A game entry pins the candidate delta as part of its
 rules file; the default battery deals its first available layout, measures
@@ -351,7 +359,7 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.4.2`, each accepted fat payload and the exact draft source used
+At contract `0.5.0`, each accepted fat payload and the exact draft source used
 to verify it are written as one versioned RFC 8785 JCS record beneath
 `.dli-evidence/payloads/<document>/<sha256>.json`. Retaining the source is
 required: `dli.check` reloads every record and replays anchoring, staleness, and
@@ -394,7 +402,7 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and check ops are synchronous and cheap. At contract `0.4.2`,
+Query and check ops are synchronous and cheap. At contract `0.5.0`,
 `dli.simulate.start` durably publishes pending state before its response is
 flushed; only then does the transport release a background worker.
 `dli.simulate.status` verifies durable state and schedules an unfinished job

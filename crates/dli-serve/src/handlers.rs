@@ -41,7 +41,7 @@ use dli_syntax::parse_document;
 use dli_time::chronology::{TemporalVerdict, TimePoint};
 
 use dli_export::profile::ExportTarget;
-use dli_export::{ExportOpts, ExportProfile, export_wire};
+use dli_export::{ExportOpts, ExportProfile};
 use dli_game::model::{Verdict, VerdictRule};
 use dli_game::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_ledger::ledger_check::check_proof;
@@ -604,81 +604,132 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
 
 fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ExportRunParams = params(request)?;
+    let source_commit = sessions.export_source(&p.document).ok_or_else(|| {
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document or game named '{}' is loaded", p.document),
+        )
+    })?;
     match p.profile {
-        // The context pack renders a compiled lore world's certain layer.
-        ExportProfile::ContextPack => {
-            let scope = resolve(sessions, &p.document)?;
-            let outcome = export_wire(
-                ExportProfile::ContextPack,
-                &scope.world,
-                &ExportOpts::default(),
-            )
-            .map_err(|err| {
-                (
-                    ErrorCode::Internal,
-                    format!("the context-pack export failed: {err}"),
-                )
-            })?;
-            Ok(ok_response(
-                request,
-                &ExportRunResult {
-                    emission: match outcome.artifact {
-                        dli_export::ExportArtifact::ContextPack(pack) => {
-                            ExportEmission::ContextPack(pack)
-                        }
-                        dli_export::ExportArtifact::Articy(_) => {
-                            return Err((
-                                ErrorCode::Internal,
-                                "the context-pack profile emitted an articy artifact".to_owned(),
-                            ));
-                        }
-                    },
-                    manifest: outcome.manifest,
-                },
-            ))
-        }
-        // Cards / Ludii render a card ruleset; the document must name a game, not a
-        // lore corpus (which carries no ruleset). A lore doc-id is refused, never
-        // half-rendered.
+        ExportProfile::ContextPack
+        | ExportProfile::Articy
+        | ExportProfile::Csv
+        | ExportProfile::StaticWiki => export_lore(request, sessions, &p, source_commit),
         ExportProfile::Cards | ExportProfile::LudiiGdl => {
-            let (ruleset, registry) = sessions.ruleset(&p.document).ok_or_else(|| {
-                if sessions.pack(&p.document).is_some() {
-                    (
-                        ErrorCode::SchemaViolation,
-                        format!(
-                            "the requested profile renders a card ruleset; document '{}' names no \
-                             card game (a lore corpus carries no ruleset)",
-                            p.document
-                        ),
-                    )
-                } else {
-                    (
-                        ErrorCode::UnknownDoc,
-                        format!("no document or game named '{}' is loaded", p.document),
-                    )
-                }
-            })?;
-            let target = if matches!(p.profile, ExportProfile::Cards) {
-                ExportTarget::Cards
-            } else {
-                ExportTarget::LudiiGdl
-            };
-            let export = dli_game::export::run(&registry, target, &ruleset, &ExportOpts::default())
-                .map_err(|err| (ErrorCode::Internal, format!("the export failed: {err}")))?;
-            Ok(ok_response(
-                request,
-                &ExportRunResult {
-                    emission: match export.artifact {
-                        dli_game::export::GameArtifact::Cards(deck) => ExportEmission::Cards(deck),
-                        dli_game::export::GameArtifact::LudiiGdl(gdl) => {
-                            ExportEmission::LudiiGdl(gdl)
-                        }
-                    },
-                    manifest: export.manifest,
-                },
-            ))
+            export_game(request, sessions, &p, source_commit)
         }
     }
+}
+
+fn export_lore(
+    request: &Request,
+    sessions: &mut Sessions,
+    params: &ExportRunParams,
+    source_commit: String,
+) -> Result<Response, Fault> {
+    let registry = sessions.export_registry(&params.document).ok_or_else(|| {
+        if sessions.ruleset(&params.document).is_some() {
+            (
+                ErrorCode::SchemaViolation,
+                format!(
+                    "the requested profile renders a lore document; '{}' names a card game",
+                    params.document
+                ),
+            )
+        } else {
+            (
+                ErrorCode::UnknownDoc,
+                format!("no document or game named '{}' is loaded", params.document),
+            )
+        }
+    })?;
+    let scope = resolve(sessions, &params.document)?;
+    let outcome = dli_export::export_with(
+        &registry,
+        ExportTarget::from_wire(params.profile),
+        &scope.world,
+        &ExportOpts {
+            source_commit,
+            profile_name: params.profile_name.clone(),
+            ..ExportOpts::default()
+        },
+    )
+    .map_err(|err| {
+        (
+            ErrorCode::SchemaViolation,
+            format!("the export profile was refused: {err}"),
+        )
+    })?;
+    let emission = match outcome.artifact {
+        dli_export::ExportArtifact::ContextPack(pack) => ExportEmission::ContextPack(pack),
+        dli_export::ExportArtifact::Articy(artifact) => ExportEmission::Articy(artifact),
+        dli_export::ExportArtifact::Csv(artifact) => ExportEmission::Csv(artifact),
+        dli_export::ExportArtifact::StaticWiki(artifact) => ExportEmission::StaticWiki(artifact),
+    };
+    Ok(ok_response(
+        request,
+        &ExportRunResult {
+            emission,
+            manifest: outcome.manifest,
+        },
+    ))
+}
+
+fn export_game(
+    request: &Request,
+    sessions: &Sessions,
+    params: &ExportRunParams,
+    source_commit: String,
+) -> Result<Response, Fault> {
+    let (ruleset, registry) = sessions.ruleset(&params.document).ok_or_else(|| {
+        if sessions.pack(&params.document).is_some() {
+            (
+                ErrorCode::SchemaViolation,
+                format!(
+                    "the requested profile renders a card ruleset; document '{}' names no \
+                     card game (a lore corpus carries no ruleset)",
+                    params.document
+                ),
+            )
+        } else {
+            (
+                ErrorCode::UnknownDoc,
+                format!("no document or game named '{}' is loaded", params.document),
+            )
+        }
+    })?;
+    let target = if matches!(params.profile, ExportProfile::Cards) {
+        ExportTarget::Cards
+    } else {
+        ExportTarget::LudiiGdl
+    };
+    let export = dli_game::export::run(
+        &registry,
+        target,
+        &ruleset,
+        &ExportOpts {
+            source_commit,
+            profile_name: params.profile_name.clone(),
+            ..ExportOpts::default()
+        },
+    )
+    .map_err(|err| {
+        (
+            ErrorCode::SchemaViolation,
+            format!("the export profile was refused: {err}"),
+        )
+    })?;
+    let emission = match export.artifact {
+        dli_game::export::GameArtifact::Cards(deck) => ExportEmission::Cards(deck),
+        dli_game::export::GameArtifact::LudiiGdl(gdl) => ExportEmission::LudiiGdl(gdl),
+    };
+    Ok(ok_response(
+        request,
+        &ExportRunResult {
+            emission,
+            manifest: export.manifest,
+        },
+    ))
 }
 
 fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {

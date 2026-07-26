@@ -90,7 +90,7 @@ A consuming repo holds four residencies, and the distinction is load-bearing:
 
 **The machine's permitted durable write surface is bounded to** `.dli-cache/`
 and `.dli-evidence/`; ruling-request drafts are returned as data for a caller to
-review and file. At contract `0.4.2`, content-addressed payloads and append-only
+review and file. At contract `0.5.0`, content-addressed payloads and append-only
 attestation batches are live, as are content-addressed, checkpointed simulation
 jobs.
 The machine never writes `canon/` or ledger content that does not cite an

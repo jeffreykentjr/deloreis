@@ -865,3 +865,51 @@ same contract. Versioning the wire makes that incompatibility explicit.
 Separating structural verification from deterministic replay preserves
 fail-closed evidence without allowing a long status read or trial prefix to
 monopolize unrelated evidence writers.
+
+## DL-0037 — Contract 0.5.0 completes the generic export family
+
+*Date: 2026-07-26*
+
+**Ruling.** Contract `0.5.0` adds `articy`, `csv`, and `static-wiki` to the
+closed `dli.export.run` target and emission unions, and adds an optional
+`profile_name` selector. A lore document may own a validated profile catalog
+through its project manifest. Caller profiles override matching neutral
+built-ins by qualified identity; unnamed resolution uses the caller's last
+profile for that target. Duplicate identities, invalid templates, unavailable
+kept fields, malformed target-specific atom shapes, and target mismatches fail
+closed. Every successful artifact requires a non-empty source commit or content
+fingerprint; project fingerprints are computed from the exact bytes parsed, not
+a second filesystem read.
+
+CSV and static-wiki targets share one deterministic flat projection of selected
+certain-layer atoms. Articy honors exact sort/relation selection, entity id
+templates, kept fact scopes, who-may-know scopes, and provenance mode.
+Dev-metadata carries citations; ship profiles strip them. The CLI emits the
+complete artifact and manifest rather than a summary. The operation's golden
+fixture replays all six emission-union branches rather than treating one target
+as evidence for the rest.
+
+Game rulesets declare the relation names their profiles may select. Card and
+Ludii profiles are checked against the concrete ruleset's axes, layers,
+relations, template fields, and retained fields; selected card layers are exact,
+and source or rendered-id collisions fail closed. A proposed materialized
+ruleset cannot be emitted as certain-layer knowledge. Lore-world valuation
+overlays have no defined meaning for a materialized game ruleset and are refused
+rather than relabeling an unchanged artifact as a fork. Generic lore exports
+likewise refuse region and variant selectors they do not materialize. A world
+adapter may consume named selectors into a concrete ruleset, but must reject
+unknown or incompatible values and clear the selectors before generic export.
+Manifest profile hashes cover the resolved profile and options that actually
+shape emission, never ignored selector text. Ludii renderers escape every
+caller-controlled quoted string, including game ids, card ids, move endpoints,
+and layout names.
+
+This is a pre-v1 wire migration because existing consumers treat request and
+response variants as closed. Simulation storage remains format 2: the export
+expansion changes neither durable job specifications nor their content
+addresses.
+
+**Rationale.** Library-only target types and hardcoded neutral CLI mappings do
+not satisfy a general caller-facing export contract. A project-owned,
+data-driven profile path keeps world content outside the kernel while making
+each artifact replayable from caller source, profile, valuation, and manifest.

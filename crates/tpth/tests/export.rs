@@ -12,11 +12,18 @@
 
 use std::path::PathBuf;
 
-use dli_export::profile::{ExportOpts, ExportTarget, Registry};
+use dli_export::profile::{ExportError, ExportOpts, ExportTarget, Registry};
 use tpth::export::{
     DifferentialStatus, compile_cards, compile_ludii, diff_decks, follow_edge_count, run,
 };
 use tpth::turning::{AttrValue, keep_stamped, salt_fringe, the_turning};
+
+fn export_opts() -> ExportOpts {
+    ExportOpts {
+        source_commit: "content-sha256:test-source".to_owned(),
+        ..ExportOpts::default()
+    }
+}
 
 /// The engine's neutral base catalog merged with the `tpth` world's export
 /// profiles, loaded from data (`worlds/tpth/export/profiles.json`) — the
@@ -42,12 +49,7 @@ fn figure_of<'a>(deck: &'a tpth::export::CardDeck, role: &str) -> Option<&'a str
 
 #[test]
 fn worked_card_export_honest_deck() {
-    let outcome = run(
-        &tpth_registry(),
-        ExportTarget::Cards,
-        &ExportOpts::default(),
-    )
-    .unwrap();
+    let outcome = run(&tpth_registry(), ExportTarget::Cards, &export_opts()).unwrap();
     let deck = outcome.artifact.as_cards().expect("a card deck");
 
     assert_eq!(deck.deck, "turning-lowlands-honest");
@@ -68,7 +70,7 @@ fn worked_card_export_honest_deck() {
 fn worked_card_export_keep_stamped_diff_is_computed_not_asserted() {
     let registry = tpth_registry();
 
-    let honest = run(&registry, ExportTarget::Cards, &ExportOpts::default()).unwrap();
+    let honest = run(&registry, ExportTarget::Cards, &export_opts()).unwrap();
     let honest = honest.artifact.as_cards().unwrap();
 
     // The keep-stamped variant is lore (a variant selector); the ruleset cuts the
@@ -78,7 +80,7 @@ fn worked_card_export_keep_stamped_diff_is_computed_not_asserted() {
         ExportTarget::Cards,
         &ExportOpts {
             variant: Some("keep-stamped".to_owned()),
-            ..ExportOpts::default()
+            ..export_opts()
         },
     )
     .unwrap();
@@ -111,7 +113,7 @@ fn worked_card_export_salt_fringe_regional_delta() {
         ExportTarget::Cards,
         &ExportOpts {
             region: Some("salt-fringe".to_owned()),
-            ..ExportOpts::default()
+            ..export_opts()
         },
     )
     .unwrap();
@@ -132,23 +134,61 @@ fn worked_card_export_salt_fringe_regional_delta() {
     assert_eq!(ground.value("field").unwrap().name, "The Catch");
 }
 
+#[test]
+fn turning_export_rejects_unknown_or_combined_selectors() {
+    let target = ExportTarget::Cards;
+    for (opts, option) in [
+        (
+            ExportOpts {
+                region: Some("unknown".to_owned()),
+                ..export_opts()
+            },
+            "region",
+        ),
+        (
+            ExportOpts {
+                variant: Some("unknown".to_owned()),
+                ..export_opts()
+            },
+            "variant",
+        ),
+        (
+            ExportOpts {
+                region: Some("salt-fringe".to_owned()),
+                variant: Some("keep-stamped".to_owned()),
+                ..export_opts()
+            },
+            "variant",
+        ),
+    ] {
+        assert_eq!(
+            run(&tpth_registry(), target, &opts).unwrap_err(),
+            ExportError::UnsupportedOption { target, option }
+        );
+    }
+}
+
 // -- the Ludii L-GDL export (EXP-3, DL-0007) ---------------------------------
 
 #[test]
 fn ludii_export_is_a_structural_render_with_pending_differential() {
-    let outcome = run(
-        &tpth_registry(),
-        ExportTarget::LudiiGdl,
-        &ExportOpts::default(),
-    )
-    .unwrap();
+    let outcome = run(&tpth_registry(), ExportTarget::LudiiGdl, &export_opts()).unwrap();
     let gdl = outcome.artifact.as_ludii().expect("a Ludii export");
 
     let honest = the_turning();
-    // Every leaf and every available layout appears — a straight render.
-    for id in honest.card_ids() {
-        assert!(gdl.program.contains(&id), "leaf {id} missing from L-GDL");
+    // Every profile-selected leaf and every available layout appears.
+    for card in honest
+        .cards()
+        .into_iter()
+        .filter(|card| card.layer != "reckoner")
+    {
+        assert!(
+            gdl.program.contains(&card.id),
+            "selected leaf {} missing from L-GDL",
+            card.id
+        );
     }
+    assert!(!gdl.program.contains("(component \"the-reckoner\")"));
     for layout in honest.available_layouts() {
         assert!(gdl.program.contains(&layout.name));
     }
@@ -165,7 +205,7 @@ fn ludii_export_is_a_structural_render_with_pending_differential() {
 fn compile_ludii_directly_renders_each_leaf() {
     let registry = tpth_registry();
     let spec = registry.default_for(ExportTarget::LudiiGdl).unwrap();
-    let gdl = compile_ludii(&the_turning(), spec, "certain");
+    let gdl = compile_ludii(&the_turning(), spec, "certain").unwrap();
     assert!(gdl.program.starts_with("(game \"turning-lowlands-honest\""));
     assert_eq!(gdl.profile, "games/ludii@1");
 }
@@ -176,8 +216,8 @@ fn compile_ludii_directly_renders_each_leaf() {
 fn compile_cards_directly_matches_the_ruleset_counts() {
     let registry = tpth_registry();
     let spec = registry.default_for(ExportTarget::Cards).unwrap();
-    let honest = compile_cards(&the_turning(), spec, "certain");
-    let keep = compile_cards(&keep_stamped(), spec, "certain");
+    let honest = compile_cards(&the_turning(), spec, "certain").unwrap();
+    let keep = compile_cards(&keep_stamped(), spec, "certain").unwrap();
     assert_eq!(honest.card_count, 29);
     assert_eq!(keep.card_count, 26);
     // The 29 enumerated cards render: 16 Hands, 12 Weathers, 1 Reckoner (Grounds are

@@ -11,6 +11,13 @@
     "profile": {
       "description": "The export profile.",
       "$ref": "#/$defs/ExportProfile"
+    },
+    "profile_name": {
+      "description": "Optional qualified profile name from the caller project's catalog.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "additionalProperties": false,
@@ -36,6 +43,21 @@
           "description": "Ludii Game Description Language for the simulator.",
           "type": "string",
           "const": "ludii-gdl"
+        },
+        {
+          "description": "Articy-shaped video-game JSON.",
+          "type": "string",
+          "const": "articy"
+        },
+        {
+          "description": "Producer-facing flat CSV.",
+          "type": "string",
+          "const": "csv"
+        },
+        {
+          "description": "A static Markdown wiki bundle.",
+          "type": "string",
+          "const": "static-wiki"
         }
       ]
     }

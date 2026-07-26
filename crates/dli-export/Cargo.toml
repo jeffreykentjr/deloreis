@@ -1,6 +1,6 @@
 [package]
 name = "dli-export"
-description = "Deloreis Lore Interchange export profiles: context packs, cards, Ludii GDL."
+description = "De Lore Is one-way export profiles for context, games, JSON, CSV, and static wikis."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,6 +21,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

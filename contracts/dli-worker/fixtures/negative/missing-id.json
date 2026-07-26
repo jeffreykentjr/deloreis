@@ -3,7 +3,7 @@
   "version": 1,
   "note": "A frame missing the required correlation id is a bad frame.",
   "send": {
-    "dli": "0.4.2",
+    "dli": "0.5.0",
     "op": "dli.check",
     "params": {
       "document": "saltmarket"

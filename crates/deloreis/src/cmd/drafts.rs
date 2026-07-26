@@ -7,21 +7,18 @@
 //! (PRAC-2), returning the rich per-step `ProofReport`. `simulate` runs a bounded
 //! seeded battery over a declared practice — or a card ruleset with `--game` — and
 //! renders its honest run manifest (SIM-1). `export` renders a compiled world
-//! (context pack, articy) or a card ruleset (cards, Ludii GDL) under a profile,
-//! pinning a provenance manifest (EXP-1). Each returns a rendered result and a
-//! verdict-reflecting exit code — never a `todo!` panic or a guessed answer.
+//! (context pack, articy JSON, CSV, static wiki) or a card ruleset (cards, Ludii
+//! GDL) under a profile, emitting the complete artifact plus its provenance
+//! manifest (EXP-1). Each returns a rendered result and a verdict-reflecting exit
+//! code — never a `todo!` panic or a guessed answer.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
 use dli_ast::decl::{Decl, ProofDecl};
-use dli_export::profile::{ExportTarget, ProfileSpec, ProvenanceMode, Registry, Selection};
-use dli_export::{
-    ExportArtifact, ExportManifest, ExportOpts, ExportProfile, export_wire, export_with,
-};
-use dli_game::export::GameArtifact;
+use dli_export::profile::{ExportTarget, Registry};
+use dli_export::{ExportOpts, export_with, source_fingerprint};
 use dli_game::model::{Ruleset, Verdict};
 use dli_game::{DealBattery, GameBindings, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_ledger::ledger_check::{ProofReport, ProofVerdict, check_proof};
@@ -446,7 +443,7 @@ fn default_practice_grading(practice: &PracticeDef) -> (Vec<Metric>, Vec<Invaria
 /// Simulate a card ruleset: deal `TARGET` layout from a seeded stream and grade a
 /// completed-rate metric plus the deck-conservation and legal-play sweeps.
 fn run_simulate_game(args: &SimulateArgs, game: &Path) -> CmdResult {
-    let ruleset = load_ruleset(game)?;
+    let ruleset = load_ruleset(game)?.ruleset;
     let layout = args.target.clone();
     if ruleset
         .available_layouts()
@@ -487,9 +484,13 @@ fn run_simulate_game(args: &SimulateArgs, game: &Path) -> CmdResult {
     Ok(render_manifest(&manifest))
 }
 
-/// Load a card [`Ruleset`] from a `--game` path: a directory's `rules.json`, or a
-/// direct rules file.
-fn load_ruleset(path: &Path) -> Result<Ruleset, String> {
+struct LoadedRuleset {
+    ruleset: Ruleset,
+    source: String,
+}
+
+/// Load a card [`Ruleset`] and retain the exact text parsed for source anchoring.
+fn load_ruleset(path: &Path) -> Result<LoadedRuleset, String> {
     let rules_path = if path.is_dir() {
         path.join("rules.json")
     } else {
@@ -497,11 +498,15 @@ fn load_ruleset(path: &Path) -> Result<Ruleset, String> {
     };
     let text = fs::read_to_string(&rules_path)
         .map_err(|err| format!("cannot read {}: {err}", rules_path.display()))?;
-    Ruleset::from_rules(&text).map_err(|err| {
+    let ruleset = Ruleset::from_rules(&text).map_err(|err| {
         format!(
             "the game rules {} are malformed: {err}",
             rules_path.display()
         )
+    })?;
+    Ok(LoadedRuleset {
+        ruleset,
+        source: text,
     })
 }
 
@@ -571,6 +576,10 @@ pub(crate) enum ProfileArg {
     LudiiGdl,
     /// Articy-shaped video-game JSON (typed entities, who-may-know facts, quests).
     Articy,
+    /// Producer-facing flat CSV.
+    Csv,
+    /// A static Markdown wiki bundle.
+    StaticWiki,
 }
 
 /// Arguments for `deloreis export`.
@@ -593,144 +602,99 @@ pub(crate) struct ExportArgs {
     /// their decision set (valuation) and profile match.
     #[arg(long = "commit", value_name = "SHA")]
     pub(crate) commit: Option<String>,
+    /// Optional JSON profile catalog for a lore corpus. Game directories load
+    /// their sibling `profiles.json` automatically; this catalog is merged last.
+    #[arg(long = "profiles", value_name = "PATH")]
+    pub(crate) profiles: Option<PathBuf>,
+    /// Optional profile name or qualified `name@version`; otherwise the target's
+    /// last registered profile is used.
+    #[arg(long = "profile-name", value_name = "NAME")]
+    pub(crate) profile_name: Option<String>,
 }
 
 /// Render a compiled world (context pack) or a card ruleset (cards / Ludii GDL)
 /// under the requested profile, printing its provenance manifest (EXP-1/EXP-3).
 pub(crate) fn run_export(args: &ExportArgs) -> CmdResult {
     match args.profile {
-        ProfileArg::ContextPack => run_export_context_pack(args),
-        ProfileArg::Articy => run_export_articy(args),
+        ProfileArg::ContextPack => {
+            run_export_world(args, ExportTarget::ContextPack, "context-pack")
+        }
+        ProfileArg::Articy => run_export_world(args, ExportTarget::Articy, "articy"),
+        ProfileArg::Csv => run_export_world(args, ExportTarget::Csv, "csv"),
+        ProfileArg::StaticWiki => run_export_world(args, ExportTarget::StaticWiki, "static-wiki"),
         ProfileArg::Cards => run_export_game(args, ExportTarget::Cards, "cards"),
         ProfileArg::LudiiGdl => run_export_game(args, ExportTarget::LudiiGdl, "ludii-gdl"),
     }
 }
 
-/// Export the certain layer of a compiled world as a context pack (EXP-2).
-fn run_export_context_pack(args: &ExportArgs) -> CmdResult {
+/// Export the certain layer of a compiled lore world.
+fn run_export_world(args: &ExportArgs, target: ExportTarget, label: &str) -> CmdResult {
+    if args.game.is_some() {
+        return Err(format!(
+            "the {label} export reads a lore corpus, not --game"
+        ));
+    }
     if args.corpus.is_empty() {
-        return Err(
-            "the context-pack export needs a corpus: pass -c/--corpus one or more .dli files"
-                .to_owned(),
-        );
+        return Err(format!(
+            "the {label} export needs a corpus: pass -c/--corpus one or more .dli files"
+        ));
     }
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "export")?;
+    let registry = load_export_registry(args.profiles.as_deref())?;
     let opts = ExportOpts {
-        source_commit: export_commit(args.commit.as_ref(), &corpus_material(&files)),
+        source_commit: export_commit(
+            args.commit.as_ref(),
+            files.iter().map(|file| file.source.as_bytes()),
+        ),
+        profile_name: args.profile_name.clone(),
         ..ExportOpts::default()
     };
-    let outcome = export_wire(ExportProfile::ContextPack, &world, &opts)
-        .map_err(|err| format!("the context-pack export failed: {err}"))?;
-    let pack = outcome
-        .artifact
-        .as_context_pack()
-        .ok_or("a context-pack export must yield a context pack")?;
-    outln!(
-        "export context-pack: {} unit(s) included, {} skipped, ~{} tokens",
-        pack.included.len(),
-        pack.skipped.len(),
-        pack.est_tokens,
-    );
-    render_export_manifest(&outcome.manifest);
+    let outcome = export_with(&registry, target, &world, &opts)
+        .map_err(|err| format!("the {label} export failed: {err}"))?;
+    render_export_json(&outcome)?;
     Ok(EXIT_CLEAN)
 }
 
-/// Export the certain layer of a compiled world as articy-shaped video-game JSON
-/// (EXP-4): typed entities carrying their fact scopes, who-may-know facts, typed
-/// relations, and quest flow. Fail-closed on proposed lore (certain layer only),
-/// exactly like the context pack.
-fn run_export_articy(args: &ExportArgs) -> CmdResult {
-    if args.corpus.is_empty() {
-        return Err(
-            "the articy export needs a corpus: pass -c/--corpus one or more .dli files".to_owned(),
-        );
-    }
-    let files = cmd::load_corpus(&args.corpus)?;
-    let world = cmd::compile_corpus(&files, "export")?;
-    let opts = ExportOpts {
-        source_commit: export_commit(args.commit.as_ref(), &corpus_material(&files)),
-        ..ExportOpts::default()
+fn load_export_registry(path: Option<&Path>) -> Result<Registry, String> {
+    let Some(path) = path else {
+        return Ok(Registry::builtin());
     };
-    let outcome = export_with(
-        &neutral_articy_registry(),
-        ExportTarget::Articy,
-        &world,
-        &opts,
-    )
-    .map_err(|err| format!("the articy export failed: {err}"))?;
-    let articy = match &outcome.artifact {
-        ExportArtifact::Articy(articy) => articy,
-        ExportArtifact::ContextPack(_) => {
-            return Err("the articy export produced a non-articy artifact".to_owned());
-        }
-    };
-    outln!(
-        "export articy: {} entit{}, {} relation(s), {} fact(s), {} quest(s)",
-        articy.entities.len(),
-        if articy.entities.len() == 1 {
-            "y"
-        } else {
-            "ies"
-        },
-        articy.relations.len(),
-        articy.facts.len(),
-        articy.quests.len(),
-    );
-    render_export_manifest(&outcome.manifest);
-    Ok(EXIT_CLEAN)
-}
-
-/// The neutral engine-default articy profile registry: a generic `video/articy`
-/// format selector naming no world sorts or relations — the articy analogue of the
-/// builtin `context-pack/default`. A world that ships a richer `video/articy@N`
-/// catalog under `worlds/<world>/export/profiles.json` would load and merge it (as
-/// the `--game` exports merge card profiles); a lore corpus uses this neutral base.
-fn neutral_articy_registry() -> Registry {
-    Registry {
-        profiles: vec![ProfileSpec {
-            target: ExportTarget::Articy,
-            name: "video/articy".to_owned(),
-            version: 1,
-            selects: Selection::default(),
-            renders: BTreeMap::new(),
-            carries_provenance: ProvenanceMode::DevMetadata,
-        }],
-    }
+    let loaded = Registry::from_path(path)
+        .map_err(|err| format!("cannot load export profiles {}: {err}", path.display()))?;
+    Ok(Registry::builtin().merge(loaded))
 }
 
 /// Export a card ruleset as printable cards or Ludii GDL (EXP-3), sourcing its
 /// profile registry from the built-in catalog merged with the game's own
 /// `profiles.json` when present.
 fn run_export_game(args: &ExportArgs, target: ExportTarget, label: &str) -> CmdResult {
+    if !args.corpus.is_empty() {
+        return Err(format!(
+            "the {label} export reads --game, not a lore corpus"
+        ));
+    }
     let game = args.game.as_deref().ok_or_else(|| {
         format!(
             "the {label} export needs a card ruleset: pass --game <dir-or-rules.json> \
              (a lore corpus carries no ruleset)"
         )
     })?;
-    let ruleset = load_ruleset(game)?;
-    let registry = game_registry(game)?;
+    let loaded = load_ruleset(game)?;
+    let mut registry = game_registry(game)?;
+    if let Some(path) = args.profiles.as_deref() {
+        let loaded = Registry::from_path(path)
+            .map_err(|err| format!("cannot load export profiles {}: {err}", path.display()))?;
+        registry = registry.merge(loaded);
+    }
     let opts = ExportOpts {
-        source_commit: export_commit(args.commit.as_ref(), &ruleset_material(game)),
+        source_commit: export_commit(args.commit.as_ref(), [loaded.source.as_bytes()]),
+        profile_name: args.profile_name.clone(),
         ..ExportOpts::default()
     };
-    let export = dli_game::export::run(&registry, target, &ruleset, &opts)
+    let export = dli_game::export::run(&registry, target, &loaded.ruleset, &opts)
         .map_err(|err| format!("the {label} export failed: {err}"))?;
-    match &export.artifact {
-        GameArtifact::Cards(deck) => outln!(
-            "export cards: deck '{}', {} card(s), layout(s): {}",
-            deck.deck,
-            deck.card_count,
-            deck.layouts.join(", "),
-        ),
-        GameArtifact::LudiiGdl(ludii) => outln!(
-            "export ludii-gdl: {} byte(s) of L-GDL, differential {}",
-            ludii.program.len(),
-            differential_word(&ludii.differential),
-        ),
-    }
-    render_export_manifest(&export.manifest);
+    render_export_json(&export)?;
     Ok(EXIT_CLEAN)
 }
 
@@ -755,76 +719,27 @@ fn game_registry(game: &Path) -> Result<Registry, String> {
     }
 }
 
-/// The one-word status of a Ludii trace-agreement differential.
-fn differential_word(status: &dli_game::export::DifferentialStatus) -> String {
-    use dli_game::export::DifferentialStatus;
-    match status {
-        DifferentialStatus::Pending { .. } => "pending".to_owned(),
-        DifferentialStatus::Agreed { positions } => format!("agreed over {positions} position(s)"),
-    }
-}
-
 /// The manifest `commit` for an export: the `--commit` value when supplied
-/// (non-empty), else a best-effort FNV-1a content fingerprint of the source
-/// material. The offline kernel reads no git, so a caller who pins no commit still
-/// gets a manifest that traces to the exact bytes the artifact was built from —
-/// two different corpora never collide on a byte-identical manifest even when their
-/// valuation and profile hash match.
-fn export_commit(explicit: Option<&String>, material: &[u8]) -> String {
+/// (non-empty), else a SHA-256 fingerprint of the source byte set. The offline
+/// kernel reads no git, so a caller who pins no commit still gets a manifest that
+/// traces to the exact bytes the artifact was built from.
+fn export_commit<'a>(
+    explicit: Option<&String>,
+    contents: impl IntoIterator<Item = &'a [u8]>,
+) -> String {
     if let Some(commit) = explicit {
         let trimmed = commit.trim();
         if !trimmed.is_empty() {
             return trimmed.to_owned();
         }
     }
-    // FNV-1a 64: dependency-free, deterministic, and the same 64-bit fingerprint
-    // family the worker manifests already use (`fnv1a64:`).
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for &byte in material {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("content-fnv1a64:{hash:016x}")
+    source_fingerprint(contents)
 }
 
-/// The source material a corpus export's content fingerprint is taken over: each
-/// file's raw text ONLY — never its path. The fingerprint must trace the exact
-/// source *bytes*, so identical content at a different path (or in a different
-/// checkout location) yields the same fingerprint. Sorted so file/load order does
-/// not change it either.
-fn corpus_material(files: &[cmd::CorpusFile]) -> Vec<u8> {
-    let mut contents: Vec<&[u8]> = files.iter().map(|f| f.source.as_bytes()).collect();
-    contents.sort_unstable();
-    let mut material = Vec::new();
-    for content in contents {
-        material.extend_from_slice(content);
-        material.push(0);
-    }
-    material
-}
-
-/// The source material a `--game` export's fingerprint is taken over: the resolved
-/// rules file bytes. Best-effort — an unreadable file yields empty material rather
-/// than failing the export (the fingerprint is a convenience, never a gate).
-fn ruleset_material(game: &Path) -> Vec<u8> {
-    let rules_path = if game.is_dir() {
-        game.join("rules.json")
-    } else {
-        game.to_path_buf()
-    };
-    fs::read(&rules_path).unwrap_or_default()
-}
-
-/// Render an export's provenance manifest — the layer, valuation fingerprint,
-/// profile hash, and pinned commit that trace an artifact to its exact source.
-fn render_export_manifest(manifest: &ExportManifest) {
-    outln!("  layer: {}", manifest.layer);
-    outln!("  valuation: {}", manifest.valuation);
-    outln!("  profile: {}", manifest.profile_hash);
-    let commit = if manifest.commit.is_empty() {
-        "(none supplied)"
-    } else {
-        manifest.commit.as_str()
-    };
-    outln!("  commit: {commit}");
+/// Emit the complete artifact and manifest as one machine-readable JSON value.
+fn render_export_json<T: serde::Serialize>(export: &T) -> Result<(), String> {
+    let rendered = serde_json::to_string_pretty(export)
+        .map_err(|err| format!("cannot serialize export artifact: {err}"))?;
+    outln!("{rendered}");
+    Ok(())
 }

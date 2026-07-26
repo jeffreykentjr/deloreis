@@ -12,7 +12,7 @@
 //! and satisfies the `Cards`/`LudiiGdl` targets the world-atom export fails closed
 //! on.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use schemars::JsonSchema;
@@ -150,48 +150,62 @@ pub struct GameExport {
 /// Render a ruleset under a target, returning its artifact and manifest.
 ///
 /// The pipeline resolves the `ProfileSpec` (default or `ExportOpts::profile_name`),
-/// picks the layer (`fork` under an `ExportOpts::fork` overlay, else `certain`),
-/// renders the ruleset structurally (`compile_cards` / `compile_ludii`), and pins a
-/// manifest whose valuation digests the ruleset itself.
+/// renders an already materialized, assertable ruleset structurally
+/// (`compile_cards` / `compile_ludii`), and pins a manifest whose valuation digests
+/// the ruleset itself.
 ///
 /// # Errors
 ///
 /// `ExportError::UnknownProfile` / `ExportError::NoDefaultProfile` when no profile
 /// resolves, `ExportError::ProfileTargetMismatch` when a named profile is for a
-/// different target, and `ExportError::NoEngineRendererForTarget` for a non-card
-/// target (the context pack and articy scaffold are rendered by the world-atom
-/// export, not here).
+/// different target, `ExportError::UnsupportedOption` for lore-world options this
+/// renderer cannot materialize, `ExportError::UnassertableSource` for a proposed
+/// ruleset, and `ExportError::NoEngineRendererForTarget` for a non-game target.
 pub fn run(
     registry: &Registry,
     target: ExportTarget,
     ruleset: &Ruleset,
     opts: &ExportOpts,
 ) -> Result<GameExport, ExportError> {
-    let spec = match &opts.profile_name {
-        Some(name) => registry
-            .resolve(name)
-            .ok_or_else(|| ExportError::UnknownProfile(name.clone()))?,
-        None => registry
-            .default_for(target)
-            .ok_or(ExportError::NoDefaultProfile(target))?,
-    };
-    if spec.target != target {
-        return Err(ExportError::ProfileTargetMismatch {
-            name: spec.name.clone(),
-            found: spec.target,
-            requested: target,
+    if opts.source_commit.trim().is_empty() {
+        return Err(ExportError::MissingSourceAnchor);
+    }
+    if !ruleset.is_assertable() {
+        return Err(ExportError::UnassertableSource { target });
+    }
+    if opts.fork.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "fork",
         });
     }
-
-    let layer = if opts.fork.is_some() {
-        "fork"
-    } else {
-        "certain"
-    };
+    if !opts.keep_stamps.is_empty() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "keep_stamps",
+        });
+    }
+    if opts.region.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "region",
+        });
+    }
+    if opts.variant.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "variant",
+        });
+    }
+    let spec = registry.resolve_for(target, opts.profile_name.as_deref())?;
+    let layer = "certain";
     let artifact = match target {
-        ExportTarget::Cards => GameArtifact::Cards(compile_cards(ruleset, spec, layer)),
-        ExportTarget::LudiiGdl => GameArtifact::LudiiGdl(compile_ludii(ruleset, spec, layer)),
-        ExportTarget::ContextPack | ExportTarget::Articy => {
+        ExportTarget::Cards => GameArtifact::Cards(compile_cards(ruleset, spec, layer)?),
+        ExportTarget::LudiiGdl => GameArtifact::LudiiGdl(compile_ludii(ruleset, spec, layer)?),
+        ExportTarget::ContextPack
+        | ExportTarget::Articy
+        | ExportTarget::Csv
+        | ExportTarget::StaticWiki => {
             return Err(ExportError::NoEngineRendererForTarget(target));
         }
     };
@@ -209,14 +223,29 @@ pub fn run(
 /// declared `RenderRule`s: each card's id is rendered from its layer's rule id
 /// template, and only the fields the rule keeps are carried onto it. A card whose
 /// layer has no render rule keeps its ruleset id and no fields.
-#[must_use]
-pub fn compile_cards(ruleset: &Ruleset, spec: &ProfileSpec, layer: &str) -> CardDeck {
+pub fn compile_cards(
+    ruleset: &Ruleset,
+    spec: &ProfileSpec,
+    layer: &str,
+) -> Result<CardDeck, ExportError> {
+    validate_game_profile(ruleset, spec)?;
+    let selected_layers = selected_layers(ruleset, spec);
     let mut cards: Vec<RenderedCard> = Vec::new();
-    for card in ruleset.cards() {
+    let mut source_ids = BTreeSet::new();
+    for card in ruleset
+        .cards()
+        .into_iter()
+        .filter(|card| selected_layers.contains(&card.layer))
+    {
+        source_ids.insert(card.id.clone());
         let fields = ruleset.render_fields(&card);
         let (id, kept) = match spec.renders.get(card.layer.as_str()) {
             Some(rule) => {
-                let id = render_template(&rule.id, &card.bindings);
+                let id = if rule.id.is_empty() {
+                    card.id.clone()
+                } else {
+                    render_template(&rule.id, &card.bindings)
+                };
                 let kept = rule
                     .keep
                     .iter()
@@ -231,6 +260,16 @@ pub fn compile_cards(ruleset: &Ruleset, spec: &ProfileSpec, layer: &str) -> Card
             layer: card.layer.clone(),
             kept,
         });
+    }
+    let unique_ids = cards
+        .iter()
+        .map(|card| card.id.as_str())
+        .collect::<BTreeSet<_>>();
+    if unique_ids.len() != cards.len() {
+        return Err(render_error(
+            spec,
+            "more than one selected card renders to the same id",
+        ));
     }
 
     let order: Vec<&str> = ruleset
@@ -250,23 +289,29 @@ pub fn compile_cards(ruleset: &Ruleset, spec: &ProfileSpec, layer: &str) -> Card
     });
 
     let layouts = ruleset
-        .available_layouts()
-        .into_iter()
+        .layouts
+        .iter()
+        .filter(|layout| {
+            layout
+                .requires_cards
+                .iter()
+                .all(|card| source_ids.contains(card))
+        })
         .map(|layout| layout.name.clone())
         .collect();
 
     let cited = matches!(spec.carries_provenance, ProvenanceMode::DevMetadata)
         .then(|| ruleset.provenance.cites.clone());
 
-    CardDeck {
+    Ok(CardDeck {
         deck: ruleset.game_id.clone(),
         layer: layer.to_owned(),
         profile: spec.qualified(),
         cited,
-        card_count: ruleset.card_count(),
+        card_count: cards.len(),
         cards,
         layouts,
-    }
+    })
 }
 
 /// The compiled diff of `before` against `after` — the cards and layouts the second
@@ -307,37 +352,80 @@ pub fn diff_decks(before: &CardDeck, after: &CardDeck) -> DeckDiff {
 ///
 /// The trace-agreement differential against the Ludii runtime is a non-gating lane;
 /// the runtime is not provisioned here, so it is recorded `Pending`.
-#[must_use]
-pub fn compile_ludii(ruleset: &Ruleset, spec: &ProfileSpec, layer: &str) -> LudiiExport {
-    let ids = ruleset.card_ids();
+pub fn compile_ludii(
+    ruleset: &Ruleset,
+    spec: &ProfileSpec,
+    layer: &str,
+) -> Result<LudiiExport, ExportError> {
+    validate_game_profile(ruleset, spec)?;
+    let selected_layers = selected_layers(ruleset, spec);
+    let ids = ruleset
+        .cards()
+        .into_iter()
+        .filter(|card| selected_layers.contains(&card.layer))
+        .map(|card| card.id)
+        .collect::<Vec<_>>();
+    let wildcard = spec.selects.sorts.is_empty() && spec.selects.relations.is_empty();
+    let emit_moves = wildcard
+        || spec
+            .selects
+            .relations
+            .iter()
+            .any(|relation| relation == "legal-move");
+    let emit_terminals = wildcard
+        || spec
+            .selects
+            .relations
+            .iter()
+            .any(|relation| relation == "terminal");
 
     let mut program = String::new();
-    let _ = writeln!(program, "(game \"{}\"", ruleset.game_id);
+    let _ = writeln!(
+        program,
+        "(game \"{}\"",
+        escape_ludii_string(&ruleset.game_id)
+    );
     program.push_str("  (players 1)\n");
     program.push_str("  (equipment {\n");
     for id in &ids {
-        let _ = writeln!(program, "    (component \"{id}\")");
+        let _ = writeln!(program, "    (component \"{}\")", escape_ludii_string(id));
     }
     program.push_str("  })\n");
     program.push_str("  (rules\n    (play (moves {\n");
-    for from in &ids {
-        for to in &ids {
-            if ruleset.follows(from, to) {
-                let _ = writeln!(program, "      (move (from \"{from}\") (to \"{to}\"))");
+    if emit_moves {
+        for from in &ids {
+            for to in &ids {
+                if ruleset.follows(from, to) {
+                    let _ = writeln!(
+                        program,
+                        "      (move (from \"{}\") (to \"{}\"))",
+                        escape_ludii_string(from),
+                        escape_ludii_string(to)
+                    );
+                }
             }
         }
     }
     program.push_str("    }))\n    (end {\n");
-    for layout in ruleset.available_layouts() {
-        let _ = writeln!(
-            program,
-            "      (if (dealt \"{}\") (result terminal))",
-            layout.name
-        );
+    if emit_terminals {
+        let selected_ids = ids.iter().collect::<BTreeSet<_>>();
+        for layout in &ruleset.layouts {
+            if layout
+                .requires_cards
+                .iter()
+                .all(|card| selected_ids.contains(card))
+            {
+                let _ = writeln!(
+                    program,
+                    "      (if (dealt \"{}\") (result terminal))",
+                    escape_ludii_string(&layout.name)
+                );
+            }
+        }
     }
     program.push_str("    })\n  ))\n");
 
-    LudiiExport {
+    Ok(LudiiExport {
         program,
         differential: DifferentialStatus::Pending {
             blocker: "the Ludii runtime is a rented baseline in a non-gating lane and is not \
@@ -347,6 +435,237 @@ pub fn compile_ludii(ruleset: &Ruleset, spec: &ProfileSpec, layer: &str) -> Ludi
         },
         profile: spec.qualified(),
         layer: layer.to_owned(),
+    })
+}
+
+/// Escape one caller-controlled value for a quoted Ludii string literal.
+fn escape_ludii_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            control if control.is_control() => {
+                let _ = write!(escaped, "\\u{:04X}", u32::from(control));
+            }
+            printable => escaped.push(printable),
+        }
+    }
+    escaped
+}
+
+/// Validate one card/Ludii profile against the concrete ruleset it will render.
+///
+/// Structural registry validation cannot know a caller ruleset's axes, layers,
+/// relations, or available card fields. This target-specific pass closes that
+/// gap for project loading and direct library callers.
+pub fn validate_game_profile(ruleset: &Ruleset, spec: &ProfileSpec) -> Result<(), ExportError> {
+    if !matches!(spec.target, ExportTarget::Cards | ExportTarget::LudiiGdl) {
+        return Err(render_error(
+            spec,
+            "game profile validation requires a cards or ludii-gdl target",
+        ));
+    }
+
+    let available_sorts = ruleset
+        .axes
+        .iter()
+        .map(|axis| axis.id.as_str())
+        .chain(ruleset.layers.iter().map(|layer| layer.id.as_str()))
+        .collect::<BTreeSet<_>>();
+    if let Some(sort) = spec
+        .selects
+        .sorts
+        .iter()
+        .find(|sort| !available_sorts.contains(sort.as_str()))
+    {
+        return Err(render_error(
+            spec,
+            format!("selected sort `{sort}` is not declared by the ruleset"),
+        ));
+    }
+    let available_relations = ruleset
+        .relations
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    if let Some(relation) = spec
+        .selects
+        .relations
+        .iter()
+        .find(|relation| !available_relations.contains(relation.as_str()))
+    {
+        return Err(render_error(
+            spec,
+            format!("selected relation `{relation}` is not declared by the ruleset"),
+        ));
+    }
+
+    let selected_layers = selected_layers(ruleset, spec);
+    if selected_layers.is_empty() {
+        return Err(render_error(spec, "the profile selects no card layer"));
+    }
+    validate_selected_layer_sources(ruleset, spec, &selected_layers)?;
+    if matches!(spec.target, ExportTarget::LudiiGdl) && !spec.renders.is_empty() {
+        return Err(render_error(
+            spec,
+            "ludii-gdl profiles do not accept card render rules",
+        ));
+    }
+    for (layer_id, rule) in &spec.renders {
+        if !selected_layers.contains(layer_id) {
+            return Err(render_error(
+                spec,
+                format!("render rule `{layer_id}` does not name a selected card layer"),
+            ));
+        }
+        let layer = ruleset
+            .layers
+            .iter()
+            .find(|layer| &layer.id == layer_id)
+            .ok_or_else(|| {
+                render_error(
+                    spec,
+                    format!("render rule `{layer_id}` does not name a card layer"),
+                )
+            })?;
+        for placeholder in
+            game_template_placeholders(&rule.id).map_err(|detail| render_error(spec, detail))?
+        {
+            if !layer.axes.contains(&placeholder) {
+                return Err(render_error(
+                    spec,
+                    format!("render rule `{layer_id}` id names unavailable field `{placeholder}`"),
+                ));
+            }
+        }
+        let cards = ruleset
+            .cards()
+            .into_iter()
+            .filter(|card| card.layer == *layer_id)
+            .collect::<Vec<_>>();
+        let available_fields = cards
+            .iter()
+            .flat_map(|card| ruleset.render_fields(card).into_keys())
+            .collect::<BTreeSet<_>>();
+        if let Some(field) = rule
+            .keep
+            .iter()
+            .find(|field| !available_fields.contains(field.as_str()))
+        {
+            return Err(render_error(
+                spec,
+                format!("render rule `{layer_id}` keeps unavailable field `{field}`"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_selected_layer_sources(
+    ruleset: &Ruleset,
+    spec: &ProfileSpec,
+    selected_layers: &BTreeSet<String>,
+) -> Result<(), ExportError> {
+    for layer in ruleset
+        .layers
+        .iter()
+        .filter(|layer| selected_layers.contains(&layer.id))
+    {
+        let mut seen_axes = BTreeSet::new();
+        if let Some(axis) = layer.axes.iter().find(|axis| {
+            !seen_axes.insert(axis.as_str())
+                || !ruleset.axes.iter().any(|candidate| candidate.id == **axis)
+        }) {
+            return Err(render_error(
+                spec,
+                format!(
+                    "selected card layer `{}` references missing or duplicate axis `{axis}`",
+                    layer.id
+                ),
+            ));
+        }
+        for placeholder in game_template_placeholders(&layer.id_template)
+            .map_err(|detail| render_error(spec, detail))?
+        {
+            if !layer.axes.contains(&placeholder) {
+                return Err(render_error(
+                    spec,
+                    format!(
+                        "selected card layer `{}` id names unavailable field `{placeholder}`",
+                        layer.id
+                    ),
+                ));
+            }
+        }
+    }
+    let source_cards = ruleset
+        .cards()
+        .into_iter()
+        .filter(|card| selected_layers.contains(&card.layer))
+        .collect::<Vec<_>>();
+    let source_ids = source_cards
+        .iter()
+        .map(|card| card.id.as_str())
+        .collect::<BTreeSet<_>>();
+    if source_ids.len() != source_cards.len() {
+        return Err(render_error(
+            spec,
+            "more than one selected source card has the same id",
+        ));
+    }
+    Ok(())
+}
+
+fn selected_layers(ruleset: &Ruleset, spec: &ProfileSpec) -> BTreeSet<String> {
+    let wildcard = spec.selects.sorts.is_empty() && spec.selects.relations.is_empty();
+    ruleset
+        .layers
+        .iter()
+        .filter(|layer| wildcard || spec.selects.sorts.contains(&layer.id))
+        .map(|layer| layer.id.clone())
+        .collect()
+}
+
+fn game_template_placeholders(template: &str) -> Result<Vec<String>, String> {
+    let mut placeholders = Vec::new();
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        if rest[..open].contains('}') {
+            return Err(format!(
+                "render template `{template}` has an unmatched `}}`"
+            ));
+        }
+        let after_open = &rest[open + 1..];
+        let Some(close) = after_open.find('}') else {
+            return Err(format!(
+                "render template `{template}` has an unmatched `{{`"
+            ));
+        };
+        let field = &after_open[..close];
+        if field.is_empty() || field.contains('{') {
+            return Err(format!(
+                "render template `{template}` has an invalid placeholder"
+            ));
+        }
+        placeholders.push(field.to_owned());
+        rest = &after_open[close + 1..];
+    }
+    if rest.contains('}') {
+        return Err(format!(
+            "render template `{template}` has an unmatched `}}`"
+        ));
+    }
+    Ok(placeholders)
+}
+
+fn render_error(spec: &ProfileSpec, detail: impl Into<String>) -> ExportError {
+    ExportError::InvalidProfile {
+        profile: spec.qualified(),
+        detail: detail.into(),
     }
 }
 

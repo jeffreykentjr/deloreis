@@ -10,12 +10,12 @@ declarative claim about what the world holds, which is the name, read one way.
 
 ## Status
 
-The kernel and most domain engines are implemented, but the standalone source
+The kernel and domain engines are implemented, but the standalone source
 release is **not complete**. The worker now loads strict, versioned caller
 projects; its typed contract, paired fixture oracle, durable payload and
-attestation evidence, restart-resumable simulation jobs, and Door T are
-complete. Standalone CLI smoke coverage and the remaining export profiles stay
-open in the PLAN's machine-checked node matrix. The grammar is
+attestation evidence, restart-resumable simulation jobs, Door T, and generic
+export family are complete. Standalone CLI smoke coverage remains open in the
+PLAN's machine-checked node matrix. The grammar is
 **unfrozen** and remains open until the G1 grammar gate. See
 [`docs/PLAN.md`](docs/PLAN.md) for current evidence, deferred work, and release
 blockers.

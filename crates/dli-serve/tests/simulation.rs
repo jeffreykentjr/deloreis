@@ -81,7 +81,7 @@ fn start(seed: u64, trials: u64, every: u64) -> Value {
 
 fn start_asset(document: &str, seed: u64, trials: u64, every: u64) -> Value {
     serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "start",
         "op": "dli.simulate.start",
         "params": {
@@ -95,7 +95,7 @@ fn start_asset(document: &str, seed: u64, trials: u64, every: u64) -> Value {
 
 fn status(job_id: &str) -> Value {
     serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "status",
         "op": "dli.simulate.status",
         "params": {"job_id": job_id}
@@ -104,7 +104,7 @@ fn status(job_id: &str) -> Value {
 
 fn cancel(job_id: &str) -> Value {
     serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "cancel",
         "op": "dli.simulate.cancel",
         "params": {"job_id": job_id}

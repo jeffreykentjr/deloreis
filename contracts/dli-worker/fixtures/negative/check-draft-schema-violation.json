@@ -3,7 +3,7 @@
   "version": 1,
   "note": "dli.check-draft requires a `payload`; params omit it, violating the op schema. (Replaces the former contradiction-payload negative, which did not contradict the real engine's projection; a genuine contradiction negative awaits the check-draft contradiction path plus a known-contradicting corpus.)",
   "send": {
-    "dli": "0.4.2",
+    "dli": "0.5.0",
     "id": "1",
     "op": "dli.check-draft",
     "params": {}

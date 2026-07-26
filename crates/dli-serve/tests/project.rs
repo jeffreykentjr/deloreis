@@ -50,7 +50,7 @@ fn claim_payload_request(
     prompt_digit: char,
 ) -> Value {
     serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": format!("submit-{episode}"),
         "op": "dli.payload-submit",
         "params": {
@@ -113,21 +113,66 @@ fn loads_the_second_world_as_one_logical_document() {
     assert_eq!(project.name(), "nine-realms");
     let document = project.document("norse").expect("logical document");
     assert_eq!(document.pack.documents.len(), 3);
+    assert!(document.source_digest.starts_with("content-sha256:"));
+    assert!(document.profiles.resolve("tabular/nine-realms@1").is_some());
     assert!(project.document("camelot").is_none());
     assert!(project.evidence_dir().is_dir());
     assert!(project.cache_dir().is_dir());
 }
 
 #[test]
+fn document_source_anchor_changes_with_source_bytes() {
+    let root = temp("project-source-anchor");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
+
+    let before = Project::load(&root)
+        .unwrap()
+        .document("world")
+        .unwrap()
+        .source_digest
+        .clone();
+    fs::write(root.join("world.dli"), "scope world\n\n").unwrap();
+    let after = Project::load(&root)
+        .unwrap()
+        .document("world")
+        .unwrap()
+        .source_digest
+        .clone();
+
+    assert_ne!(before, after);
+}
+
+#[test]
+fn project_worker_uses_the_document_profile_catalog() {
+    let project = Project::load(norse()).expect("Norse project loads");
+    let input = b"{\"dli\":\"0.5.0\",\"id\":\"csv\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"norse\",\"profile\":\"csv\",\"profile_name\":\"tabular/nine-realms@1\"}}\n";
+    let mut output = Vec::new();
+    serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
+    let response: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(response["ok"], true, "{response}");
+    assert_eq!(response["result"]["emission"]["profile"], "csv");
+    assert_eq!(
+        response["result"]["emission"]["artifact"]["profile"],
+        "tabular/nine-realms@1"
+    );
+    let csv = response["result"]["emission"]["artifact"]["content"]
+        .as_str()
+        .unwrap();
+    assert!(csv.contains("asgard-to-midgard"), "{csv}");
+    assert!(!csv.contains("asgard-to-alfheim"), "{csv}");
+}
+
+#[test]
 fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
+{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -157,8 +202,8 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
 fn project_door_t_rejects_invented_forks() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
+{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -191,14 +236,14 @@ fn project_stateful_handles_and_workspaces_cannot_cross_documents() {
     );
     let project = Project::load(&root).expect("two-document project loads");
     let input = b"\
-{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.2\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
+{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.5.0\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -232,7 +277,7 @@ fn cyclic_timeline_reports_blame_without_cursor_order_claims() {
     .unwrap();
     write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
     let project = Project::load(&root).expect("cyclic chronology remains diagnosable");
-    let input = b"{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
+    let input = b"{\"dli\":\"0.5.0\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -404,6 +449,11 @@ fn loads_optional_project_assets_without_demo_resolution() {
         root.join("game-profiles.json"),
     )
     .unwrap();
+    fs::copy(
+        repo.join("examples/norse/export-profiles.json"),
+        root.join("document-profiles.json"),
+    )
+    .unwrap();
     write_manifest(
         &root,
         "[documents.world]\nsources = [\"world.dli\"]\n\
@@ -411,6 +461,7 @@ fn loads_optional_project_assets_without_demo_resolution() {
          outlines = \"outlines.yaml\"\n\
          craft_ledger = \"craft-ledger.yaml\"\n\
          killed_tokens = \"killed.yaml\"\n\
+         profiles = \"document-profiles.json\"\n\
          [games.rune-wheel]\nrules = \"rules.json\"\nprofiles = \"game-profiles.json\"\n",
     );
 
@@ -420,6 +471,7 @@ fn loads_optional_project_assets_without_demo_resolution() {
     assert_eq!(document.outlines.as_ref().unwrap().episodes[0].id, "e01");
     assert!(document.craft_ledger.as_ref().unwrap().episodes.is_empty());
     assert!(document.killed.hit("the Old Name returns").is_some());
+    assert!(document.profiles.resolve("wiki/nine-realms").is_some());
     assert!(
         project
             .game("rune-wheel")
@@ -428,6 +480,83 @@ fn loads_optional_project_assets_without_demo_resolution() {
             .resolve("cards/rune-wheel")
             .is_some()
     );
+}
+
+#[test]
+fn rejects_an_ambiguous_document_profile_catalog() {
+    let root = temp("project-invalid-document-profiles");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::write(
+        root.join("profiles.json"),
+        r#"{
+          "profiles": [
+            {
+              "target": "csv",
+              "name": "tabular/duplicate",
+              "version": 1,
+              "selects": {"sorts": [], "relations": []},
+              "renders": {},
+              "carries_provenance": "dev-metadata"
+            },
+            {
+              "target": "csv",
+              "name": "tabular/duplicate",
+              "version": 1,
+              "selects": {"sorts": [], "relations": []},
+              "renders": {},
+              "carries_provenance": "stripped"
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\nprofiles = \"profiles.json\"\n",
+    );
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("registered more than once"), "{error}");
+    assert!(!root.join(".dli-evidence").exists());
+    assert!(!root.join(".dli-cache").exists());
+}
+
+#[test]
+fn rejects_a_game_profile_that_the_ruleset_cannot_render() {
+    let root = temp("project-invalid-game-profile");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/games/french-deck/rules.json"),
+        root.join("rules.json"),
+    )
+    .unwrap();
+    fs::write(
+        root.join("profiles.json"),
+        r#"{
+          "profiles": [{
+            "target": "cards",
+            "name": "cards/invalid",
+            "version": 1,
+            "selects": {"sorts": ["card"], "relations": ["invented"]},
+            "renders": {
+              "card": {"id": "{missing}", "keep": ["invented"]}
+            },
+            "carries_provenance": "dev-metadata"
+          }]
+        }"#,
+    )
+    .unwrap();
+    write_manifest(
+        &root,
+        "[documents.world]\nsources = [\"world.dli\"]\n\
+         [games.deck]\nrules = \"rules.json\"\nprofiles = \"profiles.json\"\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("selected relation `invented`"), "{error}");
+    assert!(error.contains("profiles.json"), "{error}");
+    assert!(!error.contains("rules.json is malformed"), "{error}");
+    assert!(!root.join(".dli-evidence").exists());
+    assert!(!root.join(".dli-cache").exists());
 }
 
 #[test]
@@ -447,7 +576,7 @@ fn payload_handler_reads_project_owned_outline_context() {
     let project = Project::load(&root).unwrap();
     let source = "draft";
     let request = serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "outline-context",
         "op": "dli.check-draft",
         "params": {
@@ -462,7 +591,7 @@ fn payload_handler_reads_project_owned_outline_context() {
         }
     });
     let typo = serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "outline-typo",
         "op": "dli.payload-submit",
         "params": {
@@ -584,7 +713,7 @@ fn document_check_replays_committed_payloads_after_restart() {
     .unwrap();
     fs::write(root.join("world.dli"), "scope world\n").unwrap();
     let check = serde_json::json!({
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "check",
         "op": "dli.check",
         "params": {"document": "world"}

@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Exports: one-way compiles from the certain layer"
-verdict: "one-way compiles from the certain layer; profiles are data; the GDL differential is the external audit."
+verdict: "One-way, profile-driven compiles from the certain layer to context packs, cards, Ludii, articy JSON, CSV, and static Markdown wikis; the live GDL differential remains external."
 ---
 
 # Exports
@@ -33,27 +33,36 @@ is the product.
 
 ## 2. The four-clause contract
 
-`deloreis export <target> --profile <p> [--fork <f>]` compiles the world for a
-target. The contract has four clauses:
+`deloreis export --profile <target> --corpus <path> [--profiles <catalog>]
+[--profile-name <name@version>]` compiles a lore world for a target. Card and
+Ludii exports use `--game` in place of `--corpus`. The contract has four
+clauses:
 
 1. **Source layer.** An export reads the **certain layer by default**; a fork's
-   valuation only under an explicit `--fork` flag. Proposed lore never exports by
-   accident — it fails closed, exactly as the context-pack builder already
-   behaves.
+   valuation only when a library caller supplies an explicit valuation. The
+   shipped CLI and worker expose certain-layer exports only; neither accepts a
+   fork selector. Proposed lore never exports by accident — it fails closed,
+   exactly as the context-pack builder already behaves.
 2. **Profile.** A **versioned mapping file** — which sorts, relations, and keys
    the target consumes, and how they render. Profiles are **data, not code
-   forks**; adding a target means writing a profile, never touching the kernel.
+   forks**; adding a mapping for an existing target means writing a profile,
+   never touching the kernel. A genuinely new emission format still requires an
+   explicit target implementation and wire-contract migration.
 3. **Emission.** Target-shaped data: JSON, CSV, whatever the consumer eats.
    Exports carry **knowledge** — entities, facts, relations, who-knows-what
    scopes, variant deltas — **never behavior**.
-4. **Manifest.** Source commit, layer, valuation, and profile hash. Every
+4. **Manifest.** Source revision or content fingerprint, layer, valuation, and
+   profile hash. The field remains named `commit` on the pre-v1 wire: the CLI
+   uses an explicit `--commit` when supplied and otherwise derives
+   `content-sha256:<hex>` from the loaded source-byte set; the project worker,
+   which never reads git, always derives that content fingerprint. Every
    exported artifact is traceable to the exact canon state that produced it; a
    wrong card is diagnosable to a profile bug or a canon state, never a mystery.
 
-A profile is an ordinary data file — the thing that makes "adding a target is a
-profile, never kernel code" literally true. It names the sorts and relations the
-target consumes and how each renders; it holds no logic beyond selection and
-renaming:
+A profile is an ordinary data file — the thing that makes adding a mapping for
+an existing target data rather than a code branch. It names the sorts and
+relations the target consumes and how each renders; it holds no logic beyond
+selection and renaming:
 
 ```yaml
 # cards/french-deck@1 — a profile is data, not a code fork
@@ -67,13 +76,52 @@ renders:
 carries_provenance: dev-metadata   # cited decisions as meta.cited; stripped for ship
 ```
 
+Catalogs are validated before rendering. Profile names are versioned and unique;
+unknown object fields, duplicate selectors, duplicate identities, target
+mismatches, unknown kept fields, and unavailable template placeholders fail
+closed. Empty `sorts` and `relations` together mean all certain predicates; once
+either list is non-empty, their union is exact. Generic flat renderers name
+positional fields `arg0`, `arg1`, and so on. A caller catalog overrides a
+matching neutral built-in by qualified identity, and an explicit
+`--profile-name` removes default-selection ambiguity.
+
+Game rulesets declare the sort and relation names their profiles may select.
+Their axes and card layers form the sort namespace; their `relations` array is
+the relation namespace. Card and Ludii profiles are validated against that
+concrete namespace and the card fields available to each render rule. Explicit
+sort selection emits only selected card layers, missing fields and rendered-id
+collisions fail, and Ludii emits legal moves or terminals only when those
+relations are selected. A proposed ruleset is not certain-layer knowledge and
+cannot export. A lore-world `fork` valuation is not a game delta and is refused
+by the game library; callers materialize and ratify a ruleset variant first.
+Generic lore renderers likewise refuse `region` and `variant` selectors because
+they do not materialize world deltas. A world adapter may consume known selectors
+into a concrete ruleset before generic export; unknown and incompatible values
+fail, and consumed selectors are cleared rather than hashed as if they had an
+additional artifact effect.
+
+An export without a non-empty source revision or content fingerprint is refused.
+The project worker fingerprints the same source bytes it parsed, so a concurrent
+filesystem change cannot relabel an already compiled artifact. Target-specific
+projections are total over selected atoms: unsupported arity, a non-ground
+argument, or a field the target cannot preserve is an error, never a dropped
+row. Provenance mode changes metadata only; stripped and development exports
+contain the same selected knowledge.
+
 Every emitted artifact carries a manifest that ties it to the exact canon state
 that produced it — the field that turns a wrong card from a mystery into a
 diagnosis:
 
 ```json
-{"compiled_from": {"commit": "3e1320a", "layer": "certain",
-  "valuation": "ledger@head", "profile": "cards/french-deck@1"}}
+{
+  "artifact": {"profile": "cards/french-deck@1", "layer": "certain"},
+  "manifest": {
+    "commit": "content-sha256:…",
+    "layer": "certain",
+    "valuation": "sha256:…",
+    "profile_hash": "sha256:…"
+  }
+}
 ```
 
 **One-way, absolutely.** No export is ever read back as authority. A change
@@ -105,9 +153,14 @@ hand (koan 11).
   a completion. Provenance citations travel as dev-metadata and are **stripped
   for ship builds**, so the shipped artifact carries the knowledge without the
   authoring apparatus.
-- **Free riders** — CSV for producers, a static wiki render for collaborators;
-  both fall out of the same compiled world for near-zero cost, because the
-  compiled world already holds everything a flat projection needs.
+- **Free riders** — RFC 4180 CSV for producers and a static Markdown wiki bundle
+  for collaborators. Both use the same sorted flat projection of selected
+  certain-layer atoms. CSV carries one row per atom with rendered id, kind,
+  predicate, retained positional arguments, canonical claim, and optional
+  citations; cells beginning with spreadsheet formula sigils are prefixed with
+  an apostrophe. The wiki emits `index.md` plus one HTML-escaped,
+  path-component-encoded page per predicate. A `stripped` profile removes
+  citations from both.
 
 ## 4. What we refuse to become
 
@@ -139,6 +192,11 @@ and board games and ships a maintained runtime. Soundness is verified
 same seeded positions, and their legal-move sets and terminal verdicts must
 agree over the battery.
 
+Every ruleset string emitted inside an L-GDL quoted literal is escaped by the
+renderer: quotes, backslashes, line separators, tabs, and control characters
+cannot terminate a component, move endpoint, game id, or layout name and inject
+a ludeme.
+
 This is koan 12 working **in reverse** — the GDL runtime is a rented baseline
 validating the owned engine — and it is the cheapest external audit of the claim
 that the Turning's rules-as-lore are really rules
@@ -168,17 +226,24 @@ standard deck. Output, abridged:
 
 ```json
 {
-  "deck": "french-deck-standard",
-  "compiled_from": {"commit": "…", "layer": "certain", "profile": "cards/french-deck@1"},
-  "card_count": 52,
-  "cards": [
-    {"id": "ace-of-spades", "suit": "spades", "rank": "ace", "name": "Ace of Spades",
-     "meta": {"cited": ["DL-0017", "DL-0018"]}},
-    {"id": "seven-of-hearts", "suit": "hearts", "rank": "seven", "name": "Seven of Hearts",
-     "run_successor": "eight-of-hearts"},
-    {"id": "king-of-clubs", "suit": "clubs", "rank": "king", "name": "King of Clubs"}
-  ],
-  "layouts": ["a-run", "the-full-suit"]
+  "artifact": {
+    "deck": "french-deck",
+    "layer": "certain",
+    "profile": "cards/french-deck@1",
+    "cited": ["DL-0017", "DL-0018"],
+    "card_count": 52,
+    "cards": [
+      {"id": "ace-of-spades", "layer": "card",
+       "kept": {"suit": "spades", "rank": "ace", "name": "Ace"}}
+    ],
+    "layouts": ["a-run", "the-full-suit"]
+  },
+  "manifest": {
+    "commit": "content-sha256:…",
+    "layer": "certain",
+    "valuation": "fnv1a64:…",
+    "profile_hash": "fnv1a64:…"
+  }
 }
 ```
 
@@ -191,8 +256,8 @@ work:
   falls out of the compile rather than being hand-maintained.
 
 The variant is **lore, not a profile edit** — koan 10's worked export decision.
-A profile renders; it never defines content. The piquet deck is a `variant`
-declaration with status and citations, and the profile simply compiles it:
+A profile renders; it never defines content. The piquet deck begins as a
+`variant` declaration with status and citations:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
@@ -203,13 +268,16 @@ variant french-deck/piquet
   practice french-deck
 ```
 
-The piquet recompile, abridged, shows the loss falling out of the compile:
+That declaration is proposed and therefore cannot be exported as certain-layer
+knowledge. Once authorially ratified, the caller materializes the resulting
+ruleset and passes that concrete ruleset to the same generic profile. The
+recompile, abridged, shows the loss falling out of the compile:
 
 ```json
 {
   "deck": "french-deck-piquet",
-  "compiled_from": {"commit": "…", "layer": "certain",
-    "profile": "cards/french-deck@1", "variant": "french-deck/piquet"},
+  "layer": "certain",
+  "profile": "cards/french-deck@1",
   "card_count": 32,
   "layouts": ["a-run"]
 }

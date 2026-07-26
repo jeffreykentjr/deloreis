@@ -1,0 +1,63 @@
+{
+  "profiles": [
+    {
+      "target": "articy",
+      "name": "video/nine-realms",
+      "version": 1,
+      "selects": {
+        "sorts": [
+          "person",
+          "place",
+          "thing"
+        ],
+        "relations": [
+          "adjacent"
+        ]
+      },
+      "renders": {},
+      "carries_provenance": "dev-metadata"
+    },
+    {
+      "target": "csv",
+      "name": "tabular/nine-realms",
+      "version": 1,
+      "selects": {
+        "sorts": [
+          "person",
+          "place",
+          "thing"
+        ],
+        "relations": [
+          "adjacent"
+        ]
+      },
+      "renders": {
+        "adjacent": {
+          "id": "{arg0}-to-{arg1}",
+          "keep": [
+            "arg0",
+            "arg1"
+          ]
+        }
+      },
+      "carries_provenance": "dev-metadata"
+    },
+    {
+      "target": "static-wiki",
+      "name": "wiki/nine-realms",
+      "version": 1,
+      "selects": {
+        "sorts": [
+          "person",
+          "place",
+          "thing"
+        ],
+        "relations": [
+          "adjacent"
+        ]
+      },
+      "renders": {},
+      "carries_provenance": "stripped"
+    }
+  ]
+}

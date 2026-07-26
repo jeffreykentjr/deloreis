@@ -39,6 +39,13 @@ const FRENCH_DECK_PROFILES: &str =
 const FRENCH_DECK_PIQUET: &str =
     include_str!("../../../examples/games/french-deck/variants/piquet.json");
 
+fn export_opts() -> ExportOpts {
+    ExportOpts {
+        source_commit: "content-sha256:test-source".to_owned(),
+        ..ExportOpts::default()
+    }
+}
+
 fn french_deck() -> Ruleset {
     Ruleset::from_rules(FRENCH_DECK_RULES).expect("the shipped french-deck rules parse")
 }
@@ -307,13 +314,8 @@ fn deal_checkpoint_resumes_to_the_same_manifest_and_rejects_forgery() {
 fn card_export_renders_every_card_from_the_profile() {
     let registry = french_deck_registry();
     let deck = french_deck();
-    let export = export::run(
-        &registry,
-        ExportTarget::Cards,
-        &deck,
-        &ExportOpts::default(),
-    )
-    .expect("the cards export runs");
+    let export = export::run(&registry, ExportTarget::Cards, &deck, &export_opts())
+        .expect("the cards export runs");
     let cards = export.artifact.as_cards().expect("a card deck");
 
     assert_eq!(cards.deck, "french-deck");
@@ -350,13 +352,8 @@ fn card_export_renders_every_card_from_the_profile() {
 fn ludii_export_renders_components_and_run_edges() {
     let registry = french_deck_registry();
     let deck = french_deck();
-    let export = export::run(
-        &registry,
-        ExportTarget::LudiiGdl,
-        &deck,
-        &ExportOpts::default(),
-    )
-    .expect("the ludii export runs");
+    let export = export::run(&registry, ExportTarget::LudiiGdl, &deck, &export_opts())
+        .expect("the ludii export runs");
     let ludii = export.artifact.as_ludii().expect("a ludii export");
 
     assert_eq!(ludii.profile, "games/french-deck-ludii@1");

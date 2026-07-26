@@ -15,7 +15,9 @@ use dli_core::posbool::PosBool;
 use dli_eval::fork::{AtomChange, ConflictKind};
 use dli_eval::query::{Layer, QueryRow};
 use dli_eval::why::{Why, WhyNot};
-use dli_export::{ContextPack, ExportManifest, ExportProfile};
+use dli_export::{
+    ArticyExport, ContextPack, CsvExport, ExportManifest, ExportProfile, StaticWikiExport,
+};
 use dli_game::export::{CardDeck, LudiiExport};
 use dli_ledger::ProofReport;
 use dli_sim::RunManifest;
@@ -911,6 +913,9 @@ pub struct ExportRunParams {
     pub document: String,
     /// The export profile.
     pub profile: ExportProfile,
+    /// Optional qualified profile name from the caller project's catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
 }
 
 /// `dli.export.run` result.
@@ -932,6 +937,12 @@ pub enum ExportEmission {
     Cards(CardDeck),
     /// A Ludii program and differential status.
     LudiiGdl(LudiiExport),
+    /// Articy-shaped video-game JSON.
+    Articy(ArticyExport),
+    /// Producer-facing CSV.
+    Csv(CsvExport),
+    /// Static Markdown wiki bundle.
+    StaticWiki(StaticWikiExport),
 }
 
 // -- dli.attestation-sweep ---------------------------------------------------

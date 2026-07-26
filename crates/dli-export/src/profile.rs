@@ -8,9 +8,10 @@
 //! [`ExportManifest`] that traces the artifact to the exact canon state.
 //!
 //! **A profile is data.** [`ProfileSpec`] holds only *selection and renaming* — no
-//! logic. Adding a target is a [`Registry`] entry (data), never kernel code (spec
-//! 09 §2 clause 2). The [`ExportTarget`] family is the registry's key and is a
-//! superset of the wire [`ExportProfile`] selector.
+//! logic. Adding a mapping for an existing target is a [`Registry`] entry;
+//! introducing a new emission format requires an explicit renderer and contract
+//! migration (spec 09 §2 clause 2). The [`ExportTarget`] family is the registry
+//! key shared by the wire and CLI selectors.
 //!
 //! **One-way, absolutely.** There is no import path — [`refuse_write_back`] is the
 //! only answer a write-back request gets, and it is worked in full in the charter
@@ -38,13 +39,12 @@ use crate::ExportManifest;
 use crate::ExportProfile;
 use crate::articy::{self, ArticyExport};
 use crate::context_pack::{self, ContextPack};
+use crate::csv::{self, CsvExport};
+use crate::static_wiki::{self, StaticWikiExport};
 
 /// The export target family — the [`Registry`]'s key.
 ///
-/// A **superset** of the wire [`ExportProfile`] selector: it adds
-/// [`ExportTarget::Articy`] (EXP-4), which has no wire variant yet.
-/// Adding a wire variant is a contract change (it regenerates the golden schema);
-/// adding a *target* here is additive and internal.
+/// The internal target selected by the wire and CLI surfaces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExportTarget {
@@ -56,6 +56,10 @@ pub enum ExportTarget {
     LudiiGdl,
     /// Articy-shaped video-game JSON (typed entities, relations, quest structure).
     Articy,
+    /// Producer-facing flat CSV.
+    Csv,
+    /// A static Markdown wiki bundle.
+    StaticWiki,
 }
 
 impl ExportTarget {
@@ -66,12 +70,30 @@ impl ExportTarget {
             ExportProfile::ContextPack => Self::ContextPack,
             ExportProfile::Cards => Self::Cards,
             ExportProfile::LudiiGdl => Self::LudiiGdl,
+            ExportProfile::Articy => Self::Articy,
+            ExportProfile::Csv => Self::Csv,
+            ExportProfile::StaticWiki => Self::StaticWiki,
         }
+    }
+}
+
+impl std::fmt::Display for ExportTarget {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::ContextPack => "context-pack",
+            Self::Cards => "cards",
+            Self::LudiiGdl => "ludii-gdl",
+            Self::Articy => "articy",
+            Self::Csv => "csv",
+            Self::StaticWiki => "static-wiki",
+        };
+        formatter.write_str(name)
     }
 }
 
 /// The sorts and relations a profile selects out of the compiled world.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Selection {
     /// The entity sorts the target consumes.
     pub sorts: Vec<String>,
@@ -85,6 +107,7 @@ pub struct Selection {
 /// needs to **compute** rather than render has smuggled rules out of the fabric
 /// (spec 09 §5) and is a finding, not a feature.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RenderRule {
     /// The id template, e.g. `{role}-{ground}`.
     pub id: String,
@@ -108,8 +131,9 @@ pub enum ProvenanceMode {
 ///
 /// It names the target, the sorts and relations consumed, how each renders, and
 /// whether provenance ships. It holds no logic beyond selection and renaming, so
-/// adding a target is writing one of these, never touching the kernel.
+/// adding a mapping for an existing target never touches the kernel.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProfileSpec {
     /// The target this profile compiles for.
     pub target: ExportTarget,
@@ -133,10 +157,10 @@ impl ProfileSpec {
     }
 }
 
-/// The profile registry: the set of known [`ProfileSpec`]s. Adding a target is
-/// pushing one here — the mechanism that makes "adding a target is a profile,
-/// never kernel code" literally true (spec 09 §2 clause 2).
+/// The profile registry: the set of known [`ProfileSpec`]s. Adding a mapping for
+/// an existing target is pushing one here (spec 09 §2 clause 2).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Registry {
     /// The registered profiles.
     pub profiles: Vec<ProfileSpec>,
@@ -145,8 +169,9 @@ pub struct Registry {
 impl Registry {
     /// The built-in profiles — the world-agnostic base catalog.
     ///
-    /// This is the *engine's* catalog: a single neutral `context-pack/default`
-    /// profile that names no sorts, no relations, and no world. Concrete,
+    /// This is the engine's neutral catalog. Each generic world target names no
+    /// sorts, relations, or world, so its empty selection means all certain
+    /// predicates. Concrete,
     /// world-specific catalogs (the Turning card deck, the Ludii ruleset export,
     /// a world's `video/articy` profile) are **data**, not kernel code (spec 09 §2 clause 2):
     /// they live under `worlds/<world>/export/profiles.json` and are loaded with
@@ -155,14 +180,12 @@ impl Registry {
     #[must_use]
     pub fn builtin() -> Self {
         Self {
-            profiles: vec![ProfileSpec {
-                target: ExportTarget::ContextPack,
-                name: "context-pack/default".to_owned(),
-                version: 1,
-                selects: Selection::default(),
-                renders: BTreeMap::new(),
-                carries_provenance: ProvenanceMode::DevMetadata,
-            }],
+            profiles: vec![
+                neutral_profile(ExportTarget::ContextPack, "context-pack/default"),
+                neutral_profile(ExportTarget::Articy, "video/articy"),
+                neutral_profile(ExportTarget::Csv, "tabular/csv"),
+                neutral_profile(ExportTarget::StaticWiki, "wiki/static"),
+            ],
         }
     }
 
@@ -186,37 +209,259 @@ impl Registry {
             path: path.display().to_string(),
             source,
         })?;
-        serde_json::from_slice(&bytes).map_err(|source| RegistryLoadError::Parse {
-            path: path.display().to_string(),
-            source,
-        })
+        let registry: Self =
+            serde_json::from_slice(&bytes).map_err(|source| RegistryLoadError::Parse {
+                path: path.display().to_string(),
+                source,
+            })?;
+        registry
+            .validate()
+            .map_err(|message| RegistryLoadError::Validate {
+                path: path.display().to_string(),
+                message,
+            })?;
+        Ok(registry)
     }
 
-    /// Merge another catalog's profiles onto this one, appended in order — the
-    /// base-plus-world composition (builtin base, then a world's loaded catalog).
+    /// Merge another catalog onto this one, with the later catalog taking
+    /// precedence for an identical qualified identity.
+    ///
+    /// Defaults are resolved from the last profile registered for a target, so a
+    /// caller catalog naturally overrides a neutral built-in target.
     #[must_use]
     pub fn merge(mut self, other: Self) -> Self {
+        let incoming = other
+            .profiles
+            .iter()
+            .map(ProfileSpec::qualified)
+            .collect::<std::collections::BTreeSet<_>>();
+        self.profiles
+            .retain(|existing| !incoming.contains(&existing.qualified()));
         self.profiles.extend(other.profiles);
         self
+    }
+
+    /// Validate profile identities and selector structure.
+    ///
+    /// Validation runs at export time as well as file-load time so catalogs
+    /// assembled in memory cannot bypass it.
+    pub fn validate(&self) -> Result<(), String> {
+        let mut identities = std::collections::BTreeSet::new();
+        for profile in &self.profiles {
+            if profile.name.trim().is_empty() || profile.name.contains('@') {
+                return Err("profile names must be non-empty and must not contain `@`".to_owned());
+            }
+            if profile.version == 0 {
+                return Err(format!(
+                    "profile `{}` must use a version of at least 1",
+                    profile.name
+                ));
+            }
+            if !identities.insert(profile.qualified()) {
+                return Err(format!(
+                    "profile identity `{}` is registered more than once",
+                    profile.qualified()
+                ));
+            }
+            reject_duplicates(
+                &profile.selects.sorts,
+                &format!("profile `{}` sorts", profile.qualified()),
+            )?;
+            reject_duplicates(
+                &profile.selects.relations,
+                &format!("profile `{}` relations", profile.qualified()),
+            )?;
+            if let Some(name) = profile
+                .selects
+                .sorts
+                .iter()
+                .find(|name| profile.selects.relations.contains(name))
+            {
+                return Err(format!(
+                    "profile `{}` selects `{name}` as both a sort and relation",
+                    profile.qualified()
+                ));
+            }
+            for (predicate, rule) in &profile.renders {
+                if predicate.trim().is_empty() {
+                    return Err(format!(
+                        "profile `{}` has an empty render-rule key",
+                        profile.qualified()
+                    ));
+                }
+                reject_duplicates(
+                    &rule.keep,
+                    &format!(
+                        "profile `{}` render rule `{predicate}` keep-list",
+                        profile.qualified()
+                    ),
+                )?;
+                let wildcard =
+                    profile.selects.sorts.is_empty() && profile.selects.relations.is_empty();
+                let selected = profile.selects.sorts.contains(predicate)
+                    || profile.selects.relations.contains(predicate);
+                if !wildcard && !selected {
+                    return Err(format!(
+                        "profile `{}` has a render rule for unselected predicate `{predicate}`",
+                        profile.qualified()
+                    ));
+                }
+                validate_render_rule(profile, predicate, rule)?;
+            }
+        }
+        Ok(())
     }
 
     /// The profile registered under a `name` or `name@version` string.
     #[must_use]
     pub fn resolve(&self, name: &str) -> Option<&ProfileSpec> {
         let (base, version) = match name.split_once('@') {
-            Some((base, ver)) => (base, ver.parse::<u32>().ok()),
+            Some((base, ver)) => (base, Some(ver.parse::<u32>().ok()?)),
             None => (name, None),
         };
         self.profiles
             .iter()
-            .find(|p| p.name == base && version.is_none_or(|v| v == p.version))
+            .filter(|profile| {
+                profile.name == base && version.is_none_or(|value| value == profile.version)
+            })
+            .max_by_key(|profile| profile.version)
     }
 
-    /// The default profile for a target — the first registered for it.
+    /// The default profile for a target — the last registered for it.
     #[must_use]
     pub fn default_for(&self, target: ExportTarget) -> Option<&ProfileSpec> {
-        self.profiles.iter().find(|p| p.target == target)
+        self.profiles
+            .iter()
+            .rev()
+            .find(|profile| profile.target == target)
     }
+
+    /// Resolve and target-check a profile after validating the full registry.
+    pub fn resolve_for(
+        &self,
+        target: ExportTarget,
+        name: Option<&str>,
+    ) -> Result<&ProfileSpec, ExportError> {
+        self.validate()
+            .map_err(ExportError::InvalidProfileRegistry)?;
+        let spec = match name {
+            Some(name) => self
+                .resolve(name)
+                .ok_or_else(|| ExportError::UnknownProfile(name.to_owned()))?,
+            None => self
+                .default_for(target)
+                .ok_or(ExportError::NoDefaultProfile(target))?,
+        };
+        if spec.target != target {
+            return Err(ExportError::ProfileTargetMismatch {
+                name: spec.name.clone(),
+                found: spec.target,
+                requested: target,
+            });
+        }
+        Ok(spec)
+    }
+}
+
+fn neutral_profile(target: ExportTarget, name: &str) -> ProfileSpec {
+    ProfileSpec {
+        target,
+        name: name.to_owned(),
+        version: 1,
+        selects: Selection::default(),
+        renders: BTreeMap::new(),
+        carries_provenance: ProvenanceMode::DevMetadata,
+    }
+}
+
+fn reject_duplicates(values: &[String], label: &str) -> Result<(), String> {
+    let mut seen = std::collections::BTreeSet::new();
+    if let Some(value) = values.iter().find(|value| !seen.insert(value.as_str())) {
+        return Err(format!("{label} contains duplicate `{value}`"));
+    }
+    Ok(())
+}
+
+fn validate_render_rule(
+    profile: &ProfileSpec,
+    predicate: &str,
+    rule: &RenderRule,
+) -> Result<(), String> {
+    let placeholders = template_placeholders(&rule.id).map_err(|detail| {
+        format!(
+            "profile `{}` render rule `{predicate}` {detail}",
+            profile.qualified()
+        )
+    })?;
+    match profile.target {
+        ExportTarget::ContextPack if !profile.renders.is_empty() => {
+            return Err(format!(
+                "profile `{}` targets context-pack, which does not accept render rules",
+                profile.qualified()
+            ));
+        }
+        ExportTarget::Articy => {
+            reject_unknown_fields(profile, predicate, &rule.keep, |field| {
+                matches!(field, "id" | "sort" | "facts")
+            })?;
+            reject_unknown_fields(profile, predicate, &placeholders, |field| {
+                matches!(field, "id" | "sort") || positional_field(field)
+            })?;
+        }
+        ExportTarget::Csv | ExportTarget::StaticWiki => {
+            reject_unknown_fields(profile, predicate, &rule.keep, positional_field)?;
+            reject_unknown_fields(profile, predicate, &placeholders, |field| {
+                matches!(field, "predicate" | "claim") || positional_field(field)
+            })?;
+        }
+        ExportTarget::Cards | ExportTarget::LudiiGdl | ExportTarget::ContextPack => {}
+    }
+    Ok(())
+}
+
+fn reject_unknown_fields(
+    profile: &ProfileSpec,
+    predicate: &str,
+    fields: &[String],
+    allowed: impl Fn(&str) -> bool,
+) -> Result<(), String> {
+    if let Some(field) = fields.iter().find(|field| !allowed(field)) {
+        return Err(format!(
+            "profile `{}` render rule `{predicate}` names unavailable field `{field}`",
+            profile.qualified()
+        ));
+    }
+    Ok(())
+}
+
+fn positional_field(field: &str) -> bool {
+    field
+        .strip_prefix("arg")
+        .is_some_and(|index| !index.is_empty() && index.bytes().all(|byte| byte.is_ascii_digit()))
+}
+
+fn template_placeholders(template: &str) -> Result<Vec<String>, String> {
+    let mut placeholders = Vec::new();
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        if rest[..open].contains('}') {
+            return Err(format!("template `{template}` has an unmatched `}}`"));
+        }
+        let after_open = &rest[open + 1..];
+        let Some(close) = after_open.find('}') else {
+            return Err(format!("template `{template}` has an unmatched `{{`"));
+        };
+        let field = &after_open[..close];
+        if field.is_empty() || field.contains('{') {
+            return Err(format!("template `{template}` has an invalid placeholder"));
+        }
+        placeholders.push(field.to_owned());
+        rest = &after_open[close + 1..];
+    }
+    if rest.contains('}') {
+        return Err(format!("template `{template}` has an unmatched `}}`"));
+    }
+    Ok(placeholders)
 }
 
 /// The options that shape an export.
@@ -229,20 +474,20 @@ pub struct ExportOpts {
     /// (the overlay wins). `None` reads the certain layer under the ambient ledger
     /// — the fail-closed default (spec 09 §2 clause 1, `--fork`).
     pub fork: Option<Valuation>,
-    /// Keep-stamp visibility restrictions applied before the emitter sees the
-    /// atoms — the shared who-may-know-what filter (spec 09 §3). A `Removed`
-    /// keep-stamp is how a lore variant delta's cut compiles (§6): the leaves it
-    /// covers vanish, so a layout that read them no longer compiles.
+    /// Keep-stamp visibility restrictions applied before a lore-world emitter
+    /// sees the atoms — the shared who-may-know-what filter (spec 09 §3).
+    /// Materialized game exporters reject this option.
     pub keep_stamps: Vec<KeepStamp>,
     /// A named profile override (`name` or `name@version`); `None` uses the
     /// target's default profile.
     pub profile_name: Option<String>,
-    /// A regional delta selector (lore, not a profile edit): which region's
-    /// substitutions a target compiler applies (e.g. `salt-fringe`). `None` is the
-    /// base region.
+    /// A regional delta selector for a world adapter (lore, not a profile edit).
+    /// Generic lore and game exporters reject it because they do not know how to
+    /// materialize world deltas.
     pub region: Option<String>,
-    /// A variant delta selector (lore, not a profile edit): which named variant a
-    /// target compiler applies (e.g. `keep-stamped`). `None` is the honest deck.
+    /// A variant delta selector for a world adapter (lore, not a profile edit).
+    /// Generic lore and game exporters reject it because they do not know how to
+    /// materialize world deltas.
     pub variant: Option<String>,
 }
 
@@ -257,6 +502,10 @@ pub enum ExportArtifact {
     /// Articy-shaped video-game JSON (EXP-4): typed entities with fact scopes,
     /// who-may-know facts, relations, and quest flow.
     Articy(ArticyExport),
+    /// Producer-facing flat CSV.
+    Csv(CsvExport),
+    /// Static Markdown wiki bundle.
+    StaticWiki(StaticWikiExport),
 }
 
 impl ExportArtifact {
@@ -265,7 +514,7 @@ impl ExportArtifact {
     pub fn as_context_pack(&self) -> Option<&ContextPack> {
         match self {
             Self::ContextPack(pack) => Some(pack),
-            Self::Articy(_) => None,
+            Self::Articy(_) | Self::Csv(_) | Self::StaticWiki(_) => None,
         }
     }
 }
@@ -282,6 +531,16 @@ pub struct ExportOutcome {
 /// A failure of an export.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ExportError {
+    /// The caller did not identify the source state used for the export.
+    #[error("an export requires a non-empty source commit or content fingerprint")]
+    MissingSourceAnchor,
+    /// A materialized source is still proposed and therefore cannot be exported
+    /// as certain-layer knowledge.
+    #[error("target {target} cannot export a proposed source as certain-layer knowledge")]
+    UnassertableSource {
+        /// Target that refused the proposed source.
+        target: ExportTarget,
+    },
     /// The named profile is not registered.
     #[error("no export profile named '{0}' is registered")]
     UnknownProfile(String),
@@ -297,6 +556,33 @@ pub enum ExportError {
         found: ExportTarget,
         /// The target that was requested.
         requested: ExportTarget,
+    },
+    /// The caller assembled an ambiguous or malformed registry.
+    #[error("invalid export profile registry: {0}")]
+    InvalidProfileRegistry(String),
+    /// One profile cannot be interpreted by its target renderer.
+    #[error("invalid export profile '{profile}': {detail}")]
+    InvalidProfile {
+        /// Qualified profile identity.
+        profile: String,
+        /// Target-specific validation detail.
+        detail: String,
+    },
+    /// A target renderer could not encode a selected value.
+    #[error("the {target} export could not be rendered: {detail}")]
+    Render {
+        /// Target name.
+        target: String,
+        /// Encoding detail.
+        detail: String,
+    },
+    /// An option has no defined semantics for the requested target.
+    #[error("target {target} does not support export option `{option}`")]
+    UnsupportedOption {
+        /// Target that refused the option.
+        target: ExportTarget,
+        /// Refused option name.
+        option: &'static str,
     },
     /// The requested target has no engine-side renderer: its renderer lives in a
     /// world crate (the Turning's card/Ludii render moved out of the engine),
@@ -334,6 +620,14 @@ pub enum RegistryLoadError {
         path: String,
         /// The underlying deserialisation error.
         source: serde_json::Error,
+    },
+    /// The decoded catalog violates registry invariants.
+    #[error("validating profile catalog '{path}': {message}")]
+    Validate {
+        /// The path that failed validation.
+        path: String,
+        /// Invariant violation.
+        message: String,
     },
 }
 
@@ -376,7 +670,11 @@ pub fn refuse_write_back() -> ExportError {
 ///
 /// let pack = Pack { name: "camelot".to_owned(), documents: example_docs() };
 /// let world = compile(&pack).expect("compiles");
-/// let outcome = export(ExportTarget::ContextPack, &world, &ExportOpts::default())
+/// let opts = ExportOpts {
+///     source_commit: "content-sha256:example".to_owned(),
+///     ..ExportOpts::default()
+/// };
+/// let outcome = export(ExportTarget::ContextPack, &world, &opts)
 ///     .expect("context pack exports");
 /// // Fail-closed default: the certain layer under the ambient ledger.
 /// assert_eq!(outcome.manifest.layer, "certain");
@@ -408,31 +706,56 @@ pub fn export_with(
     world: &CompiledWorld,
     opts: &ExportOpts,
 ) -> Result<ExportOutcome, ExportError> {
-    let spec = match &opts.profile_name {
-        Some(name) => registry
-            .resolve(name)
-            .ok_or_else(|| ExportError::UnknownProfile(name.clone()))?,
-        None => registry
-            .default_for(target)
-            .ok_or(ExportError::NoDefaultProfile(target))?,
-    };
-    if spec.target != target {
-        return Err(ExportError::ProfileTargetMismatch {
-            name: spec.name.clone(),
-            found: spec.target,
-            requested: target,
+    if opts.source_commit.trim().is_empty() {
+        return Err(ExportError::MissingSourceAnchor);
+    }
+    if opts.region.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "region",
         });
     }
+    if opts.variant.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "variant",
+        });
+    }
+    let spec = registry.resolve_for(target, opts.profile_name.as_deref())?;
 
     let (layer, valuation) = layer_valuation(world, opts);
     let certain = certain_atoms_under(world, &valuation);
     let visible = apply_keep_stamps(certain, &opts.keep_stamps);
+    let selected = select_atoms(spec, visible.clone());
+    if let Some(predicate) = spec.renders.keys().find(|predicate| {
+        !selected
+            .iter()
+            .any(|atom| atom.atom.pred.text.as_str() == predicate.as_str())
+    }) {
+        return Err(ExportError::InvalidProfile {
+            profile: spec.qualified(),
+            detail: format!(
+                "render rule `{predicate}` has no selected certain-layer atom to render"
+            ),
+        });
+    }
 
     let artifact = match target {
         ExportTarget::ContextPack => {
-            ExportArtifact::ContextPack(context_pack::build(spec, &layer, &visible))
+            if !spec.renders.is_empty() {
+                return Err(ExportError::InvalidProfile {
+                    profile: spec.qualified(),
+                    detail: "context-pack profiles select and carry provenance but do not define row render rules"
+                        .to_owned(),
+                });
+            }
+            ExportArtifact::ContextPack(context_pack::build(spec, &layer, &selected))
         }
-        ExportTarget::Articy => ExportArtifact::Articy(articy::compile(spec, &layer, &visible)),
+        ExportTarget::Articy => ExportArtifact::Articy(articy::compile(spec, &layer, &visible)?),
+        ExportTarget::Csv => ExportArtifact::Csv(csv::compile(spec, &layer, &selected)?),
+        ExportTarget::StaticWiki => {
+            ExportArtifact::StaticWiki(static_wiki::compile(spec, &layer, &selected)?)
+        }
         // The card/Ludii render is world content, not engine code: it lives in a
         // world crate that builds its ruleset directly and needs no compiled
         // world. Fail closed here.
@@ -445,9 +768,22 @@ pub fn export_with(
         commit: opts.source_commit.clone(),
         layer,
         valuation: digest_of(&valuation),
-        profile_hash: digest_of(spec),
+        profile_hash: digest_of(&(spec, &opts.keep_stamps)),
     };
     Ok(ExportOutcome { artifact, manifest })
+}
+
+fn select_atoms<'a>(spec: &ProfileSpec, atoms: Vec<&'a LoadedAtom>) -> Vec<&'a LoadedAtom> {
+    if spec.selects.sorts.is_empty() && spec.selects.relations.is_empty() {
+        return atoms;
+    }
+    atoms
+        .into_iter()
+        .filter(|atom| {
+            let predicate = &atom.atom.pred.text;
+            spec.selects.sorts.contains(predicate) || spec.selects.relations.contains(predicate)
+        })
+        .collect()
 }
 
 /// The layer name and the valuation an export reads under.
@@ -564,4 +900,23 @@ fn digest_of<T: Serialize>(value: &T) -> String {
         let _ = write!(out, "{byte:02x}");
     }
     out
+}
+
+/// Fingerprint an order-independent set of source byte strings.
+///
+/// Each member is hashed first, then the sorted member digests are framed by a
+/// domain tag and count. This preserves duplicate members without relying on a
+/// delimiter that could also occur in source bytes.
+#[must_use]
+pub fn source_fingerprint<'a>(contents: impl IntoIterator<Item = &'a [u8]>) -> String {
+    let mut content_digests = contents.into_iter().map(Sha256::digest).collect::<Vec<_>>();
+    content_digests.sort();
+
+    let mut digest = Sha256::new();
+    digest.update(b"dli-source-set-v1\0");
+    digest.update((content_digests.len() as u64).to_be_bytes());
+    for content_digest in content_digests {
+        digest.update(content_digest);
+    }
+    format!("content-sha256:{:x}", digest.finalize())
 }

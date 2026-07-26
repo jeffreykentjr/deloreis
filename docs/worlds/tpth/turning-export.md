@@ -43,8 +43,8 @@ Every emitted artifact carries a manifest tying it to the exact canon state that
 produced it:
 
 ```json
-{"compiled_from": {"commit": "3e1320a", "layer": "certain",
-  "valuation": "ledger@head", "profile": "cards/lowlands@3"}}
+{"commit": "content-sha256:…", "layer": "certain",
+ "valuation": "fnv1a64:…", "profile_hash": "fnv1a64:…"}
 ```
 
 ## The worked card export
@@ -57,19 +57,26 @@ abridged:
 
 ```json
 {
-  "deck": "turning-lowlands-honest",
-  "compiled_from": {"commit": "…", "layer": "certain", "profile": "cards/lowlands@3"},
-  "leaf_count": 29,
-  "leaves": [
-    {"id": "ground-hearth", "layer": "ground", "name": "The Hearth"},
-    {"id": "hand-mender-field", "layer": "hand", "role": "mender",
-     "ground": "field", "figure": "the-pleacher",
-     "meta": {"cited": ["D-0147", "D-0148"]}},
-    {"id": "weather-debt", "layer": "weather", "name": "The Debt",
-     "ring_next": "weather-fallow"},
-    {"id": "reckoner", "layer": "reckoner", "name": "The Reckoner"}
-  ],
-  "layouts": ["a-round", "the-whole-round", "the-ford", "the-debt-square"]
+  "artifact": {
+    "deck": "turning-lowlands-honest",
+    "layer": "certain",
+    "profile": "cards/lowlands@3",
+    "cited": ["D-0147", "D-0148"],
+    "card_count": 29,
+    "cards": [
+      {"id": "mender-field", "layer": "hand",
+       "kept": {"role": "mender", "ground": "field", "figure": "the-pleacher"}},
+      {"id": "weather-debt", "layer": "weather",
+       "kept": {"name": "The Debt", "ring_next": "fallow"}}
+    ],
+    "layouts": ["a-round", "the-whole-round", "the-ford", "the-debt-square"]
+  },
+  "manifest": {
+    "commit": "content-sha256:…",
+    "layer": "certain",
+    "valuation": "fnv1a64:…",
+    "profile_hash": "fnv1a64:…"
+  }
 }
 ```
 
@@ -84,8 +91,8 @@ work:
   being hand-maintained.
 
 The variant is **lore, not a profile edit** — koan 10's worked export decision. A
-profile renders; it never defines content. The keep-stamped deck is a `variant`
-declaration with status and citations, and the profile simply compiles it:
+profile renders; it never defines content. The keep-stamped deck begins as a
+`variant` declaration with status and citations:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
@@ -96,14 +103,17 @@ variant turning/keep-stamped
   practice the-turning
 ```
 
-The keep-stamped recompile, abridged, shows the loss falling out of the compile:
+The world adapter recognizes this selector, materializes the delta, and ratifies
+the resulting concrete ruleset under D-0148 before invoking the generic exporter.
+Unknown selectors and unratified rulesets fail closed. The keep-stamped
+recompile, abridged, shows the loss falling out of the compile:
 
 ```json
 {
   "deck": "turning-lowlands-keep-stamped",
-  "compiled_from": {"commit": "…", "layer": "certain",
-    "profile": "cards/lowlands@3", "variant": "turning/keep-stamped"},
-  "leaf_count": 26,
+  "layer": "certain",
+  "profile": "cards/lowlands@3",
+  "card_count": 26,
   "layouts": ["a-round", "the-whole-round", "the-ford"]
 }
 ```
@@ -114,7 +124,7 @@ compiles. The diff between the honest and keep-stamped exports is itself a
 compiled artifact:
 
 ```text
-- "leaf_count": 29                          + "leaf_count": 26
+- "card_count": 29                          + "card_count": 26
 - "layouts": [… "the-debt-square"]          + "layouts": [ (no the-debt-square) ]
 ```
 

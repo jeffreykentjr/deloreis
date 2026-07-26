@@ -7,3 +7,4 @@ cache = ".dli-cache"
 
 [documents.norse]
 sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
+profiles = "export-profiles.json"

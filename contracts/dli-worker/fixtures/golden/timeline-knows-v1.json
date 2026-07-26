@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "op": "dli.timeline.knows",
         "params": {
@@ -13,7 +13,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -41,7 +41,7 @@
     },
     {
       "send": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "2",
         "op": "dli.timeline.knows",
         "params": {
@@ -50,7 +50,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "2",
         "ok": true,
         "result": {

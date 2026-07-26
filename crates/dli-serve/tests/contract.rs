@@ -273,6 +273,32 @@ fn golden_dispatch_matches() {
 }
 
 #[test]
+fn export_golden_covers_every_closed_emission_branch() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../contracts/dli-worker/fixtures/golden/export-ludii-v1.json");
+    let fixture: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let profiles = fixture["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|step| step["send"]["params"]["profile"].as_str().unwrap())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    assert_eq!(
+        profiles,
+        std::collections::BTreeSet::from([
+            "articy",
+            "cards",
+            "context-pack",
+            "csv",
+            "ludii-gdl",
+            "static-wiki",
+        ])
+    );
+}
+
+#[test]
 fn contract_version_is_consistent_across_registry_and_handshake() {
     use dli_serve::author::store::Store;
     use dli_serve::serve::respond;

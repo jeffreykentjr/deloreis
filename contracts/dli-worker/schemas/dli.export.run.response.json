@@ -18,6 +18,175 @@
     "manifest"
   ],
   "$defs": {
+    "ArticyEntity": {
+      "description": "A typed articy entity (a person, place, or thing) with its fact scope.",
+      "type": "object",
+      "properties": {
+        "cited": {
+          "description": "Cited provenance for the entity declaration (dev-metadata only).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "facts": {
+          "description": "The rendered facts this entity participates in — its local knowledge slice,\nthe claims a dialogue node for this entity may reference. Sorted, deduped.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "The entity id.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "The entity's sort (`person` / `place` / `thing`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sort"
+      ]
+    },
+    "ArticyExport": {
+      "description": "An articy-shaped export: typed entities, relations, dialogue facts with\nknowledge scopes, and quest flow.",
+      "type": "object",
+      "properties": {
+        "entities": {
+          "description": "The typed entities.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArticyEntity"
+          }
+        },
+        "facts": {
+          "description": "The dialogue-relevant facts with knowledge scopes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArticyFact"
+          }
+        },
+        "layer": {
+          "description": "The layer exported.",
+          "type": "string"
+        },
+        "pending": {
+          "description": "Whether the export is still a scaffold. `false` for this v1: entities,\nscopes, relations, and quest flow are modelled; only rich dialogue graphs\nand global variables are deferred (see the module docs).",
+          "type": "boolean"
+        },
+        "profile": {
+          "description": "The profile identity that produced it.",
+          "type": "string"
+        },
+        "quests": {
+          "description": "The quest-shaped structures.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArticyQuest"
+          }
+        },
+        "relations": {
+          "description": "The typed relations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArticyRelation"
+          }
+        }
+      },
+      "required": [
+        "entities",
+        "relations",
+        "facts",
+        "quests",
+        "pending",
+        "profile",
+        "layer"
+      ]
+    },
+    "ArticyFact": {
+      "description": "A dialogue-relevant fact carrying its who-may-know-what scope — the keep-stamp\nvisibility dimension a dialogue system reads to decide what a speaker can\nreference.",
+      "type": "object",
+      "properties": {
+        "cited": {
+          "description": "Cited provenance (dev-metadata; stripped for ship builds).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "claim": {
+          "description": "The rendered fact (`pred(a, b)`).",
+          "type": "string"
+        },
+        "who_may_know": {
+          "description": "The scopes (factions/regions/characters) licensed to know this claim. Empty\nmeans unrestricted. A keep-stamped export never emits a claim a scope may\nnot know — it is absent, not merely flagged.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "claim",
+        "who_may_know"
+      ]
+    },
+    "ArticyQuest": {
+      "description": "A quest-shaped structure: a promise is a hook, an open debt an objective, a\ndischarge a completion (spec 09 §3). The stages of one quest id collapse into a\nsingle quest whose `state` is the furthest reached.",
+      "type": "object",
+      "properties": {
+        "cited": {
+          "description": "Cited provenance collected from the quest's stages (dev-metadata only).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "flow": {
+          "description": "The stages present for this quest, in flow order (`hook` before `objective`\nbefore `complete`) — the quest's progression, not just its head.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "The quest id (the promise).",
+          "type": "string"
+        },
+        "state": {
+          "description": "The furthest quest state reached (`hook` / `objective` / `complete`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "flow"
+      ]
+    },
+    "ArticyRelation": {
+      "description": "A typed relation between two entities.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The related argument ids, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "description": "The relation predicate.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "args"
+      ]
+    },
     "AttrValue": {
       "description": "A world fact attached to an axis value, a decoration, or a rendered card.\n\nSerialised untagged, so JSON carries the natural scalar (`true`, `5`,\n`\"text\"`) with no wrapper. Deserialization tries `Flag`, then `Number`, then\n`Text`, so a bool never lands as text and an integer never lands as a flag.",
       "anyOf": [
@@ -128,6 +297,41 @@
         "est_tokens"
       ]
     },
+    "CsvExport": {
+      "description": "A producer-facing CSV artifact.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "UTF-8 RFC 4180 CSV with CRLF record endings.",
+          "type": "string"
+        },
+        "content_type": {
+          "description": "Media type of [`Self::content`].",
+          "type": "string"
+        },
+        "layer": {
+          "description": "Exported model layer.",
+          "type": "string"
+        },
+        "profile": {
+          "description": "Profile identity that produced the rows.",
+          "type": "string"
+        },
+        "row_count": {
+          "description": "Number of data rows, excluding the header.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "profile",
+        "layer",
+        "content_type",
+        "row_count",
+        "content"
+      ]
+    },
     "DifferentialStatus": {
       "description": "Whether the Ludii trace-agreement battery has been run.",
       "oneOf": [
@@ -218,6 +422,57 @@
             "profile": {
               "type": "string",
               "const": "ludii-gdl"
+            }
+          },
+          "required": [
+            "profile",
+            "artifact"
+          ]
+        },
+        {
+          "description": "Articy-shaped video-game JSON.",
+          "type": "object",
+          "properties": {
+            "artifact": {
+              "$ref": "#/$defs/ArticyExport"
+            },
+            "profile": {
+              "type": "string",
+              "const": "articy"
+            }
+          },
+          "required": [
+            "profile",
+            "artifact"
+          ]
+        },
+        {
+          "description": "Producer-facing CSV.",
+          "type": "object",
+          "properties": {
+            "artifact": {
+              "$ref": "#/$defs/CsvExport"
+            },
+            "profile": {
+              "type": "string",
+              "const": "csv"
+            }
+          },
+          "required": [
+            "profile",
+            "artifact"
+          ]
+        },
+        {
+          "description": "Static Markdown wiki bundle.",
+          "type": "object",
+          "properties": {
+            "artifact": {
+              "$ref": "#/$defs/StaticWikiExport"
+            },
+            "profile": {
+              "type": "string",
+              "const": "static-wiki"
             }
           },
           "required": [
@@ -332,6 +587,55 @@
         "id",
         "layer",
         "kept"
+      ]
+    },
+    "StaticWikiExport": {
+      "description": "A deterministic static-wiki bundle.",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "description": "Exported model layer.",
+          "type": "string"
+        },
+        "pages": {
+          "description": "Index page plus one page per selected predicate.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WikiPage"
+          }
+        },
+        "profile": {
+          "description": "Profile identity that produced the pages.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "layer",
+        "pages"
+      ]
+    },
+    "WikiPage": {
+      "description": "One materializable Markdown page.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "UTF-8 Markdown content.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Relative output path.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Human-readable page title.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "title",
+        "content"
       ]
     }
   }

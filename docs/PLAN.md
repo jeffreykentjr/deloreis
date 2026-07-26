@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone runtime, contract closure, and release proof remain open; deferred and consumer-blocked work is named explicitly."
+verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. Generic exports and the standalone runtime are closed; standalone CLI release proof remains open, with deferred and consumer-blocked work named explicitly."
 ---
 
 # The plan
@@ -344,8 +344,9 @@ they touch; they are not a lane of their own.
 
 ### `export`
 
-- **EXP-1** — The export core (`export <target> --profile [--fork]`): one-way
-  compiles from the certain layer, with a manifest.
+- **EXP-1** — The export core (`export --profile <target>` at the CLI; explicit
+  registry and valuation options in the library): one-way compiles from the
+  certain layer, with a manifest.
   *Needs:* ENG-1. *Produces:* the export backend spine. *Oracle:* an export reads
   the certain layer and fails closed on proposed lore; the manifest traces every
   artifact to its exact canon state.
@@ -353,11 +354,16 @@ they touch; they are not a lane of their own.
   *Needs:* EXP-1. *Produces:* the audio-script context packs. *Oracle:* it
   reproduces today's context-pack output.
 - **EXP-3** — The card/board profile (the Turning deck as a card set) and the
-  Ludii L-GDL profile with the trace-agreement differential.
+  structural Ludii L-GDL profile.
   *Needs:* EXP-1, SIM-2. *Produces:* the game content sets. *Oracle:* the three
   deck recompiles (honest, salt-fringe, keep-stamped) — the keep-stamped deck
-  loses `the-debt-square` from the compile; the `deloreis` simulator and Ludii
-  agree on legal moves and terminal verdicts over the battery.
+  loses `the-debt-square` from the compile; every selected component,
+  legal-move edge, and terminal layout renders with hostile strings contained.
+- **DEF-5** — *(deferred.)* The live Ludii trace-agreement differential.
+  *Needs:* EXP-3. *Produces:* the rented-runtime soundness audit. *Oracle:* the
+  `deloreis` simulator and Ludii agree on legal moves and terminal verdicts over
+  the same seeded battery. The structural export records this lane as pending
+  until a live Ludii runtime is provisioned outside the deterministic gate.
 - **EXP-4** — The video-game (articy-shaped JSON) and free-rider (CSV, static
   wiki) profiles.
   *Needs:* EXP-1. *Produces:* the remaining export targets. *Oracle:* typed
@@ -594,8 +600,9 @@ author or consumer artifact that this repository does not own.
 | EXT-F4 | external-blocked | Fantasy transcript is consumer-owned |
 | EXP-1 | done | `cargo test -p dli-export` |
 | EXP-2 | done | `cargo test -p dli-export` context-pack suites |
-| EXP-3 | deferred | Live Ludii trace differential is non-gating and not provisioned |
-| EXP-4 | open | Articy exists; CSV and static-wiki profiles remain unimplemented |
+| EXP-3 | done | `cargo test -p dli-game -p tpth` covers three deck materializations, exact profile selection, L-GDL structure, and hostile-string containment |
+| DEF-5 | deferred | Live Ludii trace differential is non-gating and not provisioned |
+| EXP-4 | done | `cargo test -p dli-export` plus the multi-target `dli.export.run` golden fixture cover Articy, CSV, and static-wiki emission and provenance stripping |
 | PROOF-1 | done | mutation harness in `cargo xtask gate` |
 | PROOF-2 | done | pinned differential harness and detection tests |
 | MIG-1 | done | world loader replay suites |
@@ -636,8 +643,8 @@ overlap; the language and craft lanes in particular run alongside the game lane.
 - **G1 (the grammar gate)** — SURF-2, SURF-3, SURF-4, BENCH-2. *Freeze the AST
   schema if it held; the surface + formatter + reference cards + benchmark
   surface-tasks + the human-writer probe; the two-door benchmark verdict.*
-- **GDL proof point** — SIM-2, EXT-A2, EXP-3. *The `games/ludii` export profile
-  for the ratified Turning ruleset + the trace-agreement differential — the
+- **GDL proof point** — SIM-2, EXT-A2, EXP-3, DEF-5. *The `games/ludii` export
+  profile for the ratified Turning ruleset + the trace-agreement differential — the
   external soundness audit of rules-as-lore. Lands after M2, as a data profile,
   once a ratified ruleset exists to export.*
 - **Cutover** — MIG-3, MIG-4, EXT-F3, EXT-F4. *The per-check flips; the source

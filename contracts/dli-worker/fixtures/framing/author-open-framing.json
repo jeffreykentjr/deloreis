@@ -4,7 +4,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "ok": false,
         "error": {
@@ -13,7 +13,7 @@
         }
       },
       "send": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "op": "author.open",
         "params": {

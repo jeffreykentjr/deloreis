@@ -4,7 +4,557 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
+        "id": "context-pack",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "context-pack"
+        }
+      },
+      "expect": {
+        "dli": "0.5.0",
+        "id": "context-pack",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "est_tokens": 43,
+              "included": [
+                {
+                  "est_tokens": 43,
+                  "layer": "certain",
+                  "unit": "camelot"
+                }
+              ],
+              "skipped": [],
+              "text": "<!-- canon: camelot (certain) -->\nadjacent(camelot, the-lake)  ; cited D-0001\nplace(camelot)  ; cited D-0001\nplace(the-lake)  ; cited D-0001\nthing(excalibur)  ; cited D-0002"
+            },
+            "profile": "context-pack"
+          },
+          "manifest": {
+            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "layer": "certain",
+            "profile_hash": "sha256:e2aa6d155d0d0f69d8010e220d7b26ed21f51f3077d52830f75987b328b56fcd",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.5.0",
+        "id": "cards",
+        "op": "dli.export.run",
+        "params": {
+          "document": "french-deck",
+          "profile": "cards"
+        }
+      },
+      "expect": {
+        "dli": "0.5.0",
+        "id": "cards",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "card_count": 52,
+              "cards": [
+                {
+                  "id": "ace-of-clubs",
+                  "kept": {
+                    "name": "Ace",
+                    "rank": "ace",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ace-of-diamonds",
+                  "kept": {
+                    "name": "Ace",
+                    "rank": "ace",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ace-of-hearts",
+                  "kept": {
+                    "name": "Ace",
+                    "rank": "ace",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ace-of-spades",
+                  "kept": {
+                    "name": "Ace",
+                    "rank": "ace",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "eight-of-clubs",
+                  "kept": {
+                    "name": "Eight",
+                    "rank": "eight",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "eight-of-diamonds",
+                  "kept": {
+                    "name": "Eight",
+                    "rank": "eight",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "eight-of-hearts",
+                  "kept": {
+                    "name": "Eight",
+                    "rank": "eight",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "eight-of-spades",
+                  "kept": {
+                    "name": "Eight",
+                    "rank": "eight",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "five-of-clubs",
+                  "kept": {
+                    "name": "Five",
+                    "rank": "five",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "five-of-diamonds",
+                  "kept": {
+                    "name": "Five",
+                    "rank": "five",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "five-of-hearts",
+                  "kept": {
+                    "name": "Five",
+                    "rank": "five",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "five-of-spades",
+                  "kept": {
+                    "name": "Five",
+                    "rank": "five",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "four-of-clubs",
+                  "kept": {
+                    "name": "Four",
+                    "rank": "four",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "four-of-diamonds",
+                  "kept": {
+                    "name": "Four",
+                    "rank": "four",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "four-of-hearts",
+                  "kept": {
+                    "name": "Four",
+                    "rank": "four",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "four-of-spades",
+                  "kept": {
+                    "name": "Four",
+                    "rank": "four",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "jack-of-clubs",
+                  "kept": {
+                    "name": "Jack",
+                    "rank": "jack",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "jack-of-diamonds",
+                  "kept": {
+                    "name": "Jack",
+                    "rank": "jack",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "jack-of-hearts",
+                  "kept": {
+                    "name": "Jack",
+                    "rank": "jack",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "jack-of-spades",
+                  "kept": {
+                    "name": "Jack",
+                    "rank": "jack",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "king-of-clubs",
+                  "kept": {
+                    "name": "King",
+                    "rank": "king",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "king-of-diamonds",
+                  "kept": {
+                    "name": "King",
+                    "rank": "king",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "king-of-hearts",
+                  "kept": {
+                    "name": "King",
+                    "rank": "king",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "king-of-spades",
+                  "kept": {
+                    "name": "King",
+                    "rank": "king",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "nine-of-clubs",
+                  "kept": {
+                    "name": "Nine",
+                    "rank": "nine",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "nine-of-diamonds",
+                  "kept": {
+                    "name": "Nine",
+                    "rank": "nine",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "nine-of-hearts",
+                  "kept": {
+                    "name": "Nine",
+                    "rank": "nine",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "nine-of-spades",
+                  "kept": {
+                    "name": "Nine",
+                    "rank": "nine",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "queen-of-clubs",
+                  "kept": {
+                    "name": "Queen",
+                    "rank": "queen",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "queen-of-diamonds",
+                  "kept": {
+                    "name": "Queen",
+                    "rank": "queen",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "queen-of-hearts",
+                  "kept": {
+                    "name": "Queen",
+                    "rank": "queen",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "queen-of-spades",
+                  "kept": {
+                    "name": "Queen",
+                    "rank": "queen",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "seven-of-clubs",
+                  "kept": {
+                    "name": "Seven",
+                    "rank": "seven",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "seven-of-diamonds",
+                  "kept": {
+                    "name": "Seven",
+                    "rank": "seven",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "seven-of-hearts",
+                  "kept": {
+                    "name": "Seven",
+                    "rank": "seven",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "seven-of-spades",
+                  "kept": {
+                    "name": "Seven",
+                    "rank": "seven",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "six-of-clubs",
+                  "kept": {
+                    "name": "Six",
+                    "rank": "six",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "six-of-diamonds",
+                  "kept": {
+                    "name": "Six",
+                    "rank": "six",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "six-of-hearts",
+                  "kept": {
+                    "name": "Six",
+                    "rank": "six",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "six-of-spades",
+                  "kept": {
+                    "name": "Six",
+                    "rank": "six",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ten-of-clubs",
+                  "kept": {
+                    "name": "Ten",
+                    "rank": "ten",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ten-of-diamonds",
+                  "kept": {
+                    "name": "Ten",
+                    "rank": "ten",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ten-of-hearts",
+                  "kept": {
+                    "name": "Ten",
+                    "rank": "ten",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "ten-of-spades",
+                  "kept": {
+                    "name": "Ten",
+                    "rank": "ten",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "three-of-clubs",
+                  "kept": {
+                    "name": "Three",
+                    "rank": "three",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "three-of-diamonds",
+                  "kept": {
+                    "name": "Three",
+                    "rank": "three",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "three-of-hearts",
+                  "kept": {
+                    "name": "Three",
+                    "rank": "three",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "three-of-spades",
+                  "kept": {
+                    "name": "Three",
+                    "rank": "three",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "two-of-clubs",
+                  "kept": {
+                    "name": "Two",
+                    "rank": "two",
+                    "suit": "clubs"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "two-of-diamonds",
+                  "kept": {
+                    "name": "Two",
+                    "rank": "two",
+                    "suit": "diamonds"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "two-of-hearts",
+                  "kept": {
+                    "name": "Two",
+                    "rank": "two",
+                    "suit": "hearts"
+                  },
+                  "layer": "card"
+                },
+                {
+                  "id": "two-of-spades",
+                  "kept": {
+                    "name": "Two",
+                    "rank": "two",
+                    "suit": "spades"
+                  },
+                  "layer": "card"
+                }
+              ],
+              "cited": [
+                "DL-0017",
+                "DL-0018"
+              ],
+              "deck": "french-deck",
+              "layer": "certain",
+              "layouts": [
+                "a-run",
+                "the-full-suit"
+              ],
+              "profile": "cards/french-deck@1"
+            },
+            "profile": "cards"
+          },
+          "manifest": {
+            "commit": "content-sha256:01cc39c5a82d97e87a03459f288b7efe56aee28db0b29c5a574712825a2a3011",
+            "layer": "certain",
+            "profile_hash": "fnv1a64:c76f31f1aee6ba4b",
+            "valuation": "fnv1a64:7e28c014ae057f79"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.5.0",
         "id": "1",
         "op": "dli.export.run",
         "params": {
@@ -13,7 +563,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -30,10 +580,177 @@
             "profile": "ludii-gdl"
           },
           "manifest": {
-            "commit": "",
+            "commit": "content-sha256:01cc39c5a82d97e87a03459f288b7efe56aee28db0b29c5a574712825a2a3011",
             "layer": "certain",
             "profile_hash": "fnv1a64:54233da8cf58ccf6",
-            "valuation": "fnv1a64:b90b77b6eb74e92f"
+            "valuation": "fnv1a64:7e28c014ae057f79"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.5.0",
+        "id": "articy",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "articy"
+        }
+      },
+      "expect": {
+        "dli": "0.5.0",
+        "id": "articy",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "entities": [
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "facts": [
+                    "adjacent(camelot, the-lake)"
+                  ],
+                  "id": "camelot",
+                  "sort": "place"
+                },
+                {
+                  "cited": [
+                    "D-0002"
+                  ],
+                  "id": "excalibur",
+                  "sort": "thing"
+                },
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "facts": [
+                    "adjacent(camelot, the-lake)"
+                  ],
+                  "id": "the-lake",
+                  "sort": "place"
+                }
+              ],
+              "facts": [
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "claim": "adjacent(camelot, the-lake)",
+                  "who_may_know": []
+                }
+              ],
+              "layer": "certain",
+              "pending": false,
+              "profile": "video/articy@1",
+              "quests": [],
+              "relations": [
+                {
+                  "args": [
+                    "camelot",
+                    "the-lake"
+                  ],
+                  "kind": "adjacent"
+                }
+              ]
+            },
+            "profile": "articy"
+          },
+          "manifest": {
+            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "layer": "certain",
+            "profile_hash": "sha256:d83643695117f205c62911252edf31f4d8646a2780f1c24fe56de1adfc66af7b",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.5.0",
+        "id": "csv",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "csv"
+        }
+      },
+      "expect": {
+        "dli": "0.5.0",
+        "id": "csv",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "content": "id,kind,predicate,arguments,claim,cited\r\n\"adjacent(camelot, the-lake)\",relation,adjacent,\"{\"\"arg0\"\":\"\"camelot\"\",\"\"arg1\"\":\"\"the-lake\"\"}\",\"adjacent(camelot, the-lake)\",\"[\"\"D-0001\"\"]\"\r\nplace(camelot),relation,place,\"{\"\"arg0\"\":\"\"camelot\"\"}\",place(camelot),\"[\"\"D-0001\"\"]\"\r\nplace(the-lake),relation,place,\"{\"\"arg0\"\":\"\"the-lake\"\"}\",place(the-lake),\"[\"\"D-0001\"\"]\"\r\nthing(excalibur),relation,thing,\"{\"\"arg0\"\":\"\"excalibur\"\"}\",thing(excalibur),\"[\"\"D-0002\"\"]\"\r\n",
+              "content_type": "text/csv; charset=utf-8",
+              "layer": "certain",
+              "profile": "tabular/csv@1",
+              "row_count": 4
+            },
+            "profile": "csv"
+          },
+          "manifest": {
+            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "layer": "certain",
+            "profile_hash": "sha256:c765c6128f73e25caea80eabadea649af97a99f6a90111e54133a922088f04e2",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.5.0",
+        "id": "wiki",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "static-wiki"
+        }
+      },
+      "expect": {
+        "dli": "0.5.0",
+        "id": "wiki",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "layer": "certain",
+              "pages": [
+                {
+                  "content": "# Lore index\n\n- [adjacent](predicate-adjacent.md)\n- [place](predicate-place.md)\n- [thing](predicate-thing.md)\n",
+                  "path": "index.md",
+                  "title": "Lore index"
+                },
+                {
+                  "content": "# adjacent\n\n- **adjacent(camelot, the-lake)**: `adjacent(camelot, the-lake)` (arg0=camelot, arg1=the-lake) [cited: D-0001]\n",
+                  "path": "predicate-adjacent.md",
+                  "title": "adjacent"
+                },
+                {
+                  "content": "# place\n\n- **place(camelot)**: `place(camelot)` (arg0=camelot) [cited: D-0001]\n- **place(the-lake)**: `place(the-lake)` (arg0=the-lake) [cited: D-0001]\n",
+                  "path": "predicate-place.md",
+                  "title": "place"
+                },
+                {
+                  "content": "# thing\n\n- **thing(excalibur)**: `thing(excalibur)` (arg0=excalibur) [cited: D-0002]\n",
+                  "path": "predicate-thing.md",
+                  "title": "thing"
+                }
+              ],
+              "profile": "wiki/static@1"
+            },
+            "profile": "static-wiki"
+          },
+          "manifest": {
+            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "layer": "certain",
+            "profile_hash": "sha256:108a7697d8e0934a29430e72e90a931c3301b0da8dfd3ede5c9af6a56215de5d",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
           }
         }
       }

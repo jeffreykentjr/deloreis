@@ -4,13 +4,13 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "op": "dli.version",
         "params": {}
       },
       "expect": {
-        "dli": "0.4.2",
+        "dli": "0.5.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -63,7 +63,7 @@
             "author.list_workspaces"
           ],
           "contract": "dli-worker",
-          "contract_version": "0.4.2",
+          "contract_version": "0.5.0",
           "server": "deloreis 0.1.0"
         }
       }

@@ -178,7 +178,25 @@ and to Ludii GDL, and a deal battery grades it with honest metrics.
 
 ```text
 $ deloreis export --profile cards --game examples/norse/games/rune-wheel
-export cards: deck 'rune-wheel', 8 card(s), layout(s): the-cast, the-full-aett
+{
+  "artifact": {
+    "deck": "rune-wheel",
+    "layer": "certain",
+    "profile": "cards/rune-wheel@1",
+    "card_count": 8,
+    "cards": [
+      {"id": "ansuz", "layer": "tile", "kept": {"name": "Ansuz", "rune": "ansuz"}},
+      ...
+    ],
+    "layouts": ["the-cast", "the-full-aett"]
+  },
+  "manifest": {
+    "commit": "content-sha256:...",
+    "layer": "certain",
+    "valuation": "fnv1a64:...",
+    "profile_hash": "fnv1a64:..."
+  }
+}
 
 $ deloreis simulate the-full-aett --game examples/norse/games/rune-wheel
 invariant  deck-conserved: held [checked]

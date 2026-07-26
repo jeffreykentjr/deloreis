@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 
 use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
+use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
 use dli_time::cycle::CyclePos;
@@ -316,6 +317,33 @@ impl Sessions {
         }
     }
 
+    /// Resolve a lore document's export profile catalog.
+    #[must_use]
+    pub fn export_registry(&self, document: &str) -> Option<Registry> {
+        match &self.source {
+            CorpusSource::Demo => builtin_pack(document).map(|_| Registry::builtin()),
+            CorpusSource::Project(project) => project
+                .document(document)
+                .map(|loaded| loaded.profiles.clone()),
+        }
+    }
+
+    /// Deterministic source anchor for an export manifest.
+    #[must_use]
+    pub fn export_source(&self, document: &str) -> Option<String> {
+        match &self.source {
+            CorpusSource::Demo => demo_source_fingerprint(document),
+            CorpusSource::Project(project) => project
+                .document(document)
+                .map(|loaded| loaded.source_digest.clone())
+                .or_else(|| {
+                    project
+                        .game(document)
+                        .map(|game| game.source_digest.clone())
+                }),
+        }
+    }
+
     /// The language model visible to the current name-check wire operation.
     #[must_use]
     pub fn language_model(&self) -> LanguageModel {
@@ -343,6 +371,21 @@ impl Sessions {
             CorpusSource::Project(project) => Some(Arc::clone(project)),
         }
     }
+}
+
+fn demo_source_fingerprint(document: &str) -> Option<String> {
+    let source = match document {
+        "round-table" => ROUND_TABLE_SRC.as_bytes(),
+        "warding-vows" => WARDING_VOWS_SRC.as_bytes(),
+        "french-deck" => FRENCH_DECK_RULES.as_bytes(),
+        "camelot" => {
+            let pack = builtin_pack(document)?;
+            let bytes = serde_json::to_vec(&pack).ok()?;
+            return Some(source_fingerprint([bytes.as_slice()]));
+        }
+        _ => return None,
+    };
+    Some(source_fingerprint([source]))
 }
 
 /// The built-in corpus pack for a doc-id, or `None` if the id is unknown. The v0
