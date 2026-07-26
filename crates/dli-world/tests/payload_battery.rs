@@ -181,6 +181,10 @@ fn a_clean_payload_produces_no_findings() {
             line: 2,
         },
     ];
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        ..SceneRow::default()
+    });
     // A minor try-beat trips no season join.
     payload.beats = vec![BeatRow {
         id: "b1".to_owned(),
@@ -198,6 +202,39 @@ fn a_clean_payload_produces_no_findings() {
     assert!(
         findings.is_empty(),
         "a clean payload must be silent: {findings:?}"
+    );
+}
+
+#[test]
+fn scene_keyed_rows_require_a_declared_scene_even_when_the_scene_list_is_empty() {
+    let world = saltcast_world();
+    let source = "the ward held\n";
+    let mut payload = complete_payload(source);
+    payload.beats.push(BeatRow {
+        id: "b1".to_owned(),
+        scene: "missing".to_owned(),
+        kind: BeatKind::Try,
+        thread: "ward-the-door".to_owned(),
+        magnitude: Magnitude::Minor,
+        outcome: None,
+        by: String::new(),
+        assisted: false,
+        quote: "the ward held".to_owned(),
+        line: 1,
+    });
+    payload.proof_ledgers.push(ProofLedgerRow {
+        scene: "missing".to_owned(),
+        ledger: ProofLedger::default(),
+    });
+
+    let findings = check_payload(&world, &payload, &BatteryContext::new(source));
+    assert!(
+        finding(&findings, "payload.beat-unknown-scene").is_some(),
+        "{findings:?}"
+    );
+    assert!(
+        finding(&findings, "payload.proof-unknown-scene").is_some(),
+        "{findings:?}"
     );
 }
 
@@ -552,6 +589,10 @@ fn a_moved_source_flags_the_payload_stale() {
         quote: "the anchor is a man, and canon holds it so".to_owned(),
         line: 1,
     }];
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        ..SceneRow::default()
+    });
     payload.beats = vec![BeatRow {
         id: "b1".to_owned(),
         scene: "s01".to_owned(),
@@ -610,6 +651,10 @@ fn outline_conformance_is_gated_on_the_outline_and_states_both_readings() {
     let world = saltcast_world();
     let source = "she tried the latch, and it did not give\n";
     let mut payload = complete_payload(source);
+    payload.scenes.push(SceneRow {
+        id: "s01".to_owned(),
+        ..SceneRow::default()
+    });
     payload.beats = vec![BeatRow {
         id: "b-drafted".to_owned(),
         scene: "s01".to_owned(),

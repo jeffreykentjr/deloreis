@@ -104,8 +104,18 @@ fn payload_publication_is_canonical_content_addressed_and_idempotent() {
     let (_temp, project) = write_project();
     let payload = payload("one word");
     let first = submit_payload(&project, "world", &payload).unwrap();
+    let hex = first.trim_start_matches("sha256:");
+    let temp = project
+        .evidence_dir()
+        .join("payloads")
+        .join(format!(".world.{hex}.json.tmp"));
+    fs::write(&temp, b"interrupted retry").unwrap();
     let second = submit_payload(&project, "world", &payload).unwrap();
     assert_eq!(first, second);
+    assert!(
+        !temp.exists(),
+        "an idempotent retry completes stale-temp recovery"
+    );
 
     let directory = project.evidence_dir().join("payloads/world");
     let files = json_files(&directory);

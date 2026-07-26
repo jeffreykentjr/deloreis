@@ -1213,7 +1213,7 @@ fn payload_structure_family(
     out.extend(promise_structure_findings(payload));
     out.extend(name_structure_findings(payload));
     for proof in &payload.proof_ledgers {
-        if !payload.scenes.is_empty() && !scene_ids.contains(proof.scene.as_str()) {
+        if !scene_ids.contains(proof.scene.as_str()) {
             out.push(PayloadFinding::error(
                 "payload.proof-unknown-scene",
                 format!("proof shadow references undeclared scene '{}'", proof.scene),
@@ -1381,7 +1381,7 @@ fn beat_structure_findings(
                 .with_quote(&beat.quote),
             );
         }
-        if !payload.scenes.is_empty() && !scene_ids.contains(beat.scene.as_str()) {
+        if !scene_ids.contains(beat.scene.as_str()) {
             out.push(
                 PayloadFinding::error(
                     "payload.beat-unknown-scene",

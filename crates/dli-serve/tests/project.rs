@@ -566,3 +566,22 @@ fn materializes_missing_storage_suffixes_before_serving() {
     assert!(project.evidence_dir().starts_with(&root));
     assert!(project.cache_dir().starts_with(&root));
 }
+
+#[cfg(unix)]
+#[test]
+fn rejects_special_filesystem_nodes_inside_machine_storage() {
+    use std::os::unix::net::UnixListener;
+
+    let root = temp("project-storage-special-node");
+    fs::write(root.join("world.dli"), "scope world\n").unwrap();
+    fs::create_dir_all(root.join("evidence")).unwrap();
+    let _socket = UnixListener::bind(root.join("evidence/worker.sock")).unwrap();
+    write_manifest(
+        &root,
+        "[paths]\nevidence = \"evidence\"\ncache = \"cache\"\n\
+         [documents.world]\nsources = [\"world.dli\"]\n",
+    );
+
+    let error = Project::load(&root).unwrap_err().to_string();
+    assert!(error.contains("special filesystem node"), "{error}");
+}

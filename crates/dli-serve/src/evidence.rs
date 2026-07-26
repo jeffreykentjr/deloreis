@@ -587,23 +587,6 @@ fn evidence_directory(project: &Project, components: &[&str]) -> Result<PathBuf,
 }
 
 fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
-    if let Ok(metadata) = fs::symlink_metadata(path) {
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(EvidenceError::Corrupt(format!(
-                "content-addressed path `{}` is not a regular file",
-                path.display()
-            )));
-        }
-        let existing = fs::read(path).map_err(|source| io_error(path, source))?;
-        return if existing == bytes {
-            Ok(())
-        } else {
-            Err(EvidenceError::Corrupt(format!(
-                "content-addressed file `{}` has different bytes",
-                path.display()
-            )))
-        };
-    }
     let directory = path
         .parent()
         .expect("an evidence file always has a parent directory");
@@ -619,15 +602,29 @@ fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
         .and_then(|name| name.to_str())
         .expect("evidence directory names are UTF-8");
     let temp = publication_dir.join(format!(".{directory_name}.{name}.tmp"));
-    if let Ok(metadata) = fs::symlink_metadata(&temp) {
+
+    if let Ok(metadata) = fs::symlink_metadata(path) {
         if !metadata.is_file() || metadata.file_type().is_symlink() {
             return Err(EvidenceError::Corrupt(format!(
-                "stale publication path `{}` is not a regular file",
-                temp.display()
+                "content-addressed path `{}` is not a regular file",
+                path.display()
             )));
         }
-        fs::remove_file(&temp).map_err(|source| io_error(&temp, source))?;
+        let existing = fs::read(path).map_err(|source| io_error(path, source))?;
+        if existing != bytes {
+            return Err(EvidenceError::Corrupt(format!(
+                "content-addressed file `{}` has different bytes",
+                path.display()
+            )));
+        }
+        remove_stale_publication(&temp, publication_dir)?;
+        // A retry after rename but before directory sync must finish the
+        // interrupted durability protocol before it acknowledges the commit.
+        sync_directory(directory)?;
+        sync_directory(publication_dir)?;
+        return Ok(());
     }
+    remove_stale_publication(&temp, publication_dir)?;
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -637,7 +634,24 @@ fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), EvidenceError> {
         .and_then(|()| file.sync_all())
         .map_err(|source| io_error(&temp, source))?;
     fs::rename(&temp, path).map_err(|source| io_error(path, source))?;
+    // Rename removes an entry from publication_dir and adds one to directory.
+    // Both directory updates must be durable before success is reported.
     sync_directory(directory)?;
+    sync_directory(publication_dir)?;
+    Ok(())
+}
+
+fn remove_stale_publication(temp: &Path, publication_dir: &Path) -> Result<(), EvidenceError> {
+    if let Ok(metadata) = fs::symlink_metadata(temp) {
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(EvidenceError::Corrupt(format!(
+                "stale publication path `{}` is not a regular file",
+                temp.display()
+            )));
+        }
+        fs::remove_file(temp).map_err(|source| io_error(temp, source))?;
+        sync_directory(publication_dir)?;
+    }
     Ok(())
 }
 

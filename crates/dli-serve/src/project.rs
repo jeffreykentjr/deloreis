@@ -7,7 +7,7 @@
 //! bundled world.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
+use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::Decl;
@@ -304,8 +304,8 @@ impl Project {
             .flat_map(|document| document.pack.documents.iter().cloned())
             .collect::<Vec<_>>();
         let language = LanguageModel::from_documents(&language_docs).model;
-        materialize_storage("paths.evidence", &evidence_dir)?;
-        materialize_storage("paths.cache", &cache_dir)?;
+        materialize_storage(&root, "paths.evidence", &evidence_dir)?;
+        materialize_storage(&root, "paths.cache", &cache_dir)?;
         Ok(Self {
             name: manifest.name,
             root,
@@ -764,12 +764,68 @@ fn validate_storage_path(root: &Path, field: &str, path: &Path) -> Result<PathBu
     Ok(joined)
 }
 
-fn materialize_storage(field: &str, path: &Path) -> Result<(), ProjectError> {
-    fs::create_dir_all(path).map_err(|error| ProjectError::AssetPath {
-        field: field.to_owned(),
-        path: path.display().to_string(),
-        message: error.to_string(),
-    })?;
+fn materialize_storage(root: &Path, field: &str, path: &Path) -> Result<(), ProjectError> {
+    let relative = path
+        .strip_prefix(root)
+        .expect("validated storage paths are beneath the project root");
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        current.push(component);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => {
+                return Err(ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: format!(
+                        "storage path component `{}` is not a regular directory",
+                        current.display()
+                    ),
+                });
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let parent = current
+                    .parent()
+                    .expect("a project storage directory has a parent");
+                match fs::create_dir(&current) {
+                    Ok(()) => sync_project_directory(field, path, parent)?,
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        let metadata = fs::symlink_metadata(&current).map_err(|error| {
+                            ProjectError::AssetPath {
+                                field: field.to_owned(),
+                                path: path.display().to_string(),
+                                message: error.to_string(),
+                            }
+                        })?;
+                        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                            return Err(ProjectError::AssetPath {
+                                field: field.to_owned(),
+                                path: path.display().to_string(),
+                                message: format!(
+                                    "storage path component `{}` is not a regular directory",
+                                    current.display()
+                                ),
+                            });
+                        }
+                    }
+                    Err(error) => {
+                        return Err(ProjectError::AssetPath {
+                            field: field.to_owned(),
+                            path: path.display().to_string(),
+                            message: error.to_string(),
+                        });
+                    }
+                }
+            }
+            Err(error) => {
+                return Err(ProjectError::AssetPath {
+                    field: field.to_owned(),
+                    path: path.display().to_string(),
+                    message: error.to_string(),
+                });
+            }
+        }
+    }
     let canonical = fs::canonicalize(path).map_err(|error| ProjectError::AssetPath {
         field: field.to_owned(),
         path: path.display().to_string(),
@@ -783,6 +839,16 @@ fn materialize_storage(field: &str, path: &Path) -> Result<(), ProjectError> {
         });
     }
     Ok(())
+}
+
+fn sync_project_directory(field: &str, storage: &Path, path: &Path) -> Result<(), ProjectError> {
+    File::open(path)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| ProjectError::AssetPath {
+            field: field.to_owned(),
+            path: storage.display().to_string(),
+            message: format!("cannot sync storage parent `{}`: {error}", path.display()),
+        })
 }
 
 fn validate_storage_tree(
@@ -830,6 +896,11 @@ fn validate_storage_tree(
                         input.display()
                     )));
                 }
+            } else {
+                return Err(ProjectError::Invalid(format!(
+                    "machine-written storage may contain only regular files and directories; `{}` is a special filesystem node",
+                    path.display()
+                )));
             }
         }
     }
