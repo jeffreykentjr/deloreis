@@ -177,14 +177,58 @@ impl Checkpoint {
         self.battery_digest == battery.digest()
     }
 
-    /// Validate serialized running state before resuming it.
+    /// Validate the checkpoint's shape and metadata without replaying trials.
     ///
-    /// A checkpoint is durable input once it has crossed a process boundary.
-    /// Digest agreement alone is not enough: counters, accumulator identities,
-    /// and cadence lineage must also agree with the battery. Callers loading a
-    /// checkpoint from disk must reject a malformed record rather than indexing
-    /// mismatched vectors or committing a forged partial result.
-    pub fn validate_for(&self, battery: &Battery) -> Result<(), String> {
+    /// This is suitable while a publication lock is held: it rejects malformed
+    /// counters, accumulator identities, and cadence lineage without doing trial
+    /// work. A caller must still use [`Self::validate_for`] outside that lock
+    /// before trusting accumulator values.
+    pub fn validate_shape_for(&self, battery: &Battery) -> Result<(), String> {
+        self.validate_fields_for(battery)?;
+        let expected_lineage = match self.every {
+            Some(every) => {
+                let mut expected = Vec::new();
+                let mut boundary = every;
+                while boundary <= self.trials_done {
+                    expected.push(boundary);
+                    boundary = boundary.saturating_add(every);
+                    if boundary == u64::MAX && expected.last() == Some(&u64::MAX) {
+                        break;
+                    }
+                }
+                if self.trials_done == self.trials_total
+                    && self.trials_done > 0
+                    && expected.last() != Some(&self.trials_done)
+                {
+                    expected.push(self.trials_done);
+                }
+                expected
+            }
+            None if self.trials_done == 0 => Vec::new(),
+            None => vec![self.trials_done],
+        };
+        if self.lineage != expected_lineage {
+            return Err("checkpoint lineage does not match its cadence and trial count".to_owned());
+        }
+        Ok(())
+    }
+
+    /// Validate a persisted chain record whose lineage is stored by the caller.
+    ///
+    /// Durable job records keep ancestry in their content-addressed wrapper, so
+    /// each embedded checkpoint must carry an empty local lineage. This checks
+    /// every accumulator without replaying trials.
+    pub fn validate_persisted_shape_for(&self, battery: &Battery) -> Result<(), String> {
+        self.validate_fields_for(battery)?;
+        if !self.lineage.is_empty() {
+            return Err(
+                "a persisted checkpoint must not duplicate its external lineage".to_owned(),
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_fields_for(&self, battery: &Battery) -> Result<(), String> {
         if !self.matches(battery) {
             return Err(format!(
                 "checkpoint belongs to battery {}, not {}",
@@ -232,32 +276,19 @@ impl Checkpoint {
         {
             return Err("checkpoint invariant accumulators do not match the battery".to_owned());
         }
+        Ok(())
+    }
 
-        let expected_lineage = match self.every {
-            Some(every) => {
-                let mut expected = Vec::new();
-                let mut boundary = every;
-                while boundary <= self.trials_done {
-                    expected.push(boundary);
-                    boundary = boundary.saturating_add(every);
-                    if boundary == u64::MAX && expected.last() == Some(&u64::MAX) {
-                        break;
-                    }
-                }
-                if self.trials_done == self.trials_total
-                    && self.trials_done > 0
-                    && expected.last() != Some(&self.trials_done)
-                {
-                    expected.push(self.trials_done);
-                }
-                expected
-            }
-            None if self.trials_done == 0 => Vec::new(),
-            None => vec![self.trials_done],
-        };
-        if self.lineage != expected_lineage {
-            return Err("checkpoint lineage does not match its cadence and trial count".to_owned());
-        }
+    /// Validate serialized running state before resuming it.
+    ///
+    /// A checkpoint is durable input once it has crossed a process boundary.
+    /// Digest agreement alone is not enough: counters, accumulator identities,
+    /// and cadence lineage must also agree with the battery. Callers loading a
+    /// checkpoint from disk must reject a malformed record rather than indexing
+    /// mismatched vectors or committing a forged partial result.
+    pub fn validate_for(&self, battery: &Battery) -> Result<(), String> {
+        self.validate_shape_for(battery)?;
+        let expected_lineage = self.lineage.clone();
         let mut replayed = Self::initial(battery, self.every);
         replayed.advance_to(battery, self.trials_done);
         replayed.lineage = expected_lineage;
@@ -278,18 +309,31 @@ impl Checkpoint {
     /// call.
     pub fn advance_boundary(&mut self, battery: &Battery) -> Result<bool, String> {
         self.validate_for(battery)?;
+        if self.every.is_none() && !self.is_complete() {
+            return Err("a durable checkpoint must declare a cadence".to_owned());
+        }
+        Ok(self.advance_validated_boundary(battery))
+    }
+
+    /// Fold one boundary after this exact state has passed [`Self::validate_for`].
+    ///
+    /// Durable runners use this to replay a loaded head once, then continue
+    /// several boundaries without replaying the growing prefix before every
+    /// append. Calling it on unvalidated external data or an incomplete
+    /// cadence-less checkpoint is a caller bug.
+    pub fn advance_validated_boundary(&mut self, battery: &Battery) -> bool {
         if self.is_complete() {
-            return Ok(true);
+            return true;
         }
         let every = self
             .every
-            .ok_or_else(|| "a durable checkpoint must declare a cadence".to_owned())?;
+            .expect("validated durable checkpoints declare a cadence");
         let next = (self.trials_done / every + 1)
             .saturating_mul(every)
             .min(self.trials_total);
         self.advance_to(battery, next);
         self.lineage.push(self.trials_done);
-        Ok(self.is_complete())
+        self.is_complete()
     }
 
     /// Fold trials `[trials_done, target)` into this checkpoint, in order.

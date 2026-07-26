@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.4.1, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.4.2, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
 ---
 
 # Serving
@@ -101,17 +101,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.4.1", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.4.2", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.4.1", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.4.2", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.4.1", "id": "<correlation>", "ok": false,
+{"dli": "0.4.2", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -143,7 +143,7 @@ lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
 
-Contract `0.4.1` returns complete typed query rows, before/after fork changes,
+Contract `0.4.2` returns complete typed query rows, before/after fork changes,
 named preflight valuations, typed timeline reports, and target-shaped export
 emissions. The generated response schemas under `contracts/dli-worker/schemas/`
 are the machine-readable authority for those shapes.
@@ -265,17 +265,19 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-Contract `0.4.1` implements this job behavior. The request's `document` field is
-the stable logical id of either a manifest `documents` entry (its first declared
-practice) or a manifest `games` entry (its loaded ruleset). A game entry pins the
-candidate delta as part of its rules file; the default battery deals its first
-available layout, measures `completed-rate`, and checks deck conservation and
-legal play. A game requiring a registered Rust verdict is refused because a
-standalone project cannot supply that code through data.
+Contract `0.4.2` implements this job behavior under storage format 2
+(DL-0036). The request's `document` field is the stable logical id of either a
+manifest `documents` entry (its first declared practice) or a manifest `games`
+entry (its loaded ruleset). A game entry pins the candidate delta as part of its
+rules file; the default battery deals its first available layout, measures
+`completed-rate`, and checks deck conservation and legal play. A game requiring
+a registered Rust verdict is refused because a standalone project cannot supply
+that code through data.
 
-A job id is the SHA-256 address of its canonical specification (asset id,
-battery, seed, trial count, and checkpoint cadence), so an exact retry reopens
-the same job.
+A job id is the SHA-256 address of its canonical specification (storage format,
+asset id, battery, seed, trial count, and checkpoint cadence), so an exact retry
+under the same contract reopens the same job. A prior contract's handle is not
+reinterpreted under a new storage format.
 
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
@@ -349,7 +351,7 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.4.1`, each accepted fat payload and the exact draft source used
+At contract `0.4.2`, each accepted fat payload and the exact draft source used
 to verify it are written as one versioned RFC 8785 JCS record beneath
 `.dli-evidence/payloads/<document>/<sha256>.json`. Retaining the source is
 required: `dli.check` reloads every record and replays anchoring, staleness, and
@@ -377,7 +379,10 @@ Rejected payloads and attestation records publish no evidence file. RQ drafts
 are returned **as data** in the response (§3.1), and the worker never files
 them. Simulation specifications, checkpoint-chain records, terminal records,
 and final manifests use the same immutable publication path. The project lock
-covers verification and publication, while trial computation runs outside it.
+covers canonical bytes, content addresses, chain shape, terminal anchors,
+accumulator shape, and publication. Replay of the selected immutable head and
+all trial computation run outside it; publication reacquires the lock and
+compares the observed head before appending.
 
 The worker never writes canon, and it never writes a ruling-request file
 directly. An open question surfaced by the worker is a debt the consumer files
@@ -389,7 +394,7 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and check ops are synchronous and cheap. At contract `0.4.1`,
+Query and check ops are synchronous and cheap. At contract `0.4.2`,
 `dli.simulate.start` durably publishes pending state before its response is
 flushed; only then does the transport release a background worker.
 `dli.simulate.status` verifies durable state and schedules an unfinished job

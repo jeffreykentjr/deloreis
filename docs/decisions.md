@@ -841,3 +841,27 @@ games contradicted its ruleset contract. A standalone worker must also make
 terminality observable after restart without turning process memory or an
 unanchored marker into evidence, and a caller choosing checkpoint cadence must
 not be able to monopolize unrelated evidence writes or spawn unbounded threads.
+
+## DL-0036 — Contract 0.4.2 versions the durable job format
+
+*Date: 2026-07-26*
+
+**Ruling** (supersedes DL-0034 and clarifies DL-0035): contract `0.4.2` is the first contract for simulation
+job storage format 2. The format version participates in the canonical job
+specification and therefore in its content address. A `0.4.1` request or job
+handle is not silently reinterpreted as `0.4.2`; exact retries are stable
+within their declared contract.
+
+Checkpoint replay and all trial folding run outside the project-wide evidence
+lock. A locked read verifies canonical bytes, content addresses, chain shape,
+terminal anchors, and accumulator shape; the selected immutable head is then
+replayed after releasing the lock. A worker retains that verified state across
+boundaries and publishes each successor under compare-and-swap, so cadence-one
+work does not replay the growing prefix before every append.
+
+**Rationale.** Changing a private format field inside a content-addressed
+specification changed public job handles while the worker still claimed the
+same contract. Versioning the wire makes that incompatibility explicit.
+Separating structural verification from deterministic replay preserves
+fail-closed evidence without allowing a long status read or trial prefix to
+monopolize unrelated evidence writers.

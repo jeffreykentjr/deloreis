@@ -3,7 +3,7 @@
   "version": 1,
   "note": "params omit every required field, violating the op schema.",
   "send": {
-    "dli": "0.4.1",
+    "dli": "0.4.2",
     "id": "1",
     "op": "author.add_event",
     "params": {}

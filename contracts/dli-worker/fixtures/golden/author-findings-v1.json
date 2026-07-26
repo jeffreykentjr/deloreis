@@ -4,7 +4,7 @@
   "note": "author.findings partitions the workspace's open findings by severity — the pre-flight of what author.materialize would refuse on.",
   "precondition": [
     {
-      "dli": "0.4.1",
+      "dli": "0.4.2",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "op": "author.findings",
         "params": {
@@ -23,7 +23,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "ok": true,
         "result": {

@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "op": "dli.name.check",
         "params": {
@@ -14,7 +14,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "ok": true,
         "result": {

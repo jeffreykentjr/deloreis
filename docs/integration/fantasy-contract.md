@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.4.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.4.2. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -19,7 +19,7 @@ vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. Version
-> `0.4.1` has typed responses for all 46 operations, strict caller projects,
+> `0.4.2` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
 > Durable fat-payload, attestation, and restart-resumable simulation evidence is
 > implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are closed.
@@ -169,7 +169,7 @@ path and commits through fantasy review.
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `0.4.1` enforces it for all 46 operations before v1.
+today: contract `0.4.2` enforces it for all 46 operations before v1.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.

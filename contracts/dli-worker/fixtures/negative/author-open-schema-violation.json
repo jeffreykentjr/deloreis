@@ -3,7 +3,7 @@
   "version": 1,
   "note": "a param carries the wrong JSON type, violating the op schema.",
   "send": {
-    "dli": "0.4.1",
+    "dli": "0.4.2",
     "id": "1",
     "op": "author.open",
     "params": {

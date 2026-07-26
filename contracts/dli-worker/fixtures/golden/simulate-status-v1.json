@@ -6,7 +6,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "op": "dli.simulate.start",
         "params": {
@@ -17,7 +17,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "1",
         "ok": true,
         "result": {
@@ -28,7 +28,7 @@
     },
     {
       "send": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "2",
         "op": "dli.simulate.status",
         "params": {
@@ -36,7 +36,7 @@
         }
       },
       "expect": {
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "2",
         "ok": true,
         "result": {

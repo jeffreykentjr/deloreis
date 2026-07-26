@@ -275,6 +275,16 @@ fn durable_checkpoint_validation_rejects_malformed_state() {
     let error = checkpoint.validate_for(&battery).unwrap_err();
     assert!(error.contains("metric accumulators"), "{error}");
     assert!(checkpoint.advance_boundary(&battery).is_err());
+
+    checkpoint.lineage.clear();
+    let error = checkpoint
+        .validate_persisted_shape_for(&battery)
+        .unwrap_err();
+    assert!(error.contains("metric accumulators"), "{error}");
+
+    let mut cadence_less = dli_sim::Checkpoint::initial(&battery, None);
+    let error = cadence_less.advance_boundary(&battery).unwrap_err();
+    assert!(error.contains("declare a cadence"), "{error}");
 }
 
 #[test]

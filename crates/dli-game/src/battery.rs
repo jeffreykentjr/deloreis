@@ -208,8 +208,28 @@ impl DealCheckpoint {
         self.trials_done >= self.trials_total
     }
 
-    /// Validate this serialized state by replaying it from the battery.
-    pub fn validate_for(&self, battery: &DealBattery) -> Result<(), String> {
+    /// Validate shape and metadata without replaying dealt readings.
+    pub fn validate_shape_for(&self, battery: &DealBattery) -> Result<(), String> {
+        self.validate_fields_for(battery)?;
+        let expected_lineage = checkpoint_lineage(self.every, self.trials_done, self.trials_total);
+        if self.lineage != expected_lineage {
+            return Err("deal checkpoint lineage does not match its cadence".to_owned());
+        }
+        Ok(())
+    }
+
+    /// Validate a persisted chain record whose lineage is stored by the caller.
+    pub fn validate_persisted_shape_for(&self, battery: &DealBattery) -> Result<(), String> {
+        self.validate_fields_for(battery)?;
+        if !self.lineage.is_empty() {
+            return Err(
+                "a persisted deal checkpoint must not duplicate its external lineage".to_owned(),
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_fields_for(&self, battery: &DealBattery) -> Result<(), String> {
         if self.battery_digest != battery.digest()
             || self.seed != battery.seed
             || self.trials_total != battery.trials
@@ -238,10 +258,13 @@ impl DealCheckpoint {
         {
             return Err("deal checkpoint accumulators do not match the battery".to_owned());
         }
-        let expected_lineage = checkpoint_lineage(self.every, self.trials_done, self.trials_total);
-        if self.lineage != expected_lineage {
-            return Err("deal checkpoint lineage does not match its cadence".to_owned());
-        }
+        Ok(())
+    }
+
+    /// Validate this serialized state by replaying it from the battery.
+    pub fn validate_for(&self, battery: &DealBattery) -> Result<(), String> {
+        self.validate_shape_for(battery)?;
+        let expected_lineage = self.lineage.clone();
         let mut replayed = Self::initial(battery, self.every);
         replayed.advance_to(battery, self.trials_done);
         replayed.lineage = expected_lineage;
@@ -254,15 +277,20 @@ impl DealCheckpoint {
     /// Fold exactly one cadence boundary.
     pub fn advance_boundary(&mut self, battery: &DealBattery) -> Result<bool, String> {
         self.validate_for(battery)?;
+        Ok(self.advance_validated_boundary(battery))
+    }
+
+    /// Fold one boundary after this exact state has passed [`Self::validate_for`].
+    pub fn advance_validated_boundary(&mut self, battery: &DealBattery) -> bool {
         if self.is_complete() {
-            return Ok(true);
+            return true;
         }
         let next = (self.trials_done / self.every + 1)
             .saturating_mul(self.every)
             .min(self.trials_total);
         self.advance_to(battery, next);
         self.lineage.push(self.trials_done);
-        Ok(self.is_complete())
+        self.is_complete()
     }
 
     /// Build the honest shared run manifest represented by this state.

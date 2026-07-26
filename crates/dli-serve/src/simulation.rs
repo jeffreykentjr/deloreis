@@ -107,9 +107,18 @@ struct LoadedJob {
     spec: JobSpec,
     state: JobState,
     checkpoint_digest: Option<String>,
+    live_spec: bool,
     cancelled: bool,
     complete: bool,
     manifest: Option<RunManifest>,
+    manifest_digest: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct JobRevision {
+    checkpoint_digest: Option<String>,
+    cancelled: bool,
+    complete: bool,
     manifest_digest: Option<String>,
 }
 
@@ -133,112 +142,124 @@ pub fn start_job(
     };
     let job_id = digest_value(&spec)?;
     let hex = job_hex(&job_id)?;
-    let _lock = EvidenceLock::acquire(project)?;
-    let simulations = evidence_directory(project, &["simulations"])?;
-    let directory = simulations.join(hex);
-    if directory.exists() {
-        let created: Option<Created> =
-            load_fixed_record(&directory.join("created.json"), "simulation creation")?;
-        if created.is_none() {
-            let active = load_active_spec(&directory, &job_id)?;
-            if active.is_none() {
-                require_empty_job_shell(&directory, &job_id)?;
-                evidence_directory(project, &["simulations", hex, "checkpoints"])?;
-                evidence_directory(project, &["simulations", hex, "manifests"])?;
-                publish_immutable(&directory.join("spec.json"), &canonical_bytes(&spec)?)?;
-            } else if active.as_ref() != Some(&spec) {
-                return Err(EvidenceError::Corrupt(format!(
-                    "simulation job `{job_id}` was interrupted with another specification"
-                )));
+    {
+        let _lock = EvidenceLock::acquire(project)?;
+        let simulations = evidence_directory(project, &["simulations"])?;
+        let directory = simulations.join(hex);
+        if directory.exists() {
+            let created: Option<Created> =
+                load_fixed_record(&directory.join("created.json"), "simulation creation")?;
+            if created.is_none() {
+                let active = load_active_spec(&directory, &job_id)?;
+                if active.is_none() {
+                    require_empty_job_shell(&directory, &job_id)?;
+                    evidence_directory(project, &["simulations", hex, "checkpoints"])?;
+                    evidence_directory(project, &["simulations", hex, "manifests"])?;
+                    publish_immutable(&directory.join("spec.json"), &canonical_bytes(&spec)?)?;
+                } else if active.as_ref() != Some(&spec) {
+                    return Err(EvidenceError::Corrupt(format!(
+                        "simulation job `{job_id}` was interrupted with another specification"
+                    )));
+                }
+                publish_created(&directory, &job_id)?;
             }
+        } else {
+            evidence_directory(project, &["simulations", hex])?;
+            evidence_directory(project, &["simulations", hex, "checkpoints"])?;
+            evidence_directory(project, &["simulations", hex, "manifests"])?;
+            publish_immutable(&directory.join("spec.json"), &canonical_bytes(&spec)?)?;
             publish_created(&directory, &job_id)?;
         }
-        return view(&job_id, &load_job(project, &job_id)?);
     }
-    evidence_directory(project, &["simulations", hex])?;
-    evidence_directory(project, &["simulations", hex, "checkpoints"])?;
-    evidence_directory(project, &["simulations", hex, "manifests"])?;
-    publish_immutable(&directory.join("spec.json"), &canonical_bytes(&spec)?)?;
-    publish_created(&directory, &job_id)?;
-    view(&job_id, &load_job(project, &job_id)?)
+    let loaded = load_verified_job(project, &job_id)?;
+    Ok(view(&job_id, &loaded))
 }
 
 /// Read and verify a durable job.
 pub fn status_job(project: &Project, job_id: &str) -> Result<JobView, EvidenceError> {
-    let _lock = EvidenceLock::acquire(project)?;
-    view(job_id, &load_job(project, job_id)?)
+    let loaded = load_verified_job(project, job_id)?;
+    Ok(view(job_id, &loaded))
 }
 
 /// Commit cancellation unless completion is already terminal.
 pub fn cancel_job(project: &Project, job_id: &str) -> Result<JobView, EvidenceError> {
-    let _lock = EvidenceLock::acquire(project)?;
-    let mut loaded = load_job(project, job_id)?;
-    if !loaded.complete && (loaded.manifest.is_some() || loaded.state.is_complete()) {
-        finish_job(project, job_id, &mut loaded)?;
-        return view(job_id, &loaded);
-    }
-    if !loaded.complete && !loaded.cancelled {
-        let cancellation = Cancellation {
-            version: JOB_VERSION,
-            job_id: job_id.to_owned(),
-            spec: loaded.spec.clone(),
-            checkpoint: loaded.checkpoint_digest.clone(),
-        };
-        let directory = existing_job_directory(project, job_id)?;
-        publish_immutable(
-            &directory.join("cancelled.json"),
-            &canonical_bytes(&cancellation)?,
-        )?;
-        remove_live_spec(&directory)?;
-        loaded.cancelled = true;
-    }
-    view(job_id, &loaded)
-}
-
-/// Advance one boundary with trial computation outside the evidence lock.
-pub fn advance_job(project: &Project, job_id: &str) -> Result<JobView, EvidenceError> {
-    let (spec, mut state, observed_head) = {
-        let _lock = EvidenceLock::acquire(project)?;
-        let loaded = load_job(project, job_id)?;
-        if loaded.cancelled || loaded.complete {
-            return view(job_id, &loaded);
+    loop {
+        let verified = load_verified_job(project, job_id)?;
+        if verified.complete || verified.cancelled {
+            return Ok(view(job_id, &verified));
         }
-        (loaded.spec, loaded.state, loaded.checkpoint_digest)
-    };
-
-    if !state.is_complete() {
-        state
-            .advance_boundary(&spec.battery)
-            .map_err(EvidenceError::Corrupt)?;
+        let observed = verified.revision();
+        let committed = {
+            let _lock = EvidenceLock::acquire(project)?;
+            let mut current = load_job(project, job_id)?;
+            if current.revision() == observed {
+                if current.state.is_complete() {
+                    finish_job(project, job_id, &mut current)?;
+                } else {
+                    let cancellation = Cancellation {
+                        version: JOB_VERSION,
+                        job_id: job_id.to_owned(),
+                        spec: current.spec.clone(),
+                        checkpoint: current.checkpoint_digest.clone(),
+                    };
+                    let directory = existing_job_directory(project, job_id)?;
+                    publish_immutable(
+                        &directory.join("cancelled.json"),
+                        &canonical_bytes(&cancellation)?,
+                    )?;
+                    remove_live_spec(&directory)?;
+                    current.cancelled = true;
+                }
+                Some(view(job_id, &current))
+            } else {
+                None
+            }
+        };
+        if let Some(view) = committed {
+            return Ok(view);
+        }
     }
-
-    let _lock = EvidenceLock::acquire(project)?;
-    let mut current = load_job(project, job_id)?;
-    if current.cancelled || current.complete || current.checkpoint_digest != observed_head {
-        return view(job_id, &current);
-    }
-
-    if !current.state.is_complete() {
-        let digest = publish_checkpoint(project, job_id, observed_head, &state)?;
-        current.state = state;
-        current.checkpoint_digest = Some(digest);
-    }
-    if current.state.is_complete() {
-        finish_job(project, job_id, &mut current)?;
-    }
-    view(job_id, &current)
 }
 
 /// Run checkpoint boundaries until the job reaches a terminal state.
 pub fn run_to_terminal(project: &Project, job_id: &str) -> Result<JobView, EvidenceError> {
+    let mut loaded = load_verified_job(project, job_id)?;
     loop {
-        let current = advance_job(project, job_id)?;
-        if matches!(
-            current.status,
-            SimulateJobStatus::Complete | SimulateJobStatus::Cancelled
-        ) {
-            return Ok(current);
+        if loaded.cancelled || loaded.complete {
+            return Ok(view(job_id, &loaded));
         }
+        let observed = loaded.revision();
+        if !loaded.state.is_complete() {
+            loaded
+                .state
+                .advance_validated_boundary(&loaded.spec.battery);
+        }
+        let committed = {
+            let _lock = EvidenceLock::acquire(project)?;
+            let mut current = load_job(project, job_id)?;
+            if current.revision() == observed {
+                if !current.state.is_complete() {
+                    let digest = publish_checkpoint(
+                        project,
+                        job_id,
+                        current.checkpoint_digest.clone(),
+                        &loaded.state,
+                    )?;
+                    current.state = loaded.state.clone();
+                    current.checkpoint_digest = Some(digest);
+                }
+                if current.state.is_complete() {
+                    finish_job(project, job_id, &mut current)?;
+                }
+                Some(current)
+            } else {
+                None
+            }
+        };
+        loaded = match committed {
+            Some(current) => current,
+            None => load_verified_job(project, job_id)?,
+        };
     }
 }
 
@@ -247,7 +268,7 @@ fn finish_job(
     job_id: &str,
     loaded: &mut LoadedJob,
 ) -> Result<(), EvidenceError> {
-    let manifest = loaded.state.finalize(&loaded.spec.battery)?;
+    let manifest = loaded.state.finalize(&loaded.spec.battery);
     let directory = existing_job_directory(project, job_id)?;
     let bytes = canonical_bytes(&manifest)?;
     let digest = digest_bytes(&bytes);
@@ -316,6 +337,7 @@ fn load_job(project: &Project, job_id: &str) -> Result<LoadedJob, EvidenceError>
     }
 
     let active_spec = load_active_spec(&directory, job_id)?;
+    let live_spec = active_spec.is_some();
     let spec = match (&cancellation, &completion, active_spec) {
         (Some(record), None, _) => {
             validate_terminal_spec(job_id, record.version, &record.job_id, &record.spec)?;
@@ -367,11 +389,45 @@ fn load_job(project: &Project, job_id: &str) -> Result<LoadedJob, EvidenceError>
         spec,
         state,
         checkpoint_digest,
+        live_spec,
         cancelled: cancellation.is_some(),
         complete: completion.is_some(),
         manifest,
         manifest_digest,
     })
+}
+
+fn load_verified_job(project: &Project, job_id: &str) -> Result<LoadedJob, EvidenceError> {
+    loop {
+        let mut loaded = {
+            let _lock = EvidenceLock::acquire(project)?;
+            load_job(project, job_id)?
+        };
+        loaded.verify()?;
+        if !(loaded.live_spec && (loaded.cancelled || loaded.complete)) {
+            return Ok(loaded);
+        }
+
+        let observed = loaded.revision();
+        let cleaned = {
+            let _lock = EvidenceLock::acquire(project)?;
+            let current = load_job(project, job_id)?;
+            if current.revision() == observed
+                && current.live_spec
+                && (current.cancelled || current.complete)
+            {
+                let directory = existing_job_directory(project, job_id)?;
+                remove_live_spec(&directory)?;
+                true
+            } else {
+                false
+            }
+        };
+        if cleaned {
+            loaded.live_spec = false;
+            return Ok(loaded);
+        }
+    }
 }
 
 fn load_active_spec(directory: &Path, job_id: &str) -> Result<Option<JobSpec>, EvidenceError> {
@@ -501,18 +557,7 @@ fn load_checkpoint_chain(
             EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
         })?;
         validate_content_address(&path, &bytes, &record)?;
-        if record.version != JOB_VERSION
-            || record.job_id != job_id
-            || !record.state.lineage().is_empty()
-            || !record
-                .state
-                .metadata_matches(&spec.battery, spec.checkpoint_every)
-        {
-            return Err(EvidenceError::Corrupt(format!(
-                "{} does not match its simulation job",
-                path.display()
-            )));
-        }
+        validate_checkpoint_record(&path, &record, job_id, spec)?;
         if let Some(previous) = &record.previous {
             referenced.insert(previous.clone());
         }
@@ -580,9 +625,38 @@ fn load_checkpoint_chain(
         .clone();
     state.set_lineage(chain);
     state
-        .validate_for(&spec.battery)
+        .validate_shape_for(&spec.battery)
         .map_err(EvidenceError::Corrupt)?;
     Ok((state, Some(head)))
+}
+
+fn validate_checkpoint_record(
+    path: &Path,
+    record: &JobCheckpoint,
+    job_id: &str,
+    spec: &JobSpec,
+) -> Result<(), EvidenceError> {
+    if record.version != JOB_VERSION
+        || record.job_id != job_id
+        || !record.state.lineage().is_empty()
+        || !record
+            .state
+            .metadata_matches(&spec.battery, spec.checkpoint_every)
+    {
+        return Err(EvidenceError::Corrupt(format!(
+            "{} does not match its simulation job",
+            path.display()
+        )));
+    }
+    record
+        .state
+        .validate_persisted_shape_for(&spec.battery)
+        .map_err(|detail| {
+            EvidenceError::Corrupt(format!(
+                "{} has an invalid checkpoint shape: {detail}",
+                path.display()
+            ))
+        })
 }
 
 fn load_manifest(
@@ -613,7 +687,7 @@ fn load_manifest(
     })?;
     validate_content_address(&path, &bytes, &manifest)?;
     if !state.is_complete()
-        || manifest.canonical_bytes() != state.finalize(&spec.battery)?.canonical_bytes()
+        || manifest.canonical_bytes() != state.finalize(&spec.battery).canonical_bytes()
         || !manifest.grades_are_honest()
     {
         return Err(EvidenceError::Corrupt(format!(
@@ -623,11 +697,7 @@ fn load_manifest(
     Ok((Some(manifest), Some(digest_bytes(&bytes))))
 }
 
-fn view(job_id: &str, loaded: &LoadedJob) -> Result<JobView, EvidenceError> {
-    loaded
-        .state
-        .validate_for(&loaded.spec.battery)
-        .map_err(EvidenceError::Corrupt)?;
+fn view(job_id: &str, loaded: &LoadedJob) -> JobView {
     let status = if loaded.complete {
         SimulateJobStatus::Complete
     } else if loaded.cancelled {
@@ -637,7 +707,7 @@ fn view(job_id: &str, loaded: &LoadedJob) -> Result<JobView, EvidenceError> {
     } else {
         SimulateJobStatus::Running
     };
-    Ok(JobView {
+    JobView {
         job_id: job_id.to_owned(),
         status,
         trials_done: loaded.state.trials_done(),
@@ -647,7 +717,7 @@ fn view(job_id: &str, loaded: &LoadedJob) -> Result<JobView, EvidenceError> {
             .complete
             .then(|| loaded.manifest_digest.clone())
             .flatten(),
-    })
+    }
 }
 
 impl JobBattery {
@@ -733,27 +803,67 @@ impl JobState {
         }
     }
 
-    fn advance_boundary(&mut self, battery: &JobBattery) -> Result<bool, String> {
+    fn validate_shape_for(&self, battery: &JobBattery) -> Result<(), String> {
         match (self, battery) {
             (Self::Practice(checkpoint), JobBattery::Practice(battery)) => {
-                checkpoint.advance_boundary(battery)
+                checkpoint.validate_shape_for(battery)
             }
             (Self::Game(checkpoint), JobBattery::Game(battery)) => {
-                checkpoint.advance_boundary(battery)
+                checkpoint.validate_shape_for(battery)
             }
             _ => Err("simulation checkpoint kind does not match its battery".to_owned()),
         }
     }
 
-    fn finalize(&self, battery: &JobBattery) -> Result<RunManifest, EvidenceError> {
-        self.validate_for(battery).map_err(EvidenceError::Corrupt)?;
-        Ok(match (self, battery) {
+    fn validate_persisted_shape_for(&self, battery: &JobBattery) -> Result<(), String> {
+        match (self, battery) {
+            (Self::Practice(checkpoint), JobBattery::Practice(battery)) => {
+                checkpoint.validate_persisted_shape_for(battery)
+            }
+            (Self::Game(checkpoint), JobBattery::Game(battery)) => {
+                checkpoint.validate_persisted_shape_for(battery)
+            }
+            _ => Err("simulation checkpoint kind does not match its battery".to_owned()),
+        }
+    }
+
+    fn advance_validated_boundary(&mut self, battery: &JobBattery) -> bool {
+        match (self, battery) {
+            (Self::Practice(checkpoint), JobBattery::Practice(battery)) => {
+                checkpoint.advance_validated_boundary(battery)
+            }
+            (Self::Game(checkpoint), JobBattery::Game(battery)) => {
+                checkpoint.advance_validated_boundary(battery)
+            }
+            _ => unreachable!("validated simulation state matches its battery"),
+        }
+    }
+
+    fn finalize(&self, battery: &JobBattery) -> RunManifest {
+        match (self, battery) {
             (Self::Practice(checkpoint), JobBattery::Practice(battery)) => {
                 checkpoint.finalize(battery)
             }
             (Self::Game(checkpoint), JobBattery::Game(battery)) => checkpoint.finalize(battery),
-            _ => unreachable!("validation rejects mismatched simulation kinds"),
-        })
+            _ => unreachable!("validated simulation state matches its battery"),
+        }
+    }
+}
+
+impl LoadedJob {
+    fn revision(&self) -> JobRevision {
+        JobRevision {
+            checkpoint_digest: self.checkpoint_digest.clone(),
+            cancelled: self.cancelled,
+            complete: self.complete,
+            manifest_digest: self.manifest_digest.clone(),
+        }
+    }
+
+    fn verify(&self) -> Result<(), EvidenceError> {
+        self.state
+            .validate_for(&self.spec.battery)
+            .map_err(EvidenceError::Corrupt)
     }
 }
 

@@ -50,7 +50,7 @@ fn claim_payload_request(
     prompt_digit: char,
 ) -> Value {
     serde_json::json!({
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": format!("submit-{episode}"),
         "op": "dli.payload-submit",
         "params": {
@@ -122,12 +122,12 @@ fn loads_the_second_world_as_one_logical_document() {
 fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
+{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -157,8 +157,8 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
 fn project_door_t_rejects_invented_forks() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
+{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -191,14 +191,14 @@ fn project_stateful_handles_and_workspaces_cannot_cross_documents() {
     );
     let project = Project::load(&root).expect("two-document project loads");
     let input = b"\
-{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.4.1\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
+{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
+{\"dli\":\"0.4.2\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -232,7 +232,7 @@ fn cyclic_timeline_reports_blame_without_cursor_order_claims() {
     .unwrap();
     write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
     let project = Project::load(&root).expect("cyclic chronology remains diagnosable");
-    let input = b"{\"dli\":\"0.4.1\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
+    let input = b"{\"dli\":\"0.4.2\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -447,7 +447,7 @@ fn payload_handler_reads_project_owned_outline_context() {
     let project = Project::load(&root).unwrap();
     let source = "draft";
     let request = serde_json::json!({
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "outline-context",
         "op": "dli.check-draft",
         "params": {
@@ -462,7 +462,7 @@ fn payload_handler_reads_project_owned_outline_context() {
         }
     });
     let typo = serde_json::json!({
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "outline-typo",
         "op": "dli.payload-submit",
         "params": {
@@ -584,7 +584,7 @@ fn document_check_replays_committed_payloads_after_restart() {
     .unwrap();
     fs::write(root.join("world.dli"), "scope world\n").unwrap();
     let check = serde_json::json!({
-        "dli": "0.4.1",
+        "dli": "0.4.2",
         "id": "check",
         "op": "dli.check",
         "params": {"document": "world"}

@@ -291,8 +291,14 @@ fn deal_checkpoint_resumes_to_the_same_manifest_and_rejects_forgery() {
     straight.checkpoint_lineage = vec![4, 8, 9];
     assert_eq!(checkpoint.finalize(&battery), straight);
 
-    checkpoint.metrics[0].sum += 1;
-    assert!(checkpoint.validate_for(&battery).is_err());
+    let mut forged = checkpoint.clone();
+    forged.metrics[0].sum += 1;
+    assert!(forged.validate_for(&battery).is_err());
+
+    let mut malformed = checkpoint;
+    malformed.lineage.clear();
+    malformed.metrics[0].trials += 1;
+    assert!(malformed.validate_persisted_shape_for(&battery).is_err());
 }
 
 // -- both exports render from the shipped profiles ---------------------------
