@@ -42,6 +42,8 @@ use dli_time::chronology::{TemporalVerdict, TimePoint};
 
 use dli_export::profile::ExportTarget;
 use dli_export::{ExportOpts, ExportProfile, export_wire};
+use dli_game::model::{Verdict, VerdictRule};
+use dli_game::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_ledger::ledger_check::check_proof;
 use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
@@ -681,43 +683,79 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
 
 fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: SimulateStartParams = params(request)?;
-    let project = require_project(sessions)?;
     if p.checkpoint_every == 0 {
         return Err((
             ErrorCode::SchemaViolation,
             "`checkpoint_every` must be at least 1".to_owned(),
         ));
     }
-    // Source the first declared practice from the document (the same corpus the
-    // scope compiles); `trials` is the trial count.
-    let pack = sessions.pack(&p.document).ok_or_else(|| {
-        (
-            ErrorCode::UnknownDoc,
-            format!("no document named '{}' is loaded", p.document),
-        )
-    })?;
-    let practice = pack
-        .documents
-        .iter()
-        .flat_map(compile_practices)
-        .next()
-        .ok_or_else(|| {
-            (
+    let project = require_project(sessions)?;
+    let battery = if let Some(pack) = sessions.pack(&p.document) {
+        let practice = pack
+            .documents
+            .iter()
+            .flat_map(compile_practices)
+            .next()
+            .ok_or_else(|| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("document '{}' declares no practice to simulate", p.document),
+                )
+            })?;
+        crate::simulation::JobBattery::Practice(Battery {
+            practice,
+            bounds: GenBounds {
+                max_steps: SIM_MAX_STEPS,
+                max_magnitude: SIM_MAX_MAGNITUDE,
+            },
+            seed: p.seed,
+            trials: p.trials,
+            metrics: default_metrics(&pack),
+            invariants: default_invariants(&pack),
+            affine_caps: std::collections::BTreeMap::new(),
+        })
+    } else if let Some((ruleset, _)) = sessions.ruleset(&p.document) {
+        if let VerdictRule::Registered { name } = &ruleset.verdict {
+            return Err((
                 ErrorCode::SchemaViolation,
-                format!("document '{}' declares no practice to simulate", p.document),
-            )
-        })?;
-    let battery = Battery {
-        practice,
-        bounds: GenBounds {
-            max_steps: SIM_MAX_STEPS,
-            max_magnitude: SIM_MAX_MAGNITUDE,
-        },
-        seed: p.seed,
-        trials: p.trials,
-        metrics: default_metrics(&pack),
-        invariants: default_invariants(&pack),
-        affine_caps: std::collections::BTreeMap::new(),
+                format!(
+                    "game '{}' needs registered verdict predicate '{name}', which a standalone \
+                     project cannot supply; use a data-defined completed verdict",
+                    p.document
+                ),
+            ));
+        }
+        let layout = ruleset
+            .available_layouts()
+            .first()
+            .map(|layout| layout.name.clone())
+            .ok_or_else(|| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("game '{}' has no dealable layout to simulate", p.document),
+                )
+            })?;
+        crate::simulation::JobBattery::Game(DealBattery {
+            ruleset,
+            layout,
+            seed: p.seed,
+            trials: p.trials,
+            metrics: vec![ReadingMetric {
+                name: "completed-rate".to_owned(),
+                observable: ReadingObservable::VerdictIs {
+                    verdict_id: Verdict::COMPLETED.to_owned(),
+                },
+            }],
+            invariants: vec![
+                ReadingInvariant::DeckConserved,
+                ReadingInvariant::OnlyLegalPlays,
+            ],
+        })
+    } else {
+        return Err((
+            ErrorCode::UnknownDoc,
+            format!("no document or game named '{}' is loaded", p.document),
+        ));
     };
     let job = crate::simulation::start_job(&project, &p.document, battery, p.checkpoint_every)
         .map_err(|error| evidence_fault(&error))?;

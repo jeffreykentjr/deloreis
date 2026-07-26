@@ -1,12 +1,17 @@
 {
   "fixture": "negative/simulate-start-schema-violation",
   "version": 1,
-  "note": "params omit every required field, violating the op schema.",
+  "note": "checkpoint_every is zero, violating the schema's positive cadence bound.",
   "send": {
     "dli": "0.4.1",
     "id": "1",
     "op": "dli.simulate.start",
-    "params": {}
+    "params": {
+      "document": "simulation",
+      "seed": 1,
+      "trials": 1,
+      "checkpoint_every": 0
+    }
   },
   "expect_error": {
     "code": "schema-violation"

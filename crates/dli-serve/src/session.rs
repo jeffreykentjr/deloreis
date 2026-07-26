@@ -29,6 +29,9 @@ use dli_world::{CompiledWorld, Pack, compile};
 use crate::envelope::ErrorCode;
 use crate::project::Project;
 
+/// Maximum simulation workers one serve process runs concurrently.
+const MAX_SIMULATION_WORKERS: usize = 4;
+
 /// The built-in `french-deck` game ruleset — the shipped standard 52-card
 /// exemplar (`examples/games/french-deck/`). It gives the card / Ludii export
 /// profiles a hermetic, resolvable game to render (a lore world carries no card
@@ -248,6 +251,11 @@ impl Sessions {
                 .active_jobs
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if active.len() >= MAX_SIMULATION_WORKERS {
+                drop(active);
+                self.queued_jobs.insert(job_id);
+                continue;
+            }
             if !active.insert(job_id.clone()) {
                 continue;
             }

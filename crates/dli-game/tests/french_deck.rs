@@ -16,7 +16,9 @@ use dli_sim::InvariantVerdict;
 
 use dli_export::profile::{ExportOpts, ExportTarget, Registry};
 
-use dli_game::battery::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
+use dli_game::battery::{
+    DealBattery, DealCheckpoint, ReadingInvariant, ReadingMetric, ReadingObservable,
+};
 use dli_game::binding::GameBindings;
 use dli_game::export::{self, follow_edge_count};
 use dli_game::model::{
@@ -259,6 +261,38 @@ fn deal_battery_folds_an_honest_deterministic_manifest() {
     // Same seed replays byte-for-byte.
     let again = battery.run(&GameBindings::new());
     assert_eq!(manifest, again);
+}
+
+#[test]
+fn deal_checkpoint_resumes_to_the_same_manifest_and_rejects_forgery() {
+    let battery = DealBattery {
+        ruleset: french_deck(),
+        layout: "a-run".to_owned(),
+        seed: 7,
+        trials: 9,
+        metrics: vec![ReadingMetric {
+            name: "completed-rate".to_owned(),
+            observable: ReadingObservable::VerdictIs {
+                verdict_id: Verdict::COMPLETED.to_owned(),
+            },
+        }],
+        invariants: vec![
+            ReadingInvariant::DeckConserved,
+            ReadingInvariant::OnlyLegalPlays,
+        ],
+    };
+    let mut checkpoint = DealCheckpoint::initial(&battery, 4);
+    assert!(!checkpoint.advance_boundary(&battery).unwrap());
+    assert_eq!(checkpoint.trials_done, 4);
+    assert!(!checkpoint.advance_boundary(&battery).unwrap());
+    assert!(checkpoint.advance_boundary(&battery).unwrap());
+    assert_eq!(checkpoint.lineage, vec![4, 8, 9]);
+    let mut straight = battery.run(&GameBindings::new());
+    straight.checkpoint_lineage = vec![4, 8, 9];
+    assert_eq!(checkpoint.finalize(&battery), straight);
+
+    checkpoint.metrics[0].sum += 1;
+    assert!(checkpoint.validate_for(&battery).is_err());
 }
 
 // -- both exports render from the shipped profiles ---------------------------

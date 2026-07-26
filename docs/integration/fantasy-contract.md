@@ -84,7 +84,7 @@ The table states the semantics every advertised operation satisfies.
 | `dli.fork.promote` | Emit a ruling-request draft from a fork. | `rq_draft` (slug, ask, affects, diff, evidence) |
 | `dli.check-proof` | Check a diegetic proof `in <practice>`. | verdict + errors (structural classes) + grade |
 | `dli.check-draft` | Run the full battery over a draft payload. | one merged report |
-| `dli.simulate.start` | Start a battery over a ruleset/delta. | `job_id` + status |
+| `dli.simulate.start` | Start a durable battery over a logical practice document or game ruleset/delta. | `job_id` + status |
 | `dli.simulate.status` | Poll a battery. | progress, or final manifest + metrics + invariant verdicts |
 | `dli.simulate.cancel` | Cancel a battery. | status |
 | `dli.timeline.show` | The timeline at a position (`--at`). | topological layers, cycle blame, cursor relations, placements |

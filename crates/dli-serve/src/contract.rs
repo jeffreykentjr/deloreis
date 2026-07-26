@@ -635,13 +635,14 @@ pub struct CheckDraftResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SimulateStartParams {
-    /// The document id.
+    /// The logical document or game id.
     pub document: String,
     /// The RNG seed.
     pub seed: u64,
     /// The number of trials to simulate.
     pub trials: u64,
     /// Trials folded between durable checkpoints.
+    #[schemars(range(min = 1))]
     pub checkpoint_every: u64,
 }
 

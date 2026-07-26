@@ -8,10 +8,10 @@
       "description": "Trials folded between durable checkpoints.",
       "type": "integer",
       "format": "uint64",
-      "minimum": 0
+      "minimum": 1
     },
     "document": {
-      "description": "The document id.",
+      "description": "The logical document or game id.",
       "type": "string"
     },
     "seed": {

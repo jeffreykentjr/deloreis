@@ -120,11 +120,11 @@ fixtures:
 - path: golden/query-support-v1.json
   sha256: af579c7c20116fbe0776625acb35992db14b988b393cea6c47a23c3dcbf5660d
 - path: golden/simulate-cancel-v1.json
-  sha256: 0c5dc202b76afbf15196243e8c3d8bd762da14e954f165196919258fa1072340
+  sha256: b6c9531dfc8f43f72b7dc273694b6be0e2ddfef2f2140867afe2529e92e93d15
 - path: golden/simulate-status-v1.json
-  sha256: 5b1b1fbfa997b0a10a5725116a88f8cc89b1a7b5fd207be7c8be9bd93625417e
+  sha256: 96d5d2e054996996827335aa361bf5face6ceef3635d2d34e839656efbc87398
 - path: golden/simulate-v1.json
-  sha256: d8fa5bd3bd57bdd58aab9072b451bfb17a00bb0bdd6b3a6d0933aaf67ab4b672
+  sha256: 0d9883d1a6c08077073082b8a924d57f4af279e939cbb7c0118300732a9ff882
 - path: golden/timeline-episodes-v1.json
   sha256: 06dcc2a62177fd1e502d54ffed09a6eed4c88e4e8223ac19c72696439248a199
 - path: golden/timeline-knows-v1.json
@@ -224,7 +224,7 @@ fixtures:
 - path: negative/simulate-cancel-schema-violation.json
   sha256: f339293aa1aaf47b1d37756c37d6dab2493f107461aacca43f481badcf304981
 - path: negative/simulate-start-schema-violation.json
-  sha256: 9f3dc8570e3c712f13aa67eeb92e8d1d1dbeaf99d4c8deeeefa396007dde3432
+  sha256: 02e6e14e14462cc9d3e24d38d1bc85ef61f0cb4da2d5431fe521db6a435e3f66
 - path: negative/simulate-status-schema-violation.json
   sha256: 6f33fd04850fdd09716d1a973af7cf13477b0a43a37a53bfd2092b1e48267ec7
 - path: negative/stale-fence.json

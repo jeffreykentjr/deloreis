@@ -134,6 +134,204 @@ pub struct DealBattery {
     pub invariants: Vec<ReadingInvariant>,
 }
 
+/// Running sufficient statistics for one deal-battery metric.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DealMetricAccum {
+    /// Metric identity, aligned with the battery declaration.
+    pub metric: String,
+    /// Readings folded into this accumulator.
+    pub trials: u64,
+    /// Sum of observed values.
+    pub sum: i64,
+    /// Sum of squared observed values.
+    pub sum_of_squares: i64,
+}
+
+/// Earliest witnessed breach of a deal-battery invariant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DealBreach {
+    /// Zero-based reading index.
+    pub trial: u64,
+    /// Domain-spoken breach detail.
+    pub detail: String,
+}
+
+/// Restart-resumable state for a [`DealBattery`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DealCheckpoint {
+    /// Digest of the battery this checkpoint belongs to.
+    pub battery_digest: String,
+    /// Master seed.
+    pub seed: u64,
+    /// Requested reading count.
+    pub trials_total: u64,
+    /// Readings folded so far.
+    pub trials_done: u64,
+    /// Durable checkpoint cadence.
+    pub every: u64,
+    /// Boundaries crossed so far.
+    pub lineage: Vec<u64>,
+    /// Per-metric sufficient statistics.
+    pub metrics: Vec<DealMetricAccum>,
+    /// Earliest breach per invariant.
+    pub breaches: Vec<Option<DealBreach>>,
+}
+
+impl DealCheckpoint {
+    /// Create a zeroed checkpoint for a deal battery.
+    #[must_use]
+    pub fn initial(battery: &DealBattery, every: u64) -> Self {
+        Self {
+            battery_digest: battery.digest(),
+            seed: battery.seed,
+            trials_total: battery.trials,
+            trials_done: 0,
+            every: every.max(1),
+            lineage: Vec::new(),
+            metrics: battery
+                .metrics
+                .iter()
+                .map(|metric| DealMetricAccum {
+                    metric: metric.name.clone(),
+                    trials: 0,
+                    sum: 0,
+                    sum_of_squares: 0,
+                })
+                .collect(),
+            breaches: vec![None; battery.invariants.len()],
+        }
+    }
+
+    /// Whether every requested reading has been folded.
+    #[must_use]
+    pub const fn is_complete(&self) -> bool {
+        self.trials_done >= self.trials_total
+    }
+
+    /// Validate this serialized state by replaying it from the battery.
+    pub fn validate_for(&self, battery: &DealBattery) -> Result<(), String> {
+        if self.battery_digest != battery.digest()
+            || self.seed != battery.seed
+            || self.trials_total != battery.trials
+        {
+            return Err("deal checkpoint belongs to another battery".to_owned());
+        }
+        if self.every == 0 || self.trials_done > self.trials_total {
+            return Err("deal checkpoint has an invalid cadence or trial count".to_owned());
+        }
+        if self.metrics.len() != battery.metrics.len()
+            || self
+                .metrics
+                .iter()
+                .zip(&battery.metrics)
+                .any(|(accum, metric)| {
+                    accum.metric != metric.name
+                        || accum.trials != self.trials_done
+                        || accum.sum_of_squares < 0
+                })
+            || self.breaches.len() != battery.invariants.len()
+            || self
+                .breaches
+                .iter()
+                .flatten()
+                .any(|breach| breach.trial >= self.trials_done)
+        {
+            return Err("deal checkpoint accumulators do not match the battery".to_owned());
+        }
+        let expected_lineage = checkpoint_lineage(self.every, self.trials_done, self.trials_total);
+        if self.lineage != expected_lineage {
+            return Err("deal checkpoint lineage does not match its cadence".to_owned());
+        }
+        let mut replayed = Self::initial(battery, self.every);
+        replayed.advance_to(battery, self.trials_done);
+        replayed.lineage = expected_lineage;
+        if replayed != *self {
+            return Err("deal checkpoint does not replay from its ruleset and seed".to_owned());
+        }
+        Ok(())
+    }
+
+    /// Fold exactly one cadence boundary.
+    pub fn advance_boundary(&mut self, battery: &DealBattery) -> Result<bool, String> {
+        self.validate_for(battery)?;
+        if self.is_complete() {
+            return Ok(true);
+        }
+        let next = (self.trials_done / self.every + 1)
+            .saturating_mul(self.every)
+            .min(self.trials_total);
+        self.advance_to(battery, next);
+        self.lineage.push(self.trials_done);
+        Ok(self.is_complete())
+    }
+
+    /// Build the honest shared run manifest represented by this state.
+    #[must_use]
+    pub fn finalize(&self, battery: &DealBattery) -> RunManifest {
+        let metrics = self
+            .metrics
+            .iter()
+            .map(|accum| {
+                MetricEstimate::from_counts(
+                    accum.metric.clone(),
+                    accum.trials,
+                    accum.sum,
+                    accum.sum_of_squares,
+                )
+            })
+            .collect();
+        let invariants = battery
+            .invariants
+            .iter()
+            .zip(&self.breaches)
+            .map(|(invariant, breach)| {
+                let outcome = match breach {
+                    None => InvariantOutcome::Held,
+                    Some(breach) => InvariantOutcome::Violated {
+                        trial: breach.trial,
+                        detail: breach.detail.clone(),
+                    },
+                };
+                InvariantVerdict::new(invariant.name(), outcome)
+            })
+            .collect();
+        RunManifest {
+            battery_digest: battery.digest(),
+            seed: self.seed,
+            trials: self.trials_done,
+            metrics,
+            invariants,
+            checkpoint_lineage: self.lineage.clone(),
+        }
+    }
+
+    fn advance_to(&mut self, battery: &DealBattery, target: u64) {
+        let bindings = GameBindings::new();
+        while self.trials_done < target.min(self.trials_total) {
+            let trial = self.trials_done;
+            let reading = battery.deal(trial);
+            for (accum, metric) in self.metrics.iter_mut().zip(&battery.metrics) {
+                let value = metric
+                    .observable
+                    .observe(&battery.ruleset, &reading, &bindings);
+                accum.trials += 1;
+                accum.sum = accum.sum.saturating_add(value);
+                accum.sum_of_squares = accum
+                    .sum_of_squares
+                    .saturating_add(value.saturating_mul(value));
+            }
+            for (breach, invariant) in self.breaches.iter_mut().zip(&battery.invariants) {
+                if breach.is_none()
+                    && let Some(detail) = invariant.breach(&battery.ruleset, &reading, trial)
+                {
+                    *breach = Some(DealBreach { trial, detail });
+                }
+            }
+            self.trials_done += 1;
+        }
+    }
+}
+
 impl DealBattery {
     /// Deal reading `index`: play a legal reading from that reading's sub-stream,
     /// `stream_value(seed, index)`. Each play picks uniformly among the legal moves,
@@ -227,6 +425,23 @@ impl DealBattery {
     pub fn digest(&self) -> String {
         digest_json(self)
     }
+}
+
+fn checkpoint_lineage(every: u64, done: u64, total: u64) -> Vec<u64> {
+    let mut lineage = Vec::new();
+    let mut boundary = every;
+    while boundary <= done {
+        lineage.push(boundary);
+        let next = boundary.saturating_add(every);
+        if next == boundary {
+            break;
+        }
+        boundary = next;
+    }
+    if done == total && done > 0 && lineage.last() != Some(&done) {
+        lineage.push(done);
+    }
+    lineage
 }
 
 /// Pick an index uniformly in `[0, len)` from a generator; `None` when empty.

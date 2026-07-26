@@ -36,7 +36,10 @@ pub mod model;
 #[cfg(test)]
 mod tests;
 
-pub use battery::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
+pub use battery::{
+    DealBattery, DealBreach, DealCheckpoint, DealMetricAccum, ReadingInvariant, ReadingMetric,
+    ReadingObservable,
+};
 pub use binding::{GameBindings, InvariantFn, VerdictFn};
 pub use export::{
     CardDeck, DeckDiff, DifferentialStatus, GameArtifact, GameExport, LudiiExport, RenderedCard,

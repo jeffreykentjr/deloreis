@@ -816,3 +816,28 @@ survive a worker crash without treating process memory as evidence. Publishing
 pending state before work begins makes acknowledgment honest, while
 boundary-serialized cancellation preserves both resumability and an observable
 cancel operation.
+
+## DL-0035 — Simulation jobs cover project games and anchor terminal state
+
+*Date: 2026-07-26*
+
+**Ruling** (clarifies DL-0034 without changing contract `0.4.1`): the
+`document` field of `dli.simulate.start` names either a project document's
+declared practice or a project game ruleset. A generic game job deals the first
+available layout and commits tested completion-rate evidence plus checked deck
+conservation and legal-play sweeps. Rulesets requiring registered Rust verdict
+predicates are refused through the standalone data-only door.
+
+Checkpoint files form one digest-linked chain with the replay-verified head as
+the only trusted accumulator. Terminal cancellation and completion records pin
+that head and retain the immutable job specification after the live spec entry
+is removed; deletion of a committed terminal record therefore fails closed
+instead of reopening pending work. Trial computation runs outside the
+project-wide publication lock, and each serve process runs at most four
+simulation workers concurrently.
+
+**Rationale.** Advertising a simulation capability that rejected manifest
+games contradicted its ruleset contract. A standalone worker must also make
+terminality observable after restart without turning process memory or an
+unanchored marker into evidence, and a caller choosing checkpoint cadence must
+not be able to monopolize unrelated evidence writes or spawn unbounded threads.

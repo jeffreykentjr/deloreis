@@ -264,7 +264,7 @@ impl Op {
             Op::CheckDraft => {
                 "Fact-check a draft's claims against canon: supported / contradicted / unsupported."
             }
-            Op::SimulateStart => "Start a simulation battery over a document.",
+            Op::SimulateStart => "Start a simulation battery over a document or game.",
             Op::SimulateStatus => "Poll a running simulation battery for its trace and manifest.",
             Op::SimulateCancel => "Cancel a running simulation battery.",
             Op::TimelineShow => "Show the timeline at a position.",
