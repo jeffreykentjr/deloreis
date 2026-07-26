@@ -71,6 +71,42 @@
           "questions": []
         }
       }
+    },
+    {
+      "send": {
+        "dli": "0.4.1",
+        "id": "3",
+        "op": "dli.check",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.4.1",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "grade": "attested",
+          "findings": [
+            {
+              "domain": "attestation",
+              "outcome": "pass",
+              "code": "attest.pass",
+              "grade": "attested",
+              "message": "stored judgment 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' answers 'yes' to question 'marker-basis::marker-basis(baseline)'",
+              "question": {
+                "kind": "marker-basis",
+                "atom": "marker-basis(baseline)",
+                "subject": "baseline"
+              },
+              "record_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "stored_fingerprint": "fnv1a64:0188e5c00ba334ce",
+              "current_fingerprint": "fnv1a64:0188e5c00ba334ce"
+            }
+          ]
+        }
+      }
     }
   ]
 }

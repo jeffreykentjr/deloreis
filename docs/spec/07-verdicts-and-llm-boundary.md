@@ -114,27 +114,21 @@ the questions to spend model time on and zero author time. But "never reviewed"
 does not mean "silently trusted." It means **stored, graded, and replayable**: an
 attestation is a committed record, not a transient answer.
 
-```yaml
-# lore/attest/naming/q-3f9c21.att.yaml   (append-only per question; head answers it)
-question:
-  kind: register-real-basis
-  atom: name-basis(myrdin, welsh-common-given)
-answer: yes
-rationale_hash: "sha256:c41a…"        # full text lives in the sweep manifest
-model: {provider: bedrock, id: claude-fable-5, as_of: 2026-07-19}
-prompt: {template: naming/register-basis@v3, hash: "sha256:88d1…"}
-params: {temperature: 0.0, max_tokens: 400, samples: 3, agreement: "3/3"}
-policy: {reattest: on-model-change}
-supersedes: null
-sweep: lab/campaign-082/runs/attest-0007.manifest.json
-```
+The project-backed worker stores accepted records as versioned RFC 8785 JCS
+batches beneath
+`.dli-evidence/attestations/<document>/batches/<sha256>.json`. Batches form one
+content-addressed parent chain; records within them retain the bounded question,
+typed yes/no answer, model and prompt identities, sampling policy, rationale
+hash, staleness fingerprint, supersession link, and sweep provenance.
 
-**The store lives with the corpus** — an evidence class, like simulation
-manifests: machine-written, agent-committed, append-only per question, with the
-head record answering it.
+**The store lives with the corpus** as project-owned evidence, like simulation
+manifests: machine-written, append-only per question, with the head record
+answering it.
 
-**The kernel never calls a model.** `deloreis check` stays offline and
-deterministic. A check that needs an attestation the store lacks reports
+**The kernel never calls a model.** Project-backed `dli.check` stays offline and
+deterministic and replays this durable evidence; standalone `deloreis check`
+checks source files and has no project evidence input. A project check that needs
+an attestation the store lacks reports
 `attestation-missing` — **a finding, never a guess.** The factory answers demand
 in **sweeps**: lab-run-shaped jobs that batch open questions, call models, and
 commit records plus a manifest. Sweeps are factory work; the kernel only reads
@@ -170,8 +164,8 @@ committed (DL-0006), for three reasons:
    layer. A fact can never become *certain* via attestation; a *check*
    (register-fit, homophone risk) can report grade `attested`.
 3. **Drift semantics.** When a sweep re-poses `q-3f9c21` to a new model and the
-   answer flips yes→no, a superseding record commits, and the next
-   `deloreis check` flips the consuming check from pass(attested) to
+   answer flips yes→no, a superseding record commits, and the next project-backed
+   `dli.check` flips the consuming check from pass(attested) to
    fail(attested) — a diffable finding whose closed outcome implies the new
    answer and carries the new record id, the superseded record id and prior
    typed answer, and both staleness fingerprints — **while nothing in canon

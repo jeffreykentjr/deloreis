@@ -231,6 +231,16 @@ fn check_finding_domains_round_trip_without_losing_payload_fields() {
         !validator.is_valid(&contradictory),
         "a pass cannot claim fail/error/checked fields"
     );
+    let mut extra = value.clone();
+    extra["findings"][2]["severity"] = "error".into();
+    assert!(
+        !validator.is_valid(&extra),
+        "the schema must reject a field serde rejects on the pass branch"
+    );
+    assert!(
+        serde_json::from_value::<CheckResult>(extra).is_err(),
+        "the schema and serde must agree on pass-branch closure"
+    );
     assert_eq!(
         serde_json::from_value::<CheckResult>(value).unwrap(),
         result

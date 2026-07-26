@@ -374,6 +374,8 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
     for (name, schema) in &mut schemas {
         if name.ends_with(".request") {
             close_declared_objects(schema.as_object_mut());
+        } else if name == "dli.check.response" {
+            close_attestation_outcomes(schema.as_object_mut());
         }
     }
     schemas
@@ -410,5 +412,41 @@ fn close_map(map: &mut serde_json::Map<String, Value>) {
     }
     if map.contains_key("properties") && !map.contains_key("additionalProperties") {
         map.insert("additionalProperties".to_owned(), Value::Bool(false));
+    }
+}
+
+/// Close the four flattened attestation outcome branches without breaking their
+/// tagged-union composition. `additionalProperties: false` is not safe for a
+/// flattened branch; draft 2020-12 `unevaluatedProperties` accounts for all
+/// fields selected by the branch before rejecting extras.
+fn close_attestation_outcomes(root: Option<&mut serde_json::Map<String, Value>>) {
+    fn visit(value: &mut Value) {
+        match value {
+            Value::Array(items) => items.iter_mut().for_each(visit),
+            Value::Object(map) => {
+                let attestation_outcome = map
+                    .get("properties")
+                    .and_then(Value::as_object)
+                    .and_then(|properties| properties.get("outcome"))
+                    .and_then(Value::as_object)
+                    .and_then(|outcome| outcome.get("const"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|outcome| {
+                        matches!(outcome, "pass" | "fail" | "missing" | "stale")
+                    });
+                for child in map.values_mut() {
+                    visit(child);
+                }
+                if attestation_outcome {
+                    map.insert("unevaluatedProperties".to_owned(), Value::Bool(false));
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(root) = root {
+        for child in root.values_mut() {
+            visit(child);
+        }
     }
 }

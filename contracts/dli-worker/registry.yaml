@@ -50,7 +50,7 @@ fixtures:
 - path: golden/attest-missing-v1.json
   sha256: 05339f3567395b9bd9c7c29fd4bf815a0290c926f4477f7fbc533e83f8085817
 - path: golden/attestation-sweep-v1.json
-  sha256: e28aea97070aed2f15b70fd6b6da3e76527185869cf3804f887b169b570ceebf
+  sha256: 43d690fd56715e71bcfb0033b72930830383f1bfe6a99bc12270a50e58ca4179
 - path: golden/author-add-before-v1.json
   sha256: fa113f65c0670fd60213d5dffbe9d32a0c63cc35798698625fdbc3868d247c74
 - path: golden/author-add-event-v1.json
