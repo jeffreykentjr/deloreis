@@ -37,6 +37,7 @@ use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_eval::error::EvalError;
+use dli_eval::fork::{AtomChange, Standing};
 use dli_eval::query::{Answer, Query, QueryOpts};
 use dli_eval::why::{Why, why_not as compute_why_not};
 use dli_eval::world::GroundAtom;
@@ -48,7 +49,7 @@ use dli_world::{CompiledWorld, compile};
 use crate::contract::{
     AuthorCheckParams, AuthorCheckResult, AuthorFindingsParams, AuthorFindingsResult,
     AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult, AuthorWhyParams,
-    AuthorWhyResult, DiffDelta, WorkspaceDigest, WorkspaceMode,
+    AuthorWhyResult, DiffConflict, DiffDelta, WorkspaceDigest, WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
@@ -145,7 +146,7 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
                     conflicts: findings
                         .iter()
                         .filter(|finding| finding.severity == Severity::Error)
-                        .map(|finding| finding.message.clone())
+                        .map(finding_conflict)
                         .collect(),
                     ..DiffDelta::default()
                 },
@@ -270,7 +271,7 @@ fn classify_standings(
 ) -> DiffDelta {
     let before = standings(base);
     let after = standings(staged);
-    let mut atoms: BTreeSet<&String> = before.keys().collect();
+    let mut atoms: BTreeSet<&GroundAtom> = before.keys().collect();
     atoms.extend(after.keys());
     let mut delta = DiffDelta::default();
     for atom in atoms {
@@ -284,32 +285,39 @@ fn classify_standings(
             .unwrap_or((Status::Dead, Grade::Asserted));
         if before_status == after_status {
             if after_status != Status::Dead && before_grade != after_grade {
-                delta.grade_changed.push(atom.clone());
+                delta.grade_changed.push(atom_change(
+                    atom,
+                    before_status,
+                    before_grade,
+                    after_status,
+                    after_grade,
+                ));
             }
             continue;
         }
+        let change = atom_change(atom, before_status, before_grade, after_status, after_grade);
         match after_status {
-            Status::Certain => delta.newly_certain.push(atom.clone()),
-            Status::Possible => delta.newly_possible.push(atom.clone()),
-            Status::Dead => delta.newly_dead.push(atom.clone()),
+            Status::Certain => delta.newly_certain.push(change),
+            Status::Possible => delta.newly_possible.push(change),
+            Status::Dead => delta.newly_dead.push(change),
         }
     }
     delta.conflicts = findings
         .iter()
         .filter(|finding| finding.severity == Severity::Error)
-        .map(|finding| finding.message.clone())
+        .map(finding_conflict)
         .collect();
     delta
 }
 
-fn standings(world: &CompiledWorld) -> BTreeMap<String, (Status, Grade)> {
+fn standings(world: &CompiledWorld) -> BTreeMap<GroundAtom, (Status, Grade)> {
     let inner = &world.model.world;
     inner
         .derived
         .iter()
         .map(|derived| {
             (
-                derived.atom.render(),
+                derived.atom.clone(),
                 (
                     derived.ann().status(&inner.valuation, &inner.theory),
                     inner.grade_under(derived, &inner.valuation),
@@ -317,6 +325,49 @@ fn standings(world: &CompiledWorld) -> BTreeMap<String, (Status, Grade)> {
             )
         })
         .collect()
+}
+
+fn atom_change(
+    atom: &GroundAtom,
+    before_status: Status,
+    before_grade: Grade,
+    after_status: Status,
+    after_grade: Grade,
+) -> AtomChange {
+    AtomChange {
+        atom: atom.clone(),
+        before: Standing {
+            status: before_status,
+            grade: before_grade,
+        },
+        after: Standing {
+            status: after_status,
+            grade: after_grade,
+        },
+        rendered: format!(
+            "{}: {} ({before_grade}) -> {} ({after_grade})",
+            atom.render(),
+            status_word(before_status),
+            status_word(after_status)
+        ),
+    }
+}
+
+fn status_word(status: Status) -> &'static str {
+    match status {
+        Status::Dead => "dead",
+        Status::Possible => "possible",
+        Status::Certain => "certain",
+    }
+}
+
+fn finding_conflict(finding: &Finding) -> DiffConflict {
+    DiffConflict {
+        code: finding.code.clone(),
+        kind: None,
+        blame: finding.citations.clone(),
+        rendered: finding.message.clone(),
+    }
 }
 
 /// The binary claim atoms a workspace's relations and facts assert — the input to
@@ -344,55 +395,13 @@ fn staged_claims(decls: &[Decl]) -> Vec<AtomExpr> {
 /// symbol. A string that is not a `pred(args)` atom is a self-explanatory
 /// `schema-violation` — never a bare error.
 fn parse_goal(text: &str) -> Result<AtomExpr, ErrorBody> {
-    let (pred, args) = split_atom(text)?;
-    let mut fresh = 0;
-    let mut terms = Vec::with_capacity(args.len());
-    for arg in args {
-        if let Some(name) = arg.strip_prefix('?') {
-            let var = if name.is_empty() {
-                let generated = format!("_{fresh}");
-                fresh += 1;
-                generated
-            } else {
-                name.to_owned()
-            };
-            terms.push(Term::Var(Ident::synthetic(&var)));
-        } else {
-            terms.push(Term::Sym(Ident::synthetic(&arg)));
-        }
-    }
-    Ok(AtomExpr {
-        pred: Ident::synthetic(&pred),
-        args: terms,
-    })
-}
-
-/// Split `pred(a, b, c)` into its predicate and trimmed argument renderings, or a
-/// helpful `schema-violation` when the text is not a well-formed atom.
-fn split_atom(text: &str) -> Result<(String, Vec<String>), ErrorBody> {
-    let text = text.trim();
-    let malformed = || ErrorBody {
+    crate::query_goal::parse(text).ok_or_else(|| ErrorBody {
         code: ErrorCode::SchemaViolation,
         message: format!(
             "'{text}' is not a pred(args) atom; write a rendered goal like serves(lancelot, ?who)"
         ),
         data: None,
-    };
-    let open = text.find('(').ok_or_else(malformed)?;
-    if !text.ends_with(')') {
-        return Err(malformed());
-    }
-    let pred = text[..open].trim();
-    if pred.is_empty() {
-        return Err(malformed());
-    }
-    let inner = text[open + 1..text.len() - 1].trim();
-    let args = if inner.is_empty() {
-        Vec::new()
-    } else {
-        inner.split(',').map(|arg| arg.trim().to_owned()).collect()
-    };
-    Ok((pred.to_owned(), args))
+    })
 }
 
 // -- finding mapping ---------------------------------------------------------

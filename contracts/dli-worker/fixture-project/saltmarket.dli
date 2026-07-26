@@ -1,0 +1,11 @@
+scope saltmarket
+
+ratify d-1
+
+era first-tides decided d-1
+
+fork exploration
+  option baseline
+
+fork ep9-cast
+  option baseline

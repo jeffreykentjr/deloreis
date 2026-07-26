@@ -18,43 +18,128 @@
     "delta"
   ],
   "$defs": {
+    "AtomChange": {
+      "description": "One changed atom in a derived-consequence diff: the ground atom and its\nstanding before (base) and after (fork), with a rendered one-line summary.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Its standing under the fork's candidate valuation.",
+          "$ref": "#/$defs/Standing"
+        },
+        "atom": {
+          "description": "The ground atom whose standing changed.",
+          "$ref": "#/$defs/GroundAtom"
+        },
+        "before": {
+          "description": "Its standing under the base ledger.",
+          "$ref": "#/$defs/Standing"
+        },
+        "rendered": {
+          "description": "A rendered one-line summary of the change.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atom",
+        "before",
+        "after",
+        "rendered"
+      ]
+    },
+    "ConflictKind": {
+      "description": "The kind of a conflict, naming the three ways forks (and a fork against the\nledger) can disagree (spec 02 §5, the merge constraint-join):",
+      "oneOf": [
+        {
+          "description": "Two sides valuate the same event variable differently.",
+          "type": "string",
+          "const": "valuation"
+        },
+        {
+          "description": "The joined valuation violates `Θ` — two options of one exclusivity\nfamily are ruled true together.",
+          "type": "string",
+          "const": "exclusivity"
+        },
+        {
+          "description": "The joined certain layers break a functional dependency or a\n`C`-constraint; the blame pair is the two monomials that cannot co-hold.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "DiffConflict": {
+      "description": "A conflict carried by either a fork diff or a Door-T staged-world diff.",
+      "type": "object",
+      "properties": {
+        "blame": {
+          "description": "The claims, assignments, or findings that cannot co-hold.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "Stable finding code for machine routing.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Fork conflict family, when the conflict comes from the fork engine.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConflictKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendered": {
+          "description": "Deterministic domain rendering.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "blame",
+        "rendered"
+      ]
+    },
     "DiffDelta": {
-      "description": "A derived-consequence diff delta, shared by the fork mutation ops. Each field\nlists rendered atoms whose status changed relative to the fork's base.",
+      "description": "A derived-consequence diff delta, shared by the fork mutation ops.",
       "type": "object",
       "properties": {
         "conflicts": {
-          "description": "Conflicts surfaced by the delta.",
+          "description": "Typed conflicts surfaced by the delta.",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/DiffConflict"
           }
         },
         "grade_changed": {
-          "description": "Atoms whose grade changed.",
+          "description": "Atoms whose grade changed, with before/after standing and rendering.",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/AtomChange"
           }
         },
         "newly_certain": {
-          "description": "Atoms that became certain.",
+          "description": "Atoms that became certain, with before/after standing and rendering.",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/AtomChange"
           }
         },
         "newly_dead": {
-          "description": "Atoms that became dead (no longer derivable).",
+          "description": "Atoms that became dead, with before/after standing and rendering.",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/AtomChange"
           }
         },
         "newly_possible": {
-          "description": "Atoms that became merely possible.",
+          "description": "Atoms that became merely possible, with before/after standing and rendering.",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/AtomChange"
           }
         }
       },
@@ -64,6 +149,90 @@
         "newly_dead",
         "grade_changed",
         "conflicts"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "GroundAtom": {
+      "description": "A ground atom: a predicate applied to fully-ground argument renderings. This\nis the identity of a fact or a derived tuple in the relation.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The ground argument renderings, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "Standing": {
+      "description": "A claim's standing in one world under one valuation: its three-valued status\nand its grade. `before`/`after` pairs of these are the atoms of a diff.",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "The grade at which the claim is known.",
+          "$ref": "#/$defs/Grade"
+        },
+        "status": {
+          "description": "The claim's three-valued status (a dead or absent atom reads `dead`).",
+          "$ref": "#/$defs/Status"
+        }
+      },
+      "required": [
+        "status",
+        "grade"
+      ]
+    },
+    "Status": {
+      "description": "A claim's three-valued standing under `(ν, Θ)`, derived — never stored.",
+      "oneOf": [
+        {
+          "description": "Every monomial is `Θ`-unsatisfiable: the claim holds in no admissible\nworld. (Whether this is rejection or mere supersession is a `C`\nquestion, outside the algebra.)",
+          "type": "string",
+          "const": "dead"
+        },
+        {
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved-and-undefeated: the\nshadow layer.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "Some monomial holds on resolved events alone, with that monomial's own\ndefeater not fully ruled: assertable.",
+          "type": "string",
+          "const": "certain"
+        }
       ]
     }
   }

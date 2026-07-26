@@ -3,17 +3,26 @@
 //! Every op has a real params struct and a real result struct, all deriving
 //! `JsonSchema`. Mutating `author.*` ops share [`AuthorMutationResult`].
 
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
+use dli_eval::fork::{AtomChange, ConflictKind};
 use dli_eval::query::{Layer, QueryRow};
 use dli_eval::why::{Why, WhyNot};
-use dli_export::{ExportManifest, ExportProfile};
+use dli_export::{ContextPack, ExportManifest, ExportProfile};
+use dli_game::export::{CardDeck, LudiiExport};
 use dli_ledger::ProofReport;
+use dli_time::cycle::CyclePos;
+use dli_time::slack::EpisodeSlack;
 use dli_world::attest::{Attestation, AttestationStore};
 use dli_world::draft::{DraftFinding, DraftPayload};
+use dli_world::episode::{EpisodeAnchor, Knower, OpenLoopLedger, Placement};
+use dli_world::episode_order::OrderIntegrityFinding;
 
 use crate::finding::{Finding, Provenance};
 
@@ -28,20 +37,33 @@ pub struct AuthorMutationResult {
     pub workspace_digest: String,
 }
 
-/// A derived-consequence diff delta, shared by the fork mutation ops. Each field
-/// lists rendered atoms whose status changed relative to the fork's base.
+/// A derived-consequence diff delta, shared by the fork mutation ops.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DiffDelta {
-    /// Atoms that became certain.
-    pub newly_certain: Vec<String>,
-    /// Atoms that became merely possible.
-    pub newly_possible: Vec<String>,
-    /// Atoms that became dead (no longer derivable).
-    pub newly_dead: Vec<String>,
-    /// Atoms whose grade changed.
-    pub grade_changed: Vec<String>,
-    /// Conflicts surfaced by the delta.
-    pub conflicts: Vec<String>,
+    /// Atoms that became certain, with before/after standing and rendering.
+    pub newly_certain: Vec<AtomChange>,
+    /// Atoms that became merely possible, with before/after standing and rendering.
+    pub newly_possible: Vec<AtomChange>,
+    /// Atoms that became dead, with before/after standing and rendering.
+    pub newly_dead: Vec<AtomChange>,
+    /// Atoms whose grade changed, with before/after standing and rendering.
+    pub grade_changed: Vec<AtomChange>,
+    /// Typed conflicts surfaced by the delta.
+    pub conflicts: Vec<DiffConflict>,
+}
+
+/// A conflict carried by either a fork diff or a Door-T staged-world diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DiffConflict {
+    /// Stable finding code for machine routing.
+    pub code: String,
+    /// Fork conflict family, when the conflict comes from the fork engine.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub kind: Option<ConflictKind>,
+    /// The claims, assignments, or findings that cannot co-hold.
+    pub blame: Vec<String>,
+    /// Deterministic domain rendering.
+    pub rendered: String,
 }
 
 /// A ruling-request draft emitted by `dli.fork.promote`.
@@ -120,12 +142,31 @@ pub struct QueryParams {
 /// `dli.query` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryResult {
+    /// Every row matching the query and its requested filters.
+    pub rows: Vec<QueryResultRow>,
+}
+
+/// One wire query row. It retains evaluator data and adds resolved citations
+/// plus the deterministic line a text caller may display.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct QueryResultRow {
+    /// The matched ground atom.
+    pub atom: String,
+    /// Query-variable bindings for this row.
+    pub bindings: BTreeMap<String, String>,
+    /// The atom's standing under the selected valuation.
+    pub status: Status,
     /// The support formula.
     pub support: PosBool,
-    /// The grade.
+    /// The procedure grade.
     pub grade: Grade,
-    /// Supporting citations.
+    /// Supporting variables resolved to stable corpus names.
     pub citations: Vec<String>,
+    /// The optional support explanation requested with `why`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub why: Option<Why>,
+    /// The kernel's deterministic one-line rendering of the row.
+    pub rendered: String,
 }
 
 // -- dli.fork.list -----------------------------------------------------------
@@ -140,8 +181,24 @@ pub struct ForkListParams {
 /// `dli.fork.list` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ForkListResult {
-    /// The open fork question ids.
-    pub forks: Vec<String>,
+    /// The open forks and their current private-state summary.
+    pub forks: Vec<ForkSummary>,
+}
+
+/// One open fork as exposed to callers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ForkSummary {
+    /// The stable wire handle.
+    pub fork: String,
+    /// The parent wire handle, when this fork branches another.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub base: Option<String>,
+    /// Named valuation assumptions local to the fork.
+    pub assumes: BTreeMap<String, bool>,
+    /// Number of fork-local proposed facts.
+    pub local_atoms: usize,
+    /// Number of active visibility restrictions.
+    pub restrictions: usize,
 }
 
 // -- dli.fork.new ------------------------------------------------------------
@@ -245,8 +302,10 @@ pub struct ForkPreflightParams {
 /// `dli.fork.preflight` result: the ratification pre-flight scan.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ForkPreflightResult {
+    /// The candidate valuation, keyed by stable corpus variable name.
+    pub candidate: BTreeMap<String, bool>,
     /// Conflicts the candidate valuation would introduce.
-    pub conflicts: Vec<String>,
+    pub conflicts: Vec<DiffConflict>,
     /// The atoms the ratification would affect.
     pub affected: Vec<String>,
 }
@@ -404,10 +463,137 @@ pub struct TimelinePhasesParams {
     pub episode: String,
 }
 
-/// The shared result of the `dli.timeline.*` reports.
+/// One topological layer in a chronology.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineLayer {
+    /// Zero-based topological rank.
+    pub rank: u32,
+    /// Era and event names in this layer.
+    pub points: Vec<String>,
+}
+
+/// One directed chronology edge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineEdge {
+    /// Earlier point.
+    pub before: String,
+    /// Later point.
+    pub after: String,
+}
+
+/// The relation of every known point to a requested cursor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineCursor {
+    /// The requested point.
+    pub at: String,
+    /// Points known to precede it.
+    pub before: Vec<String>,
+    /// Points known to follow it.
+    pub after: Vec<String>,
+    /// Points with no declared order relative to it.
+    pub unordered: Vec<String>,
+}
+
+/// `dli.timeline.show` result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct TimelineResult {
-    /// The rendered findings for the requested report.
+pub struct TimelineShowResult {
+    /// Topological layers; empty when the chronology is cyclic.
+    pub layers: Vec<TimelineLayer>,
+    /// Cycle blame edges, if the chronology is cyclic.
+    pub cycle: Vec<TimelineEdge>,
+    /// Cursor-relative ordering, when `at` was supplied.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub cursor: Option<TimelineCursor>,
+    /// Episode fact placements projected onto story-time.
+    pub placements: Vec<Placement>,
+}
+
+/// One unordered pair in a partial chronology.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelinePair {
+    /// The first point.
+    pub left: String,
+    /// The second point.
+    pub right: String,
+}
+
+/// `dli.timeline.order` result.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineOrderResult {
+    /// Whether no cycle exists.
+    pub acyclic: bool,
+    /// Cycle blame edges, when not acyclic.
+    pub cycle: Vec<TimelineEdge>,
+    /// Pairs for which neither order is declared.
+    pub unordered: Vec<TimelinePair>,
+}
+
+/// One row of the who-knows-what matrix.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct KnowledgeRow {
+    /// Listener or named cast knower.
+    pub knower: Knower,
+    /// Facts known at the requested production slot.
+    pub facts: Vec<String>,
+}
+
+/// `dli.timeline.knows` result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineKnowsResult {
+    /// Production slot queried.
+    pub at: u32,
+    /// Complete matrix rows for the listener and every recorded cast knower.
+    pub knowers: Vec<KnowledgeRow>,
+}
+
+/// One episode's production/story-time summary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EpisodeSummary {
+    /// Episode id.
+    pub episode: String,
+    /// Listener-facing production slot.
+    pub production_order: u32,
+    /// Story-time anchor.
+    pub story_anchor: EpisodeAnchor,
+}
+
+/// `dli.timeline.episodes` result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelineEpisodesResult {
+    /// Episodes in production order.
+    pub episodes: Vec<EpisodeSummary>,
+    /// Final open/closed loop ledger.
+    pub loops: OpenLoopLedger,
+    /// Duplicate and gapped production-slot findings.
+    pub integrity: Vec<OrderIntegrityFinding>,
+    /// Earliest/latest legal production slots.
+    pub slack: Vec<EpisodeSlack>,
+}
+
+/// One cyclic phase pinned by an episode or scene.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PhaseAnchor {
+    /// `episode` or `scene:<id>`.
+    pub owner: String,
+    /// Declared cyclic position.
+    pub position: CyclePos,
+    /// Resolved spoke label, absent when the cycle or index is invalid.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub spoke: Option<String>,
+    /// Whether the cycle exists and the index is in range.
+    pub valid: bool,
+}
+
+/// `dli.timeline.phases` result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TimelinePhasesResult {
+    /// Episode inspected.
+    pub episode: String,
+    /// Whether every pinned phase is valid.
+    pub consistent: bool,
+    /// Episode and scene anchors.
+    pub anchors: Vec<PhaseAnchor>,
+    /// Domain-spoken consistency findings.
     pub findings: Vec<String>,
 }
 
@@ -425,8 +611,22 @@ pub struct ExportRunParams {
 /// `dli.export.run` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ExportRunResult {
+    /// The target-shaped emitted artifact.
+    pub emission: ExportEmission,
     /// The export manifest.
     pub manifest: ExportManifest,
+}
+
+/// The target-shaped artifacts available through this worker contract.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "profile", content = "artifact", rename_all = "kebab-case")]
+pub enum ExportEmission {
+    /// A context pack.
+    ContextPack(ContextPack),
+    /// A rendered card deck.
+    Cards(CardDeck),
+    /// A Ludii program and differential status.
+    LudiiGdl(LudiiExport),
 }
 
 // -- dli.attestation-sweep ---------------------------------------------------
@@ -585,6 +785,8 @@ pub struct AuthorDiffResult {
     pub findings: Vec<Finding>,
     /// The base-to-staged derived-consequence diff.
     pub consequences: DiffDelta,
+    /// The current workspace digest.
+    pub workspace_digest: String,
 }
 
 // -- author.discard ----------------------------------------------------------

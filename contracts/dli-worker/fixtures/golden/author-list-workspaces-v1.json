@@ -4,7 +4,7 @@
   "note": "author.list_workspaces returns every open authoring workspace and its digest (base, mode, staged count).",
   "precondition": [
     {
-      "dli": "0.2.0",
+      "dli": "0.3.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,13 +15,13 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "author.list_workspaces",
         "params": {}
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {

@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
@@ -13,21 +13,75 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            "layer 0: uthers-time, the-sword-drawn, the-round-table-founded, the-grail-quest, the-speaking-day, the-warning",
-            "layer 1: arthurs-reign, the-battle-of-camlann",
-            "layer 2: after-camlann"
+          "cycle": [],
+          "layers": [
+            {
+              "points": [
+                "uthers-time",
+                "the-sword-drawn",
+                "the-round-table-founded",
+                "the-grail-quest",
+                "the-speaking-day",
+                "the-warning"
+              ],
+              "rank": 0
+            },
+            {
+              "points": [
+                "arthurs-reign",
+                "the-battle-of-camlann"
+              ],
+              "rank": 1
+            },
+            {
+              "points": [
+                "after-camlann"
+              ],
+              "rank": 2
+            }
+          ],
+          "placements": [
+            {
+              "anchor": {
+                "after": [],
+                "before": [],
+                "era": "uthers-time",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 0
+                  }
+                ]
+              },
+              "fact": "the-sword-drawn",
+              "production_order": 1
+            },
+            {
+              "anchor": {
+                "after": [],
+                "before": [],
+                "era": "arthurs-reign",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 1
+                  }
+                ]
+              },
+              "fact": "the-round-table-founded",
+              "production_order": 2
+            }
           ]
         }
       }
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "op": "dli.timeline.show",
         "params": {
@@ -36,15 +90,85 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "ok": true,
         "result": {
-          "findings": [
-            "layer 0: uthers-time, the-sword-drawn, the-round-table-founded, the-grail-quest, the-speaking-day, the-warning",
-            "layer 1: arthurs-reign, the-battle-of-camlann",
-            "layer 2: after-camlann",
-            "at arthurs-reign: after [uthers-time], before [after-camlann]"
+          "cursor": {
+            "after": [
+              "after-camlann"
+            ],
+            "at": "arthurs-reign",
+            "before": [
+              "uthers-time"
+            ],
+            "unordered": [
+              "the-sword-drawn",
+              "the-round-table-founded",
+              "the-grail-quest",
+              "the-battle-of-camlann",
+              "the-speaking-day",
+              "the-warning"
+            ]
+          },
+          "cycle": [],
+          "layers": [
+            {
+              "points": [
+                "uthers-time",
+                "the-sword-drawn",
+                "the-round-table-founded",
+                "the-grail-quest",
+                "the-speaking-day",
+                "the-warning"
+              ],
+              "rank": 0
+            },
+            {
+              "points": [
+                "arthurs-reign",
+                "the-battle-of-camlann"
+              ],
+              "rank": 1
+            },
+            {
+              "points": [
+                "after-camlann"
+              ],
+              "rank": 2
+            }
+          ],
+          "placements": [
+            {
+              "anchor": {
+                "after": [],
+                "before": [],
+                "era": "uthers-time",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 0
+                  }
+                ]
+              },
+              "fact": "the-sword-drawn",
+              "production_order": 1
+            },
+            {
+              "anchor": {
+                "after": [],
+                "before": [],
+                "era": "arthurs-reign",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 1
+                  }
+                ]
+              },
+              "fact": "the-round-table-founded",
+              "production_order": 2
+            }
           ]
         }
       }

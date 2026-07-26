@@ -12,9 +12,10 @@ declarative claim about what the world holds, which is the name, read one way.
 
 The kernel and most domain engines are implemented, but the standalone source
 release is **not complete**. The worker now loads strict, versioned caller
-projects, but contract semantics, durable evidence/jobs, export profiles, and
-assurance gaps remain open in the PLAN's machine-checked node matrix. The
-grammar is **unfrozen** and remains open until the G1 grammar gate. See
+projects; its typed contract, paired fixture oracle, and Door T are complete.
+Durable evidence/jobs, standalone CLI smoke coverage, and the remaining export
+profiles stay open in the PLAN's machine-checked node matrix. The grammar is
+**unfrozen** and remains open until the G1 grammar gate. See
 [`docs/PLAN.md`](docs/PLAN.md) for current evidence, deferred work, and release
 blockers.
 

@@ -12,7 +12,7 @@ use crate::contract::*;
 /// Each entry is keyed `"<wire-op>.request"` or `"<wire-op>.response"`; the key
 /// is the emitted schema file's stem. This is the authority the fixture
 /// registry validates against. Ops whose response reuses a shared shape
-/// ([`DiffDelta`], [`AuthorMutationResult`], [`TimelineResult`]) emit that
+/// ([`DiffDelta`], [`AuthorMutationResult`]) emit that
 /// shape under each op's file name.
 // One flat entry per op per direction; a table, not logic.
 #[allow(clippy::too_many_lines)]
@@ -143,7 +143,7 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         ),
         (
             "dli.timeline.show.response".to_owned(),
-            schema_for!(TimelineResult),
+            schema_for!(TimelineShowResult),
         ),
         (
             "dli.timeline.order.request".to_owned(),
@@ -151,7 +151,7 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         ),
         (
             "dli.timeline.order.response".to_owned(),
-            schema_for!(TimelineResult),
+            schema_for!(TimelineOrderResult),
         ),
         (
             "dli.timeline.knows.request".to_owned(),
@@ -159,7 +159,7 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         ),
         (
             "dli.timeline.knows.response".to_owned(),
-            schema_for!(TimelineResult),
+            schema_for!(TimelineKnowsResult),
         ),
         (
             "dli.timeline.episodes.request".to_owned(),
@@ -167,7 +167,7 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         ),
         (
             "dli.timeline.episodes.response".to_owned(),
-            schema_for!(TimelineResult),
+            schema_for!(TimelineEpisodesResult),
         ),
         (
             "dli.timeline.phases.request".to_owned(),
@@ -175,7 +175,7 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         ),
         (
             "dli.timeline.phases.response".to_owned(),
-            schema_for!(TimelineResult),
+            schema_for!(TimelinePhasesResult),
         ),
         (
             "dli.export.run.request".to_owned(),

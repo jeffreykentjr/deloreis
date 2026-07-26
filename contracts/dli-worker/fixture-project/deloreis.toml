@@ -1,0 +1,9 @@
+version = 1
+name = "dli-worker-fixture"
+
+[paths]
+evidence = ".dli-evidence"
+cache = ".dli-cache"
+
+[documents.saltmarket]
+sources = ["saltmarket.dli"]

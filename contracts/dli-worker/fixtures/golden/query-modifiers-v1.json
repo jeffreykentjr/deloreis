@@ -5,16 +5,23 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.query",
-        "params": { "document": "camelot", "goal": "kept-at(excalibur, camelot)", "layer": "certain", "why": true }
+        "params": {
+          "document": "camelot",
+          "goal": "kept-at(excalibur, camelot)",
+          "layer": "certain",
+          "why": true
+        }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
-        "result": { "support": { "monomials": [] }, "grade": "asserted", "citations": [] }
+        "result": {
+          "rows": []
+        }
       }
     }
   ]

@@ -14,11 +14,17 @@ digest-checked.
   `schema --check` step fails on drift.
 - `fixtures/golden/` — valid calls and their expected responses.
 - `fixtures/negative/` — malformed or refused calls and their expected error
-  codes (plus the golden-shaped framing fixture, whose verdict is unchanged by
-  the adversarial framing).
+  codes.
+- `fixtures/framing/` — paired control/attack cases for every operation. The
+  harness compares declared safety projections from independent cold states,
+  confines tainted text to declared data paths, probes mutation state, and
+  reparses materialized output.
+- `fixture-project/` — the strict, digest-pinned caller project used by paired
+  fixture replay.
 - `fixtures/raw/` — transport-level hazards (stdout noise, truncated frames,
   duplicate keys) that the frame reader must survive.
-- `fixtures/compat/` — v(N-1) goldens once a v2 exists; empty at v0.
+- `fixtures/compat/` — v(N-1) goldens once compatibility is required; currently
+  empty because the contract remains pre-v1.
 
 ## Sync rule
 

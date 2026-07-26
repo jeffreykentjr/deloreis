@@ -3,7 +3,7 @@
   "version": 1,
   "note": "dli.check-ledger is a registered KILLED form, renamed to dli.check-proof by DL-0016 (the surface-v1 pass renamed the in-practice proof block keyword ledger\u2192proof). The server refuses the old op with unknown-op and names the successor; a killed form is never silently accepted or quietly removed.",
   "send": {
-    "dli": "0.2.0",
+    "dli": "0.3.0",
     "id": "1",
     "op": "dli.check-ledger",
     "params": {

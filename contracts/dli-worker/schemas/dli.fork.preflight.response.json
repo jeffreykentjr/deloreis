@@ -11,16 +11,83 @@
         "type": "string"
       }
     },
+    "candidate": {
+      "description": "The candidate valuation, keyed by stable corpus variable name.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
     "conflicts": {
       "description": "Conflicts the candidate valuation would introduce.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/DiffConflict"
       }
     }
   },
   "required": [
+    "candidate",
     "conflicts",
     "affected"
-  ]
+  ],
+  "$defs": {
+    "ConflictKind": {
+      "description": "The kind of a conflict, naming the three ways forks (and a fork against the\nledger) can disagree (spec 02 §5, the merge constraint-join):",
+      "oneOf": [
+        {
+          "description": "Two sides valuate the same event variable differently.",
+          "type": "string",
+          "const": "valuation"
+        },
+        {
+          "description": "The joined valuation violates `Θ` — two options of one exclusivity\nfamily are ruled true together.",
+          "type": "string",
+          "const": "exclusivity"
+        },
+        {
+          "description": "The joined certain layers break a functional dependency or a\n`C`-constraint; the blame pair is the two monomials that cannot co-hold.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "DiffConflict": {
+      "description": "A conflict carried by either a fork diff or a Door-T staged-world diff.",
+      "type": "object",
+      "properties": {
+        "blame": {
+          "description": "The claims, assignments, or findings that cannot co-hold.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "Stable finding code for machine routing.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Fork conflict family, when the conflict comes from the fork engine.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConflictKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendered": {
+          "description": "Deterministic domain rendering.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "blame",
+        "rendered"
+      ]
+    }
+  }
 }

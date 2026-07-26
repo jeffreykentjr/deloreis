@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "one JSON worker surface, offline and deterministic; every consumer gets the same ops the fantasy factory gets."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.3.0, offline and deterministic. Typed response and fixture closure are complete; durable evidence and resumable jobs remain open."
 ---
 
 # Serving
@@ -98,17 +98,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.2.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.3.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.2.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.3.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.2.0", "id": "<correlation>", "ok": false,
+{"dli": "0.3.0", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -139,6 +139,11 @@ misinterpreted. Ops are **capability negotiated**: `dli.version`'s `capabilities
 lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
+
+Contract `0.3.0` returns complete typed query rows, before/after fork changes,
+named preflight valuations, typed timeline reports, and target-shaped export
+emissions. The generated response schemas under `contracts/dli-worker/schemas/`
+are the machine-readable authority for those shapes.
 
 > **Future gap (not shipped at v0).** An earlier draft of this section described a
 > per-response `meta` block (versions, corpus commit/digest, a `replay` reference)
@@ -175,7 +180,7 @@ behavior. The inventory, by family:
 | `dli.fork.list` | Enumerate committed forks | `02-semantics.md` |
 | `dli.fork.diff` | Derived-consequence diff of a fork against the base | `02-semantics.md` |
 | `dli.fork.suppose` | Assume an option or event value in a fork | `02-semantics.md` |
-| `dli.fork.add` | Add proposed declarations to a fork | `02-semantics.md` |
+| `dli.fork.add` | Add proposed ground facts or slots to a fork | `02-semantics.md` |
 | `dli.fork.suppress` | Retract an assumption from a fork | `02-semantics.md` |
 | `dli.fork.restrict` | Restrict a fork's valuation scope | `02-semantics.md` |
 | `dli.fork.preflight` | Ratification pre-flight: candidate valuation + conflict scan | `02-semantics.md` |
@@ -207,17 +212,18 @@ before sending.
 The consumer lists forks, opens one, and requests the derived-consequence diff:
 
 ```json
-→ {"op": "dli.fork.list"}
-← {"forks": [{"name": "ep7-planning", "base": "3e1320a",
-    "assumes": ["RQ-031=b", "P-214"], "local_atoms": 40,
-    "created_by": "campaign-077", "updated": "2026-07-14"}]}
+→ {"op": "dli.fork.list", "params": {"document": "world"}}
+← {"forks": [{"fork": "fork-7", "base": "fork-3",
+    "assumes": {"rq-031-b": true, "p-214": true},
+    "local_atoms": 40, "restrictions": 0}]}
 
-→ {"op": "dli.fork.diff", "fork": "ep7-planning"}
+→ {"op": "dli.fork.diff", "params": {"fork": "fork-7"}}
 ← {"newly_certain": [],
    "newly_possible": [
-     {"atom": "reachable(camelot, avalon)",
-      "support": [{"cites": ["d-0005"], "assumes": ["RQ-031(b)", "P-214"]}],
-      "rendered": "possible — d-0005, assuming RQ-031(b) and P-214"}],
+     {"atom": {"pred": "reachable", "args": ["harbour", "island"]},
+      "before": {"status": "dead", "grade": "asserted"},
+      "after": {"status": "possible", "grade": "asserted"},
+      "rendered": "reachable(harbour, island): dead → possible"}],
    "newly_dead": [], "grade_changed": [], "conflicts": []}
 ```
 
@@ -228,11 +234,11 @@ consumer supposes an option, adds a proposed fact, and — when a conflict names
 the exact pair of sources — resolves or accepts, then proposes for ratification:
 
 ```json
-→ {"op": "dli.fork.promote", "fork": "ep7-planning"}
-← {"rq_draft": {"slug": "road-to-avalon",
-    "ask": "Adopt RQ-031(b) + the P-214 Avalon bundle?",
-    "affects": ["canon/geography/regions.md#Avalon", "…"],
-    "diff": {"…": "the full derived-consequence diff"},
+→ {"op": "dli.fork.promote", "params": {"fork": "fork-7"}}
+← {"rq_draft": {"slug": "fork-7",
+    "ask": "Ratify fork `fork-7`?",
+    "affects": ["reachable(harbour, island)"],
+    "diff": ["reachable(harbour, island): dead → possible"],
     "evidence": ["campaign-077"]}}
 ```
 

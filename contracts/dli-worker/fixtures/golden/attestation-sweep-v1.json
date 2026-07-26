@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.attestation-sweep",
         "params": {
@@ -45,40 +45,40 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
           "stale": [
             {
-              "question": {
-                "kind": "dialect-real-basis",
-                "atom": "name-basis(mara, saltmarket-common)",
-                "subject": "mara"
-              },
               "answer": "yes",
-              "rationale_hash": "sha256:c41a",
+              "fingerprint": "fnv1a64:0000000000000000",
               "model": {
-                "provider": "bedrock",
+                "as_of": "2026-07-19",
                 "id": "example-model",
-                "as_of": "2026-07-19"
-              },
-              "prompt": {
-                "template": "naming/dialect-basis@v3",
-                "hash": "sha256:88d1"
+                "provider": "bedrock"
               },
               "params": {
-                "temperature": "0.0",
+                "agreement": "3/3",
                 "max_tokens": 400,
                 "samples": 3,
-                "agreement": "3/3"
+                "temperature": "0.0"
               },
               "policy": {
                 "reattest": "on-model-change"
               },
+              "prompt": {
+                "hash": "sha256:88d1",
+                "template": "naming/dialect-basis@v3"
+              },
+              "question": {
+                "atom": "name-basis(mara, saltmarket-common)",
+                "kind": "dialect-real-basis",
+                "subject": "mara"
+              },
+              "rationale_hash": "sha256:c41a",
               "supersedes": null,
-              "sweep": "lab/campaign-082/runs/attest-0007.manifest.json",
-              "fingerprint": "fnv1a64:0000000000000000"
+              "sweep": "lab/campaign-082/runs/attest-0007.manifest.json"
             }
           ]
         }

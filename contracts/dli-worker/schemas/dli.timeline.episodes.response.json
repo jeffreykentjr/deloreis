@@ -1,18 +1,245 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TimelineResult",
-  "description": "The shared result of the `dli.timeline.*` reports.",
+  "title": "TimelineEpisodesResult",
+  "description": "`dli.timeline.episodes` result.",
   "type": "object",
   "properties": {
-    "findings": {
-      "description": "The rendered findings for the requested report.",
+    "episodes": {
+      "description": "Episodes in production order.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/EpisodeSummary"
+      }
+    },
+    "integrity": {
+      "description": "Duplicate and gapped production-slot findings.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OrderIntegrityFinding"
+      }
+    },
+    "loops": {
+      "description": "Final open/closed loop ledger.",
+      "$ref": "#/$defs/OpenLoopLedger"
+    },
+    "slack": {
+      "description": "Earliest/latest legal production slots.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EpisodeSlack"
       }
     }
   },
   "required": [
-    "findings"
-  ]
+    "episodes",
+    "loops",
+    "integrity",
+    "slack"
+  ],
+  "$defs": {
+    "CyclePos": {
+      "description": "A position on a cycle.\n\nNot `Ord`: a cycle refuses rank, so two positions are never `<`-compared. The\n`index` is a congruence class modulo the cycle's length — an out-of-range\nvalue is normalized by navigation, never rejected mid-walk.",
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "description": "The cycle this position belongs to.",
+          "type": "string"
+        },
+        "index": {
+          "description": "The spoke index (read modulo the cycle's length).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "cycle",
+        "index"
+      ]
+    },
+    "EpisodeAnchor": {
+      "description": "Where an episode or scene sits in story-time.\n\nAn anchor names an [`era`](Self::era) membership and, *within* that era, an\nhonestly-partial position pinned by [`after`](Self::after) /\n[`before`](Self::before) event constraints (there is no offset — an\nundeclared pair is unordered). It may also bind cyclic [`phases`](Self::phases)\n— a tide, a moon-night, a season — one [`CyclePos`] per relevant cycle.\n\nThe [`Default`] (empty) anchor is *unanchored*: an unanchored episode follows\nits predecessor in the story-present, the current behavior preserved. A\nscene's own anchor, when present, overrides its episode's ([`Scene::scene_anchor`]).",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Events this anchor falls strictly after (intra-era precedence).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EventRef"
+          }
+        },
+        "before": {
+          "description": "Events this anchor falls strictly before (intra-era precedence).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EventRef"
+          }
+        },
+        "era": {
+          "description": "The era this anchor sits in, if declared.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EraRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "phases": {
+          "description": "Cyclic phase coordinates at this story point, one per cycle.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CyclePos"
+          }
+        }
+      },
+      "required": [
+        "after",
+        "before",
+        "phases"
+      ]
+    },
+    "EpisodeSlack": {
+      "description": "One episode's legal production-slot band.",
+      "type": "object",
+      "properties": {
+        "earliest": {
+          "description": "The earliest legal production slot (1-based).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "episode": {
+          "description": "The episode's id.",
+          "type": "string"
+        },
+        "feasible": {
+          "description": "Whether the band is non-empty and within `1..=N` — a legal slot exists.",
+          "type": "boolean"
+        },
+        "latest": {
+          "description": "The latest legal production slot (1-based).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "episode",
+        "earliest",
+        "latest",
+        "feasible"
+      ]
+    },
+    "EpisodeSummary": {
+      "description": "One episode's production/story-time summary.",
+      "type": "object",
+      "properties": {
+        "episode": {
+          "description": "Episode id.",
+          "type": "string"
+        },
+        "production_order": {
+          "description": "Listener-facing production slot.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "story_anchor": {
+          "description": "Story-time anchor.",
+          "$ref": "#/$defs/EpisodeAnchor"
+        }
+      },
+      "required": [
+        "episode",
+        "production_order",
+        "story_anchor"
+      ]
+    },
+    "EraRef": {
+      "description": "A reference to an era on the chronology spine, by name.",
+      "type": "string"
+    },
+    "EventRef": {
+      "description": "A reference to a named event (a point on the timeline), by name.",
+      "type": "string"
+    },
+    "OpenLoopLedger": {
+      "description": "The introduced-versus-resolved shape of the open-loop ledger at a cursor.",
+      "type": "object",
+      "properties": {
+        "closed": {
+          "description": "Questions opened and later closed, in the order they were closed.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuestionRef"
+          }
+        },
+        "open": {
+          "description": "Questions opened and not yet closed, in the order they were opened.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuestionRef"
+          }
+        }
+      },
+      "required": [
+        "open",
+        "closed"
+      ]
+    },
+    "OrderIntegrityFinding": {
+      "description": "A production-order integrity defect: a duplicated or missing slot.",
+      "type": "object",
+      "properties": {
+        "episodes": {
+          "description": "The episodes at the slot (the colliding ids for a duplicate; empty for a\ngap).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "description": "The shape of the defect.",
+          "$ref": "#/$defs/OrderIntegrityKind"
+        },
+        "message": {
+          "description": "A domain-spoken description.",
+          "type": "string"
+        },
+        "slot": {
+          "description": "The slot the defect concerns.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "slot",
+        "episodes",
+        "message"
+      ]
+    },
+    "OrderIntegrityKind": {
+      "description": "What an [`OrderIntegrityFinding`] reports about the production-order sequence.",
+      "oneOf": [
+        {
+          "description": "Two or more episodes claim the same production slot — the fold would keep\ninput order between them, silently, rather than flag the collision.",
+          "type": "string",
+          "const": "duplicate-production-order"
+        },
+        {
+          "description": "A production slot between the first and last is empty — a gap in the\nsequence.",
+          "type": "string",
+          "const": "gap-in-production-order"
+        }
+      ]
+    },
+    "QuestionRef": {
+      "description": "A reference to an open-loop question (a promise to the listener), by name.",
+      "type": "string"
+    }
+  }
 }

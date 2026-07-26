@@ -13,7 +13,7 @@ and materialize. Every request and response below is the **engine-true** shape a
 `SKILL.md` first for the law; this is the muscle memory.
 
 The frames below are the stdio form (`deloreis serve`): a real request line is a
-single JSON object `{"dli":"0.2.0","id":"<n>","op":"<tool>","params":{…}}`, and a
+single JSON object `{"dli":"0.3.0","id":"<n>","op":"<tool>","params":{…}}`, and a
 mutating call may also carry `"expected_digest"` (the fence) and
 `"idempotency_key"` (safe-retry). Over MCP (`deloreis mcp`) the identical tools are
 reached with a JSON-RPC `tools/call` whose `{name, arguments}` carry the same op

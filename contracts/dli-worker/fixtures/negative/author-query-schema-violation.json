@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.query params omit the required fields, violating the op schema.",
   "send": {
-    "dli": "0.2.0",
+    "dli": "0.3.0",
     "id": "1",
     "op": "author.query",
     "params": {}

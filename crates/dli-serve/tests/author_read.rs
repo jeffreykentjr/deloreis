@@ -20,7 +20,7 @@ use dli_world::pack::Pack;
 
 fn req(id: &str, op: Op, params: Value) -> Request {
     Request {
-        dli: "0.2.0".to_owned(),
+        dli: "0.3.0".to_owned(),
         id: id.to_owned(),
         op,
         params,
@@ -204,8 +204,19 @@ fn end_to_end_self_check_session() {
     assert!(
         result(&diff)["consequences"]["newly_possible"]
             .as_array()
-            .is_some_and(|atoms| { atoms.iter().any(|atom| atom == "serves(mara, the-warden)") }),
+            .is_some_and(|changes| {
+                changes.iter().any(|change| {
+                    change["atom"]["pred"] == "serves"
+                        && change["atom"]["args"] == json!(["mara", "the-warden"])
+                        && change["before"]["status"] == "dead"
+                        && change["after"]["status"] == "possible"
+                })
+            }),
         "the supervision diff carries staged derived consequences"
+    );
+    assert!(
+        result(&diff)["workspace_digest"].is_string(),
+        "the supervision diff carries the workspace fence"
     );
 
     // author.why — why the staged claim can't be certain yet: it is proposed, so

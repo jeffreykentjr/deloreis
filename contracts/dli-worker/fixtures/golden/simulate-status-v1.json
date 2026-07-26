@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.simulate.start",
         "params": {
@@ -14,7 +14,7 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -25,7 +25,7 @@
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "op": "dli.simulate.status",
         "params": {
@@ -33,62 +33,64 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "ok": true,
         "result": {
+          "manifest": {
+            "battery_digest": "fnv1a64:59a4e54ef5fc2aa1",
+            "checkpoint_lineage": [
+              3
+            ],
+            "invariants": [
+              {
+                "grade": "checked",
+                "invariant": "all-laws-hold",
+                "outcome": {
+                  "detail": "resource 'debt' violated its law (overspent) at trial 2",
+                  "outcome": "violated",
+                  "trial": 2
+                }
+              },
+              {
+                "grade": "checked",
+                "invariant": "debt-never-violated",
+                "outcome": {
+                  "detail": "resource 'debt' violated its law (overspent) at trial 2",
+                  "outcome": "violated",
+                  "trial": 2
+                }
+              }
+            ],
+            "metrics": [
+              {
+                "grade": "tested",
+                "half_width": 0.6533333333333334,
+                "mean": 0.3333333333333333,
+                "metric": "any-violation",
+                "sum": 1,
+                "sum_of_squares": 1,
+                "trials": 3
+              },
+              {
+                "grade": "tested",
+                "half_width": 0.6533333333333334,
+                "mean": 0.3333333333333333,
+                "metric": "debt-violated",
+                "sum": 1,
+                "sum_of_squares": 1,
+                "trials": 3
+              }
+            ],
+            "seed": 42,
+            "trials": 3
+          },
           "status": "complete",
           "trace": [
             "turn 0: all laws held",
             "turn 1: all laws held",
             "turn 2: a law was broken"
-          ],
-          "manifest": {
-            "battery_digest": "fnv1a64:59a4e54ef5fc2aa1",
-            "seed": 42,
-            "trials": 3,
-            "metrics": [
-              {
-                "metric": "any-violation",
-                "trials": 3,
-                "sum": 1,
-                "sum_of_squares": 1,
-                "mean": 0.3333333333333333,
-                "half_width": 0.6533333333333334,
-                "grade": "tested"
-              },
-              {
-                "metric": "debt-violated",
-                "trials": 3,
-                "sum": 1,
-                "sum_of_squares": 1,
-                "mean": 0.3333333333333333,
-                "half_width": 0.6533333333333334,
-                "grade": "tested"
-              }
-            ],
-            "invariants": [
-              {
-                "invariant": "all-laws-hold",
-                "outcome": {
-                  "outcome": "violated",
-                  "trial": 2,
-                  "detail": "resource 'debt' violated its law (overspent) at trial 2"
-                },
-                "grade": "checked"
-              },
-              {
-                "invariant": "debt-never-violated",
-                "outcome": {
-                  "outcome": "violated",
-                  "trial": 2,
-                  "detail": "resource 'debt' violated its law (overspent) at trial 2"
-                },
-                "grade": "checked"
-              }
-            ],
-            "checkpoint_lineage": [3]
-          }
+          ]
         }
       }
     }

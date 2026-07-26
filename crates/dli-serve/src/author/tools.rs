@@ -93,6 +93,7 @@ pub(super) fn diff(store: &Store, params: &AuthorDiffParams) -> Result<Value, Er
         rendered: render_decls(&ws.decls),
         findings: report.findings,
         consequences: report.consequences,
+        workspace_digest: ws.digest.clone(),
     }))
 }
 
@@ -197,7 +198,7 @@ pub(super) fn add_fact(
     let decl = Decl::Attr(AttrDecl {
         subject: ident(&params.entity),
         attr: ident(&params.key),
-        value: Term::Sym(ident(&params.value)),
+        value: author_value(&params.value),
         provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
@@ -967,6 +968,24 @@ fn ident(text: &str) -> Ident {
     Ident::synthetic(text)
 }
 
+/// Preserve a compact token as a symbol; render every other caller value as a
+/// quoted string so Door T can never claim malformed text is canonical.
+fn author_value(text: &str) -> Term {
+    let symbol = !text.is_empty()
+        && !text.starts_with('$')
+        && !text.bytes().all(|byte| byte.is_ascii_digit())
+        && text.bytes().all(|byte| {
+            !byte.is_ascii_control()
+                && !byte.is_ascii_whitespace()
+                && !matches!(byte, b'(' | b')' | b',' | b'=' | b'{' | b'}' | b'"' | b'#')
+        });
+    if symbol {
+        Term::Sym(ident(text))
+    } else {
+        Term::Str(text.to_owned())
+    }
+}
+
 fn hypothesis_count(ws: &Workspace) -> usize {
     ws.decls
         .iter()
@@ -1049,5 +1068,23 @@ fn unknown_decl(decl_id: &str) -> ErrorBody {
         code: ErrorCode::UnknownDoc,
         message: format!("no staged declaration matching \"{decl_id}\" in this workspace"),
         data: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use dli_ast::term::Term;
+
+    use super::author_value;
+
+    #[test]
+    fn author_values_preserve_their_term_kind_when_reparsed() {
+        assert!(matches!(author_value("river-warden"), Term::Sym(_)));
+        for value in ["river warden", "$keeper", "42", "name#comment", "\0"] {
+            assert!(
+                matches!(author_value(value), Term::Str(_)),
+                "{value:?} must render as a string"
+            );
+        }
     }
 }

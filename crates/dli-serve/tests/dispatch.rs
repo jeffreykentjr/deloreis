@@ -147,7 +147,7 @@ fn fork_flow_threads_session_state() {
     let mut store = Store::default();
 
     let new = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.fork.new","params":{"document":"camelot"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.fork.new","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
@@ -155,27 +155,75 @@ fn fork_flow_threads_session_state() {
     assert_eq!(new.result.unwrap()["fork"], "fork-1");
 
     let suppose = send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     let delta = suppose.result.unwrap();
     assert_eq!(
-        delta["newly_certain"],
-        serde_json::json!(["kept-at(excalibur, camelot)"])
+        delta["newly_certain"][0]["atom"],
+        serde_json::json!({"pred": "kept-at", "args": ["excalibur", "camelot"]})
+    );
+    assert_eq!(delta["newly_certain"][0]["before"]["status"], "possible");
+    assert_eq!(delta["newly_certain"][0]["after"]["status"], "certain");
+
+    let listed = send(
+        &serde_json::json!({"dli":"0.3.0","id":"list","op":"dli.fork.list","params":{"document":"camelot"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(listed["forks"][0]["fork"], "fork-1");
+    assert_eq!(listed["forks"][0]["assumes"]["h.camelot#0"], true);
+    assert_eq!(listed["forks"][0]["local_atoms"], 0);
+    assert_eq!(listed["forks"][0]["restrictions"], 0);
+
+    let preflight = send(
+        &serde_json::json!({"dli":"0.3.0","id":"preflight","op":"dli.fork.preflight","params":{"fork":"fork-1"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(preflight["candidate"]["h.camelot#0"], true);
+    assert!(
+        preflight["candidate"]
+            .as_object()
+            .is_some_and(|candidate| candidate.keys().all(|name| !name.starts_with("var#"))),
+        "candidate valuation exposes stable names"
+    );
+
+    let promoted = send(
+        &serde_json::json!({"dli":"0.3.0","id":"promote","op":"dli.fork.promote","params":{"fork":"fork-1"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(promoted["rq_draft"]["slug"], "fork-1");
+    assert!(
+        !promoted["rq_draft"]["ask"]
+            .as_str()
+            .unwrap()
+            .contains("fork-0"),
+        "promotion never leaks the internal zero-based id"
     );
 
     // The suppose persisted on the fork: a later diff sees the same consequence.
     let diff = send(
-        &serde_json::json!({"dli":"0.2.0","id":"3","op":"dli.fork.diff","params":{"fork":"fork-1"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"3","op":"dli.fork.diff","params":{"fork":"fork-1"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     assert_eq!(
-        diff.result.unwrap()["newly_certain"],
-        serde_json::json!(["kept-at(excalibur, camelot)"])
+        diff.result.unwrap()["newly_certain"][0]["atom"],
+        serde_json::json!({"pred": "kept-at", "args": ["excalibur", "camelot"]})
     );
 }
 
@@ -184,7 +232,7 @@ fn unknown_document_is_unknown_doc() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
     let response = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.check","params":{"document":"nowhere"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.check","params":{"document":"nowhere"}}),
         &mut sessions,
         &mut store,
     )
@@ -204,7 +252,7 @@ fn killed_and_unknown_ops_are_refused() {
         ("dli.frobnicate", "unknown-op", None),
     ] {
         let response = send(
-            &serde_json::json!({"dli":"0.2.0","id":"1","op":op,"params":{}}),
+            &serde_json::json!({"dli":"0.3.0","id":"1","op":op,"params":{}}),
             &mut sessions,
             &mut store,
         )
@@ -227,47 +275,95 @@ fn timeline_and_fork_add_are_wired() {
 
     // A corpus with no chronology reads the honest empty state, never `not-wired`.
     let bare = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.timeline.show","params":{"document":"camelot"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.timeline.show","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     assert!(bare.ok, "timeline.show is wired: {bare:?}");
-    assert_eq!(
-        bare.result.unwrap()["findings"],
-        serde_json::json!(["no chronology in this corpus"])
-    );
+    let bare = bare.result.unwrap();
+    assert_eq!(bare["layers"], serde_json::json!([]));
+    assert_eq!(bare["cycle"], serde_json::json!([]));
+    assert_eq!(bare["placements"], serde_json::json!([]));
 
     // The neutral round-table world carries a real era spine, so show lays it out.
     let laid = send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"dli.timeline.show","params":{"document":"round-table"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"dli.timeline.show","params":{"document":"round-table"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
-    let findings = laid.result.unwrap()["findings"].clone();
+    let layers = laid.result.unwrap()["layers"].clone();
     assert!(
-        findings[0].as_str().unwrap().starts_with("layer 0:"),
-        "chronology is laid out in layers: {findings}"
+        layers.as_array().is_some_and(|layers| !layers.is_empty())
+            && layers[0]["rank"] == 0
+            && layers[0]["points"]
+                .as_array()
+                .is_some_and(|points| !points.is_empty()),
+        "chronology is laid out in typed layers: {layers}"
+    );
+    let cursor = send(
+        &serde_json::json!({"dli":"0.3.0","id":"cursor","op":"dli.timeline.show","params":{"document":"round-table","at":"arthurs-reign"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    assert_eq!(
+        cursor["cursor"]["before"],
+        serde_json::json!(["uthers-time"])
+    );
+    assert_eq!(
+        cursor["cursor"]["after"],
+        serde_json::json!(["after-camlann"])
     );
 
     // fork.add parses a declaration line and adds its lowered fact to the fork.
     send(
-        &serde_json::json!({"dli":"0.2.0","id":"3","op":"dli.fork.new","params":{"document":"round-table"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"3","op":"dli.fork.new","params":{"document":"round-table"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     let added = send(
-        &serde_json::json!({"dli":"0.2.0","id":"4","op":"dli.fork.add","params":{"fork":"fork-1","declarations":["adjacent(camelot, avalon) proposed"]}}),
+        &serde_json::json!({"dli":"0.3.0","id":"4","op":"dli.fork.add","params":{"fork":"fork-1","declarations":["adjacent(camelot, avalon) proposed"]}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     assert!(added.ok, "fork.add is wired: {added:?}");
     assert_eq!(
-        added.result.unwrap()["delta"]["newly_certain"],
-        serde_json::json!(["adjacent(camelot, avalon)"])
+        added.result.unwrap()["delta"]["newly_certain"][0]["atom"],
+        serde_json::json!({"pred": "adjacent", "args": ["camelot", "avalon"]})
+    );
+
+    let slot = send(
+        &serde_json::json!({"dli":"0.3.0","id":"slot","op":"dli.fork.add","params":{"fork":"fork-1","declarations":["camelot.role = \"island court\" proposed"]}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(
+        slot.result.unwrap()["delta"]["newly_certain"]
+            .as_array()
+            .is_some_and(|changes| changes.iter().any(|change| {
+                change["atom"]
+                    == serde_json::json!({"pred": "role", "args": ["camelot", "island court"]})
+            })),
+        "slot declarations become fork-local facts"
+    );
+
+    let unsupported = send(
+        &serde_json::json!({"dli":"0.3.0","id":"entity","op":"dli.fork.add","params":{"fork":"fork-1","declarations":["place avalon proposed"]}}),
+        &mut sessions,
+        &mut store,
+    )
+    .expect("non-fact declarations receive a response");
+    assert!(!unsupported.ok);
+    assert_eq!(
+        unsupported.error.expect("typed error").code,
+        dli_serve::ErrorCode::SchemaViolation
     );
 }
 
@@ -281,7 +377,7 @@ fn check_proof_is_wired_and_validates_params() {
     let mut store = Store::default();
 
     let wired = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.check-proof","params":{"document":"warding-vows"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.check-proof","params":{"document":"warding-vows"}}),
         &mut sessions,
         &mut store,
     )
@@ -292,7 +388,7 @@ fn check_proof_is_wired_and_validates_params() {
     assert_eq!(report["verdict"], serde_json::json!("holds"));
 
     let malformed = send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"dli.check-proof","params":{}}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"dli.check-proof","params":{}}),
         &mut sessions,
         &mut store,
     )
@@ -308,11 +404,11 @@ fn serve_loop_survives_non_utf8_bytes() {
     // R3 C2: a single hostile non-UTF-8 byte between two valid frames must not
     // abort the loop — both valid frames are answered, the bad line skipped.
     let mut input: Vec<u8> = Vec::new();
-    input.extend_from_slice(br#"{"dli":"0.2.0","id":"1","op":"dli.version","params":{}}"#);
+    input.extend_from_slice(br#"{"dli":"0.3.0","id":"1","op":"dli.version","params":{}}"#);
     input.push(b'\n');
     input.push(0xff); // an invalid UTF-8 byte on its own line
     input.push(b'\n');
-    input.extend_from_slice(br#"{"dli":"0.2.0","id":"2","op":"dli.version","params":{}}"#);
+    input.extend_from_slice(br#"{"dli":"0.3.0","id":"2","op":"dli.version","params":{}}"#);
     input.push(b'\n');
 
     let mut reader = std::io::Cursor::new(input);
@@ -342,7 +438,7 @@ fn unknown_envelope_field_is_schema_violation() {
     let mut store = Store::default();
 
     let stray = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.version","params":{},"zzz":1}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.version","params":{},"zzz":1}),
         &mut sessions,
         &mut store,
     )
@@ -352,7 +448,7 @@ fn unknown_envelope_field_is_schema_violation() {
     // A mistyped `expected_digest` (typo'd key) is a stray field, caught before
     // dispatch — otherwise it would silently defeat the stale-fence.
     let typo = send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"author.materialize","params":{"workspace":"ws-1"},"expcted_digest":"jcs:x"}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"author.materialize","params":{"workspace":"ws-1"},"expcted_digest":"jcs:x"}),
         &mut sessions,
         &mut store,
     )
@@ -367,11 +463,11 @@ fn fences_are_refused_on_native_read_and_batch_operations() {
 
     for request in [
         serde_json::json!({
-            "dli":"0.2.0", "id":"1", "op":"author.status",
+            "dli":"0.3.0", "id":"1", "op":"author.status",
             "params":{"workspace":"ws-1"}, "expected_digest":"jcs:x"
         }),
         serde_json::json!({
-            "dli":"0.2.0", "id":"2", "op":"dli.check",
+            "dli":"0.3.0", "id":"2", "op":"dli.check",
             "params":{"document":"camelot"}, "idempotency_key":"not-a-mutation"
         }),
     ] {
@@ -460,43 +556,87 @@ fn query_modifiers_layer_and_fork() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
 
+    let all = send(
+        &serde_json::json!({"dli":"0.3.0","id":"all","op":"dli.query","params":{"document":"round-table","goal":"adjacent(camelot, ?place)","layer":"certain"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap()
+    .result
+    .unwrap();
+    let rows = all["rows"].as_array().expect("typed query rows");
+    assert_eq!(rows.len(), 3, "the wire returns every matching row");
+    assert!(
+        rows.iter().all(|row| {
+            row["bindings"]["place"].is_string()
+                && row["status"] == "certain"
+                && row["support"]["monomials"].is_array()
+        }),
+        "each row retains bindings and its verdict"
+    );
+
     // kept-at is merely POSSIBLE in camelot (gated by the open hypothesis); the
     // certain layer drops that shadow row → empty answer, FALSE support.
     let certain = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
-    assert_eq!(
-        certain.result.unwrap()["support"],
-        serde_json::json!({"monomials": []})
-    );
+    assert_eq!(certain.result.unwrap()["rows"], serde_json::json!([]));
 
     // Under a fork that supposes the gate, kept-at is certain — the --fork overlay
     // makes the certain-layer query return it.
     send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"dli.fork.new","params":{"document":"camelot"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"dli.fork.new","params":{"document":"camelot"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     send(
-        &serde_json::json!({"dli":"0.2.0","id":"3","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
+        &serde_json::json!({"dli":"0.3.0","id":"3","op":"dli.fork.suppose","params":{"fork":"fork-1","assume":["h.camelot#0"]}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
     let forked = send(
-        &serde_json::json!({"dli":"0.2.0","id":"4","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain","fork":"fork-1"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"4","op":"dli.query","params":{"document":"camelot","goal":"kept-at(excalibur, camelot)","layer":"certain","fork":"fork-1"}}),
         &mut sessions,
         &mut store,
     )
     .unwrap();
+    let forked = forked.result.unwrap();
+    assert_eq!(forked["rows"].as_array().map(Vec::len), Some(1));
+    assert_eq!(forked["rows"][0]["atom"], "kept-at(excalibur, camelot)");
+    assert_eq!(forked["rows"][0]["status"], "certain");
     assert_eq!(
-        forked.result.unwrap()["support"],
+        forked["rows"][0]["support"],
         serde_json::json!({"monomials": [["+2"]]})
     );
+}
+
+#[test]
+fn export_returns_the_target_shaped_emission() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let response = send(
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"dli.export.run","params":{"document":"french-deck","profile":"cards"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    let result = response.result.unwrap();
+    assert_eq!(result["emission"]["profile"], "cards");
+    assert_eq!(
+        result["emission"]["artifact"]["profile"],
+        "cards/french-deck@1"
+    );
+    assert!(
+        result["emission"]["artifact"]["cards"]
+            .as_array()
+            .is_some_and(|cards| !cards.is_empty())
+    );
+    assert_eq!(result["manifest"]["layer"], "certain");
 }
 
 #[test]
@@ -510,7 +650,7 @@ fn author_reads_see_the_base_pack_not_just_staged() {
     let mut sessions = Sessions::new();
 
     let open = send(
-        &serde_json::json!({"dli":"0.2.0","id":"1","op":"author.open","params":{"scope":"camelot"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"1","op":"author.open","params":{"scope":"camelot"}}),
         &mut sessions,
         &mut store,
     )
@@ -523,7 +663,7 @@ fn author_reads_see_the_base_pack_not_just_staged() {
 
     // Nothing staged; the ratified base fact must still be visible to the read.
     let query = send(
-        &serde_json::json!({"dli":"0.2.0","id":"2","op":"author.query","params":{"workspace":workspace,"goal":"adjacent(camelot, the-lake)","layer":"certain"}}),
+        &serde_json::json!({"dli":"0.3.0","id":"2","op":"author.query","params":{"workspace":workspace,"goal":"adjacent(camelot, the-lake)","layer":"certain"}}),
         &mut sessions,
         &mut store,
     )

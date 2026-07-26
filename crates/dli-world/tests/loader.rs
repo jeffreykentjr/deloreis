@@ -5,8 +5,8 @@
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
-    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl, RuleDecl, ScopeHeader,
-    TimeClause,
+    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl, RuleDecl,
+    ScopeHeader, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -93,6 +93,40 @@ fn golden_hand_built_world_loads_with_zero_findings() {
     assert!(!out.world.facts_about("excalibur").is_empty());
     // the event-variable table carries the cited decisions
     assert!(out.world.var_atom("D-0001").is_some());
+}
+
+#[test]
+fn string_attributes_are_evaluable_facts() {
+    let docs = vec![doc(
+        "saltmarket",
+        vec![Decl::Attr(AttrDecl {
+            subject: ident("mara"),
+            attr: ident("role"),
+            value: Term::Str("river warden".to_owned()),
+            provenance: Some(ann(ProvenanceMarker::Proposed, &[])),
+        })],
+    )];
+    let compiled = dli_world::compile(&Pack {
+        name: "saltmarket".to_owned(),
+        documents: docs,
+    })
+    .expect("attribute world compiles");
+    let answer = compiled
+        .model()
+        .world
+        .query(&Query {
+            goal: AtomExpr {
+                pred: ident("role"),
+                args: vec![Term::Sym(ident("mara")), Term::Var(ident("value"))],
+            },
+        })
+        .expect("attribute predicate is evaluable");
+
+    assert_eq!(answer.rows.len(), 1);
+    assert_eq!(
+        answer.rows[0].bindings.get("value").map(String::as_str),
+        Some("river warden")
+    );
 }
 
 #[test]

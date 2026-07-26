@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.timeline.phases",
         "params": {
@@ -14,13 +14,24 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            "episode anchor: season = index 0"
-          ]
+          "anchors": [
+            {
+              "owner": "episode",
+              "position": {
+                "cycle": "season",
+                "index": 0
+              },
+              "spoke": "spring",
+              "valid": true
+            }
+          ],
+          "consistent": true,
+          "episode": "e01",
+          "findings": []
         }
       }
     }

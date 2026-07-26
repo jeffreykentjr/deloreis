@@ -4,8 +4,8 @@
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
-    BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, HypothesisDecl, OptionClause,
-    QuestionDecl, RatifyDecl, TimeClause,
+    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, HypothesisDecl,
+    OptionClause, QuestionDecl, RatifyDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -167,6 +167,27 @@ fn empty_world_constructs() {
     assert!(world.rules.is_empty());
     assert!(world.cycles.is_empty());
     assert_eq!(world, World::default());
+}
+
+#[test]
+fn slot_attributes_lower_to_evaluable_facts() {
+    let document = Document {
+        scope: None,
+        decls: vec![Decl::Attr(AttrDecl {
+            subject: Ident::synthetic("mara"),
+            attr: Ident::synthetic("role"),
+            value: Term::Str("river warden".to_owned()),
+            provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
+        })],
+    };
+    let world = World::lower(&document).unwrap().fixpoint().unwrap();
+    let answer = world
+        .query(&query(atom("role", vec![sym("mara"), var("description")])))
+        .unwrap();
+
+    assert_eq!(answer.rows.len(), 1);
+    assert_eq!(answer.rows[0].bindings["description"], "river warden");
+    assert_eq!(answer.rows[0].status, Status::Possible);
 }
 
 #[test]

@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.check-proof",
         "params": {
@@ -12,35 +12,85 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
           "report": {
+            "checks": true,
+            "expectation_met": true,
+            "expected": "holds",
+            "findings": [],
+            "grade": "checked",
+            "practice": {
+              "span": {
+                "end": 497,
+                "file": 0,
+                "start": 490
+              },
+              "text": "warding-vows"
+            },
             "proof": {
-              "text": "e01-s04",
-              "span": { "file": 0, "start": 490, "end": 497 }
+              "span": {
+                "end": 497,
+                "file": 0,
+                "start": 490
+              },
+              "text": "e01-s04"
             },
             "speaker": "arden",
-            "practice": {
-              "text": "warding-vows",
-              "span": { "file": 0, "start": 490, "end": 497 }
-            },
             "steps": [
-              { "label": "p1", "form": "premise", "ok": true, "grade": "checked", "note": "available in the pool" },
-              { "label": "p2", "form": "premise", "ok": true, "grade": "checked", "note": "tide is slack" },
-              { "label": "p3", "form": "premise", "ok": true, "grade": "checked", "note": "draws 1 debt" },
-              { "label": "s1", "form": "instantiate", "ok": true, "grade": "checked", "note": "instantiate ward-form" },
-              { "label": "s2", "form": "chain", "ok": true, "grade": "checked", "note": "chain by give-and-take" },
-              { "label": "p3", "form": "spend", "ok": true, "grade": "checked", "note": "spend p3" },
-              { "label": "close", "form": "close", "ok": true, "grade": "checked", "note": "bound(ward, door)" }
+              {
+                "form": "premise",
+                "grade": "checked",
+                "label": "p1",
+                "note": "available in the pool",
+                "ok": true
+              },
+              {
+                "form": "premise",
+                "grade": "checked",
+                "label": "p2",
+                "note": "tide is slack",
+                "ok": true
+              },
+              {
+                "form": "premise",
+                "grade": "checked",
+                "label": "p3",
+                "note": "draws 1 debt",
+                "ok": true
+              },
+              {
+                "form": "instantiate",
+                "grade": "checked",
+                "label": "s1",
+                "note": "instantiate ward-form",
+                "ok": true
+              },
+              {
+                "form": "chain",
+                "grade": "checked",
+                "label": "s2",
+                "note": "chain by give-and-take",
+                "ok": true
+              },
+              {
+                "form": "spend",
+                "grade": "checked",
+                "label": "p3",
+                "note": "spend p3",
+                "ok": true
+              },
+              {
+                "form": "close",
+                "grade": "checked",
+                "label": "close",
+                "note": "bound(ward, door)",
+                "ok": true
+              }
             ],
-            "findings": [],
-            "verdict": "holds",
-            "expected": "holds",
-            "expectation_met": true,
-            "grade": "checked",
-            "checks": true
+            "verdict": "holds"
           }
         }
       }

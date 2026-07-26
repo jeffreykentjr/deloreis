@@ -4,28 +4,24 @@
   "description": "`dli.query` result.",
   "type": "object",
   "properties": {
-    "citations": {
-      "description": "Supporting citations.",
+    "rows": {
+      "description": "Every row matching the query and its requested filters.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/QueryResultRow"
       }
-    },
-    "grade": {
-      "description": "The grade.",
-      "$ref": "#/$defs/Grade"
-    },
-    "support": {
-      "description": "The support formula.",
-      "$ref": "#/$defs/PosBool"
     }
   },
   "required": [
-    "support",
-    "grade",
-    "citations"
+    "rows"
   ],
   "$defs": {
+    "ClaimId": {
+      "description": "A claim identifier.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
     "Grade": {
       "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
       "oneOf": [
@@ -66,6 +62,113 @@
       },
       "required": [
         "monomials"
+      ]
+    },
+    "QueryResultRow": {
+      "description": "One wire query row. It retains evaluator data and adds resolved citations\nplus the deterministic line a text caller may display.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The matched ground atom.",
+          "type": "string"
+        },
+        "bindings": {
+          "description": "Query-variable bindings for this row.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "citations": {
+          "description": "Supporting variables resolved to stable corpus names.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grade": {
+          "description": "The procedure grade.",
+          "$ref": "#/$defs/Grade"
+        },
+        "rendered": {
+          "description": "The kernel's deterministic one-line rendering of the row.",
+          "type": "string"
+        },
+        "status": {
+          "description": "The atom's standing under the selected valuation.",
+          "$ref": "#/$defs/Status"
+        },
+        "support": {
+          "description": "The support formula.",
+          "$ref": "#/$defs/PosBool"
+        },
+        "why": {
+          "description": "The optional support explanation requested with `why`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Why"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "atom",
+        "bindings",
+        "status",
+        "support",
+        "grade",
+        "citations",
+        "rendered"
+      ]
+    },
+    "Status": {
+      "description": "A claim's three-valued standing under `(ν, Θ)`, derived — never stored.",
+      "oneOf": [
+        {
+          "description": "Every monomial is `Θ`-unsatisfiable: the claim holds in no admissible\nworld. (Whether this is rejection or mere supersession is a `C`\nquestion, outside the algebra.)",
+          "type": "string",
+          "const": "dead"
+        },
+        {
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved-and-undefeated: the\nshadow layer.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "Some monomial holds on resolved events alone, with that monomial's own\ndefeater not fully ruled: assertable.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "Why": {
+      "description": "The positive explanation of an atom: its support antichain rendered for a\nreader.\n\nThe [`antichain`](Why::antichain) is the disjunction of minimal witnesses —\nthe same shape as [`crate::SupportIndex::why`], one inner vector of\n[`ClaimId`]s per minimal monomial of the support (sign is dropped, matching\nthat seam). [`rendered`](Why::rendered) is the parallel human line for each\nwitness, resolved to claim names through the world's interner; a negative\nliteral renders with a `not ` prefix, and the unconditional witness (the\nempty monomial) renders as `unconditional`.",
+      "type": "object",
+      "properties": {
+        "antichain": {
+          "description": "The disjunction of minimal witnesses, each a conjunction of claim ids.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ClaimId"
+            }
+          }
+        },
+        "rendered": {
+          "description": "The per-witness human rendering, index-aligned with `antichain`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "antichain",
+        "rendered"
       ]
     }
   }

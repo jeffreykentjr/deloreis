@@ -5,14 +5,58 @@
   "type": "object",
   "properties": {
     "forks": {
-      "description": "The open fork question ids.",
+      "description": "The open forks and their current private-state summary.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/ForkSummary"
       }
     }
   },
   "required": [
     "forks"
-  ]
+  ],
+  "$defs": {
+    "ForkSummary": {
+      "description": "One open fork as exposed to callers.",
+      "type": "object",
+      "properties": {
+        "assumes": {
+          "description": "Named valuation assumptions local to the fork.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
+        "base": {
+          "description": "The parent wire handle, when this fork branches another.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fork": {
+          "description": "The stable wire handle.",
+          "type": "string"
+        },
+        "local_atoms": {
+          "description": "Number of fork-local proposed facts.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "restrictions": {
+          "description": "Number of active visibility restrictions.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "fork",
+        "assumes",
+        "local_atoms",
+        "restrictions"
+      ]
+    }
+  }
 }

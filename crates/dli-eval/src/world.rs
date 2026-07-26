@@ -15,7 +15,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, EntityKind, OptionClause, TimeClause};
+use dli_ast::decl::{AttrDecl, Decl, Document, EntityKind, OptionClause, TimeClause};
 use dli_ast::ident::Ident;
 use dli_ast::literal::BodyLiteral;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
@@ -347,6 +347,9 @@ impl World {
                         grade: Grade::Asserted,
                     });
                 }
+                Decl::Attr(attr) => {
+                    world.lower_attr(attr, None, &mut proposal_seq, &known_decisions)?;
+                }
                 Decl::Question(question) => world.lower_options(&question.options)?,
                 Decl::Fork(fork) => world.lower_options(&fork.options)?,
                 Decl::Cycle(cycle) => world.cycles.push(Cycle {
@@ -359,6 +362,14 @@ impl World {
                     world.chronology.edges.push((earlier, later));
                 }
                 Decl::Entity(entity) => {
+                    for slot in &entity.slots {
+                        world.lower_attr(
+                            slot,
+                            entity.provenance.as_ref(),
+                            &mut proposal_seq,
+                            &known_decisions,
+                        )?;
+                    }
                     if let Some(TimeClause::Order(chain)) = &entity.time {
                         // The parser hands us the chain AFTER the declared head
                         // (`era a < b < c` → name `a`, chain `[b, c]`); the full
@@ -386,6 +397,30 @@ impl World {
             }
         }
         Ok(world)
+    }
+
+    fn lower_attr(
+        &mut self,
+        attr: &AttrDecl,
+        inherit: Option<&Annotation>,
+        proposal_seq: &mut u32,
+        known_decisions: &BTreeSet<&str>,
+    ) -> Result<(), EvalError> {
+        let atom = ground_atom(&AtomExpr {
+            pred: attr.attr.clone(),
+            args: vec![Term::Sym(attr.subject.clone()), attr.value.clone()],
+        })?;
+        let ann = self.lower_fact_annotation(
+            attr.provenance.as_ref().or(inherit),
+            proposal_seq,
+            known_decisions,
+        );
+        self.facts.push(Fact {
+            atom,
+            ann,
+            grade: Grade::Asserted,
+        });
+        Ok(())
     }
 
     /// Intern an era/event name to a stable [`TimePoint`].

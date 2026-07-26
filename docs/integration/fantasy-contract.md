@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract and intended guarantees. Caller-project isolation is implemented; semantic, durability, and assurance closure remain open under DL-0028, and consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.3.0. Caller-project isolation, typed response semantics, Door T, and complete paired framing replay are implemented; durable evidence/jobs remain open, and consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -18,12 +18,12 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** this is still a pre-release contract. All operation
-> names have schemas and dispatch arms, and both transports load strict caller
-> projects. Several handlers remain incomplete or non-durable, and the fixture
-> census has framing exemptions.
-> The PLAN matrix therefore keeps CON-1, SERVE-1, and AUTH-1 open. Nothing in
-> this document is evidence that consumer cutover is ready.
+> **Implementation status:** this is still a pre-release contract. Version
+> `0.3.0` has typed responses for all 46 operations, strict caller projects,
+> complete golden/negative/paired-framing coverage, and a replayable Door T.
+> `CON-1` and `AUTH-1` are closed. `SERVE-1` remains open because evidence
+> mutations and simulation jobs are not yet durable across process restart.
+> Consumer cutover is excluded from this source-release round.
 
 ## 1. Parties
 
@@ -57,9 +57,10 @@ model utterance is one of four declared classes, or it does not enter.*
   the request envelope. MCP exposes them as reserved arguments on those ten
   author mutation tools and lifts them into that same envelope before shared
   dispatch.
-- **Every mutating call returns immediately.** No mutating operation defers its
-  verdict; the graded findings, the rendered canonical lines, and the workspace
-  or fork digest come back on the same call.
+- **Every Door-T mutation returns immediately.** No mutating `author.*`
+  operation defers its verdict; graded findings, rendered canonical lines, and
+  the workspace digest come back on the same call. Stateful `dli.fork.*`
+  operations return their typed consequence delta or ruling-request draft.
 
 ## 3. Operation inventory
 
@@ -69,26 +70,26 @@ model utterance is one of four declared classes, or it does not enter.*
 |---|---|---|
 | `dli.version` | Report the contract/grammar versions and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
 | `dli.check` | Compile and check a scope or corpus. | graded findings + rendered lines |
-| `dli.query` | Query the compiled world (`--layer/--as-of/--fork/--why`). | atoms + support + rendered |
+| `dli.query` | Query the compiled world (`--layer/--as-of/--fork/--why`). | every matching row: atom, bindings, status, support, grade, citations, optional why, rendered |
 | `dli.fork.new` | Create a fork. | fork handle |
 | `dli.fork.list` | List forks. | forks with base/assumes/counts |
-| `dli.fork.diff` | Derived-consequence diff of a fork. | `newly_certain/possible/dead/grade_changed/conflicts`, each rendered |
+| `dli.fork.diff` | Derived-consequence diff of a fork. | typed before/after atom changes and conflicts, each rendered |
 | `dli.fork.suppose` | Assume an option or event in a fork. | diff delta |
-| `dli.fork.add` | Add proposed declarations to a fork. | `ok` + diff delta |
+| `dli.fork.add` | Add proposed ground facts or slots to a fork. | `ok` + diff delta |
 | `dli.fork.suppress` | Retract an assumption from a fork. | diff delta |
 | `dli.fork.restrict` | Restrict a fork's valuation scope. | diff delta |
-| `dli.fork.preflight` | Ratification pre-flight: candidate valuation + conflict scan. | conflicts + affected atoms |
+| `dli.fork.preflight` | Ratification pre-flight: candidate valuation + conflict scan. | named candidate valuation + typed conflicts + affected atoms |
 | `dli.fork.promote` | Emit a ruling-request draft from a fork. | `rq_draft` (slug, ask, affects, diff, evidence) |
 | `dli.check-proof` | Check a diegetic proof `in <practice>`. | verdict + errors (structural classes) + grade |
 | `dli.check-draft` | Run the full battery over a draft payload. | one merged report |
 | `dli.simulate.start` | Start a battery over a ruleset/delta. | `job_id` + status |
 | `dli.simulate.status` | Poll a battery. | progress, or final manifest + metrics + invariant verdicts |
 | `dli.simulate.cancel` | Cancel a battery. | status |
-| `dli.timeline.show` | The timeline at a position (`--at`). | lanes, events, spans, placements |
+| `dli.timeline.show` | The timeline at a position (`--at`). | topological layers, cycle blame, cursor relations, placements |
 | `dli.timeline.order` | Partial-order report. | cycles + load-bearing unordered pairs (ready-made RQs) |
 | `dli.timeline.knows` | Who-knows-what matrix at a position. | characters × facts (listener included) |
-| `dli.timeline.episodes` | Episode-order check + slack. | findings + earliest/latest legal slots |
-| `dli.timeline.phases` | Phase-walk verdict for an episode. | walk consistency |
+| `dli.timeline.episodes` | Episode-order check + slack. | episode summaries, loop ledger, integrity findings, earliest/latest slots |
+| `dli.timeline.phases` | Phase-walk verdict for an episode. | resolved anchors + consistency findings |
 | `dli.export.run` | Run an export target and profile. | target-shaped emission + manifest |
 | `dli.name.check` | Vet a name (the kernel half only). | kernel verdict (world-true) |
 | `dli.attest.missing` | List the open attestation questions checks demand. | question records |
@@ -102,14 +103,12 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-All 46 operation names have request/response schemas and dispatch arms.
-That census is not a readiness claim. Caller-project isolation now loads a
-strict versioned manifest and refuses demo fallback, but `capabilities()` still
-advertises operations whose full Returns semantics are open; simulation is
-synchronous and session-local; payload and attestation mutations do not store
-evidence; and several responses omit promised semantics. CON-1 closes only when
-the handlers satisfy these Returns columns and the complete fixture oracle
-passes.
+All 46 operation names have request/response schemas, dispatch arms, typed
+Returns semantics, and golden + negative + paired-framing fixtures. The complete
+fixture oracle passes against the real front end and a digest-pinned replay
+project. This closes `CON-1`, not the whole server: simulation remains
+synchronous and session-local, and payload and attestation mutations do not yet
+persist evidence. Those are `SERVE-1` durability work.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -169,34 +168,37 @@ path and commits through fantasy review.
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-from contract **v1** (the first cutover, `CON-1`); the v0 seed set covers the
-flow families and every declared error code, not yet every op.
+today: contract `0.3.0` enforces it for all 46 operations before v1.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
-- **Framing** — an adversarially framed call (a prompt-injection-shaped payload,
-  a coaxing narrative) whose expected verdict is **unchanged** by the framing.
+- **Framing** — a paired control/attack replay from independent cold state.
+  Exact changed request paths are declared; required verdict and safety
+  projections must match; tainted strings may appear only in declared data
+  paths. Mutating cases probe post-state, and materialized output must reparse.
 - **Precondition.** A fixture whose call needs prior state — an opened workspace,
   a created fork, staged entities — declares its setup as a `precondition` array
   of send-frames, driven through the server **cold** before the fixture's own
   frames and **not themselves asserted**. A single-frame `author.*` fixture, for
   example, declares `[author.open {scope: …}]` so the harness-opened `ws-1` is
   reproducible from the vendored contract rather than assumed by an in-repo
-  harness only.
+  harness only. Tainted-state reads use independent control and attack
+  preconditions so the read request can be identical while staged data differs.
 - **Expected outcome.** A fixture declares an `expected_outcome` so replay is
   unambiguous: `replay` (the default — each frame's response equals its `expect`),
   or `gated` (reserved for an operation unavailable under the loaded project or
   current implementation).
 - **Cold replay.** Every registered fixture — golden, negative, framing, and
   author — is driven through the server **cold**, from a fresh session, with its
-  declared precondition, and the declared outcome is asserted (`fixture_replay` in
-  `dli-serve`, mirrored on the fantasy side). Author fixtures use a strict
-  minimal loaded corpus that declares the fixture scope and fork ids; unknown
-  ids are refused exactly as they are in project mode. A fixture that pins a
+  declared precondition, and the declared outcome is asserted (`fixture_replay`
+  in `dli-serve`; the fantasy mirror remains consumer-owned integration work).
+  Paired fixtures use the strict, digest-pinned `fixture-project`; unknown ids
+  are refused exactly as they are in project mode. A fixture that pins a
   verdict the running engine does not produce **fails the gate**: the manifest
   cannot silently document a fiction.
-- **Verdict parity.** The same fixture input yields the same verdict on the
-  deloreis side and the fantasy side. Parity is checked in both trees.
+- **Verdict parity.** The same fixture input must yield the same verdict on the
+  deloreis side and the fantasy side. Deloreis replay is closed here; cross-tree
+  parity remains blocked on consumer integration.
 - **Digest domains.** Fixture files are pinned by **sha256 over exact file
   bytes** in `contracts/dli-worker/registry.yaml` — the registry IS the
   manifest, and the gate verifies it against the fixtures on both sides.
@@ -237,9 +239,9 @@ code, is the authority.
 
 - **Deterministic and offline.** Every verdict replays from committed inputs;
   the kernel never calls a model, opens a socket, or reads a clock.
-- **Immediate graded feedback.** Every mutating `dli.*`/`author.*` call returns
-  findings (graded, with repair data), the rendered canonical lines, and the
-  workspace or fork digest.
+- **Immediate graded feedback.** Every mutating `author.*` call returns findings
+  (graded, with repair data), rendered canonical lines, and the workspace
+  digest, as required by DL-0014.
 - **Fail-closed exports.** An export reads the certain layer and never emits
   proposed lore by accident.
 - **Provenance in, provenance out.** Nothing enters without an origin; every

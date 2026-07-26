@@ -1,10 +1,10 @@
 {
   "fixture": "golden/author-why-v1",
   "version": 1,
-  "note": "author.why explains a staged atom's standing \u2014 the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
+  "note": "author.why explains a staged atom's standing — the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
   "precondition": [
     {
-      "dli": "0.2.0",
+      "dli": "0.3.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "author.why",
         "params": {
@@ -24,7 +24,7 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -35,7 +35,7 @@
             "defeater": null,
             "known": false,
             "rendered": [
-              "unknown \u2014 no derivation for this atom"
+              "unknown — no derivation for this atom"
             ],
             "status": "dead"
           }

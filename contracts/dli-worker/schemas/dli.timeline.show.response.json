@@ -1,18 +1,225 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TimelineResult",
-  "description": "The shared result of the `dli.timeline.*` reports.",
+  "title": "TimelineShowResult",
+  "description": "`dli.timeline.show` result.",
   "type": "object",
   "properties": {
-    "findings": {
-      "description": "The rendered findings for the requested report.",
+    "cursor": {
+      "description": "Cursor-relative ordering, when `at` was supplied.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TimelineCursor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cycle": {
+      "description": "Cycle blame edges, if the chronology is cyclic.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/TimelineEdge"
+      }
+    },
+    "layers": {
+      "description": "Topological layers; empty when the chronology is cyclic.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimelineLayer"
+      }
+    },
+    "placements": {
+      "description": "Episode fact placements projected onto story-time.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Placement"
       }
     }
   },
   "required": [
-    "findings"
-  ]
+    "layers",
+    "cycle",
+    "placements"
+  ],
+  "$defs": {
+    "CyclePos": {
+      "description": "A position on a cycle.\n\nNot `Ord`: a cycle refuses rank, so two positions are never `<`-compared. The\n`index` is a congruence class modulo the cycle's length — an out-of-range\nvalue is normalized by navigation, never rejected mid-walk.",
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "description": "The cycle this position belongs to.",
+          "type": "string"
+        },
+        "index": {
+          "description": "The spoke index (read modulo the cycle's length).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "cycle",
+        "index"
+      ]
+    },
+    "EpisodeAnchor": {
+      "description": "Where an episode or scene sits in story-time.\n\nAn anchor names an [`era`](Self::era) membership and, *within* that era, an\nhonestly-partial position pinned by [`after`](Self::after) /\n[`before`](Self::before) event constraints (there is no offset — an\nundeclared pair is unordered). It may also bind cyclic [`phases`](Self::phases)\n— a tide, a moon-night, a season — one [`CyclePos`] per relevant cycle.\n\nThe [`Default`] (empty) anchor is *unanchored*: an unanchored episode follows\nits predecessor in the story-present, the current behavior preserved. A\nscene's own anchor, when present, overrides its episode's ([`Scene::scene_anchor`]).",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Events this anchor falls strictly after (intra-era precedence).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EventRef"
+          }
+        },
+        "before": {
+          "description": "Events this anchor falls strictly before (intra-era precedence).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EventRef"
+          }
+        },
+        "era": {
+          "description": "The era this anchor sits in, if declared.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EraRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "phases": {
+          "description": "Cyclic phase coordinates at this story point, one per cycle.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CyclePos"
+          }
+        }
+      },
+      "required": [
+        "after",
+        "before",
+        "phases"
+      ]
+    },
+    "EraRef": {
+      "description": "A reference to an era on the chronology spine, by name.",
+      "type": "string"
+    },
+    "EventRef": {
+      "description": "A reference to a named event (a point on the timeline), by name.",
+      "type": "string"
+    },
+    "FactRef": {
+      "description": "A reference to a fact the world may hold, by name.",
+      "type": "string"
+    },
+    "Placement": {
+      "description": "One fact-introduction, resolved onto its story-time placement by the fold.",
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "description": "Where in story-time the fact was so (scene anchor, else episode anchor).",
+          "$ref": "#/$defs/EpisodeAnchor"
+        },
+        "fact": {
+          "description": "The fact introduced.",
+          "$ref": "#/$defs/FactRef"
+        },
+        "production_order": {
+          "description": "The production slot that introduced it (the listener's when).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "fact",
+        "anchor",
+        "production_order"
+      ]
+    },
+    "TimelineCursor": {
+      "description": "The relation of every known point to a requested cursor.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Points known to follow it.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "description": "The requested point.",
+          "type": "string"
+        },
+        "before": {
+          "description": "Points known to precede it.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unordered": {
+          "description": "Points with no declared order relative to it.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "at",
+        "before",
+        "after",
+        "unordered"
+      ]
+    },
+    "TimelineEdge": {
+      "description": "One directed chronology edge.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Later point.",
+          "type": "string"
+        },
+        "before": {
+          "description": "Earlier point.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ]
+    },
+    "TimelineLayer": {
+      "description": "One topological layer in a chronology.",
+      "type": "object",
+      "properties": {
+        "points": {
+          "description": "Era and event names in this layer.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rank": {
+          "description": "Zero-based topological rank.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "rank",
+        "points"
+      ]
+    }
+  }
 }

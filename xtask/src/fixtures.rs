@@ -21,6 +21,32 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
         serde_yaml_ng::from_str(&text).context("parsing registry.yaml")?;
     let fixtures_dir = contract_dir.join("fixtures");
 
+    if let Some(project) = registry
+        .get("replay_project")
+        .and_then(serde_yaml_ng::Value::as_sequence)
+    {
+        for entry in project {
+            let path = entry
+                .get("path")
+                .and_then(serde_yaml_ng::Value::as_str)
+                .ok_or_else(|| anyhow!("a replay_project entry is missing `path`"))?;
+            let want = entry
+                .get("sha256")
+                .and_then(serde_yaml_ng::Value::as_str)
+                .ok_or_else(|| anyhow!("replay_project {path} is missing `sha256`"))?;
+            let bytes = std::fs::read(contract_dir.join(path))
+                .with_context(|| format!("reading replay_project {path}"))?;
+            let got = hex_digest(&bytes);
+            if got != want {
+                bail!(
+                    "fixtures: replay_project digest mismatch for {path}: registry {want}, actual {got}"
+                );
+            }
+        }
+    } else {
+        bail!("registry.yaml is missing the digest-pinned `replay_project`");
+    }
+
     let entries = registry
         .get("fixtures")
         .and_then(serde_yaml_ng::Value::as_sequence)
@@ -92,64 +118,13 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
     Ok(())
 }
 
-/// Wire ops exempt from the per-op **framing** requirement (CON-1 oracle): those
-/// whose only string parameters are opaque handles/ids (`document`, `fork`,
-/// `workspace`, `job_id`), enums (`profile`), or structured payloads whose free
-/// text is quote-anchored separately (`payload`, `store`). A framing fixture is a
-/// golden-shaped call whose adversarial *free-text* string leaves the verdict
-/// unchanged; an op with no author-controlled free-text field has no such surface
-/// to frame — an injection string in a handle position is simply an unknown
-/// handle, which its negative fixture already covers. Every op NOT listed here
-/// must carry a framing fixture, so a newly added op fails the gate until it
-/// either gains one or is deliberately added to this list.
-const FRAMING_EXEMPT: &[&str] = &[
-    "dli.version",
-    "dli.check",
-    "dli.query",
-    "dli.fork.new",
-    "dli.fork.list",
-    "dli.fork.diff",
-    "dli.fork.suppose",
-    "dli.fork.suppress",
-    "dli.fork.restrict",
-    "dli.fork.preflight",
-    "dli.fork.promote",
-    "dli.check-proof",
-    "dli.check-draft",
-    "dli.simulate.start",
-    "dli.simulate.status",
-    "dli.simulate.cancel",
-    "dli.timeline.show",
-    "dli.timeline.order",
-    "dli.timeline.knows",
-    "dli.timeline.episodes",
-    "dli.timeline.phases",
-    "dli.export.run",
-    "dli.attest.missing",
-    "dli.attestation-sweep",
-    "dli.payload-submit",
-    "author.status",
-    "author.diff",
-    "author.discard",
-    "author.materialize",
-    "author.add_relation",
-    "author.add_before",
-    "author.suppose",
-    "author.check",
-    "author.findings",
-    "author.list_workspaces",
-];
-
 /// The CON-1 completeness oracle: *an op without golden + negative + framing
-/// fixtures does not exist.* Every wire op in [`Op::ALL`] must be covered by a
-/// golden fixture (a flow fixture covering it as one of its steps counts), a
-/// negative fixture, and a framing fixture — unless the op is in
-/// [`FRAMING_EXEMPT`]. Coverage is read from the `send.op` of each fixture under
-/// the `golden/`, `negative/`, and `framing/` directories.
+/// fixtures does not exist.* Framing coverage comes only from paired control /
+/// attack cases, never from a file merely placed under `framing/`.
 fn check_op_completeness(fixtures_dir: &Path) -> Result<()> {
     let golden = ops_in_category(&fixtures_dir.join("golden"))?;
     let negative = ops_in_category(&fixtures_dir.join("negative"))?;
-    let framing = ops_in_category(&fixtures_dir.join("framing"))?;
+    let framing = paired_framing_ops(&fixtures_dir.join("framing"))?;
 
     let mut missing: Vec<String> = Vec::new();
     for &op in &Op::ALL {
@@ -160,10 +135,8 @@ fn check_op_completeness(fixtures_dir: &Path) -> Result<()> {
         if !negative.contains(&wire) {
             missing.push(format!("{wire}: no negative fixture"));
         }
-        if !framing.contains(&wire) && !FRAMING_EXEMPT.contains(&wire.as_str()) {
-            missing.push(format!(
-                "{wire}: no framing fixture (and not framing-exempt)"
-            ));
+        if !framing.contains(&wire) {
+            missing.push(format!("{wire}: no paired framing fixture"));
         }
     }
     if !missing.is_empty() {
@@ -178,6 +151,150 @@ fn check_op_completeness(fixtures_dir: &Path) -> Result<()> {
         Op::ALL.len()
     );
     Ok(())
+}
+
+/// Validate paired framing cases and return their exact op census.
+fn paired_framing_ops(dir: &Path) -> Result<BTreeSet<String>> {
+    let mut ops = BTreeSet::new();
+    for entry in WalkDir::new(dir).into_iter().filter_map(Result::ok) {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let value: serde_json::Value = serde_json::from_slice(&std::fs::read(path)?)
+            .with_context(|| format!("parsing {}", path.display()))?;
+        let Some(cases) = value.get("cases").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for (index, case) in cases.iter().enumerate() {
+            let op = validate_framing_case(case)
+                .with_context(|| format!("{} case {index}", path.display()))?;
+            if !ops.insert(op.clone()) {
+                bail!("framing: operation '{op}' has more than one paired case");
+            }
+        }
+    }
+    Ok(ops)
+}
+
+fn validate_framing_case(case: &serde_json::Value) -> Result<String> {
+    let op = case
+        .get("op")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow!("paired framing case is missing `op`"))?
+        .to_owned();
+    if !Op::ALL.iter().any(|known| wire_name(*known) == op) {
+        bail!("{op}: paired framing case names an unknown operation");
+    }
+    let control = case
+        .get("control")
+        .ok_or_else(|| anyhow!("{op}: missing `control` request"))?;
+    let attack = case
+        .get("attack")
+        .ok_or_else(|| anyhow!("{op}: missing `attack` request"))?;
+    for (label, request) in [("control", control), ("attack", attack)] {
+        if request.get("op").and_then(serde_json::Value::as_str) != Some(op.as_str()) {
+            bail!("{op}: {label}.op does not match the case op");
+        }
+    }
+    let declared: BTreeSet<String> = case
+        .get("changed_paths")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("{op}: missing `changed_paths`"))?
+        .iter()
+        .map(|path| {
+            path.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow!("{op}: a changed path is not a string"))
+        })
+        .collect::<Result<_>>()?;
+    let actual = json_diff_paths(control, attack, "");
+    if actual != declared {
+        bail!("{op}: changed_paths mismatch; declared {declared:?}, actual {actual:?}");
+    }
+    let state_read = matches!(
+        op.as_str(),
+        "author.status" | "author.diff" | "author.materialize" | "author.check" | "author.findings"
+    );
+    let branch_preconditions = match (
+        case.get("control_precondition")
+            .and_then(serde_json::Value::as_array),
+        case.get("attack_precondition")
+            .and_then(serde_json::Value::as_array),
+    ) {
+        (Some(control), Some(attack)) if !control.is_empty() && !attack.is_empty() => {
+            json_diff_paths(
+                &serde_json::Value::Array(control.clone()),
+                &serde_json::Value::Array(attack.clone()),
+                "",
+            )
+        }
+        (None, None) => BTreeSet::new(),
+        _ => bail!("{op}: branch preconditions must be nonempty and appear together"),
+    };
+    if declared.is_empty() && (!state_read || branch_preconditions.is_empty()) {
+        bail!("{op}: control and attack requests are identical without distinct tainted state");
+    }
+    if !state_read
+        && !matches!(op.as_str(), "dli.version" | "author.list_workspaces")
+        && declared.iter().all(|path| !path.starts_with("/params/"))
+    {
+        bail!("{op}: framing must change a semantic parameter, not only the envelope");
+    }
+    let compare = case
+        .get("compare_paths")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("{op}: missing `compare_paths`"))?;
+    if compare.is_empty()
+        || compare.iter().any(|path| {
+            path.as_str()
+                .is_none_or(|path| !path.starts_with('/') || path == "/")
+        })
+    {
+        bail!("{op}: compare_paths must contain at least one non-root JSON pointer");
+    }
+    if case.get("probe").is_some()
+        != case
+            .get("probe_compare_paths")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|paths| !paths.is_empty())
+    {
+        bail!("{op}: probe and nonempty probe_compare_paths must appear together");
+    }
+    Ok(op)
+}
+
+fn json_diff_paths(
+    left: &serde_json::Value,
+    right: &serde_json::Value,
+    path: &str,
+) -> BTreeSet<String> {
+    use serde_json::Value;
+    let mut out = BTreeSet::new();
+    match (left, right) {
+        (Value::Object(a), Value::Object(b)) => {
+            let keys: BTreeSet<&String> = a.keys().chain(b.keys()).collect();
+            for key in keys {
+                let child = format!("{path}/{}", key.replace('~', "~0").replace('/', "~1"));
+                match (a.get(key), b.get(key)) {
+                    (Some(x), Some(y)) => out.extend(json_diff_paths(x, y, &child)),
+                    _ => {
+                        out.insert(child);
+                    }
+                }
+            }
+        }
+        (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
+            for (index, (x, y)) in a.iter().zip(b).enumerate() {
+                out.extend(json_diff_paths(x, y, &format!("{path}/{index}")));
+            }
+        }
+        _ if left != right => {
+            out.insert(path.to_owned());
+        }
+        _ => {}
+    }
+    out
 }
 
 /// The set of wire op names appearing as a `send.op` in any fixture under `dir`
@@ -201,6 +318,14 @@ fn ops_in_category(dir: &Path) -> Result<BTreeSet<String>> {
 
 /// Insert every `send.op` this fixture drives — the one `send`, or each step's.
 fn collect_ops(value: &serde_json::Value, ops: &mut BTreeSet<String>) {
+    if let Some(cases) = value.get("cases").and_then(serde_json::Value::as_array) {
+        for case in cases {
+            if let Some(op) = case.get("op").and_then(serde_json::Value::as_str) {
+                ops.insert(op.to_owned());
+            }
+        }
+        return;
+    }
     let op_of = |send: &serde_json::Value| {
         send.get("op")
             .and_then(serde_json::Value::as_str)
@@ -251,6 +376,46 @@ fn discover_fixture_files(fixtures_dir: &Path) -> BTreeSet<String> {
 }
 
 fn validate_fixture(path: &str, value: &serde_json::Value, schemas_dir: &Path) -> Result<()> {
+    let expected_identity = path.strip_suffix(".json").unwrap_or(path);
+    if value.get("fixture").and_then(serde_json::Value::as_str) != Some(expected_identity) {
+        bail!("{path}: `fixture` must equal '{expected_identity}'");
+    }
+    if let Some(outcome) = value
+        .get("expected_outcome")
+        .and_then(serde_json::Value::as_str)
+        && !matches!(outcome, "replay" | "gated")
+    {
+        bail!("{path}: unknown expected_outcome '{outcome}'");
+    }
+    if value.get("cases").is_some() {
+        let cases = value
+            .get("cases")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| anyhow!("{path}: `cases` must be an array"))?;
+        for case in cases {
+            validate_framing_case(case)?;
+            for field in ["control", "attack", "probe"] {
+                let Some(send) = case.get(field) else {
+                    continue;
+                };
+                validate_request(send, schemas_dir)
+                    .with_context(|| format!("{path}: {field} request"))?;
+            }
+            for field in [
+                "precondition",
+                "control_precondition",
+                "attack_precondition",
+            ] {
+                if let Some(precondition) = case.get(field).and_then(serde_json::Value::as_array) {
+                    for send in precondition {
+                        validate_request(send, schemas_dir)
+                            .with_context(|| format!("{path}: {field} request"))?;
+                    }
+                }
+            }
+        }
+        return Ok(());
+    }
     if let Some(steps) = value.get("steps").and_then(serde_json::Value::as_array) {
         for (index, step) in steps.iter().enumerate() {
             validate_golden_step(step, schemas_dir).with_context(|| format!("step {index}"))?;
@@ -271,6 +436,17 @@ fn validate_fixture(path: &str, value: &serde_json::Value, schemas_dir: &Path) -
         bail!("{path}: fixture has neither `steps` nor `expect_error`");
     }
     Ok(())
+}
+
+fn validate_request(send: &serde_json::Value, schemas_dir: &Path) -> Result<()> {
+    let op = send
+        .get("op")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow!("request is missing `op`"))?;
+    let empty = serde_json::json!({});
+    let params = send.get("params").unwrap_or(&empty);
+    let request_schema = load_schema(schemas_dir, &format!("{op}.request"))?;
+    validate_json(&request_schema, params).with_context(|| format!("{op} request params"))
 }
 
 fn validate_golden_step(step: &serde_json::Value, schemas_dir: &Path) -> Result<()> {
@@ -343,4 +519,80 @@ fn update_registry_digests(registry_path: &Path, text: &str, fixtures_dir: &Path
 
 fn hex_digest(bytes: &[u8]) -> String {
     crate::util::sha256_hex(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paired_case(op: &str) -> serde_json::Value {
+        serde_json::json!({
+            "op": op,
+            "control": {
+                "dli": "0.3.0",
+                "id": "control",
+                "op": op,
+                "params": {"document": "control"}
+            },
+            "attack": {
+                "dli": "0.3.0",
+                "id": "attack",
+                "op": op,
+                "params": {"document": "__DLI_FRAME_ATTACK__"}
+            },
+            "changed_paths": ["/id", "/params/document"],
+            "compare_paths": ["/ok"]
+        })
+    }
+
+    #[test]
+    fn framing_rejects_an_unknown_operation() {
+        let error = validate_framing_case(&paired_case("dli.fake"))
+            .expect_err("an unknown op cannot count as framing coverage");
+        assert!(error.to_string().contains("unknown operation"));
+    }
+
+    #[test]
+    fn framing_rejects_a_changed_path_lie() {
+        let mut case = paired_case("dli.check");
+        case["changed_paths"] = serde_json::json!(["/id"]);
+        let error = validate_framing_case(&case)
+            .expect_err("declared changed paths must equal the actual diff");
+        assert!(error.to_string().contains("changed_paths mismatch"));
+    }
+
+    #[test]
+    fn framing_requires_a_semantic_parameter_change() {
+        let mut case = paired_case("dli.check");
+        case["attack"]["params"]["document"] = case["control"]["params"]["document"].clone();
+        case["changed_paths"] = serde_json::json!(["/id"]);
+        let error = validate_framing_case(&case)
+            .expect_err("envelope-only changes do not frame a semantic op");
+        assert!(error.to_string().contains("semantic parameter"));
+    }
+
+    #[test]
+    fn fixture_identity_is_its_relative_path() {
+        let fixture = serde_json::json!({
+            "fixture": "negative/not-this-file",
+            "send": {},
+            "expect_error": {"code": "bad-frame"}
+        });
+        let error = validate_fixture("negative/identity-v1.json", &fixture, Path::new("unused"))
+            .expect_err("a fixture cannot claim another file's identity");
+        assert!(error.to_string().contains("negative/identity-v1"));
+    }
+
+    #[test]
+    fn fixture_rejects_an_unknown_expected_outcome() {
+        let fixture = serde_json::json!({
+            "fixture": "negative/outcome-v1",
+            "expected_outcome": "pretend",
+            "send": {},
+            "expect_error": {"code": "bad-frame"}
+        });
+        let error = validate_fixture("negative/outcome-v1.json", &fixture, Path::new("unused"))
+            .expect_err("unknown outcomes must not silently mean replay");
+        assert!(error.to_string().contains("unknown expected_outcome"));
+    }
 }

@@ -352,6 +352,15 @@ impl ForkStore {
         self.forks.get(&id).ok_or(ForkError::UnknownFork(id))
     }
 
+    /// Set the display name used by promotion drafts.
+    ///
+    /// Serving adapters use this after binding an internal fork id to a public
+    /// handle, so generated drafts never expose the store-local numeric id.
+    pub fn set_name(&mut self, id: ForkId, name: impl Into<String>) -> Result<(), ForkError> {
+        self.get_mut(id)?.name = Some(name.into());
+        Ok(())
+    }
+
     /// The fork's effective valuation: the base ledger `ν` with the fork's
     /// overlay applied and exclusivity closed — a supposed option's siblings are
     /// already ruled false *inside* the returned valuation. This is the seam a

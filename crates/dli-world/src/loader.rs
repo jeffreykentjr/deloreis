@@ -331,6 +331,11 @@ impl LoadCtx {
         if let Term::Sym(value) = &attr.value {
             self.entities.entry(value.text.clone()).or_insert(None);
         }
+        self.wm.world.facts.push(Fact {
+            atom: ground_atom(&atom),
+            ann: compiled.ann.clone(),
+            grade: Grade::Asserted,
+        });
         self.push_atom(atom, compiled, pack, attr.subject.span);
     }
 

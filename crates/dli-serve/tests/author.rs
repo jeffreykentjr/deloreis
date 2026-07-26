@@ -17,7 +17,7 @@ use dli_serve::{Op, Request};
 /// Build a request frame.
 fn req(id: &str, op: Op, params: Value) -> Request {
     Request {
-        dli: "0.2.0".to_owned(),
+        dli: "0.3.0".to_owned(),
         id: id.to_owned(),
         op,
         params,
@@ -182,6 +182,80 @@ fn golden_session_flows_end_to_end() {
         ])
     );
     assert!(codes(result(&materialized)).is_empty());
+}
+
+#[test]
+fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
+    let (document, diagnostics) =
+        dli_syntax::parse_document("scope tpth\nratify d-1\nplace mara \"Mara\" decided d-1\n");
+    assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
+    let mut store = Store::with_pack(dli_world::pack::Pack {
+        name: "tpth".to_owned(),
+        documents: vec![document],
+    })
+    .expect("base compiles");
+    let ws = open_scope(&mut store, "tpth");
+    let added = send(
+        &mut store,
+        &req(
+            "add",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": ws,
+                "entity": "mara",
+                "key": "role",
+                "value": "river warden",
+                "provenance": {"kind": "proposed", "origin": "session-7c9"}
+            }),
+        ),
+    );
+    assert_eq!(
+        result(&added)["rendered"],
+        json!(["mara.role = \"river warden\" proposed session-7c9"])
+    );
+
+    let queried = send(
+        &mut store,
+        &req(
+            "query",
+            Op::AuthorQuery,
+            json!({"workspace": ws, "goal": "role(mara, ?value)"}),
+        ),
+    );
+    let query_result = result(&queried);
+    let diff = send(
+        &mut store,
+        &req("diff", Op::AuthorDiff, json!({"workspace": ws})),
+    );
+    assert_eq!(
+        query_result["rows"][0]["bindings"]["value"],
+        "river warden",
+        "quoted value query result: {query_result}; diff: {}",
+        result(&diff)
+    );
+
+    let materialized = send(
+        &mut store,
+        &req(
+            "materialize",
+            Op::AuthorMaterialize,
+            json!({"workspace": ws}),
+        ),
+    );
+    let source = result(&materialized)["rendered"]
+        .as_array()
+        .expect("materialize rendered is an array")
+        .iter()
+        .map(|line| line.as_str().expect("materialize line is a string"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let (_, diagnostics) = dli_syntax::parse_document(&source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "materialized multiword value reparses: {diagnostics:?}\n{source}"
+    );
 }
 
 // -- framing safety (spec 11 §5) ---------------------------------------------

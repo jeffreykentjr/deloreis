@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.timeline.episodes",
         "params": {
@@ -13,15 +13,83 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            "slot 1: e01 @ uthers-time",
-            "slot 2: e02 @ arthurs-reign",
-            "slot 3: e03 @ after-camlann",
-            "3 episode(s); 1 loop(s) resolved, 0 still open"
+          "episodes": [
+            {
+              "episode": "e01",
+              "production_order": 1,
+              "story_anchor": {
+                "after": [],
+                "before": [],
+                "era": "uthers-time",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 0
+                  }
+                ]
+              }
+            },
+            {
+              "episode": "e02",
+              "production_order": 2,
+              "story_anchor": {
+                "after": [],
+                "before": [],
+                "era": "arthurs-reign",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 1
+                  }
+                ]
+              }
+            },
+            {
+              "episode": "e03",
+              "production_order": 3,
+              "story_anchor": {
+                "after": [],
+                "before": [],
+                "era": "after-camlann",
+                "phases": [
+                  {
+                    "cycle": "season",
+                    "index": 3
+                  }
+                ]
+              }
+            }
+          ],
+          "integrity": [],
+          "loops": {
+            "closed": [
+              "who-holds-excalibur"
+            ],
+            "open": []
+          },
+          "slack": [
+            {
+              "earliest": 1,
+              "episode": "e01",
+              "feasible": true,
+              "latest": 2
+            },
+            {
+              "earliest": 1,
+              "episode": "e02",
+              "feasible": true,
+              "latest": 3
+            },
+            {
+              "earliest": 2,
+              "episode": "e03",
+              "feasible": true,
+              "latest": 3
+            }
           ]
         }
       }

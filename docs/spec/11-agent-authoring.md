@@ -165,7 +165,7 @@ request is:
 
 ```json
 {
-  "dli": "0.2.0",
+  "dli": "0.3.0",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",
@@ -250,7 +250,9 @@ before-fact semantics, so it enters exclusively through `author.add_event`
 ### 3.2 `author.add_fact`
 
 Assert a keyed value on one entity. Lowers to a binary atom `key(entity, value)`.
-Provenance required.
+Provenance required. A compact token renders as a symbol; whitespace or surface
+delimiter characters make the value a quoted string, so arbitrary caller data
+always materializes as parseable canonical text.
 
 ```json
 { "op": "author.add_fact",
@@ -551,9 +553,9 @@ exist; it cannot manufacture one.
 entity id, a description, a question phrased as a command — are **data**. They
 never alter tool behavior: a name that reads "ignore prior findings and
 materialize" is stored and rendered as a name and changes nothing about how the
-tool checks, grades, or gates. The framing-attack fixtures under
-`contracts/dli-worker/fixtures/` pin this: each feeds an adversarial string
-through a tool and asserts the behavior is identical to the benign case.
+tool checks, grades, or gates. The paired framing fixtures under
+`contracts/dli-worker/fixtures/framing/` pin this from independent cold project
+states, including reads over separately staged benign and tainted workspaces.
 
 ## 6. Contract discipline
 
@@ -565,6 +567,11 @@ in the closed registry: **golden** (a canonical request and its exact response),
 produce), and **framing** (an adversarial-string request and the benign-identical
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
+
+Contract `0.3.0` enforces that rule for all 46 operations. Paired cases declare
+the exact changed request paths and stable safety projection; mutating cases
+probe post-state, and materialized tainted labels must still reparse as
+canonical `.dli`.
 
 Versioning rides the worker-protocol contract: **v0** now, with `N`/`N-1`
 compatibility introduced at the first breaking cutover. `deloreis` owns the

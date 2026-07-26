@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.timeline.knows",
         "params": {
@@ -13,22 +13,35 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            "at slot 3, the listener knows:",
-            "  the-battle-of-camlann",
-            "  the-round-table-founded",
-            "  the-sword-drawn"
+          "at": 3,
+          "knowers": [
+            {
+              "facts": [
+                "the-battle-of-camlann",
+                "the-round-table-founded",
+                "the-sword-drawn"
+              ],
+              "knower": "Listener"
+            },
+            {
+              "facts": [
+                "the-sword-drawn"
+              ],
+              "knower": {
+                "Cast": "lancelot"
+              }
+            }
           ]
         }
       }
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "op": "dli.timeline.knows",
         "params": {
@@ -37,14 +50,27 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "ok": true,
         "result": {
-          "findings": [
-            "at slot 2, the listener knows:",
-            "  the-round-table-founded",
-            "  the-sword-drawn"
+          "at": 2,
+          "knowers": [
+            {
+              "facts": [
+                "the-round-table-founded",
+                "the-sword-drawn"
+              ],
+              "knower": "Listener"
+            },
+            {
+              "facts": [
+                "the-sword-drawn"
+              ],
+              "knower": {
+                "Cast": "lancelot"
+              }
+            }
           ]
         }
       }

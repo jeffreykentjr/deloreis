@@ -13,6 +13,8 @@
 //! regime described in earlier iterations of this comment is historical — the
 //! DL-0021 and ec92efd wiring waves completed the dispatch table.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 // The contract module is one flat table of param/result structs; a scoped glob
 // is clearer than a 40-line import list, exactly as `schema.rs` does it.
 #[allow(clippy::wildcard_imports)]
@@ -29,13 +31,12 @@ use dli_core::posbool::PosBool;
 use dli_core::valuation::Valuation;
 
 use dli_eval::EvalError;
-use dli_eval::fork::{Addition, AtomChange, ForkDelta, ForkError, KeepStamp, Visibility};
+use dli_eval::fork::{Addition, ForkDelta, ForkError, KeepStamp, Visibility};
 use dli_eval::query::{Query, QueryOpts};
 use dli_eval::world::{GroundAtom, World};
 
 use dli_ast::decl::{Decl, ProofDecl};
-use dli_ast::ident::Ident;
-use dli_ast::term::{AtomExpr, Term};
+use dli_ast::term::AtomExpr;
 
 use dli_syntax::parse_document;
 use dli_time::chronology::{TemporalVerdict, TimePoint};
@@ -49,6 +50,7 @@ use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 use dli_world::draft::DraftFinding;
 use dli_world::episode::{Episode, Knower, fold};
+use dli_world::episode_order::{order_integrity, season_slack};
 use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, view};
 use dli_world::model::WorldModel;
 use dli_world::scene_projection::project_scene;
@@ -183,20 +185,29 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         .query_with(&Query { goal }, &opts)
         .map_err(eval_fault)?;
     let interner = scope.world.model.interner();
-    let result = match answer.rows.first() {
-        Some(row) => QueryResult {
-            support: row.verdict.support.clone(),
-            grade: row.verdict.grade,
-            citations: citations_of(&row.verdict.support, interner),
-        },
-        // A well-formed query that matched nothing is not an error (§2.1): it is a
-        // claim with no support, graded by fiat's empty procedure.
-        None => QueryResult {
-            support: PosBool::FALSE,
-            grade: Grade::Asserted,
-            citations: Vec::new(),
-        },
-    };
+    let rows = answer
+        .rows
+        .into_iter()
+        .map(|row| {
+            let citations = citations_of(&row.verdict.support, interner);
+            let status = match row.status {
+                dli_core::ann::Status::Dead => "dead",
+                dli_core::ann::Status::Possible => "possible",
+                dli_core::ann::Status::Certain => "certain",
+            };
+            QueryResultRow {
+                rendered: format!("{status}  {}  ({})", row.atom, row.verdict.grade),
+                atom: row.atom,
+                bindings: row.bindings,
+                status: row.status,
+                support: row.verdict.support,
+                grade: row.verdict.grade,
+                citations,
+                why: row.why,
+            }
+        })
+        .collect();
+    let result = QueryResult { rows };
     Ok(ok_response(request, &result))
 }
 
@@ -212,18 +223,49 @@ fn handle_fork_new(request: &Request, sessions: &mut Sessions) -> Result<Respons
         None => scope.forks.fork(),
     };
     let handle = sessions.register_fork(&p.document, fork);
+    let (_, scope) = fork_scope(sessions, &handle)?;
+    scope
+        .forks
+        .set_name(fork, handle.clone())
+        .map_err(fork_fault)?;
     Ok(ok_response(request, &ForkNewResult { fork: handle }))
 }
 
 fn handle_fork_list(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkListParams = params(request)?;
-    resolve(sessions, &p.document)?;
-    Ok(ok_response(
-        request,
-        &ForkListResult {
-            forks: sessions.forks_of(&p.document),
-        },
-    ))
+    let handles = sessions.fork_records(&p.document);
+    let handle_by_id: BTreeMap<_, _> = handles
+        .iter()
+        .map(|(handle, id)| (*id, handle.clone()))
+        .collect();
+    let scope = resolve(sessions, &p.document)?;
+    let mut forks = Vec::new();
+    for (handle, id) in handles {
+        let state = scope.forks.get(id).map_err(fork_fault)?;
+        let assumes = state
+            .overlay
+            .iter()
+            .map(|(atom, value)| {
+                let name = scope
+                    .forks
+                    .base()
+                    .interner
+                    .resolve(*atom)
+                    .map_or_else(|| format!("var#{}", atom.0), ToOwned::to_owned);
+                (name, *value)
+            })
+            .collect();
+        forks.push(ForkSummary {
+            fork: handle,
+            base: state
+                .parent
+                .and_then(|parent| handle_by_id.get(&parent).cloned()),
+            assumes,
+            local_atoms: state.additions.len(),
+            restrictions: state.keep_stamps.len(),
+        });
+    }
+    Ok(ok_response(request, &ForkListResult { forks }))
 }
 
 fn handle_fork_diff(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
@@ -280,7 +322,8 @@ fn handle_fork_preflight(request: &Request, sessions: &mut Sessions) -> Result<R
     Ok(ok_response(
         request,
         &ForkPreflightResult {
-            conflicts: pre.conflicts.iter().map(|c| c.rendered.clone()).collect(),
+            candidate: named_valuation(&pre.candidate, &scope.forks.base().interner),
+            conflicts: pre.conflicts.iter().map(diff_conflict).collect(),
             affected: pre.affected.iter().map(GroundAtom::render).collect(),
         },
     ))
@@ -324,13 +367,13 @@ fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Respons
 }
 
 /// Parse a run of `.dli` declaration lines and lower them to fork-local
-/// additions. Each lowered fact becomes an [`Addition`] asserted by fiat within
+/// additions. Each lowered ground fact or slot becomes an [`Addition`] asserted by fiat within
 /// the fork (`dli.fork.add`, *propose a fact* — the same fork-local assertion the
 /// CLI's `fork add` makes): the fork is a what-if, so a proposed line is supposed
 /// true inside it and its consequences are read off the diff. A parse error or an
-/// unground fact is a clean [`ErrorCode::SchemaViolation`], never a panic. A
-/// non-fact declaration (an entity, an era edge) carries no ground fact and adds
-/// nothing — the honest empty delta.
+/// unground fact is a clean [`ErrorCode::SchemaViolation`], never a panic.
+/// Declarations that are not facts or slots are refused instead of being
+/// accepted and silently dropped.
 fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>, Fault> {
     let source = declarations.join("\n");
     let (document, diags) = parse_document(&source);
@@ -338,6 +381,16 @@ fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>,
         return Err((
             ErrorCode::SchemaViolation,
             format!("the declaration is not well-formed .dli: {}", diag.message),
+        ));
+    }
+    if document
+        .decls
+        .iter()
+        .any(|decl| !matches!(decl, Decl::Fact(_) | Decl::Attr(_)))
+    {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "fork.add accepts only ground facts and slot declarations".to_owned(),
         ));
     }
     let world = World::lower(&document).map_err(eval_fault)?;
@@ -443,6 +496,17 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
             Ok(ok_response(
                 request,
                 &ExportRunResult {
+                    emission: match outcome.artifact {
+                        dli_export::ExportArtifact::ContextPack(pack) => {
+                            ExportEmission::ContextPack(pack)
+                        }
+                        dli_export::ExportArtifact::Articy(_) => {
+                            return Err((
+                                ErrorCode::Internal,
+                                "the context-pack profile emitted an articy artifact".to_owned(),
+                            ));
+                        }
+                    },
                     manifest: outcome.manifest,
                 },
             ))
@@ -478,6 +542,12 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
             Ok(ok_response(
                 request,
                 &ExportRunResult {
+                    emission: match export.artifact {
+                        dli_game::export::GameArtifact::Cards(deck) => ExportEmission::Cards(deck),
+                        dli_game::export::GameArtifact::LudiiGdl(gdl) => {
+                            ExportEmission::LudiiGdl(gdl)
+                        }
+                    },
                     manifest: export.manifest,
                 },
             ))
@@ -712,43 +782,48 @@ fn handle_attestation_sweep(request: &Request) -> Result<Response, Fault> {
 // resolved world's chronology (an era spine and events as partially-ordered
 // points); `knows`/`episodes`/`phases` read the episode fold (production order —
 // the listener's dimension) over the document's season. Each renders the same
-// domain lines the CLI's `deloreis timeline` reads print, mapped onto the shared
-// [`TimelineResult`]. Story-time is honestly partial: `order` reports unordered
-// pairs as first-class, never a silent tie-break (`TemporalVerdict::Unordered`).
+// domain lines the CLI's `deloreis timeline` reads print, mapped onto typed
+// operation-specific results. Story-time is honestly partial: `order` reports
+// unordered pairs as first-class, never a silent tie-break
+// (`TemporalVerdict::Unordered`).
 
 fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelineShowParams = params(request)?;
+    let placements = sessions
+        .episodes(&p.document)
+        .map(|episodes| fold(&episodes).placements().to_vec())
+        .unwrap_or_default();
     let scope = resolve(sessions, &p.document)?;
     let world = &scope.world.model.world;
     let points = time_universe(world);
-    let mut findings = Vec::new();
-    if points.is_empty() {
-        findings.push("no chronology in this corpus".to_owned());
-        return Ok(ok_response(request, &TimelineResult { findings }));
-    }
-    match world.chronology.topological_layers(&points) {
-        Ok(layers) => {
-            for (rank, layer) in layers.iter().enumerate() {
-                let names: Vec<String> = layer.iter().map(|pt| point_name(world, *pt)).collect();
-                findings.push(format!("layer {rank}: {}", names.join(", ")));
-            }
-        }
-        Err(blame) => {
-            findings.push(format!(
-                "the chronology has a cycle over {} edge(s):",
-                blame.cycle.len()
-            ));
-            for edge in &blame.cycle {
-                findings.push(format!(
-                    "  {} -> {}",
-                    point_name(world, edge.before),
-                    point_name(world, edge.after)
-                ));
-            }
-            return Ok(ok_response(request, &TimelineResult { findings }));
-        }
-    }
-    if let Some(at) = &p.at {
+    let (layers, cycle) = match world.chronology.topological_layers(&points) {
+        Ok(layers) => (
+            layers
+                .iter()
+                .enumerate()
+                .map(|(rank, layer)| TimelineLayer {
+                    rank: u32::try_from(rank).unwrap_or(u32::MAX),
+                    points: layer
+                        .iter()
+                        .map(|point| point_name(world, *point))
+                        .collect(),
+                })
+                .collect(),
+            Vec::new(),
+        ),
+        Err(blame) => (
+            Vec::new(),
+            blame
+                .cycle
+                .iter()
+                .map(|edge| TimelineEdge {
+                    before: point_name(world, edge.before),
+                    after: point_name(world, edge.after),
+                })
+                .collect(),
+        ),
+    };
+    let cursor = if let Some(at) = &p.at {
         let cursor = points
             .iter()
             .copied()
@@ -761,6 +836,7 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
             })?;
         let mut before = Vec::new();
         let mut after = Vec::new();
+        let mut unordered = Vec::new();
         for &other in &points {
             if other == cursor {
                 continue;
@@ -768,53 +844,70 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
             match world.chronology.precedes(other, cursor) {
                 TemporalVerdict::Before => before.push(point_name(world, other)),
                 TemporalVerdict::After => after.push(point_name(world, other)),
-                TemporalVerdict::Unordered => {}
+                TemporalVerdict::Unordered => unordered.push(point_name(world, other)),
             }
         }
-        findings.push(format!(
-            "at {at}: after [{}], before [{}]",
-            before.join(", "),
-            after.join(", ")
-        ));
-    }
-    Ok(ok_response(request, &TimelineResult { findings }))
+        Some(TimelineCursor {
+            at: at.clone(),
+            before,
+            after,
+            unordered,
+        })
+    } else {
+        None
+    };
+    Ok(ok_response(
+        request,
+        &TimelineShowResult {
+            layers,
+            cycle,
+            cursor,
+            placements,
+        },
+    ))
 }
 
 fn handle_timeline_order(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelineOrderParams = params(request)?;
     let scope = resolve(sessions, &p.document)?;
     let world = &scope.world.model.world;
-    let mut findings = Vec::new();
     if let Some(blame) = world.chronology.find_cycle(&[]) {
-        findings.push(format!(
-            "cycle in the chronology over {} edge(s):",
-            blame.cycle.len()
+        return Ok(ok_response(
+            request,
+            &TimelineOrderResult {
+                acyclic: false,
+                cycle: blame
+                    .cycle
+                    .iter()
+                    .map(|edge| TimelineEdge {
+                        before: point_name(world, edge.before),
+                        after: point_name(world, edge.after),
+                    })
+                    .collect(),
+                unordered: Vec::new(),
+            },
         ));
-        for edge in &blame.cycle {
-            findings.push(format!(
-                "  {} -> {}",
-                point_name(world, edge.before),
-                point_name(world, edge.after)
-            ));
-        }
-        return Ok(ok_response(request, &TimelineResult { findings }));
     }
     let points = time_universe(world);
-    let mut unordered = 0usize;
+    let mut unordered = Vec::new();
     for (i, &a) in points.iter().enumerate() {
         for &b in &points[i + 1..] {
             if world.chronology.precedes(a, b) == TemporalVerdict::Unordered {
-                findings.push(format!(
-                    "unordered: {} ? {}",
-                    point_name(world, a),
-                    point_name(world, b)
-                ));
-                unordered += 1;
+                unordered.push(TimelinePair {
+                    left: point_name(world, a),
+                    right: point_name(world, b),
+                });
             }
         }
     }
-    findings.push(format!("chronology acyclic; {unordered} unordered pair(s)"));
-    Ok(ok_response(request, &TimelineResult { findings }))
+    Ok(ok_response(
+        request,
+        &TimelineOrderResult {
+            acyclic: true,
+            cycle: Vec::new(),
+            unordered,
+        },
+    ))
 }
 
 fn handle_timeline_knows(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
@@ -830,51 +923,66 @@ fn handle_timeline_knows(request: &Request, sessions: &Sessions) -> Result<Respo
         })?,
         None => max_slot(&episodes),
     };
-    let facts = folded.knowledge_at(slot, &Knower::Listener);
-    let mut findings = Vec::new();
-    if facts.is_empty() {
-        findings.push(format!("at slot {slot}, the listener knows nothing"));
-    } else {
-        findings.push(format!("at slot {slot}, the listener knows:"));
-        for fact in &facts {
-            findings.push(format!("  {}", fact.0));
-        }
-    }
-    Ok(ok_response(request, &TimelineResult { findings }))
+    let mut knowers = BTreeSet::from([Knower::Listener]);
+    knowers.extend(
+        folded
+            .knowledge_records()
+            .iter()
+            .map(|record| record.knower.clone()),
+    );
+    let knowers = knowers
+        .into_iter()
+        .map(|knower| KnowledgeRow {
+            facts: folded
+                .knowledge_at(slot, &knower)
+                .into_iter()
+                .map(|fact| fact.0)
+                .collect(),
+            knower,
+        })
+        .collect();
+    Ok(ok_response(
+        request,
+        &TimelineKnowsResult { at: slot, knowers },
+    ))
 }
 
-fn handle_timeline_episodes(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
+fn handle_timeline_episodes(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelineEpisodesParams = params(request)?;
     let episodes = resolve_season(sessions, &p.document)?;
     let folded = fold(&episodes);
     let mut ordered: Vec<&Episode> = episodes.iter().collect();
     ordered.sort_by_key(|ep| ep.production_order);
-    let mut findings = Vec::new();
-    for ep in &ordered {
-        let anchor = ep
-            .story_anchor
-            .era
-            .as_ref()
-            .map_or_else(|| "unanchored".to_owned(), |era| era.0.clone());
-        findings.push(format!(
-            "slot {}: {} @ {anchor}",
-            ep.production_order, ep.id
-        ));
-    }
-    let loops = folded.open_loops();
-    for question in &loops.open {
-        findings.push(format!("open loop never resolved: {}", question.0));
-    }
-    findings.push(format!(
-        "{} episode(s); {} loop(s) resolved, {} still open",
-        episodes.len(),
-        loops.closed.len(),
-        loops.open.len()
-    ));
-    Ok(ok_response(request, &TimelineResult { findings }))
+    let summaries = ordered
+        .into_iter()
+        .map(|episode| EpisodeSummary {
+            episode: episode.id.clone(),
+            production_order: episode.production_order,
+            story_anchor: episode.story_anchor.clone(),
+        })
+        .collect();
+    let integrity = order_integrity(&episodes);
+    let scope = resolve(sessions, &p.document)?;
+    let slack = season_slack(
+        &episodes,
+        &[],
+        &BTreeMap::new(),
+        &scope.world.model.world.valuation,
+        &scope.world.model.world.theory,
+    )
+    .slots;
+    Ok(ok_response(
+        request,
+        &TimelineEpisodesResult {
+            episodes: summaries,
+            loops: folded.open_loops(),
+            integrity,
+            slack,
+        },
+    ))
 }
 
-fn handle_timeline_phases(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
+fn handle_timeline_phases(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelinePhasesParams = params(request)?;
     let episodes = resolve_season(sessions, &p.document)?;
     let episode = episodes
@@ -886,27 +994,44 @@ fn handle_timeline_phases(request: &Request, sessions: &Sessions) -> Result<Resp
                 format!("no episode '{}' in the season", p.episode),
             )
         })?;
+    let cycles = resolve(sessions, &p.document)?
+        .world
+        .model
+        .world
+        .cycles
+        .clone();
+    let mut anchors = Vec::new();
     let mut findings = Vec::new();
-    for phase in &episode.story_anchor.phases {
-        findings.push(format!(
-            "episode anchor: {} = index {}",
-            phase.cycle, phase.index
-        ));
-    }
+    append_phase_anchors(
+        &mut anchors,
+        &mut findings,
+        "episode",
+        &episode.story_anchor.phases,
+        &cycles,
+    );
     for scene in &episode.scenes {
         if let Some(anchor) = &scene.scene_anchor {
-            for phase in &anchor.phases {
-                findings.push(format!(
-                    "scene {} anchor: {} = index {}",
-                    scene.id, phase.cycle, phase.index
-                ));
-            }
+            append_phase_anchors(
+                &mut anchors,
+                &mut findings,
+                &format!("scene:{}", scene.id),
+                &anchor.phases,
+                &cycles,
+            );
         }
     }
-    if findings.is_empty() {
+    if anchors.is_empty() {
         findings.push(format!("episode {} pins no cyclic phase", p.episode));
     }
-    Ok(ok_response(request, &TimelineResult { findings }))
+    Ok(ok_response(
+        request,
+        &TimelinePhasesResult {
+            episode: p.episode,
+            consistent: anchors.iter().all(|anchor| anchor.valid),
+            anchors,
+            findings,
+        },
+    ))
 }
 
 /// The season for a document, or a typed fault when none is loaded. Episodes are
@@ -951,19 +1076,80 @@ fn time_universe(world: &World) -> Vec<TimePoint> {
         .collect()
 }
 
+/// Resolve a candidate valuation's interned variables for the wire.
+fn named_valuation(valuation: &Valuation, interner: &Interner) -> BTreeMap<String, bool> {
+    valuation
+        .0
+        .iter()
+        .map(|(atom, value)| {
+            (
+                interner
+                    .resolve(*atom)
+                    .map_or_else(|| format!("var#{}", atom.0), ToOwned::to_owned),
+                *value,
+            )
+        })
+        .collect()
+}
+
+/// Resolve episode/scene phase pins against the compiled world's cycle table.
+fn append_phase_anchors(
+    anchors: &mut Vec<PhaseAnchor>,
+    findings: &mut Vec<String>,
+    owner: &str,
+    positions: &[dli_time::cycle::CyclePos],
+    cycles: &[dli_time::cycle::Cycle],
+) {
+    for position in positions {
+        let cycle = cycles.iter().find(|cycle| cycle.name == position.cycle);
+        let spoke = cycle.and_then(|cycle| {
+            cycle
+                .in_range(position)
+                .then(|| cycle.spoke(position))
+                .flatten()
+                .map(ToOwned::to_owned)
+        });
+        let valid = spoke.is_some();
+        if !valid {
+            findings.push(match cycle {
+                Some(cycle) => format!(
+                    "{owner} pins {} index {}, outside its {} spokes",
+                    position.cycle,
+                    position.index,
+                    cycle.len()
+                ),
+                None => format!("{owner} pins undeclared cycle '{}'", position.cycle),
+            });
+        }
+        anchors.push(PhaseAnchor {
+            owner: owner.to_owned(),
+            position: position.clone(),
+            spoke,
+            valid,
+        });
+    }
+}
+
 // -- engine → wire mappings --------------------------------------------------
 
-/// Map an engine [`ForkDelta`] onto the wire [`DiffDelta`]: each status-change
-/// list becomes its atoms rendered `pred(a, b)`; conflicts become their rendered
-/// one-liners.
+/// Map an engine [`ForkDelta`] onto the wire [`DiffDelta`] without dropping
+/// before/after standings, typed conflicts, or deterministic renderings.
 fn diff_delta(delta: &ForkDelta) -> DiffDelta {
-    let render = |changes: &[AtomChange]| changes.iter().map(|c| c.atom.render()).collect();
     DiffDelta {
-        newly_certain: render(&delta.newly_certain),
-        newly_possible: render(&delta.newly_possible),
-        newly_dead: render(&delta.newly_dead),
-        grade_changed: render(&delta.grade_changed),
-        conflicts: delta.conflicts.iter().map(|c| c.rendered.clone()).collect(),
+        newly_certain: delta.newly_certain.clone(),
+        newly_possible: delta.newly_possible.clone(),
+        newly_dead: delta.newly_dead.clone(),
+        grade_changed: delta.grade_changed.clone(),
+        conflicts: delta.conflicts.iter().map(diff_conflict).collect(),
+    }
+}
+
+fn diff_conflict(conflict: &dli_eval::fork::Conflict) -> DiffConflict {
+    DiffConflict {
+        code: format!("fork.{}", conflict.kind.label().replace(' ', "-")),
+        kind: Some(conflict.kind),
+        blame: vec![conflict.blame.0.clone(), conflict.blame.1.clone()],
+        rendered: conflict.rendered.clone(),
     }
 }
 
@@ -1095,43 +1281,17 @@ pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<S
     }
 }
 
-/// Parse a rendered goal atom (`pred(a, b)`) into an [`AtomExpr`]; arguments are
-/// taken as ground symbols.
+/// Parse a rendered goal atom through the shared syntax-backed wire adapter.
 fn parse_atom(text: &str) -> Result<AtomExpr, Fault> {
-    let (pred, args) = split_atom(text)?;
-    Ok(AtomExpr {
-        pred: Ident::synthetic(&pred),
-        args: args
-            .into_iter()
-            .map(|a| Term::Sym(Ident::synthetic(&a)))
-            .collect(),
-    })
-}
-
-/// Split `pred(a, b, c)` into its predicate and trimmed argument renderings.
-fn split_atom(text: &str) -> Result<(String, Vec<String>), Fault> {
-    let text = text.trim();
-    let malformed = || {
+    crate::query_goal::parse(text).ok_or_else(|| {
         (
             ErrorCode::SchemaViolation,
-            format!("'{text}' is not a pred(args) atom"),
+            format!(
+                "'{text}' is not a query atom; write a rendered goal like \
+                 serves(lancelot, ?who)"
+            ),
         )
-    };
-    let open = text.find('(').ok_or_else(malformed)?;
-    if !text.ends_with(')') {
-        return Err(malformed());
-    }
-    let pred = text[..open].trim();
-    if pred.is_empty() {
-        return Err(malformed());
-    }
-    let inner = text[open + 1..text.len() - 1].trim();
-    let args = if inner.is_empty() {
-        Vec::new()
-    } else {
-        inner.split(',').map(|a| a.trim().to_owned()).collect()
-    };
-    Ok((pred.to_owned(), args))
+    })
 }
 
 /// Resolve a document to its compiled scope, mapping the typed error to a fault.

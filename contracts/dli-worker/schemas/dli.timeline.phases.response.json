@@ -1,11 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TimelineResult",
-  "description": "The shared result of the `dli.timeline.*` reports.",
+  "title": "TimelinePhasesResult",
+  "description": "`dli.timeline.phases` result.",
   "type": "object",
   "properties": {
+    "anchors": {
+      "description": "Episode and scene anchors.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PhaseAnchor"
+      }
+    },
+    "consistent": {
+      "description": "Whether every pinned phase is valid.",
+      "type": "boolean"
+    },
+    "episode": {
+      "description": "Episode inspected.",
+      "type": "string"
+    },
     "findings": {
-      "description": "The rendered findings for the requested report.",
+      "description": "Domain-spoken consistency findings.",
       "type": "array",
       "items": {
         "type": "string"
@@ -13,6 +28,61 @@
     }
   },
   "required": [
+    "episode",
+    "consistent",
+    "anchors",
     "findings"
-  ]
+  ],
+  "$defs": {
+    "CyclePos": {
+      "description": "A position on a cycle.\n\nNot `Ord`: a cycle refuses rank, so two positions are never `<`-compared. The\n`index` is a congruence class modulo the cycle's length — an out-of-range\nvalue is normalized by navigation, never rejected mid-walk.",
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "description": "The cycle this position belongs to.",
+          "type": "string"
+        },
+        "index": {
+          "description": "The spoke index (read modulo the cycle's length).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "cycle",
+        "index"
+      ]
+    },
+    "PhaseAnchor": {
+      "description": "One cyclic phase pinned by an episode or scene.",
+      "type": "object",
+      "properties": {
+        "owner": {
+          "description": "`episode` or `scene:<id>`.",
+          "type": "string"
+        },
+        "position": {
+          "description": "Declared cyclic position.",
+          "$ref": "#/$defs/CyclePos"
+        },
+        "spoke": {
+          "description": "Resolved spoke label, absent when the cycle or index is invalid.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "valid": {
+          "description": "Whether the cycle exists and the index is in range.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "owner",
+        "position",
+        "valid"
+      ]
+    }
+  }
 }

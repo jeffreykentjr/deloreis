@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.export.run",
         "params": {
@@ -13,15 +13,27 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
+          "emission": {
+            "artifact": {
+              "differential": {
+                "blocker": "the Ludii runtime is a rented baseline in a non-gating lane and is not provisioned in the offline kernel environment; the trace-agreement battery runs out of band",
+                "status": "pending"
+              },
+              "layer": "certain",
+              "profile": "games/french-deck-ludii@1",
+              "program": "(game \"french-deck\"\n  (players 1)\n  (equipment {\n    (component \"ace-of-spades\")\n    (component \"two-of-spades\")\n    (component \"three-of-spades\")\n    (component \"four-of-spades\")\n    (component \"five-of-spades\")\n    (component \"six-of-spades\")\n    (component \"seven-of-spades\")\n    (component \"eight-of-spades\")\n    (component \"nine-of-spades\")\n    (component \"ten-of-spades\")\n    (component \"jack-of-spades\")\n    (component \"queen-of-spades\")\n    (component \"king-of-spades\")\n    (component \"ace-of-hearts\")\n    (component \"two-of-hearts\")\n    (component \"three-of-hearts\")\n    (component \"four-of-hearts\")\n    (component \"five-of-hearts\")\n    (component \"six-of-hearts\")\n    (component \"seven-of-hearts\")\n    (component \"eight-of-hearts\")\n    (component \"nine-of-hearts\")\n    (component \"ten-of-hearts\")\n    (component \"jack-of-hearts\")\n    (component \"queen-of-hearts\")\n    (component \"king-of-hearts\")\n    (component \"ace-of-diamonds\")\n    (component \"two-of-diamonds\")\n    (component \"three-of-diamonds\")\n    (component \"four-of-diamonds\")\n    (component \"five-of-diamonds\")\n    (component \"six-of-diamonds\")\n    (component \"seven-of-diamonds\")\n    (component \"eight-of-diamonds\")\n    (component \"nine-of-diamonds\")\n    (component \"ten-of-diamonds\")\n    (component \"jack-of-diamonds\")\n    (component \"queen-of-diamonds\")\n    (component \"king-of-diamonds\")\n    (component \"ace-of-clubs\")\n    (component \"two-of-clubs\")\n    (component \"three-of-clubs\")\n    (component \"four-of-clubs\")\n    (component \"five-of-clubs\")\n    (component \"six-of-clubs\")\n    (component \"seven-of-clubs\")\n    (component \"eight-of-clubs\")\n    (component \"nine-of-clubs\")\n    (component \"ten-of-clubs\")\n    (component \"jack-of-clubs\")\n    (component \"queen-of-clubs\")\n    (component \"king-of-clubs\")\n  })\n  (rules\n    (play (moves {\n      (move (from \"ace-of-spades\") (to \"two-of-spades\"))\n      (move (from \"two-of-spades\") (to \"three-of-spades\"))\n      (move (from \"three-of-spades\") (to \"four-of-spades\"))\n      (move (from \"four-of-spades\") (to \"five-of-spades\"))\n      (move (from \"five-of-spades\") (to \"six-of-spades\"))\n      (move (from \"six-of-spades\") (to \"seven-of-spades\"))\n      (move (from \"seven-of-spades\") (to \"eight-of-spades\"))\n      (move (from \"eight-of-spades\") (to \"nine-of-spades\"))\n      (move (from \"nine-of-spades\") (to \"ten-of-spades\"))\n      (move (from \"ten-of-spades\") (to \"jack-of-spades\"))\n      (move (from \"jack-of-spades\") (to \"queen-of-spades\"))\n      (move (from \"queen-of-spades\") (to \"king-of-spades\"))\n      (move (from \"ace-of-hearts\") (to \"two-of-hearts\"))\n      (move (from \"two-of-hearts\") (to \"three-of-hearts\"))\n      (move (from \"three-of-hearts\") (to \"four-of-hearts\"))\n      (move (from \"four-of-hearts\") (to \"five-of-hearts\"))\n      (move (from \"five-of-hearts\") (to \"six-of-hearts\"))\n      (move (from \"six-of-hearts\") (to \"seven-of-hearts\"))\n      (move (from \"seven-of-hearts\") (to \"eight-of-hearts\"))\n      (move (from \"eight-of-hearts\") (to \"nine-of-hearts\"))\n      (move (from \"nine-of-hearts\") (to \"ten-of-hearts\"))\n      (move (from \"ten-of-hearts\") (to \"jack-of-hearts\"))\n      (move (from \"jack-of-hearts\") (to \"queen-of-hearts\"))\n      (move (from \"queen-of-hearts\") (to \"king-of-hearts\"))\n      (move (from \"ace-of-diamonds\") (to \"two-of-diamonds\"))\n      (move (from \"two-of-diamonds\") (to \"three-of-diamonds\"))\n      (move (from \"three-of-diamonds\") (to \"four-of-diamonds\"))\n      (move (from \"four-of-diamonds\") (to \"five-of-diamonds\"))\n      (move (from \"five-of-diamonds\") (to \"six-of-diamonds\"))\n      (move (from \"six-of-diamonds\") (to \"seven-of-diamonds\"))\n      (move (from \"seven-of-diamonds\") (to \"eight-of-diamonds\"))\n      (move (from \"eight-of-diamonds\") (to \"nine-of-diamonds\"))\n      (move (from \"nine-of-diamonds\") (to \"ten-of-diamonds\"))\n      (move (from \"ten-of-diamonds\") (to \"jack-of-diamonds\"))\n      (move (from \"jack-of-diamonds\") (to \"queen-of-diamonds\"))\n      (move (from \"queen-of-diamonds\") (to \"king-of-diamonds\"))\n      (move (from \"ace-of-clubs\") (to \"two-of-clubs\"))\n      (move (from \"two-of-clubs\") (to \"three-of-clubs\"))\n      (move (from \"three-of-clubs\") (to \"four-of-clubs\"))\n      (move (from \"four-of-clubs\") (to \"five-of-clubs\"))\n      (move (from \"five-of-clubs\") (to \"six-of-clubs\"))\n      (move (from \"six-of-clubs\") (to \"seven-of-clubs\"))\n      (move (from \"seven-of-clubs\") (to \"eight-of-clubs\"))\n      (move (from \"eight-of-clubs\") (to \"nine-of-clubs\"))\n      (move (from \"nine-of-clubs\") (to \"ten-of-clubs\"))\n      (move (from \"ten-of-clubs\") (to \"jack-of-clubs\"))\n      (move (from \"jack-of-clubs\") (to \"queen-of-clubs\"))\n      (move (from \"queen-of-clubs\") (to \"king-of-clubs\"))\n    }))\n    (end {\n      (if (dealt \"a-run\") (result terminal))\n      (if (dealt \"the-full-suit\") (result terminal))\n    })\n  ))\n"
+            },
+            "profile": "ludii-gdl"
+          },
           "manifest": {
             "commit": "",
             "layer": "certain",
-            "valuation": "fnv1a64:b90b77b6eb74e92f",
-            "profile_hash": "fnv1a64:54233da8cf58ccf6"
+            "profile_hash": "fnv1a64:54233da8cf58ccf6",
+            "valuation": "fnv1a64:b90b77b6eb74e92f"
           }
         }
       }

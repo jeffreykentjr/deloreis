@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.timeline.order",
         "params": {
@@ -13,44 +13,141 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "findings": [
-            "unordered: uthers-time ? the-sword-drawn",
-            "unordered: uthers-time ? the-round-table-founded",
-            "unordered: uthers-time ? the-grail-quest",
-            "unordered: uthers-time ? the-battle-of-camlann",
-            "unordered: uthers-time ? the-speaking-day",
-            "unordered: uthers-time ? the-warning",
-            "unordered: arthurs-reign ? the-sword-drawn",
-            "unordered: arthurs-reign ? the-round-table-founded",
-            "unordered: arthurs-reign ? the-grail-quest",
-            "unordered: arthurs-reign ? the-battle-of-camlann",
-            "unordered: arthurs-reign ? the-speaking-day",
-            "unordered: arthurs-reign ? the-warning",
-            "unordered: after-camlann ? the-sword-drawn",
-            "unordered: after-camlann ? the-round-table-founded",
-            "unordered: after-camlann ? the-grail-quest",
-            "unordered: after-camlann ? the-battle-of-camlann",
-            "unordered: after-camlann ? the-speaking-day",
-            "unordered: after-camlann ? the-warning",
-            "unordered: the-sword-drawn ? the-round-table-founded",
-            "unordered: the-sword-drawn ? the-grail-quest",
-            "unordered: the-sword-drawn ? the-battle-of-camlann",
-            "unordered: the-sword-drawn ? the-speaking-day",
-            "unordered: the-sword-drawn ? the-warning",
-            "unordered: the-round-table-founded ? the-grail-quest",
-            "unordered: the-round-table-founded ? the-speaking-day",
-            "unordered: the-round-table-founded ? the-warning",
-            "unordered: the-grail-quest ? the-battle-of-camlann",
-            "unordered: the-grail-quest ? the-speaking-day",
-            "unordered: the-grail-quest ? the-warning",
-            "unordered: the-battle-of-camlann ? the-speaking-day",
-            "unordered: the-battle-of-camlann ? the-warning",
-            "unordered: the-speaking-day ? the-warning",
-            "chronology acyclic; 32 unordered pair(s)"
+          "acyclic": true,
+          "cycle": [],
+          "unordered": [
+            {
+              "left": "uthers-time",
+              "right": "the-sword-drawn"
+            },
+            {
+              "left": "uthers-time",
+              "right": "the-round-table-founded"
+            },
+            {
+              "left": "uthers-time",
+              "right": "the-grail-quest"
+            },
+            {
+              "left": "uthers-time",
+              "right": "the-battle-of-camlann"
+            },
+            {
+              "left": "uthers-time",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "uthers-time",
+              "right": "the-warning"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-sword-drawn"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-round-table-founded"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-grail-quest"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-battle-of-camlann"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "arthurs-reign",
+              "right": "the-warning"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-sword-drawn"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-round-table-founded"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-grail-quest"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-battle-of-camlann"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "after-camlann",
+              "right": "the-warning"
+            },
+            {
+              "left": "the-sword-drawn",
+              "right": "the-round-table-founded"
+            },
+            {
+              "left": "the-sword-drawn",
+              "right": "the-grail-quest"
+            },
+            {
+              "left": "the-sword-drawn",
+              "right": "the-battle-of-camlann"
+            },
+            {
+              "left": "the-sword-drawn",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "the-sword-drawn",
+              "right": "the-warning"
+            },
+            {
+              "left": "the-round-table-founded",
+              "right": "the-grail-quest"
+            },
+            {
+              "left": "the-round-table-founded",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "the-round-table-founded",
+              "right": "the-warning"
+            },
+            {
+              "left": "the-grail-quest",
+              "right": "the-battle-of-camlann"
+            },
+            {
+              "left": "the-grail-quest",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "the-grail-quest",
+              "right": "the-warning"
+            },
+            {
+              "left": "the-battle-of-camlann",
+              "right": "the-speaking-day"
+            },
+            {
+              "left": "the-battle-of-camlann",
+              "right": "the-warning"
+            },
+            {
+              "left": "the-speaking-day",
+              "right": "the-warning"
+            }
           ]
         }
       }

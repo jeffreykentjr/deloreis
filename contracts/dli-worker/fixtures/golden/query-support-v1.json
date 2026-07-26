@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.query",
         "params": {
@@ -13,20 +13,28 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
-          "support": {
-            "monomials": [
-              [
-                "+0"
-              ]
-            ]
-          },
-          "grade": "asserted",
-          "citations": [
-            "D-0001"
+          "rows": [
+            {
+              "atom": "adjacent(camelot, the-lake)",
+              "bindings": {},
+              "citations": [
+                "D-0001"
+              ],
+              "grade": "asserted",
+              "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
+              "status": "certain",
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              }
+            }
           ]
         }
       }

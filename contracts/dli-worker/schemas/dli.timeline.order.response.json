@@ -1,18 +1,69 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TimelineResult",
-  "description": "The shared result of the `dli.timeline.*` reports.",
+  "title": "TimelineOrderResult",
+  "description": "`dli.timeline.order` result.",
   "type": "object",
   "properties": {
-    "findings": {
-      "description": "The rendered findings for the requested report.",
+    "acyclic": {
+      "description": "Whether no cycle exists.",
+      "type": "boolean"
+    },
+    "cycle": {
+      "description": "Cycle blame edges, when not acyclic.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/TimelineEdge"
+      }
+    },
+    "unordered": {
+      "description": "Pairs for which neither order is declared.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimelinePair"
       }
     }
   },
   "required": [
-    "findings"
-  ]
+    "acyclic",
+    "cycle",
+    "unordered"
+  ],
+  "$defs": {
+    "TimelineEdge": {
+      "description": "One directed chronology edge.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Later point.",
+          "type": "string"
+        },
+        "before": {
+          "description": "Earlier point.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ]
+    },
+    "TimelinePair": {
+      "description": "One unordered pair in a partial chronology.",
+      "type": "object",
+      "properties": {
+        "left": {
+          "description": "The first point.",
+          "type": "string"
+        },
+        "right": {
+          "description": "The second point.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "left",
+        "right"
+      ]
+    }
+  }
 }

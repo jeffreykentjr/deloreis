@@ -14,12 +14,13 @@ pub mod handlers;
 pub mod mcp;
 pub mod ops;
 pub mod project;
+mod query_goal;
 pub mod schema;
 pub mod serve;
 pub mod session;
 
 /// The pre-v1 worker contract and envelope protocol version.
-pub const CONTRACT_VERSION: &str = "0.2.0";
+pub const CONTRACT_VERSION: &str = "0.3.0";
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
 pub use finding::{Finding, Provenance, Severity};

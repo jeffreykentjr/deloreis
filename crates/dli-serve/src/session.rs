@@ -228,6 +228,16 @@ impl Sessions {
             .collect()
     }
 
+    /// The wire handles and engine ids registered for one document.
+    #[must_use]
+    pub fn fork_records(&self, document: &str) -> Vec<(String, ForkId)> {
+        self.fork_handles
+            .iter()
+            .filter(|(_, (doc, _))| doc == document)
+            .map(|(handle, (_, id))| (handle.clone(), *id))
+            .collect()
+    }
+
     /// Register a completed simulation job, minting a fresh stable wire handle.
     pub fn register_job(&mut self, job: SimJob) -> String {
         self.next_job += 1;

@@ -1,18 +1,75 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TimelineResult",
-  "description": "The shared result of the `dli.timeline.*` reports.",
+  "title": "TimelineKnowsResult",
+  "description": "`dli.timeline.knows` result.",
   "type": "object",
   "properties": {
-    "findings": {
-      "description": "The rendered findings for the requested report.",
+    "at": {
+      "description": "Production slot queried.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "knowers": {
+      "description": "Complete matrix rows for the listener and every recorded cast knower.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/KnowledgeRow"
       }
     }
   },
   "required": [
-    "findings"
-  ]
+    "at",
+    "knowers"
+  ],
+  "$defs": {
+    "EntityRef": {
+      "description": "A reference to a cast entity (a character), by canonical name.",
+      "type": "string"
+    },
+    "Knower": {
+      "description": "A knower whose knowledge the fold tracks.\n\nThe [`Listener`](Self::Listener) is distinguished: their ledger runs on the\nproduction axis, which is exactly where the staging and reveal-placement\nconstraints attach. Cast knowers name a character.",
+      "oneOf": [
+        {
+          "description": "The audience — the distinguished production-axis knower.",
+          "type": "string",
+          "const": "Listener"
+        },
+        {
+          "description": "A character in the world.",
+          "type": "object",
+          "properties": {
+            "Cast": {
+              "$ref": "#/$defs/EntityRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Cast"
+          ]
+        }
+      ]
+    },
+    "KnowledgeRow": {
+      "description": "One row of the who-knows-what matrix.",
+      "type": "object",
+      "properties": {
+        "facts": {
+          "description": "Facts known at the requested production slot.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "knower": {
+          "description": "Listener or named cast knower.",
+          "$ref": "#/$defs/Knower"
+        }
+      },
+      "required": [
+        "knower",
+        "facts"
+      ]
+    }
+  }
 }

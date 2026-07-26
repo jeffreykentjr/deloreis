@@ -1,10 +1,10 @@
 {
   "fixture": "golden/author-findings-v1",
   "version": 1,
-  "note": "author.findings partitions the workspace's open findings by severity \u2014 the pre-flight of what author.materialize would refuse on.",
+  "note": "author.findings partitions the workspace's open findings by severity — the pre-flight of what author.materialize would refuse on.",
   "precondition": [
     {
-      "dli": "0.2.0",
+      "dli": "0.3.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "author.findings",
         "params": {
@@ -23,7 +23,7 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {

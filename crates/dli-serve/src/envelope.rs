@@ -18,7 +18,7 @@ pub struct Request {
     #[serde(default)]
     pub params: serde_json::Value,
     /// Optimistic-concurrency fence for mutating `author.*` calls: the caller's
-    /// last-seen workspace/fork digest. A mismatch is a `stale-fence` error.
+    /// last-seen workspace digest. A mismatch is a `stale-fence` error.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub expected_digest: Option<String>,
     /// Retry-safe key so a re-sent mutating call is applied at most once.

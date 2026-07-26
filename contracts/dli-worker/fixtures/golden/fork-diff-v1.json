@@ -4,7 +4,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -12,7 +12,7 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -22,7 +22,7 @@
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "op": "dli.fork.suppose",
         "params": {
@@ -33,23 +33,40 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "ok": true,
         "result": {
-          "newly_certain": [
-            "kept-at(excalibur, camelot)"
-          ],
-          "newly_possible": [],
-          "newly_dead": [],
+          "conflicts": [],
           "grade_changed": [],
-          "conflicts": []
+          "newly_certain": [
+            {
+              "after": {
+                "grade": "asserted",
+                "status": "certain"
+              },
+              "atom": {
+                "args": [
+                  "excalibur",
+                  "camelot"
+                ],
+                "pred": "kept-at"
+              },
+              "before": {
+                "grade": "asserted",
+                "status": "possible"
+              },
+              "rendered": "kept-at(excalibur, camelot): possible → certain"
+            }
+          ],
+          "newly_dead": [],
+          "newly_possible": []
         }
       }
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "3",
         "op": "dli.fork.diff",
         "params": {
@@ -57,17 +74,34 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "3",
         "ok": true,
         "result": {
-          "newly_certain": [
-            "kept-at(excalibur, camelot)"
-          ],
-          "newly_possible": [],
-          "newly_dead": [],
+          "conflicts": [],
           "grade_changed": [],
-          "conflicts": []
+          "newly_certain": [
+            {
+              "after": {
+                "grade": "asserted",
+                "status": "certain"
+              },
+              "atom": {
+                "args": [
+                  "excalibur",
+                  "camelot"
+                ],
+                "pred": "kept-at"
+              },
+              "before": {
+                "grade": "asserted",
+                "status": "possible"
+              },
+              "rendered": "kept-at(excalibur, camelot): possible → certain"
+            }
+          ],
+          "newly_dead": [],
+          "newly_possible": []
         }
       }
     }

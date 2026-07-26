@@ -5,7 +5,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -13,7 +13,7 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -23,7 +23,7 @@
     },
     {
       "send": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "op": "dli.fork.add",
         "params": {
@@ -34,20 +34,37 @@
         }
       },
       "expect": {
-        "dli": "0.2.0",
+        "dli": "0.3.0",
         "id": "2",
         "ok": true,
         "result": {
-          "ok": true,
           "delta": {
-            "newly_certain": [
-              "adjacent(camelot, avalon)"
-            ],
-            "newly_possible": [],
-            "newly_dead": [],
+            "conflicts": [],
             "grade_changed": [],
-            "conflicts": []
-          }
+            "newly_certain": [
+              {
+                "after": {
+                  "grade": "asserted",
+                  "status": "certain"
+                },
+                "atom": {
+                  "args": [
+                    "camelot",
+                    "avalon"
+                  ],
+                  "pred": "adjacent"
+                },
+                "before": {
+                  "grade": "asserted",
+                  "status": "dead"
+                },
+                "rendered": "adjacent(camelot, avalon): dead → certain"
+              }
+            ],
+            "newly_dead": [],
+            "newly_possible": []
+          },
+          "ok": true
         }
       }
     }
