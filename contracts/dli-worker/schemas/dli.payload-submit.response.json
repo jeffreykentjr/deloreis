@@ -12,8 +12,15 @@
       "description": "Findings raised during acceptance.",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/Finding"
+        "$ref": "#/$defs/PayloadFinding"
       }
+    },
+    "payload_digest": {
+      "description": "SHA-256 address of the immutable payload, when accepted.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "required": [
@@ -21,45 +28,6 @@
     "findings"
   ],
   "$defs": {
-    "Finding": {
-      "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
-      "type": "object",
-      "properties": {
-        "citations": {
-          "description": "Supporting citations.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "code": {
-          "description": "A stable finding code.",
-          "type": "string"
-        },
-        "grade": {
-          "description": "The grade at which the finding is asserted.",
-          "$ref": "#/$defs/Grade"
-        },
-        "message": {
-          "description": "A human-readable message.",
-          "type": "string"
-        },
-        "repair": {
-          "description": "An optional structured repair suggestion."
-        },
-        "severity": {
-          "description": "The severity, which gates materialization.",
-          "$ref": "#/$defs/Severity"
-        }
-      },
-      "required": [
-        "severity",
-        "code",
-        "message",
-        "grade"
-      ]
-    },
     "Grade": {
       "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
       "oneOf": [
@@ -85,16 +53,75 @@
         }
       ]
     },
+    "PayloadFinding": {
+      "description": "One finding in the merged payload report.\n\nThe battery over a [`Payload`] emits these; `PAY-1` emits the anchoring and\nstaleness families, and the remaining families (continuity, factcheck,\noutline-conformance, craft, proof, naming, phase, lexicon) merge in here in\n`PAY-2`. Every finding is fully attributed: the draft [`line`](Self::line) and\nverbatim [`quote`](Self::quote) it turns on, the [`code`](Self::code) of the\nrule or check that raised it, the [`principle`](Self::principle) it cites when\nthe check is craft, its supporting [`citations`](Self::citations), and the\n[`grade`](Self::grade) of the evidence.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Ledger citations backing the finding (`d-nnnn`), when it turns on a ruling.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "The stable dotted class code (`family.item`), e.g. `anchor.quote-missing`.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The verification grade of the check that produced it. Every deterministic\nkernel check re-derives exactly, so `PAY-1`'s findings carry\n[`Grade::Checked`].",
+          "$ref": "#/$defs/Grade"
+        },
+        "line": {
+          "description": "The draft line the finding turns on, when it anchors to one.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "message": {
+          "description": "A domain-spoken description of the finding.",
+          "type": "string"
+        },
+        "principle": {
+          "description": "The craft principle this finding cites, when the check is a craft rule.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quote": {
+          "description": "The verbatim quote from the draft the finding renders, when it has one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "severity": {
+          "description": "How much the finding must be attended to.",
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "grade",
+        "message"
+      ]
+    },
     "Severity": {
-      "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
+      "description": "How much a [`WorldFinding`] must be attended to.",
       "oneOf": [
         {
-          "description": "Blocks `author.materialize`.",
+          "description": "A violation: the world (or a draft) contradicts canon or asserts what it\nmay not.",
           "type": "string",
           "const": "error"
         },
         {
-          "description": "Advisory; does not block materialization.",
+          "description": "A defect worth a look that does not, on its own, break canon.",
           "type": "string",
           "const": "warn"
         }

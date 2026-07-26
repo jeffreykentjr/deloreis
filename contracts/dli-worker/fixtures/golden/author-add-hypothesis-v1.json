@@ -2,7 +2,7 @@
   "fixture": "golden/author-add-hypothesis-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -21,11 +21,11 @@
           "rendered": [
             "hypothesis coast-runs-north \"The coast runs north.\""
           ],
-          "workspace_digest": "jcs:sha256:bbf3c7c4edb31256d0acccf60eba45f20b8888c7fd5b8657c89a01b3166fd1c8"
+          "workspace_digest": "jcs:sha256:9715087807ceff9fdfe7156f3a43270fe0670462a72502f99ef0be2758e4e475"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.add_hypothesis",
         "params": {

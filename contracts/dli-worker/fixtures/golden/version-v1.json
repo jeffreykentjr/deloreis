@@ -4,13 +4,13 @@
   "steps": [
     {
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "dli.version",
         "params": {}
       },
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -28,6 +28,7 @@
             "dli.fork.preflight",
             "dli.fork.promote",
             "dli.check-proof",
+            "dli.check-draft",
             "dli.timeline.show",
             "dli.timeline.order",
             "dli.timeline.knows",
@@ -35,6 +36,9 @@
             "dli.timeline.phases",
             "dli.export.run",
             "dli.name.check",
+            "dli.attest.missing",
+            "dli.attestation-sweep",
+            "dli.payload-submit",
             "author.open",
             "author.status",
             "author.diff",
@@ -56,7 +60,7 @@
             "author.list_workspaces"
           ],
           "contract": "dli-worker",
-          "contract_version": "0.3.0",
+          "contract_version": "0.4.0",
           "server": "deloreis 0.1.0"
         }
       }

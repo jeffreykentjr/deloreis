@@ -19,6 +19,7 @@ use std::sync::Arc;
 use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
 use dli_game::model::Ruleset;
+use dli_sim::RunManifest;
 use dli_syntax::parse_document;
 use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
@@ -26,6 +27,7 @@ use dli_world::language::LanguageModel;
 use dli_world::loader::example_docs;
 use dli_world::{CompiledWorld, Pack, compile};
 
+use crate::contract::SimulateJobStatus;
 use crate::envelope::ErrorCode;
 use crate::project::Project;
 
@@ -102,23 +104,24 @@ pub struct Scope {
 /// A completed simulation job held for the life of the serve loop. The worker
 /// runs a battery synchronously on `simulate.start` (bounded, replayable), so a
 /// job is `complete` the instant it is registered; `simulate.status` reads it back
-/// and `simulate.cancel` drops it. The manifest is kept pre-serialized so this
-/// module stays free of the simulator types (`10-serving.md` §5: jobs are
-/// in-process, never persisted).
+/// and `simulate.cancel` drops it. This legacy seam remains private while the
+/// public operations are capability-gated pending the durable job store.
 #[derive(Debug, Clone)]
 pub struct SimJob {
     /// The job status (`complete` for a finished synchronous run).
-    pub status: String,
-    /// One rendered line per simulated turn.
-    pub trace: Vec<String>,
-    /// The committed run manifest, already serialized to JSON.
-    pub manifest: serde_json::Value,
+    pub status: SimulateJobStatus,
+    /// Trials folded into the current state.
+    pub trials_done: u64,
+    /// Trials requested.
+    pub trials_total: u64,
+    /// The completed run manifest.
+    pub manifest: RunManifest,
 }
 
 /// The session store shared across one serve process: the doc-id→scope cache and
 /// the global fork-handle registry. One `Sessions` lives for the life of the
-/// `serve` loop; nothing here is persisted (the worker holds no cross-process job
-/// state — `10-serving.md` §5).
+/// `serve` loop. Session scopes, forks, and simulation jobs are not persisted;
+/// project evidence is owned separately by the durable evidence store.
 #[derive(Debug)]
 pub struct Sessions {
     source: CorpusSource,
@@ -297,6 +300,25 @@ impl Sessions {
         match &self.source {
             CorpusSource::Demo => demo_language_model(),
             CorpusSource::Project(project) => project.language().clone(),
+        }
+    }
+
+    /// The caller project backing this session, or `None` in explicit demo mode.
+    #[must_use]
+    pub fn project(&self) -> Option<&Project> {
+        match &self.source {
+            CorpusSource::Demo => None,
+            CorpusSource::Project(project) => Some(project),
+        }
+    }
+
+    /// Clone the caller-project handle for an operation that also mutably
+    /// resolves a session scope.
+    #[must_use]
+    pub fn project_handle(&self) -> Option<Arc<Project>> {
+        match &self.source {
+            CorpusSource::Demo => None,
+            CorpusSource::Project(project) => Some(Arc::clone(project)),
         }
     }
 }

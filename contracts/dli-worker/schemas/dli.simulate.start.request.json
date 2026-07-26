@@ -4,6 +4,12 @@
   "description": "`dli.simulate.start` params.",
   "type": "object",
   "properties": {
+    "checkpoint_every": {
+      "description": "Trials folded between durable checkpoints.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
     "document": {
       "description": "The document id.",
       "type": "string"
@@ -14,10 +20,10 @@
       "format": "uint64",
       "minimum": 0
     },
-    "turns": {
-      "description": "The number of turns to simulate.",
+    "trials": {
+      "description": "The number of trials to simulate.",
       "type": "integer",
-      "format": "uint32",
+      "format": "uint64",
       "minimum": 0
     }
   },
@@ -25,6 +31,7 @@
   "required": [
     "document",
     "seed",
-    "turns"
+    "trials",
+    "checkpoint_every"
   ]
 }

@@ -7,3 +7,4 @@ cache = ".dli-cache"
 
 [documents.saltmarket]
 sources = ["saltmarket.dli"]
+attestation_questions = "attestation-questions.json"

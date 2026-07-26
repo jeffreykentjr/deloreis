@@ -3,7 +3,7 @@
   "version": 1,
   "note": "A reference to a workspace that does not exist is an unknown-doc error.",
   "send": {
-    "dli": "0.3.0",
+    "dli": "0.4.0",
     "id": "1",
     "op": "author.status",
     "params": {

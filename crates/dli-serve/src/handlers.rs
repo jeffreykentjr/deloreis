@@ -46,17 +46,17 @@ use dli_ledger::ledger_check::check_proof;
 use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 
-use dli_world::check::{Severity as WorldSeverity, WorldFinding};
-use dli_world::draft::DraftFinding;
+use dli_world::check;
+use dli_world::check::{Severity as PayloadSeverity, Severity as WorldSeverity, WorldFinding};
 use dli_world::episode::{Episode, Knower, fold};
 use dli_world::episode_order::{order_integrity, season_slack};
 use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, view};
-use dli_world::model::WorldModel;
+use dli_world::payload::{BatteryContext, check_payload};
 use dli_world::scene_projection::project_scene;
-use dli_world::{check, check_draft, sweep};
 
 use crate::CONTRACT_VERSION;
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
+use crate::evidence::{self, EvidenceError};
 use crate::finding::{Finding, Severity};
 use crate::ops::Op;
 use crate::session::{Scope, Sessions, SimJob};
@@ -99,7 +99,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::PayloadSubmit => handle_payload_submit(request, sessions),
         Op::NameCheck => handle_name_check(request, sessions),
         Op::AttestMissing => handle_attest_missing(request, sessions),
-        Op::AttestationSweep => handle_attestation_sweep(request),
+        Op::AttestationSweep => handle_attestation_sweep(request, sessions),
         // check-proof replays the document's proof block against its practice and
         // the certain-layer scene projection, returning the rich `ProofReport`.
         Op::CheckProof => handle_check_proof(request, sessions),
@@ -417,24 +417,37 @@ fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>,
 
 fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckDraftParams = params(request)?;
-    let scope = resolve(sessions, &p.payload.meta.scope)?;
+    let scope = resolve(sessions, &p.document)?;
     Ok(ok_response(
         request,
         &CheckDraftResult {
-            findings: check_draft(&scope.world, &p.payload),
+            findings: check_payload(&scope.world, &p.payload, &BatteryContext::new(&p.source)),
         },
     ))
 }
 
 fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: PayloadSubmitParams = params(request)?;
-    let scope = resolve(sessions, &p.payload.meta.scope)?;
-    let defects = check_draft(&scope.world, &p.payload);
+    let project = require_project(sessions)?;
+    let scope = resolve(sessions, &p.document)?;
+    let findings = check_payload(&scope.world, &p.payload, &BatteryContext::new(&p.source));
+    let accepted = findings
+        .iter()
+        .all(|finding| finding.severity != PayloadSeverity::Error);
+    let payload_digest = if accepted {
+        Some(
+            evidence::submit_payload(&project, &p.document, &p.payload)
+                .map_err(|error| evidence_fault(&error))?,
+        )
+    } else {
+        None
+    };
     Ok(ok_response(
         request,
         &PayloadSubmitResult {
-            accepted: defects.is_empty(),
-            findings: defects.iter().map(draft_finding).collect(),
+            accepted,
+            findings,
+            payload_digest,
         },
     ))
 }
@@ -572,7 +585,7 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
 fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: SimulateStartParams = params(request)?;
     // Source the first declared practice from the document (the same corpus the
-    // scope compiles); `turns` is the trial count.
+    // scope compiles); `trials` is the trial count.
     let pack = sessions.pack(&p.document).ok_or_else(|| {
         (
             ErrorCode::UnknownDoc,
@@ -597,29 +610,23 @@ fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<R
             max_magnitude: SIM_MAX_MAGNITUDE,
         },
         seed: p.seed,
-        trials: u64::from(p.turns),
+        trials: p.trials,
         metrics: default_metrics(&pack),
         invariants: default_invariants(&pack),
         affine_caps: std::collections::BTreeMap::new(),
     };
     let manifest = battery.run();
-    let trace = trace_lines(&battery);
-    let manifest_json = serde_json::to_value(&manifest).map_err(|err| {
-        (
-            ErrorCode::Internal,
-            format!("manifest could not be serialized: {err}"),
-        )
-    })?;
     let job_id = sessions.register_job(SimJob {
-        status: "complete".to_owned(),
-        trace,
-        manifest: manifest_json,
+        status: SimulateJobStatus::Complete,
+        trials_done: p.trials,
+        trials_total: p.trials,
+        manifest,
     });
     Ok(ok_response(
         request,
         &SimulateStartResult {
             job_id,
-            status: "complete".to_owned(),
+            status: SimulateJobStatus::Complete,
         },
     ))
 }
@@ -635,9 +642,12 @@ fn handle_simulate_status(request: &Request, sessions: &mut Sessions) -> Result<
     Ok(ok_response(
         request,
         &SimulateStatusResult {
-            status: job.status.clone(),
-            trace: job.trace.clone(),
+            job_id: p.job_id,
+            status: job.status,
+            trials_done: job.trials_done,
+            trials_total: job.trials_total,
             manifest: Some(job.manifest.clone()),
+            manifest_digest: Some(job.manifest.digest()),
         },
     ))
 }
@@ -648,7 +658,8 @@ fn handle_simulate_cancel(request: &Request, sessions: &mut Sessions) -> Result<
         Ok(ok_response(
             request,
             &SimulateCancelResult {
-                status: "cancelled".to_owned(),
+                job_id: p.job_id,
+                status: SimulateJobStatus::Cancelled,
             },
         ))
     } else {
@@ -718,22 +729,6 @@ fn practice_resource_names(pack: &dli_world::Pack) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// One rendered line per simulated turn — whether that trial's casting broke any
-/// declared resource law.
-fn trace_lines(battery: &Battery) -> Vec<String> {
-    (0..battery.trials)
-        .map(|index| {
-            let outcome = battery.account_trial(&battery.generate_trial(index));
-            let verdict = if outcome.any_violation() {
-                "a law was broken"
-            } else {
-                "all laws held"
-            };
-            format!("turn {index}: {verdict}")
-        })
-        .collect()
-}
-
 /// Read the value following a header keyword (`in <practice>`, `speaker <who>`)
 /// from a proof declaration's flat header token list.
 fn header_value(head: &[String], key: &str) -> Option<String> {
@@ -765,27 +760,36 @@ fn handle_name_check(request: &Request, sessions: &Sessions) -> Result<Response,
 
 fn handle_attest_missing(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: AttestMissingParams = params(request)?;
-    resolve(sessions, &p.document)?;
-    // No wired check currently demands an attestation, so the open-question set is
-    // empty. When a check family posts attestation demands, this enumerates them.
-    Ok(ok_response(
-        request,
-        &AttestMissingResult {
-            questions: Vec::new(),
-        },
-    ))
+    let project = require_project(sessions)?;
+    let scope = resolve(sessions, &p.document)?;
+    let questions = evidence::missing_attestations(&project, &p.document, &scope.world.model)
+        .map_err(|error| evidence_fault(&error))?
+        .into_iter()
+        .map(|demand| AttestationDemand {
+            question: demand.question,
+            fingerprint: demand.fingerprint,
+            reason: match demand.reason {
+                "missing" => AttestationDemandReason::Missing,
+                "stale" => AttestationDemandReason::Stale,
+                _ => unreachable!("evidence emits a closed reason set"),
+            },
+        })
+        .collect();
+    Ok(ok_response(request, &AttestMissingResult { questions }))
 }
 
-fn handle_attestation_sweep(request: &Request) -> Result<Response, Fault> {
+fn handle_attestation_sweep(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: AttestationSweepParams = params(request)?;
-    // The wire carries the store but no corpus reference; staleness is recomputed
-    // against an empty model (the honest "no corpus supplied" reading). A record
-    // whose stored fingerprint no longer matches the current content is stale.
-    let model = WorldModel::default();
+    let project = require_project(sessions)?;
+    let scope = resolve(sessions, &p.document)?;
+    let appended =
+        evidence::append_attestations(&project, &p.document, &p.records, &scope.world.model)
+            .map_err(|error| evidence_fault(&error))?;
     Ok(ok_response(
         request,
         &AttestationSweepResult {
-            stale: sweep(&p.store, &model),
+            accepted: appended.accepted,
+            batch_digest: appended.batch_digest,
         },
     ))
 }
@@ -1186,19 +1190,6 @@ fn world_finding(finding: &WorldFinding) -> Finding {
     }
 }
 
-/// Map a draft defect onto the wire [`Finding`]. A draft defect blocks acceptance,
-/// so it carries error severity; its evidence grade is the checker's.
-fn draft_finding(finding: &DraftFinding) -> Finding {
-    Finding {
-        severity: Severity::Error,
-        code: "draft.defect".to_owned(),
-        message: format!("{}: {}", finding.claim, finding.message),
-        grade: finding.grade,
-        repair: None,
-        citations: Vec::new(),
-    }
-}
-
 /// Map a language-layer finding onto the wire [`Finding`]. The kernel vetting is
 /// deterministic, so it grades `checked`; a name defect warns rather than blocks.
 fn lang_finding(finding: &LangFinding) -> Finding {
@@ -1396,6 +1387,26 @@ fn eval_fault(error: EvalError) -> Fault {
     (ErrorCode::from(error), message)
 }
 
+fn require_project(sessions: &Sessions) -> Result<std::sync::Arc<crate::project::Project>, Fault> {
+    sessions.project_handle().ok_or_else(|| {
+        (
+            ErrorCode::ProjectRequired,
+            "durable evidence operations require `deloreis serve --project <path>`; demo mode has no evidence owner"
+                .to_owned(),
+        )
+    })
+}
+
+fn evidence_fault(error: &EvidenceError) -> Fault {
+    let code = match error {
+        EvidenceError::Conflict(_) => ErrorCode::Conflict,
+        EvidenceError::Corrupt(_) => ErrorCode::EvidenceCorrupt,
+        EvidenceError::Invalid(_) => ErrorCode::SchemaViolation,
+        EvidenceError::Io { .. } => ErrorCode::Internal,
+    };
+    (code, error.to_string())
+}
+
 /// Whether this build satisfies the operation's documented semantics.
 ///
 /// The gated evidence and simulation operations retain typed schemas and
@@ -1404,13 +1415,7 @@ fn eval_fault(error: EvalError) -> Fault {
 fn is_implemented(op: Op) -> bool {
     !matches!(
         op,
-        Op::CheckDraft
-            | Op::SimulateStart
-            | Op::SimulateStatus
-            | Op::SimulateCancel
-            | Op::AttestMissing
-            | Op::AttestationSweep
-            | Op::PayloadSubmit
+        Op::SimulateStart | Op::SimulateStatus | Op::SimulateCancel
     )
 }
 

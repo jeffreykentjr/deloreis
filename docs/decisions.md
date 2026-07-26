@@ -706,3 +706,28 @@ semantics are implemented.
 implement a durable evidence or resumable-job contract. Capability negotiation
 must describe behavior a general caller can rely on, not merely the existence
 of a handler arm.
+
+## DL-0031 — Contract 0.4.0 opens durable payload and attestation evidence
+
+*Date: 2026-07-25*
+
+**Ruling** (supersedes DL-0030's evidence capability state): contract `0.4.0`
+advertises `dli.check-draft`, `dli.payload-submit`, `dli.attest.missing`, and
+`dli.attestation-sweep`. Accepted fat payloads and attestation append batches
+are RFC 8785 JCS documents, content-addressed by SHA-256 under the caller
+project's `.dli-evidence/` root. Attestation batches form one verified,
+unbranched parent chain, while supersession remains scoped to each configured
+question. A project-wide advisory lock serializes writers; publication is
+immutable, idempotent, file-synced, directory-synced, and atomically renamed.
+Rejected evidence publishes no evidence file, and corrupt committed evidence
+fails closed. The three `dli.simulate.*` operations remain capability-gated
+until durable, restart-resumable jobs land.
+
+This pre-v1 migration also makes RFC 8785 canonicalization real for Door-T
+workspace digests and reserves the durable simulation request/response shapes;
+the contract version therefore advances once from `0.3.0` to `0.4.0`.
+
+**Rationale.** Content-addressed immutable evidence gives independent callers a
+replayable cross-process artifact without granting the machine any canon write
+authority. Advertising only the four operations whose complete storage and
+validation semantics now exist preserves DL-0030's capability rule.

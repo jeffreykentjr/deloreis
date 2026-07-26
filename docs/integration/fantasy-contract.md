@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.3.0. Caller-project isolation, typed response semantics, Door T, and complete paired framing replay are implemented; durable evidence/jobs remain open, and consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.4.0. Caller-project isolation, typed response semantics, durable payload and attestation evidence, Door T, and complete paired framing replay are implemented; resumable simulation jobs remain open, and consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -19,13 +19,11 @@ vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. Version
-> `0.3.0` has typed responses for all 46 operations, strict caller projects,
+> `0.4.0` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
-> Seven operations whose documented semantics depend on the unfinished
-> evidence/job runtime are capability-gated: `dli.check-draft`,
-> `dli.attest.missing`, `dli.attestation-sweep`, `dli.payload-submit`, and the
-> three `dli.simulate.*` operations. `CON-1` and `AUTH-1` are closed;
-> `SERVE-1` remains open.
+> Durable fat-payload and attestation evidence is implemented. The three
+> `dli.simulate.*` operations remain capability-gated until resumable jobs land.
+> `CON-1` and `AUTH-1` are closed; `SERVE-1` remains open.
 > Consumer cutover is excluded from this source-release round.
 
 ## 1. Parties
@@ -69,10 +67,10 @@ model utterance is one of four declared classes, or it does not enter.*
 
 ### 3.1 Batch operations — `dli.*`
 
-The table states the semantics an advertised operation must satisfy. The seven
-capability-gated operations named in the implementation-status note retain
-reservation schemas and fixtures at `0.3.0`; their request/response shapes may
-migrate before they are enabled.
+The table states the semantics an advertised operation must satisfy. The three
+capability-gated simulation operations retain reservation schemas and fixtures
+at `0.4.0`; their request/response shapes are already migrated to the durable
+job model that must land before they are enabled.
 
 | Op | Purpose | Returns |
 |---|---|---|
@@ -101,7 +99,7 @@ migrate before they are enabled.
 | `dli.export.run` | Run an export target and profile. | target-shaped emission + manifest |
 | `dli.name.check` | Vet a name (the kernel half only). | kernel verdict (world-true) |
 | `dli.attest.missing` | List the open attestation questions checks demand. | question records |
-| `dli.attestation-sweep` | Validate and record an attestation sweep's results into the store. | accepted records + staleness report |
+| `dli.attestation-sweep` | Validate and append an attestation sweep's results to the store. | accepted count + immutable batch digest |
 | `dli.payload-submit` | Submit a `payload/v1` document: validate, quote-anchor-check, store. | findings + payload digest |
 
 `dli.fork.suppose` **supersedes** `dli.suppose`, which is a **killed form** — it
@@ -176,7 +174,7 @@ path and commits through fantasy review.
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `0.3.0` enforces it for all 46 operations before v1.
+today: contract `0.4.0` enforces it for all 46 operations before v1.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -266,7 +264,7 @@ code, is the authority.
 - **Quote anchors on encodings.** Every encoded item carries a verbatim quote and
   line; the kernel verifies the quote appears at the claimed position.
 - **Job orchestration.** The consumer owns queue policy, retries, and UI around
-  worker-owned durable jobs. It must not treat the gated `0.3.0` simulation
+  worker-owned durable jobs. It must not treat the gated `0.4.0` simulation
   reservation as restart-safe.
 - **Digest-checked vendoring.** The contract copy is pinned to a digest and the
   gate fails if it drifts.

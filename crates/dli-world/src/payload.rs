@@ -63,6 +63,7 @@ use crate::language::{aural_clash, vet_candidate};
 /// the check is craft, its supporting [`citations`](Self::citations), and the
 /// [`grade`](Self::grade) of the evidence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PayloadFinding {
     /// The stable dotted class code (`family.item`), e.g. `anchor.quote-missing`.
     pub code: String,
@@ -136,6 +137,7 @@ impl PayloadFinding {
 /// [`promises`](Self::promises), [`proof_ledgers`](Self::proof_ledgers),
 /// [`names`](Self::names), and [`lexicon`](Self::lexicon).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Payload {
     /// Source provenance and the extractor manifest.
     #[serde(default)]
@@ -168,6 +170,7 @@ pub struct Payload {
 
 /// The payload header: source provenance and the extractor manifest (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PayloadMeta {
     /// The episode this payload shadows.
     #[serde(default)]
@@ -185,6 +188,7 @@ pub struct PayloadMeta {
 
 /// The draft a payload shadows, pinned by content hash (§7.4 staleness).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SourceRef {
     /// The draft file name.
     #[serde(default)]
@@ -204,18 +208,19 @@ pub struct SourceRef {
 /// The lexicon and banned-vocabulary rows are deterministic scans with no model
 /// involved, so they carry no [`ExtractorRef`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ExtractorManifest {
     /// The payload schema version, e.g. `payload/v1`.
     #[serde(default)]
     pub schema: String,
-    /// The extractor identity for each extracted field (`beats`, `claims`, …),
-    /// flattened alongside `schema` as the spec's YAML has them.
-    #[serde(flatten)]
+    /// The extractor identity for each extracted field (`beats`, `claims`, …).
+    #[serde(default)]
     pub fields: BTreeMap<String, ExtractorRef>,
 }
 
 /// The identity of the model and prompt that produced one extracted field (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ExtractorRef {
     /// The model that produced the field.
     pub model: String,
@@ -225,6 +230,7 @@ pub struct ExtractorRef {
 
 /// A factcheck atom, anchored to the draft (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Claim {
     /// The atom in surface form, e.g. `holds(enfys, consent(household, door))`.
     /// `PAY-2` parses this into a typed atom for the fact-checker.
@@ -255,6 +261,7 @@ pub enum DeltaKind {
 /// Deltas carry no quote and are not quote-anchored — they are the state moves
 /// the continuity fold consumes, keyed by scene and line for provenance.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DeltaRow {
     /// The dimension moved.
     pub kind: DeltaKind,
@@ -270,6 +277,7 @@ pub struct DeltaRow {
 
 /// A scene's cast, presence, location, and phase observations (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SceneRow {
     /// The scene identifier.
     pub id: String,
@@ -317,6 +325,7 @@ pub enum Magnitude {
 
 /// A beat: a try, fail, or accomplishment with a thread and a magnitude (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct BeatRow {
     /// The beat identifier.
     pub id: String,
@@ -349,6 +358,7 @@ pub struct BeatRow {
 
 /// The promises a payload opens and closes (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PromiseLedger {
     /// Promises opened in this episode.
     #[serde(default)]
@@ -362,6 +372,7 @@ pub struct PromiseLedger {
 /// (§7.1). [`kind`](Self::kind) reuses the outline schema's [`PromiseKind`] so a
 /// payload promise and an outline promise speak the same vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PromiseRow {
     /// The promise identifier.
     pub id: String,
@@ -378,6 +389,7 @@ pub struct PromiseRow {
 /// `PAY-2` replays it through the practice checker with the scene projection
 /// ([`04-practices`](../../../../docs/spec/04-practices.md)).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProofLedgerRow {
     /// The scene the ledger belongs to.
     pub scene: String,
@@ -387,6 +399,7 @@ pub struct ProofLedgerRow {
 
 /// The premises, steps, and close of a shadowed proof (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProofLedger {
     /// The premises the casting rests on, in surface form.
     #[serde(default)]
@@ -401,6 +414,7 @@ pub struct ProofLedger {
 
 /// A proof's conclusion: the atom it closes on and the verdict it expects (§7.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProofClose {
     /// The atom the casting closes on, in surface form.
     pub atom: String,
@@ -414,6 +428,7 @@ pub struct ProofClose {
 /// The proper names a payload introduces (§7.1). Each is oracle-vetted or
 /// hypothesis-carried by the naming family in `PAY-2`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NameIntro {
     /// Names first used in this episode.
     #[serde(default)]
@@ -425,6 +440,7 @@ pub struct NameIntro {
 /// No model is involved: these ride along so the report is one artifact, but they
 /// are not encodings and carry no extractor.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Lexicon {
     /// Banned-vocabulary hits the deterministic scan found (empty in a clean
     /// draft).
@@ -1312,8 +1328,9 @@ mod tests {
         let yaml = serde_yaml_ng::to_string(&payload).unwrap();
         assert_eq!(payload, serde_yaml_ng::from_str::<Payload>(&yaml).unwrap());
 
-        // The extractor manifest keeps `schema` flattened beside the field keys.
+        // The extractor manifest keeps its schema and declared dynamic field map.
         assert!(yaml.contains("schema: payload/v1"), "{yaml}");
+        assert!(yaml.contains("fields:"), "{yaml}");
 
         // Every anchor lands and the hash matches: a clean shadow.
         let findings = verify(&payload, &source);

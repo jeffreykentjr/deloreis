@@ -224,8 +224,9 @@ meta:
   extracted: 2026-07-19
   extractors:
     schema: payload/v1
-    beats:  {model: claude-fable-5, prompt: "sha256:b41c…"}
-    claims: {model: claude-fable-5, prompt: "sha256:77e0…"}
+    fields:
+      beats:  {model: claude-fable-5, prompt: "sha256:b41c…"}
+      claims: {model: claude-fable-5, prompt: "sha256:77e0…"}
 claims:                                # factcheck atoms
   - {atom: "knows(merlin, true-name(the-enchanter))",
      quote: "he knew the old name, and the shape of its saying", line: 112}

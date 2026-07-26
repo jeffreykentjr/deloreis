@@ -4,314 +4,667 @@
   "description": "`dli.payload-submit` params.",
   "type": "object",
   "properties": {
+    "document": {
+      "description": "The project document the draft belongs to.",
+      "type": "string"
+    },
     "payload": {
-      "description": "The draft payload to submit.",
-      "$ref": "#/$defs/DraftPayload"
+      "description": "The complete structured shadow to validate and store.",
+      "$ref": "#/$defs/Payload"
+    },
+    "source": {
+      "description": "The draft prose the payload quotes and hashes.",
+      "type": "string"
     }
   },
   "additionalProperties": false,
   "required": [
-    "payload"
+    "document",
+    "payload",
+    "source"
   ],
   "$defs": {
-    "AtomExpr": {
-      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
-      "type": "object",
-      "properties": {
-        "args": {
-          "description": "The argument terms, in order.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Term"
-          }
+    "BeatKind": {
+      "description": "A beat's kind — a try, a fail, or an accomplishment (§7.1, §3).",
+      "oneOf": [
+        {
+          "description": "An attempt.",
+          "type": "string",
+          "const": "try"
         },
-        "pred": {
-          "description": "The predicate name.",
-          "$ref": "#/$defs/Ident"
+        {
+          "description": "A failed attempt.",
+          "type": "string",
+          "const": "fail"
+        },
+        {
+          "description": "An accomplishment — the beat the season's `accomplishment-earned` rule\njoins over.",
+          "type": "string",
+          "const": "accomplishment"
         }
-      },
-      "additionalProperties": false,
-      "required": [
-        "pred",
-        "args"
       ]
     },
-    "Delta": {
-      "description": "A single resource change.",
+    "BeatRow": {
+      "description": "A beat: a try, fail, or accomplishment with a thread and a magnitude (§7.1).",
       "type": "object",
       "properties": {
-        "amount": {
-          "description": "The signed change amount.",
-          "type": "integer",
-          "format": "int64"
+        "assisted": {
+          "description": "Whether the beat was assisted.",
+          "type": "boolean",
+          "default": false
         },
-        "resource": {
-          "description": "The resource affected.",
-          "$ref": "#/$defs/Ident"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "resource",
-        "amount"
-      ]
-    },
-    "DraftMeta": {
-      "description": "Draft metadata (the `payload/v1` header).",
-      "type": "object",
-      "properties": {
-        "scope": {
-          "description": "The scope this draft targets.",
+        "by": {
+          "description": "Who performs the beat.",
+          "type": "string",
+          "default": ""
+        },
+        "id": {
+          "description": "The beat identifier.",
           "type": "string"
         },
-        "title": {
-          "description": "The draft title.",
-          "type": "string"
+        "kind": {
+          "description": "The beat's kind.",
+          "$ref": "#/$defs/BeatKind"
         },
-        "version": {
-          "description": "The payload schema version.",
+        "line": {
+          "description": "The draft line the quote sits on (1-based).",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
+        },
+        "magnitude": {
+          "description": "The beat's magnitude.",
+          "$ref": "#/$defs/Magnitude"
+        },
+        "outcome": {
+          "description": "The try/fail typing, when the extractor carried it — sharpens the season\n`accomplishment-earned` join (spec §3 reads the failure set\n{yes-but, no-but, no-and} from here; `None` degrades to reading\n[`kind`](Self::kind), so a payload that records only the coarse\ntry/fail/accomplishment signal still joins).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TryFailOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote": {
+          "description": "The verbatim draft text this beat is drawn from.",
+          "type": "string"
+        },
+        "scene": {
+          "description": "The scene the beat sits in.",
+          "type": "string"
+        },
+        "thread": {
+          "description": "The thread the beat belongs to — the identity the season join runs on.",
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "required": [
-        "title",
-        "scope",
-        "version"
+        "id",
+        "scene",
+        "kind",
+        "thread",
+        "magnitude",
+        "quote",
+        "line"
       ]
     },
-    "DraftPayload": {
-      "description": "A draft payload (`payload/v1`): everything a draft asserts and spends.",
+    "Claim": {
+      "description": "A factcheck atom, anchored to the draft (§7.1).",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The atom in surface form, e.g. `holds(enfys, consent(household, door))`.\n`PAY-2` parses this into a typed atom for the fact-checker.",
+          "type": "string"
+        },
+        "line": {
+          "description": "The draft line the quote sits on (1-based).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quote": {
+          "description": "The verbatim draft text this claim is drawn from.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "atom",
+        "quote",
+        "line"
+      ]
+    },
+    "DeltaKind": {
+      "description": "The dimension a [`DeltaRow`] moves (§7.1).",
+      "oneOf": [
+        {
+          "description": "A character (or the listener) learns a fact.",
+          "type": "string",
+          "const": "knowledge"
+        },
+        {
+          "description": "Possession of an object changes hands.",
+          "type": "string",
+          "const": "possession"
+        },
+        {
+          "description": "A character's location changes.",
+          "type": "string",
+          "const": "location"
+        },
+        {
+          "description": "A character takes or heals an injury.",
+          "type": "string",
+          "const": "injury"
+        }
+      ]
+    },
+    "DeltaRow": {
+      "description": "A knowledge / possession / location / injury delta the draft records (§7.1).\n\nDeltas carry no quote and are not quote-anchored — they are the state moves\nthe continuity fold consumes, keyed by scene and line for provenance.",
+      "type": "object",
+      "properties": {
+        "fact": {
+          "description": "The fact / object / place / injury moved.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The dimension moved.",
+          "$ref": "#/$defs/DeltaKind"
+        },
+        "line": {
+          "description": "The draft line the delta is drawn from (1-based).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scene": {
+          "description": "The scene the delta happens in.",
+          "type": "string"
+        },
+        "who": {
+          "description": "Whose state changes.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who",
+        "fact",
+        "scene",
+        "line"
+      ]
+    },
+    "ExtractorManifest": {
+      "description": "The extractor manifest: the schema version, and the model + prompt that\nproduced each extracted field (§7.1).\n\nThe lexicon and banned-vocabulary rows are deterministic scans with no model\ninvolved, so they carry no [`ExtractorRef`].",
+      "type": "object",
+      "properties": {
+        "fields": {
+          "description": "The extractor identity for each extracted field (`beats`, `claims`, …).",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtractorRef"
+          },
+          "default": {}
+        },
+        "schema": {
+          "description": "The payload schema version, e.g. `payload/v1`.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtractorRef": {
+      "description": "The identity of the model and prompt that produced one extracted field (§7.1).",
+      "type": "object",
+      "properties": {
+        "model": {
+          "description": "The model that produced the field.",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The `sha256:` hash of the rendered extraction prompt.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "prompt"
+      ]
+    },
+    "Lexicon": {
+      "description": "The deterministic lexicon scan carried in the payload (§7.1).\n\nNo model is involved: these ride along so the report is one artifact, but they\nare not encodings and carry no extractor.",
+      "type": "object",
+      "properties": {
+        "banned_hits": {
+          "description": "Banned-vocabulary hits the deterministic scan found (empty in a clean\ndraft).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "register_tokens": {
+          "description": "The count of register-true tokens the scan saw.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Magnitude": {
+      "description": "A beat's dramatic magnitude — the scale the `accomplishment-earned` rule\nreads (§3).",
+      "oneOf": [
+        {
+          "description": "A minor beat.",
+          "type": "string",
+          "const": "minor"
+        },
+        {
+          "description": "A major beat — the `accomplishment-earned` threshold.",
+          "type": "string",
+          "const": "major"
+        },
+        {
+          "description": "A climax-class beat — requires two prior failures on its thread.",
+          "type": "string",
+          "const": "climax"
+        }
+      ]
+    },
+    "NameIntro": {
+      "description": "The proper names a payload introduces (§7.1). Each is oracle-vetted or\nhypothesis-carried by the naming family in `PAY-2`.",
+      "type": "object",
+      "properties": {
+        "introduced": {
+          "description": "Names first used in this episode.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Payload": {
+      "description": "The structured shadow of a drafted episode — `payload/v1` (§7.1).\n\nThe top-level keys mirror the spec's worked YAML exactly: [`meta`](Self::meta)\n(source hash and extractor manifest), [`claims`](Self::claims),\n[`deltas`](Self::deltas), [`scenes`](Self::scenes), [`beats`](Self::beats),\n[`promises`](Self::promises), [`proof_ledgers`](Self::proof_ledgers),\n[`names`](Self::names), and [`lexicon`](Self::lexicon).",
       "type": "object",
       "properties": {
         "beats": {
-          "description": "Beat identifiers.",
+          "description": "Beats: tries, fails, and accomplishments with threads and magnitudes.",
           "type": "array",
+          "default": [],
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/BeatRow"
           }
         },
         "claims": {
-          "description": "The claims the draft asserts.",
+          "description": "Factcheck atoms, each anchored to a draft quote and line.",
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/$defs/AtomExpr"
+            "$ref": "#/$defs/Claim"
           }
         },
         "deltas": {
-          "description": "Resource deltas the draft records.",
+          "description": "Knowledge / possession / location / injury deltas the draft records.",
           "type": "array",
+          "default": [],
           "items": {
-            "$ref": "#/$defs/Delta"
+            "$ref": "#/$defs/DeltaRow"
           }
         },
         "lexicon": {
-          "description": "Coined lexicon terms introduced.",
-          "type": "array",
-          "items": {
-            "type": "string"
+          "description": "The deterministic lexicon and banned-vocabulary scan (no model involved).",
+          "$ref": "#/$defs/Lexicon",
+          "default": {
+            "banned_hits": [],
+            "register_tokens": 0
           }
         },
         "meta": {
-          "description": "Draft metadata.",
-          "$ref": "#/$defs/DraftMeta"
+          "description": "Source provenance and the extractor manifest.",
+          "$ref": "#/$defs/PayloadMeta",
+          "default": {
+            "episode": "",
+            "extracted": "",
+            "extractors": {
+              "fields": {},
+              "schema": ""
+            },
+            "source": {
+              "file": "",
+              "sha256": "",
+              "words": 0
+            }
+          }
         },
         "names": {
-          "description": "Proper names introduced (each must pass the naming oracle).",
-          "type": "array",
-          "items": {
-            "type": "string"
+          "description": "Proper names introduced.",
+          "$ref": "#/$defs/NameIntro",
+          "default": {
+            "introduced": []
           }
         },
         "promises": {
-          "description": "Promise-ledger entries opened or closed.",
-          "type": "array",
-          "items": {
-            "type": "string"
+          "description": "Promises opened and closed.",
+          "$ref": "#/$defs/PromiseLedger",
+          "default": {
+            "closed": [],
+            "opened": []
           }
         },
-        "proofs": {
-          "description": "Proof references (the in-practice proof blocks the draft closes).",
+        "proof_ledgers": {
+          "description": "Per-scene proof ledgers, replayed through the practice checker in `PAY-2`.",
           "type": "array",
+          "default": [],
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/ProofLedgerRow"
           }
         },
         "scenes": {
-          "description": "Scene identifiers.",
+          "description": "Scenes: cast, presence, location, phase observations.",
           "type": "array",
+          "default": [],
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/SceneRow"
           }
         }
       },
-      "additionalProperties": false,
-      "required": [
-        "meta",
-        "claims",
-        "deltas",
-        "scenes",
-        "beats",
-        "promises",
-        "proofs",
-        "names",
-        "lexicon"
-      ]
+      "additionalProperties": false
     },
-    "FileId": {
-      "description": "Identifier for a source file within a compilation.",
-      "type": "integer",
-      "format": "uint32",
-      "minimum": 0
-    },
-    "Ident": {
-      "description": "A named identifier with its source span.",
+    "PayloadMeta": {
+      "description": "The payload header: source provenance and the extractor manifest (§7.1).",
       "type": "object",
       "properties": {
-        "span": {
-          "description": "Where the identifier appears in source.",
-          "$ref": "#/$defs/Span"
+        "episode": {
+          "description": "The episode this payload shadows.",
+          "type": "string",
+          "default": ""
         },
-        "text": {
-          "description": "The identifier text as written.",
+        "extracted": {
+          "description": "The date the payload was extracted (`YYYY-MM-DD`).",
+          "type": "string",
+          "default": ""
+        },
+        "extractors": {
+          "description": "The extractor manifest: schema version and per-field extractor identity.",
+          "$ref": "#/$defs/ExtractorManifest",
+          "default": {
+            "fields": {},
+            "schema": ""
+          }
+        },
+        "source": {
+          "description": "The source draft this payload pins.",
+          "$ref": "#/$defs/SourceRef",
+          "default": {
+            "file": "",
+            "sha256": "",
+            "words": 0
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PromiseKind": {
+      "description": "The kind of promise made to the listener.",
+      "oneOf": [
+        {
+          "description": "The season-spanning umbrella promise.",
+          "type": "string",
+          "const": "umbrella"
+        },
+        {
+          "description": "A core dramatic promise.",
+          "type": "string",
+          "const": "core"
+        },
+        {
+          "description": "A character-arc promise.",
+          "type": "string",
+          "const": "character"
+        },
+        {
+          "description": "A mystery/open-question promise.",
+          "type": "string",
+          "const": "mystery"
+        },
+        {
+          "description": "A relationship promise.",
+          "type": "string",
+          "const": "relationship"
+        },
+        {
+          "description": "A tonal promise.",
+          "type": "string",
+          "const": "tone"
+        }
+      ]
+    },
+    "PromiseLedger": {
+      "description": "The promises a payload opens and closes (§7.1).",
+      "type": "object",
+      "properties": {
+        "closed": {
+          "description": "Promises closed in this episode.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PromiseRow"
+          }
+        },
+        "opened": {
+          "description": "Promises opened in this episode.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PromiseRow"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PromiseRow": {
+      "description": "One promise the draft opens or closes, anchored to its opening/closing quote\n(§7.1). [`kind`](Self::kind) reuses the outline schema's [`PromiseKind`] so a\npayload promise and an outline promise speak the same vocabulary.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The promise identifier.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The kind of promise.",
+          "$ref": "#/$defs/PromiseKind"
+        },
+        "line": {
+          "description": "The draft line the quote sits on (1-based).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quote": {
+          "description": "The verbatim draft text the promise is drawn from.",
           "type": "string"
         }
       },
       "additionalProperties": false,
       "required": [
-        "text",
-        "span"
+        "id",
+        "kind",
+        "quote",
+        "line"
       ]
     },
-    "Span": {
-      "description": "A half-open byte range within a single source file.",
+    "ProofClose": {
+      "description": "A proof's conclusion: the atom it closes on and the verdict it expects (§7.1).",
       "type": "object",
       "properties": {
-        "end": {
-          "description": "End byte offset (exclusive).",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
+        "atom": {
+          "description": "The atom the casting closes on, in surface form.",
+          "type": "string"
         },
-        "file": {
-          "description": "The file this span points into.",
-          "$ref": "#/$defs/FileId"
-        },
-        "start": {
-          "description": "Start byte offset (inclusive).",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
+        "expect": {
+          "description": "The expected verdict token (`holds`, `blocked`, `fails-at <error>`);\n`PAY-2` maps it to the ledger checker's\n[`Expectation`](dli_ledger::Expectation).",
+          "type": "string",
+          "default": ""
         }
       },
       "additionalProperties": false,
       "required": [
-        "file",
-        "start",
-        "end"
+        "atom"
       ]
     },
-    "Term": {
-      "description": "A term: a variable, symbol, literal, or time reference.",
-      "oneOf": [
-        {
-          "description": "A logic variable (unifies during evaluation).",
-          "type": "object",
-          "properties": {
-            "Var": {
-              "$ref": "#/$defs/Ident"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Var"
-          ]
+    "ProofLedger": {
+      "description": "The premises, steps, and close of a shadowed proof (§7.1).",
+      "type": "object",
+      "properties": {
+        "close": {
+          "description": "The casting's conclusion and expected verdict.",
+          "$ref": "#/$defs/ProofClose",
+          "default": {
+            "atom": "",
+            "expect": ""
+          }
         },
-        {
-          "description": "A ground symbol naming an entity.",
-          "type": "object",
-          "properties": {
-            "Sym": {
-              "$ref": "#/$defs/Ident"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Sym"
-          ]
+        "premises": {
+          "description": "The premises the casting rests on, in surface form.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
         },
-        {
-          "description": "A string literal.",
-          "type": "object",
-          "properties": {
-            "Str": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Str"
-          ]
-        },
-        {
-          "description": "An integer literal.",
-          "type": "object",
-          "properties": {
-            "Int": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Int"
-          ]
-        },
-        {
-          "description": "A reference into the time domain.",
-          "type": "object",
-          "properties": {
-            "Time": {
-              "$ref": "#/$defs/TimeRef"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Time"
-          ]
+        "steps": {
+          "description": "The proof steps, in surface form.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
         }
+      },
+      "additionalProperties": false
+    },
+    "ProofLedgerRow": {
+      "description": "A scene's proof ledger — the shadow of a diegetic proof block (§7.1).\n\n`PAY-2` replays it through the practice checker with the scene projection\n([`04-practices`](../../../../docs/spec/04-practices.md)).",
+      "type": "object",
+      "properties": {
+        "ledger": {
+          "description": "The ledger itself.",
+          "$ref": "#/$defs/ProofLedger"
+        },
+        "scene": {
+          "description": "The scene the ledger belongs to.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scene",
+        "ledger"
       ]
     },
-    "TimeRef": {
-      "description": "A reference to a named era or event on the timeline.",
+    "SceneRow": {
+      "description": "A scene's cast, presence, location, and phase observations (§7.1).",
+      "type": "object",
+      "properties": {
+        "cast": {
+          "description": "The on-mic cast (active speakers).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "The scene identifier.",
+          "type": "string"
+        },
+        "location": {
+          "description": "Where the scene takes place.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "off_mic": {
+          "description": "Cast present but off-mic.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "phases": {
+          "description": "The phase in force for each cycle in the scene (`tide` → `slack`).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "SourceRef": {
+      "description": "The draft a payload shadows, pinned by content hash (§7.4 staleness).",
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "The draft file name.",
+          "type": "string",
+          "default": ""
+        },
+        "sha256": {
+          "description": "The `sha256` hex of the draft content this payload shadows. A `sha256:`\nprefix is tolerated on read ([`check_staleness`]).",
+          "type": "string",
+          "default": ""
+        },
+        "words": {
+          "description": "The draft word count at extraction time.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "TryFailOutcome": {
+      "description": "A try/fail outcome, typed on the yes/no × but/and grid.",
       "oneOf": [
         {
-          "description": "A named era (a span).",
-          "type": "object",
-          "properties": {
-            "Era": {
-              "$ref": "#/$defs/Ident"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Era"
-          ]
+          "description": "Succeeds, but at a cost that complicates.",
+          "type": "string",
+          "const": "yes-but"
         },
         {
-          "description": "A named event (a point).",
-          "type": "object",
-          "properties": {
-            "Event": {
-              "$ref": "#/$defs/Ident"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "Event"
-          ]
+          "description": "Fails, and the situation worsens.",
+          "type": "string",
+          "const": "no-and"
+        },
+        {
+          "description": "Fails, but a consolation opens a path.",
+          "type": "string",
+          "const": "no-but"
+        },
+        {
+          "description": "Succeeds cleanly — the terminal outcome.",
+          "type": "string",
+          "const": "yes-and"
         }
       ]
     }

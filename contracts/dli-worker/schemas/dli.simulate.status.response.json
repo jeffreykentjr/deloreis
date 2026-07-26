@@ -4,23 +4,287 @@
   "description": "`dli.simulate.status` result.",
   "type": "object",
   "properties": {
+    "job_id": {
+      "description": "The content-addressed job id.",
+      "type": "string"
+    },
     "manifest": {
-      "description": "The final manifest, present once the job is complete."
+      "description": "The final manifest, present once the job is complete.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunManifest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "manifest_digest": {
+      "description": "JCS SHA-256 of the final manifest.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "status": {
       "description": "The job status.",
-      "type": "string"
+      "$ref": "#/$defs/SimulateJobStatus"
     },
-    "trace": {
-      "description": "One line per simulated turn so far.",
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+    "trials_done": {
+      "description": "Trials durably folded so far.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "trials_total": {
+      "description": "Total trials requested.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
     }
   },
   "required": [
+    "job_id",
     "status",
-    "trace"
-  ]
+    "trials_done",
+    "trials_total"
+  ],
+  "$defs": {
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "InvariantOutcome": {
+      "description": "The outcome of sweeping one exact invariant over every trial of a run.",
+      "oneOf": [
+        {
+          "description": "The predicate held on every trial the run produced.",
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "const": "held"
+            }
+          },
+          "required": [
+            "outcome"
+          ]
+        },
+        {
+          "description": "The predicate failed; the earliest witnessing trial and why.",
+          "type": "object",
+          "properties": {
+            "detail": {
+              "description": "A domain-spoken account of the breach.",
+              "type": "string"
+            },
+            "outcome": {
+              "type": "string",
+              "const": "violated"
+            },
+            "trial": {
+              "description": "The lowest-indexed trial at which the invariant broke.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "outcome",
+            "trial",
+            "detail"
+          ]
+        },
+        {
+          "description": "The predicate's law was never enforced this run, so nothing was actually\nswept — an `affine bounded` resource whose symbolic cap never resolved to a\nnumber (or a resource with no declared law) can neither hold nor break. A\ndeferred outcome is reported honestly and MUST NOT read as a held pass: an\nunenforced law that showed `held` would forge a verified grade\n(`docs/spec/07-verdicts-and-llm-boundary.md` — grades are honest).",
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "const": "deferred"
+            },
+            "reason": {
+              "description": "Why the law was not enforced (the unresolved-cap reason).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "outcome",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "InvariantVerdict": {
+      "description": "The verdict of one declared invariant over a run, graded [`Grade::Checked`].",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "Always [`Grade::Checked`] — an invariant is an exact, re-derivable sweep.\n\nPrivate: the only writer is [`new`](InvariantVerdict::new), which stamps\nthe type-level constant, so no struct literal outside this module can\nforge a grade. Read it with [`grade`](InvariantVerdict::grade).\nDeserialization re-checks it against the constant, so a forged wire value\nis rejected rather than admitted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "invariant": {
+          "description": "The name of the declared invariant this settles.",
+          "type": "string"
+        },
+        "outcome": {
+          "description": "Held, or violated with the witnessing trial.",
+          "$ref": "#/$defs/InvariantOutcome"
+        }
+      },
+      "required": [
+        "invariant",
+        "outcome",
+        "grade"
+      ]
+    },
+    "MetricEstimate": {
+      "description": "A Monte-Carlo estimate of one declared metric, graded [`Grade::Tested`].\n\nThe [`sum`](MetricEstimate::sum) and [`sum_of_squares`](MetricEstimate::sum_of_squares)\nare the exact integer sufficient statistics — the portable, replayable core of\nthe estimate. The [`mean`](MetricEstimate::mean) and\n[`half_width`](MetricEstimate::half_width) are derived conveniences (a 95%\nnormal-approximation interval); trust the counts, read the interval.",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "Always [`Grade::Tested`] — a metric is a statistical estimate, forever.\n\nPrivate: the only writer is [`from_counts`](MetricEstimate::from_counts),\nwhich stamps the type-level constant, so no struct literal outside this\nmodule can forge a grade. Read it with [`grade`](MetricEstimate::grade).\nDeserialization re-checks it against the constant, so a forged wire value\nis rejected rather than admitted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "half_width": {
+          "description": "Half-width of the 95% normal-approximation interval; `0.0` below 2 trials.",
+          "type": "number",
+          "format": "double"
+        },
+        "mean": {
+          "description": "The point estimate: `sum / trials`, or `0.0` when no trial contributed.",
+          "type": "number",
+          "format": "double"
+        },
+        "metric": {
+          "description": "The name of the declared metric this estimates.",
+          "type": "string"
+        },
+        "sum": {
+          "description": "The exact sum of the observed per-trial values.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "sum_of_squares": {
+          "description": "The exact sum of squares of the observed values (for the variance).",
+          "type": "integer",
+          "format": "int64"
+        },
+        "trials": {
+          "description": "The number of trials that contributed an observation.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "metric",
+        "trials",
+        "sum",
+        "sum_of_squares",
+        "mean",
+        "half_width",
+        "grade"
+      ]
+    },
+    "RunManifest": {
+      "description": "The committed record of a battery run.\n\nSerialization is deterministic: declaration-ordered fields, `Vec`s in the\nbattery's own declaration order (never a hash map), so\n[`canonical_bytes`](RunManifest::canonical_bytes) is byte-stable and two runs\nof the same battery — straight through or resumed from a checkpoint — produce\nidentical bytes.\n\nDeserialization is guarded: each grade field validates itself against its\ntype-level constant as it is read (see\n[`MetricEstimate`]/[`InvariantVerdict`]), so a hostile record with a forged\ngrade (a metric stamped `checked`, an invariant stamped `tested`) is\n*rejected* at `deserialize` time in release, not merely in a debug assertion.\nCombined with the private grade fields — which block a struct-literal forge at\ncompile time — the SIM-1 oracle cannot be evaded.",
+      "type": "object",
+      "properties": {
+        "battery_digest": {
+          "description": "The digest of the battery that produced this run.",
+          "type": "string"
+        },
+        "checkpoint_lineage": {
+          "description": "The trial-count boundaries at which the run's state was assembled — its\ncheckpoint lineage. `[trials]` for an uninterrupted run; the full cadence\n(e.g. `[k, 2k, …, trials]`) for a checkpointed one, reconstructed\nidentically whether the run was interrupted and resumed or not.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "invariants": {
+          "description": "Per-invariant exact verdicts, in the battery's declaration order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InvariantVerdict"
+          }
+        },
+        "metrics": {
+          "description": "Per-metric Monte-Carlo estimates, in the battery's declaration order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MetricEstimate"
+          }
+        },
+        "seed": {
+          "description": "The master seed the run drew every choice from.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "trials": {
+          "description": "The number of trials folded into this manifest.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "battery_digest",
+        "seed",
+        "trials",
+        "metrics",
+        "invariants",
+        "checkpoint_lineage"
+      ]
+    },
+    "SimulateJobStatus": {
+      "description": "A durable simulation job's lifecycle state.",
+      "oneOf": [
+        {
+          "description": "Reserved and ready to advance.",
+          "type": "string",
+          "const": "pending"
+        },
+        {
+          "description": "At least one checkpoint has been committed.",
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "description": "A final manifest has been committed.",
+          "type": "string",
+          "const": "complete"
+        },
+        {
+          "description": "Cancellation was committed before completion.",
+          "type": "string",
+          "const": "cancelled"
+        }
+      ]
+    }
+  }
 }

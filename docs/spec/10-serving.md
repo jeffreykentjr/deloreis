@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 0.3.0, offline and deterministic. Typed response and fixture closure are complete; durable evidence and resumable jobs remain open."
+verdict: "One project-backed JSON/MCP worker surface at contract 0.4.0, offline and deterministic. Typed responses, durable payload and attestation evidence, and fixture closure are complete; resumable simulation jobs remain open."
 ---
 
 # Serving
@@ -61,6 +61,7 @@ cache = ".dli-cache"
 sources = ["nine-realms.dli", "runes.dli", "seidr.dli"]
 # episodes = "episodes.yaml"
 # killed_tokens = "killed-tokens.yaml"
+# attestation_questions = "attestation-questions.json"
 
 [games.rune-wheel]
 rules = "games/rune-wheel/rules.json"
@@ -98,17 +99,17 @@ the operation, and the operation's params. A mutating `author.*` call may also
 carry `expected_digest` (the optimistic-concurrency fence) and `idempotency_key`:
 
 ```json
-{"dli": "0.3.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
+{"dli": "0.4.0", "id": "<correlation>", "op": "dli.<name>", "params": {"…": "…"}}
 ```
 
 Every response echoes the protocol tag and id and is either a result or a typed
 error:
 
 ```json
-{"dli": "0.3.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
+{"dli": "0.4.0", "id": "<correlation>", "ok": true, "result": {"…": "…"}}
 ```
 ```json
-{"dli": "0.3.0", "id": "<correlation>", "ok": false,
+{"dli": "0.4.0", "id": "<correlation>", "ok": false,
  "error": {"code": "<stable class>", "message": "<domain-spoken>"}}
 ```
 
@@ -140,7 +141,7 @@ lists the wire op names the build actually implements, so a consumer degrades
 gracefully rather than calling an op the running build has not wired — an
 unwired-but-recognized op returns a typed `not-wired` error, not a silent misread.
 
-Contract `0.3.0` returns complete typed query rows, before/after fork changes,
+Contract `0.4.0` returns complete typed query rows, before/after fork changes,
 named preflight valuations, typed timeline reports, and target-shaped export
 emissions. The generated response schemas under `contracts/dli-worker/schemas/`
 are the machine-readable authority for those shapes.
@@ -169,11 +170,11 @@ The full `dli.*` inventory is normatively specified in
 `integration/fantasy-contract.md`, where each op carries its request/response
 JSON Schema and its golden, negative, and framing fixtures. What follows is the
 semantics-side description: what each op means and which spec organ owns its
-behavior. Seven rows are capability-gated at contract `0.3.0`:
-`dli.check-draft`, `dli.simulate.*`, `dli.attest.missing`,
-`dli.attestation-sweep`, and `dli.payload-submit`. Their rows describe the
-semantics required before they may be advertised; the retained schemas are
-reservations, not implemented behavior. The inventory, by family:
+behavior. Three rows are capability-gated at contract `0.4.0`:
+`dli.simulate.start`, `dli.simulate.status`, and `dli.simulate.cancel`. Their
+rows describe the semantics required before they may be advertised; the
+retained schemas are reservations, not implemented behavior. The inventory, by
+family:
 
 | Op | Meaning | Owning spec |
 |---|---|---|
@@ -252,18 +253,18 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
-This scenario is the target job contract, not a valid `0.3.0` request. The
-request/response schemas will migrate before `dli.simulate.*` is advertised.
+This scenario is the target job behavior. Contract `0.4.0` already reserves the
+request and response shapes, but the operations remain unadvertised until the
+durability and restart semantics exist.
 
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
 
 ```json
-→ {"op": "dli.simulate.start", "ruleset": "game@main",
-   "delta": "lore/variants/salt-fringe.dli", "games": 100000,
-   "seed": 41, "checkpoint_every": 10000,
-   "metrics": ["game_length", "debt_spread", "forced_loss_rate"]}
-← {"job_id": "sim-0042", "status": "running"}
+→ {"op": "dli.simulate.start",
+   "params": {"document": "game", "seed": 41, "trials": 100000,
+              "checkpoint_every": 10000}}
+← {"job_id": "sha256:…", "status": "pending"}
 ```
 
 The consumer polls `dli.simulate.status`; checkpoints mean a killed job resumes
@@ -314,11 +315,19 @@ the episode.
 
 ## 4. The write surface
 
-At contract `0.3.0`, no batch operation writes project storage. RQ drafts are
-returned **as data** in the response (§3.1), and the worker never files them.
-The project manifest reserves `.dli-evidence/` and `.dli-cache/`, but durable
-payload, attestation, checkpoint, and run-manifest writes remain gated until
-their atomic persistence paths land.
+At contract `0.4.0`, accepted fat payloads are written as RFC 8785 JCS beneath
+`.dli-evidence/payloads/<document>/<sha256>.json`. Attestation sweeps append JCS
+batches beneath
+`.dli-evidence/attestations/<document>/batches/<sha256>.json`; batches form one
+verified, unbranched parent chain while each question retains its supersession
+history. Writers take a project-wide advisory lock and publish immutable files
+with a file and directory sync around atomic rename. Reads verify canonical
+bytes, digest filenames, and chain integrity before exposing evidence.
+
+Rejected payloads and attestation records publish no evidence file. RQ drafts
+are returned **as data** in the response (§3.1), and the worker never files
+them. Simulation checkpoint and run-manifest writes remain gated until Phase
+5B's durable job path lands.
 
 The worker never writes canon, and it never writes a ruling-request file
 directly. An open question surfaced by the worker is a debt the consumer files
@@ -330,7 +339,7 @@ the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and implemented check ops are synchronous and cheap. At contract `0.3.0`,
+Query and implemented check ops are synchronous and cheap. At contract `0.4.0`,
 `dli.simulate.*` is capability-gated: the existing in-process synchronous seam
 does not satisfy the promised asynchronous, checkpointed, restart-resumable job
 contract and is therefore not advertised. The target remains detached

@@ -2,7 +2,7 @@
   "fixture": "golden/author-add-option-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -10,7 +10,7 @@
       }
     },
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-2",
       "op": "author.open_question",
       "params": {
@@ -23,7 +23,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -31,11 +31,11 @@
           "rendered": [
             "  option opt-a \"the guild\""
           ],
-          "workspace_digest": "jcs:sha256:7796f088c4c884588757e367ca97fd13b85f3b5e8ee90955f32f3803e33c33c4"
+          "workspace_digest": "jcs:sha256:299f4448567f1fb955a2dad8766bf6e8f7f95fd49ee7347b1abcf86216407391"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.add_option",
         "params": {

@@ -4,14 +4,22 @@
   "description": "`dli.attestation-sweep` params.",
   "type": "object",
   "properties": {
-    "store": {
-      "description": "The attestation store to sweep.",
-      "$ref": "#/$defs/AttestationStore"
+    "document": {
+      "description": "The project document whose demand these answers satisfy.",
+      "type": "string"
+    },
+    "records": {
+      "description": "New records to append transactionally.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Attestation"
+      }
     }
   },
   "additionalProperties": false,
   "required": [
-    "store"
+    "document",
+    "records"
   ],
   "$defs": {
     "Attestation": {
@@ -73,23 +81,6 @@
         "policy",
         "sweep",
         "fingerprint"
-      ]
-    },
-    "AttestationStore": {
-      "description": "The append-only store of recorded attestations — an evidence class that lives\nwith the corpus, like simulation manifests.\n\nAppend-only **per question**: a new answer to a question [`append`]s a\nsuperseding record; the chain is retained and readable. There is **no\noverwrite, replace, or remove API** — the only mutator is [`append`]. The\nhead record answers a question; the tail is history (the guardrail-corpus\nrule, applied to model opinions).\n\n[`append`]: AttestationStore::append",
-      "type": "object",
-      "properties": {
-        "attestations": {
-          "description": "Every recorded attestation, in insertion order. Private so the only\nmutation is append — superseding never overwrites.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Attestation"
-          }
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "attestations"
       ]
     },
     "ContentHash": {

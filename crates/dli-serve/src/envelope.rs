@@ -91,6 +91,12 @@ pub enum ErrorCode {
     /// `stale-fence` (the digest moved): the key is bound to its first payload,
     /// and a conflicting reuse is refused rather than silently replayed.
     Conflict,
+    /// A durable operation was called in explicit demo mode.
+    ProjectRequired,
+    /// Committed evidence failed its digest, canonicalization, or lineage checks.
+    EvidenceCorrupt,
+    /// A referenced durable simulation job does not exist.
+    UnknownJob,
     /// An unexpected internal error.
     Internal,
 }
@@ -98,7 +104,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Every error code, in declaration order. The single source of truth for
     /// the closed code set (consumers derive their lists from this).
-    pub const ALL: [ErrorCode; 13] = [
+    pub const ALL: [ErrorCode; 16] = [
         ErrorCode::BadFrame,
         ErrorCode::UnknownOp,
         ErrorCode::SchemaViolation,
@@ -111,6 +117,9 @@ impl ErrorCode {
         ErrorCode::NotWired,
         ErrorCode::VersionMismatch,
         ErrorCode::Conflict,
+        ErrorCode::ProjectRequired,
+        ErrorCode::EvidenceCorrupt,
+        ErrorCode::UnknownJob,
         ErrorCode::Internal,
     ];
 
@@ -130,6 +139,9 @@ impl ErrorCode {
             ErrorCode::NotWired => "not-wired",
             ErrorCode::VersionMismatch => "version-mismatch",
             ErrorCode::Conflict => "conflict",
+            ErrorCode::ProjectRequired => "project-required",
+            ErrorCode::EvidenceCorrupt => "evidence-corrupt",
+            ErrorCode::UnknownJob => "unknown-job",
             ErrorCode::Internal => "internal",
         }
     }

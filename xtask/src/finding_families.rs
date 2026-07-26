@@ -504,8 +504,8 @@ const FAMILIES: &[Family] = &[
     Family {
         key: "author",
         title: "author — Door-T authoring findings",
-        emitter: "the `author.*` MCP tools (Door T); `draft.defect` also rides `dli.check-draft`",
-        owner: "dli-serve :: author/tools.rs + handlers.rs (Finding)",
+        emitter: "the `author.*` MCP tools (Door T)",
+        owner: "dli-serve :: author/tools.rs (Finding)",
         severity_note: "Per-code severity gates `author.materialize`: an `error` blocks it, a \
             `warn` passes. These are the findings that carry structured machine repairs.",
         sources: &[
@@ -591,12 +591,6 @@ const FAMILIES: &[Family] = &[
                 severity: "error",
                 repair: "add-provenance",
                 meaning: "Door T authors `proposed` or `hypothesis` only; an agent cannot cite a ruling to mint canon authority.",
-            },
-            Code {
-                code: "draft.defect",
-                severity: "error",
-                repair: "—",
-                meaning: "a fact-checked draft claim is a defect (contradicted, unsupported, unknown-entity, or a revived killed token).",
             },
         ],
     },

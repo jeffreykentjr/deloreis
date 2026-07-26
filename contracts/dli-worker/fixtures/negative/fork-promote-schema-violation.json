@@ -3,7 +3,7 @@
   "version": 1,
   "note": "params omit every required field, violating the op schema.",
   "send": {
-    "dli": "0.3.0",
+    "dli": "0.4.0",
     "id": "1",
     "op": "dli.fork.promote",
     "params": {}

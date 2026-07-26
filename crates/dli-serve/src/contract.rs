@@ -17,12 +17,13 @@ use dli_eval::why::{Why, WhyNot};
 use dli_export::{ContextPack, ExportManifest, ExportProfile};
 use dli_game::export::{CardDeck, LudiiExport};
 use dli_ledger::ProofReport;
+use dli_sim::RunManifest;
 use dli_time::cycle::CyclePos;
 use dli_time::slack::EpisodeSlack;
-use dli_world::attest::{Attestation, AttestationStore};
-use dli_world::draft::{DraftFinding, DraftPayload};
+use dli_world::attest::{Attestation, ContentHash, Question};
 use dli_world::episode::{EpisodeAnchor, Knower, OpenLoopLedger, Placement};
 use dli_world::episode_order::OrderIntegrityFinding;
+use dli_world::payload::{Payload, PayloadFinding};
 
 use crate::finding::{Finding, Provenance};
 
@@ -361,15 +362,19 @@ pub struct CheckProofResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CheckDraftParams {
-    /// The draft payload to check.
-    pub payload: DraftPayload,
+    /// The project document the draft belongs to.
+    pub document: String,
+    /// The complete structured shadow to check.
+    pub payload: Payload,
+    /// The draft prose the payload quotes and hashes.
+    pub source: String,
 }
 
 /// `dli.check-draft` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CheckDraftResult {
-    /// One finding per checked claim.
-    pub findings: Vec<DraftFinding>,
+    /// The merged, deterministically ordered payload battery.
+    pub findings: Vec<PayloadFinding>,
 }
 
 // -- dli.simulate.start ------------------------------------------------------
@@ -382,8 +387,10 @@ pub struct SimulateStartParams {
     pub document: String,
     /// The RNG seed.
     pub seed: u64,
-    /// The number of turns to simulate.
-    pub turns: u32,
+    /// The number of trials to simulate.
+    pub trials: u64,
+    /// Trials folded between durable checkpoints.
+    pub checkpoint_every: u64,
 }
 
 /// `dli.simulate.start` result.
@@ -392,7 +399,21 @@ pub struct SimulateStartResult {
     /// The job id to poll.
     pub job_id: String,
     /// The initial job status.
-    pub status: String,
+    pub status: SimulateJobStatus,
+}
+
+/// A durable simulation job's lifecycle state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum SimulateJobStatus {
+    /// Reserved and ready to advance.
+    Pending,
+    /// At least one checkpoint has been committed.
+    Running,
+    /// A final manifest has been committed.
+    Complete,
+    /// Cancellation was committed before completion.
+    Cancelled,
 }
 
 // -- dli.simulate.status -----------------------------------------------------
@@ -408,13 +429,20 @@ pub struct SimulateStatusParams {
 /// `dli.simulate.status` result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SimulateStatusResult {
+    /// The content-addressed job id.
+    pub job_id: String,
     /// The job status.
-    pub status: String,
-    /// One line per simulated turn so far.
-    pub trace: Vec<String>,
+    pub status: SimulateJobStatus,
+    /// Trials durably folded so far.
+    pub trials_done: u64,
+    /// Total trials requested.
+    pub trials_total: u64,
     /// The final manifest, present once the job is complete.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub manifest: Option<serde_json::Value>,
+    pub manifest: Option<RunManifest>,
+    /// JCS SHA-256 of the final manifest.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub manifest_digest: Option<String>,
 }
 
 // -- dli.simulate.cancel -----------------------------------------------------
@@ -430,8 +458,10 @@ pub struct SimulateCancelParams {
 /// `dli.simulate.cancel` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SimulateCancelResult {
+    /// The content-addressed job id.
+    pub job_id: String,
     /// The job status after cancellation.
-    pub status: String,
+    pub status: SimulateJobStatus,
 }
 
 // -- dli.timeline.* ----------------------------------------------------------
@@ -657,15 +687,19 @@ pub enum ExportEmission {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttestationSweepParams {
-    /// The attestation store to sweep.
-    pub store: AttestationStore,
+    /// The project document whose demand these answers satisfy.
+    pub document: String,
+    /// New records to append transactionally.
+    pub records: Vec<Attestation>,
 }
 
 /// `dli.attestation-sweep` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AttestationSweepResult {
-    /// The attestations now stale.
-    pub stale: Vec<Attestation>,
+    /// Number of records accepted.
+    pub accepted: usize,
+    /// SHA-256 address of the immutable append batch.
+    pub batch_digest: String,
 }
 
 // -- dli.payload-submit ------------------------------------------------------
@@ -674,8 +708,12 @@ pub struct AttestationSweepResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PayloadSubmitParams {
-    /// The draft payload to submit.
-    pub payload: DraftPayload,
+    /// The project document the draft belongs to.
+    pub document: String,
+    /// The complete structured shadow to validate and store.
+    pub payload: Payload,
+    /// The draft prose the payload quotes and hashes.
+    pub source: String,
 }
 
 /// `dli.payload-submit` result.
@@ -684,7 +722,10 @@ pub struct PayloadSubmitResult {
     /// Whether the payload was accepted.
     pub accepted: bool,
     /// Findings raised during acceptance.
-    pub findings: Vec<Finding>,
+    pub findings: Vec<PayloadFinding>,
+    /// SHA-256 address of the immutable payload, when accepted.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub payload_digest: Option<String>,
 }
 
 // -- dli.version -------------------------------------------------------------
@@ -744,8 +785,30 @@ pub struct AttestMissingParams {
 /// `dli.attest.missing` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AttestMissingResult {
-    /// Question ids that lack a current attestation.
-    pub questions: Vec<String>,
+    /// Questions lacking a current durable answer.
+    pub questions: Vec<AttestationDemand>,
+}
+
+/// Why a configured attestation question is open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum AttestationDemandReason {
+    /// No record has ever answered this question.
+    Missing,
+    /// The current record's subject fingerprint no longer matches.
+    Stale,
+}
+
+/// One model-judgment request emitted by the deterministic kernel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttestationDemand {
+    /// The full bounded question to pose.
+    pub question: Question,
+    /// The fingerprint an accepted record must carry.
+    pub fingerprint: ContentHash,
+    /// Why the question is in the demand queue.
+    pub reason: AttestationDemandReason,
 }
 
 // -- author.open -------------------------------------------------------------

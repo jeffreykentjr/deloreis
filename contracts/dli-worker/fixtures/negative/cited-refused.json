@@ -4,7 +4,7 @@
   "note": "An agent cannot mint a citation (B1): a `cited` provenance on any author.* tool is refused with an error-severity `provenance.cited-refused` finding and stages NOTHING (empty rendered), rather than accepting the claim. `cited` is Door-H/human-only; the repair points to `proposed`.",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.add_entity",
         "params": {
@@ -32,7 +32,7 @@
         }
       },
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -50,7 +50,7 @@
             }
           ],
           "rendered": [],
-          "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+          "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
         }
       }
     }

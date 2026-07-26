@@ -4,12 +4,44 @@
   "description": "`dli.simulate.cancel` result.",
   "type": "object",
   "properties": {
+    "job_id": {
+      "description": "The content-addressed job id.",
+      "type": "string"
+    },
     "status": {
       "description": "The job status after cancellation.",
-      "type": "string"
+      "$ref": "#/$defs/SimulateJobStatus"
     }
   },
   "required": [
+    "job_id",
     "status"
-  ]
+  ],
+  "$defs": {
+    "SimulateJobStatus": {
+      "description": "A durable simulation job's lifecycle state.",
+      "oneOf": [
+        {
+          "description": "Reserved and ready to advance.",
+          "type": "string",
+          "const": "pending"
+        },
+        {
+          "description": "At least one checkpoint has been committed.",
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "description": "A final manifest has been committed.",
+          "type": "string",
+          "const": "complete"
+        },
+        {
+          "description": "Cancellation was committed before completion.",
+          "type": "string",
+          "const": "cancelled"
+        }
+      ]
+    }
+  }
 }

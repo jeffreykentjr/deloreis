@@ -4,16 +4,16 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
           "workspace": "ws-1",
-          "workspace_digest": "jcs:sha256:607a3ada3df4bdbc31ff3cb09d4a186c73b69d8beb09a6f1a28130cf710e5686"
+          "workspace_digest": "jcs:sha256:64b026e5397fa0be0b344a7a0278f79a9ae142bfce3dac1b5fda510f8fcd4cd3"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.open",
         "params": {
@@ -23,7 +23,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -46,11 +46,11 @@
           "rendered": [
             "place gwern \"Gwern\" proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:45446c4422a24ce0cf3da3195832345b5df979ac7ccba1d55e24fa7d5ee5c0c1"
+          "workspace_digest": "jcs:sha256:c0d3feef9dae1922df141a3089e82c649160c059670dcf918b5082c3aba67dd0"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "2",
         "op": "author.add_entity",
         "params": {
@@ -67,7 +67,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "3",
         "ok": true,
         "result": {
@@ -90,11 +90,11 @@
           "rendered": [
             "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:563a633cb56c25c025150857d21ba5319c8ed001bb0cde347ff602f11105ecd3"
+          "workspace_digest": "jcs:sha256:9198b57bfb7e48522c65883abc1b842dce3356a3256035001fef8a92666d7f22"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "3",
         "op": "author.add_entity",
         "params": {
@@ -111,7 +111,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "4",
         "ok": true,
         "result": {
@@ -119,11 +119,11 @@
           "rendered": [
             "tegwen.trade = net-mender proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:42a26af5ad8150bccadc2fe2d59abc623022e140566a604c7557a9624467e928"
+          "workspace_digest": "jcs:sha256:9409098c9bbcacd624646f645b887147b29001530aa12a029297efbd05ea91a9"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "4",
         "op": "author.add_fact",
         "params": {
@@ -140,7 +140,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "5",
         "ok": true,
         "result": {
@@ -148,11 +148,11 @@
           "rendered": [
             "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:29cc5f3b96b33d4ae5560c86d18b37782934369eb8416cbff8a7f78eb540e74d"
+          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "5",
         "op": "author.add_relation",
         "params": {
@@ -169,7 +169,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "6",
         "ok": true,
         "result": {
@@ -253,11 +253,11 @@
             "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
             "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:29cc5f3b96b33d4ae5560c86d18b37782934369eb8416cbff8a7f78eb540e74d"
+          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "6",
         "op": "author.diff",
         "params": {
@@ -267,7 +267,7 @@
     },
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "7",
         "ok": true,
         "result": {
@@ -280,11 +280,11 @@
             "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
             "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
           ],
-          "workspace_digest": "jcs:sha256:29cc5f3b96b33d4ae5560c86d18b37782934369eb8416cbff8a7f78eb540e74d"
+          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "7",
         "op": "author.materialize",
         "params": {

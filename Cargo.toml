@@ -39,6 +39,9 @@ serde_yaml_ng = "0.10"
 jsonschema = "0.30"
 sha2 = "0.10"
 walkdir = "2"
+fs2 = "0.4"
+serde_json_canonicalizer = "0.3"
+tempfile = "3"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

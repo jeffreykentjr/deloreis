@@ -2,7 +2,7 @@
   "fixture": "golden/author-open-question-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -21,11 +21,11 @@
           "rendered": [
             "question q-1 \"Who raised the Tide-Bell?\""
           ],
-          "workspace_digest": "jcs:sha256:cefa65a2d94be7b7491cfa0988eaacfc28c0c15fd51f84b1f776b944a78f6985"
+          "workspace_digest": "jcs:sha256:4f0d9307db4708ce6120171969e982130513539d6e753ee56593da4015dc071a"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.open_question",
         "params": {

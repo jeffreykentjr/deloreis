@@ -2,7 +2,7 @@
   "fixture": "golden/author-status-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,17 +13,17 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
           "findings": [],
           "rendered": [],
-          "workspace_digest": "jcs:sha256:4b8f5ec2df471da35ef198acac8ba8ef3902e292c354ac2c18b9f39b1bf7703b"
+          "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.status",
         "params": {

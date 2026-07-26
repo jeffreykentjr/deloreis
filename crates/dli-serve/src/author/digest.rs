@@ -6,14 +6,11 @@
 //! staged state, so it moves iff the staged state moves.
 //!
 //! The contract names **RFC 8785 JCS** as the digest domain (fantasy-contract
-//! §3.2/§4). Here we take the deterministic-serialization subset that domain
-//! needs for a *self-consistent* fence: `serde_json` serializes struct fields in
-//! declaration order and arrays in element order, so the encoding of a given
-//! staged state is stable across runs and processes. Full canonicalization
-//! (number/whitespace normalization, cross-serializer key ordering) is only
-//! load-bearing when two independent serializers must agree byte-for-byte on the
-//! *same* digest; the fence only ever compares a digest this engine minted
-//! against one it minted earlier, so deterministic serialization suffices.
+//! §3.2/§4). Every whole-value digest therefore uses a real JCS serializer:
+//! object keys sort by UTF-16 code units, strings and numbers use the RFC's
+//! canonical form, and insignificant whitespace is absent. Independent callers
+//! can reproduce the exact bytes rather than trusting an engine-private field
+//! order.
 
 use std::fmt::Write as _;
 
@@ -37,11 +34,13 @@ pub const DOMAIN: &str = "jcs:sha256:";
 /// ```
 #[must_use]
 pub fn digest_of<T: Serialize>(snapshot: &T) -> String {
-    digest_bytes(&serde_json::to_vec(snapshot).unwrap_or_default())
+    let bytes = serde_json_canonicalizer::to_vec(snapshot)
+        .expect("workspace digest inputs are valid JSON values");
+    digest_bytes(&bytes)
 }
 
 /// Compute `jcs:sha256:<hex>` over raw bytes. The workspace fence hashes the
-/// canonical `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}` string this
+/// canonical `{"base_name":…,"decls":[…],"mode":…,"suppositions":…}` string this
 /// way; it does so incrementally (a streaming SHA-256 that absorbs each staged
 /// declaration once — the incremental reseal, R3/H4/B4), but the bytes hashed are
 /// exactly this string, so the digest value is identical to hashing it whole.
@@ -66,4 +65,23 @@ pub fn digest_hash(hash: &[u8]) -> String {
         let _ = write!(out, "{byte:02x}");
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Serialize;
+
+    use super::{digest_bytes, digest_of};
+
+    #[derive(Serialize)]
+    struct OutOfOrder<'a> {
+        z: &'a str,
+        a: f64,
+    }
+
+    #[test]
+    fn digest_is_over_rfc_8785_bytes() {
+        let value = OutOfOrder { z: "last", a: 1.0 };
+        assert_eq!(digest_of(&value), digest_bytes(br#"{"a":1,"z":"last"}"#));
+    }
 }

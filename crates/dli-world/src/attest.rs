@@ -79,6 +79,7 @@ impl std::fmt::Display for QuestionKey {
 /// tone-fit), exactly the kind of question to spend model time and zero author
 /// time on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Question {
     /// The question class, e.g. `dialect-real-basis`.
     pub kind: String,
@@ -102,6 +103,7 @@ impl Question {
 
 /// The model that produced an attestation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ModelRef {
     /// The provider, e.g. `bedrock`.
     pub provider: String,
@@ -115,6 +117,7 @@ pub struct ModelRef {
 
 /// The prompt an attestation was posed under.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PromptRef {
     /// The template reference, e.g. `naming/dialect-basis@v3`.
     pub template: String,
@@ -125,6 +128,7 @@ pub struct PromptRef {
 /// The sampling parameters, including consensus — recorded, but never able to
 /// lift the grade (spec §3: "no amount of model consensus lifts the grade").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Sampling {
     /// The sampling temperature, rendered (e.g. `0.0`). Held as a string so the
     /// record stays `Eq`/`Hash`-clean — it is committed evidence, not a number
@@ -141,6 +145,7 @@ pub struct Sampling {
 
 /// The re-attestation policy carried on a record.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Policy {
     /// When to re-pose the question, e.g. `on-model-change`.
     pub reattest: String,
@@ -153,6 +158,7 @@ pub struct Policy {
 /// judgment is only weakly so. It is an evidence class that lives with the
 /// corpus, machine-written and agent-committed, append-only per question.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Attestation {
     /// The bounded question this record answers.
     pub question: Question,
@@ -237,6 +243,7 @@ impl Attestation {
 ///
 /// [`append`]: AttestationStore::append
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttestationStore {
     /// Every recorded attestation, in insertion order. Private so the only
     /// mutation is append — superseding never overwrites.

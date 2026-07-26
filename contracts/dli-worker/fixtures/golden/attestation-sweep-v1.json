@@ -1,57 +1,74 @@
 {
   "fixture": "golden/attestation-sweep-v1",
   "version": 1,
-  "expected_outcome": "gated",
+  "project": true,
   "steps": [
     {
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "dli.attestation-sweep",
         "params": {
-          "store": {
-            "attestations": [
-              {
-                "question": {
-                  "kind": "dialect-real-basis",
-                  "atom": "name-basis(mara, saltmarket-common)",
-                  "subject": "mara"
-                },
-                "answer": "yes",
-                "rationale_hash": "sha256:c41a",
-                "model": {
-                  "provider": "bedrock",
-                  "id": "example-model",
-                  "as_of": "2026-07-19"
-                },
-                "prompt": {
-                  "template": "naming/dialect-basis@v3",
-                  "hash": "sha256:88d1"
-                },
-                "params": {
-                  "temperature": "0.0",
-                  "max_tokens": 400,
-                  "samples": 3,
-                  "agreement": "3/3"
-                },
-                "policy": {
-                  "reattest": "on-model-change"
-                },
-                "supersedes": null,
-                "sweep": "lab/campaign-082/runs/attest-0007.manifest.json",
-                "fingerprint": "fnv1a64:0000000000000000"
-              }
-            ]
-          }
+          "document": "saltmarket",
+          "records": [
+            {
+              "question": {
+                "kind": "marker-basis",
+                "atom": "marker-basis(baseline)",
+                "subject": "baseline"
+              },
+              "answer": "yes",
+              "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "model": {
+                "provider": "local-test",
+                "id": "deterministic-judge",
+                "as_of": "2026-07-25"
+              },
+              "prompt": {
+                "template": "marker-basis@v1",
+                "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              "params": {
+                "temperature": "0.0",
+                "max_tokens": 20,
+                "samples": 1,
+                "agreement": "1/1"
+              },
+              "policy": {
+                "reattest": "on-content-change"
+              },
+              "supersedes": null,
+              "sweep": "sweeps/test.json",
+              "fingerprint": "fnv1a64:5d05d822f6cb8be9"
+            }
+          ]
         }
       },
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
-        "ok": false,
-        "error": {
-          "code": "not-wired",
-          "message": "dli.attestation-sweep is defined by contract 0.3.0 but this build does not yet implement its promised semantics"
+        "ok": true,
+        "result": {
+          "accepted": 1,
+          "batch_digest": "sha256:641bd656b077d6a7982b3b041ee49910715ffd0b6a00a48246da2256dfe3c62c"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.4.0",
+        "id": "2",
+        "op": "dli.attest.missing",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "expect": {
+        "dli": "0.4.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "questions": []
         }
       }
     }

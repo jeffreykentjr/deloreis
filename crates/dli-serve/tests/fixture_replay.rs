@@ -99,7 +99,7 @@ fn assert_pointer_pairs_equal(control: &Value, attack: &Value, paths: &[Value], 
 
 fn marker_paths(value: &Value, path: &str, out: &mut Vec<String>) {
     match value {
-        Value::String(text) if text.contains("__DLI_FRAME_ATTACK__") => {
+        Value::String(text) if text.to_ascii_uppercase().contains("__DLI_FRAME_ATTACK__") => {
             out.push(path.to_owned());
         }
         Value::Array(items) => {
@@ -202,8 +202,8 @@ fn assert_materialized_reparses(response: &Value, name: &str) {
 }
 
 fn replay_framing_case(case: &Value, name: &str) {
-    let (mut control_sessions, mut control_store) = fixture_stores();
-    let (mut attack_sessions, mut attack_store) = fixture_stores();
+    let (_control_root, mut control_sessions, mut control_store) = fixture_stores();
+    let (_attack_root, mut attack_sessions, mut attack_store) = fixture_stores();
     run_precondition(case, &mut control_sessions, &mut control_store, name);
     run_precondition(case, &mut attack_sessions, &mut attack_store, name);
     run_precondition_field(
@@ -266,12 +266,14 @@ fn replay_framing_case(case: &Value, name: &str) {
     );
 }
 
-fn fixture_stores() -> (Sessions, Store) {
-    let root = fixtures_dir()
+fn fixture_stores() -> (tempfile::TempDir, Sessions, Store) {
+    let source = fixtures_dir()
         .parent()
         .expect("contract directory")
         .join("fixture-project");
-    let project = Arc::new(Project::load(root).expect("the committed fixture project loads"));
+    let temp = tempfile::tempdir().expect("create isolated fixture project");
+    copy_tree(&source, temp.path());
+    let project = Arc::new(Project::load(temp.path()).expect("the copied fixture project loads"));
     let packs = project.documents().map(|(id, document)| {
         (
             id.to_owned(),
@@ -279,10 +281,29 @@ fn fixture_stores() -> (Sessions, Store) {
             document.killed.clone(),
         )
     });
-    (
+    let runtime = (
         Sessions::from_project(Arc::clone(&project)),
         Store::with_packs(packs).expect("the committed fixture project compiles"),
-    )
+    );
+    (temp, runtime.0, runtime.1)
+}
+
+fn copy_tree(source: &Path, destination: &Path) {
+    for entry in fs::read_dir(source).expect("read fixture project") {
+        let entry = entry.expect("read fixture project entry");
+        let from = entry.path();
+        let to = destination.join(entry.file_name());
+        if entry
+            .file_type()
+            .expect("read fixture project type")
+            .is_dir()
+        {
+            fs::create_dir(&to).expect("create copied fixture directory");
+            copy_tree(&from, &to);
+        } else {
+            fs::copy(&from, &to).expect("copy fixture project file");
+        }
+    }
 }
 
 fn legacy_fixture_author_store() -> Store {
@@ -330,8 +351,13 @@ fn every_fixture_replays_cold() {
             continue;
         }
 
-        let mut sessions = Sessions::new();
-        let mut store = legacy_fixture_author_store();
+        let project_backed = fixture.get("project").and_then(Value::as_bool) == Some(true);
+        let (_project_root, mut sessions, mut store) = if project_backed {
+            let (root, sessions, store) = fixture_stores();
+            (Some(root), sessions, store)
+        } else {
+            (None, Sessions::new(), legacy_fixture_author_store())
+        };
 
         // Precondition frames set up state (open a workspace, stage a finding)
         // and must succeed; they are not asserted against any expect.

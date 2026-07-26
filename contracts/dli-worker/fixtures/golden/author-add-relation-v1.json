@@ -2,7 +2,7 @@
   "fixture": "golden/author-add-relation-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -44,11 +44,11 @@
           "rendered": [
             "serves(mireth, the-warden) proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:313122519c9f16e1dd079e53d83265f390562729ea13dcc15af4f655393018db"
+          "workspace_digest": "jcs:sha256:4542807ab1980148eb014f33f8f5a758b03d8245a213448057c4491de3c53d7f"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.add_relation",
         "params": {

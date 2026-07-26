@@ -8,7 +8,7 @@
 //! state moves.
 //!
 //! The fence is resealed **incrementally** (R3/H4/B4). The digest hashes one
-//! canonical byte string — `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}`
+//! canonical byte string — `{"base_name":…,"decls":[…],"mode":…,"suppositions":…}`
 //! — but reseal no longer re-renders and re-hashes the whole string on every
 //! mutation (the `O(n²)` a full build would cost). Instead the workspace holds a
 //! streaming SHA-256 `prefix` that has already absorbed the fixed head and every
@@ -69,7 +69,7 @@ pub struct Workspace {
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
     pub idempotency: BTreeMap<String, (String, serde_json::Value)>,
     /// The streaming digest state: a SHA-256 that has absorbed the canonical head
-    /// (`{"base_name":…,"mode":…,"decls":[`) and every staged declaration's JSON in
+    /// (`{"base_name":…,"decls":[`) and every staged declaration's JCS bytes in
     /// order, up to but not including the closing `]`. An append feeds one more
     /// declaration; [`reseal`](Workspace::reseal) clones this and finishes the tail,
     /// so neither cost grows with the declaration count.
@@ -131,26 +131,28 @@ impl Workspace {
 
     /// Recompute the digest by finishing the streamed material: clone the prefix
     /// (the head and every declaration, already absorbed), feed the tail
-    /// (`],"suppositions":…}`), and finalize. `O(1)` in the declaration count.
+    /// (`],"mode":…,"suppositions":…}`), and finalize. `O(1)` in the declaration
+    /// count.
     ///
     /// The absorbed-plus-tail bytes are exactly
-    /// `{"base_name":…,"mode":…,"decls":[…],"suppositions":…}`, the string the
+    /// `{"base_name":…,"decls":[…],"mode":…,"suppositions":…}`, the JCS string the
     /// whole-snapshot reseal hashed, so the digest value is unchanged.
     pub fn reseal(&mut self) {
         let mut hasher = self.prefix.clone();
-        hasher.update(b"],\"suppositions\":");
+        hasher.update(b"],\"mode\":");
+        hasher.update(encode(&self.mode).as_bytes());
+        hasher.update(b",\"suppositions\":");
         hasher.update(encode(&self.suppositions).as_bytes());
         hasher.update(b"}");
         self.digest = digest_hash(hasher.finalize().as_slice());
     }
 
     /// Seed the streaming prefix with the fixed head that precedes the first
-    /// declaration: `{"base_name":<base>,"mode":<mode>,"decls":[`.
+    /// declaration: `{"base_name":<base>,"decls":[`. This is JCS key order;
+    /// `mode` and `suppositions` follow the declarations array in the tail.
     fn absorb_head(&mut self) {
         self.prefix.update(b"{\"base_name\":");
         self.prefix.update(encode(&self.base_name).as_bytes());
-        self.prefix.update(b",\"mode\":");
-        self.prefix.update(encode(&self.mode).as_bytes());
         self.prefix.update(b",\"decls\":[");
     }
 
@@ -173,7 +175,8 @@ impl Workspace {
 /// The canonical JSON encoding of a value (empty on the impossible serialize
 /// failure — every type here is infallibly serializable).
 fn encode<T: Serialize>(value: &T) -> String {
-    serde_json::to_string(value).unwrap_or_default()
+    serde_json_canonicalizer::to_string(value)
+        .expect("workspace state consists only of valid JSON values")
 }
 
 #[cfg(test)]
@@ -189,8 +192,8 @@ mod tests {
     #[derive(Serialize)]
     struct Snapshot<'a> {
         base_name: &'a str,
-        mode: Mode,
         decls: &'a [Decl],
+        mode: Mode,
         suppositions: &'a [String],
     }
 
@@ -224,8 +227,8 @@ mod tests {
 
         let snapshot = crate::author::digest::digest_of(&Snapshot {
             base_name: &ws.base_name,
-            mode: ws.mode,
             decls: &ws.decls,
+            mode: ws.mode,
             suppositions: &ws.suppositions,
         });
         assert_eq!(

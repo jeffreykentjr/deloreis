@@ -211,6 +211,21 @@ const ERROR_ROWS: &[(ErrorCode, &str, &str)] = &[
         "refused",
         "an `idempotency_key` reused with a different payload (distinct from stale-fence)",
     ),
+    (
+        ErrorCode::ProjectRequired,
+        "refused",
+        "a durable evidence operation called without a caller project",
+    ),
+    (
+        ErrorCode::EvidenceCorrupt,
+        "internal",
+        "committed evidence failed canonicalization, digest, or lineage verification",
+    ),
+    (
+        ErrorCode::UnknownJob,
+        "schema",
+        "a durable simulation job id that does not exist",
+    ),
     (ErrorCode::Internal, "internal", "a server defect"),
 ];
 

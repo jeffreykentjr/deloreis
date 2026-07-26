@@ -6,7 +6,7 @@
 //! replayable project rather than discovering ambient files or falling back to a
 //! bundled world.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -14,6 +14,7 @@ use dli_ast::decl::Decl;
 use dli_export::profile::Registry;
 use dli_game::model::Ruleset;
 use dli_syntax::parse_document;
+use dli_world::attest::Question;
 use dli_world::episode::Episode;
 use dli_world::language::LanguageModel;
 use dli_world::{KilledToken, KilledTokens, MatchMode, Pack, compile};
@@ -44,6 +45,8 @@ pub struct ProjectDocument {
     pub episodes: Option<Vec<Episode>>,
     /// Optional rejected-lore token registry.
     pub killed: KilledTokens,
+    /// Bounded model-judgment questions demanded by this document's checks.
+    pub attestation_questions: Vec<Question>,
     /// Canonical source paths, retained to enforce one logical owner per file.
     source_paths: Vec<PathBuf>,
 }
@@ -159,6 +162,7 @@ struct DocumentEntry {
     sources: Vec<PathBuf>,
     episodes: Option<PathBuf>,
     killed_tokens: Option<PathBuf>,
+    attestation_questions: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,6 +203,12 @@ struct KilledRow {
     decision: String,
     #[serde(default)]
     scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttestationQuestionsFile {
+    questions: Vec<Question>,
 }
 
 impl Project {
@@ -367,6 +377,10 @@ fn collect_input_paths(
         for (field, path) in [
             ("episodes", entry.episodes.as_deref()),
             ("killed_tokens", entry.killed_tokens.as_deref()),
+            (
+                "attestation_questions",
+                entry.attestation_questions.as_deref(),
+            ),
         ] {
             if let Some(path) = path {
                 paths.push(resolve_existing(
@@ -487,10 +501,19 @@ fn load_document(
         .map(|path| load_killed(root, &format!("documents.{id}.killed_tokens"), path))
         .transpose()?
         .unwrap_or_default();
+    let attestation_questions = entry
+        .attestation_questions
+        .as_deref()
+        .map(|path| {
+            load_attestation_questions(root, &format!("documents.{id}.attestation_questions"), path)
+        })
+        .transpose()?
+        .unwrap_or_default();
     Ok(ProjectDocument {
         pack,
         episodes,
         killed,
+        attestation_questions,
         source_paths,
     })
 }
@@ -808,6 +831,23 @@ fn load_yaml<T: for<'de> Deserialize<'de>>(
     })
 }
 
+fn load_json<T: for<'de> Deserialize<'de>>(
+    root: &Path,
+    field: &str,
+    path: &Path,
+) -> Result<T, ProjectError> {
+    let resolved = resolve_existing(root, field, path)?;
+    let text = fs::read_to_string(&resolved).map_err(|error| ProjectError::AssetPath {
+        field: field.to_owned(),
+        path: path.display().to_string(),
+        message: error.to_string(),
+    })?;
+    serde_json::from_str(&text).map_err(|error| ProjectError::ParseAsset {
+        path: resolved.display().to_string(),
+        message: error.to_string(),
+    })
+}
+
 fn load_profiles(root: &Path, field: &str, path: &Path) -> Result<Registry, ProjectError> {
     let resolved = resolve_existing(root, field, path)?;
     Registry::from_path(&resolved).map_err(|error| ProjectError::ParseAsset {
@@ -839,4 +879,30 @@ fn load_killed(root: &Path, field: &str, path: &Path) -> Result<KilledTokens, Pr
         });
     }
     Ok(KilledTokens::new(tokens))
+}
+
+fn load_attestation_questions(
+    root: &Path,
+    field: &str,
+    path: &Path,
+) -> Result<Vec<Question>, ProjectError> {
+    let file: AttestationQuestionsFile = load_json(root, field, path)?;
+    let mut keys = BTreeSet::new();
+    for question in &file.questions {
+        if question.kind.trim().is_empty()
+            || question.atom.trim().is_empty()
+            || question.subject.trim().is_empty()
+        {
+            return Err(ProjectError::Invalid(
+                "attestation questions require non-empty `kind`, `atom`, and `subject`".into(),
+            ));
+        }
+        if !keys.insert(question.key()) {
+            return Err(ProjectError::Invalid(format!(
+                "attestation question `{}` is declared more than once",
+                question.key()
+            )));
+        }
+    }
+    Ok(file.questions)
 }

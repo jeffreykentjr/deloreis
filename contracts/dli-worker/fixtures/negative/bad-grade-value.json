@@ -3,7 +3,7 @@
   "version": 1,
   "note": "A grade outside the closed lattice (asserted/attested/tested/checked) is a schema violation; here a submitted finding carries grade 'platinum'.",
   "send": {
-    "dli": "0.3.0",
+    "dli": "0.4.0",
     "id": "1",
     "op": "dli.payload-submit",
     "params": {

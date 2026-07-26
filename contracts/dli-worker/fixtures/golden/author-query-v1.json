@@ -4,7 +4,7 @@
   "note": "author.query over the staged world (base + staged decls). A goal with a ground atom returns its answer rows; here an empty result over the just-opened base.",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.query",
         "params": {
@@ -24,7 +24,7 @@
         }
       },
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {

@@ -275,8 +275,8 @@ impl Op {
             Op::ExportRun => "Run an export target under a profile.",
             Op::NameCheck => "Vet a proposed name through the naming oracle before it enters lore.",
             Op::AttestMissing => "List questions that lack a current attestation.",
-            Op::AttestationSweep => "Recompute which stored attestations have gone stale.",
-            Op::PayloadSubmit => "Submit a draft payload for acceptance checking.",
+            Op::AttestationSweep => "Validate and append an immutable attestation batch.",
+            Op::PayloadSubmit => "Check and persist an accepted fat draft payload.",
             Op::AuthorOpen => {
                 "Open an authoring workspace over a scope or fork; returns its id and digest."
             }

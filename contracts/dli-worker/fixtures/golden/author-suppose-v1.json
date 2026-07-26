@@ -2,7 +2,7 @@
   "fixture": "golden/author-suppose-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -27,11 +27,11 @@
             }
           ],
           "rendered": [],
-          "workspace_digest": "jcs:sha256:304026e8c366fd79205ec574a697105f8badb4e17be8179da70cc41838025ad9"
+          "workspace_digest": "jcs:sha256:44dac198be0a64d00b7e357dfd8a8276938fc50c504b7a3899e7de5c4854b609"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.suppose",
         "params": {

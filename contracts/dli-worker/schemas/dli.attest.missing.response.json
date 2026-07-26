@@ -5,14 +5,83 @@
   "type": "object",
   "properties": {
     "questions": {
-      "description": "Question ids that lack a current attestation.",
+      "description": "Questions lacking a current durable answer.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/AttestationDemand"
       }
     }
   },
   "required": [
     "questions"
-  ]
+  ],
+  "$defs": {
+    "AttestationDemand": {
+      "description": "One model-judgment request emitted by the deterministic kernel.",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "description": "The fingerprint an accepted record must carry.",
+          "$ref": "#/$defs/ContentHash"
+        },
+        "question": {
+          "description": "The full bounded question to pose.",
+          "$ref": "#/$defs/Question"
+        },
+        "reason": {
+          "description": "Why the question is in the demand queue.",
+          "$ref": "#/$defs/AttestationDemandReason"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "fingerprint",
+        "reason"
+      ]
+    },
+    "AttestationDemandReason": {
+      "description": "Why a configured attestation question is open.",
+      "oneOf": [
+        {
+          "description": "No record has ever answered this question.",
+          "type": "string",
+          "const": "missing"
+        },
+        {
+          "description": "The current record's subject fingerprint no longer matches.",
+          "type": "string",
+          "const": "stale"
+        }
+      ]
+    },
+    "ContentHash": {
+      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection; it needs no cryptographic strength because the factory\nthat writes the store is trusted and the threat is accidental drift, not\nadversarial collision. It is deliberately distinct from the factory-supplied\n`sha256:` hashes carried in [`Attestation::rationale_hash`] and\n[`PromptRef::hash`], which the kernel only stores and compares, never\ncomputes. The type is format-agnostic: swapping the one-line body of\n[`fingerprint_facts`] for a `sha256` digest is the upgrade seam.",
+      "type": "string"
+    },
+    "Question": {
+      "description": "The bounded question an attestation answers — a claim with a fact-of-the-\nmatter *outside* the repo (a dialect's real basis, homophone plausibility,\ntone-fit), exactly the kind of question to spend model time and zero author\ntime on.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The question class, e.g. `dialect-real-basis`.",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The world entity whose current content decides staleness, e.g. `enfys`.\nThe staleness anchor: when the world's facts about this subject change,\nthe attestation goes stale and joins the re-attestation queue.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "atom",
+        "subject"
+      ]
+    }
+  }
 }

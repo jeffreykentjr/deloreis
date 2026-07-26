@@ -2,7 +2,7 @@
   "fixture": "golden/author-add-event-v1",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -21,11 +21,11 @@
           "rendered": [
             "event the-drowning \"The Drowning\" during first-tides proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:94acf12d0770cf35b503f0df4f08abf221c3b114c4963b995aea552ae57d474d"
+          "workspace_digest": "jcs:sha256:f498ca0aaf01e2301f66fec677320f3106c60ff54fda276cdc54c5edd4dc0576"
         }
       },
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.add_event",
         "params": {

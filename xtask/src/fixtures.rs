@@ -567,13 +567,13 @@ mod tests {
         serde_json::json!({
             "op": op,
             "control": {
-                "dli": "0.3.0",
+                "dli": "0.4.0",
                 "id": "control",
                 "op": op,
                 "params": {"document": "control"}
             },
             "attack": {
-                "dli": "0.3.0",
+                "dli": "0.4.0",
                 "id": "attack",
                 "op": op,
                 "params": {"document": "__DLI_FRAME_ATTACK__"}

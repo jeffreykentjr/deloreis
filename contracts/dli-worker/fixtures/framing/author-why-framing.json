@@ -4,7 +4,7 @@
   "note": "An injection-shaped token rides as the atom argument; treated as DATA, the why-not verdict is unchanged — an ordinary dead/unknown standing, never obeyed.",
   "precondition": [
     {
-      "dli": "0.3.0",
+      "dli": "0.4.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -15,7 +15,7 @@
   "steps": [
     {
       "send": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "op": "author.why",
         "params": {
@@ -24,7 +24,7 @@
         }
       },
       "expect": {
-        "dli": "0.3.0",
+        "dli": "0.4.0",
         "id": "1",
         "ok": true,
         "result": {
