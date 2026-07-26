@@ -169,7 +169,11 @@ The full `dli.*` inventory is normatively specified in
 `integration/fantasy-contract.md`, where each op carries its request/response
 JSON Schema and its golden, negative, and framing fixtures. What follows is the
 semantics-side description: what each op means and which spec organ owns its
-behavior. The inventory, by family:
+behavior. Seven rows are capability-gated at contract `0.3.0`:
+`dli.check-draft`, `dli.simulate.*`, `dli.attest.missing`,
+`dli.attestation-sweep`, and `dli.payload-submit`. Their rows describe the
+semantics required before they may be advertised; the retained schemas are
+reservations, not implemented behavior. The inventory, by family:
 
 | Op | Meaning | Owning spec |
 |---|---|---|
@@ -248,6 +252,9 @@ review queue. **Canon is untouched until the author rules** (koan 3).
 
 ### 3.2 Game simulation jobs
 
+This scenario is the target job contract, not a valid `0.3.0` request. The
+request/response schemas will migrate before `dli.simulate.*` is advertised.
+
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
 
@@ -307,35 +314,28 @@ the episode.
 
 ## 4. The write surface
 
-The worker's write surface is exactly three things, and nothing else:
-
-- **The derived-world cache** (`.dli-cache/`) — compiled world snapshots,
-  content-hash keyed, gitignored, never a source of anything.
-- **Run manifests** — written under a caller-designated output directory (sim
-  manifests: spec hash, seed, counts, verdicts).
-- **RQ drafts** — returned **as data** in the response (§3.1). The worker never
-  files them; the calling consumer writes the ruling-request file under its own
-  docs contract and its own review.
+At contract `0.3.0`, no batch operation writes project storage. RQ drafts are
+returned **as data** in the response (§3.1), and the worker never files them.
+The project manifest reserves `.dli-evidence/` and `.dli-cache/`, but durable
+payload, attestation, checkpoint, and run-manifest writes remain gated until
+their atomic persistence paths land.
 
 The worker never writes canon, and it never writes a ruling-request file
 directly. An open question surfaced by the worker is a debt the consumer files
 and the author rules (koan 5).
 
-Because responses are a pure function of the corpus digest and the arguments
-(§2), the cache is **content-hash keyed** and safe to share: two consumers
-asking the same question of the same corpus state get the same cached compiled
-world, and a corpus that has not changed does not recompile. Determinism is what
-makes the cache correct rather than a source of staleness — there is no
-timestamp to invalidate against, only the digest.
+The target write surface remains content-addressed evidence, derived cache
+entries, and run manifests only. Canon and ruling-request files remain outside
+the worker's authority.
 
 ## 5. Concurrency and jobs
 
-Query and check ops are synchronous and cheap. `dli.simulate.*` jobs are
-**checkpointed and resumable**: a killed job resumes from its last checkpoint
-rather than restarting. Long jobs run detached, and **orchestration is the
-consumer's** — the worker exposes start/status/result, and the consumer owns the
-queue, the progress UI, and the retry policy. The worker holds no job state
-across process lifetime beyond what the checkpoint files record.
+Query and implemented check ops are synchronous and cheap. At contract `0.3.0`,
+`dli.simulate.*` is capability-gated: the existing in-process synchronous seam
+does not satisfy the promised asynchronous, checkpointed, restart-resumable job
+contract and is therefore not advertised. The target remains detached
+start/status/cancel operations with durable checkpoints while the consumer owns
+queue policy and UI.
 
 ## 6. Postgres posture
 

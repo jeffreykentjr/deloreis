@@ -8,10 +8,9 @@
 //! evolve independently. [`handle`] is the frozen dispatch seam the serve loop
 //! (and `CLI-1`) call; each op has one small typed handler.
 //!
-//! All 46 operations (27 `dli.*` + 19 `author.*`) are fully dispatched through
-//! [`handle`]; [`ErrorCode::NotWired`] is never constructed. The capability-gated
-//! regime described in earlier iterations of this comment is historical — the
-//! DL-0021 and ec92efd wiring waves completed the dispatch table.
+//! Every operation has a typed dispatch arm, but operations whose documented
+//! durability semantics have not landed remain capability-gated. `dli.version`
+//! advertises only operations that currently satisfy their contract.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -70,6 +69,20 @@ type Fault = (ErrorCode, String);
 /// `author.*` op reaching here is an internal routing bug, reported as such.
 #[must_use]
 pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
+    if !is_implemented(request.op) {
+        if let Err((code, message)) = validate_gated_params(request) {
+            return error_response(request, code, message);
+        }
+        return error_response(
+            request,
+            ErrorCode::NotWired,
+            format!(
+                "{} is defined by contract {CONTRACT_VERSION} but this build does not yet \
+                 implement its promised semantics",
+                wire_name(request.op)
+            ),
+        );
+    }
     let outcome = match request.op {
         Op::Version => handle_version(request),
         Op::Check => handle_check(request, sessions),
@@ -1229,12 +1242,9 @@ fn is_decision_id(name: &str) -> bool {
 
 /// Deserialize the op's params, rejecting unknown fields.
 ///
-/// A missing or mistyped field fails typed deserialization; an unknown extra
-/// field survives it (serde ignores unknowns) but is caught by comparing the
-/// input against the normalized re-serialization — the frozen contract types
-/// carry no `deny_unknown_fields`, so this round-trip is the dependency-free
-/// realization of the contract's "unknown fields are errors" discipline
-/// (`integration/fantasy-contract.md` §2).
+/// A missing or mistyped field fails typed deserialization. Structs owned by
+/// this crate reject extras directly; the recursive normalized comparison also
+/// catches extras inside imported nested types.
 fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault> {
     let typed: T = serde_json::from_value(request.params.clone()).map_err(|e| {
         (
@@ -1257,18 +1267,16 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
     Ok(typed)
 }
 
-/// The first input field (dotted path) absent from the normalized re-serialization
-/// — an unknown field the schema does not define. A `null` input value is treated
-/// as an absent optional, never an unknown field, so an explicit `field: null`
-/// never trips a false positive. Shared with the envelope-level check in
-/// [`crate::serve`].
+/// The first input field (dotted path) absent from the normalized
+/// re-serialization. Unknown fields are rejected even when their value is
+/// `null`; only a field actually declared by the typed schema may use `null`.
+/// Shared with the envelope-level check in [`crate::serve`].
 pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<String> {
     match (input, normalized) {
         (Value::Object(given), Value::Object(kept)) => {
             for (key, value) in given {
                 match kept.get(key) {
-                    None if !value.is_null() => return Some(key.clone()),
-                    None => {}
+                    None => return Some(key.clone()),
                     Some(kept_value) => {
                         if let Some(deep) = first_unknown_field(value, kept_value) {
                             return Some(format!("{key}.{deep}"));
@@ -1382,13 +1390,47 @@ fn eval_fault(error: EvalError) -> Fault {
     (ErrorCode::from(error), message)
 }
 
-/// The wire op names this build implements — every `dli.*` op the dispatch
-/// answers with a real result. Every engine has now landed (fork.add's declaration
-/// parser and the `timeline.*` chronology/episode reads were the last gated ops),
-/// so the full op table is advertised and a consumer never needs to degrade
-/// (`10-serving.md` §2).
+/// Whether this build satisfies the operation's documented semantics.
+///
+/// The gated evidence and simulation operations retain typed schemas and
+/// fixtures, but are not advertised until their persistence and restart
+/// guarantees land.
+fn is_implemented(op: Op) -> bool {
+    !matches!(
+        op,
+        Op::CheckDraft
+            | Op::SimulateStart
+            | Op::SimulateStatus
+            | Op::SimulateCancel
+            | Op::AttestMissing
+            | Op::AttestationSweep
+            | Op::PayloadSubmit
+    )
+}
+
+/// Validate a gated operation's request shape without executing its unfinished
+/// semantics. Capability gating must not weaken the contract's field checks.
+fn validate_gated_params(request: &Request) -> Result<(), Fault> {
+    match request.op {
+        Op::CheckDraft => params::<CheckDraftParams>(request).map(drop),
+        Op::SimulateStart => params::<SimulateStartParams>(request).map(drop),
+        Op::SimulateStatus => params::<SimulateStatusParams>(request).map(drop),
+        Op::SimulateCancel => params::<SimulateCancelParams>(request).map(drop),
+        Op::AttestMissing => params::<AttestMissingParams>(request).map(drop),
+        Op::AttestationSweep => params::<AttestationSweepParams>(request).map(drop),
+        Op::PayloadSubmit => params::<PayloadSubmitParams>(request).map(drop),
+        _ => Ok(()),
+    }
+}
+
+/// The wire op names this build currently implements.
 fn capabilities() -> Vec<String> {
-    Op::ALL.iter().copied().map(wire_name).collect()
+    Op::ALL
+        .iter()
+        .copied()
+        .filter(|op| is_implemented(*op))
+        .map(wire_name)
+        .collect()
 }
 
 /// The op's wire identifier (its serde encoding).

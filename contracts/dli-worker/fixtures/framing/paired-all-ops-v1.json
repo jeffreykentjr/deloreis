@@ -118,6 +118,7 @@
     },
     {
       "op": "dli.check-draft",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "title", "scope": "missing-control", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.check-draft", "params": {"payload": {"meta": {"title": "title", "scope": "__DLI_FRAME_ATTACK__", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
       "changed_paths": ["/params/payload/meta/scope"],
@@ -126,6 +127,7 @@
     },
     {
       "op": "dli.simulate.start",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.start", "params": {"document": "missing-control", "seed": 1, "turns": 1}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.start", "params": {"document": "__DLI_FRAME_ATTACK__", "seed": 1, "turns": 1}},
       "changed_paths": ["/params/document"],
@@ -134,6 +136,7 @@
     },
     {
       "op": "dli.simulate.status",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.status", "params": {"job_id": "missing-control"}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.status", "params": {"job_id": "__DLI_FRAME_ATTACK__"}},
       "changed_paths": ["/params/job_id"],
@@ -142,6 +145,7 @@
     },
     {
       "op": "dli.simulate.cancel",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.cancel", "params": {"job_id": "missing-control"}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.simulate.cancel", "params": {"job_id": "__DLI_FRAME_ATTACK__"}},
       "changed_paths": ["/params/job_id"],
@@ -206,6 +210,7 @@
     },
     {
       "op": "dli.attest.missing",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.attest.missing", "params": {"document": "missing-control"}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.attest.missing", "params": {"document": "__DLI_FRAME_ATTACK__"}},
       "changed_paths": ["/params/document"],
@@ -214,6 +219,7 @@
     },
     {
       "op": "dli.attestation-sweep",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.attestation-sweep", "params": {"store": {"attestations": [{"question": {"kind": "dialect-real-basis", "atom": "name-basis(mara, common)", "subject": "mara"}, "answer": "yes", "rationale_hash": "sha256:a", "model": {"provider": "bedrock", "id": "control", "as_of": "2026-07-19"}, "prompt": {"template": "naming@v1", "hash": "sha256:b"}, "params": {"temperature": "0.0", "max_tokens": 1, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-model-change"}, "supersedes": null, "sweep": "run.json", "fingerprint": "fnv1a64:0"}]}}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.attestation-sweep", "params": {"store": {"attestations": [{"question": {"kind": "dialect-real-basis", "atom": "name-basis(mara, common)", "subject": "mara"}, "answer": "yes", "rationale_hash": "sha256:a", "model": {"provider": "bedrock", "id": "__DLI_FRAME_ATTACK__", "as_of": "2026-07-19"}, "prompt": {"template": "naming@v1", "hash": "sha256:b"}, "params": {"temperature": "0.0", "max_tokens": 1, "samples": 1, "agreement": "1/1"}, "policy": {"reattest": "on-model-change"}, "supersedes": null, "sweep": "run.json", "fingerprint": "fnv1a64:0"}]}}},
       "changed_paths": ["/params/store/attestations/0/model/id"],
@@ -222,6 +228,7 @@
     },
     {
       "op": "dli.payload-submit",
+      "expected_outcome": "gated",
       "control": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "title", "scope": "missing-control", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
       "attack": {"dli": "0.3.0", "id": "1", "op": "dli.payload-submit", "params": {"payload": {"meta": {"title": "title", "scope": "__DLI_FRAME_ATTACK__", "version": 1}, "claims": [], "deltas": [], "scenes": [], "beats": [], "promises": [], "proofs": [], "names": [], "lexicon": []}}},
       "changed_paths": ["/params/payload/meta/scope"],

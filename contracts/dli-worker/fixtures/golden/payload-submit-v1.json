@@ -1,6 +1,7 @@
 {
   "fixture": "golden/payload-submit-v1",
   "version": 1,
+  "expected_outcome": "gated",
   "steps": [
     {
       "send": {

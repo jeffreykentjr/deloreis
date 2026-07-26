@@ -44,11 +44,11 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: d802c5aaa03a0472cfd67600cc00cfd16f69f45a1b4bf0d274c44ada1e32d60d
 - path: framing/paired-all-ops-v1.json
-  sha256: 2b7333302731a3a114c7266cb7f8d1be2076363e98d40df41eada95ba2be312b
+  sha256: 905a7b7ebcb13c699152b2f1a0454cf980217b1f6126b9ff93bf756dccc88f1e
 - path: golden/attest-missing-v1.json
-  sha256: a32de6a22c641c5a7d423f807e817dad060d05e8ca3be4bc6302ac146a1a2c28
+  sha256: cc06071863525a2078b41fb36f94c55f8d0ea6e8273ee5f4146e637c80425351
 - path: golden/attestation-sweep-v1.json
-  sha256: c0ce73f7c38a6a057826388f68dd67e89d22b2fc23ffd07e0b51344e35ae417d
+  sha256: 662fdbd4eb8d3f9f2abc7519adc1add63e13a73047a5044ec889a88d1c3e21d5
 - path: golden/author-add-before-v1.json
   sha256: 352edb5e55d4f521aace689444a543b7637c8ab76709a997704df41037f6e1f9
 - path: golden/author-add-event-v1.json
@@ -84,7 +84,7 @@ fixtures:
 - path: golden/check-basic-v1.json
   sha256: 0a0cdd03c7ba761945aaa48e4e3a0525113aaa92da3299be09e915061b1126cc
 - path: golden/check-draft-v1.json
-  sha256: aa5031de62cb3d1e7521b9d4ba5d7ddcb7cf885e0e331b8855a343163f69bf52
+  sha256: 026053071df398dfbbe0c05c824b4f59cf9ecdfbf40c4b3f366518df174b267d
 - path: golden/check-proof-turning-v1.json
   sha256: 53ff127ccaea3d403db170fc64acd4069dccc6eb66a8036f5203f0eeb066beb4
 - path: golden/export-ludii-v1.json
@@ -110,17 +110,17 @@ fixtures:
 - path: golden/name-check-v1.json
   sha256: bd16299f222f26a6fd2eb48c9677452a6e2d8374fce7b0674b69e8aae312e874
 - path: golden/payload-submit-v1.json
-  sha256: 4650bd7c62282380e9cea0606d6be1b8842e1492c914c6bd169b569b82e2e570
+  sha256: ac67d105fbae95bbc249b5c143f3f466b0ea4ab809ffa80dc55eaced68fa9faa
 - path: golden/query-modifiers-v1.json
   sha256: 83941d4ca50894b621aa1a56cc857f6532abd72482dcd311aec727954c70f14a
 - path: golden/query-support-v1.json
   sha256: b7b951245d28fc02e78ef9f8d3cebb1aa2b9ec0a0d77ca320a5faa81d1791e31
 - path: golden/simulate-cancel-v1.json
-  sha256: 06d2f7cd7c1754cb2f52e2a8447f2bbb36d21404aed53fa441d33f8b37342093
+  sha256: 44b2029437fe998b337e59fc6185a28936d1a2b0c984794336f7b27e28d6b48d
 - path: golden/simulate-status-v1.json
-  sha256: f9b57228d455e47d87d4bd075c5b611f498ba4d2922463d460978a7f79dba156
+  sha256: 5e08f17b00a418d6a8627513f96d59f175e003e62e59d1ae09efa0db5b91ab4e
 - path: golden/simulate-v1.json
-  sha256: 0ec48390b6d6973becf49e7484c93b3f7d174c46e5e7eb71b5d82e7e900b5507
+  sha256: 359fa1b1ec1b746e91ae13888e192c5fa68e7b8b6781a2923c7d70855977bf35
 - path: golden/timeline-episodes-v1.json
   sha256: 17fe83ac53c14171e85351eae5802640d8dc8d6a3366e595563edb53ee590f31
 - path: golden/timeline-knows-v1.json
@@ -132,7 +132,7 @@ fixtures:
 - path: golden/timeline-show-v1.json
   sha256: 049631dbf36ef1bf8a1acea443de7fef5a96eaff4c4b2fce77e0ed52a610d6ea
 - path: golden/version-v1.json
-  sha256: fd5ba4c1010e0ec466c2512439f146e7b9ee2360a724a5874b63f489b4d5680a
+  sha256: da804e9fa3d1848b3322d4b3a6956118bef9d430dd5d140f752aa6b7a83f9b0c
 - path: negative/attest-missing-schema-violation.json
   sha256: c260463bb0fa64225a8c5fcb245f9cd570df07bdcd0f6bd4086f80fabed475a4
 - path: negative/attestation-sweep-schema-violation.json

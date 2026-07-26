@@ -21,8 +21,11 @@ either side disagrees with this document, this document wins.
 > **Implementation status:** this is still a pre-release contract. Version
 > `0.3.0` has typed responses for all 46 operations, strict caller projects,
 > complete golden/negative/paired-framing coverage, and a replayable Door T.
-> `CON-1` and `AUTH-1` are closed. `SERVE-1` remains open because evidence
-> mutations and simulation jobs are not yet durable across process restart.
+> Seven operations whose documented semantics depend on the unfinished
+> evidence/job runtime are capability-gated: `dli.check-draft`,
+> `dli.attest.missing`, `dli.attestation-sweep`, `dli.payload-submit`, and the
+> three `dli.simulate.*` operations. `CON-1` and `AUTH-1` are closed;
+> `SERVE-1` remains open.
 > Consumer cutover is excluded from this source-release round.
 
 ## 1. Parties
@@ -66,6 +69,11 @@ model utterance is one of four declared classes, or it does not enter.*
 
 ### 3.1 Batch operations — `dli.*`
 
+The table states the semantics an advertised operation must satisfy. The seven
+capability-gated operations named in the implementation-status note retain
+reservation schemas and fixtures at `0.3.0`; their request/response shapes may
+migrate before they are enabled.
+
 | Op | Purpose | Returns |
 |---|---|---|
 | `dli.version` | Report the worker contract version and this build's op capabilities. | `{contract, contract_version, server, capabilities}` |
@@ -103,12 +111,12 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-All 46 operation names have request/response schemas, dispatch arms, typed
-Returns semantics, and golden + negative + paired-framing fixtures. The complete
-fixture oracle passes against the real front end and a digest-pinned replay
-project. This closes `CON-1`, not the whole server: simulation remains
-synchronous and session-local, and payload and attestation mutations do not yet
-persist evidence. Those are `SERVE-1` durability work.
+All 46 operation names have request/response schemas, dispatch arms, and golden
++ negative + paired-framing fixtures. Capability-gated fixtures assert
+`not-wired`; they do not pretend that a placeholder response implements the
+Returns column. The complete fixture oracle passes against the real front end
+and a digest-pinned replay project. This closes contract shape and replay
+coverage (`CON-1`), not the unfinished `SERVE-1` runtime.
 
 ### 3.2 Authoring tools — `author.*` (Door T)
 
@@ -257,8 +265,9 @@ code, is the authority.
   surface. There is no unclassified path.
 - **Quote anchors on encodings.** Every encoded item carries a verbatim quote and
   line; the kernel verifies the quote appears at the claimed position.
-- **Job wrapping.** Long operations (`dli.simulate.*`, batch checks) run as
-  wrapped, checkpointed jobs, so a killed job resumes rather than restarts.
+- **Job orchestration.** The consumer owns queue policy, retries, and UI around
+  worker-owned durable jobs. It must not treat the gated `0.3.0` simulation
+  reservation as restart-safe.
 - **Digest-checked vendoring.** The contract copy is pinned to a digest and the
   gate fails if it drifts.
 - **Authorship through Door T.** Agents author lore through the `author.*` tools,

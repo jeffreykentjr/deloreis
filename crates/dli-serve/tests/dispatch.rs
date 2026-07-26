@@ -1,13 +1,10 @@
 //! SERVE-1 dispatch tests: the dli-worker fixtures are the oracle.
 //!
-//! Every golden fixture whose ops SERVE-1 dispatches replays through the real
+//! Every implemented golden fixture owned by SERVE-1 replays through the real
 //! `respond` path (framing + routing + engine), threading session state across a
 //! multi-step flow; every negative fixture yields its typed error code; the raw
-//! frames exercise the framing discipline. Fixtures whose ops belong to another
-//! lane (author.*, door-t) or whose engine has not landed (fork.add's declaration
-//! parser, timeline.*, and the killed `check-ledger` form) are covered elsewhere
-//! or are capability-gated, and are skipped here by ownership. check-proof,
-//! export.run, and simulate.* are wired and replay here.
+//! frames exercise the framing discipline. Fixtures owned by Door T, killed
+//! forms, and capability-gated runtimes are covered elsewhere.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::fs;
@@ -23,10 +20,9 @@ fn fixtures_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/dli-worker/fixtures")
 }
 
-/// The ops whose golden fixture replays in v0. Excluded: author.* (door-t) and
-/// the killed `check-ledger` form (covered by the killed-op test). Every `dli.*`
-/// engine has now landed — fork.add's declaration parser and the `timeline.*`
-/// chronology/episode reads were the last gated ops — so they replay here too.
+/// The ops whose implemented golden fixture replays in v0. Excluded:
+/// `author.*` (Door T), the killed `check-ledger` form, and fixtures explicitly
+/// marked as capability-gated.
 fn serve_owned(op: &str) -> bool {
     op.starts_with("dli.") && !["dli.check-ledger"].contains(&op)
 }
@@ -57,7 +53,8 @@ fn golden_fixtures_replay_through_dispatch() {
     let mut replayed = 0;
     for (name, fixture) in json_fixtures("golden") {
         let steps = fixture["steps"].as_array().cloned().unwrap_or_default();
-        let ours = !steps.is_empty()
+        let ours = fixture["expected_outcome"].as_str() != Some("gated")
+            && !steps.is_empty()
             && steps
                 .iter()
                 .all(|step| step["send"]["op"].as_str().is_some_and(serve_owned));
@@ -531,6 +528,86 @@ fn wrong_contract_version_is_version_mismatch() {
     )
     .unwrap();
     assert_eq!(response.error.unwrap().code.wire_name(), "version-mismatch");
+}
+
+#[test]
+fn null_valued_unknown_fields_are_rejected_recursively() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    for frame in [
+        serde_json::json!({
+            "dli": "0.3.0",
+            "id": "envelope",
+            "op": "dli.version",
+            "params": {},
+            "unknown": null
+        }),
+        serde_json::json!({
+            "dli": "0.3.0",
+            "id": "nested",
+            "op": "dli.check-draft",
+            "params": {
+                "payload": {
+                    "meta": {
+                        "title": "draft",
+                        "scope": "camelot",
+                        "version": 1,
+                        "unknown": null
+                    },
+                    "claims": [],
+                    "deltas": [],
+                    "scenes": [],
+                    "beats": [],
+                    "promises": [],
+                    "proofs": [],
+                    "names": [],
+                    "lexicon": []
+                }
+            }
+        }),
+    ] {
+        let response = send(&frame, &mut sessions, &mut store).expect("frame is answered");
+        assert_eq!(
+            response.error.as_ref().map(|error| error.code.wire_name()),
+            Some("schema-violation")
+        );
+    }
+}
+
+#[test]
+fn capabilities_exclude_operations_whose_promised_semantics_are_gated() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let version = send(
+        &serde_json::json!({
+            "dli": "0.3.0",
+            "id": "version",
+            "op": "dli.version",
+            "params": {}
+        }),
+        &mut sessions,
+        &mut store,
+    )
+    .expect("frame is answered");
+    let capabilities = version
+        .result
+        .as_ref()
+        .and_then(|result| result["capabilities"].as_array())
+        .expect("version capabilities");
+    for gated in [
+        "dli.check-draft",
+        "dli.simulate.start",
+        "dli.simulate.status",
+        "dli.simulate.cancel",
+        "dli.attest.missing",
+        "dli.attestation-sweep",
+        "dli.payload-submit",
+    ] {
+        assert!(
+            !capabilities.iter().any(|capability| capability == gated),
+            "{gated} must not be advertised before its promised semantics land"
+        );
+    }
 }
 
 #[test]

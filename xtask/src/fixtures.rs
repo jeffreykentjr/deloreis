@@ -186,6 +186,7 @@ fn validate_framing_case(case: &serde_json::Value) -> Result<String> {
     if !Op::ALL.iter().any(|known| wire_name(*known) == op) {
         bail!("{op}: paired framing case names an unknown operation");
     }
+    validate_framing_outcome(case, &op)?;
     let control = case
         .get("control")
         .ok_or_else(|| anyhow!("{op}: missing `control` request"))?;
@@ -277,6 +278,17 @@ fn validate_framing_case(case: &serde_json::Value) -> Result<String> {
         }
     }
     Ok(op)
+}
+
+fn validate_framing_outcome(case: &serde_json::Value, op: &str) -> Result<()> {
+    if let Some(outcome) = case
+        .get("expected_outcome")
+        .and_then(serde_json::Value::as_str)
+        && outcome != "gated"
+    {
+        bail!("{op}: unknown paired framing outcome '{outcome}'");
+    }
+    Ok(())
 }
 
 fn json_diff_paths(
