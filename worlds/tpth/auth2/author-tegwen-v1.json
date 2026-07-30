@@ -1,7 +1,7 @@
 {
   "fixture": "worlds/tpth/auth2/author-tegwen-v1",
   "note": "The migration.md section 10 Door-T scenario over the pinned TPtH base. Gwern comes from the ratified vendored corpus; only Tegwen, her trade, and her location relation are staged.",
-  "pinned_corpus": "worlds/tpth/vendor/fantasy-40f6679/canon/data/facts.yaml",
+  "pinned_corpus": "worlds/tpth/vendor/fantasy-099e04cd/canon/data/facts.yaml",
   "project": "worlds/tpth/auth2-project.toml",
   "steps": [
     {

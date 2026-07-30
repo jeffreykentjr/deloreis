@@ -727,7 +727,7 @@ struct FactRow {
 }
 
 fn vendor_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-40f6679")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-099e04cd")
 }
 
 fn render_value(value: &serde_yaml_ng::Value) -> String {

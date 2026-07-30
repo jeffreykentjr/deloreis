@@ -40,9 +40,9 @@ fn parse(src: &str) -> Document {
 }
 
 const REGISTERS_YAML: &str =
-    "worlds/tpth/vendor/fantasy-40f6679/src/fantasy/naming/data/registers.yaml";
+    "worlds/tpth/vendor/fantasy-099e04cd/src/fantasy/naming/data/registers.yaml";
 const RATIFIED_YAML: &str =
-    "worlds/tpth/vendor/fantasy-40f6679/src/fantasy/naming/data/ratified_names.yaml";
+    "worlds/tpth/vendor/fantasy-099e04cd/src/fantasy/naming/data/ratified_names.yaml";
 
 fn strs(value: Option<&Value>) -> Vec<String> {
     value

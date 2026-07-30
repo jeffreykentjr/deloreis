@@ -608,7 +608,7 @@ author or consumer artifact that this repository does not own.
 | MIG-2 | done | vendored snapshots and mutation detection corpus |
 | MIG-3 | external-blocked | Consumer source deletion and cutover are consumer-owned |
 | MIG-4 | external-blocked | Consumer batch ruling and chronology cutover are not in this release |
-| EXT-F1 | done | `worlds/tpth/vendor/fantasy-40f6679/MANIFEST.txt` |
+| EXT-F1 | done | `worlds/tpth/vendor/fantasy-099e04cd/MANIFEST.txt` |
 | EXT-F2 | done | vendored corpus manifests under `worlds/tpth/vendor/` |
 | EXT-F5 | done | mutation corpus under `worlds/tpth/mutation/` |
 

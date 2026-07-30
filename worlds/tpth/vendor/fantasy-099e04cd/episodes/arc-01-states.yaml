@@ -1,0 +1,229 @@
+schema: fantasy.episode-state-set/v1
+arc_id: arc-01
+authority_refs: [D-0220]
+states:
+  - episode: arc1.ep01
+    title: The Last Dry Cord
+    order: 1
+    references: [apprentice, protagonist]
+    promises:
+      - id: inspect-turned-water
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: true
+        closed: false
+        note: They separately choose to inspect where the turned water went.
+
+  - episode: arc1.ep02
+    title: Name Before Measure
+    order: 2
+    references: [apprentice, protagonist]
+    promises:
+      - id: inspect-turned-water
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: false
+        closed: true
+        note: They trace the standing and moving water.
+      - id: check-higher-rooms
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: true
+        closed: false
+        note: The drip-clock forces a check of the higher rooms.
+
+  - episode: arc1.ep03
+    title: The Sealed Way
+    order: 3
+    references: [apprentice, protagonist]
+    promises:
+      - id: check-higher-rooms
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: false
+        closed: true
+        note: They complete the three-door round through the upper rooms.
+      - id: inspect-marked-box
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: true
+        closed: false
+        note: The marked wooden box opens an inquiry into approved measures.
+
+  - episode: arc1.ep04
+    title: The Weather They Left Out
+    order: 4
+    references: [apprentice, protagonist, keep-stamped-deck, the-turning]
+    promises:
+      - id: inspect-marked-box
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: false
+        closed: true
+        note: The approved measures are compared against material evidence.
+      - id: find-honest-fibre
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: true
+        closed: false
+        note: Aalto goes alone to find honest binding fibre.
+
+  - episode: arc1.ep05
+    title: The Hound in the Thorn
+    order: 5
+    references: [apprentice, protagonist, hound]
+    promises:
+      - id: find-honest-fibre
+        kind: promise
+        from_party: apprentice
+        to_party: protagonist
+        opened: false
+        closed: true
+        note: Aalto's search reaches the thorn and Bramble.
+      - id: return-with-hound
+        kind: promise
+        from_party: apprentice
+        to_party: hound
+        opened: true
+        closed: false
+        note: The storm requires a negotiated safe return.
+
+  - episode: arc1.ep06
+    title: The Distance Chosen
+    order: 6
+    references: [apprentice, protagonist, hound]
+    promises:
+      - id: return-with-hound
+        kind: promise
+        from_party: apprentice
+        to_party: hound
+        opened: false
+        closed: true
+        note: Bramble chooses the threshold and collar.
+      - id: follow-refused-route
+        kind: promise
+        from_party: apprentice
+        to_party: hound
+        opened: true
+        closed: false
+        note: Bramble's refused route supplies the next ground question.
+
+  - episode: arc1.ep07
+    title: Where Bramble Will Not Walk
+    order: 7
+    references: [apprentice, protagonist, hound]
+    promises:
+      - id: follow-refused-route
+        kind: promise
+        from_party: apprentice
+        to_party: hound
+        opened: false
+        closed: true
+        note: The crew admits bodily refusal as evidence and reroutes.
+      - id: inspect-hidden-repair
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: true
+        closed: false
+        note: The hidden repair's finish must be inspected.
+
+  - episode: arc1.ep08
+    title: The Hidden Finish
+    order: 8
+    references: [apprentice, protagonist, hound]
+    promises:
+      - id: inspect-hidden-repair
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: false
+        closed: true
+        note: The crew recognizes the repair's craft signature.
+      - id: find-old-repairer
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: true
+        closed: false
+        note: The crew follows the repair to its living maker.
+
+  - episode: arc1.ep09
+    title: The Old Repairer
+    order: 9
+    references: [apprentice, protagonist, hound, anchor]
+    promises:
+      - id: find-old-repairer
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: false
+        closed: true
+        note: The crew finds Geir and completes one brace.
+      - id: compare-marked-obligations
+        kind: promise
+        from_party: anchor
+        to_party: protagonist
+        opened: true
+        closed: false
+        note: The four must compare materially marked obligations.
+
+  - episode: arc1.ep10
+    title: The Same Load Twice
+    order: 10
+    references: [apprentice, protagonist, hound, anchor]
+    promises:
+      - id: compare-marked-obligations
+        kind: promise
+        from_party: anchor
+        to_party: protagonist
+        opened: false
+        closed: true
+        note: The crew proves the burden was duplicated.
+      - id: attempt-complete-circuit
+        kind: promise
+        from_party: protagonist
+        to_party: anchor
+        opened: true
+        closed: false
+        note: They plan one circuit where every limit changes the work.
+
+  - episode: arc1.ep11
+    title: Four Ways to Work
+    order: 11
+    references: [apprentice, protagonist, hound, anchor]
+    promises:
+      - id: attempt-complete-circuit
+        kind: promise
+        from_party: protagonist
+        to_party: anchor
+        opened: false
+        closed: true
+        note: The four complete a repeatable circuit.
+      - id: test-storm-method
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: true
+        closed: false
+        note: A new storm must test the distributed method.
+
+  - episode: arc1.ep12
+    title: The Eave Holds Differently
+    order: 12
+    references: [apprentice, protagonist, hound, anchor]
+    promises:
+      - id: test-storm-method
+        kind: promise
+        from_party: protagonist
+        to_party: apprentice
+        opened: false
+        closed: true
+        note: The storm proves the method survives the crew's absence.
