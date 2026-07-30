@@ -58,7 +58,7 @@ use dli_core::valuation::Valuation;
 
 const PINNED_FACTS_YAML: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../worlds/tpth/vendor/fantasy-40f6679/canon/data/facts.yaml"
+    "/../../worlds/tpth/vendor/fantasy-099e04cd/canon/data/facts.yaml"
 );
 
 /// The facts.yaml the replay reads. Defaults to the pinned vendored snapshot;
@@ -305,9 +305,9 @@ fn vendored_facts_row_census_is_pinned() {
         return;
     }
     let doc = load_doc();
-    assert_eq!(doc.entities.len(), 23, "entities rows (pinned 40f6679)");
-    assert_eq!(doc.relations.len(), 12, "relations rows (pinned 40f6679)");
-    assert_eq!(doc.facts.len(), 156, "facts rows (pinned 40f6679)");
+    assert_eq!(doc.entities.len(), 23, "entities rows (pinned 099e04cd)");
+    assert_eq!(doc.relations.len(), 12, "relations rows (pinned 099e04cd)");
+    assert_eq!(doc.facts.len(), 171, "facts rows (pinned 099e04cd)");
     assert_eq!(
         doc.constraints.len(),
         3,
@@ -317,8 +317,8 @@ fn vendored_facts_row_census_is_pinned() {
     let rows = load_rows();
     assert_eq!(
         rows.len(),
-        191,
-        "cross-checked provenance rows = 23 + 12 + 156"
+        206,
+        "cross-checked provenance rows = 23 + 12 + 171"
     );
 
     let proposed = rows.iter().filter(|r| r.status == "proposed").count();
@@ -326,7 +326,7 @@ fn vendored_facts_row_census_is_pinned() {
     let ratified = rows.iter().filter(|r| r.status == "ratified").count();
     assert_eq!(proposed, 7, "proposed shadow rows");
     assert_eq!(provisional, 9, "provisional ledger rows");
-    assert_eq!(ratified, 175, "ratified ledger rows");
+    assert_eq!(ratified, 190, "ratified ledger rows");
     assert_eq!(
         proposed + provisional + ratified,
         rows.len(),
@@ -350,7 +350,7 @@ fn pristine_facts_have_zero_status_disagreements() {
 
     // Surface the full cross-check for `--nocapture` transcripts.
     eprintln!(
-        "MIG-1 replay @ 40f6679: {} rows cross-checked ({ledger} ledger, {proposed} proposed), \
+        "MIG-1 replay @ 099e04cd: {} rows cross-checked ({ledger} ledger, {proposed} proposed), \
          {} disagreement(s)",
         rows.len(),
         dis.len()

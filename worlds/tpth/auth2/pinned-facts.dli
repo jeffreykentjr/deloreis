@@ -55,6 +55,7 @@ ratify D-0165
 ratify D-0166
 ratify D-0168
 ratify D-0180
+ratify D-0210
 ratify D-0219
 place whitecombe "Whitecombe" ratified D-0111
 place corsbach   "Corsbach"   ratified D-0111
@@ -74,9 +75,9 @@ thing episode-format       "The Episode Format"       ratified D-0163
 thing frankpledge          "Frankpledge"              ratified D-0145
 thing world                "The World"                ratified D-0004 D-0119
 thing spoken-proof         "Spoken Proof"             ratified D-0003 D-0006 D-0180
-place glass-weald "The Glass Weald" proposed imported:fantasy-40f6679
-place rust-wastes "The Rust Wastes" proposed imported:fantasy-40f6679
-thing hedge-road        "The Hedge Road"        proposed imported:fantasy-40f6679
+place glass-weald "The Glass Weald" proposed imported:fantasy-099e04cd
+place rust-wastes "The Rust Wastes" proposed imported:fantasy-099e04cd
+thing hedge-road        "The Hedge Road"        proposed imported:fantasy-099e04cd
 thing the-turning       "The Turning"           ratified D-0146 D-0148
 thing keep-stamped-deck "The Keep-Stamped Deck" ratified D-0148
 fact whitecombe source-kind place                                               ratified D-0111
@@ -97,9 +98,9 @@ fact episode-format source-kind concept                                         
 fact frankpledge source-kind order                                              ratified D-0145
 fact world source-kind concept                                                  ratified D-0004 D-0119
 fact spoken-proof source-kind concept                                           ratified D-0003 D-0006 D-0180
-fact glass-weald source-kind place                                              proposed imported:fantasy-40f6679
-fact rust-wastes source-kind place                                              proposed imported:fantasy-40f6679
-fact hedge-road source-kind concept                                             proposed imported:fantasy-40f6679
+fact glass-weald source-kind place                                              proposed imported:fantasy-099e04cd
+fact rust-wastes source-kind place                                              proposed imported:fantasy-099e04cd
+fact hedge-road source-kind concept                                             proposed imported:fantasy-099e04cd
 fact the-turning source-kind concept                                            ratified D-0146 D-0148
 fact keep-stamped-deck source-kind concept                                      ratified D-0148
 fact the-turning source-note "the world's oracular deck"                        ratified D-0146 D-0148
@@ -200,7 +201,10 @@ fact magic-system form spoken-logical-proof                                     
 fact magic-system cost immediate-bodily                                         ratified D-0087
 fact structure plot-shape kishotenketsu-hub-and-spoke                           ratified D-0055
 fact structure macro-arc sabotage-breach-world-after                            ratified D-0014
-fact structure master-frame four-act-approx-400                                 ratified D-0168
+fact structure master-frame exactly-four-acts-approx-200                        ratified D-0210
+fact structure series-episode-range 180-to-220-inclusive                        ratified D-0210
+fact structure act-episode-range 45-to-55-inclusive                             ratified D-0210
+fact structure arc-count-policy coherent-unbounded-within-act                   ratified D-0210
 fact structure series-ten enclosure-itself-as-antagonist                        ratified D-0168
 fact structure mission-after-ten defeat-to-rebuilding                           ratified D-0168
 fact structure discovery-speed slow-burn-cycles                                 ratified D-0168
@@ -225,10 +229,10 @@ fact dry-stone-wall standing displaced-native-craft                             
 fact frankpledge nature mutual-surety-tithing                                   ratified D-0145
 fact frankpledge imperial-use informer-cage                                     ratified D-0145
 fact frankpledge resistance-use genuine-mutual-aid                              ratified D-0145
-fact hound orders-oldest-source true                                            proposed imported:fantasy-40f6679
-fact narrator proposed-name thread-reader                                       proposed imported:fantasy-40f6679
-fact hedge-road role spoke-and-hub-connective-infrastructure                    proposed imported:fantasy-40f6679
-fact hedge-road maintained-by pleaching                                         proposed imported:fantasy-40f6679
+fact hound orders-oldest-source true                                            proposed imported:fantasy-099e04cd
+fact narrator proposed-name thread-reader                                       proposed imported:fantasy-099e04cd
+fact hedge-road role spoke-and-hub-connective-infrastructure                    proposed imported:fantasy-099e04cd
+fact hedge-road maintained-by pleaching                                         proposed imported:fantasy-099e04cd
 fact the-turning kind oracular-deck                                             ratified D-0146 D-0148
 fact the-turning origin reckoning-game                                          ratified D-0146 D-0148
 fact the-turning function counsel-not-prophecy                                  ratified D-0146
@@ -249,6 +253,18 @@ fact the-grounds textbook-set wood-water-field-hearth                           
 fact the-grounds variance region-drifting                                       ratified D-0148
 fact the-weathers count 12                                                      ratified D-0148
 fact the-weathers structure closed-ring-no-highest                              ratified D-0148
+fact the-weathers greening reciprocal-rot                                       ratified D-0148
+fact the-weathers rot reciprocal-greening                                       ratified D-0148
+fact the-weathers flood reciprocal-dearth                                       ratified D-0148
+fact the-weathers dearth reciprocal-flood                                       ratified D-0148
+fact the-weathers binding reciprocal-loosing-geas                               ratified D-0148
+fact the-weathers loosing reciprocal-binding-geas                               ratified D-0148
+fact the-weathers mending reciprocal-sundering                                  ratified D-0148
+fact the-weathers sundering reciprocal-mending                                  ratified D-0148
+fact the-weathers road passage                                                  ratified D-0148
+fact the-weathers bourn passage                                                 ratified D-0148
+fact the-weathers debt passage                                                  ratified D-0148
+fact the-weathers fallow passage                                                ratified D-0148
 fact the-reckoner role self-implicating-hub                                     ratified D-0148
 fact the-reckoner contrast anti-fool                                            ratified D-0148
 fact keep-stamped-deck nature rigged-licensed-deck                              ratified D-0148

@@ -1,0 +1,213 @@
+# Banned vocabulary for diegetic text (D-0030, D-0046).
+# The technology allegory is structural, never lexical: none of these words may be
+# heard in-world (dialogue, narration-quoted documents, koans, songs).
+# scope: diegetic = enforced only on files/outputs marked diegetic.
+# match: stem (default) also catches simple suffixed forms (s, es, ed, ing, ery, ic)
+# and e-drop inflections for stems ending in "e" (machine → machinery/machined;
+# engine → engineer/engineering; compute → computing/computer).
+# The precedent rejection was "machine" (D-0046); the list grows as drafting reveals leaks.
+
+banned:
+  - word: machine
+    scope: diegetic
+    reason: The precedent rejection — "risks going too far forward in technology time" (D-0046).
+    alternatives: [contrivance, mill-work, the Ledger, engine-of-the-Keep (never)]
+  - word: algorithm
+    scope: diegetic
+    reason: Modern computational register.
+    alternatives: [rule, rite, reckoning, the Ledger's arithmetic]
+  - word: network
+    scope: diegetic
+    reason: Modern infrastructure register.
+    alternatives: [web, weave, lattice, kinship]
+  - word: computer
+    scope: diegetic
+    reason: Modern computational register.
+  - word: compute
+    scope: diegetic
+    reason: Modern computational register.
+    alternatives: [reckon, calculate, tally]
+  - word: program
+    scope: diegetic
+    reason: Modern computational register.
+  - word: software
+    scope: diegetic
+    reason: Modern computational register.
+  - word: hardware
+    scope: diegetic
+    reason: Modern industrial register.
+  - word: robot
+    scope: diegetic
+    reason: Modern register.
+  - word: technology
+    scope: diegetic
+    reason: Modern register.
+    alternatives: [craft, art, work, cunning]
+  - word: technological
+    scope: diegetic
+    reason: Modern register.
+  - word: electric
+    scope: diegetic
+    reason: Post-medieval physics register.
+  - word: electricity
+    scope: diegetic
+    reason: Post-medieval physics register.
+  - word: engine
+    scope: diegetic
+    reason: Industrial register (stem matching also catches engineer/engineering).
+    alternatives: [mill, works, device (sparingly)]
+  - word: grid
+    scope: diegetic
+    reason: Modern infrastructure register.
+  - word: firewall
+    scope: diegetic
+    reason: Modern computational register.
+    alternatives: [ward, hedge, bound]
+  - word: server
+    scope: diegetic
+    reason: Modern computational register.
+  - word: processor
+    scope: diegetic
+    reason: Modern computational register.
+  - word: download
+    scope: diegetic
+    reason: Modern computational register.
+  - word: upload
+    scope: diegetic
+    reason: Modern computational register.
+  - word: digital
+    scope: diegetic
+    reason: Modern register.
+  - word: data
+    scope: diegetic
+    reason: Modern register (use "records", "the rolls", "the count").
+    alternatives: [records, rolls, the count, the tallies]
+  - word: optimize
+    scope: diegetic
+    reason: Modern managerial register.
+    alternatives: [perfect, sharpen, better]
+  - word: efficiency
+    scope: diegetic
+    reason: Industrial-managerial register.
+    alternatives: [thrift, economy of labor, waste (inverted)]
+  - word: efficient
+    scope: diegetic
+    reason: Industrial-managerial register (sibling of efficiency; caught separately
+      because the stemmer does not derive -ent from -ency).
+    alternatives: [thrift, economy of labor, waste (inverted)]
+  - word: system
+    scope: diegetic
+    reason: Borderline — modern-abstract register; prefer concrete in-world nouns.
+    match: exact
+    alternatives: [the Ledger, the law, the order of things]
+
+  # === Pagan-register discipline (D-0146) ==================================
+  # The story is sincere pre-Christian Northern-European animism; the resonance with
+  # modern paganism is sought as an authors'-room lens but NEVER foregrounded (D-0025/
+  # D-0030). Two blacklists below keep the surface from reading as decoded modern Wicca.
+  # Wink PHRASES ("so mote it be", "cast a circle"...) live in the style module's
+  # figurative_cliches.yaml (pagan_wink) — regex flexibility + register scope. Positive
+  # naming (festivals, rites, the oracular deck's figures) goes through the naming oracle.
+
+  # --- Layer 1: modern Wicca/neopagan PRACTICE vocabulary (must not surface in-world) ---
+  - word: sabbat
+    scope: diegetic
+    reason: Modern Wiccan festival term (D-0146); the world keeps its own local turnings.
+  - word: esbat
+    scope: diegetic
+    reason: Modern Wiccan full-moon-meeting term (D-0146).
+  - word: tarot
+    scope: diegetic
+    reason: This world has its own oracular deck, not our tarot (D-0146); "tarot" is an
+      authors'-room touchstone only, never in-world.
+    alternatives: [the oracle deck, the working deck, the woven cards]
+  - word: arcana
+    scope: diegetic
+    reason: Tarot deck structure (major/minor arcana); modern deck vocabulary (D-0146).
+      Note "arcane" is unaffected (exact match).
+    match: exact
+  - word: pentacle
+    scope: diegetic
+    reason: Wicca/tarot symbol name (D-0146); our magic is spoken proof, not sigil-craft,
+      so the period-grimoire sense is foreign here too.
+    match: exact
+  - word: pentagram
+    scope: diegetic
+    reason: Modern occult symbol name (D-0146).
+    match: exact
+  - word: wicca
+    scope: diegetic
+    reason: Names the modern religion outright (D-0146). Stem also catches wiccan.
+  - word: athame
+    scope: diegetic
+    reason: Wiccan ritual blade (D-0146).
+  - word: coven
+    scope: diegetic
+    reason: Reads as modern Wicca (D-0146); despite ~17th-c usage, our groups are
+      scholar-orders and circles named by the oracle, not covens.
+    match: exact
+    alternatives: [order, circle, hedge-fair, kin]
+  # The Wheel-of-the-Year festival names: real Gaelic terms (Beltane/Samhain/Imbolc/
+  # Lughnasadh) plus modern coinages (Yule/Ostara/Litha/Mabon/Lammas). Banned in-world
+  # because importing them ties our subcreation to the real Celtic calendar AND reads as
+  # the neopagan eight-fold wheel; the world names its OWN per-region turnings (DQ-1, oracle).
+  - {word: beltane, scope: diegetic, match: exact, reason: "Wheel-of-the-Year festival name (D-0146); the world names its own turnings."}
+  - {word: samhain, scope: diegetic, match: exact, reason: "Wheel-of-the-Year festival name (D-0146)."}
+  - {word: imbolc, scope: diegetic, match: exact, reason: "Wheel-of-the-Year festival name (D-0146)."}
+  - {word: lughnasadh, scope: diegetic, match: exact, reason: "Wheel-of-the-Year festival name (D-0146)."}
+  - {word: lammas, scope: diegetic, match: exact, reason: "Neopagan/Christian festival name (D-0146)."}
+  - {word: yule, scope: diegetic, match: exact, reason: "Neopagan Wheel festival name (D-0146)."}
+  - {word: ostara, scope: diegetic, match: exact, reason: "Modern neopagan festival name (D-0146)."}
+  - {word: litha, scope: diegetic, match: exact, reason: "Modern neopagan festival name (D-0146)."}
+  - {word: mabon, scope: diegetic, match: exact, reason: "Modern neopagan festival name (coined 1970s) (D-0146)."}
+
+  # --- Layer 2: appropriation red line — closed/foreign-tradition signifiers ----------
+  # World integrity (D-0146): invent only from Northern-European animist roots; never
+  # import a recognisable closed or Indigenous practice as set-dressing.
+  - word: chakra
+    scope: diegetic
+    reason: Hindu/yogic subtle-body term; foreign tradition (D-0146).
+  - word: karma
+    scope: diegetic
+    reason: Dharmic term; the world's reciprocity is Frith and the Wyrd's debt, not karma
+      (D-0146). Stem also catches karmic.
+    alternatives: [the Wyrd's weight, ecological debt, what is owed]
+  - word: totem
+    scope: diegetic
+    reason: Ojibwe term, widely appropriated (D-0146).
+  - word: spirit animal
+    scope: diegetic
+    reason: Appropriated Indigenous-North-American signifier (D-0146).
+    match: exact
+    alternatives: [landvættir, kin-beast, treaty-companion]
+  - word: shaman
+    scope: diegetic
+    reason: Contested — a real Tungus/Siberian ethnographic term, but as set-dressing it
+      reads as "plastic shamanism"; our practitioners are cunning-folk and hedge-scholars,
+      Northern-European rooted (D-0146). Stem catches shamanic/shamanism.
+    alternatives: [cunning-woman, hedge-smith, thread-reader]
+  - word: medicine wheel
+    scope: diegetic
+    reason: Plains-Indigenous sacred structure; closed practice (D-0146).
+    match: exact
+  - word: dreamcatcher
+    scope: diegetic
+    reason: Ojibwe object, widely appropriated (D-0146).
+  - word: smudging
+    scope: diegetic
+    reason: Appropriated Indigenous-North-American cleansing rite (D-0146). Sage the herb
+      stays legal; the rite-name does not. ("smudge" the verb=blur is left unbanned.)
+  - word: hoodoo
+    scope: diegetic
+    reason: African-American closed folk practice (D-0146).
+  - word: voodoo
+    scope: diegetic
+    reason: Haitian Vodou, sensationalised/appropriated; closed practice (D-0146).
+  - word: vodou
+    scope: diegetic
+    reason: Haitian Vodou; closed practice (D-0146).
+    match: exact
+  - word: sweat lodge
+    scope: diegetic
+    reason: Indigenous-North-American rite; closed practice (D-0146).
+    match: exact

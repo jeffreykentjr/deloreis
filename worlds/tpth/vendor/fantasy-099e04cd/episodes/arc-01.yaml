@@ -1,0 +1,363 @@
+schema: fantasy.episode-arc-contract/v1
+arc:
+  id: arc-01
+  title: After the Eave
+  authority_refs: [D-0220]
+  episode_count: 12
+  source_digests:
+    - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+      sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+      role: accepted_arc_causal_map
+    - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+      sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+      role: accepted_episode_1_6_designs
+episodes:
+  - ordinal: 1
+    episode_id: arc1.ep01
+    title: The Last Dry Cord
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    early_magic:
+      impossible_effect_cue: the water stood
+      incapacity_cue: I cannot rise
+      canon_refs: [D-0142, D-0155]
+    title_card:
+      music_cue_precedes: true
+      required_lines:
+        - To Pleach the Hedgeway.
+        - By Geoffrey Hoxton.
+        - Episode One.
+        - The Last Dry Cord.
+    objective: Keep water outside the failing low-house ward long enough to move Aalto's sick kinswoman Kaisla.
+    entry_state: Aalto is alone under flood pressure, testing a correct ward knot that slips in keep-stamped false fibre.
+    required_causal_beats:
+      - "Ki: Aalto alone under flood pressure keeps the failing low-house ward while the sick kinswoman Kaisla waits to be moved."
+      - "Sho: Aalto diagnoses the sound knot and the keep-stamped false fibre before anyone else arrives - the problem deepens with no new arrival."
+      - "Ten: Enfys's entrance is the episode's twist - archive-overwhelmed, she bounds her attention with three Turning leaves and submits each premise to Aalto, and their narrow spoken proof makes floodwater stand impossibly, displaces it, and temporarily takes the use of her legs."
+      - "Ketsu: Kaisla reaches a borrowed eave but dies from illness and cold; Aalto preserves the stamped cord and keeps a truthful witness."
+    speaking_cast: [Narrator, Aalto, Enfys, Kaisla (Aalto's kinswoman)]
+    relationship_phase: strangers_emergency_alliance
+    retained_gain: A truthful witness, preserved stamped cord, a dry eave, and proof that Aalto's knot was sound.
+    next_motion: Aalto and Enfys separately choose to inspect where the turned water went.
+    prohibitions:
+      - Do not make Aalto and Enfys friends, partners, or family.
+      - Do not let Enfys arrive before Aalto diagnoses the failure.
+      - Do not let Enfys enter during the sho; her arrival is the ten of the episode's kishotenketsu, never development.
+      - Do not soften the impossible proof effect or its temporary loss-of-legs cost into tiredness, bleeding, or mood.
+      - Do not leave the kinswoman unnamed and do not rename her; she is Kaisla (D-0229), and Kaisla and Kaisla's are the admitted forms.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-01.md
+        sha256: a13d8473de0cce946dab4aa74341309d1d57ab354fb8e23472806aded5d8cd0a
+        role: bounded_polish_source
+  - ordinal: 2
+    episode_id: arc1.ep02
+    title: Name Before Measure
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    early_magic:
+      impossible_effect_cue: the water in the low room lay flat and refused the channel
+      incapacity_cue: not_applicable
+      canon_refs: [D-0142, D-0155]
+    title_card:
+      music_cue_precedes: true
+      required_lines:
+        - To Pleach the Hedgeway.
+        - By Geoffrey Hoxton.
+        - Episode Two.
+        - Name Before Measure.
+    objective: Drain a low room before returning rain takes it.
+    entry_state: Only hours after meeting, Aalto and Enfys have one preserved cord, one dry eave, and no durable agreement.
+    required_causal_beats:
+      - They trace moving and standing water and disagree about whether water needs an argument or merely a hole.
+      - Aalto opens one blocked runnel while Enfys holds standing and moving water apart in a narrow proof.
+      - Aalto challenges the false separation; Enfys speaks the bounded conclusion and the room water tips impossibly into the runnel.
+      - A one-finger fall, dry corner, readable drip, shared broth, and limited three-threshold agreement remain.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: functional_truce
+    retained_gain: Usable shelter, a readable drip-clock, and a three-threshold agreement with duties, duration, and separate exits.
+    next_motion: The drip-clock forces a check of the higher rooms.
+    prohibitions:
+      - Do not turn the functional truce into friendship, partnership, or family.
+      - Do not remove either girl's credible option to leave.
+      - Keep Bramble and Geir out.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-02.md
+        sha256: e972a7948cafe53d93a71ef093ceefdd9d09e2bdbd6db64f76236fd8166fbdde
+        role: bounded_polish_source
+  - ordinal: 3
+    episode_id: arc1.ep03
+    title: The Sealed Way
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    early_magic:
+      impossible_effect_cue: the tread has taken your weight and its own again
+      incapacity_cue: not_applicable
+      canon_refs: [D-0142, D-0155]
+    title_card:
+      music_cue_precedes: true
+      required_lines:
+        - To Pleach the Hedgeway.
+        - By Geoffrey Hoxton.
+        - Episode Three.
+        - The Sealed Way.
+    objective: Complete the negotiated three-threshold round before dark and make one reciprocal shelter usable.
+    entry_state: Aalto and Enfys have a functional truce, a drip-clock, and an unfinished route through three thresholds.
+    required_causal_beats:
+      - Re-establish the slope, three doors, runnel, crest, lane, and unused upper room before work begins.
+      - Local hands, Aalto, and Enfys clear the lower runnel, share one cord's load, and repair the stile tread.
+      - Aalto rejects Enfys's first claim; their corrected bounded proof seats the plank impossibly into an uncut wall joint.
+      - A dry upper room, reciprocal shelter terms, divided meal, repeatable round, and keep-stamped box remain.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: earned_respect_not_family
+    retained_gain: A stable upper room, reciprocal shelter, a repeatable three-door round, and a marked wooden box.
+    next_motion: The keep-stamped box opens a material inquiry into approved measures.
+    prohibitions:
+      - Do not make earned respect into friendship, partnership, family, or a promise of shared future.
+      - Keep Bramble and Geir out.
+      - Do not let sound design carry the load-path reasoning.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-03.md
+        sha256: e2f9061abb17584f28398c540a8e012d518662a7f8ec07b86ac86ea1368266c0
+        role: bounded_polish_source
+  - ordinal: 4
+    episode_id: arc1.ep04
+    title: The Weather They Left Out
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    objective: Compare the found stamped deck with Enfys's worn Turning without claiming the found object.
+    entry_state: Aalto and Enfys have earned respect, a usable room, and a keep-stamped box whose contents remain unclaimed.
+    required_causal_beats:
+      - Count food and capacity before inquiry.
+      - Enfys demonstrates that the Turning holds observations outside the mind and does not predict.
+      - Aalto counts both decks and finds that the approved deck physically omits hard Weathers.
+      - Both decks remain open and countable; missing honest binding fibre sends Aalto out alone.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: bounded_working_pair
+    retained_gain: A public, countable omission and two preserved decks that can be shown to later witnesses.
+    next_motion: Aalto goes alone to find honest binding fibre.
+    prohibitions:
+      - Do not make the Turning prophetic or mystical.
+      - Do not let either girl claim the found deck.
+      - Keep Bramble and Geir out.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-04.md
+        sha256: 623da63c203f4b6c441c0cb2f7d3e34947c49f968cc7c47aaf6ba231c1745b9f
+        role: bounded_polish_source
+  - ordinal: 5
+    episode_id: arc1.ep05
+    title: The Hound in the Thorn
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    objective: Free a trapped hound before rising water reaches the hollow.
+    entry_state: Aalto is alone seeking honest binding fibre while weather closes the route home.
+    required_causal_beats:
+      - Aalto hears weight fighting thorn rather than a human cry.
+      - Cutting the old snare tightens it; she changes method, anchors the branch, and frees Bramble without being bitten.
+      - Bramble refuses rescue, food, and touch while the flood closes the return path.
+      - Aalto makes shelter, treats only what Bramble permits, and sleeps without tethering the hound.
+    speaking_cast: [Narrator, Aalto]
+    relationship_phase: consent_begins_without_claim
+    retained_gain: Bramble chooses to follow at a distance and Aalto proves she will not convert aid into ownership.
+    next_motion: The storm forces Aalto and Bramble to negotiate a safe return over a second episode.
+    prohibitions:
+      - Bramble never speaks and receives no translated thoughts.
+      - Do not turn rescue into instant loyalty, ownership, or affection.
+      - Keep Enfys and Geir off mic.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-05.md
+        sha256: 59fd946c48a41cba6c85e1296251541710451639fafe4e63580b5ead135a5300
+        role: bounded_polish_source
+  - ordinal: 6
+    episode_id: arc1.ep06
+    title: The Distance Chosen
+    draft_mode: bounded_correction
+    outline_status: accepted_design_bound
+    objective: Reach the high room with Bramble without forcing the hound across unsafe ground.
+    entry_state: Aalto and Bramble are weather-bound; Bramble remains present but beyond touch.
+    required_causal_beats:
+      - Shared food and route choices establish consent by repeated action.
+      - Bramble refuses the official raised path.
+      - Testing reveals seep and unstable fill, so Aalto abandons the quickest route.
+      - They return safely; Bramble chooses the threshold and later accepts an offered, unfastened Frith-knot collar.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: chosen_animal_bond
+    retained_gain: Bramble chooses the threshold and collar; a safer route contradicts the official path.
+    next_motion: Bramble's refused route supplies the next concrete ground question.
+    prohibitions:
+      - Bramble never speaks and receives no translated thoughts.
+      - Enfys must not interpret Bramble for Aalto.
+      - Keep Geir out.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/EPISODE-DESIGNS.md
+        sha256: 8320dc7f1332ed8875fad9aa322fb9ad446ac188a2f91faecce532c4325ec8a1
+        role: accepted_design
+      - path: lab/campaign-079-unified-opening-review-head/episode-06.md
+        sha256: 957ac063b707e95f1b5e5a2ae2af5dd44f52ebe2ed41a4bf5b66b973d048cefd
+        role: bounded_polish_source
+  - ordinal: 7
+    episode_id: arc1.ep07
+    title: Where Bramble Will Not Walk
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Test the ground Bramble refused and reroute one day's necessary work.
+    entry_state: Aalto, Enfys, and Bramble have a safer-return observation that contradicts the official raised path.
+    required_causal_beats:
+      - The three test the refused ground without treating Bramble as a mystic instrument.
+      - Material evidence makes Bramble's bodily refusal admissible witness.
+      - The day's work is rerouted rather than forcing the official path.
+      - A hidden repair points the inquiry outward.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: three_member_working_group
+    retained_gain: A safer reroute and a practice of admitting bodily refusal as evidence.
+    next_motion: The hidden repair's finish must be inspected beyond the immediate route.
+    prohibitions:
+      - Bramble never speaks and receives no translated thoughts.
+      - Do not turn animal perception into prophecy or supernatural certainty.
+      - Keep Geir off mic; only material work may foreshadow him.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map
+  - ordinal: 8
+    episode_id: arc1.ep08
+    title: The Hidden Finish
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Follow the outward repair while pacing Enfys's capacity and identify the craft without inventing its maker.
+    entry_state: The trio has a rerouted workday and a hidden repair pointing beyond the refused ground.
+    required_causal_beats:
+      - Enfys overreaches on the outward path.
+      - Aalto and Bramble change the pace rather than rewarding her overreach.
+      - They find a repair whose finish Enfys recognizes through material craft.
+      - The work foreshadows Geir before any explanation or meeting.
+    speaking_cast: [Narrator, Aalto, Enfys]
+    relationship_phase: paced_three_member_investigation
+    retained_gain: A recognized craft signature and a working practice in which limits change the pace.
+    next_motion: The crew follows the repair to its living maker.
+    prohibitions:
+      - Keep Geir off mic and unnamed unless admitted naming provenance supplies him.
+      - Do not frame Enfys's overreach as heroism.
+      - Bramble never speaks and receives no translated thoughts.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map
+  - ordinal: 9
+    episode_id: arc1.ep09
+    title: The Old Repairer
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Meet Geir through the necessary repair and make his specific cold history with Enfys audible without forcing trust.
+    entry_state: The trio has traced a recognized repair finish to its maker after learning to pace Enfys's limits.
+    required_causal_beats:
+      - The crew meets Geir through work rather than exposition.
+      - His history with Enfys is audible, cold, and specific.
+      - Geir refuses a rescue posture.
+      - He completes one necessary brace while trust remains incomplete.
+    speaking_cast: [Narrator, Aalto, Enfys, Geir]
+    relationship_phase: geir_cold_entry
+    retained_gain: One completed brace and a fourth person whose usefulness does not erase mistrust.
+    next_motion: The four must compare materially marked obligations while old history disrupts their timing.
+    prohibitions:
+      - Do not make Geir a rescuer, instant mentor, or family elder.
+      - Do not resolve Geir and Enfys's history on arrival.
+      - Do not repeat Bramble's bond as a new-character handoff.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map
+  - ordinal: 10
+    episode_id: arc1.ep10
+    title: The Same Load Twice
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Compare two materially marked obligations and prove that the same burden was assigned twice.
+    entry_state: Four useful bodies share one completed brace, incomplete trust, and old history that disrupts timing.
+    required_causal_beats:
+      - The four compare two materially marked obligations.
+      - Material evidence proves a duplicated burden.
+      - Old history disrupts the timing of the work.
+      - The four become useful together but cannot yet keep a whole round.
+    speaking_cast: [Narrator, Aalto, Enfys, Geir]
+    relationship_phase: useful_four_incomplete_trust
+    retained_gain: Shared proof of duplicated burden and evidence that all four can contribute without yet functioning as a household.
+    next_motion: They attempt one complete circuit in which every person's limit must change the plan.
+    prohibitions:
+      - Do not declare the four a family or fully functioning crew.
+      - Do not make the duplicated obligation an abstract conspiracy without material marks.
+      - Bramble never speaks and receives no translated thoughts.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map
+  - ordinal: 11
+    episode_id: arc1.ep11
+    title: Four Ways to Work
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Complete one circuit only by allowing each member's limit to change the plan.
+    entry_state: The four have proved a duplicated burden but still cannot keep a whole round together.
+    required_causal_beats:
+      - The attempted circuit exposes four different limits rather than one weak member.
+      - Each limit causes a concrete revision to the plan.
+      - The revised circuit succeeds without a heroic override.
+      - A working household shape appears without a family declaration.
+    speaking_cast: [Narrator, Aalto, Enfys, Geir]
+    relationship_phase: working_household_not_family
+    retained_gain: A repeatable four-person circuit whose method depends on limits being admitted.
+    next_motion: A new storm tests whether the distributed method holds beyond a single successful round.
+    prohibitions:
+      - Do not declare found family, permanent belonging, or unanimous trust.
+      - Do not let one person save the circuit by overriding the others.
+      - Bramble never speaks and receives no translated thoughts.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map
+  - ordinal: 12
+    episode_id: arc1.ep12
+    title: The Eave Holds Differently
+    draft_mode: new_outline_then_draft
+    outline_status: new_typed_outline_required
+    objective: Test distributed routes and duties in a new storm and close the opening threshold without heroism.
+    entry_state: The four have one repeatable circuit and a working household shape that has not been declared family.
+    required_causal_beats:
+      - A new storm tests the distributed routes and duties.
+      - Each member's bounded work matters; no single hero carries the threshold.
+      - The opening eave holds because the surrounding conditions and method changed.
+      - The valley retains the repeatable method after the crew's immediate work.
+    speaking_cast: [Narrator, Aalto, Enfys, Geir]
+    relationship_phase: distributed_crew_bounded_belonging
+    retained_gain: A storm-tested method, a differently held eave, and local knowledge that survives the crew's absence.
+    next_motion: Arc 1 closes with the core configuration ready for the adventure proper, not with every relationship resolved.
+    prohibitions:
+      - Do not resolve the wider system, Geir and Enfys's history, or every open promise.
+      - Do not make the storm a heroic final battle.
+      - Do not declare the four a permanent family.
+      - Do not import requirements from an earlier episode.
+    source_digests:
+      - path: lab/campaign-079-unified-opening-review-head/ARC-01.md
+        sha256: c34b59be9bf47cb58362126a6c1dc8589bc682f0dc39458d8ead4cec65e69444
+        role: accepted_causal_map

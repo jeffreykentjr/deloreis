@@ -117,7 +117,7 @@ are reported side by side and never reconciled into a single number.
 
 ## Current state — as of this run
 
-- **Pinned SHA:** `40f66792229abf5d73d995a8167adc79152a64e7` (`fantasy-40f6679`).
+- **Pinned SHA:** `099e04cdbbbaf644842a2f4b7a23b2235f752311` (`fantasy-099e04cd`).
 - **Oracle (whole canon):** `validate` → `canon OK: 0 violations`; `world-build`
   → `world: 82 entities, 170 facts, 12 relations, 72 constraints` (`shadow: 4
   entities, 4 facts`, excluded from emission).

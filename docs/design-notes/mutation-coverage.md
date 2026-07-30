@@ -7,7 +7,7 @@ verdict: "PROOF-1's operator×gate coverage matrix and MIG-2's shadow-read state
 
 The mutation detection corpus (`worlds/tpth/mutation/{canon,draft,episode}.yaml`,
 EXT-F5) ports the fantasy repo's 33 seeded-violation operators at pinned SHA
-`40f66792229abf5d73d995a8167adc79152a64e7`. Each record carries the fantasy gate
+`099e04cdbbbaf644842a2f4b7a23b2235f752311`. Each record carries the fantasy gate
 that caught it (`fantasy_gates` — the **oracle-side** ground truth, immutable) and
 a **proposed** mapping onto a deloreis kernel check class (`expected_catch`).
 
@@ -189,7 +189,7 @@ detection corpus), so the migration's dual-run evidence is one artifact. **Detec
 is proven separately from, and before, parity** (migration.md §3): a harness that
 only ever reports agreement is a null oracle.
 
-State as of the last run at pinned SHA `40f6679` (`out/shadow-read/`,
+State as of the last run at pinned SHA `099e04cd` (`out/shadow-read/`,
 `out/differential/`):
 
 - **Detection — structured (EXT-F5).** The PROOF-1 harness is green: all 33 operators

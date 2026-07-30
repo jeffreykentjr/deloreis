@@ -7,7 +7,7 @@
 # vet split (spec 05 §3).
 provenance:
   source_repo: "To Pleach the Hedgeway (D-0143) — /home/jeff/Documents/scratch/fantasy"
-  pinned_sha: 40f66792229abf5d73d995a8167adc79152a64e7
+  pinned_sha: 099e04cdbbbaf644842a2f4b7a23b2235f752311
   source_files:
     - src/fantasy/mutation/operators.py
     - docs/reference/lore-engine-gate-coverage.md

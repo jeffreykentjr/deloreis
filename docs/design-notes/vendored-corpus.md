@@ -21,7 +21,7 @@ evidence, never re-argued here.
 Three self-provided artifacts, all cut from **one pinned commit** of the fantasy
 repository and living under `deloreis` ownership:
 
-1. **The corpus snapshot** — `worlds/tpth/vendor/fantasy-40f6679/`. A `git archive`
+1. **The corpus snapshot** — `worlds/tpth/vendor/fantasy-099e04cd/`. A `git archive`
    of the pinned tree, carrying:
    - `canon/**` — the whole story bible (49 files: characters, geography, society,
      narrative, world, texts, and `canon/data/**` — `characters.yaml`,
@@ -33,7 +33,7 @@ repository and living under `deloreis` ownership:
 
    63 files total. `MANIFEST.txt` in that directory carries the pinned SHA, a
    per-file sha256, and a top-level tree hash (sha256 over the sorted per-file
-   lines). It verifies `sha256sum -c`–style: `cd worlds/tpth/vendor/fantasy-40f6679
+   lines). It verifies `sha256sum -c`–style: `cd worlds/tpth/vendor/fantasy-099e04cd
    && sha256sum -c MANIFEST.txt` (the `#` header lines are ignored by `sha256sum`).
 
 2. **The pinned oracles** — `scripts/pinned-oracles.sh`. A lab-side, **non-gating**
@@ -52,7 +52,7 @@ repository and living under `deloreis` ownership:
 ## The pin
 
 ```
-pinned-sha:  40f66792229abf5d73d995a8167adc79152a64e7
+pinned-sha:  099e04cdbbbaf644842a2f4b7a23b2235f752311
 pinned-ref:  origin/main   (resolved at vendor time)
 source-repo: /home/jeff/Documents/scratch/fantasy
 tree-hash:   92c343e72b408a8b149f105d0e7dd5fd1e02534dd7a38fe9f18830b5b70f5d1d

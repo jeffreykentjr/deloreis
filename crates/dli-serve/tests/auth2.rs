@@ -181,14 +181,14 @@ fn build_fixture() -> Value {
         "fixture": FIXTURE_NAME,
         "version": 1,
         "project": "worlds/tpth/auth2-project.toml",
-        "pinned_corpus": "worlds/tpth/vendor/fantasy-40f6679/canon/data/facts.yaml",
+        "pinned_corpus": "worlds/tpth/vendor/fantasy-099e04cd/canon/data/facts.yaml",
         "note": "The migration.md section 10 Door-T scenario over the pinned TPtH base. Gwern comes from the ratified vendored corpus; only Tegwen, her trade, and her location relation are staged.",
         "steps": steps
     })
 }
 
 fn pinned_facts_path() -> PathBuf {
-    tpth_root().join("vendor/fantasy-40f6679/canon/data/facts.yaml")
+    tpth_root().join("vendor/fantasy-099e04cd/canon/data/facts.yaml")
 }
 
 #[derive(Deserialize)]
@@ -282,7 +282,7 @@ fn annotation(status: &str, decisions: &[String]) -> Annotation {
             .collect(),
         condition: None,
         tags: matches!(marker, ProvenanceMarker::Proposed)
-            .then(|| vec!["imported:fantasy-40f6679".to_owned()])
+            .then(|| vec!["imported:fantasy-099e04cd".to_owned()])
             .unwrap_or_default(),
         span: Span::synthetic(),
     }
@@ -895,7 +895,7 @@ fn assert_guardrail_finding(response: &Value, citations: &[&str]) {
 }
 
 fn pinned_gwern_row() -> serde_yaml_ng::Value {
-    let path = tpth_root().join("vendor/fantasy-40f6679/canon/data/facts.yaml");
+    let path = tpth_root().join("vendor/fantasy-099e04cd/canon/data/facts.yaml");
     let document: serde_yaml_ng::Value =
         serde_yaml_ng::from_str(&fs::read_to_string(path).expect("read pinned facts"))
             .expect("parse pinned facts");
@@ -1018,7 +1018,7 @@ fn fixture_project_observes_the_full_pinned_corpus() {
     let facts = pinned_facts();
     assert_eq!(facts.entities.len(), 23);
     assert_eq!(facts.relations.len(), 12);
-    assert_eq!(facts.facts.len(), 156);
+    assert_eq!(facts.facts.len(), 171);
     assert_eq!(facts.constraints.len(), 3);
 
     let (_temp, mut sessions, mut store) = runtime();
@@ -1223,7 +1223,7 @@ fn worked_tpth_fixture_replays_exactly() {
     assert_eq!(fixture["project"], "worlds/tpth/auth2-project.toml");
     assert_eq!(
         fixture["pinned_corpus"],
-        "worlds/tpth/vendor/fantasy-40f6679/canon/data/facts.yaml"
+        "worlds/tpth/vendor/fantasy-099e04cd/canon/data/facts.yaml"
     );
 
     let (_temp, mut sessions, mut store) = runtime();

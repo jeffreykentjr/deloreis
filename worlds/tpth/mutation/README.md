@@ -10,8 +10,8 @@ hole, openly).
 ## Provenance
 
 Ported from the fantasy repository at pinned SHA
-`40f66792229abf5d73d995a8167adc79152a64e7` (the same pin the vendored corpus is
-cut from — `worlds/tpth/vendor/fantasy-40f6679/`). Sources:
+`099e04cdbbbaf644842a2f4b7a23b2235f752311` (the same pin the vendored corpus is
+cut from — `worlds/tpth/vendor/fantasy-099e04cd/`). Sources:
 
 - `src/fantasy/mutation/operators.py` — the 33 seeded-violation operators.
 - `docs/reference/lore-engine-gate-coverage.md` — the operator×gate coverage matrix.
