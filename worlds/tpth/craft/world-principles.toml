@@ -200,16 +200,20 @@ symbol = "check_early_magic_genre_promise"
 [[world_principles]]
 id = "named-lore-backed-cold-open"
 family = "audio"
-statement = "Every cold-open quotation is followed immediately by a spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship."
-source = "D-0216; canon/texts/in-world-texts.md; naming-oracle discipline."
+statement = "Every cold-open quotation is two or three sentences followed immediately by a separate spoken named-source attribution. Its proper nouns resolve to a ratified or provisional canon section or an explicit naming decision, and the episode contract records that provenance; no draft may invent an author, archive, recension, or source-place relationship. Reject compressed near-borrowings such as map-versus-territory formulations."
+source = "D-0216; D-0220; canon/texts/in-world-texts.md; naming-oracle discipline."
 phases = ['generation', 'revision']
-citations = ['D-0216']
+citations = ['D-0216', 'D-0220']
 
 [world_principles.mission_filter]
 mission_filter = "pass"
 
 [world_principles.binding]
-binding = "declaration"
+binding = "factory"
+
+[world_principles.binding.spec]
+namespace = "check"
+symbol = "check_opening_epigraph_discipline"
 
 [[world_principles]]
 id = "early-aalto-enfys-care-hooks"
@@ -330,10 +334,10 @@ spec = "judge_pillars"
 [[world_principles]]
 id = "pillar-material-sovereignty"
 family = "pillar"
-statement = "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true fluidity and absolute respect; characters defined by autonomy and intellect."
-source = "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0066, D-0094."
+statement = "Against the gaze and the shallow trope, for grounded demography: identity forged by geography, trauma, and economic class; gender handled with pragmatic, period-true specificity and absolute respect; characters defined by autonomy and intellect."
+source = "canon/narrative/craft-pillars.md (material sovereignty, D-0128); D-0056, D-0219."
 phases = ['lore-decision', 'generation', 'revision']
-citations = ['D-0128', 'D-0056', 'D-0066', 'D-0094']
+citations = ['D-0128', 'D-0056', 'D-0219']
 
 [world_principles.mission_filter]
 mission_filter = "pass"

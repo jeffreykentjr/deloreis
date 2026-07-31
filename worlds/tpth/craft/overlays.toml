@@ -784,7 +784,7 @@ symbol = "check_specific_family_context"
 [[overlays]]
 principle_id = "lone-opening-dialogue-context"
 citations = ['D-0195']
-statement = "Do not make Aalto carry the opening by talking to themself. If they are alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful."
+statement = "Do not make Aalto carry the opening by talking to herself. If she is alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful."
 source = "D-0195; audio-drama listener-orientation practice."
 
 [overlays.mission_filter]
