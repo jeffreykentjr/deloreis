@@ -1,5 +1,6 @@
-# 67 PrincipleOverlays: the D-nnnn / mission-filter / binding / pillar-tier
-# bits that ride on the shipped generic doctrine principles (design §1.2).
+# 73 PrincipleOverlays: the D-nnnn / mission-filter / binding / pillar-tier
+# bits that ride on the shipped generic principles (design §1.2).
+
 [[overlays]]
 principle_id = "promise-progress-payoff"
 
@@ -56,8 +57,38 @@ binding = "rule"
 spec = "check-outline"
 
 [[overlays]]
+principle_id = "yes-and-is-terminal"
+
+[overlays.mission_filter]
+mission_filter = "pass"
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
+
+[[overlays]]
+principle_id = "mice-quotient"
+
+[overlays.mission_filter]
+mission_filter = "pass"
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
+
+[[overlays]]
+principle_id = "mice-lifo-nesting"
+
+[overlays.mission_filter]
+mission_filter = "pass"
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
+
+[[overlays]]
 principle_id = "mice-milieu-as-hub"
-citations = ["D-0055"]
+citations = ['D-0055']
 statement = "A Milieu thread opens on entering a place and closes on leaving it. The hub-and- spoke structure is a chain of Milieu threads: the party arrives, works the region, and migrates."
 source = "Card/Kowal (Milieu); canon/narrative/structure.md (hub-and-spoke, D-0055)."
 
@@ -75,7 +106,7 @@ source = "Card/Kowal (Event thread)."
 
 [overlays.mission_filter]
 mission_filter = "adapted"
-note = """Ruled no real conflict (D-0152): "we're kinda following that advice... it's just cycles within cycles." The Event thread's order-returns satisfaction holds — the order that returns is a new cycle's equilibrium, never the old extractive order turned back (D-0014, D-0022)."""
+note = "Ruled no real conflict (D-0152): \"we're kinda following that advice... it's just cycles within cycles.\" The Event thread's order-returns satisfaction holds — the order that returns is a new cycle's equilibrium, never the old extractive order turned back (D-0014, D-0022)."
 
 [overlays.binding]
 binding = "declaration"
@@ -104,10 +135,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "kishotenketsu-ten-is-the-turn"
-citations = [
-    "D-0044",
-    "D-0055",
-]
+citations = ['D-0044', 'D-0055']
 statement = "In ki-shō-ten-ketsu the third act (ten) is the crux: a turn that recontextualizes the first two acts so the listener re-reads everything just heard. The turn need not be a conflict; it is a shift in what the material means."
 source = "Kishōtenketsu (classical East Asian four-act structure); canon/narrative/structure.md (D-0044, D-0055)."
 
@@ -119,7 +147,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "climax-is-perspective-shift"
-citations = ["D-0072"]
+citations = ['D-0072']
 statement = "The high point of an arc is the moment the trouble is revealed to be other than it seemed, and its cause is shown to be human and systemic. The resolution is a proof spoken and a community resettled."
 source = "canon/narrative/structure.md (episode-arc mechanics, D-0072); kishōtenketsu."
 
@@ -141,6 +169,16 @@ mission_filter = "pass"
 [overlays.binding]
 binding = "attest"
 spec = "judge_sliders"
+
+[[overlays]]
+principle_id = "slider-ledger-per-major-character"
+
+[overlays.mission_filter]
+mission_filter = "pass"
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
 
 [[overlays]]
 principle_id = "slider-compensation"
@@ -199,7 +237,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "contrasting-temperament-cast"
-citations = ["D-0073"]
+citations = ['D-0073']
 source = "Austen/Brontë harvest, canon/premise/influences.md (D-0073)."
 
 [overlays.mission_filter]
@@ -210,10 +248,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "agency-never-victimhood"
-citations = [
-    "D-0066",
-    "D-0076",
-]
+citations = ['D-0066', 'D-0076']
 statement = "A character in a cruel world is never staged as a victim for spectacle. Even a child in an adult danger stays an agent: exact, stubborn, running the numbers, and probing the rules so as not to be cheated."
 source = "Portis, True Grit (Mattie Ross); canon (apprentice, D-0066); D-0076 no trauma-drama."
 
@@ -226,7 +261,7 @@ spec = "judge_pillars"
 
 [[overlays]]
 principle_id = "magic-costs-the-body"
-citations = ["D-0087"]
+citations = ['D-0087']
 statement = "Magic always costs the body: calories, blood, neurological bandwidth. Proof-speech sounds like work — controlled breath starting to fray, a nosebleed on slate, an anchor's grip keeping a swaying body upright. There is no costless hand-waving."
 source = "canon/premise/allegory.md (constraint 3, D-0087); canon/narrative/audio-design.md; Sanderson Second Law."
 
@@ -305,7 +340,7 @@ symbol = "check_abstraction_density"
 
 [[overlays]]
 principle_id = "concrete-detail-doctrine"
-citations = ["D-0113"]
+citations = ['D-0113']
 statement = "One exact, distilled detail outperforms a pile of generic ones. 'Salt-swollen fingers on a cord that will not seat' beats 'she felt anxious'. Strategic specificity is the difference between a scene heard and a scene skimmed."
 source = "Le Guin, Steering the Craft; canon/narrative/structure.md (the opening, D-0113)."
 
@@ -321,7 +356,7 @@ symbol = "check_abstraction_density"
 
 [[overlays]]
 principle_id = "opening-sensory-seasonal-grounding"
-citations = ["D-0217"]
+citations = ['D-0217']
 source = "D-0217; canon/narrative/craft-pillars.md#Sensory and seasonal grounding; Le Guin, Steering the Craft (the concrete)."
 
 [overlays.mission_filter]
@@ -407,10 +442,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "subtext-over-announcement"
-citations = [
-    "D-0082",
-    "D-0083",
-]
+citations = ['D-0082', 'D-0083']
 source = "canon/narrative/tone-style.md (D-0082, D-0083); Gilroy (Andor), Mantel (Wolf Hall)."
 
 [overlays.mission_filter]
@@ -432,10 +464,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "episode-is-complete-kishotenketsu"
-citations = [
-    "D-0043",
-    "D-0044",
-]
+citations = ['D-0043', 'D-0044']
 source = "Platt & Truant, Write. Publish. Repeat.; canon/narrative/episode-format.md (D-0043, D-0044)."
 
 [overlays.mission_filter]
@@ -465,6 +494,16 @@ principle_id = "micro-pacing-every-installment"
 mission_filter = "tension"
 note = "Fox's rule is often read as 'advance the plot every chapter', which pushes toward constant forward motion and against the courage to hold a quiet scene (Frieren; audio-design 'courage to hold silence')."
 resolution = "A quiet scene of weather or mending still qualifies if it changes a relationship or an understanding. The test is motion of feeling or knowledge, not noise. Whole episodes of weather and teaching are features, not filler (D-0051). The counting rule is ruled explicit (D-0152): there is always movement, and pure relationship-deepening beats, richness of understanding, and emotional growth COUNT as movement."
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
+
+[[overlays]]
+principle_id = "promise-payoff-new-promise"
+
+[overlays.mission_filter]
+mission_filter = "pass"
 
 [overlays.binding]
 binding = "rule"
@@ -507,7 +546,7 @@ spec = "check-outline"
 
 [[overlays]]
 principle_id = "modular-world-generates-arcs"
-citations = ["D-0051"]
+citations = ['D-0051']
 statement = "A serial sustains hundreds of installments only if the world can spin up a fresh arc from its own parts. Each new region and enclosed hoard is a ready spoke; the structure supplies stories without the author inventing an escalating threat."
 source = "Wildbow (world-as-engine); canon/narrative/structure.md (hub-and-spoke, D-0051)."
 
@@ -519,10 +558,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "cold-open-is-a-tone-promise"
-citations = [
-    "D-0037",
-    "D-0045",
-]
+citations = ['D-0037', 'D-0045']
 statement = "The cold open is a promise of tone: a koan-like microcosm of the episode, read at a centuries-out remove, whose meaning clicks into place only as the episode plays. It sets the contract the installment must honor."
 source = "canon/narrative/narrator-framing.md (D-0037, D-0045); Dune epigraphs."
 
@@ -586,6 +622,16 @@ namespace = "check"
 symbol = "check_sfx_semantic_load"
 
 [[overlays]]
+principle_id = "sixty-second-hook"
+
+[overlays.mission_filter]
+mission_filter = "pass"
+
+[overlays.binding]
+binding = "rule"
+spec = "check-outline"
+
+[[overlays]]
 principle_id = "three-four-voices-per-scene"
 source = "Toscan, Writing Audio Drama; Gill (SFWA, cast-size confusion); Urbina (four-hander)."
 
@@ -629,10 +675,7 @@ symbol = "check_name_pepper"
 
 [[overlays]]
 principle_id = "scripted-silence"
-citations = [
-    "D-0023",
-    "D-0024",
-]
+citations = ['D-0023', 'D-0024']
 statement = "Silence is a scored instrument: a held beat, wind and fire-crackle, boots in mud. The courage to hold silence instead of wall-to-wall scoring is a signature of the register, and a pause held a beat long carries more than a line."
 source = "canon/narrative/audio-design.md (courage to hold silence, D-0023/D-0024); Werner."
 
@@ -678,7 +721,7 @@ symbol = "check_four_beat_turn_integrity"
 
 [[overlays]]
 principle_id = "first-meeting-audibility"
-citations = ["D-0216"]
+citations = ['D-0216']
 source = "D-0216; campaign-033 false-pass audit; Toscan signposting."
 
 [overlays.mission_filter]
@@ -707,7 +750,7 @@ symbol = "check_dialogue_turn_motivation"
 
 [[overlays]]
 principle_id = "audio-opening-pressure"
-citations = ["D-0195"]
+citations = ['D-0195']
 statement = "A first episode may use the Four-Beat Turn, but the first story minute still needs a Western-audio hook: a concrete pressure already happening, then enough narrator context to understand it. Do not open with a room inventory or a child muttering procedures before the listener knows what can be lost."
 source = "D-0195; Sanderson (promises in the opening); audio-first clarity doctrine."
 
@@ -724,7 +767,7 @@ symbol = "check_audio_opening_pressure"
 
 [[overlays]]
 principle_id = "specific-family-context"
-citations = ["D-0195"]
+citations = ['D-0195']
 statement = "If family danger motivates the scene, make the family context incidentally specific. Aalto knows who is in the bed, so the listener should hear a name or relation early; vague labels like 'the sick kinsman' turn human stakes into fog."
 source = "D-0195; Sanderson (sympathy through concrete stakes); Toscan signposting."
 
@@ -740,8 +783,8 @@ symbol = "check_specific_family_context"
 
 [[overlays]]
 principle_id = "lone-opening-dialogue-context"
-citations = ["D-0195"]
-statement = "Do not make Aalto carry the opening by talking to herself. If she is alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful."
+citations = ['D-0195']
+statement = "Do not make Aalto carry the opening by talking to themself. If they are alone, the narrator must ground what the listener cannot see; if another person is present, let that person become an audible anchor when useful."
 source = "D-0195; audio-drama listener-orientation practice."
 
 [overlays.mission_filter]
@@ -756,7 +799,7 @@ symbol = "check_lone_opening_dialogue_context"
 
 [[overlays]]
 principle_id = "performable-voice-strangeness"
-citations = ["D-0195"]
+citations = ['D-0195']
 statement = "Enfys may sound strange, but the script cannot depend on unproducible voice layering. Let the actor or TTS simply perform a line; put her otherness in word choice, behavior, cost, and reactions, not in directions for multiple hidden voices or impossible acoustic variations."
 source = "D-0195; ElevenLabs validation learning from campaign-016."
 
@@ -807,7 +850,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "aphorism-as-acoustic-logo"
-citations = ["D-0090"]
+citations = ['D-0090']
 source = "canon/narrative/audio-design.md (aphorisms as acoustic identity, D-0090)."
 
 [overlays.mission_filter]
@@ -818,7 +861,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "music-as-learned-lexicon"
-citations = ["D-0039"]
+citations = ['D-0039']
 statement = "Music works two ways: fixed signatures that punctuate the open and close, and a recognizable mood lexicon the listener learns (the rigid order, the wild Wyrd, the warm hearth). Consistency turns the score into orientation."
 source = "canon/narrative/audio-design.md (music as punctuation and mood, D-0039)."
 
@@ -830,7 +873,7 @@ binding = "declaration"
 
 [[overlays]]
 principle_id = "final-musical-sting"
-citations = ["D-0039"]
+citations = ['D-0039']
 source = "Episode 1 script-format author feedback (2026-07-10); canon/narrative/audio-design.md (D-0039)."
 
 [overlays.mission_filter]
@@ -845,7 +888,7 @@ symbol = "check_final_music_sting"
 
 [[overlays]]
 principle_id = "bar-raiser-taste-gap"
-citations = ["D-0128"]
+citations = ['D-0128']
 in_precedence_tier = true
 source = "Glass, 'The Gap' (This American Life); the bar-raising mandate (D-0128)."
 

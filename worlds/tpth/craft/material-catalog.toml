@@ -1,4 +1,5 @@
 # The 12 material-planning categories + the required set (D-0128/D-0056).
+
 [[categories]]
 category = "season_time_pressure"
 required = true
