@@ -141,6 +141,12 @@ const FAMILIES: &[Family] = &[
                 meaning: "a rule concludes about a variable that nothing in its premises names.",
             },
             Code {
+                code: "load.unknown-temporal-reference",
+                severity: "error",
+                repair: "—",
+                meaning: "a typed temporal clause names an era or event the merged world does not declare.",
+            },
+            Code {
                 code: "load.duplicate-declaration",
                 severity: "error",
                 repair: "—",
