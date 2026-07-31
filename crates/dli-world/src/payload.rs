@@ -1022,8 +1022,16 @@ fn runtime_continuity_family(
     // the episode-state boundary. Unsupported facts are legitimate new state.
     for report in check::factcheck::factcheck(world, &current) {
         if report.verdict == Verdict::Contradicted {
-            let mut finding =
-                PayloadFinding::error("continuity.world-contradiction", report.reason);
+            let code = if report
+                .reason
+                .starts_with("matches contextual rejected-claim")
+                || report.reason.starts_with("realizes killed token")
+            {
+                "continuity.rejected-lore"
+            } else {
+                "continuity.world-contradiction"
+            };
+            let mut finding = PayloadFinding::error(code, report.reason);
             finding.citations = report.citations;
             out.push(finding);
         }
@@ -2505,6 +2513,7 @@ mod tests {
     #[test]
     fn runtime_context_checks_world_prior_reference_and_promise_continuity() {
         use crate::Pack;
+        use crate::check::factcheck::{KilledTokens, MatchMode, RejectedClaim};
         use crate::compile;
         use crate::loader::example_docs;
 
@@ -2512,7 +2521,17 @@ mod tests {
             name: "camelot".to_owned(),
             documents: example_docs(),
         })
-        .unwrap();
+        .unwrap()
+        .with_killed_tokens(
+            KilledTokens::default().with_rejected_claims(vec![RejectedClaim {
+                predicate: "kept-at".to_owned(),
+                subject: "excalibur".to_owned(),
+                value: "camelot".to_owned(),
+                mode: MatchMode::Word,
+                decision: "D-0009".to_owned(),
+                scope: "the sword is not kept at Camelot".to_owned(),
+            }]),
+        );
         let source = sample_source();
         let mut payload = Payload::default();
         payload.meta.source.sha256 = source_hash(&source);
@@ -2575,6 +2594,7 @@ mod tests {
             codes.contains(&"continuity.proposed-as-fact"),
             "{findings:?}"
         );
+        assert!(codes.contains(&"continuity.rejected-lore"), "{findings:?}");
         assert!(codes.contains(&"continuity.unknown-entity"), "{findings:?}");
         assert_eq!(
             codes
