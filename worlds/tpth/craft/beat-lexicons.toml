@@ -1,4 +1,4 @@
-# TPtH's D-0052 backstop: a kishotenketsu turn should not read as combat.
+# TPtH's D-0052 backstop: a kishōtenketsu turn should not read as combat.
 [[rules]]
 code = "outline.ten-reads-as-battle"
 message = "the ten reads as a battle/confrontation; the turn should be a perspective shift dissolved through empathy and logic, not a clash"

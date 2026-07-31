@@ -1,28 +1,29 @@
 # Per-finding-code citations (the D-nnnn the checker used to inline).
+
 [[rules]]
 code = "outline.no-audio-plan"
-citations = ["D-0179"]
+citations = ['D-0179']
 
 [[rules]]
 code = "outline.narrator-direct-address"
-citations = ["D-0176"]
+citations = ['D-0176']
 
 [[rules]]
 code = "outline.narrator-host-frame"
-citations = ["D-0176"]
+citations = ['D-0176']
 
 [[rules]]
 code = "outline.sfx-not-sparse"
-citations = ["D-0179"]
+citations = ['D-0179']
 
 [[rules]]
 code = "outline.ten-reads-as-battle"
-citations = ["D-0052"]
+citations = ['D-0052']
 
 [[rules]]
 code = "craft.accomplishment-earned"
-citations = ["D-0128"]
+citations = ['D-0128']
 
 [[rules]]
 code = "craft.arc-shape"
-citations = ["D-0052"]
+citations = ['D-0052']

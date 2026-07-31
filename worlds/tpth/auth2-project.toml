@@ -6,8 +6,9 @@ evidence = ".dli-evidence"
 cache = ".dli-cache"
 
 [documents.tpth]
-sources = ["auth2/pinned-facts.dli", "auth2/fork.dli", "packs/cymric-fringe.dli"]
+sources = ["auth2/pinned-facts.dli", "auth2/fork.dli", "packs/cymric-fringe.dli", "packs/names.dli"]
 killed_tokens = "auth2/pinned-guardrails.yaml"
+craft_config = "craft"
 
 [documents.tpth-constraints]
 sources = ["auth2/pinned-constraints.dli"]
