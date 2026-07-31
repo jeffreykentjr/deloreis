@@ -26,7 +26,9 @@ use dli_core::ann::Status;
 use dli_eval::query::Query;
 use dli_eval::world::World;
 
-use dli_world::check::factcheck::{KilledToken, KilledTokens, MatchMode, Verdict, factcheck};
+use dli_world::check::factcheck::{
+    KilledToken, KilledTokens, MatchMode, RejectedClaim, Verdict, factcheck,
+};
 use dli_world::check::{self, CompiledWorld};
 use dli_world::draft::{DraftMeta, DraftPayload};
 use dli_world::model::LoadFinding;
@@ -294,6 +296,65 @@ fn factcheck_preserves_every_ruling_for_one_killed_form() {
     );
     assert!(reports[0].reason.contains("D-0010"));
     assert!(reports[0].reason.contains("D-0033"));
+}
+
+#[test]
+fn contextual_rejection_applies_only_to_its_ruled_slot() {
+    let rejected = RejectedClaim {
+        predicate: "mortality".to_owned(),
+        subject: "protagonist".to_owned(),
+        value: "immortal".to_owned(),
+        mode: MatchMode::Word,
+        decision: "D-0067".to_owned(),
+        scope: "the protagonist is not immortal".to_owned(),
+    };
+    let world = saltcast_world()
+        .with_killed_tokens(KilledTokens::default().with_rejected_claims(vec![rejected]));
+
+    let reports = factcheck(
+        &world,
+        &[
+            atom("mortality", &["protagonist", "immortal"]),
+            atom("mortality", &["hound", "immortal"]),
+        ],
+    );
+
+    assert_eq!(reports[0].verdict, Verdict::Contradicted);
+    assert_eq!(reports[0].citations, vec!["D-0067".to_owned()]);
+    assert_eq!(reports[1].verdict, Verdict::Unsupported);
+    assert!(reports[1].citations.is_empty());
+}
+
+#[test]
+fn contextual_rejection_preserves_every_ruling() {
+    let rejected = ["D-0010", "D-0033"]
+        .into_iter()
+        .map(|decision| RejectedClaim {
+            predicate: "role".to_owned(),
+            subject: "protagonist".to_owned(),
+            value: "demon king".to_owned(),
+            mode: MatchMode::Phrase,
+            decision: decision.to_owned(),
+            scope: "singular antagonist framing".to_owned(),
+        })
+        .collect();
+    let world =
+        saltcast_world().with_killed_tokens(KilledTokens::default().with_rejected_claims(rejected));
+    let claim = AtomExpr {
+        pred: id("role"),
+        args: vec![
+            Term::Sym(id("protagonist")),
+            Term::Str("demon king".to_owned()),
+        ],
+    };
+
+    let reports = factcheck(&world, &[claim]);
+
+    assert_eq!(reports[0].verdict, Verdict::Contradicted);
+    assert_eq!(
+        reports[0].citations,
+        vec!["D-0010".to_owned(), "D-0033".to_owned()]
+    );
 }
 
 #[test]

@@ -217,13 +217,29 @@ impl Default for StoragePaths {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct KilledFile {
+    #[serde(default)]
     killed: Vec<KilledRow>,
+    #[serde(default)]
+    rejected_claims: Vec<RejectedClaimRow>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct KilledRow {
     token: String,
+    #[serde(rename = "match", default)]
+    mode: MatchMode,
+    decision: String,
+    #[serde(default)]
+    scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RejectedClaimRow {
+    predicate: String,
+    subject: String,
+    value: String,
     #[serde(rename = "match", default)]
     mode: MatchMode,
     decision: String,
@@ -1093,6 +1109,8 @@ fn load_profiles(root: &Path, field: &str, path: &Path) -> Result<Registry, Proj
 }
 
 fn load_killed(root: &Path, field: &str, path: &Path) -> Result<KilledTokens, ProjectError> {
+    use dli_world::RejectedClaim;
+
     let file: KilledFile = load_yaml(root, field, path)?;
     let mut tokens = Vec::with_capacity(file.killed.len());
     for row in file.killed {
@@ -1114,7 +1132,32 @@ fn load_killed(root: &Path, field: &str, path: &Path) -> Result<KilledTokens, Pr
             scope: row.scope,
         });
     }
-    Ok(KilledTokens::new(tokens))
+    let mut rejected_claims = Vec::with_capacity(file.rejected_claims.len());
+    for row in file.rejected_claims {
+        if row.predicate.trim().is_empty()
+            || row.subject.trim().is_empty()
+            || row.value.trim().is_empty()
+        {
+            return Err(ProjectError::Invalid(
+                "rejected-claim entries must name a predicate, subject, and value".into(),
+            ));
+        }
+        if row.decision.trim().is_empty() {
+            return Err(ProjectError::Invalid(format!(
+                "rejected claim `{}({}, {})` must name its decision",
+                row.predicate, row.subject, row.value
+            )));
+        }
+        rejected_claims.push(RejectedClaim {
+            predicate: row.predicate,
+            subject: row.subject,
+            value: row.value,
+            mode: row.mode,
+            decision: row.decision,
+            scope: row.scope,
+        });
+    }
+    Ok(KilledTokens::new(tokens).with_rejected_claims(rejected_claims))
 }
 
 fn load_attestation_questions(

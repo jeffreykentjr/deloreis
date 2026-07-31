@@ -439,7 +439,9 @@ fn loads_optional_project_assets_without_demo_resolution() {
     fs::write(root.join("world.dli"), "scope world\n").unwrap();
     fs::write(
         root.join("killed.yaml"),
-        "killed:\n  - {token: old-name, match: word, decision: d-0099}\n",
+        "killed:\n  - {token: old-name, match: word, decision: d-0099}\n\
+         rejected_claims:\n\
+           - {predicate: role, subject: hero, value: auditor, match: word, decision: d-0009}\n",
     )
     .unwrap();
     fs::copy(
@@ -516,6 +518,14 @@ fn loads_optional_project_assets_without_demo_resolution() {
     );
     assert!(document.craft_policy.is_some());
     assert!(document.killed.hit("the Old Name returns").is_some());
+    assert_eq!(
+        document
+            .killed
+            .rejected_hits(&("role".to_owned(), "hero".to_owned()), "auditor")
+            .map(|claim| claim.decision.as_str())
+            .collect::<Vec<_>>(),
+        vec!["d-0009"]
+    );
     assert!(document.profiles.resolve("wiki/nine-realms").is_some());
     assert!(
         project

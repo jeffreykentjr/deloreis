@@ -179,17 +179,33 @@ fn load_yaml_option<T: serde::de::DeserializeOwned>(
 /// ```yaml
 /// killed:
 ///   - {token: doom-wight, match: phrase, decision: D-0097, scope: "…"}
+/// rejected_claims:
+///   - {predicate: role, subject: hero, value: auditor, decision: D-0009}
 /// ```
 pub(crate) fn load_killed_tokens(path: &Path) -> Result<KilledTokens, String> {
-    use dli_world::{KilledToken, MatchMode};
+    use dli_world::{KilledToken, MatchMode, RejectedClaim};
 
     #[derive(serde::Deserialize)]
     struct KilledDoc {
+        #[serde(default)]
         killed: Vec<KilledRow>,
+        #[serde(default)]
+        rejected_claims: Vec<RejectedClaimRow>,
     }
     #[derive(serde::Deserialize)]
     struct KilledRow {
         token: String,
+        #[serde(rename = "match", default)]
+        mode: String,
+        decision: String,
+        #[serde(default)]
+        scope: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct RejectedClaimRow {
+        predicate: String,
+        subject: String,
+        value: String,
         #[serde(rename = "match", default)]
         mode: String,
         decision: String,
@@ -223,7 +239,23 @@ pub(crate) fn load_killed_tokens(path: &Path) -> Result<KilledTokens, String> {
             scope: row.scope,
         })
         .collect();
-    Ok(KilledTokens::new(tokens))
+    let rejected_claims = doc
+        .rejected_claims
+        .into_iter()
+        .map(|row| RejectedClaim {
+            predicate: row.predicate,
+            subject: row.subject,
+            value: row.value,
+            mode: match row.mode.as_str() {
+                "phrase" => MatchMode::Phrase,
+                "substring" | "regex" => MatchMode::Substring,
+                _ => MatchMode::Word,
+            },
+            decision: row.decision,
+            scope: row.scope,
+        })
+        .collect();
+    Ok(KilledTokens::new(tokens).with_rejected_claims(rejected_claims))
 }
 
 /// Arguments for `deloreis check-proof`.
