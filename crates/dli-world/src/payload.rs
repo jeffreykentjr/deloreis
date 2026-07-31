@@ -244,6 +244,63 @@ pub struct Claim {
     pub line: u32,
 }
 
+/// One normalized fact in caller-owned runtime continuity context.
+///
+/// This is deliberately not part of [`Payload`]: prior episode state is mutable
+/// runtime context, while `payload/v1` is durable evidence about one immutable
+/// draft. `dli.check-draft` may supply these rows through [`BatteryContext`].
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeFact {
+    /// The fact predicate / slot key.
+    pub predicate: String,
+    /// The entity whose slot is set.
+    pub subject: String,
+    /// The normalized value stored in the slot.
+    pub value: String,
+}
+
+/// One explicit state transition in caller-owned runtime continuity context.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeChange {
+    /// The fact predicate / slot key.
+    pub predicate: String,
+    /// The entity whose slot changes.
+    pub subject: String,
+    /// The value the episode says it changes from.
+    pub from_value: String,
+    /// The value the episode changes to.
+    pub to_value: String,
+}
+
+/// Caller-owned state needed to check one episode against its predecessors.
+///
+/// The context contains the current episode's structured state projection plus
+/// the already-folded prior ledger. It never enters the durable payload store.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeContinuity {
+    /// Facts the current episode presents as established.
+    #[serde(default)]
+    pub established: Vec<RuntimeFact>,
+    /// Facts the current episode changes.
+    #[serde(default)]
+    pub changes: Vec<RuntimeChange>,
+    /// Entity ids referenced by the current episode state.
+    #[serde(default)]
+    pub references: Vec<String>,
+    /// The last value established before this episode for each known slot.
+    #[serde(default)]
+    pub prior_facts: Vec<RuntimeFact>,
+    /// Promise/debt ids open before this episode.
+    #[serde(default)]
+    pub prior_open_promises: Vec<String>,
+    /// Promise/debt ids the current episode closes without also opening.
+    #[serde(default)]
+    pub closed_promises: Vec<String>,
+}
+
 /// The dimension a [`DeltaRow`] moves (§7.1).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
@@ -683,6 +740,8 @@ pub struct BatteryContext<'a> {
     pub kb: Kb<'a>,
     /// Parsed source documents containing practices and declared proof blocks.
     pub documents: &'a [Document],
+    /// Caller-owned prior/current episode state used only for runtime continuity.
+    pub runtime_continuity: Option<&'a RuntimeContinuity>,
 }
 
 impl<'a> BatteryContext<'a> {
@@ -699,6 +758,7 @@ impl<'a> BatteryContext<'a> {
             episode_policy: DEFAULT_EPISODE_POLICY,
             kb: Kb::builtin(),
             documents: &[],
+            runtime_continuity: None,
         }
     }
 
@@ -751,6 +811,13 @@ impl<'a> BatteryContext<'a> {
         self.documents = documents;
         self
     }
+
+    /// Add caller-owned runtime episode state without changing `payload/v1`.
+    #[must_use]
+    pub fn with_runtime_continuity(mut self, continuity: &'a RuntimeContinuity) -> Self {
+        self.runtime_continuity = Some(continuity);
+        self
+    }
 }
 
 /// Run the full battery over one payload — the merged eight-family report (§7.2).
@@ -793,6 +860,9 @@ pub fn check_payload(
     // (2) factcheck and (1) continuity over the parsed claims.
     out.extend(factcheck_family(world, &claims));
     out.extend(continuity_family(world, &claims));
+    if let Some(continuity) = ctx.runtime_continuity {
+        out.extend(runtime_continuity_family(world, continuity));
+    }
 
     // (4) craft season rules over the merged ledger.
     out.extend(craft_family(payload, ctx));
@@ -916,6 +986,143 @@ fn continuity_family(world: &CompiledWorld, claims: &[ParsedClaim<'_>]) -> Vec<P
         }
     }
     out
+}
+
+/// Runtime continuity over the caller-owned episode-state projection.
+///
+/// The durable payload remains a statement about one draft. This companion
+/// context supplies the folded prior ledger needed for cross-episode checks and
+/// the current state rows that may not have quote-anchored prose claims.
+fn runtime_continuity_family(
+    world: &CompiledWorld,
+    continuity: &RuntimeContinuity,
+) -> Vec<PayloadFinding> {
+    let mut out = Vec::new();
+    let mut current = Vec::new();
+
+    for fact in &continuity.established {
+        match parse_runtime_fact(fact) {
+            Some(atom) => current.push(atom),
+            None => out.push(invalid_runtime_fact("established", fact)),
+        }
+    }
+    for change in &continuity.changes {
+        let target = RuntimeFact {
+            predicate: change.predicate.clone(),
+            subject: change.subject.clone(),
+            value: change.to_value.clone(),
+        };
+        match parse_runtime_fact(&target) {
+            Some(atom) => current.push(atom),
+            None => out.push(invalid_runtime_fact("changed target", &target)),
+        }
+    }
+
+    // The factchecker's contradicted verdict is the world-contradiction class at
+    // the episode-state boundary. Unsupported facts are legitimate new state.
+    for report in check::factcheck::factcheck(world, &current) {
+        if report.verdict == Verdict::Contradicted {
+            let mut finding =
+                PayloadFinding::error("continuity.world-contradiction", report.reason);
+            finding.citations = report.citations;
+            out.push(finding);
+        }
+    }
+    out.extend(
+        check::continuity::check_claims(world, &current)
+            .iter()
+            .map(world_finding_to_payload),
+    );
+
+    let known: BTreeSet<&str> = world
+        .model()
+        .entities()
+        .iter()
+        .map(|entity| entity.name.as_str())
+        .collect();
+    for reference in &continuity.references {
+        if !known.contains(reference.as_str()) {
+            out.push(PayloadFinding::error(
+                "continuity.unknown-entity",
+                format!(
+                    "episode state references entity '{reference}', which canon does not define"
+                ),
+            ));
+        }
+    }
+
+    let prior: BTreeMap<(&str, &str), &str> = continuity
+        .prior_facts
+        .iter()
+        .map(|fact| {
+            (
+                (fact.predicate.as_str(), fact.subject.as_str()),
+                fact.value.as_str(),
+            )
+        })
+        .collect();
+    for fact in &continuity.established {
+        if let Some(prior_value) = prior.get(&(fact.predicate.as_str(), fact.subject.as_str()))
+            && *prior_value != fact.value
+        {
+            out.push(PayloadFinding::error(
+                "continuity.prior-contradiction",
+                format!(
+                    "re-establishes {}.{} = {}, reversing the prior value {}",
+                    fact.subject, fact.predicate, fact.value, prior_value
+                ),
+            ));
+        }
+    }
+    for change in &continuity.changes {
+        if let Some(prior_value) = prior.get(&(change.predicate.as_str(), change.subject.as_str()))
+            && *prior_value != change.from_value
+        {
+            out.push(PayloadFinding::error(
+                "continuity.prior-contradiction",
+                format!(
+                    "changes {}.{} from {}, but the last established value was {}",
+                    change.subject, change.predicate, change.from_value, prior_value
+                ),
+            ));
+        }
+    }
+
+    let open_promises: BTreeSet<&str> = continuity
+        .prior_open_promises
+        .iter()
+        .map(String::as_str)
+        .collect();
+    for promise in &continuity.closed_promises {
+        if !open_promises.contains(promise.as_str()) {
+            out.push(PayloadFinding::error(
+                "continuity.prior-contradiction",
+                format!("closes promise or debt '{promise}', which was never opened"),
+            ));
+        }
+    }
+
+    out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
+    out.dedup_by(|a, b| a.code == b.code && a.message == b.message);
+    out
+}
+
+fn parse_runtime_fact(fact: &RuntimeFact) -> Option<AtomExpr> {
+    let clause = Clause {
+        text: format!("{}({}, {})", fact.predicate, fact.subject, fact.value),
+        span: Span::synthetic(),
+    };
+    parse_clause_atom(&clause)
+}
+
+fn invalid_runtime_fact(kind: &str, fact: &RuntimeFact) -> PayloadFinding {
+    PayloadFinding::error(
+        "payload.runtime-continuity-invalid",
+        format!(
+            "{kind} runtime fact '{}({}, {})' is not a well-formed atom",
+            fact.predicate, fact.subject, fact.value
+        ),
+    )
 }
 
 /// The craft family: merge the payload's beats into the season ledger and run
@@ -2291,6 +2498,90 @@ mod tests {
             !findings
                 .iter()
                 .any(|f| f.family() == "factcheck" && f.line == Some(1)),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
+    fn runtime_context_checks_world_prior_reference_and_promise_continuity() {
+        use crate::Pack;
+        use crate::compile;
+        use crate::loader::example_docs;
+
+        let world = compile(&Pack {
+            name: "camelot".to_owned(),
+            documents: example_docs(),
+        })
+        .unwrap();
+        let source = sample_source();
+        let mut payload = Payload::default();
+        payload.meta.source.sha256 = source_hash(&source);
+        let continuity = RuntimeContinuity {
+            established: vec![
+                RuntimeFact {
+                    predicate: "adjacent".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "excalibur".to_owned(),
+                },
+                RuntimeFact {
+                    predicate: "kept-at".to_owned(),
+                    subject: "excalibur".to_owned(),
+                    value: "camelot".to_owned(),
+                },
+                RuntimeFact {
+                    predicate: "mood".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "grim".to_owned(),
+                },
+            ],
+            changes: vec![RuntimeChange {
+                predicate: "weather".to_owned(),
+                subject: "camelot".to_owned(),
+                from_value: "sunny".to_owned(),
+                to_value: "rain".to_owned(),
+            }],
+            references: vec!["ghost".to_owned()],
+            prior_facts: vec![
+                RuntimeFact {
+                    predicate: "mood".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "weary".to_owned(),
+                },
+                RuntimeFact {
+                    predicate: "weather".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "cloudy".to_owned(),
+                },
+            ],
+            prior_open_promises: Vec::new(),
+            closed_promises: vec!["unowed-debt".to_owned()],
+        };
+
+        let findings = check_payload(
+            &world,
+            &payload,
+            &BatteryContext::new(&source).with_runtime_continuity(&continuity),
+        );
+        let codes: Vec<&str> = findings
+            .iter()
+            .map(|finding| finding.code.as_str())
+            .collect();
+
+        assert!(
+            codes.contains(&"continuity.world-contradiction"),
+            "{findings:?}"
+        );
+        assert!(
+            codes.contains(&"continuity.proposed-as-fact"),
+            "{findings:?}"
+        );
+        assert!(codes.contains(&"continuity.unknown-entity"), "{findings:?}");
+        assert_eq!(
+            codes
+                .iter()
+                .filter(|code| **code == "continuity.prior-contradiction")
+                .count(),
+            3,
             "{findings:?}"
         );
     }

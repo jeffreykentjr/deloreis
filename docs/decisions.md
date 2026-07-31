@@ -975,3 +975,27 @@ neither simulation storage format 2 nor durable job addresses.
 unreachable, while lossy quote normalization could certify two different claims
 as equal. A general caller needs an unambiguous proof address and literal claim
 identity; both are verdict semantics, not presentation details.
+
+## DL-0040 — Runtime continuity context stays outside durable payload evidence
+
+*Date: 2026-07-31*
+
+**Ruling.** `dli.check-draft` accepts an optional caller-owned `continuity`
+context containing the current episode's established facts, explicit changes and
+references plus the folded prior fact/promise ledger. The context participates in
+the deterministic continuity battery but is never stored as part of `payload/v1`;
+`dli.payload-submit` remains replayable from the committed payload and project
+assets alone.
+
+The runtime battery reports world contradiction, proposed-as-fact, unknown
+entity, intra-episode contradiction and prior contradiction over this structured
+context. A change checks its declared `from_value` against the prior ledger; it
+does not reject every legitimate transition merely because its target differs
+from the old value. Closing a promise absent from the supplied open set is the
+same prior-contradiction class.
+
+**Rationale.** One immutable draft payload cannot honestly contain the mutable
+"world as of episode N-1" supplied by its caller. Omitting that ledger left
+cross-episode continuity library-tested but unreachable through the worker;
+putting it inside durable payload evidence would make replay depend on a stale
+snapshot. A typed request context preserves both boundaries.

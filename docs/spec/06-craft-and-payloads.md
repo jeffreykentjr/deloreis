@@ -332,6 +332,15 @@ accepts the same inputs through `--outlines`, `--craft-ledger`, and
 `--craft-config`. Their absence disables only the checks that require those
 optional inputs or selects the generic builtin craft corpus; supplied assets
 are always consumed. The config composes enabled principles and overlays.
+`dli.check-draft` additionally accepts optional caller-owned `continuity`
+context. Its `established`, `changes`, and `references` rows describe the current
+episode state; `prior_facts`, `prior_open_promises`, and `closed_promises`
+describe the already-folded predecessor ledger and the closures to validate.
+This context runs the cross-episode continuity classes but is deliberately not a
+top-level `payload/v1` field and is never committed by `dli.payload-submit`: the
+payload is immutable draft evidence, while the prior ledger is runtime state.
+An explicit change compares its `from_value` with the prior slot, so a legitimate
+transition to a new value is not misclassified as a reversal.
 Payload checking consumes its season thresholds plus finding citations and
 severity overrides. The same loaded value exposes narrator policy, provenance
 formats, material categories, and outline policy to callers of the
