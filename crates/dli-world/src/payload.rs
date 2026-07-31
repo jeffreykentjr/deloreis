@@ -1031,7 +1031,8 @@ fn runtime_continuity_family(
     out.extend(
         check::continuity::check_claims(world, &current)
             .iter()
-            .map(world_finding_to_payload),
+            .map(world_finding_to_payload)
+            .chain(runtime_intra_episode_findings(continuity)),
     );
 
     let known: BTreeSet<&str> = world
@@ -1088,19 +1089,7 @@ fn runtime_continuity_family(
         }
     }
 
-    let open_promises: BTreeSet<&str> = continuity
-        .prior_open_promises
-        .iter()
-        .map(String::as_str)
-        .collect();
-    for promise in &continuity.closed_promises {
-        if !open_promises.contains(promise.as_str()) {
-            out.push(PayloadFinding::error(
-                "continuity.prior-contradiction",
-                format!("closes promise or debt '{promise}', which was never opened"),
-            ));
-        }
-    }
+    out.extend(runtime_promise_findings(continuity));
 
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out.dedup_by(|a, b| a.code == b.code && a.message == b.message);
@@ -1115,6 +1104,51 @@ fn runtime_contradiction_code(reason: &str) -> &'static str {
     } else {
         "continuity.world-contradiction"
     }
+}
+
+fn runtime_intra_episode_findings(continuity: &RuntimeContinuity) -> Vec<PayloadFinding> {
+    let mut desired: BTreeMap<(&str, &str), BTreeSet<&str>> = BTreeMap::new();
+    for fact in &continuity.established {
+        desired
+            .entry((&fact.subject, &fact.predicate))
+            .or_default()
+            .insert(&fact.value);
+    }
+    for change in &continuity.changes {
+        desired
+            .entry((&change.subject, &change.predicate))
+            .or_default()
+            .insert(&change.to_value);
+    }
+    desired
+        .into_iter()
+        .filter(|(_slot, values)| values.len() > 1)
+        .map(|((subject, predicate), values)| {
+            PayloadFinding::error(
+                "continuity.intra-episode-contradiction",
+                format!("episode sets {subject}.{predicate} to multiple values {values:?}"),
+            )
+        })
+        .collect()
+}
+
+fn runtime_promise_findings(continuity: &RuntimeContinuity) -> Vec<PayloadFinding> {
+    let open: BTreeSet<&str> = continuity
+        .prior_open_promises
+        .iter()
+        .map(String::as_str)
+        .collect();
+    continuity
+        .closed_promises
+        .iter()
+        .filter(|promise| !open.contains(promise.as_str()))
+        .map(|promise| {
+            PayloadFinding::error(
+                "continuity.prior-contradiction",
+                format!("closes promise or debt '{promise}', which was never opened"),
+            )
+        })
+        .collect()
 }
 
 fn parse_runtime_fact(fact: &RuntimeFact) -> Option<AtomExpr> {
@@ -2554,6 +2588,16 @@ mod tests {
                     subject: "camelot".to_owned(),
                     value: "grim".to_owned(),
                 },
+                RuntimeFact {
+                    predicate: "temper".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "warm".to_owned(),
+                },
+                RuntimeFact {
+                    predicate: "temper".to_owned(),
+                    subject: "camelot".to_owned(),
+                    value: "cold".to_owned(),
+                },
             ],
             changes: vec![RuntimeChange {
                 predicate: "weather".to_owned(),
@@ -2583,21 +2627,23 @@ mod tests {
             &payload,
             &BatteryContext::new(&source).with_runtime_continuity(&continuity),
         );
+        assert_runtime_continuity_codes(&findings);
+    }
+
+    fn assert_runtime_continuity_codes(findings: &[PayloadFinding]) {
         let codes: Vec<&str> = findings
             .iter()
             .map(|finding| finding.code.as_str())
             .collect();
-
-        assert!(
-            codes.contains(&"continuity.world-contradiction"),
-            "{findings:?}"
-        );
-        assert!(
-            codes.contains(&"continuity.proposed-as-fact"),
-            "{findings:?}"
-        );
-        assert!(codes.contains(&"continuity.rejected-lore"), "{findings:?}");
-        assert!(codes.contains(&"continuity.unknown-entity"), "{findings:?}");
+        for expected in [
+            "continuity.world-contradiction",
+            "continuity.proposed-as-fact",
+            "continuity.rejected-lore",
+            "continuity.unknown-entity",
+            "continuity.intra-episode-contradiction",
+        ] {
+            assert!(codes.contains(&expected), "{findings:?}");
+        }
         assert_eq!(
             codes
                 .iter()
