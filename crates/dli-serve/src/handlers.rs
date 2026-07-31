@@ -500,6 +500,9 @@ fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Resp
     })?;
     let scope = resolve(sessions, &p.document)?;
     let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
+    if let Some(continuity) = &p.continuity {
+        context = context.with_runtime_continuity(continuity);
+    }
     if let Some(document) = project
         .as_ref()
         .and_then(|project| project.document(&p.document))

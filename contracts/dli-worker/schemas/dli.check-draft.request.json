@@ -4,6 +4,18 @@
   "description": "`dli.check-draft` params.",
   "type": "object",
   "properties": {
+    "continuity": {
+      "description": "Caller-owned current/prior episode state for cross-episode continuity.\nThis context is checked but never committed as part of `payload/v1`.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuntimeContinuity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "document": {
       "description": "The project document the draft belongs to.",
       "type": "string"
@@ -571,6 +583,114 @@
       "required": [
         "scene",
         "ledger"
+      ]
+    },
+    "RuntimeChange": {
+      "description": "One explicit state transition in caller-owned runtime continuity context.",
+      "type": "object",
+      "properties": {
+        "from_value": {
+          "description": "The value the episode says it changes from.",
+          "type": "string"
+        },
+        "predicate": {
+          "description": "The fact predicate / slot key.",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The entity whose slot changes.",
+          "type": "string"
+        },
+        "to_value": {
+          "description": "The value the episode changes to.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "predicate",
+        "subject",
+        "from_value",
+        "to_value"
+      ]
+    },
+    "RuntimeContinuity": {
+      "description": "Caller-owned state needed to check one episode against its predecessors.\n\nThe context contains the current episode's structured state projection plus\nthe already-folded prior ledger. It never enters the durable payload store.",
+      "type": "object",
+      "properties": {
+        "changes": {
+          "description": "Facts the current episode changes.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuntimeChange"
+          }
+        },
+        "closed_promises": {
+          "description": "Promise/debt ids the current episode closes without also opening.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "established": {
+          "description": "Facts the current episode presents as established.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuntimeFact"
+          }
+        },
+        "prior_facts": {
+          "description": "The last value established before this episode for each known slot.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuntimeFact"
+          }
+        },
+        "prior_open_promises": {
+          "description": "Promise/debt ids open before this episode.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "references": {
+          "description": "Entity ids referenced by the current episode state.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "RuntimeFact": {
+      "description": "One normalized fact in caller-owned runtime continuity context.\n\nThis is deliberately not part of [`Payload`]: prior episode state is mutable\nruntime context, while `payload/v1` is durable evidence about one immutable\ndraft. `dli.check-draft` may supply these rows through [`BatteryContext`].",
+      "type": "object",
+      "properties": {
+        "predicate": {
+          "description": "The fact predicate / slot key.",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The entity whose slot is set.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The normalized value stored in the slot.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "predicate",
+        "subject",
+        "value"
       ]
     },
     "SceneRow": {

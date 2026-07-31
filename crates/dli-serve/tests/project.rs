@@ -813,6 +813,62 @@ fn payload_handler_reads_project_owned_outline_context() {
 }
 
 #[test]
+fn check_draft_consumes_caller_owned_runtime_continuity_context() {
+    let root = temp("project-runtime-continuity");
+    fs::write(
+        root.join("world.dli"),
+        "scope world\nratify D-0001\nplace anchor ratified D-0001\nfact anchor gender male ratified D-0001\n",
+    )
+    .unwrap();
+    write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
+    let source = "draft";
+    let request = serde_json::json!({
+        "dli": "0.5.1",
+        "id": "runtime-continuity",
+        "op": "dli.check-draft",
+        "params": {
+            "document": "world",
+            "source": source,
+            "payload": {
+                "meta": {"source": {"sha256": source_hash(source)}}
+            },
+            "continuity": {
+                "established": [
+                    {"predicate": "gender", "subject": "anchor", "value": "female"},
+                    {"predicate": "mood", "subject": "anchor", "value": "grim"}
+                ],
+                "references": ["ghost"],
+                "prior_facts": [
+                    {"predicate": "mood", "subject": "anchor", "value": "weary"}
+                ],
+                "closed_promises": ["unowed-debt"]
+            }
+        }
+    });
+
+    let response = serve_request(Project::load(&root).unwrap(), &request);
+    let findings = response["result"]["findings"].as_array().unwrap();
+    let codes = findings
+        .iter()
+        .map(|finding| finding["code"].as_str().unwrap())
+        .collect::<Vec<_>>();
+
+    assert!(
+        codes.contains(&"continuity.world-contradiction"),
+        "{response}"
+    );
+    assert!(codes.contains(&"continuity.unknown-entity"), "{response}");
+    assert_eq!(
+        codes
+            .iter()
+            .filter(|code| **code == "continuity.prior-contradiction")
+            .count(),
+        2,
+        "{response}"
+    );
+}
+
+#[test]
 fn payload_handler_uses_project_finding_policy() {
     let root = temp("project-payload-finding-policy");
     fs::write(root.join("world.dli"), "scope world\n").unwrap();

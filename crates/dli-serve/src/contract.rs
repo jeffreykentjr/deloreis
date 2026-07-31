@@ -28,7 +28,7 @@ use dli_world::attest::{
 };
 use dli_world::episode::{EpisodeAnchor, Knower, OpenLoopLedger, Placement};
 use dli_world::episode_order::OrderIntegrityFinding;
-use dli_world::payload::{Payload, PayloadFinding};
+use dli_world::payload::{Payload, PayloadFinding, RuntimeContinuity};
 
 use crate::finding::{Finding, Provenance};
 
@@ -624,6 +624,10 @@ pub struct CheckDraftParams {
     pub document: String,
     /// The complete structured shadow to check.
     pub payload: Payload,
+    /// Caller-owned current/prior episode state for cross-episode continuity.
+    /// This context is checked but never committed as part of `payload/v1`.
+    #[serde(default)]
+    pub continuity: Option<RuntimeContinuity>,
     /// The draft prose the payload quotes and hashes.
     pub source: String,
 }
