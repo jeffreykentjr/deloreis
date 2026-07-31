@@ -213,6 +213,22 @@ pub enum LoadFinding {
         /// Source location.
         span: Span,
     },
+    /// A typed temporal clause named an era or event that the merged world does
+    /// not declare. Unlike an ordinary fact symbol, a temporal target is a
+    /// closed reference: `during`/`after` require an era and `since`/`until`
+    /// require an event.
+    UnknownTemporalReference {
+        /// The declaration carrying the temporal clause.
+        decl: String,
+        /// The required target kind (`era` or `event`).
+        expected_kind: String,
+        /// The unresolved target name.
+        target: String,
+        /// The pack containing the reference.
+        pack: String,
+        /// Source location of the target.
+        span: Span,
+    },
     /// Two declarations of the same kind and name collided within one pack.
     DuplicateDeclaration {
         /// The pack the collision occurred in.
@@ -253,6 +269,7 @@ impl LoadFinding {
             Self::MalformedProvenance { .. } => "load.malformed-provenance",
             Self::MalformedWorldRule { .. } => "load.malformed-world-rule",
             Self::UnboundHeadVariable { .. } => "load.unbound-head-variable",
+            Self::UnknownTemporalReference { .. } => "load.unknown-temporal-reference",
             Self::DuplicateDeclaration { .. } => "load.duplicate-declaration",
             Self::CrossPackCollision { .. } => "load.cross-pack-collision",
             Self::Unstratifiable { .. } => "load.unstratifiable",
@@ -289,6 +306,17 @@ impl LoadFinding {
             Self::UnboundHeadVariable { rule, variable, .. } => {
                 format!(
                     "rule '{rule}' concludes about '{variable}', which nothing in its premises names"
+                )
+            }
+            Self::UnknownTemporalReference {
+                decl,
+                expected_kind,
+                target,
+                pack,
+                ..
+            } => {
+                format!(
+                    "{decl} in pack '{pack}' references {expected_kind} '{target}', which the world does not declare"
                 )
             }
             Self::DuplicateDeclaration {

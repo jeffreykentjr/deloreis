@@ -272,6 +272,52 @@ fn same_name_across_two_packs_is_a_collision() {
 }
 
 #[test]
+fn temporal_clause_requires_a_declared_target_of_the_right_kind() {
+    let event = Decl::Entity(EntityDecl {
+        kind: EntityKind::Event,
+        name: ident("harvest"),
+        label: None,
+        time: Some(TimeClause::During(ident("missing-age"))),
+        slots: Vec::new(),
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+    });
+    let out = Loader::load(&[doc("timeline", vec![event])]);
+
+    assert!(out.findings.iter().any(|finding| matches!(
+        finding,
+        LoadFinding::UnknownTemporalReference {
+            expected_kind,
+            target,
+            ..
+        } if expected_kind == "era" && target == "missing-age"
+    )));
+    assert!(has_code(&out, "load.unknown-temporal-reference"));
+}
+
+#[test]
+fn temporal_clause_accepts_forward_and_era_chain_declarations() {
+    let event = Decl::Entity(EntityDecl {
+        kind: EntityKind::Event,
+        name: ident("harvest"),
+        label: None,
+        time: Some(TimeClause::During(ident("second-age"))),
+        slots: Vec::new(),
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+    });
+    let eras = Decl::Entity(EntityDecl {
+        kind: EntityKind::Era,
+        name: ident("first-age"),
+        label: None,
+        time: Some(TimeClause::Order(vec![ident("second-age")])),
+        slots: Vec::new(),
+        provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0001"])),
+    });
+    let out = Loader::load(&[doc("timeline", vec![event, eras])]);
+
+    assert!(!has_code(&out, "load.unknown-temporal-reference"));
+}
+
+#[test]
 fn a_well_formed_rule_loads_totally_and_clean() {
     // A bare world rule now lowers: the loader parses its captured `head :- body`
     // clause into a typed derivation rule and routes it through the evaluator's

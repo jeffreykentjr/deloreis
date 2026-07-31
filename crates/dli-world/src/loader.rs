@@ -189,8 +189,24 @@ struct LoadCtx {
     declared: BTreeSet<(String, String, String)>,
     /// `(kind, name)` to the packs that declared it — for collision detection.
     cross: BTreeMap<(String, String), BTreeSet<String>>,
+    /// Typed era/event declarations, including every member of an era-order
+    /// chain. Kept separate from observed symbols because temporal clauses are
+    /// closed, typed references while ordinary facts may name abstract subjects.
+    temporal_decls: BTreeMap<String, String>,
+    /// Temporal references are checked after all documents load so forward and
+    /// cross-pack references remain legal.
+    temporal_refs: Vec<TemporalReference>,
     /// Monotonic counter for anonymous proposal bundles.
     bundle_counter: u32,
+}
+
+#[derive(Debug)]
+struct TemporalReference {
+    decl: String,
+    expected_kind: String,
+    target: String,
+    pack: String,
+    span: Span,
 }
 
 impl LoadCtx {
@@ -269,6 +285,37 @@ impl LoadCtx {
 
     fn process_entity(&mut self, entity: &EntityDecl, pack: &str) {
         let sort = entity.kind.keyword();
+        if matches!(entity.kind, EntityKind::Era | EntityKind::Event) {
+            self.temporal_decls
+                .insert(entity.name.text.clone(), sort.to_owned());
+        }
+        match &entity.time {
+            Some(TimeClause::After(target) | TimeClause::During(target)) => {
+                self.temporal_refs.push(TemporalReference {
+                    decl: format!("{sort} '{}'", entity.name.text),
+                    expected_kind: "era".to_owned(),
+                    target: target.text.clone(),
+                    pack: pack.to_owned(),
+                    span: target.span,
+                });
+            }
+            Some(TimeClause::Since(target) | TimeClause::Until(target)) => {
+                self.temporal_refs.push(TemporalReference {
+                    decl: format!("{sort} '{}'", entity.name.text),
+                    expected_kind: "event".to_owned(),
+                    target: target.text.clone(),
+                    pack: pack.to_owned(),
+                    span: target.span,
+                });
+            }
+            Some(TimeClause::Order(chain)) => {
+                for member in chain {
+                    self.temporal_decls
+                        .insert(member.text.clone(), "era".to_owned());
+                }
+            }
+            None => {}
+        }
         let atom = AtomExpr {
             pred: Ident {
                 text: sort.to_owned(),
@@ -683,6 +730,17 @@ impl LoadCtx {
     }
 
     fn finish(mut self) -> LoadOutcome {
+        for reference in &self.temporal_refs {
+            if self.temporal_decls.get(&reference.target) != Some(&reference.expected_kind) {
+                self.findings.push(LoadFinding::UnknownTemporalReference {
+                    decl: reference.decl.clone(),
+                    expected_kind: reference.expected_kind.clone(),
+                    target: reference.target.clone(),
+                    pack: reference.pack.clone(),
+                    span: reference.span,
+                });
+            }
+        }
         let mut collisions = Vec::new();
         for ((kind, name), packs) in &self.cross {
             if packs.len() > 1 {
