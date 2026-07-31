@@ -24,7 +24,7 @@ pub mod scene_projection;
 pub use attest::{Attestation, AttestationStore};
 pub use check::{
     CompiledWorld, Severity, WorldFinding,
-    factcheck::{ClaimReport, KilledToken, KilledTokens, MatchMode},
+    factcheck::{ClaimReport, KilledToken, KilledTokens, MatchMode, RejectedClaim},
 };
 pub use draft::{DraftFinding, DraftMeta, DraftPayload};
 pub use language::{

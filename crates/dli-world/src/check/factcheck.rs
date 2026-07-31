@@ -8,7 +8,8 @@
 //! - **supported** — a certain fact holds the claim's value for its slot; the
 //!   fact's citations ride along.
 //! - **contradicted** — a certain fact holds a *different* value for a
-//!   single-valued slot, or the claim realizes a killed token (rejected lore).
+//!   single-valued slot, the claim realizes a killed token, or it matches a
+//!   contextual rejected claim.
 //! - **unsupported** — no certain fact bears on the claim: candidate new lore,
 //!   legal only where a hypothesis carries it, a defect when stated as settled.
 //!
@@ -87,6 +88,35 @@ pub fn factcheck(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<ClaimReport>
 fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     let rendered = render_atom(claim);
 
+    let slot = slot_of(claim);
+
+    // A contextual guardrail rejects one ruled predicate/subject/value tuple.
+    // Unlike a killed token it does not make the value illegal everywhere else.
+    if let Some((slot, value)) = &slot {
+        let rejected_hits = world.killed.rejected_hits(slot, value).collect::<Vec<_>>();
+        if !rejected_hits.is_empty() {
+            let citations = rejected_hits
+                .iter()
+                .map(|hit| hit.decision.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            let reasons = rejected_hits
+                .iter()
+                .map(|hit| format!("{}: {}", hit.decision, hit.scope))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join("; ");
+            return ClaimReport {
+                claim: rendered,
+                verdict: Verdict::Contradicted,
+                citations,
+                reason: format!("matches contextual rejected-claim ruling(s): {reasons}"),
+            };
+        }
+    }
+
     // Rejected lore first: a claim naming a killed token is contradicted outright.
     // Keep every matching ruling; one rejected form may have several authorities.
     let killed_hits = claim
@@ -122,7 +152,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         };
     }
 
-    let Some((slot, value)) = slot_of(claim) else {
+    let Some((slot, value)) = slot else {
         return ClaimReport {
             claim: rendered,
             verdict: Verdict::Unsupported,
@@ -216,6 +246,39 @@ pub struct KilledToken {
     pub scope: String,
 }
 
+/// One rejected claim tuple: a value barred only for a specific binary slot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct RejectedClaim {
+    /// Relation/predicate ID.
+    pub predicate: String,
+    /// Subject/entity ID.
+    pub subject: String,
+    /// Rejected object value.
+    pub value: String,
+    /// How the object value is matched.
+    #[serde(default)]
+    pub mode: MatchMode,
+    /// The decision that rejected this tuple.
+    pub decision: String,
+    /// Human-readable description of the rejected claim.
+    #[serde(default)]
+    pub scope: String,
+}
+
+impl RejectedClaim {
+    fn matches(&self, slot: &(String, String), value: &str) -> bool {
+        normalize(&self.predicate) == normalize(&slot.0)
+            && normalize(&self.subject) == normalize(&slot.1)
+            && KilledToken {
+                token: self.value.clone(),
+                mode: self.mode,
+                decision: self.decision.clone(),
+                scope: self.scope.clone(),
+            }
+            .matches(value)
+    }
+}
+
 impl KilledToken {
     /// Whether this token appears in `text` under its match mode.
     ///
@@ -252,13 +315,26 @@ impl KilledToken {
 pub struct KilledTokens {
     /// The killed tokens, in registry order.
     pub tokens: Vec<KilledToken>,
+    /// Claim tuples rejected only in their named predicate/subject slot.
+    #[serde(default)]
+    pub rejected_claims: Vec<RejectedClaim>,
 }
 
 impl KilledTokens {
     /// A store from a list of killed tokens.
     #[must_use]
     pub fn new(tokens: Vec<KilledToken>) -> Self {
-        Self { tokens }
+        Self {
+            tokens,
+            rejected_claims: Vec::new(),
+        }
+    }
+
+    /// Add contextual rejected claims to this store.
+    #[must_use]
+    pub fn with_rejected_claims(mut self, rejected_claims: Vec<RejectedClaim>) -> Self {
+        self.rejected_claims = rejected_claims;
+        self
     }
 
     /// The first killed token that appears in `text`, if any.
@@ -272,10 +348,21 @@ impl KilledTokens {
         self.tokens.iter().filter(move |token| token.matches(text))
     }
 
+    /// Every contextual rejection matching this exact slot and object value.
+    pub fn rejected_hits<'a>(
+        &'a self,
+        slot: &'a (String, String),
+        value: &'a str,
+    ) -> impl Iterator<Item = &'a RejectedClaim> + 'a {
+        self.rejected_claims
+            .iter()
+            .filter(move |claim| claim.matches(slot, value))
+    }
+
     /// Whether the store carries no tokens.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.tokens.is_empty()
+        self.tokens.is_empty() && self.rejected_claims.is_empty()
     }
 }
 

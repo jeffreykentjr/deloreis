@@ -302,7 +302,9 @@ families into one merged report:
 1. **Continuity** — six classes over claims, plus structural and referential
    validation of scene-keyed state deltas.
 2. **Factcheck** — claims resolve to supported / contradicted / unsupported with
-   D-citations; rejected-lore constraints enforced.
+   D-citations; rejected-lore constraints enforced. A killed token rejects its
+   appearance globally, while a contextual rejected claim rejects only the exact
+   predicate/subject/value slot named by its ruling.
 3. **Outline-conformance** — §7.3.
 4. **Craft rules** — §3's battery, with the payload's beats merged into the
    season ledger.

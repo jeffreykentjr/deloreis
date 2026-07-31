@@ -102,6 +102,21 @@ fixtures are available only through explicit `deloreis serve --demo` or
 `deloreis mcp --demo`; that mode is for examples and contract replay, not caller
 discovery.
 
+The optional killed-token YAML accepts both global killed forms and contextual
+claim guardrails. The latter keep an ordinary word legal outside the ruled slot:
+
+```yaml
+killed:
+  - {token: old-name, match: word, decision: D-0099}
+rejected_claims:
+  - predicate: role
+    subject: protagonist
+    value: auditor
+    match: word
+    decision: D-0009
+    scope: rejected protagonist role
+```
+
 ## 2. The envelope
 
 Every request is one JSON object per line: the protocol tag, a correlation id,
