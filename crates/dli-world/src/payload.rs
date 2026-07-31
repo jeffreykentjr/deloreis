@@ -1022,16 +1022,8 @@ fn runtime_continuity_family(
     // the episode-state boundary. Unsupported facts are legitimate new state.
     for report in check::factcheck::factcheck(world, &current) {
         if report.verdict == Verdict::Contradicted {
-            let code = if report
-                .reason
-                .starts_with("matches contextual rejected-claim")
-                || report.reason.starts_with("realizes killed token")
-            {
-                "continuity.rejected-lore"
-            } else {
-                "continuity.world-contradiction"
-            };
-            let mut finding = PayloadFinding::error(code, report.reason);
+            let mut finding =
+                PayloadFinding::error(runtime_contradiction_code(&report.reason), report.reason);
             finding.citations = report.citations;
             out.push(finding);
         }
@@ -1113,6 +1105,16 @@ fn runtime_continuity_family(
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out.dedup_by(|a, b| a.code == b.code && a.message == b.message);
     out
+}
+
+fn runtime_contradiction_code(reason: &str) -> &'static str {
+    if reason.starts_with("matches contextual rejected-claim")
+        || reason.starts_with("realizes killed token")
+    {
+        "continuity.rejected-lore"
+    } else {
+        "continuity.world-contradiction"
+    }
 }
 
 fn parse_runtime_fact(fact: &RuntimeFact) -> Option<AtomExpr> {
