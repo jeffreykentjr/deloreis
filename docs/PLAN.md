@@ -51,7 +51,7 @@ Each node carries:
 | `attestation` | The LLM boundary and the attestation store. |
 | `payload` | The fat-payload pipeline. |
 | `surface` | Formatter, error ladder, reference cards, the grammar gate, and the authoring benchmark. |
-| `serve` | The contract, the server, the CLI, and the Door-T authoring tools. |
+| `serve` | The contract, the server, the CLI, and the tool-surface authoring tools. |
 | `export` | The portability/export layer. |
 | `assurance` | The proof (mutation) harness, the differential oracles, and the source migration. |
 
@@ -287,18 +287,18 @@ they touch; they are not a lane of their own.
   *Needs:* SURF-1, SURF-2, SURF-3, BENCH-1. *Produces:* the frozen surface.
   *Oracle:* the AST schema is frozen; the surface tasks pass; the human-writer
   probe has run before the freeze.
-- **BENCH-1** — *(deferred.)* The authoring benchmark harness: two doors × models,
+- **BENCH-1** — *(deferred.)* The authoring benchmark harness: two authoring routes × models,
   the two demoted conditions as arms, pass defined by the real gate's verdict.
   *Needs:* CORE-2, SURF-1. *Produces:* the benchmark rig. *Oracle:* the pass
   criterion is the gate verdict; reference examples are CI-compiled. *Flip
   condition (DL-0022):* built when the human-writer probe (`docs/cards/probe-protocol.md`)
-  is prioritized and a live-LLM door-decision run is authorized — Bedrock-only,
+  is prioritized and a live-LLM route-decision run is authorized — Bedrock-only,
   hard spend cap, CI-quarantined. See `design-notes/bench-deferral.md`.
-- **BENCH-2** — *(deferred.)* The two-door benchmark run and report: Door H
-  (surface) and Door T (tools) as the primary arms, raw text editing and raw AST
+- **BENCH-2** — *(deferred.)* The two-route benchmark run and report: the text
+  surface and the tool surface as the primary arms, raw text editing and raw AST
   emission as demoted arms.
-  *Needs:* BENCH-1, AUTH-1, SERVE-1. *Produces:* a verdict about which door to
-  keep shut. *Oracle:* the report yields a door decision, never a menu. *Flip
+  *Needs:* BENCH-1, AUTH-1, SERVE-1. *Produces:* a verdict about which route to
+  keep shut. *Oracle:* the report yields a route decision, never a menu. *Flip
   condition (DL-0022):* runs after BENCH-1 lands; gates SURF-4 (the grammar
   freeze). See `design-notes/bench-deferral.md`.
 
@@ -322,7 +322,7 @@ they touch; they are not a lane of their own.
 - **AUTH-1** — The authoring tool surface: the workspace/staging engine, the
   `author.*` tools, per-tool golden/negative/framing fixtures, and immediate
   graded findings on every mutating call.
-  *Needs:* CON-1, ENG-2, FRONT-1. *Produces:* Door T. *Oracle:* the author-session
+  *Needs:* CON-1, ENG-2, FRONT-1. *Produces:* the tool surface. *Oracle:* the author-session
   golden fixture passes end to end; the framing-attack fixture leaves verdicts
   unchanged.
 - **AUTH-2** — The worked TPtH (*To Pleach the Hedgeway*, the consuming
@@ -337,7 +337,7 @@ they touch; they are not a lane of their own.
   *Needs:* CON-1, SERVE-1. *Produces:* the fantasy-side integration. *Oracle:*
   the fantasy worker speaks the contract against the vendored, digest-checked
   copy.
-- **EXT-F4** — *(external — fantasy.)* The fantasy agent exercises the Door-T
+- **EXT-F4** — *(external — fantasy.)* The fantasy agent exercises the tool-surface
   worked scenario against the tagged build and posts the transcript (CP-10).
   *Needs:* AUTH-2. *Produces:* the acknowledged handshake. *Oracle:* the
   transcript matches the fixture semantics.
@@ -448,7 +448,7 @@ theory grounding, and the risk register is
   directly; `author.materialize` returns JSON by default with `.dli` opt-in;
   contract 0.6.0, additive and dual-mode; the killed-form registry enforced at
   the server layer.
-  *Needs:* LS-3. *Produces:* Door T backed by lorestore. *Oracle:* re-recorded
+  *Needs:* LS-3. *Produces:* the tool surface backed by lorestore. *Oracle:* re-recorded
   golden/negative/framing fixtures green; a 0.5.1 consumer still passes.
 - **LS-5** — The query and review contract: the JSON response schema carrying
   bindings, provenance antichain, grade, and `(root_hash, valuation)`; the
@@ -626,7 +626,7 @@ The frontier then widens sharply, because the core is a fan-out, not a chain:
 | INFRA-1 | CORE-1; (DOCS-2 after DOCS-1) | narrow — the core is one node deep |
 | CORE-1 | CORE-2, CORE-3, FRONT-1, EPI-1, SURF-1 | five-wide fan-out from the AST |
 | CORE-1..3 + FRONT-1 | ENG-1, ENG-2, CHECK-1, TIME-1, PRAC-1, LANG-1, ATT-1, SURF-2, BENCH-1, PROOF-2, MIG-1 (SURF-3 after SURF-1) | **the ~10-wide plateau** — most lanes open at once and run in parallel |
-| ENG-2 + FRONT-1 + CON-1 | **AUTH-1 joins the frontier** (Door T opens) | the serve lane and the benchmark converge |
+| ENG-2 + FRONT-1 + CON-1 | **AUTH-1 joins the frontier** (the tool surface opens) | the serve lane and the benchmark converge |
 | TIME-2 + EPI-1 | TIME-3; then CRAFT-2, MIG-4 | the time and craft lanes deepen |
 | SIM-1 | SIM-2; then EXP-3, EXT-A2 | the game and export lanes |
 
@@ -681,8 +681,8 @@ author or consumer artifact that this repository does not own.
 | SURF-1 | done | `deloreis fmt --check examples/ worlds/` |
 | SURF-2 | done | syntax and loader diagnostic snapshots |
 | SURF-3 | done | docs oracle over reference-card examples |
-| SURF-4 | deferred | retired by DL-0041 — no grammar freeze will occur; the surface door closes |
-| BENCH-1 | deferred | retired by DL-0041 — the two-door question is answered by events |
+| SURF-4 | deferred | retired by DL-0041 — no grammar freeze will occur; the text surface closes |
+| BENCH-1 | deferred | retired by DL-0041 — the two-route question is answered by events |
 | BENCH-2 | deferred | retired by DL-0041; see BENCH-1 |
 | CON-1 | done | `cargo xtask fixtures` and `cargo test -p dli-serve --test fixture_replay` cover all 46 ops with typed schemas and paired framing |
 | SERVE-1 | done | `cargo test -p dli-serve --test simulation --test fixture_replay` covers practice/game jobs, durable start/status/cancel, restart, terminal rollback refusal, checkpoint-chain corruption, and capability replay |
@@ -745,20 +745,21 @@ overlap; the language and craft lanes in particular run alongside the game lane.
   study; the D-0147→D-0148 fork/ratify replay; the five Turning RQs filed.*
 - **G1 (the grammar gate)** — SURF-2, SURF-3, SURF-4, BENCH-2. *Freeze the AST
   schema if it held; the surface + formatter + reference cards + benchmark
-  surface-tasks + the human-writer probe; the two-door benchmark verdict.*
-  **Retired by DL-0041:** the grammar is never frozen and the two-door verdict
-  is answered by events — the surface door closes, Door T remains.
+  surface-tasks + the human-writer probe; the two-route benchmark verdict.*
+  **Retired by DL-0041:** the grammar is never frozen and the two-route verdict
+  is answered by events — the text surface closes, the tool surface remains
+  (DL-0043 retires the door semantic itself).
 - **GDL proof point** — SIM-2, EXT-A2, EXP-3, DEF-5. *The `games/ludii` export
   profile for the ratified Turning ruleset + the trace-agreement differential — the
   external soundness audit of rules-as-lore. Lands after M2, as a data profile,
   once a ratified ruleset exists to export.*
 - **Cutover** — MIG-3, MIG-4, EXT-F3, EXT-F4. *The per-check flips; the source
-  deletion; the fantasy worker on the vendored contract; the Door-T handshake
+  deletion; the fantasy worker on the vendored contract; the tool-surface handshake
   acknowledged.* Runs on v1 terms (`.dli` + contract 0.5.1) per DL-0041's
   boundary condition.
 - **Lorestore core** — LS-0, LS-1, LS-2, LS-3, LS-4, LS-5. *The pivot ratified;
   the fact-object schema as the language definition; the embedded store; the
-  dual-backend read path; Door T writing the store JSON-first under contract
+  dual-backend read path; the tool surface writing the store JSON-first under contract
   0.6.0; the replayable query contract and the structured-diff review contract
   (rendering consumer-owned).*
 - **Lorestore completion** — LS-6, LS-9, LS-7, LS-8. *The provenance-aware

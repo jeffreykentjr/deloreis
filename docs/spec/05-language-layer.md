@@ -188,7 +188,7 @@ layer, not a copy of it.
 The data that seeds a dialect comes from LLM and agent interaction — and it is
 world lore, so it enters like world lore: as a **proposal bundle under one
 hypothesis variable**, every clause carrying agent provenance by inheritance.
-Agents author through **Door T**, the semantic tools against the `deloreis`
+Agents author through **the tool surface**, the semantic tools against the `deloreis`
 server (DL-0014; [11-agent-authoring](11-agent-authoring.md)); the surface below
 is the *materialized* rendering of what those tools produced, reviewed as
 surface before it is committed. No agent hand-writes the AST, and no agent edits

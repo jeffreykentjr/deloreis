@@ -6,7 +6,7 @@ verdict: "One character, its facts, a relation, and an event, authored through t
 
 # The authoring loop — a worked playbook
 
-This card walks one real Door T session end to end: open a workspace, add a
+This card walks one real the tool surface session end to end: open a workspace, add a
 person with a trait, relate them to a second person, add an event, self-check,
 and materialize. Every request and response below is the **engine-true** shape a
 `deloreis` server returns — captured from the running worker, not invented. Read

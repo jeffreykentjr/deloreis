@@ -82,13 +82,14 @@ allegory: the honest deck — a tool for the mind, never instead of it.
 
 ### 4. Nothing is silently dropped.
 
-**Meaning.** No input is discarded without a record. Off-door input, unknown
-keywords, unhandled cases — each surfaces as a graded finding, never a silent
-loss.
+**Meaning.** No input is discarded without a record. Off-interface input,
+unknown keywords, unhandled cases — each surfaces as a graded finding, never a
+silent loss.
 
 **It settles.** Forward-compatibility against unknown-keyword tolerance: an
-unrecognized construct is a diagnosed finding, not a swallowed line. A closed
-door (koan 11) bounds what is *supported*; it never authorizes a silent drop.
+unrecognized construct is a diagnosed finding, not a swallowed line. The
+bounded interface (koan 11) limits what is *supported*; it never authorizes a
+silent drop.
 
 **Why here.** The gate is total by design; what the language refuses to lose is
 the first thing the loss triad protects.
@@ -134,9 +135,8 @@ the expert tier.
 formatter-defined and gate-enforced; non-canonical text legal as input, never as
 repo state.
 
-**Why here.** Koan 7 governs the text; its door-counting cousin, koan 11,
-governs the paths in. Seven keeps the writing predictable; eleven keeps the ways
-in few.
+**Why here.** Koan 7 governs the text; its cousin, koan 11, governs the paths
+in. Seven keeps the writing predictable; eleven keeps the way in single.
 
 ### 8. The wheel refuses rank.
 
@@ -171,8 +171,8 @@ surface.
 ## Triad IV — growth
 
 Truth, loss, and form govern what the language *is*; growth governs what it is
-allowed to *become* — which doors open, which components are owned, which
-targets are served.
+allowed to *become* — which interfaces are supported, which components are
+owned, which targets are served.
 
 ### 10. One fabric.
 
@@ -199,23 +199,24 @@ them is unratified.
 drift, prose shadowing data, an apparatus built to chase divergence. One fabric
 is that lesson as law: divergence is prevented by having nothing to diverge.
 
-### 11. One door per author.
+### 11. One way in.
 
-**Meaning.** Each author population gets exactly one supported way into the
-fabric; benchmarks exist to close doors, not open them. Population, not tool — a
-nicer keyboard is not a new door.
+**Meaning.** Every author — human or agent — enters the fabric through the one
+declarative interface: the semantic tools against the server. What
+distinguishes authors is **authority** — who may propose, who may rule — never
+the entry channel (DL-0043 retired the earlier two-door semantic). Interfaces
+stay few; clients multiply freely — a nicer keyboard is not a new interface.
 
-**It settles.** Humans write surface (Door H); agents author through **Door T**,
-the semantic tools against the server; textual agent editing is a measured
-fallback, not a door; grammar-constrained local emission is a benchmark
-condition, not a door; and **raw AST emission is a mechanism inside Door T's
-tools, not a door**.
+**It settles.** The tool surface is the only supported way in; `.dli` text is
+an opt-in rendering, not a second way in (DL-0041); textual editing is a
+measured fallback, not an interface; and **raw AST emission is a mechanism
+inside the tools, not an interface**.
 
 **A novel decision it makes — the form-editor question.** The factory UI will
-someday want click-to-edit forms over lore entities. A new door? No: the UI
-serves the human population, so it is Door H with a different keyboard — its
-output is surface text, reviewed as surface, like editor snippets; it may not
-emit past review as a second door for a population that already has one.
+someday want click-to-edit forms over lore entities. A new interface? No: any
+UI is a *client* of the tool surface — its output is tool calls entering as
+`proposed`, reviewed like everything else; it may not emit past review as a
+second path for a population that already has one.
 
 **Why here.** The sibling projects paid for it — path count predicted failure
 surface better than path quality.
@@ -254,11 +255,12 @@ exists to protect authorship, and growth exists to keep all three enforceable
 over time, never to enlarge the system for its own sake. Within a deadlock, the
 resolution preserving the author's sole authority wins first; at equal
 authority, the resolution that **adds less** wins — less language, and
-explicitly fewer doors, fewer seats, fewer parts.
+explicitly fewer interfaces, fewer seats, fewer parts.
 
 The budget has named lines:
 
-- **Door count** — two.
+- **Interface count** — one: the declarative tool surface. Authority
+  boundaries, not entry doors, distinguish authors (DL-0043).
 - **Foreign certifiers** — zero, with one rented baseline.
 - **Export targets** — earn maintained profiles only from demonstrated
   consumers.
@@ -289,12 +291,12 @@ The charter names its costs; a charter that names none has not been used.
   The kernel, the timeline module, the Turning engine, and any future searcher
   are separate small parts sharing the judgment boundary (koan 12). A monolith is
   not what one fabric means; satellite *semantics* is not what small parts means.
-- **One door per author versus nothing silently dropped.** Closing doors must not
-  create silent drops. Input arriving off-door — an agent's textual edit — is
-  neither refused nor ignored; it meets the same full pipeline and graded errors
-  as everything else. Doors bound what is *supported* (taught, tooled, measured);
-  the gate remains total. A closed door is a support decision, never a data-loss
-  decision.
+- **One way in versus nothing silently dropped.** Bounding the interface must
+  not create silent drops. Input arriving outside it — an agent's textual edit —
+  is neither refused nor ignored; it meets the same full pipeline and graded
+  errors as everything else. The interface bounds what is *supported* (taught,
+  tooled, measured); the gate remains total. An unsupported path is a support
+  decision, never a data-loss decision.
 
 ## The trials
 
@@ -312,10 +314,11 @@ Three worked decisions test the charter end to end.
    home. Koan 10: integration is by declaration — an external tool's database is
    not the fabric. Koan 1: "the tool's current field value" is not an origin with
    authority. Koan 3: the machine never writes canon. Koan 11: if the studio's
-   writers need in, they are humans — Door H, their edits entering as `proposed`
-   declarations citing their session, awaiting ruling like every claim from
-   outside the sovereign's hand. Four koans, one paragraph, no committee: the
-   flag is refused and the honest path is offered.
+   writers need in, they come through the same tool surface as every author —
+   their edits entering as `proposed` declarations citing their session,
+   awaiting ruling like every claim from outside the sovereign's hand. Four
+   koans, one paragraph, no committee: the flag is refused and the honest path
+   is offered.
 
 ## A parked koan candidate
 

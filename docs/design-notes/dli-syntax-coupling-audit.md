@@ -58,7 +58,7 @@ roadmap's LS-9 (expert-tier structuring) exists and why LS-7 needs it.
   SHA-256, project-wide advisory lock (`fs2` exclusive), atomic rename, a
   single linear attestation-batch chain verified on read. Evidence content
   addresses therefore carry over to lorestore unchanged.
-- **Door T is already JSON-first on input.** All 20 `author.*` tools take
+- **the tool surface is already JSON-first on input.** All 20 `author.*` tools take
   typed JSON param structs with `deny_unknown_fields`
   (`crates/dli-serve/src/contract.rs`); no tool accepts `.dli` text. The
   workspace stages `Vec<dli_ast::decl::Decl>` in memory; the digest is a
@@ -67,7 +67,7 @@ roadmap's LS-9 (expert-tier structuring) exists and why LS-7 needs it.
   open error-severity findings) and the rendered diff (`author/render.rs:28`)
   — which is deliberately forgery-proofed as "the human's only supervision
   surface," so LS-5's structured-diff surface is a *replacement design*, not
-  a deletion. Two text-on-wire remnants outside Door T: `handlers.rs:465`
+  a deletion. Two text-on-wire remnants outside the tool surface: `handlers.rs:465`
   (`fork.add` takes `declarations: [String]` parsed as `.dli`) and
   `query_goal.rs`.
 

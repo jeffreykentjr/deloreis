@@ -111,9 +111,11 @@ Discipline (`decisions.md` DL-0011):
 
 ## 7. The agent-interface law
 
-**Agents author lore through Door T — the `author.*` MCP tools against the
-`deloreis` server — never by editing `.dli` text** (DL-0014, reinforced by
-DL-0041: the surface door closes; the tool door is the only door). Every
+**Agents author lore through the one interface — the `author.*` MCP tools
+against the `deloreis` server — never by editing `.dli` text** (DL-0014 as
+restated by DL-0043: entry doors are retired; the tool surface is the single
+way in, and authority boundaries — who may propose, who may rule — are what
+distinguish authors). Every
 mutating tool call returns graded findings with repair data, the rendered
 canonical lines, and the workspace digest; read them, do not guess.
 `author.materialize` returns file contents as data — you commit them through

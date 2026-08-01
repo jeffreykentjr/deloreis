@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.5.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, Door T, and complete paired framing replay are implemented; consumer integration remains blocked."
+verdict: "The pre-v1 generic worker contract at 0.5.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, and complete paired framing replay are implemented; consumer integration remains blocked."
 ---
 
 # The dli-worker contract
@@ -20,7 +20,7 @@ either side disagrees with this document, this document wins.
 
 > **Implementation status:** this is still a pre-release contract. Version
 > `0.5.1` has typed responses for all 46 operations, strict caller projects,
-> complete golden/negative/paired-framing coverage, and a replayable Door T.
+> complete golden/negative/paired-framing coverage, and a replayable the tool surface.
 > Durable fat-payload, attestation, and restart-resumable simulation evidence is
 > implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are closed.
 > Consumer cutover is excluded from this source-release round.
@@ -28,7 +28,7 @@ either side disagrees with this document, this document wins.
 ## 1. Parties
 
 - **deloreis** — the opaque `deloreis` binary and its server. It compiles,
-  checks, queries, simulates, exports, and hosts Door T. It is deterministic and
+  checks, queries, simulates, exports, and hosts the tool surface. It is deterministic and
   offline; it never calls a model.
 - **fantasy** — the Elixir factory (Phoenix/LiveView, Ash, Oban). It owns every
   LLM call, all orchestration, and all rendering. It reaches lore only through
@@ -57,7 +57,7 @@ model utterance is one of four declared classes, or it does not enter.*
   the request envelope. MCP exposes them as reserved arguments on those ten
   author mutation tools and lifts them into that same envelope before shared
   dispatch.
-- **Every Door-T mutation returns immediately.** No mutating `author.*`
+- **Every tool-surface mutation returns immediately.** No mutating `author.*`
   operation defers its verdict; graded findings, rendered canonical lines, and
   the workspace digest come back on the same call. Stateful `dli.fork.*`
   operations return their typed consequence delta or ruling-request draft.
@@ -122,7 +122,7 @@ worker never reads git: it carries an order-independent
 rules file. `profile_hash` independently covers the resolved profile and
 artifact-shaping options.
 
-### 3.2 Authoring tools — `author.*` (Door T)
+### 3.2 Authoring tools — `author.*` (the tool surface)
 
 These are the curated semantic tools agents author through (`decisions.md`
 DL-0014). Every **mutating** tool returns the same immediate-feedback shape:
@@ -143,11 +143,11 @@ a gate. A finding's `code` is a **finding code** — dotted `family.item` form
 Each check family's finding codes are pinned by its fixtures as the family
 lands; `repair` carries the fix data; `citations` the support.
 
-**Provenance over Door T is `proposed` or `hypothesis` only** (B1). An agent
+**Provenance over the tool surface is `proposed` or `hypothesis` only** (B1). An agent
 cannot mint a citation — a ruling lives in the ledger, not a tool call — so a
 `cited` provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*`
 tool is refused with the `provenance.cited-refused` finding. Human authors cite
-through Door H; the agent proposes and the human confirms the citation in review.
+through human review; the agent proposes and the human confirms the citation.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
@@ -274,7 +274,7 @@ code, is the authority.
   idempotent; status polling resumes pending or running work after restart.
 - **Digest-checked vendoring.** The contract copy is pinned to a digest and the
   gate fails if it drifts.
-- **Authorship through Door T.** Agents author lore through the `author.*` tools,
+- **Authorship through the tool surface.** Agents author lore through the `author.*` tools,
   not by editing `.dli` text. Raw `.dli` editing is a measured fallback, never the
   taught path.
 

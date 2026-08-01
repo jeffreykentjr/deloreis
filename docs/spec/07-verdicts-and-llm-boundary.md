@@ -92,17 +92,17 @@ class has exactly one kernel input surface:
 | Class | What it is | Example | Human review | Kernel surface |
 |---|---|---|---|---|
 | **Attestation** | a stored model judgment on a bounded question | "Is Myrdin a real Welsh given name?" | never, by design | the attestation store (read-only input to checks) |
-| **Candidate** | model-generated content that wants to become canon | thirty hamlet names; a proposal bundle | always — sign-off *is* ratification | hypothesis declarations, via Door T |
+| **Candidate** | model-generated content that wants to become canon | thirty hamlet names; a proposal bundle | always — sign-off *is* ratification | hypothesis declarations, via the tool surface |
 | **Encoding** | model transcription of human content into formal form | cue → proof-ledger; draft → payload | of the rendered form, spot-wise; schema + fixtures always | declarations with `encoded-by` provenance |
 | **Gloss** | model prose over structured output | the fork-diff sidebar summary | n/a | none — never stored |
 
-**The structural claim.** There is **no door through which an unclassified model
+**The structural claim.** There is **no path by which an unclassified model
 utterance can reach the kernel** — not as a matter of policy, but because no
 other input surface exists. A model utterance is one of these four kinds, or it
-does not enter. Agents that produce candidates and encodings do so through Door
-T, the semantic tools against the `deloreis` server (DL-0014;
+does not enter. Agents that produce candidates and encodings do so through the
+tool surface, the semantic tools against the `deloreis` server (DL-0014;
 [11-agent-authoring](11-agent-authoring.md)); raw AST emission is a mechanism
-inside those tools, not a door.
+inside those tools, not an interface.
 
 ## 3. Attestations
 
@@ -187,7 +187,7 @@ lookup — rides in grade.
 
 A candidate is model-generated content that wants to become canon: names,
 proposal bundles, rule variants, encodings offered as content. Candidates enter
-as **hypothesis declarations** authored through Door T
+as **hypothesis declarations** authored through the tool surface
 ([11-agent-authoring](11-agent-authoring.md)), carrying origin metadata the
 kernel enforces at the declaration — `{generated-by: campaign/model/date,
 gauntlet: manifest-ref}` — not a convention.
@@ -242,7 +242,7 @@ nothing to drift because there is nothing retained.
 |---|---|---|---|---|
 | **Who initiates** | a check (`attestation-missing`) or a re-attestation policy | agents / author-directed campaigns | the factory, when a source artifact needs its shadow | the UI, at render |
 | **Factory does** | batch questions, call models, commit records + sweep manifest | generate, run the gauntlet, bundle, `promote` → RQ | schema-constrained call, fixtures, review surface | the call, the label |
-| **Kernel stores** | the record; consuming checks read it, grade `attested` | hypothesis declarations with origin metadata (Door T) | declarations with `encoded-by` + source hash; verifies quotes | nothing |
+| **Kernel stores** | the record; consuming checks read it, grade `attested` | hypothesis declarations with origin metadata (the tool surface) | declarations with `encoded-by` + source hash; verifies quotes | nothing |
 | **What can flip later** | the answer, on re-attestation (check verdict flips, flagged); exit via ruling | the variable, on ruling (ratify → certain; reject → dead + guardrail) | the encoding, on source edit (staleness → re-encode) or review correction | n/a |
 | **Drift story** | first-class: sweeps are lab runs; flips are findings; canon never moves | none — waiting is a filed debt, not drift | hash-mismatch staleness findings | none by construction |
 

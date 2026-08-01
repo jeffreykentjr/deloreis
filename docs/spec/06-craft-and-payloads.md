@@ -234,7 +234,7 @@ flow: a draft lands → a factory extraction job produces the payload → `delor
 check-draft <payload>` runs the full battery → one merged typed report. The
 extraction job is **encodings-class** ([07](07-verdicts-and-llm-boundary.md) §5):
 schema-constrained, fixtured, and quote-anchored, produced by a factory-side
-model; agents that author lore from the draft do so through Door T
+model; agents that author lore from the draft do so through the tool surface
 ([11-agent-authoring](11-agent-authoring.md)), never by hand-writing the shadow.
 
 ### 7.1 The payload

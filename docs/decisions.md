@@ -1071,3 +1071,35 @@ test coverage add lines before they remove any — while catching nothing a
 reviewer would miss. The sovereign judged the mechanic noise. The charter's
 real budget content is architectural (fewer doors, fewer seats, fewer
 parts), and those lines are judged in review, where the argument lives.
+
+## DL-0043 — The door semantic is retired: one interface, authority boundaries
+
+*Date: 2026-08-01*
+
+**Ruling.** The Door H / Door T semantic — separate supported entry channels
+per author population — is retired as a vocabulary and as an architecture.
+There is **one interface**: the declarative tool surface (the `author.*` and
+`dli.*` operations against the server). What distinguishes authors is
+**authority** — who may propose, who may rule — never the entry channel, as
+anticipated by `design-notes/multi-authority-knowledge-evolution.md`. Koan 11
+is restated from "one door per author" to "one way in"; the charter's budget
+line becomes an interface count of one. The machine-never-writes-canon law
+(koan 3, DL-0014) is untouched: it was always an authority rule, and it now
+reads as one.
+
+Consequences for living documents: charter, `AGENTS.md`, `PLAN.md`,
+`SKILL.md`, the spec suite, the cards, and the lorestore roadmap replace door
+vocabulary with interface/authority vocabulary. Historical ledger entries,
+dated audit notes, and vendored evidence keep their original wording — they
+describe the era they were written in. Node ids (`AUTH-*`), fixture names,
+and wire-visible strings (finding text, contract descriptions, generated
+references) are **not** renamed by this entry; wire-visible renames ride the
+LS-4 contract bump through the killed-form registry like every other rename.
+
+**Rationale.** The door framing encoded a channel distinction that the
+lorestore pivot dissolves: DL-0041 closed the text channel, and with one
+channel remaining, "which door" carries no information — the load-bearing
+distinction was always authority. Naming the boundary correctly matters for
+what comes next: multi-authority evolution extends the authority model, and a
+vocabulary that pins authorship to entry channels would fight that extension
+at every step.

@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The plan for re-homing lore from fantasy into deloreis: scope and assumptions, the re-home work list, the shadow-read harness, three-phase source migration ending in deletion, the per-check flip rule, the STATUS handshake, coordination points CP-1..CP-10, ownership, and the worked TPtH Door-T scenario."
+verdict: "The plan for re-homing lore from fantasy into deloreis: scope and assumptions, the re-home work list, the shadow-read harness, three-phase source migration ending in deletion, the per-check flip rule, the STATUS handshake, coordination points CP-1..CP-10, ownership, and the worked TPtH tool-surface scenario."
 ---
 
 # Migration: fantasy → deloreis
@@ -175,7 +175,7 @@ Three artifacts live in both repos and need a single owner each:
 ## 10. The worked scenario
 
 The fantasy agent needs a new secondary character for episode 9. It authors
-through Door T, gets graded findings at every step, and commits the materialized
+through the tool surface, gets graded findings at every step, and commits the materialized
 `.dli` through fantasy review. Promotion to ratified canon happens later, via a
 ruling request, if the character earns it. Rendered strings below are the
 placeholder canonical surface (grammar unfrozen; the AST is normative —

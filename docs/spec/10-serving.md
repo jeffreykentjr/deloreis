@@ -24,7 +24,7 @@ LLM work; the worker keeps all evaluation and verdicts.
 The MCP transport is a thin wrapper, not a second protocol: it registers the
 same ops as MCP tools and forwards their arguments through the same request
 envelope, so an MCP client and a stdio client exercise identical kernel paths
-and identical fixtures. For a mutating Door-T tool, `expected_digest` and
+and identical fixtures. For a mutating tool-surface tool, `expected_digest` and
 `idempotency_key` appear as ordinary MCP tool arguments; the adapter lifts those
 two reserved keys into the shared envelope before dispatch. There is one worker
 surface; MCP is a way to reach it.
@@ -33,7 +33,7 @@ The surface serves **two op families** over the same process:
 
 - **Batch operations** under the `dli.*` namespace — the query, check,
   simulate, fork, timeline, and export operations catalogued below.
-- **Authoring tools** under the `author.*` namespace — the semantic Door T tools
+- **Authoring tools** under the `author.*` namespace — the semantic the tool surface tools
   (DL-0014) that agents call to write lore, MCP-registered against the opaque
   `deloreis` binary.
 
@@ -92,7 +92,7 @@ dedicated, non-overlapping project subdirectories with no symlinks anywhere in
 either storage tree. Neither tree may contain or hard-link the manifest or any
 manifest-referenced source, episode, killed-token, game, or profile input. A
 project with duplicate fork question ids is rejected because a
-Door-T fork must have one document owner. Dialect ids are also unique across the
+tool-surface fork must have one document owner. Dialect ids are also unique across the
 project: the current `dli.name.check` shape has no document field and therefore
 resolves its dialect against the project's combined language model.
 

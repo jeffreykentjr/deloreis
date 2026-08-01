@@ -9,8 +9,8 @@ verdict: "Protocol only: the G1 comprehension-and-transcription probe of the gen
 This document specifies the **human-writer probe**: the G1 instrument that tests
 whether the gentle subset is actually approachable for the writers it is for.
 It is one of the two instruments named in the syntax spec (`../spec/01-syntax.md`
-§8); the other is the P0 authoring benchmark, which tests the agent door and is
-specified with the doors (spec §6).
+§8); the other is the P0 authoring benchmark, which tested the agent route and was
+specified with the retired two-door semantic (spec §6; DL-0041, DL-0043).
 
 **This is protocol only.** The probe itself — recruiting writers, running the
 sessions, recording what happened — is the author's act. Until it has run, every

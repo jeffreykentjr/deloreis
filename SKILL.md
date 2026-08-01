@@ -1,11 +1,11 @@
 ---
 name: deloreis
-description: Author De Lore Is (.dli) lore through Door T — the deloreis server's author.* tools — by naming intents and reading the graded findings each call returns. You never write .dli by hand; you self-check with the read tools before you materialize; nothing you supply mints canon.
+description: Author De Lore Is (.dli) lore through the tool surface — the deloreis server's author.* tools — by naming intents and reading the graded findings each call returns. You never write .dli by hand; you self-check with the read tools before you materialize; nothing you supply mints canon.
 status: live
 verdict: "The v0 authoring manual: author through tools, self-check before materialize, read the graded feedback, obey provenance discipline; raw .dli editing is a measured fallback and the gentle card is for reading your own rendered diffs."
 ---
 
-# Skill: authoring De Lore Is through Door T
+# Skill: authoring De Lore Is through the tool surface
 
 ## 0. The core law
 
@@ -17,12 +17,12 @@ everything below, and they never bend:
    "set a trait," "order this event before that one" — and the tool lowers it to
    the world model, checks it, and renders it back. You do not type `.dli`
    surface, and you do not touch the AST. Hand-editing `.dli` is a *measured
-   fallback* (§8), not a door.
+   fallback* (§8), not a supported interface.
 2. **Nothing you supply mints authority.** Every claim you add enters `proposed`
    or is `hypothesis`-scoped. A ruling — the act that makes a claim *true* — lives
    in the consuming repo's decision ledger and is a **human** act in review. You
    propose; the author confirms.
-3. **You cannot cite.** The `cited` provenance form is Door-H / human-only (B1). A
+3. **You cannot cite.** The `cited` provenance form is human-only (B1). A
    `cited` provenance handed to any `author.*` tool is **refused** with the
    `provenance.cited-refused` finding — nothing is staged. Resubmit as `proposed`.
 4. **The compile is the oracle, and it outranks this file.** The findings a tool
@@ -260,8 +260,9 @@ request and response — is `docs/cards/authoring-loop.md`.
   (`docs/cards/expert-card.md`) and their lane specs under `docs/spec/`. Fork
   authoring uses `author.open {fork}`, `author.add_hypothesis`, and
   `author.suppose`; read the consequence shift in `author.diff`.
-- **Raw `.dli` editing is a measured fallback**, not a door. It meets the same
+- **Raw `.dli` editing is a measured fallback**, not a supported interface. It meets the same
   gate and the same graded findings — nothing is lost — but no tooling is built
-  for it and no reliability claim is made for it. Prefer Door T. If you must edit
+  for it and no reliability claim is made for it. Prefer the tool surface. If you must edit
   surface by hand, keep to the gentle card and let the formatter canonicalize on
-  save. The authoring benchmark exists to *close* doors, not open them.
+  save. There is one supported way in (koan 11, DL-0043); the fallback exists so
+  nothing is silently dropped, never as a second interface.

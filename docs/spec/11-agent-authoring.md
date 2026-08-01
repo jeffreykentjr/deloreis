@@ -1,36 +1,40 @@
 ---
 status: live
-title: "Door T: agent authoring through semantic tools"
+title: "the tool surface: agent authoring through semantic tools"
 verdict: "agents author through tools, never text; every call answers with graded findings; the human reviews rendered diffs."
 ---
 
-# Agent authoring — Door T
+# Agent authoring — the tool surface
 
 The coding agents that build a world do not write `.dli`
 surface text. They operate a curated set of semantic tools against a running
 `deloreis` server. Every tool call answers immediately with graded findings, the
 rendered canonical surface of what it staged, and a workspace digest. A human
 supervises by reading the rendered diff in ordinary code review — never the tool
-traffic. This is **Door T**, ruled in `DL-0014` and seated in the charter as
-koan 11 ("one door per author").
+traffic. This is **the tool surface**, ruled in `DL-0014` and seated in the charter as
+koan 11 ("one way in").
 
-This document is the semantic specification of Door T. The wire inventory —
+This document is the semantic specification of the tool surface. The wire inventory —
 which schemas and fixtures back each tool — is `docs/integration/fantasy-contract.md`;
 where the two describe the same tool, the shapes agree, and this document defines
 the meaning the wire carries.
 
-## 1. The door
+## 1. The interface
 
-There are two supported authoring doors, one per author population (`DL-0004`).
+There is one supported authoring interface (`DL-0014`, `DL-0043`): the
+semantic tools against the opaque `deloreis` server. An author names an intent
+("add a person; they are in this place") and the tool stages the corresponding
+AST, checks it, and renders it back. No author emits `.dli` text as the
+supported path, and none touches the AST directly. What distinguishes authors
+is **authority**, not channel: every claim enters `proposed` or
+`hypothesis`-scoped, and only the sovereign's ruling makes anything true.
 
-- **Door H** — humans write `.dli` surface text and review it as surface. The
-  formatter defines one canonical rendering; the gate enforces it.
-- **Door T** — agents author through semantic tools registered in MCP against the
-  opaque `deloreis` server. An agent names an intent ("add a person; they are in
-  this place") and the tool stages the corresponding AST, checks it, and renders
-  it back. The agent never emits `.dli` text and never touches the AST directly.
+*Historical note.* `DL-0004` originally defined two doors — Door H (humans
+writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
+surface to an opt-in rendering; `DL-0043` retired the door semantic entirely.
+`.dli` text survives as a rendering and as the measured fallback below.
 
-Door T speaks over two transports carrying the same tool surface: **JSON over
+The interface speaks over two transports carrying the same tools: **JSON over
 stdio** (`deloreis serve --project <path>` — one JSON request per line, one JSON
 response per line) and **MCP** (`deloreis mcp --project <path>` — each
 `author.*` tool registered as a provider tool with its own small request schema,
@@ -41,21 +45,22 @@ op namespace is `author.*` for the authoring tools and `dli.*` for the
 worker-protocol operations they invoke (for example `dli.name.check`, the naming
 oracle).
 
-Two things that look like doors are not:
+Two things that look like second interfaces are not:
 
 - **Raw AST-document emission** is an internal mechanism inside the tools and a
   benchmark arm (§7). A tool lowers an intent to AST, but no agent submits an AST
-  document as an authoring act. It is never a door.
+  document as an authoring act. It is never an interface.
 - **Textual `.dli` editing by an agent** is the **measured fallback**, actively
-  discouraged in `SKILL.md`. It is not refused — off-door input meets the same
+  discouraged in `SKILL.md`. It is not refused — off-interface input meets the same
   full pipeline and the same graded findings as everything else (koan 4, nothing
   silently dropped) — but it is not taught, not tooled, and not a supported path.
 
-The benchmark exists to **close** doors, not open them (§7). Door T is the
-primary authoring path on the working hypothesis that a small curated tool
-surface with immediate feedback beats every alternative; that hypothesis is
-backed by the sibling receipts (`docs/design-notes/sibling-lessons.md`) and is
-promoted to a measured fact only when the benchmark reports.
+The tool surface is the primary authoring path on the working hypothesis that
+a small curated tool surface with immediate feedback beats every alternative;
+that hypothesis is backed by the sibling receipts
+(`docs/design-notes/sibling-lessons.md`). The benchmark that would have
+measured the alternative is retired with the two-door semantic (DL-0041,
+DL-0043).
 
 ## 2. Sessions and staging
 
@@ -182,7 +187,7 @@ error }`. The examples below elide `dli`, `id`, and often the `workspace`
 param for brevity; only `params` and the salient part of the response are
 shown.
 
-**Provenance is required on every claim-bearing tool.** An agent (Door T)
+**Provenance is required on every claim-bearing tool.** An agent (the tool surface)
 supplies one of **two** forms — `proposed` or `hypothesis` — and nothing an agent
 supplies mints authority (§5):
 
@@ -198,7 +203,7 @@ to a fork-local hyp variable.
 
 The third provenance form, `cited` (naming decision-ledger entries in the
 **consuming** repo's ledger, `{ "kind": "cited", "decisions": ["d-0001"] }`), is
-**Door-H / human-only** (B1). An agent cannot mint a citation — a ruling lives in
+**human-only** (B1). An agent cannot mint a citation — a ruling lives in
 the ledger, not in a tool call (koan 3) — so a `cited` provenance supplied to any
 `author.*` tool is **refused** with the `provenance.cited-refused` finding. The
 agent proposes; the human confirms the citation in review.
@@ -440,7 +445,7 @@ check the current state, understand a derivation, then act.
 
 ## 4. The feedback contract
 
-This is the core of the door. **Every mutating call returns, immediately:**
+This is the core of the interface. **Every mutating call returns, immediately:**
 
 ```json
 {
@@ -539,7 +544,7 @@ path drops the input silently.
 The human never reads tool-call JSON. They review the **rendered canonical diff**
 — the output of `author.diff` in-session, or the materialized `.dli` files in the
 consuming repo — as ordinary code review. The diff is the same canonical surface
-a Door H author would have written by hand, so both populations are reviewed
+a human author would have written by hand, so human and agent contributions are reviewed
 through one lens.
 
 **Provenance discipline.** Nothing an agent writes mints authority (koan 3: the
@@ -583,13 +588,15 @@ contract bug, resolved on the `deloreis` side.
 
 ## 7. The measurement plan
 
-Door T's primacy is a hypothesis until the authoring benchmark measures it. The
+*Retired with the door semantic (DL-0041, DL-0043): with the text surface an
+opt-in rendering, a door decision has nothing left to decide. Preserved for
+the arms' definitions.* The
 benchmark (PLAN nodes `BENCH-1`, `BENCH-2`) arms four conditions over the same
 authoring tasks:
 
-- **Door T tools** — the primary path, this document's surface.
-- **Door H surface text authored by an agent** — the measured fallback.
-- **Grammar-constrained local emission** — a benchmark condition, not a door.
+- **the tool surface tools** — the primary path, this document's surface.
+- **Text-surface authoring by an agent** — the measured fallback.
+- **Grammar-constrained local emission** — a benchmark condition, not an interface.
 - **Raw AST-document emission** — the demoted arm, an internal mechanism scored
   only as a baseline.
 
@@ -600,7 +607,7 @@ read to sign off), and **canon-safety violations** (any path by which unratified
 claims acquire authority, or a claim materializes past an error-severity finding).
 
 The benchmark's verdicts are a **double-sided promotion trigger**: they may
-promote Door T's superiority from hypothesis to measured fact, and they may
+promote the tool surface's superiority from hypothesis to measured fact, and they may
 **close** a demoted or fallback path that proves it costs more than it saves.
 Until the benchmark reports, the working hypothesis stands on the sibling receipts
 (`docs/design-notes/sibling-lessons.md`), where path count predicted failure

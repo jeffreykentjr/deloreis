@@ -138,7 +138,7 @@ form lands with the `rule … over order` work (TIME-3).
 
 - `docs/cards/gentle-card.md` — the teaching subset (what a writer meets first).
 - `docs/cards/expert-card.md` — the expert tier with parsing examples.
-- `docs/spec/01-syntax.md` — normativity, the record shape, the doors, drift discipline.
+- `docs/spec/01-syntax.md` — normativity, the record shape, the interface, drift discipline.
 - `schemas/ast/document.schema.json` — the normative AST.
 - `examples/*.dli` — the living corpus (all gate-parsed).
 

@@ -69,7 +69,7 @@ compiled world); `fork` (create/suppose/add/diff/promote/preflight); `check-proo
 `simulate` (batteries with metrics + invariants); `timeline`
 (show/order/knows/episodes/phases); `export` (one-way compiles to targets);
 `name` (the kernel-half vet); `craft why` (principle explanations); and `serve`
-(the server hosting the batch `dli.*` operations and **Door T** — the
+(the server hosting the batch `dli.*` operations and **the tool surface** — the
 `author.*` semantic tools agents author through). The full op inventory and its return shapes live in
 `../integration/fantasy-contract.md`.
 
@@ -128,10 +128,10 @@ external screens, the banned lexicon — pipeline, not grammar.
 - **A new contributor:** the charter (`../charter.md`) → this file → your lane's
   spec → `../PLAN.md` → `../decisions.md`, which outranks everything, including
   this file.
-- **A human worldbuilder (Door H):** the gentle-subset reference card and
+- **A human worldbuilder:** the gentle-subset reference card and
   `SKILL.md`; the language reads like structured notes, and what parses is
   exactly what the card shows.
-- **An agent (Door T):** `SKILL.md`, then the `author.*` tools — talk to the
+- **An agent (the tool surface):** `SKILL.md`, then the `author.*` tools — talk to the
   server, read the graded findings, commit what `materialize` returns.
 - **An integrator (fantasy side):** `../integration/fantasy-contract.md` →
   `../integration/migration.md` → `../integration/STATUS.md`.

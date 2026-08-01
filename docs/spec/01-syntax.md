@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Syntax"
-verdict: "AST-first; one canonical rendering; two doors; grammar versioned, formatter is the migrator."
+verdict: "AST-first; one canonical rendering; one interface since DL-0043 (this spec's two-door section is retained as history); grammar versioned, formatter is the migrator."
 ---
 
 # Syntax
@@ -286,24 +286,28 @@ Two dimensions where the design **deliberately pays**:
 
 ---
 
-## 6. The two doors
+## 6. The two doors (retired: one interface)
 
-Each author population gets **exactly one supported way into the fabric**
-(koan 11, *one door per author*; DL-0004). Benchmarks exist to close doors, not
-to open them. The count of supported paths — not any single path's quality —
+*Retired semantic (DL-0041, DL-0043).* This section defined the v1 two-door
+model; it is retained because its drift-discipline and demoted-condition rules
+survive. The standing law is koan 11, *one way in*: a single declarative
+interface for every author, with authority — not channel — distinguishing
+them. The text surface described below is an opt-in rendering since DL-0041.
+
+The count of supported paths — not any single path's quality —
 predicts maintenance load and failure surface; every additional path is a
-support surface, a drift surface, and a bust-rate multiplier. Two populations
-exist, so two doors are supported.
+support surface, a drift surface, and a bust-rate multiplier. That argument
+survives the doors it once counted: it is why the interface count is one.
 
-**Door H — humans write surface text.** The sovereign door: the formatter (write
+**The text surface (historical Door H) — humans write surface text.** The formatter (write
 loosely, save canonical), the graded error ladder speaking the domain (§4), the
-gentle subset, and the reference cards. Everything, whatever door produced it, is
+gentle subset, and the reference cards. Everything, whatever path produced it, is
 **reviewed as surface** — the author reads one form of the language, always. A
 nicer keyboard is not a new door: a click-to-edit form over lore entities in a
 factory UI serves the human population and is Door H with a different keyboard,
 its output surface text reviewed as surface.
 
-**Door T — agents author through semantic tools (DL-0014).** Agents do not write
+**the tool surface — agents author through semantic tools (DL-0014).** Agents do not write
 `.dli` text as their supported path; they call a curated set of semantic tools
 registered over MCP against the `deloreis` server — `author.open`,
 `author.add_fact`, `author.add_entity`, `author.add_relation`, `author.add_event`,
@@ -316,7 +320,7 @@ specified in `11-agent-authoring.md`.
 
 **Raw AST-document emission is a mechanism, not a door.** A frontier model can be
 constrained to emit a schema-valid AST at its decode layer, and that capability
-is used *inside* Door T's tools and as a benchmark arm — but raw AST emission is
+is used *inside* the tool surface's tools and as a benchmark arm — but raw AST emission is
 not itself a supported authoring channel. It solves syntactic validity only:
 wrong-but-well-formed content (invented names, bad citations, contradicted
 claims) passes the decoder and dies in the semantic gates, exactly as it should.
@@ -329,28 +333,29 @@ claims) passes the decoder and dies in the semantic gates, exactly as it should.
   same pipeline, same graded errors. The skill file does not teach it, no tooling
   is built for it, and no reliability claim is made for it. Its standing role is
   the benchmark's control condition and the standing measurement of what happens
-  off-door.
+  off-interface.
 - **Grammar-constrained local emission** is a **benchmark condition**, not a
   shipped channel. No maintained grammar artifact is kept under an equivalence
-  tax for an unwalked door. What is kept costs nothing: the grammar stays
+  tax for an unwalked path. What is kept costs nothing: the grammar stays
   line-oriented and GBNF-expressible (§2), so the option remains cheap to reach
   if evidence ever calls for it.
 
 **The promotion trigger is explicit and double-sided.** A demoted condition
-becomes a door only on benchmark evidence that Door T *fails* for named local
+becomes a supported path only on evidence that the tool surface *fails* for named local
 models the owner actually uses **and** that constrained surface *passes* on the
-same tasks — **plus** a written argument against the door budget. Doors and
+same tasks — **plus** a written argument against the interface budget. Paths and
 reasoning seats are the same species of scope creep and follow the same protocol.
 
-**Off-door input meets the full pipeline.** A closed door bounds what is
+**Off-interface input meets the full pipeline.** The bounded interface limits what is
 *supported* — taught, tooled, measured — and never authorizes a silent drop. An
-agent's textual edit arriving off-door is neither refused nor ignored; it meets
+agent's textual edit arriving off-interface is neither refused nor ignored; it meets
 the same graded errors as everything else (koan 4, *nothing is silently
-dropped*). The gate stays total; a closed door is a support decision, never a
+dropped*). The gate stays total; an unsupported path is a support decision, never a
 data-loss decision.
 
-**The benchmark exists to close doors.** Its output is a verdict about which door
-to shut or keep shut — never a menu of options to offer.
+**The benchmark existed to close routes.** Its output was a verdict about which
+route to shut or keep shut — never a menu of options to offer. It is retired
+with the semantic it measured (DL-0041, DL-0043).
 
 ---
 
@@ -383,7 +388,7 @@ was intended — so the migrator is exercised before any real corpus meets it.
 **The gate is deterministic and offline (DL-0013).** The compile-examples
 harness, the formatter idempotence check, and the killed-form checks all run
 with no network and no model in the loop. The authoring benchmark and any
-model-in-the-loop lane are **non-gating**: they inform the door verdict, they do
+model-in-the-loop lane are **non-gating**: they informed the now-retired route verdict, they do
 not block a merge.
 
 ---
@@ -411,8 +416,8 @@ discharge it.
 
 1. The **P0 authoring benchmark** — the agent-side instrument. Its pass is
    defined by the *real gate's verdict*, not by a proxy score. Its matrix is the
-   two doors against a set of models, plus the two demoted conditions as
-   experimental arms. Its output is the door verdict of §6.
+   two routes against a set of models, plus the two demoted conditions as
+   experimental arms. Its output was the route verdict of §6 (retired).
 2. A **small human-writer probe** taken at the G1 milestone, before the surface
    freezes — a handful of non-programmer writers, the gentle subset, comprehension
    and transcription tasks, with a cognitive-dimensions walkthrough as the
