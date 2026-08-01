@@ -64,7 +64,7 @@ Replace single sovereign valuation with **trust-weighted, composable authorities
 
 A **schema-on-read** constraint system that validates facts without requiring recompilation.
 
-```dli
+```text
 rule person_requires_name(P)
   requires person(P) implies exists N . name(P, N)
 
@@ -85,7 +85,7 @@ Constraints compile to additional **support polynomials** — a constraint viola
 
 Facts are supported by **arguments**, arguments **attack** other arguments, and **acceptability semantics** determine which arguments are "in" or "out."
 
-```dli
+```text
 argument a1: "Spider-Man is Peter Parker"
   supported_by: [d-comic-1962-08-25, d-official-handbook-1980]
 
@@ -107,7 +107,7 @@ argument a3: "Only one person can be Spider-Man"
 
 Extend the grade lattice from recheckability to **confidence/uncertainty**.
 
-```dli
+```text
 fact spider_sense_triggers
   confidence: 0.87
   provenance: "observed in 6 issues, 2 movies, 1 game"
@@ -127,7 +127,7 @@ The grade lattice becomes a **product lattice**: `(checked > tested > attested >
 
 Entities aren't exact atom matches — they're **probabilistically linked** across sources.
 
-```dli
+```text
 entity_link spiderman_comics ≈ spiderman_mcu
   confidence: 0.95
   evidence: ["same alter_ego", "same core_powers", "different_origin_story"]
