@@ -1,6 +1,6 @@
 ---
 status: accepted
-verdict: "Architecture vision: Lorestore as deloreis's embedded, deterministic storage engine (like SQLite), replacing the git+text+evidence-v1 model for new deployments after fantasy cutover completes."
+verdict: "Architecture vision: Lorestore as deloreis's embedded, deterministic storage engine (like SQLite), replacing the git+text+evidence-v1 model for new deployments after fantasy cutover completes. Note: the Door H/T distinction in existing docs is being deprecated in favor of 'authority boundaries' — see design-notes/multi-authority-knowledge-evolution.md."
 ---
 
 # Lorestore: deloreis's deterministic storage layer
@@ -142,6 +142,13 @@ deloreis writes directly to lorestore as part of the tool call.
    - Predicate → all facts with that predicate
    - Ruling id → all facts citing that ruling
    - Hypothesis → all facts gated on that hypothesis
+   - Polynomial variable → all facts mentioning that variable (for impact
+     analysis when decisions change)
+
+   > **See `lorestore-indexing-strategy.md`** for the phased roadmap of index
+   > evolution from basic content-addressed storage to incremental compilation
+   > and cross-branch query indexes, with aspirational targets for argumentation
+   > frameworks and uncertainty propagation.
 
 5. **Evidence subsystem** — Same as today's `.dli-evidence/` but integrated:
    attestation batches, payload records, simulation manifests, all
@@ -150,6 +157,13 @@ deloreis writes directly to lorestore as part of the tool call.
 6. **Transaction model** — Single-writer per lorestore instance (serialized
    through the advisory lock, like today). Atomic ref updates
    (compare-and-swap on branch roots).
+
+7. **Authority tagging** — While the current v1 model assumes single sovereign
+   (DL-0002), lorestore's fact objects include an `authority` field to support
+   the multi-authority evolution described in
+   `docs/design-notes/multi-authority-knowledge-evolution.md`. Single-authority
+   deployments leave this field unset; multi-authority setups populate it with
+   authority identifiers and trust weights.
 
 ## Comparison: git + text vs. lorestore
 
@@ -220,21 +234,17 @@ else is deloreis's internal business.
 
 ## Open questions
 
-1. **Index design** — What secondary indices are needed for efficient queries?
-   (Entity lookups, predicate scans, citation traversal, timeline queries)
-
-2. **Merge complexity** — Is full git-like merge overkill, or do we need it
-   for concurrent agent workflows? Simpler "latest write wins" with conflict
-   detection might suffice for single-agent scenarios.
-
-3. **Storage backends** — Do we support only filesystem, or also object storage
+1. **Storage backends** — Do we support only filesystem, or also object storage
    (S3-compatible) and IPFS? What is the storage trait interface?
 
-4. **Evidence migration** — Do existing `.dli-evidence/` contents migrate to
+2. **Evidence migration** — Do existing `.dli-evidence/` contents migrate to
    lorestore format, or do they coexist?
 
-5. **Offline operation** — Does lorestore need to work in air-gapped
+3. **Offline operation** — Does lorestore need to work in air-gapped
    environments (like the deterministic offline gate requires)?
 
-6. **Size/bandwidth** — For large lore corpora, is full fact materialization
+4. **Size/bandwidth** — For large lore corpora, is full fact materialization
    always needed, or do we support lazy/partial loading?
+
+> Detailed treatment of index design, phased evolution, and prior art is in
+> `docs/design-notes/lorestore-indexing-strategy.md`.
