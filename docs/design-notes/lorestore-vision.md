@@ -82,12 +82,12 @@ Every fact in lorestore is a **deterministic, content-addressed object**:
   "id": "sha256:...",
   "type": "fact",
   "predicate": "person",
-  "arguments": ["tegwen"],
-  "support": {"monomials": [["+d-0147", "+h-cymric-loans"]]},
-  "defeaters": {"monomials": [["+d-0148"]]},
+  "arguments": ["<entity-id>"],
+  "support": {"monomials": [["+<decision-id>", "+<hypothesis-id>"]]},
+  "defeaters": {"monomials": [["+<defeater-id>"]]},
   "provenance": {
     "kind": "proposed",
-    "origin": "agent:factory/ep9-cast"
+    "origin": "agent:<origin-tag>"
   },
   "grade": "asserted",
   "parent": "sha256:..."
@@ -98,8 +98,8 @@ Every fact in lorestore is a **deterministic, content-addressed object**:
 **valuation overlays** (which ruling variables are true/false):
 
 ```
-refs/heads/main → {root: sha256:abc, valuation: {d-0147: true, h-cymric-loans: false}}
-refs/heads/fork/ep9-cast → {root: sha256:def, valuation: {d-0147: true, h-cymric-loans: true, proposal#0: true}}
+refs/heads/main → {root: sha256:abc, valuation: {<decision-id>: true, <hypothesis-id>: false}}
+refs/heads/fork/<branch-name> → {root: sha256:def, valuation: {<decision-id>: true, <hypothesis-id>: true, <bundle-id>: true}}
 ```
 
 **Merges** are 3-way merges computed over the provenance polynomial structure,
@@ -108,7 +108,7 @@ not over text lines.
 ## The MCP flow (post-lorestore)
 
 ```
-Agent: author.add_entity(tegwen, person, "Tegwen", proposed)
+Agent: author.add_entity(<entity-id>, person, "<Label>", proposed)
   →
 deloreis serve:
   1. Validate against AST schema, compile provenance polynomial
