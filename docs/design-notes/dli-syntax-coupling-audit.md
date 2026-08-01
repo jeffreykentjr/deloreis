@@ -78,10 +78,10 @@ roadmap's LS-9 (expert-tier structuring) exists and why LS-7 needs it.
   directory. It is also not gitignored (nor is `.dli-evidence/`); both are
   simply untracked. "Replace the cache" is a no-op.
 - **The corpus is already mostly structured data.** 16 `.dli` files
-  repo-wide, against 361 JSON, 51 TOML, 33 YAML. `worlds/tpth/` is
-  predominantly YAML/TOML/JSON; the `.dli` remainder is five packs,
-  `time/cycles.dli`, `practices/spoken-proof.dli`, and three files under
-  `auth2/`.
+  repo-wide, against 361 JSON, 51 TOML, 33 YAML. The consuming world tree is
+  predominantly YAML/TOML/JSON; the `.dli` remainder is five language packs,
+  one chronology file, one practice file, and the three worked-scenario
+  fixtures.
 
 ## Sizing
 
