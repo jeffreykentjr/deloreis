@@ -706,8 +706,8 @@ author or consumer artifact that this repository does not own.
 | EXT-F2 | done | vendored corpus manifests under `worlds/tpth/vendor/` |
 | EXT-F5 | done | mutation corpus under `worlds/tpth/mutation/` |
 | LS-0 | done | DL-0041; `design-notes/lorestore-roadmap.md`; the law updates in `AGENTS.md` |
-| LS-1 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
-| LS-2 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-2 |
+| LS-1 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
+| LS-2 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-2; in progress — `src/storage.rs`, `src/lorestore.rs`, `tests/cross_platform_determinism.rs`, `tests/state_fold_invariant.rs`, `tests/crash_injection.rs` |
 | LS-3 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-3 |
 | LS-4 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-4 |
 | LS-5 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-5 |

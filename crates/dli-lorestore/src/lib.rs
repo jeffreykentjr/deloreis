@@ -25,8 +25,10 @@
 pub mod canonical;
 pub mod evidence;
 pub mod identity;
+pub mod lorestore;
 pub mod lower;
 pub mod object;
+pub mod storage;
 pub mod store;
 
 pub use canonical::{
@@ -34,7 +36,9 @@ pub use canonical::{
 };
 pub use evidence::{EvidenceEnvelope, EvidenceKind};
 pub use identity::{Authority, ClaimId, ContentHash, LineageEdge};
+pub use lorestore::{Lorestore, MAIN_REF};
 pub use object::{CondPair, ExpertBody, ExpertDeclKind, FactObject};
+pub use storage::{FilesystemStorage, Storage, StoreError};
 pub use store::{Commit, Ref};
 
 /// The schema version carried by every stored object. Bumped when the stored

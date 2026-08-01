@@ -1,0 +1,280 @@
+//! The `Lorestore` facade: durable, content-addressed persistence for fact
+//! objects (DL-0041, roadmap §LS-2).
+//!
+//! A `Lorestore` wraps a [`Storage`] backend and provides the high-level
+//! operations the rest of the system needs: writing fact objects, constructing
+//! commits, managing refs, and walking the commit DAG. The storage layer
+//! (loose objects, advisory locks, crash-safe writes) lives in [`crate::storage`];
+//! this module composes it into a transactional commit model.
+//!
+//! ## The commit model
+//!
+//! Storage-level ancestry lives in the commit DAG, as in git — not in any fact
+//! object's content hash (the three-way identity split, roadmap §LS-1). A
+//! [`Commit`] names the fact objects it introduces, the lineage edges, the
+//! evidence envelopes, and the event-variable interner (the name table that
+//! makes `Atom(u32)` indices in support polynomials self-describing). The
+//! `sha256:` digest of the head commit is the **workspace digest** — the
+//! Merkle root over the entire workspace state.
+//!
+//! There is one ref: `main`. Forks-as-valuation-overlays are introduced in
+//! LS-6 (the merge engine), not here. The MVP is single-branch.
+//!
+//! ## `state ≡ fold(log)`
+//!
+//! The store's state — the set of all objects reachable from the head ref — is
+//! exactly the union of objects named by all commits in the chain from root to
+//! head. This invariant is a gate-checked property test (see
+//! `tests/state_fold_invariant.rs`), not a structural guarantee of the type
+//! system.
+
+use std::path::PathBuf;
+
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
+use crate::identity::ContentHash;
+use crate::storage::{self, Storage, StoreError};
+use crate::store::{Commit, Ref};
+use dli_core::valuation::Valuation;
+
+/// The name of the default branch ref.
+pub const MAIN_REF: &str = "main";
+
+/// A durable lorestore: the append-only commit log over a [`Storage`] backend.
+///
+/// Construct with [`Lorestore::open`].
+#[derive(Debug)]
+pub struct Lorestore {
+    storage: Box<dyn Storage>,
+}
+
+impl Lorestore {
+    /// Open (or initialise) a store at `root`.
+    ///
+    /// If no `main` ref exists, a genesis (empty) commit is written and `main`
+    /// is pointed at it. The returned `Lorestore` is ready to accept writes.
+    pub fn open(root: PathBuf) -> Result<Self, StoreError> {
+        let storage: Box<dyn Storage> = Box::new(crate::storage::FilesystemStorage::new(root));
+
+        // If there's no main ref, create the genesis commit.
+        let head = storage.load_ref(MAIN_REF)?;
+        if head.is_none() {
+            let genesis = Commit::root(
+                Vec::new(), // empty interner at genesis
+                Vec::new(), // no facts
+                Vec::new(), // no lineage
+                Vec::new(), // no evidence
+            );
+            let genesis_hash = storage::write_typed(&*storage, &genesis)?;
+            let genesis_ref = Ref::new(MAIN_REF, genesis_hash.clone());
+            let _lock = storage.acquire_lock()?;
+            let written = storage.cas_ref(MAIN_REF, None, &genesis_ref)?;
+            assert!(written, "CAS for genesis ref must succeed on empty store");
+        }
+
+        Ok(Self { storage })
+    }
+
+    /// Construct a `Lorestore` from an already-opened `Storage` backend, without
+    /// initialising the genesis commit.
+    ///
+    /// **Test / advanced use only.** The normal entry point is [`Lorestore::open`],
+    /// which creates the genesis commit if absent. This constructor skips that
+    /// step, allowing callers to wrap the storage with custom middleware (e.g.
+    /// fault-injection wrappers for crash-safety testing).
+    #[doc(hidden)]
+    pub fn from_storage(storage: Box<dyn Storage>) -> Self {
+        Self { storage }
+    }
+
+    /// Write a typed object to the store. Returns its content hash.
+    ///
+    /// Idempotent: if an object with the same hash already exists, the write
+    /// is a no-op.
+    pub fn write_object<T: Serialize>(&self, obj: &T) -> Result<ContentHash, StoreError> {
+        storage::write_typed(&*self.storage, obj)
+    }
+
+    /// Read and deserialize a typed object from the store by content hash.
+    pub fn read_object<T: DeserializeOwned + Serialize>(
+        &self,
+        hash: &ContentHash,
+    ) -> Result<Option<T>, StoreError> {
+        storage::read_typed(&*self.storage, hash)
+    }
+
+    /// The content hash of the current head commit, or `None` if the store is
+    /// empty (which should never happen after `open`).
+    ///
+    /// This is the **workspace digest** — the Merkle root over the entire
+    /// workspace state.
+    pub fn root_hash(&self) -> Result<Option<ContentHash>, StoreError> {
+        match self.storage.load_ref(MAIN_REF)? {
+            Some(r) => Ok(Some(r.commit.clone())),
+            None => Ok(None),
+        }
+    }
+
+    /// Load the current head `Ref`.
+    pub fn head_ref(&self) -> Result<Option<Ref>, StoreError> {
+        self.storage.load_ref(MAIN_REF)
+    }
+
+    /// Atomically update the `main` ref from `expected` to `new`.
+    ///
+    /// Acquires the store lock, so callers do not need to hold it separately.
+    /// Returns `true` if the CAS succeeded, `false` if it lost the race.
+    pub fn cas_main_ref(&self, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        self.storage.cas_ref(MAIN_REF, expected, new)
+    }
+
+    /// Commit a new `Commit` to the log.
+    ///
+    /// Verifies that every referenced fact, lineage-edge, and evidence-envelope
+    /// object exists in the store before writing the commit. The new commit's
+    /// parent is the current head (CAS on `main`).
+    ///
+    /// Returns the content hash of the new commit.
+    pub fn commit(
+        &self,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+    ) -> Result<ContentHash, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+
+        // Verify all referenced objects exist before writing the commit.
+        for hash in &fact_hashes {
+            if self.storage.read_object(hash)?.is_none() {
+                return Err(StoreError::NotFound(format!(
+                    "fact object not in store: {hash}"
+                )));
+            }
+        }
+        for hash in &lineage {
+            if self.storage.read_object(hash)?.is_none() {
+                return Err(StoreError::NotFound(format!(
+                    "lineage edge not in store: {hash}"
+                )));
+            }
+        }
+        for hash in &evidence {
+            if self.storage.read_object(hash)?.is_none() {
+                return Err(StoreError::NotFound(format!(
+                    "evidence envelope not in store: {hash}"
+                )));
+            }
+        }
+
+        // The parent is the current head commit.
+        let expected: Option<String> = self.storage.load_ref(MAIN_REF)?.map(|r| r.commit.0.clone());
+
+        let commit = match &expected {
+            Some(parent_hash) => Commit::child(
+                ContentHash(parent_hash.clone()),
+                interner,
+                fact_hashes,
+                lineage,
+                evidence,
+            ),
+            None => Commit::root(interner, fact_hashes, lineage, evidence),
+        };
+
+        let commit_hash = storage::write_typed(&*self.storage, &commit)?;
+
+        // Build the new ref with the commit as its target.
+        let new_ref = match &expected {
+            Some(_) => Ref::with_valuation(
+                MAIN_REF.to_owned(),
+                commit_hash.clone(),
+                self.current_valuation(),
+            ),
+            None => Ref::new(MAIN_REF, commit_hash.clone()),
+        };
+
+        let written = self
+            .storage
+            .cas_ref(MAIN_REF, expected.as_deref(), &new_ref)?;
+        if !written {
+            return Err(StoreError::CasConflict {
+                name: MAIN_REF.to_string(),
+                expected,
+                found: self.storage.load_ref(MAIN_REF)?.map(|r| r.commit.0),
+            });
+        }
+
+        Ok(commit_hash)
+    }
+
+    /// Walk the commit DAG from `tip` back to `base` (inclusive), returning
+    /// each `Commit` in order (tip first, base last).
+    pub fn walk_dag(
+        &self,
+        tip: &ContentHash,
+        base: Option<&ContentHash>,
+    ) -> Result<Vec<Commit>, StoreError> {
+        self.storage.walk_dag(tip, base)
+    }
+
+    /// Collect all fact-object hashes named by commits in the chain from the
+    /// head ref back to the root. This is the `fold(commit log)` half of the
+    /// `state ≡ fold(log)` invariant.
+    pub fn all_fact_hashes(&self) -> Result<Vec<ContentHash>, StoreError> {
+        let Some(head) = self.root_hash()? else {
+            return Ok(Vec::new());
+        };
+        let chain = self.storage.walk_dag(&head, None)?;
+        Ok(chain.into_iter().flat_map(|c| c.facts).collect())
+    }
+
+    /// The current valuation overlay on the head ref.
+    fn current_valuation(&self) -> Valuation {
+        self.storage
+            .load_ref(MAIN_REF)
+            .ok()
+            .flatten()
+            .map(|r| r.valuation)
+            .unwrap_or_default()
+    }
+
+    /// Import a compiled pack into the store: lower every `LoadedAtom` to a
+    /// `FactObject`, persist each one, and write a new commit that names them
+    /// all. The commit's `interner` is the compiled world's atom-name table
+    /// (so support polynomials remain resolvable). The `main` ref advances to
+    /// point at the new commit.
+    ///
+    /// Returns the new commit's content hash (= the workspace digest after this
+    /// import).
+    ///
+    /// This is the **`.dli → lorestore`** bridge: it reuses `dli_world::compile`
+    /// for the evaluation and `crate::lower::lower_atoms` for the object mapping.
+    /// The stored fact objects are byte-identical to the compiled world model
+    /// (the total-lowering oracle on LS-1 guarantees this).
+    pub fn import_pack(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
+        use dli_world::compile;
+
+        // 1 — compile the pack into a world model (the existing path).
+        let compiled = compile(pack).map_err(|e| StoreError::Io {
+            path: "compile".to_owned(),
+            source: std::io::Error::other(e.to_string()),
+        })?;
+        let model = compiled.model();
+
+        // 2 — lower atoms to fact objects and persist them.
+        let objects = crate::lower::lower_atoms(model.atoms());
+        let mut fact_hashes: Vec<ContentHash> = Vec::with_capacity(objects.len());
+        for obj in &objects {
+            let hash = self.write_object(obj)?;
+            fact_hashes.push(hash);
+        }
+
+        // 3 — extract the interner name table (append-only name list).
+        let interner: Vec<String> = model.interner().names().to_vec();
+
+        // 4 — commit, chaining from the current head.
+        self.commit(interner, fact_hashes, Vec::new(), Vec::new())
+    }
+}
