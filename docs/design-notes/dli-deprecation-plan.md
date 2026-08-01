@@ -7,8 +7,8 @@ verdict: "The .dli text format is evolving from primary storage/interchange form
 
 > **Ratified and sequenced.** DL-0041 accepted this evolution; the staged plan
 > is `design-notes/lorestore-roadmap.md` (this note's phases map onto LS-4,
-> LS-5, and LS-7, with the web-UI dependency deliberately taken off the
-> critical path). The roadmap wins where they differ.
+> LS-5, and LS-7 — with review rendering consumer-owned: deloreis ships the
+> JSON contract, never a UI). The roadmap wins where they differ.
 
 ## Current State
 

@@ -426,8 +426,9 @@ theory grounding, and the risk register is
   names the superseded clauses of DL-0003 and DL-0029.
 - **LS-1** — The fact-object model: Rust types + schemars JSON Schemas for
   `FactObject`/`Commit`/`Ref`/`EvidenceEnvelope`, JCS canonical bytes, SHA-256
-  identity, history excluded from fact identity, canonical polynomial DNF,
-  no floats, `schema_version` + upcast-on-read.
+  identity, the three-way identity split (content-hash versions, minted claim
+  ids, provenance-bearing lineage edges), canonical polynomial DNF, no floats,
+  `schema_version` + upcast-on-read.
   *Needs:* LS-0. *Produces:* the normative stored-object schema. *Oracle:*
   total lowering — the vendored corpus lowered to fact objects compiles to the
   identical fixpoint, findings, and digests.
@@ -449,13 +450,14 @@ theory grounding, and the risk register is
   the server layer.
   *Needs:* LS-3. *Produces:* Door T backed by lorestore. *Oracle:* re-recorded
   golden/negative/framing fixtures green; a 0.5.1 consumer still passes.
-- **LS-5** — The query contract and review surface: the JSON response schema
-  carrying bindings, provenance antichain, grade, and `(root_hash, valuation)`;
-  `deloreis review` structured-diff CLI/TUI + static-HTML export; the web UI
-  stays a later, non-gating lane.
-  *Needs:* LS-4. *Produces:* replayable verdicts; the post-git review
-  workflow. *Oracle:* a stored result replays byte-identical from
-  `(root_hash, valuation, query)`.
+- **LS-5** — The query and review contract: the JSON response schema carrying
+  bindings, provenance antichain, grade, and `(root_hash, valuation)`; the
+  MCP-served structured-diff/review contract (deloreis ships no review UI —
+  rendering is consumer-owned).
+  *Needs:* LS-4. *Produces:* replayable verdicts; the review data that
+  replaces git-diff-of-text. *Oracle:* a stored result replays byte-identical
+  from `(root_hash, valuation, query)`; a golden review-flow fixture drives a
+  seeded change-set through the JSON contract alone.
 - **LS-6** — The merge engine: commit DAG with merge commits, 3-way merge over
   fact sets, conflict detection confined to valuation disagreement, constraint
   violations, and stratified-negation effects.
@@ -757,7 +759,8 @@ overlap; the language and craft lanes in particular run alongside the game lane.
 - **Lorestore core** — LS-0, LS-1, LS-2, LS-3, LS-4, LS-5. *The pivot ratified;
   the fact-object schema as the language definition; the embedded store; the
   dual-backend read path; Door T writing the store JSON-first under contract
-  0.6.0; the replayable query contract and the structured-diff review surface.*
+  0.6.0; the replayable query contract and the structured-diff review contract
+  (rendering consumer-owned).*
 - **Lorestore completion** — LS-6, LS-9, LS-7, LS-8. *The provenance-aware
   merge engine; the expert-tier interiors structured; the surface retired to
   an optional pretty-printer; contract 1.0 and the consumer's move off

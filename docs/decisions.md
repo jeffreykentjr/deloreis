@@ -1054,3 +1054,20 @@ deterministic provenance-aware merge, none of which git-over-text can
 provide. The demotion is executed through the killed-form registry precisely
 so the one law the surface era got right — accepted forms never silently
 vanish — survives the surface itself.
+
+## DL-0042 — The line-count budget and its gate lane are retired
+
+*Date: 2026-08-01*
+
+**Ruling.** The charter's line-count budget line (~15–25K, tripwire ~40K) is
+removed, and the `loc` gate lane that enforced it is deleted from `xtask`.
+No line-count guardrail replaces them. The budget's surviving lines (doors,
+foreign certifiers, export targets) are unchanged and remain enforced by
+review and this ledger, not by a counter.
+
+**Rationale.** A line-count cap is a proxy metric: it punishes exactly the
+work the lorestore roadmap requires — schema deepening (LS-9) and honest
+test coverage add lines before they remove any — while catching nothing a
+reviewer would miss. The sovereign judged the mechanic noise. The charter's
+real budget content is architectural (fewer doors, fewer seats, fewer
+parts), and those lines are judged in review, where the argument lives.

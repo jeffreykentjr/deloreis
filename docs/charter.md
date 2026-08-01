@@ -258,7 +258,6 @@ explicitly fewer doors, fewer seats, fewer parts.
 
 The budget has named lines:
 
-- **Line count** — ~15–25K, tripwire ~40K.
 - **Door count** — two.
 - **Foreign certifiers** — zero, with one rented baseline.
 - **Export targets** — earn maintained profiles only from demonstrated

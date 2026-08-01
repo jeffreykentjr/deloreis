@@ -159,10 +159,6 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
             &["cargo", "run", "-p", "xtask", "--locked", "--", "authority"],
         ),
         command_step(
-            "loc",
-            &["cargo", "run", "-p", "xtask", "--locked", "--", "loc"],
-        ),
-        command_step(
             "boundary",
             &["cargo", "run", "-p", "xtask", "--locked", "--", "boundary"],
         ),

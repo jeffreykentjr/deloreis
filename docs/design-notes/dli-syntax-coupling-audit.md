@@ -92,7 +92,4 @@ roadmap's LS-9 (expert-tier structuring) exists and why LS-7 needs it.
   `fmt --check` lanes + the docgen keyword page) is ~7,000–7,500 lines, and
   invalidates 67 fenced ```` ```dli ```` blocks across 21 doc files.
 - The work that actually frees the drop is LS-9, and it lands in `dli-world`
-  (17,228 src), `dli-ledger` (3,640), and `dli-time` (2,229). The `loc` gate
-  lane (`xtask/src/loc.rs`) enforces a 25,000 soft / 40,000 hard cap per
-  crate `src/`; a schema deepening adds lines before it removes any, so watch
-  `dli-world` against the cap.
+  (17,228 src), `dli-ledger` (3,640), and `dli-time` (2,229).

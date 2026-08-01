@@ -121,5 +121,5 @@ review; under the lorestore cutover (roadmap LS-4) it returns JSON by default
 with `.dli` rendering opt-in, and tools write fact objects to the store
 directly. `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — rendered surface form today, the LS-5 structured-diff
-review surface as it lands. Raw `.dli` editing is a measured fallback with no
+contract as it lands (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli` editing is a measured fallback with no
 reliability claim, not the taught path.

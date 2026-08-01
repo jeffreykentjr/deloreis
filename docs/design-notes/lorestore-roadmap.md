@@ -46,7 +46,8 @@ What dies is the claim that `.dli` text is the canonical form of any of that:
   definition**; that half gets stronger, since the schema now describes the
   stored objects themselves, not an AST that text is parsed into).
 - Human review moves from git diffs of text to structured diffs of fact
-  objects, rendered by tooling.
+  objects, served as JSON and rendered by whatever client the consumer
+  wires up — deloreis is an MCP-addressable engine and ships no review UI.
 - `.dli` becomes one renderer among several — a pretty-print for humans who
   want the sentence-like view — behind an explicit opt-in.
 
@@ -102,12 +103,32 @@ the MIG/PROOF idiom re-aimed).
 
 Design rules, each load-bearing (see §4 for the theory):
 
-- **Fact identity excludes history.** The vision note's object sketch embeds a
-  `parent` hash inside the fact. That couples identity to lineage: the same
-  claim reached by two branches hashes differently, cross-branch dedup dies,
-  and merge becomes needlessly hard. Follow git's split: facts are pure
-  content objects; ancestry and supersession live in the commit DAG (or in
-  dedicated supersession edges), never inside the fact.
+- **Three identities, kept apart.** The vision note's object sketch embeds a
+  bare `parent` hash inside the fact. That conflates three needs the design
+  genuinely has, and serves none of them well:
+  1. *Authority distinctness* (canon vs. fanon, one continuity vs. another)
+     needs no parent — the provenance polynomial and `authority` field are
+     part of the object and its hash, so the "same" proposition asserted by
+     two authorities is already two distinct objects. Dedup can never
+     conflate them; it only merges facts identical in provenance too.
+  2. *Claim continuity* ("this claim, through its revisions" — statement
+     identity in the Wikibase sense; lineage-aware manipulation) gets a
+     **stable minted claim id** alongside the content hash — the
+     entity-vs-datom split. A parent chain serves this badly: hashes change
+     on every revision regardless, and a Merkle chain makes amending
+     anything early re-hash every descendant.
+  3. *Supersession and retcon history as domain knowledge* gets
+     **first-class lineage edge objects carrying their own `(P⁺, P⁻)`** —
+     because in a multi-authority world, *whether* B supersedes A is itself
+     contested and valuation-dependent (one continuity accepts the retcon,
+     another rejects it), and the edge must cite the ruling it happened
+     under. A bare hash inside B hard-codes one true lineage and cannot
+     cite anything.
+  Only the bare parent pointer stays out of the content hash: it delivers
+  none of the three, and it costs cross-branch convergence — the same
+  assertion reached on two forks must be the same object for merge to be
+  union (§4). Storage-level ancestry (which write produced which state)
+  lives in the commit DAG, as in git.
 - **Canonical polynomial form.** `(P⁺, P⁻)` are stored as
   absorption-normalized irredundant monotone DNF with monomials and variables
   in lexicographic order. Irredundant monotone DNF is *unique* for a monotone
@@ -216,27 +237,29 @@ memory, and the digest is already a SHA-256 over canonical JSON. The `.dli`
 coupling is output-side only (`materialize` and the rendered diff), plus two
 text-on-wire remnants (`fork.add`, wire query goals) that retire in LS-7.
 
-### LS-5 — The query contract and the review surface
+### LS-5 — The query and review contract
 
 *Deliverable:* a formal JSON query-response schema — every row carries its
 bindings, its provenance antichain (the minimal-witness monomials), its
 grade, and the pair `(root_hash, valuation)` it was evaluated under — plus
-the human review surface: a structured-diff renderer as CLI/TUI
-(`deloreis review`) and a static-HTML export through the existing export
-lane.
+the structured-diff/review contract: MCP-served JSON describing pending
+change-sets, per-fact diffs with provenance, and accept/reject semantics
+(the Door-T read-tool idiom, DL-0023).
 *Needs:* LS-4 (write path produces the diffs worth reviewing).
 *Produces:* the replayable verdict format agents and humans both consume; the
-review workflow that replaces git-diff-of-text.
+review data that replaces git-diff-of-text.
 *Oracle:* a stored query result replays byte-identical from its
-`(root_hash, valuation, query)` triple; the review renderer round-trips a
-seeded change-set into the same accept/reject decisions as the JSON.
+`(root_hash, valuation, query)` triple; a golden review-flow fixture drives
+a seeded change-set to the same accept/reject decisions through the JSON
+contract alone.
 
-The deliberate de-risking: the deprecation note makes a web UI the review
-surface and correctly flags it as the plan's biggest dependency. This stage
-removes it from the critical path. A structured diff rendered in a terminal
-or exported as static HTML is offline, deterministic, and gate-checkable
-today; a live web UI is a later, non-gating lane (DL-0013 posture) layered
-over the same query API when it earns its keep.
+The scope discipline: **deloreis ships no review UI — not web, not TUI.** It
+is an MCP-addressable engine; consumers wire the contract to whatever
+surface they want (a web app, an editor plugin, or plain agent
+interaction). This dissolves the deprecation note's biggest flagged
+dependency — a web UI — cleanly: it was never deloreis's to build. What
+deloreis owes is a contract complete enough that *any* client can render a
+faithful review, which is exactly what the golden fixture proves.
 
 ### LS-6 — The merge engine (the genuinely new machinery)
 
@@ -295,8 +318,6 @@ DAG position is between LS-1 and LS-7. It is the real bulk of the retirement
 — roughly, restructuring interiors across ~23k lines of `dli-world`/
 `dli-ledger`/`dli-time` versus deleting ~7.5k lines of `dli-syntax` — and it
 can proceed incrementally, one declaration type at a time, behind the upcast.
-Watch the `loc` gate lane: `dli-world` is at 17.2k of the 25k soft cap, and
-schema deepening adds lines before it removes any.
 
 ### LS-7 — Surface retirement
 
@@ -308,9 +329,9 @@ that still deliberately teach the rendering (67 fenced blocks across 21 files
 at audit time); the two text-on-wire remnants (`fork.add` declaration
 strings, wire query goals) retired through the killed-form registry with
 typed successors.
-*Needs:* LS-4 (agents), LS-5 (humans — the structured-diff surface replaces
-the forgery-proofed rendered-lines diff that is today's only supervision
-surface), LS-9 (the parser has no remaining semantic caller).
+*Needs:* LS-4 (agents), LS-5 (humans — the structured-diff contract replaces
+the forgery-proofed rendered-lines diff as the supervision input; rendering
+is consumer-owned), LS-9 (the parser has no remaining semantic caller).
 *Produces:* the deprecation note's phases 2–3, done.
 *Oracle:* the default build does not link `dli_syntax`; the docs-oracle law —
 **every fenced example in the docs is machine-checked** — holds continuously
@@ -412,9 +433,11 @@ neither.
    addressing, and repair after real facts exist means rewriting history.
    Mitigation: the LS-1 design rules are gate-checked before the first
    durable store ships.
-4. **Web-UI coupling.** The deprecation note's review story rests on a web
-   UI that does not exist. Mitigation: LS-5 makes review CLI/TUI + static
-   HTML first; the web UI is additive and non-gating.
+4. **Review-surface coupling.** The deprecation note's review story rests on
+   a web UI that does not exist. Mitigation: it was never deloreis's to
+   build — deloreis is an MCP-addressable engine, and LS-5's deliverable is
+   the review JSON contract; consumers own rendering, exactly as the fantasy
+   worker owns its side of the wire.
 5. **Docs and cards churn.** The teaching surface (`docs/cards/`) teaches a
    syntax that is being demoted. Mitigation: the docs-oracle law is never
    suspended — the oracle is *re-aimed* (LS-7), and cards are rewritten in
@@ -436,9 +459,8 @@ neither.
    bodies are raw clause strings re-parsed downstream; without LS-9 the
    parser never actually leaves the build, and fact objects smuggle
    micro-syntax as data. Mitigation: the v1 schema names the debt
-   explicitly, the upcast machinery lets it retire one declaration type at
-   a time, and the `loc` gate cap on `dli-world` is watched during the
-   deepening (see `design-notes/dli-syntax-coupling-audit.md`).
+   explicitly, and the upcast machinery lets it retire one declaration type
+   at a time (see `design-notes/dli-syntax-coupling-audit.md`).
 
 ## 6. Deferred tracks and flip conditions
 
