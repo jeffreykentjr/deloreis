@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ref",
+  "description": "A named reference to a commit, carrying a valuation overlay.\n\nThe valuation overlay is how forks-as-valuation-overlays work on the\npersistent store: creating a ref is O(1) (a pointer + an overlay), and\nevaluating it is O(dependent slice) through the support index. The base\ncommit's fact set is unchanged; the overlay just re-values event variables\nat query time — exactly the `dli_eval::ForkStore` model, made durable.",
+  "type": "object",
+  "properties": {
+    "authority": {
+      "description": "The authority owning this ref (unset in sovereign deployments).",
+      "$ref": "#/$defs/Authority"
+    },
+    "commit": {
+      "description": "The commit this ref points to.",
+      "$ref": "#/$defs/ContentHash"
+    },
+    "name": {
+      "description": "The ref name — e.g. `main`, `fork/option-x-true`.",
+      "type": "string"
+    },
+    "schema_version": {
+      "description": "Schema version; bumped when the stored shape changes.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "valuation": {
+      "description": "The valuation overlay: event variables ruled true or false by this ref.\nApplied over the commit's base valuation at evaluation time.",
+      "$ref": "#/$defs/Valuation"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "name",
+    "commit",
+    "valuation"
+  ],
+  "$defs": {
+    "Authority": {
+      "description": "The authority that asserted an object.\n\nExists on every stored object; stays `None` in single-sovereign\ndeployments (DEF-4 unchanged). In multi-authority configurations, the\nauthority tag distinguishes who proposed or ruled the object — and because\nit participates in the content hash, the same proposition asserted by two\nauthorities is two distinct objects, never conflated by dedup.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ContentHash": {
+      "description": "A `sha256:<hex>` content digest of a JCS-serialized object.",
+      "type": "string"
+    },
+    "Valuation": {
+      "description": "A (possibly partial) assignment of truth values to atoms.",
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^\\d+$": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

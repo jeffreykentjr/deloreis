@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 dli-ast.workspace = true
+dli-lorestore.workspace = true
 dli-world.workspace = true
 dli-serve.workspace = true
 deloreis.workspace = true

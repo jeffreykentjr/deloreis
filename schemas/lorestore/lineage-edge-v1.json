@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LineageEdge",
+  "description": "A first-class lineage edge: the record that B supersedes A.\n\nIn a multi-authority world, *whether* B supersedes A is itself contested\nand valuation-dependent — one continuity accepts the retcon, another\nrejects it. The edge must therefore cite the ruling it happened under,\ncarried as its own `(P⁺, P⁻)` support/defeater pair. A bare parent hash\ninside B cannot do this: it hard-codes one true lineage.\n\nThe edge's content hash does not include any parent pointer of its own; it\nhashes its support/defeater polynomials, its from/to pair, its authority,\nand its `schema_version`.",
+  "type": "object",
+  "properties": {
+    "authority": {
+      "description": "The authority behind this lineage judgment (unset in sovereign\ndeployments).",
+      "$ref": "#/$defs/Authority"
+    },
+    "claim_id": {
+      "description": "The claim this edge annotates (continuity across revisions).",
+      "$ref": "#/$defs/ClaimId"
+    },
+    "defeaters": {
+      "description": "What could defeat the supersession: the defeater polynomial.",
+      "$ref": "#/$defs/PosBool"
+    },
+    "from": {
+      "description": "The fact being superseded (content hash of the `from` fact).",
+      "$ref": "#/$defs/ContentHash"
+    },
+    "schema_version": {
+      "description": "Schema version; bumped when the stored shape changes.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "support": {
+      "description": "When the supersession holds: the support polynomial.\nAbsorption-normalized irredundant monotone DNF with sorted monomials.",
+      "$ref": "#/$defs/PosBool"
+    },
+    "to": {
+      "description": "The fact doing the superseding (content hash of the `to` fact).",
+      "$ref": "#/$defs/ContentHash"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "claim_id",
+    "from",
+    "to",
+    "support",
+    "defeaters"
+  ],
+  "$defs": {
+    "Authority": {
+      "description": "The authority that asserted an object.\n\nExists on every stored object; stays `None` in single-sovereign\ndeployments (DEF-4 unchanged). In multi-authority configurations, the\nauthority tag distinguishes who proposed or ruled the object — and because\nit participates in the content hash, the same proposition asserted by two\nauthorities is two distinct objects, never conflated by dedup.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ClaimId": {
+      "description": "A stable minted claim identifier.\n\nUnlike the [`ContentHash`], a `ClaimId` is not derived from the fact's\ncontent — it is minted once and survives revisions, so lineage and\ncross-version references remain stable even when the fact's text changes.\nThe content hash does not reference it, so minting a `ClaimId` never\ndestabilizes addressing.",
+      "type": "string"
+    },
+    "ContentHash": {
+      "description": "A `sha256:<hex>` content digest of a JCS-serialized object.",
+      "type": "string"
+    },
+    "PosBool": {
+      "type": "object",
+      "properties": {
+        "monomials": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "monomials"
+      ]
+    }
+  }
+}

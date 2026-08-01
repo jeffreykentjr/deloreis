@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvidenceEnvelope",
+  "description": "An evidence envelope: immutable evidence addressed by SHA-256.\n\nThe envelope wraps a `serde_json::Value` payload (opaque to the store)\nwith the standard lorestore identity fields: `schema_version`, `authority`,\nand a `payload_digest` that is the SHA-256 of the payload's JCS bytes.\nReaders verify the envelope's content hash (computed over the envelope\nitself) and the payload digest (computed over the payload) before exposing\nany record — the same discipline as `dli_serve::evidence`.\n\nThe envelope's own content hash is what the store addresses; the\n`payload_digest` is a *second* independent check that the payload hasn't\ndrifted inside its envelope. Both use RFC 8785 JCS canonicalization.",
+  "type": "object",
+  "properties": {
+    "authority": {
+      "description": "The authority behind this evidence record (unset in sovereign\ndeployments). Participates in the content hash.",
+      "$ref": "#/$defs/Authority"
+    },
+    "kind": {
+      "description": "The evidence type, for routing without re-parsing the payload.",
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "payload": {
+      "description": "The evidence content, carried as opaque JSON. The envelope does not\ninterpret this — it is the integrity layer, not the schema."
+    },
+    "payload_digest": {
+      "description": "The `sha256:<hex>` digest of the payload's JCS canonical bytes.\nComputed at envelope construction time; verified on read.",
+      "$ref": "#/$defs/ContentHash"
+    },
+    "schema_version": {
+      "description": "Schema version; bumped when the stored shape changes.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "subject": {
+      "description": "What this evidence is about — a stable identifier the verifier keys on\n(e.g. a document name, a question key, a question slug).",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "subject",
+    "kind",
+    "payload",
+    "payload_digest"
+  ],
+  "$defs": {
+    "Authority": {
+      "description": "The authority that asserted an object.\n\nExists on every stored object; stays `None` in single-sovereign\ndeployments (DEF-4 unchanged). In multi-authority configurations, the\nauthority tag distinguishes who proposed or ruled the object — and because\nit participates in the content hash, the same proposition asserted by two\nauthorities is two distinct objects, never conflated by dedup.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ContentHash": {
+      "description": "A `sha256:<hex>` content digest of a JCS-serialized object.",
+      "type": "string"
+    },
+    "EvidenceKind": {
+      "description": "The kind of evidence carried in an [`EvidenceEnvelope`].\n\nNamed so the store can route envelopes to the right verifier without\nre-parsing the payload. Each kind corresponds to a durable evidence class\nin the existing `dli-serve` evidence store.",
+      "oneOf": [
+        {
+          "description": "A recorded model judgment on a bounded question (`Attestation`).",
+          "type": "string",
+          "const": "attestation"
+        },
+        {
+          "description": "A draft payload shadow (`Payload`).",
+          "type": "string",
+          "const": "payload"
+        },
+        {
+          "description": "A simulation run manifest (`SimulateStartResult` / `AttestationSweepResult`).",
+          "type": "string",
+          "const": "simulation"
+        },
+        {
+          "description": "A spoken-proof transcript (a `ProofReport`'s derivation).",
+          "type": "string",
+          "const": "proof"
+        },
+        {
+          "description": "Free-form evidence: anything else committed to the store with a digest.",
+          "type": "string",
+          "const": "other"
+        }
+      ]
+    }
+  }
+}

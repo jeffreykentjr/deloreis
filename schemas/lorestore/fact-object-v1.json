@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FactObject",
+  "description": "The stored fact object: a ground atom with its two-channel annotation.\n\nThis is the normative stored form of a fact (the schema that `schema_for!`\nemits and the gate checks for drift). It is the persistent analogue of\n`dli_eval::world::Fact` — same `atom`, `support`, `defeaters`, `grade`,\nbut with `schema_version`, `authority`, `claim_id` added and the\n`DefeaterConditions` flattened to a `Vec<CondPair>` for a self-describing\nstored shape.\n\n**Three-way identity split** (DL-0041, roadmap §LS-1):\n- The content hash (computed over these fields) never embeds a parent\n  pointer — authority distinctness is handled by `authority` participating\n  in the hash, so the same proposition by two authorities is two objects.\n- `claim_id` is stable across revisions for claim continuity.\n- Supersession history lives in `LineageEdge` objects with their own\n  `(P⁺, P⁻)`.",
+  "type": "object",
+  "properties": {
+    "atom": {
+      "description": "The ground atom this fact asserts.",
+      "$ref": "#/$defs/GroundAtom"
+    },
+    "authority": {
+      "description": "The authority that asserted this fact. `None` in single-sovereign\ndeployments (DEF-4 unchanged). Participates in the content hash so two\nauthorities asserting the same proposition produce distinct objects.",
+      "$ref": "#/$defs/Authority"
+    },
+    "claim_id": {
+      "description": "A stable minted claim id for continuity across revisions. Not derived\nfrom content — the content hash does not reference it.",
+      "$ref": "#/$defs/ClaimId"
+    },
+    "conditions": {
+      "description": "Per-monomial defeater conditions — the poison, conditioned per support\nmonomial. Empty (omitted) for every positive-only atom.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CondPair"
+      }
+    },
+    "defeaters": {
+      "description": "`P⁻` — the atom-global defeater polynomial: what could rule the claim\ndead. Same canonical DNF form. `FALSE` for positive-only atoms.",
+      "$ref": "#/$defs/PosBool"
+    },
+    "expert_body": {
+      "description": "The expert-tier clause body, if this fact originates from one of the\neleven declaration types whose body is captured as raw text. `None` for\ngentle-subset facts. Present only in v1; deepened to typed interiors in\nLS-9 via the upcast machinery.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExpertBody"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grade": {
+      "description": "The grade at which this fact is known: `checked > tested > attested >\nasserted` (DL-0006).",
+      "$ref": "#/$defs/Grade"
+    },
+    "schema_version": {
+      "description": "Schema version; bumped when the stored shape changes.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "support": {
+      "description": "`P⁺` — the support polynomial: under which hypotheses/rulings the claim\nholds. Absorption-normalized irredundant monotone DNF, monomials and\nvariables in lexicographic order. The empty polynomial (`PosBool::FALSE`)\nis the fail-closed reading — no valuation can make the fact hold.",
+      "$ref": "#/$defs/PosBool"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "claim_id",
+    "atom",
+    "support",
+    "defeaters",
+    "grade"
+  ],
+  "$defs": {
+    "Authority": {
+      "description": "The authority that asserted an object.\n\nExists on every stored object; stays `None` in single-sovereign\ndeployments (DEF-4 unchanged). In multi-authority configurations, the\nauthority tag distinguishes who proposed or ruled the object — and because\nit participates in the content hash, the same proposition asserted by two\nauthorities is two distinct objects, never conflated by dedup.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ClaimId": {
+      "description": "A stable minted claim identifier.\n\nUnlike the [`ContentHash`], a `ClaimId` is not derived from the fact's\ncontent — it is minted once and survives revisions, so lineage and\ncross-version references remain stable even when the fact's text changes.\nThe content hash does not reference it, so minting a `ClaimId` never\ndestabilizes addressing.",
+      "type": "string"
+    },
+    "CondPair": {
+      "description": "One poisoned support-monomial / defeater pair, the per-path defeater\ncondition. Reuses the `CondPairWire` idiom from `dli_core::ann` so the\nwire form is the same single-monomial `path` polynomial plus its `poison`.\n\nThe array is empty for every positive-only atom, so positive datalog is\nbyte-identical — the field is omitted from serialization when empty.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "The poisoned support monomial, as a single-monomial polynomial.",
+          "$ref": "#/$defs/PosBool"
+        },
+        "poison": {
+          "description": "The defeater polynomial `P⁻` pinned to that path.",
+          "$ref": "#/$defs/PosBool"
+        }
+      },
+      "required": [
+        "path",
+        "poison"
+      ]
+    },
+    "ExpertBody": {
+      "description": "The expert-tier clause body carried as a marked string in v1.\n\nThe `kind` + `name` tags identify which of the eleven declaration types this\nbody belongs to, so LS-9's typed upcasts know what interior to deepen. The\n`body` is whitespace-normalized clause text (as [`Clause`](dli_ast::clause::Clause)\ncaptures it); `head` carries any header tokens after the name. This is\nexplicitly **named, versioned debt** — the field is marked so nobody mistakes\nan embedded micro-syntax string for a structured interior.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The whitespace-normalized clause body lines, in source order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "head": {
+          "description": "Header tokens after the name (e.g. `severity error`, `speaker protagonist\nin spoken-proof`, `over order`). Empty for declarations with no header.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "description": "Which of the eleven expert-tier declaration kinds this body is.",
+          "$ref": "#/$defs/ExpertDeclKind"
+        },
+        "name": {
+          "description": "The declaration name (or the decision id for `Ratify`).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "body"
+      ]
+    },
+    "ExpertDeclKind": {
+      "description": "The kind of expert-tier declaration a [`FactObject::expert_body`] belongs to.\n\nThe coupling audit (`dli-syntax-coupling-audit.md`) found eleven declaration\ntypes whose bodies are captured as `Vec<Clause>` (whitespace-normalized raw\ntext), re-parsed downstream at semantic-analysis time. In v1 the fact-object\nschema carries these bodies as marked strings — deterministic to hash, but\nsemantically opaque — and the `schema_version` + upcast machinery is how\nthey later deepen to typed interiors (LS-9). Each variant is tagged so the\nupcast knows which declaration type to deepen.",
+      "oneOf": [
+        {
+          "description": "`rule <name> [over <domain>] … { body }`",
+          "type": "string",
+          "const": "rule"
+        },
+        {
+          "description": "`fork <question> { body }`",
+          "type": "string",
+          "const": "fork"
+        },
+        {
+          "description": "`practice <name> { body }`",
+          "type": "string",
+          "const": "practice"
+        },
+        {
+          "description": "`dialect <name> { body }`",
+          "type": "string",
+          "const": "dialect"
+        },
+        {
+          "description": "`draft <name> { body }`",
+          "type": "string",
+          "const": "draft"
+        },
+        {
+          "description": "`export <profile> { body }`",
+          "type": "string",
+          "const": "export"
+        },
+        {
+          "description": "`name <name> { body }`",
+          "type": "string",
+          "const": "name"
+        },
+        {
+          "description": "`variant <path> { body }`",
+          "type": "string",
+          "const": "variant"
+        },
+        {
+          "description": "`ratify <d-id> { body }`",
+          "type": "string",
+          "const": "ratify"
+        },
+        {
+          "description": "`principle <name> { body }`",
+          "type": "string",
+          "const": "principle"
+        },
+        {
+          "description": "`proof <name> { body }`",
+          "type": "string",
+          "const": "proof"
+        }
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "GroundAtom": {
+      "description": "A ground atom: a predicate applied to fully-ground argument renderings. This\nis the identity of a fact or a derived tuple in the relation.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The ground argument renderings, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "PosBool": {
+      "type": "object",
+      "properties": {
+        "monomials": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "monomials"
+      ]
+    }
+  }
+}

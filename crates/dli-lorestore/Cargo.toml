@@ -1,0 +1,27 @@
+[package]
+name = "dli-lorestore"
+description = "Deloreis Lore interchange store: content-addressed fact objects."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+dli-core.workspace = true
+dli-ast.workspace = true
+dli-eval.workspace = true
+dli-world.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_json_canonicalizer.workspace = true
+sha2.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_yaml_ng.workspace = true
+
+[lints]
+workspace = true

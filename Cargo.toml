@@ -20,6 +20,7 @@ dli-time = { path = "crates/dli-time" }
 dli-eval = { path = "crates/dli-eval" }
 dli-ledger = { path = "crates/dli-ledger" }
 dli-world = { path = "crates/dli-world" }
+dli-lorestore = { path = "crates/dli-lorestore" }
 dli-export = { path = "crates/dli-export" }
 dli-game = { path = "crates/dli-game" }
 dli-serve = { path = "crates/dli-serve" }

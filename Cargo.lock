@@ -395,6 +395,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "dli-lorestore"
+version = "0.1.0"
+dependencies = [
+ "dli-ast",
+ "dli-core",
+ "dli-eval",
+ "dli-world",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "serde_yaml_ng",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "dli-serve"
 version = "0.1.0"
 dependencies = [
@@ -2189,6 +2206,7 @@ dependencies = [
  "clap",
  "deloreis",
  "dli-ast",
+ "dli-lorestore",
  "dli-serve",
  "dli-syntax",
  "dli-world",

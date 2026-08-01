@@ -62,6 +62,14 @@ pub fn run_schema(root: &Path, check: bool) -> Result<()> {
         ));
     }
 
+    // Lorestore fact-object schemas (DL-0041).
+    for (name, schema) in dli_lorestore::schemas() {
+        targets.push((
+            root.join(format!("schemas/lorestore/{name}.json")),
+            serde_json::to_string_pretty(&schema)? + "\n",
+        ));
+    }
+
     if check {
         let mut problems: Vec<String> = Vec::new();
         for (path, content) in &targets {
