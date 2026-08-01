@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# safe-commit.sh — the whole safe path from files to verified-green CI, in one
-# command. For shared checkouts where multiple agents work concurrently.
+# safe-commit.sh — stage named files, gate the commit, push.
 #
-#   1. Hold a repository-identity delivery lock through exact-SHA CI.
+#   1. Hold a repository-identity delivery lock (multi-agent safety).
 #   2. Assert a branch and a fast-forward base against origin.
 #   3. ABORT if the staging area is not empty (nothing rides along).
 #   4. Stage ONLY the files you name; show and commit them.
 #   5. Run scripts/greengate.sh on the new commit; require a green receipt.
-#   6. Push only if green, then verify THIS SHA's CI run.
+#   6. Push only if green.
+#   7. Print the SHA for CI verification — do NOT block on ci-wait.sh
+#      (that eats minutes; verify manually with `scripts/ci-wait.sh <sha>`).
 #
 # Usage:  scripts/safe-commit.sh "<commit message>" <file> [file...]
-# Exit:   0 only after the commit is pushed AND its own CI run is green.
+# Exit:   0 after the commit is pushed; remote CI is the caller's responsibility.
 
 set -euo pipefail
 

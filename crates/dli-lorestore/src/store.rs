@@ -50,6 +50,12 @@ pub struct Commit {
     /// `Atom(u32)` indices in support polynomials resolve deterministically.
     /// Present on the root commit; extended by append-only growth only.
     pub interner: Vec<String>,
+    /// The known decision ids (`Decl::Ratify`) — needed to reconstruct
+    /// `Decl::Ratify` declarations when importing back from store to `Pack`.
+    /// Stored on the root commit; child commits may extend it. Optional on
+    /// read (empty default); wire-compatible with v1 commits that lack it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decisions: Vec<String>,
 }
 
 impl Commit {
@@ -60,6 +66,7 @@ impl Commit {
         facts: Vec<ContentHash>,
         lineage: Vec<ContentHash>,
         evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
@@ -69,6 +76,7 @@ impl Commit {
             lineage,
             evidence,
             interner,
+            decisions,
         }
     }
 
@@ -80,6 +88,7 @@ impl Commit {
         facts: Vec<ContentHash>,
         lineage: Vec<ContentHash>,
         evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
@@ -89,6 +98,7 @@ impl Commit {
             lineage,
             evidence,
             interner,
+            decisions,
         }
     }
 

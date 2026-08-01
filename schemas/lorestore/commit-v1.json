@@ -8,6 +8,13 @@
       "description": "The authority behind this commit (unset in sovereign deployments).",
       "$ref": "#/$defs/Authority"
     },
+    "decisions": {
+      "description": "The known decision ids (`Decl::Ratify`) — needed to reconstruct\n`Decl::Ratify` declarations when importing back from store to `Pack`.\nStored on the root commit; child commits may extend it. Optional on\nread (empty default); wire-compatible with v1 commits that lack it.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "evidence": {
       "description": "The evidence envelope hashes introduced by this commit.",
       "type": "array",

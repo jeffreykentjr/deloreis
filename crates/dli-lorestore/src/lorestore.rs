@@ -65,6 +65,7 @@ impl Lorestore {
                 Vec::new(), // no facts
                 Vec::new(), // no lineage
                 Vec::new(), // no evidence
+                Vec::new(), // no decisions
             );
             let genesis_hash = storage::write_typed(&*storage, &genesis)?;
             let genesis_ref = Ref::new(MAIN_REF, genesis_hash.clone());
@@ -143,6 +144,7 @@ impl Lorestore {
         fact_hashes: Vec<ContentHash>,
         lineage: Vec<ContentHash>,
         evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
     ) -> Result<ContentHash, StoreError> {
         let _lock = self.storage.acquire_lock()?;
 
@@ -179,8 +181,9 @@ impl Lorestore {
                 fact_hashes,
                 lineage,
                 evidence,
+                decisions,
             ),
-            None => Commit::root(interner, fact_hashes, lineage, evidence),
+            None => Commit::root(interner, fact_hashes, lineage, evidence, decisions),
         };
 
         let commit_hash = storage::write_typed(&*self.storage, &commit)?;
@@ -271,10 +274,59 @@ impl Lorestore {
             fact_hashes.push(hash);
         }
 
-        // 3 — extract the interner name table (append-only name list).
+        // 3 — extract the interner name table and known decisions (append-only name list).
         let interner: Vec<String> = model.interner().names().to_vec();
+        let decisions = crate::lower::declared_decisions(pack).into_iter().collect();
 
         // 4 — commit, chaining from the current head.
-        self.commit(interner, fact_hashes, Vec::new(), Vec::new())
+        self.commit(interner, fact_hashes, Vec::new(), Vec::new(), decisions)
+    }
+
+    /// Read path: reconstruct a `CompiledWorld` from stored fact objects
+    /// (roadmap §LS-3).
+    ///
+    /// Walks the commit chain from `main` back to the root, collecting the
+    /// interner name table, known decisions, and all fact object hashes. Then
+    /// reads the fact objects, reconstructs a `Pack` via `reconstruct_pack`,
+    /// and compiles it through `dli_world::compile` — producing the identical
+    /// `WorldModel`, findings, and digests as if the original `.dli` files had
+    /// been loaded directly.
+    ///
+    /// This is the **`.dli → lorestore → .dli` round-trip**: the oracle for
+    /// LS-3 is differential parity — the same corpus loaded from `.dli` and
+    /// from its lorestore import compiles to identical results.
+    pub fn compile(&self) -> Result<dli_world::CompiledWorld, StoreError> {
+        // 1 — read the head commit; walk the chain to the root.
+        let head = self
+            .root_hash()?
+            .ok_or_else(|| StoreError::NotFound("store has no head commit".to_owned()))?;
+        let chain = self.storage.walk_dag(&head, None)?;
+        let root_commit = chain.last().expect("walk_dag returns at least one commit");
+
+        // 2 — collect the interner name table and known decisions from the root.
+        let interner_names = &root_commit.interner;
+        let known_decisions: std::collections::BTreeSet<String> =
+            root_commit.decisions.iter().cloned().collect();
+
+        // 3 — read all fact objects from the store.
+        let fact_hashes = self.all_fact_hashes()?;
+        let mut fact_objects: Vec<crate::FactObject> = Vec::with_capacity(fact_hashes.len());
+        for hash in &fact_hashes {
+            let obj: crate::FactObject = self
+                .read_object(hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {hash}")))?;
+            fact_objects.push(obj);
+        }
+
+        // 4 — reconstruct the Pack.
+        let interner = dli_core::Interner::from_names(interner_names.clone());
+        let pack =
+            crate::lower::reconstruct_pack(&fact_objects, &interner, &known_decisions, "lorestore");
+
+        // 5 — compile via the existing path.
+        dli_world::compile(&pack).map_err(|e| StoreError::Io {
+            path: "compile".to_owned(),
+            source: std::io::Error::other(e.to_string()),
+        })
     }
 }

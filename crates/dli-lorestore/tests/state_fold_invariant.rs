@@ -48,6 +48,7 @@ fn state_equals_fold_of_commit_log_single_commit() {
             vec![fact_hash.clone()],
             Vec::new(),
             Vec::new(),
+            Vec::new(),
         )
         .expect("commit");
 
@@ -105,6 +106,7 @@ fn state_equals_fold_of_commit_log_multi_commit() {
             .commit(
                 vec![format!("atom-{round}")],
                 vec![fact_hash.clone()],
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
             )
@@ -193,6 +195,7 @@ fn state_equals_fold_of_commit_log_orphan_cleanup() {
         .commit(
             vec!["orphan-test".to_owned()],
             vec![hash1.clone()],
+            Vec::new(),
             Vec::new(),
             Vec::new(),
         )

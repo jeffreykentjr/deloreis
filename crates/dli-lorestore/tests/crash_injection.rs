@@ -208,6 +208,7 @@ fn store_not_torn_when_crash_before_ref_update() {
             vec![fact_hash],
             Vec::new(),
             Vec::new(),
+            Vec::new(),
         )
     }));
     assert!(result.is_err(), "commit must panic at fault point");
@@ -221,7 +222,8 @@ fn store_not_torn_when_crash_before_ref_update() {
     // After crash before ref update, head must be the genesis commit.
     let store2 = Lorestore::open(dir.path().to_path_buf()).expect("reopen store");
     let head = store2.root_hash().expect("root hash").expect("has root");
-    let genesis = dli_lorestore::Commit::root(Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    let genesis =
+        dli_lorestore::Commit::root(Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     let genesis_digest = genesis.content_hash().expect("genesis digest");
     assert_eq!(
         head.to_string(),
@@ -280,6 +282,7 @@ fn store_recovers_and_can_recommit_after_crash() {
                 vec![fact_hash],
                 Vec::new(),
                 Vec::new(),
+                Vec::new(),
             )
         }));
         assert!(result.is_err());
@@ -316,6 +319,7 @@ fn store_recovers_and_can_recommit_after_crash() {
                 vec![fact_hash],
                 Vec::new(),
                 Vec::new(),
+                Vec::new(),
             )
             .expect("commit");
 
@@ -346,6 +350,7 @@ fn store_cleanup_removes_stale_temp_files() {
         .commit(
             vec!["atom-0".to_owned()],
             vec![fact_hash],
+            Vec::new(),
             Vec::new(),
             Vec::new(),
         )
