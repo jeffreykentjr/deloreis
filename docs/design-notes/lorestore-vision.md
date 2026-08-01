@@ -125,7 +125,8 @@ deloreis writes directly to lorestore as part of the tool call.
 ## What lorestore needs (technical requirements)
 
 1. **Append-only, content-addressed object store** — SHA-256 addressed blobs,
-   immutable. RFC 8785 JCS canonicalization for all structured data.
+   immutable. RFC 8785 JCS canonicalization for all structured data. Facts stored
+   as structured JSON objects, not serialized `.dli` text.
 
 2. **Branch + valuation model** — Git-like refs, but each branch carries a
    valuation (partial assignment of event variables to true/false). Forks are
@@ -165,16 +166,24 @@ deloreis writes directly to lorestore as part of the tool call.
    deployments leave this field unset; multi-authority setups populate it with
    authority identifiers and trust weights.
 
-## Comparison: git + text vs. lorestore
+> **Important note on `.dli` files:** The lorestore-vision document originally
+> described `.dli` as the human review surface. This is evolving — see
+> `docs/design-notes/dli-deprecation-plan.md`. In the lorestore model, `.dli`
+> files are not required for storage, agent interaction, or human review.
+> Facts live as structured JSON objects; query APIs return JSON; human review
+> happens via web UI. `.dli` becomes an optional pretty-print rendering, like
+> CSV export from a database. The phased cutover plan is documented in that
+> note.## Comparison: git + text vs. lorestore
 
 | Capability | Git + `.dli` + `.dli-evidence/` | Lorestore |
 |---|---|---|
-| Fact storage | Text files parsed by deloreis | Content-addressed fact objects |
+| Fact storage | Text files parsed by deloreis | Content-addressed JSON fact objects |
 | Fork creation | `git branch` (O(1) but full tree) | Branch + valuation overlay (true O(1)) |
 | Merge semantics | Line-based diff | Provenance-polynomial-aware 3-way merge |
 | Conflict detection | Parse + re-load to find conflicts | Structural conflict detection on write |
 | Query efficiency | Re-parse + re-load | Indices over structured facts |
-| Agent-mediated writes | Yes (agent writes rendered lines) | No (deloreis writes directly) |
+| Agent writes | Agent writes `.dli` files to disk | deloreis writes directly to lorestore |
+| Human review | Git diff of `.dli` text files | Web UI over JSON query results |
 | Content addressing | File-level only (git blobs) | Fact-level + evidence-level |
 | Concurrency | File locking, git merge conflicts | Advisory lock per writer, structural merge |
 
@@ -200,11 +209,19 @@ for the fantasy migration. No changes needed.
 
 **Phase 2 (Post-cutover)** — Introduce lorestore as an alternative backend.
 deloreis can run with either the git+text backend (for existing projects) or
-the lorestore backend (for new deployments). Configuration-driven.
+the lorestore backend (for new deployments). Configuration-driven. Query APIs
+return JSON alongside `.dli` rendering. Web UI available for human review
+alongside git-diff review.
 
 **Phase 3 (Post-migration stabilization)** — Make lorestore the default and sole
 backend. The git+text path becomes a migration tool (import existing `.dli`
-into lorestore format).
+into lorestore format). Query APIs return JSON by default; `.dli` becomes
+opt-in. Web UI is the primary review surface.
+
+**Phase 4 (DLI deprecation)** — `.dli` files become optional pretty-print
+convenience only. `author.materialize` returns JSON by default. `.dli`
+rendering available via explicit opt-in. See
+`docs/design-notes/dli-deprecation-plan.md` for the full staged cutover plan.
 
 ## Why this is "barely a separate project"
 
@@ -230,21 +247,19 @@ else is deloreis's internal business.
 | `.dli-evidence/` writer (`dli-serve/evidence.rs`) | Evidence subsystem | Content-addressed, append-only, becomes a lorestore module |
 | `.dli-cache/` compiled world cache | Replaced entirely | Lorestore stores structured facts, not serialized fixpoints |
 | `dli_world::compile` (loader + fixpoint) | Reads from lorestore instead of `.dli` files | The compile pipeline stays, but input source changes |
-| The formatter | Fact canonicalization layer | Renders structured facts to canonical `.dli` for human review |
+| The formatter | Fact rendering engine | Renders structured facts to `.dli` as one of multiple possible output formats (JSON, HTML, etc.); `.dli` is no longer the canonical view — see `docs/design-notes/dli-deprecation-plan.md` |
 
 ## Open questions
 
 1. **Storage backends** — Do we support only filesystem, or also object storage
    (S3-compatible) and IPFS? What is the storage trait interface?
 
-2. **Evidence migration** — Do existing `.dli-evidence/` contents migrate to
-   lorestore format, or do they coexist?
-
-3. **Offline operation** — Does lorestore need to work in air-gapped
+2. **Offline operation** — Does lorestore need to work in air-gapped
    environments (like the deterministic offline gate requires)?
 
-4. **Size/bandwidth** — For large lore corpora, is full fact materialization
+3. **Size/bandwidth** — For large lore corpora, is full fact materialization
    always needed, or do we support lazy/partial loading?
 
 > Detailed treatment of index design, phased evolution, and prior art is in
-> `docs/design-notes/lorestore-indexing-strategy.md`.
+> `docs/design-notes/lorestore-indexing-strategy.md`. The deprecation plan for
+> `.dli` files as storage/interchange format is in `docs/design-notes/dli-deprecation-plan.md`.
