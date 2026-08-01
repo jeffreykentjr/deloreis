@@ -999,3 +999,58 @@ same prior-contradiction class.
 cross-episode continuity library-tested but unreachable through the worker;
 putting it inside durable payload evidence would make replay depend on a stale
 snapshot. A typed request context preserves both boundaries.
+
+## DL-0041 — The lorestore pivot: facts become the store; `.dli` becomes a rendering
+
+*Date: 2026-08-01*
+
+**Ruling.** deloreis's storage direction is the embedded fact store described
+in `design-notes/lorestore-vision.md` and sequenced by
+`design-notes/lorestore-roadmap.md` (the worked plan behind this entry, staged
+as the `store` lane LS-0..LS-8): content-addressed, immutable JSON fact
+objects under RFC 8785 canonicalization, refs with valuation overlays, an
+append-only commit log, and — later — a provenance-aware merge engine. The
+schemars-derived JSON Schema of the stored objects is the language definition.
+The `.dli` text surface is demoted from canonical form to an optional
+pretty-print rendering, opt-in on the tool surface and eventually
+feature-gated out of the default build.
+
+Two earlier rulings are superseded in part:
+
+- **DL-0003**, the clause "the EBNF renders it; the formatter defines the one
+  canonical surface." The schema-first half of DL-0003 stands and strengthens:
+  the schema now describes the stored objects themselves. The formatter
+  becomes one renderer among several; canonical form is the JCS byte
+  serialization of the fact object.
+- **DL-0029**, as applied to the `.dli` surface as a whole. Its guarantee
+  relocates rather than repeals: retired surface forms, tool ops, and input
+  shapes flow through the killed-form registry with a named successor —
+  enforced at the server and schema layer once the parser leaves the default
+  build. Nothing accepted ever silently disappears.
+
+Consequential closures: SURF-4 (the grammar freeze) and BENCH-1/BENCH-2 (the
+two-door authoring benchmark, deferred by DL-0022) are retired, not merely
+deferred — the grammar was never frozen, and the door question is answered by
+events: the surface door closes, Door T remains. The docs-oracle law is
+re-aimed, never suspended: fenced examples stay machine-checked, with fenced
+`json` validating against the fact-object schemas as fenced `.dli` recedes.
+
+Boundary condition: the fantasy cutover (MIG-3/MIG-4, EXT-F3/EXT-F4) proceeds
+on v1 terms — `.dli` sources and contract 0.5.1 — until EXT-F4 acknowledges
+the handshake. Until then every lorestore change is additive and dual-mode
+under the DL-0031..DL-0037 versioning discipline; no v1 path is removed on a
+schedule.
+
+**Rationale.** The `.dli` surface was the v1 answer to "how do humans and
+agents put facts in and review what changed" — text in git, reviewed as
+diffs. Both populations have moved: agents already author through Door T
+(DL-0014) and never needed the text; human review of rendered structured
+diffs is strictly more faithful than review of a rendering's serialization.
+What the system actually is — the annotation algebra, derived standing,
+graded verdicts, replayable judgments, the offline gate — never depended on
+the syntax. Storing facts as canonical content-addressed objects makes the
+digest a Merkle root, makes replay a fold over a committed log, and opens
+deterministic provenance-aware merge, none of which git-over-text can
+provide. The demotion is executed through the killed-form registry precisely
+so the one law the surface era got right — accepted forms never silently
+vanish — survives the surface itself.
