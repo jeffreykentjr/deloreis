@@ -124,6 +124,16 @@ Design rules, each load-bearing (see §4 for the theory):
   with its upcast, in the killed-form spirit.
 - **The `authority` field exists and stays unset** in single-sovereign
   deployments (DEF-4 unchanged).
+- **The expert tier is named, versioned debt.** The code audit
+  (`design-notes/dli-syntax-coupling-audit.md`) found the AST only half
+  structured: eleven declaration types carry `body: Vec<Clause>` where a
+  clause is whitespace-normalized raw source text, re-parsed downstream at
+  semantic-analysis time. Fact-object schema v1 may carry these bodies as
+  formatter-canonicalized strings — deterministic to hash, but semantically
+  opaque — and the `schema_version` + upcast machinery is how they later
+  deepen to typed interiors (LS-9) without rewriting stored facts. The v1
+  schema must mark these fields as the expert tier explicitly, so nobody
+  mistakes an embedded micro-syntax string for a structured interior.
 
 ### LS-2 — The lorestore crate (single-branch MVP)
 
@@ -175,7 +185,10 @@ and digests.
 The fixpoint, valuation, and checking machinery does not change in this
 stage. Only the front of the loader changes: instead of parse → lower →
 compile, the store path is fetch → validate-against-schema → compile. The
-parser stops being on the critical path the moment this stage lands.
+*file* parser leaves the critical path here, but the parser itself does not:
+expert-tier clause bodies are still re-parsed during semantic analysis
+(`dli-world`, `dli-ledger`, `dli-time` — see the coupling audit), and that
+dependency falls only with LS-9.
 
 ### LS-4 — The write path (author.* writes the store; JSON-first contract)
 
@@ -195,6 +208,13 @@ retired input shape is refused *by the server* with its successor named,
 exactly as the parser refused retired keywords. DL-0029's guarantee — nothing
 accepted ever silently vanishes — survives the death of the syntax it was
 written about.
+
+This stage is smaller than it looks: the code audit found Door T already
+JSON-first on input — all twenty `author.*` tools take typed
+`deny_unknown_fields` structs, the workspace stages typed declarations in
+memory, and the digest is already a SHA-256 over canonical JSON. The `.dli`
+coupling is output-side only (`materialize` and the rendered diff), plus two
+text-on-wire remnants (`fork.add`, wire query goals) that retire in LS-7.
 
 ### LS-5 — The query contract and the review surface
 
@@ -253,15 +273,44 @@ The merge design falls out of the algebra (§4 for the full argument):
      merged worlds recompute affected strata; the diff names atoms whose
      standing changed.
 
+### LS-9 — Expert-tier structuring (the hidden prerequisite)
+
+*Deliverable:* typed interiors for the eleven expert-tier declaration bodies
+(`RuleDecl`, `ForkDecl`, `PracticeDecl`, `DialectDecl`, `DraftDecl`,
+`ExportDecl`, `NameDecl`, `VariantDecl`, `RatifyDecl`, `PrincipleDecl`,
+`ProofDecl`) — the downstream semantic parses in `dli-world`, `dli-ledger`,
+and `dli-time` become constructors of typed AST, and stored facts upcast from
+the v1 string-bodied schema.
+*Needs:* LS-1 (the schema and upcast machinery it deepens).
+*Produces:* an AST that is actually AST all the way down; the condition under
+which the parser can leave the default build at all.
+*Oracle:* no crate outside `dli_syntax` calls a parse function on stored
+data; `validate_proof_decl`'s format-and-reparse round-trip is replaced by a
+structural validator; upcasted corpora compile identically to their
+string-bodied originals.
+
+The id is out of sequence because this stage was found by the code audit
+(`design-notes/dli-syntax-coupling-audit.md`) after LS-0..LS-8 shipped; its
+DAG position is between LS-1 and LS-7. It is the real bulk of the retirement
+— roughly, restructuring interiors across ~23k lines of `dli-world`/
+`dli-ledger`/`dli-time` versus deleting ~7.5k lines of `dli-syntax` — and it
+can proceed incrementally, one declaration type at a time, behind the upcast.
+Watch the `loc` gate lane: `dli-world` is at 17.2k of the 25k soft cap, and
+schema deepening adds lines before it removes any.
+
 ### LS-7 — Surface retirement
 
 *Deliverable:* `dli_syntax` demoted to an optional pretty-printer crate
 (feature-gated out of the default build); reference cards rewritten around
 tool calls and JSON shapes; the docs-oracle re-aimed: fenced `json` examples
 validate against the LS-1 schemas, fenced `.dli` checked only in the docs
-that still deliberately teach the rendering.
-*Needs:* LS-4 (agents), LS-5 (humans) — no one's workflow may still require
-the parser.
+that still deliberately teach the rendering (67 fenced blocks across 21 files
+at audit time); the two text-on-wire remnants (`fork.add` declaration
+strings, wire query goals) retired through the killed-form registry with
+typed successors.
+*Needs:* LS-4 (agents), LS-5 (humans — the structured-diff surface replaces
+the forgery-proofed rendered-lines diff that is today's only supervision
+surface), LS-9 (the parser has no remaining semantic caller).
 *Produces:* the deprecation note's phases 2–3, done.
 *Oracle:* the default build does not link `dli_syntax`; the docs-oracle law —
 **every fenced example in the docs is machine-checked** — holds continuously
@@ -383,6 +432,13 @@ neither.
    machinery. Mitigation: it is last, it is not on the cutover's critical
    path (single-branch operation covers the consuming project's needs), and
    its formal skeleton (§4) is written down before its code.
+9. **The expert tier is the real retirement cost.** Eleven declaration
+   bodies are raw clause strings re-parsed downstream; without LS-9 the
+   parser never actually leaves the build, and fact objects smuggle
+   micro-syntax as data. Mitigation: the v1 schema names the debt
+   explicitly, the upcast machinery lets it retire one declaration type at
+   a time, and the `loc` gate cap on `dli-world` is watched during the
+   deepening (see `design-notes/dli-syntax-coupling-audit.md`).
 
 ## 6. Deferred tracks and flip conditions
 

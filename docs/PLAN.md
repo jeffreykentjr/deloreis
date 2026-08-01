@@ -463,10 +463,21 @@ theory grounding, and the risk register is
   reconciliation. *Oracle:* merge commutes and associates up to root-hash
   equality on conflict-free corpora; the seeded-conflict corpus catches all
   three conflict classes.
+- **LS-9** — Expert-tier structuring: typed interiors for the eleven
+  string-bodied declaration types; downstream semantic parses in `dli-world`,
+  `dli-ledger`, and `dli-time` become typed-AST constructors; stored facts
+  upcast from the v1 string-bodied schema. (Id out of sequence: found by the
+  coupling audit after LS-0..LS-8 shipped; DAG position is LS-1 → LS-9 → LS-7.)
+  *Needs:* LS-1. *Produces:* an AST that is AST all the way down; the
+  condition for retiring the parser. *Oracle:* no crate outside `dli_syntax`
+  parses stored data; `validate_proof_decl`'s format-and-reparse round-trip is
+  replaced by a structural validator; upcasted corpora compile identically.
 - **LS-7** — Surface retirement: `dli_syntax` feature-gated out of the default
   build as a pretty-printer; cards rewritten around tools + JSON; the
-  docs-oracle re-aimed at fenced `json` against the LS-1 schemas.
-  *Needs:* LS-4, LS-5. *Produces:* the deprecation note's phases 2–3.
+  docs-oracle re-aimed at fenced `json` against the LS-1 schemas; the
+  text-on-wire remnants (`fork.add` strings, wire query goals) retired through
+  the killed-form registry.
+  *Needs:* LS-4, LS-5, LS-9. *Produces:* the deprecation note's phases 2–3.
   *Oracle:* the default build does not link `dli_syntax`; every fenced doc
   example remains machine-checked throughout; killed-form entries cover every
   retired surface form.
@@ -580,6 +591,8 @@ graph LR
   LS-3 --> LS-4
   LS-4 --> LS-5
   LS-5 --> LS-6
+  LS-1 --> LS-9
+  LS-9 --> LS-7
   LS-4 --> LS-7
   LS-5 --> LS-7
   LS-6 --> LS-8
@@ -699,6 +712,7 @@ author or consumer artifact that this repository does not own.
 | LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
 | LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
+| LS-9 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-9; evidence in `design-notes/dli-syntax-coupling-audit.md` |
 
 ## Milestones (node-sets, not dates)
 
@@ -744,6 +758,7 @@ overlap; the language and craft lanes in particular run alongside the game lane.
   the fact-object schema as the language definition; the embedded store; the
   dual-backend read path; Door T writing the store JSON-first under contract
   0.6.0; the replayable query contract and the structured-diff review surface.*
-- **Lorestore completion** — LS-6, LS-7, LS-8. *The provenance-aware merge
-  engine; the surface retired to an optional pretty-printer; contract 1.0 and
-  the consumer's move off 0.5.1.*
+- **Lorestore completion** — LS-6, LS-9, LS-7, LS-8. *The provenance-aware
+  merge engine; the expert-tier interiors structured; the surface retired to
+  an optional pretty-printer; contract 1.0 and the consumer's move off
+  0.5.1.*
