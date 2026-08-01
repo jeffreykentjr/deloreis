@@ -5,11 +5,15 @@ verdict: "Characterizes the indexing strategy evolution from current in-memory f
 
 # Lorestore Indexing Strategy: From In-Memory Fixpoints to Persistent Indices
 
-> **Sequenced by `design-notes/lorestore-roadmap.md` (DL-0041),** which parks
-> every index phase behind a flip condition and refines this note's "start at
-> Phase 2" to "start at Phase 1" — at the designed corpus scale, correctness of
-> the store, replay, and merge precede indexing. The roadmap wins where they
-> differ.
+> **Sequenced by `design-notes/lorestore-roadmap.md` (DL-0041).** This note's
+> Phases 2–4 are the **committed archive-tier track** — load-bearing for the
+> encyclopedic multi-continuity corpora the engine is aimed at (creature
+> catalogues, comics multiverses, canon-and-fanon authorities) — entered on
+> the measured triggers in the roadmap's §6. The cutover itself starts at
+> Phase 1 only because the consuming project is atelier-tier (10³–10⁵ facts),
+> where in-memory saturation outruns any index; the tier boundary is crossed
+> by adding index readers, never by migrating stored facts. Phases 5–7 remain
+> exploratory. The roadmap wins where they differ.
 
 ## Current State: Precomputed Fixpoint + Sparse Indexes
 

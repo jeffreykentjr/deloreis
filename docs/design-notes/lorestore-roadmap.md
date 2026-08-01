@@ -63,7 +63,7 @@ What dies is the claim that `.dli` text is the canonical form of any of that:
    shape rather than a replacement keyword.
 2. **The fantasy cutover is frozen on v1.** MIG-3/MIG-4 and EXT-F3/EXT-F4 are
    consumer-owned and still run against `.dli` + contract 0.5.1. Until EXT-F4
-   acknowledges the Door-T handshake, every lorestore change is **additive**:
+   acknowledges the tool-surface handshake, every lorestore change is **additive**:
    dual-mode, digest-vendored, nothing removed. The contract discipline of
    DL-0031..DL-0037 (version bumps, golden + negative + framing fixtures per
    op) is the template.
@@ -71,9 +71,10 @@ What dies is the claim that `.dli` text is the canonical form of any of that:
    local scope). Lorestore is therefore the natural next local programme and
    can begin immediately as a leaf crate with zero blast radius.
 4. **A lucky break: the grammar was never frozen.** DL-0022 deferred SURF-4
-   and the BENCH two-door study. There is no freeze to unwind — the milestone
-   is retired, not reversed, and the two-door question (surface vs. tools) is
-   answered by events: the surface door closes.
+   and the BENCH two-route study. There is no freeze to unwind — the milestone
+   is retired, not reversed, and the route question (text surface vs. tools)
+   is answered by events: the text surface closes, and DL-0043 retires the
+   door semantic itself.
 
 ## 3. The stages
 
@@ -172,14 +173,16 @@ replays or discards, deterministically).
 
 Three deliberate refusals, recorded so they are not re-litigated by accident:
 
-- **No secondary indexes.** At the designed corpus scale (10³–10⁵ facts) a
-  full load is microseconds to milliseconds, and the compile-then-query
-  architecture materializes everything in memory anyway. This *refines* the
-  indexing note's "start at Phase 2" recommendation down to "start at
-  Phase 1": the index phases are real but parked behind flip conditions
-  (§6). The store's contract makes them safe to add later: **the log is the
-  truth; every index is a derived cache; `state ≡ fold(commit log)` is a
-  property test in the gate.** Anything rebuildable is droppable.
+- **Index-free at the atelier tier — a sequencing choice, not a scale
+  ceiling.** The cutover's consumer lives at 10³–10⁵ facts, where full
+  in-memory saturation is milliseconds and a persistent index is pure
+  failure surface. The archive tier (§6) — encyclopedic multi-continuity
+  corpora at 10⁶–10⁸ facts — is a designed-for destination whose index
+  track (the indexing note's Phases 2–4) enters on measured triggers after
+  the cutover. What makes the deferral safe is the MVP's contract: **the
+  log is the truth; every index is a derived cache; `state ≡ fold(commit
+  log)` is a property test in the gate.** The tier boundary is crossed by
+  adding readers, never by migrating stored facts.
 - **No branches beyond `main`.** Forks-as-valuation-overlays already work
   in memory and are cheap; persistent divergent *fact sets* are the only
   thing that needs real branches, and that need arrives with the merge
@@ -218,7 +221,7 @@ dependency falls only with LS-9.
 findings + digest); `author.materialize` returns JSON by default with `.dli`
 rendering opt-in; contract **0.6.0**, additive and dual-mode.
 *Needs:* LS-3.
-*Produces:* Door T backed by lorestore; the agent loop loses its
+*Produces:* the tool surface backed by lorestore; the agent loop loses its
 write-rendered-lines-to-disk step.
 *Oracle:* golden/negative/framing fixtures re-recorded and green; framing
 attacks leave verdicts unchanged; the vendored-contract compatibility suite
@@ -230,7 +233,7 @@ exactly as the parser refused retired keywords. DL-0029's guarantee — nothing
 accepted ever silently vanishes — survives the death of the syntax it was
 written about.
 
-This stage is smaller than it looks: the code audit found Door T already
+This stage is smaller than it looks: the code audit found the tool surface already
 JSON-first on input — all twenty `author.*` tools take typed
 `deny_unknown_fields` structs, the workspace stages typed declarations in
 memory, and the digest is already a SHA-256 over canonical JSON. The `.dli`
@@ -244,7 +247,7 @@ bindings, its provenance antichain (the minimal-witness monomials), its
 grade, and the pair `(root_hash, valuation)` it was evaluated under — plus
 the structured-diff/review contract: MCP-served JSON describing pending
 change-sets, per-fact diffs with provenance, and accept/reject semantics
-(the Door-T read-tool idiom, DL-0023).
+(the tool-surface read-tool idiom, DL-0023).
 *Needs:* LS-4 (write path produces the diffs worth reviewing).
 *Produces:* the replayable verdict format agents and humans both consume; the
 review data that replaces git-diff-of-text.
@@ -265,7 +268,7 @@ faithful review, which is exactly what the golden fixture proves.
 
 *Deliverable:* a commit DAG with merge commits; 3-way merge over fact sets
 with structural conflict detection; branch creation/merge exposed through
-Door T.
+the tool surface.
 *Needs:* LS-5; this is deliberately the *last* core stage.
 *Produces:* persistent divergent worlds with deterministic reconciliation —
 the capability git-of-text never actually gave us.
@@ -405,6 +408,19 @@ gate-checked invariant `state ≡ fold(log)` (LS-2) is what makes "rebuildable"
 a theorem instead of a hope, and it is the property that keeps replayable
 judgments replayable when storage stops being git.
 
+**Archive scale.** Eager full saturation is the *atelier-tier* optimum, not
+a universal law. At encyclopedic scale (§6) the derived set explodes —
+appearance-style relations (character × issue) dominate, and transitive
+rules multiply them — so the archive tier pairs a saturated hot core with
+goal-directed evaluation (magic sets / sideways information passing) over
+indexed base facts for the long tail. Provenance follows the same split:
+derived polynomials are kept as shared circuits with the k-minimal-witness
+antichain materialized, exact DNF on demand. The canonical-DNF hashing
+invariant is untouched by any of this — it binds *stored base facts*, whose
+polynomials stay small; derived provenance is computed, never
+content-addressed. Same algebra at both tiers; only the evaluation strategy
+changes.
+
 **Honest asymptotics.** "O(1) fork" is two claims and the docs should state
 both: branch/fork *creation* is O(1) (a ref plus an overlay); fork
 *evaluation* is O(dependent slice) through the support index. The grades law
@@ -442,11 +458,13 @@ neither.
    syntax that is being demoted. Mitigation: the docs-oracle law is never
    suspended — the oracle is *re-aimed* (LS-7), and cards are rewritten in
    the same stage that feature-gates the parser, not before.
-6. **Aspirational scope creep.** Argumentation frameworks, uncertainty
-   propagation, and fuzzy entity resolution are PhD-scale programmes the
-   exploring-status note is explicit about. Mitigation: they appear in this
-   roadmap only as flip-conditioned deferrals (§6); none is greenlit by the
-   pivot.
+6. **Scope discipline in both directions.** The archive-tier index track
+   (§6) is *not* scope creep — encyclopedic multi-authority corpora are a
+   designed-for destination, and under-building for them is the opposite
+   failure. What stays gated: the reasoning-model extensions (argumentation,
+   uncertainty, fuzzy entity resolution) are PhD-scale programmes the
+   exploring-status note is explicit about; they enter only by ledger
+   entry.
 7. **Evidence double-home.** During dual-backend operation, evidence lives
    in `.dli-evidence/` and in lorestore's evidence module. Mitigation: both
    use the same JCS + SHA-256 addressing, so content addresses are identical
@@ -462,29 +480,55 @@ neither.
    explicitly, and the upcast machinery lets it retire one declaration type
    at a time (see `design-notes/dli-syntax-coupling-audit.md`).
 
-## 6. Deferred tracks and flip conditions
+## 6. Scale tiers, the archive track, and parked work
 
-The PLAN idiom: parked work is named, owned by a flip condition, and not
-built before its trigger fires.
+The engine has **two designed-for populations**, orders of magnitude apart,
+and index decisions only make sense stated against them:
 
-| Track | Flip condition |
+- **The atelier tier** — one world, one-to-few authorities, 10³–10⁵ facts:
+  the consuming audio-drama project, a novelist, a game studio. Full
+  in-memory saturation runs in milliseconds; persistent indexes add failure
+  modes and buy nothing. The cutover (LS-1..LS-8) targets this tier because
+  the consuming project lives in it.
+- **The archive tier** — encyclopedic, multi-continuity, multi-authority
+  corpora, 10⁶–10⁸ facts: a full creature-catalogue with moves, forms, and
+  per-episode appearances runs 10⁵–10⁶ facts; a comics multiverse, where
+  character-by-issue appearance relations dominate, runs 10⁷ and up before
+  fan authorities multiply it. **This tier is a designed-for destination,
+  not a hypothetical.** The indexing note's Phases 2–4 are its committed
+  track — sequenced after the cutover, entered on measured triggers.
+
+What breaks at archive scale, and the committed remedy for each:
+
+| What breaks | At roughly | Committed remedy |
+|---|---|---|
+| Full-scan query | ~10⁵ facts | Indexing note Phase 2: entity/predicate/citation/variable posting lists — sorted runs and bitmap-style structures, because appearance-heavy relations are IR/OLAP-shaped, not B-tree-shaped |
+| Whole-corpus recompile | ~10⁵–10⁶ facts, or continuous ingestion | Phase 3 incremental compile, kept simple by §4's no-retraction property: semi-naive deltas for additions, recompute above the affected stratum, no DRed machinery |
+| Eager full saturation | ~10⁶–10⁷ facts | Hot-core saturation + goal-directed evaluation (magic sets / SIP) for the long tail; partition by authority and scope, composing with branches (§4, "Archive scale") |
+| Cross-authority query and conflict scan | archive multi-authority work | Phase 4 cross-branch indexes as per-authority visibility maps, bitmap-composable over the one shared fact store |
+
+The thresholds are engineering triggers inside a committed direction — they
+say *when* each remedy enters the critical path, not *whether*. The atelier
+tier never pays for them: `state ≡ fold(log)` means every index is a derived
+reader that bolts on without touching stored facts.
+
+Parked work, PLAN idiom — named, owned by a trigger, not built before it:
+
+| Track | Trigger |
 |---|---|
-| Secondary indexes (indexing note Phase 2) | Measured query latency exceeds interactive budget, or a real corpus approaches ~10⁶ facts |
-| Persistent incremental compile (Phase 3) | Full recompile time measurably degrades the authoring loop |
-| Cross-branch query indexes (Phase 4) | The merge engine (LS-6) is in real multi-branch use |
 | Compaction / packfiles | Store size or object count degrades clone/load measurably |
 | Remote backends (S3/IPFS) | A real deployment needs storage the filesystem cannot host |
 | `.dli` full removal (deprecation phase 4) | The pretty-printer crate's maintenance cost exceeds its use |
-| Live web review UI | The CLI/TUI + static-HTML surface measurably limits review throughput |
-| Multi-authority valuations (DEF-4) | A real second sovereign exists (writers' room, shared universe) |
-| Argumentation / uncertainty / fuzzy-ER | Each keeps its "exploring, not committed" standing; a ledger entry is the only door in |
+| Review rendering | None — consumer-owned by design (LS-5); deloreis ships the JSON contract, never a UI |
+| Multi-authority valuations (DEF-4) | The first real second-authority corpus; the archive tier's authority model builds on the `authority` field and per-authority valuations |
+| Argumentation / uncertainty / fuzzy-ER (indexing note Phases 5–7) | Exploring, not committed; a ledger entry is the only way in |
 
 ## 7. Effect on standing documents
 
 - `docs/PLAN.md` — gains the `store` lane (LS-0..LS-8); SURF-4/BENCH-1/
   BENCH-2 are retired (not deferred) per DL-0041.
 - `AGENTS.md` — §3 (AST-first restated schema-first; docs-oracle law
-  re-aimed), §5 (commit ritual simplified), §7 (Door T returns JSON by
+  re-aimed), §5 (commit ritual simplified), §7 (the tool surface returns JSON by
   default).
 - `docs/spec/01-syntax.md` and `docs/cards/` — stale after LS-7; rewritten in
   that stage; until then they document the opt-in rendering.
