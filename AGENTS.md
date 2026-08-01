@@ -41,9 +41,12 @@ Discipline (`decisions.md` DL-0011):
 
 ## 3. Engineering laws
 
-- **AST-first** (DL-0003). The AST's JSON Schema is the language definition; the
-  EBNF renders it; the formatter defines the one canonical surface. The schema is
-  derived from the Rust types (schemars) — it cannot drift from them.
+- **Schema-first** (DL-0003 as amended by DL-0041). The schemars-derived JSON
+  Schema is the language definition — it cannot drift from the Rust types. Under
+  the lorestore pivot the schema describes the stored fact objects themselves;
+  canonical form is their JCS byte serialization. The formatter is one renderer
+  among several, and `.dli` text is an opt-in rendering, not the canonical
+  surface. The staged cutover is `docs/design-notes/lorestore-roadmap.md`.
 - **Replayable judgments.** Every verdict re-derives from committed inputs. A
   judgment you cannot replay is not a verdict.
 - **The gate is offline and deterministic** — no network, ever, in a gating
@@ -52,7 +55,10 @@ Discipline (`decisions.md` DL-0011):
   and the reference cards runs through the docs-oracle in CI; the oracle runs
   `dli_syntax::parse_document` — the real front end — over every fenced `.dli`
   block and committed example. A block producing any error-class diagnostic
-  fails the gate.
+  fails the gate. The law survives the lorestore pivot with its oracle
+  re-aimed (DL-0041, roadmap LS-7): fenced `json` examples validate against
+  the fact-object schemas as fenced `.dli` recedes; fenced examples are never
+  unchecked.
 - **Killed forms are registered, never deleted.** A retired keyword, operation,
   or name lands in the killed-form registry and the server refuses it, naming its
   successor.
@@ -70,23 +76,21 @@ Discipline (`decisions.md` DL-0011):
 - Models, the Ludii baseline, and benchmarks run in **non-gating** lanes. Nothing
   flaky or live is ever in the verdict.
 
-## 5. Infra and the commit ritual
+## 5. Infra and committing
 
 - **The gate is one command:** `cargo xtask gate` (DL-0015) — CI parity as a
   compiled Rust test.
-- **All commits go through `scripts/safe-commit.sh "<msg>" <file…>`** — stage
-  only your named files, gate the new HEAD, push only on green, wait on CI.
+- **Plain git is fine.** Commit with ordinary `git add <file…>` + `git commit`.
+  Run the check that matches your blast radius before pushing — docs-only
+  changes want `cargo xtask docs-oracle` and `cargo xtask authority`; code
+  changes want the gate. `scripts/safe-commit.sh`, `scripts/greengate.sh`, and
+  `scripts/ci-wait.sh` remain available as the belt-and-suspenders path for
+  risky or multi-agent-contended moments, not as a mandatory ritual.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Another agent's staged
-  work rides along into your commit. Stage by explicit filename only.
-- **`scripts/greengate.sh` is the only pre-push verdict that counts** — it runs
-  the full gate against the committed tree in a throwaway worktree. A local run in
-  the live tree is polluted by other agents' WIP and does not count.
-- **CI verification is always by SHA:** `scripts/ci-wait.sh <sha>`. Never read
-  `gh run list` after a push — it races the webhook.
+  work rides along into your commit. Stage by explicit filename only. Leave the
+  staging area empty when you finish.
 - **A red main is a drop-everything event.** Whoever pushed it (or first sees it)
   fixes forward or reverts within one cycle. No new work lands on red main.
-- **Leave the staging area empty** when you finish or report (`git restore
-  --staged .` if a `git mv` auto-staged).
 - **Plain commit messages. No AI `Co-Authored-By` trailers** — hook-enforced via
   `.githooks/`.
 
@@ -108,10 +112,14 @@ Discipline (`decisions.md` DL-0011):
 ## 7. The agent-interface law
 
 **Agents author lore through Door T — the `author.*` MCP tools against the
-`deloreis` server — never by editing `.dli` text** (DL-0014). Every mutating tool
-call returns graded findings with repair data, the rendered canonical lines, and
-the workspace digest; read them, do not guess. `author.materialize` returns file
-contents as data — you commit them through review. `SKILL.md` governs the
-authoring session; supervision reviews the **rendered diffs**, always in surface
-form. Raw `.dli` editing is a measured fallback with no reliability claim, not the
-taught path.
+`deloreis` server — never by editing `.dli` text** (DL-0014, reinforced by
+DL-0041: the surface door closes; the tool door is the only door). Every
+mutating tool call returns graded findings with repair data, the rendered
+canonical lines, and the workspace digest; read them, do not guess.
+`author.materialize` returns file contents as data — you commit them through
+review; under the lorestore cutover (roadmap LS-4) it returns JSON by default
+with `.dli` rendering opt-in, and tools write fact objects to the store
+directly. `SKILL.md` governs the authoring session; supervision reviews
+**structured diffs** — rendered surface form today, the LS-5 structured-diff
+review surface as it lands. Raw `.dli` editing is a measured fallback with no
+reliability claim, not the taught path.

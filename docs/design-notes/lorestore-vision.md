@@ -5,6 +5,11 @@ verdict: "Architecture vision: Lorestore as deloreis's embedded, deterministic s
 
 # Lorestore: deloreis's deterministic storage layer
 
+> **Ratified and sequenced.** DL-0041 accepted this direction; the staged,
+> dependency-ordered plan — including design corrections such as removing
+> `parent` from fact identity — is `design-notes/lorestore-roadmap.md`, which
+> consolidates this note and wins where they differ.
+
 > **A post-cutover architectural evolution, not a migration blocker.** This document
 > captures the long-term vision for deloreis persistent storage. The current v1
 > model (git + `.dli` text + `.dli-evidence/`) remains in force until the fantasy

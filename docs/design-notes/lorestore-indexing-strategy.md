@@ -5,6 +5,12 @@ verdict: "Characterizes the indexing strategy evolution from current in-memory f
 
 # Lorestore Indexing Strategy: From In-Memory Fixpoints to Persistent Indices
 
+> **Sequenced by `design-notes/lorestore-roadmap.md` (DL-0041),** which parks
+> every index phase behind a flip condition and refines this note's "start at
+> Phase 2" to "start at Phase 1" — at the designed corpus scale, correctness of
+> the store, replay, and merge precede indexing. The roadmap wins where they
+> differ.
+
 ## Current State: Precomputed Fixpoint + Sparse Indexes
 
 The current implementation uses an **eager materialization** strategy for query

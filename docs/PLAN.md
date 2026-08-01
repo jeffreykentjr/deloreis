@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone source release has no local open nodes; deferred audits and consumer-owned integration remain named explicitly."
+verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone source release closed its local scope (DL-0038); the store lane (DL-0041, LS-0..LS-8) is the current local frontier; deferred audits and consumer-owned integration remain named explicitly."
 ---
 
 # The plan
@@ -27,15 +27,16 @@ Each node carries:
 - **produces** — what downstream nodes consume from this one.
 - **oracle** — the concrete check that closes the node. A node without a
   falsifiable oracle is not a node.
-- **lane** — the concern it belongs to (one of seventeen).
+- **lane** — the concern it belongs to (one of eighteen).
 - **external** — true when the node is delivered by another party (the author's
   rulings, the fantasy repo); **deferred** when the node is parked behind a
   named flip condition and is not built at v1.
 
-## The seventeen lanes
+## The eighteen lanes
 
 | Lane | Concern |
 |---|---|
+| `store` | Lorestore: the embedded fact store, the JSON-first cutover (DL-0041). |
 | `infra` | Repository scaffold, the `cargo xtask gate`, CI lanes. |
 | `docs` | The lead documentation and the spec suite. |
 | `core` | AST, JSON Schema, the annotated evaluator, the verdict lattice, the loader/front-end. |
@@ -412,6 +413,70 @@ they touch; they are not a lane of their own.
   *Needs:* none. *Produces:* the detection evidence input. *Oracle:* the corpus
   contains seeded divergences with expected catches.
 
+### `store`
+
+The lorestore cutover (DL-0041). The staged plan with full design rules,
+theory grounding, and the risk register is
+`design-notes/lorestore-roadmap.md`; these nodes are its skeleton.
+
+- **LS-0** — Ratify the pivot: DL-0041, the law updates in `AGENTS.md`, this
+  lane, and the consolidation pointers in the four source notes.
+  *Needs:* none. *Produces:* the authority every later store node cites.
+  *Oracle:* `cargo xtask authority` and the docs-oracle are green; DL-0041
+  names the superseded clauses of DL-0003 and DL-0029.
+- **LS-1** — The fact-object model: Rust types + schemars JSON Schemas for
+  `FactObject`/`Commit`/`Ref`/`EvidenceEnvelope`, JCS canonical bytes, SHA-256
+  identity, history excluded from fact identity, canonical polynomial DNF,
+  no floats, `schema_version` + upcast-on-read.
+  *Needs:* LS-0. *Produces:* the normative stored-object schema. *Oracle:*
+  total lowering — the vendored corpus lowered to fact objects compiles to the
+  identical fixpoint, findings, and digests.
+- **LS-2** — The lorestore crate MVP: loose-object store, refs with valuation
+  overlays, append-only commit log, CAS ref updates, advisory lock, crash-safe
+  write ordering, filesystem-only storage trait; workspace digest becomes the
+  root commit hash; no secondary indexes, no branches beyond main.
+  *Needs:* LS-1. *Produces:* durable deterministic persistence. *Oracle:*
+  cross-platform root-hash determinism; crash injection never tears the store;
+  `state ≡ fold(commit log)` property-tested.
+- **LS-3** — The read path: `dli_world::compile` from lorestore; the one-way
+  `.dli → lorestore` import tool; config-selected dual backend.
+  *Needs:* LS-2. *Produces:* worlds compiled from stored facts; the migration
+  path. *Oracle:* differential parity — `.dli` source and its import compile
+  identically.
+- **LS-4** — The write path: mutating `author.*` tools write fact objects
+  directly; `author.materialize` returns JSON by default with `.dli` opt-in;
+  contract 0.6.0, additive and dual-mode; the killed-form registry enforced at
+  the server layer.
+  *Needs:* LS-3. *Produces:* Door T backed by lorestore. *Oracle:* re-recorded
+  golden/negative/framing fixtures green; a 0.5.1 consumer still passes.
+- **LS-5** — The query contract and review surface: the JSON response schema
+  carrying bindings, provenance antichain, grade, and `(root_hash, valuation)`;
+  `deloreis review` structured-diff CLI/TUI + static-HTML export; the web UI
+  stays a later, non-gating lane.
+  *Needs:* LS-4. *Produces:* replayable verdicts; the post-git review
+  workflow. *Oracle:* a stored result replays byte-identical from
+  `(root_hash, valuation, query)`.
+- **LS-6** — The merge engine: commit DAG with merge commits, 3-way merge over
+  fact sets, conflict detection confined to valuation disagreement, constraint
+  violations, and stratified-negation effects.
+  *Needs:* LS-5. *Produces:* persistent divergent worlds with deterministic
+  reconciliation. *Oracle:* merge commutes and associates up to root-hash
+  equality on conflict-free corpora; the seeded-conflict corpus catches all
+  three conflict classes.
+- **LS-7** — Surface retirement: `dli_syntax` feature-gated out of the default
+  build as a pretty-printer; cards rewritten around tools + JSON; the
+  docs-oracle re-aimed at fenced `json` against the LS-1 schemas.
+  *Needs:* LS-4, LS-5. *Produces:* the deprecation note's phases 2–3.
+  *Oracle:* the default build does not link `dli_syntax`; every fenced doc
+  example remains machine-checked throughout; killed-form entries cover every
+  retired surface form.
+- **LS-8** — Contract 1.0 and consumer cutover: the JSON-first major version;
+  the fantasy consumer migrates off vendored 0.5.1.
+  *Needs:* LS-4, LS-5, LS-6, LS-7, EXT-F4. *Produces:* one storage model, one
+  interchange format, one review surface. *Oracle:* the consumer speaks 1.0
+  against the vendored digest-checked copy; 0.5.1 dual-mode paths retire
+  through the killed-form registry.
+
 ## The dependency graph
 
 ```mermaid
@@ -508,10 +573,24 @@ graph LR
   EXT-A1 --> MIG-3
   MIG-3 --> MIG-4
   TIME-3 --> MIG-4
+
+  LS-0 --> LS-1
+  LS-1 --> LS-2
+  LS-2 --> LS-3
+  LS-3 --> LS-4
+  LS-4 --> LS-5
+  LS-5 --> LS-6
+  LS-4 --> LS-7
+  LS-5 --> LS-7
+  LS-6 --> LS-8
+  LS-7 --> LS-8
+  EXT-F4 --> LS-8
 ```
 
 Nodes with no incoming edge are roots: INFRA-1, DOCS-1, EXT-A1, EXT-F1, EXT-F2,
-EXT-F5 (the runnable frontier), plus the deferred DEF-3 and DEF-4.
+EXT-F5 (the runnable frontier), plus the deferred DEF-3 and DEF-4. The `store`
+lane joined after the standalone release closed (DL-0038, DL-0041); LS-0 is a
+new root, and the LS chain is the current local frontier.
 
 ## The frontier
 
@@ -587,9 +666,9 @@ author or consumer artifact that this repository does not own.
 | SURF-1 | done | `deloreis fmt --check examples/ worlds/` |
 | SURF-2 | done | syntax and loader diagnostic snapshots |
 | SURF-3 | done | docs oracle over reference-card examples |
-| SURF-4 | deferred | DL-0022 defers BENCH and the human probe; grammar is unfrozen |
-| BENCH-1 | deferred | DL-0022 requires human-probe priority and an authorized spend cap |
-| BENCH-2 | deferred | DL-0022; depends on BENCH-1 |
+| SURF-4 | deferred | retired by DL-0041 — no grammar freeze will occur; the surface door closes |
+| BENCH-1 | deferred | retired by DL-0041 — the two-door question is answered by events |
+| BENCH-2 | deferred | retired by DL-0041; see BENCH-1 |
 | CON-1 | done | `cargo xtask fixtures` and `cargo test -p dli-serve --test fixture_replay` cover all 46 ops with typed schemas and paired framing |
 | SERVE-1 | done | `cargo test -p dli-serve --test simulation --test fixture_replay` covers practice/game jobs, durable start/status/cancel, restart, terminal rollback refusal, checkpoint-chain corruption, and capability replay |
 | CLI-1 | done | The built Clap graph generates the command reference; `cargo test -p deloreis --test cli --test serve_project` covers every command/help path, positive and negative workflows, and project-backed transport |
@@ -611,6 +690,15 @@ author or consumer artifact that this repository does not own.
 | EXT-F1 | done | `worlds/tpth/vendor/fantasy-099e04cd/MANIFEST.txt` |
 | EXT-F2 | done | vendored corpus manifests under `worlds/tpth/vendor/` |
 | EXT-F5 | done | mutation corpus under `worlds/tpth/mutation/` |
+| LS-0 | done | DL-0041; `design-notes/lorestore-roadmap.md`; the law updates in `AGENTS.md` |
+| LS-1 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
+| LS-2 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-2 |
+| LS-3 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-3 |
+| LS-4 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-4 |
+| LS-5 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-5 |
+| LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
+| LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
+| LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
 
 ## Milestones (node-sets, not dates)
 
@@ -642,10 +730,20 @@ overlap; the language and craft lanes in particular run alongside the game lane.
 - **G1 (the grammar gate)** — SURF-2, SURF-3, SURF-4, BENCH-2. *Freeze the AST
   schema if it held; the surface + formatter + reference cards + benchmark
   surface-tasks + the human-writer probe; the two-door benchmark verdict.*
+  **Retired by DL-0041:** the grammar is never frozen and the two-door verdict
+  is answered by events — the surface door closes, Door T remains.
 - **GDL proof point** — SIM-2, EXT-A2, EXP-3, DEF-5. *The `games/ludii` export
   profile for the ratified Turning ruleset + the trace-agreement differential — the
   external soundness audit of rules-as-lore. Lands after M2, as a data profile,
   once a ratified ruleset exists to export.*
 - **Cutover** — MIG-3, MIG-4, EXT-F3, EXT-F4. *The per-check flips; the source
   deletion; the fantasy worker on the vendored contract; the Door-T handshake
-  acknowledged.*
+  acknowledged.* Runs on v1 terms (`.dli` + contract 0.5.1) per DL-0041's
+  boundary condition.
+- **Lorestore core** — LS-0, LS-1, LS-2, LS-3, LS-4, LS-5. *The pivot ratified;
+  the fact-object schema as the language definition; the embedded store; the
+  dual-backend read path; Door T writing the store JSON-first under contract
+  0.6.0; the replayable query contract and the structured-diff review surface.*
+- **Lorestore completion** — LS-6, LS-7, LS-8. *The provenance-aware merge
+  engine; the surface retired to an optional pretty-printer; contract 1.0 and
+  the consumer's move off 0.5.1.*

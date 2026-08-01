@@ -5,6 +5,12 @@ verdict: "Characterizes the design space for evolving deloreis from single-sover
 
 # Multi-Authority Knowledge Representation: Beyond Single-Sovereign Canon
 
+> **Still exploring, not greenlit.** The lorestore pivot (DL-0041,
+> `design-notes/lorestore-roadmap.md`) keeps this note's layers as
+> flip-conditioned deferrals: the `authority` field exists in the fact-object
+> schema and stays unset in single-sovereign deployments (DEF-4 unchanged); a
+> ledger entry is the only door in.
+
 ## Current State: Single Sovereign, Two Doors
 
 The current architecture (DL-0002, DL-0004, DL-0005) makes three intertwined assumptions:
