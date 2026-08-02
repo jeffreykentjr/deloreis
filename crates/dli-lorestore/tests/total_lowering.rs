@@ -310,6 +310,7 @@ fn lower_decl_reproduces_lower_atoms() {
 /// malformed `assumes` (fail-closed, never fail-open), and entity slots
 /// (inherited provenance, per-slot bundle vars).
 #[test]
+#[allow(clippy::too_many_lines)]
 fn lower_decl_parity_on_gated_and_malformed_shapes() {
     use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
     use dli_ast::decl::{AttrDecl, Document, EntityDecl, EntityKind, FactDecl, ScopeHeader};
