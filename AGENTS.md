@@ -118,10 +118,10 @@ way in, and authority boundaries — who may propose, who may rule — are what
 distinguish authors). Every
 mutating tool call returns graded findings with repair data, the rendered
 canonical lines, and the workspace digest; read them, do not guess.
-`author.materialize` returns file contents as data — you commit them through
-review; under the lorestore cutover (roadmap LS-4) it returns JSON by default
-with `.dli` rendering opt-in, and tools write fact objects to the store
-directly. `SKILL.md` governs the authoring session; supervision reviews
+`author.materialize` returns rendered file contents as data — you commit them
+through review; tools additionally write fact objects to the store per-add
+(DL-0045). The JSON-by-default return with `.dli` rendering opt-in lands with
+contract 0.6.0 (roadmap LS-4; the audit note tracks the gap). `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — rendered surface form today, the LS-5 structured-diff
 contract as it lands (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli` editing is a measured fallback with no
 reliability claim, not the taught path.

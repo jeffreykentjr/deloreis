@@ -1130,3 +1130,60 @@ chosen for safety: it exercises the complete `compile → lower_atoms → write_
 The CAS deduplication makes the "rewrite base facts" overhead zero — identical
 objects produce identical hashes. The `all_fact_hashes()` dedup fix is required
 for the read path's `compile()` to handle multi-commit chains correctly.
+
+## DL-0045 — The LS-1..LS-5 audit: repairs land before the back half
+
+*Date: 2026-08-02*
+
+**Ruling.** The implementation audit
+(`design-notes/lorestore-implementation-audit.md`) governs the store lane
+until its repair sequence completes. Five rulings follow from it:
+
+1. **LS-4 and LS-5 remain `open`.** The audit found the implemented write and
+   query/review paths short of their roadmap deliverables: production serve
+   never imports the base pack into the lorestore, `materialize` has no
+   JSON-first return, no contract 0.6.0 exists, the review test proves
+   row-count-plus-atom parity rather than byte-identical replay, and the
+   structured-diff standing drops staged-fact provenance. The PLAN matrix
+   carries the honest partial evidence; the nodes flip to `done` only when
+   the audit's repair commits land.
+2. **The `Commit` schema fields `decisions` and `pack_name` get their ledger
+   home here.** Both rode the LS-3 read-path commits without a ledger entry;
+   the roadmap's annotations mis-cited DL-0042 and DL-0043 (the line-count
+   and door-semantic retirements) for them. `decisions` is the optional
+   known-decision-id list on the root commit (additive, outside fact
+   content-addressing); `pack_name` preserves the scope name so
+   reconstruction mints proposal-bundle variables exactly as the loader
+   does. The mis-citations in the roadmap are corrected in this commit.
+3. **Per-declaration lowering supersedes DL-0044's deferral.** LS-4b —
+   lowering each staged declaration to fact objects at `author.add_*` time —
+   is implemented and is the taught path; DL-0044's full-pack materialize
+   becomes the reconciliation description, not the mechanism. One clause of
+   DL-0044 is amended: `materialize` does **not** return the commit hash as
+   the workspace digest — the two digest regimes stay distinct (the
+   workspace digest remains fence-valid; the commit hash travels in its own
+   `root_hash` field), repairing the audit's fence-break finding.
+4. **The contract lands as 0.6.0, dual-mode, after the code repairs**
+   (owner decision, audit §"governing decisions"). The re-recorded v1
+   fixture bytes are restored; 0.6.0 ships with its own golden/negative/
+   framing fixtures under the DL-0031..DL-0037 template; an 0.5.1 request
+   keeps receiving 0.5.1-shaped bytes until EXT-F4 completes. A gate check
+   rides along: a fixture digest may not change while `contract_version`
+   is unchanged.
+5. **Lowering becomes total before LS-6** (owner decision): every
+   declaration the AST can express lowers to fact objects — the expert tier
+   as string-bodied `ExpertBody` per the v1 schema design — and
+   `reconstruct_pack` refuses what it cannot faithfully round-trip. The
+   merge engine builds on whole worlds or not at all.
+
+**Rationale.** The lane's own laws demand this: grades are honest (DL-0006)
+— a node is not `done` because a commit message says so; the ledger outranks
+(DL-0011) — a ruling that claims byte-identical replay the oracle does not
+prove would poison every doc that cites it; and the gate's replayability law
+requires the advertised `(root_hash, valuation, query)` triple to actually
+resolve, which today it does not. The audit's adversarially verified
+findings, not this entry, carry the file-level detail.
+
+**Revisit trigger.** When the audit's repair sequence completes (its rows
+all `fixed`), LS-4/LS-5 flip to `done` and the 0.6.0 landing gets its own
+entry.
