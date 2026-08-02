@@ -1,6 +1,6 @@
 ---
-status: draft
-verdict: "A design-level comparison of De Lore Is against mainstream lore-wiki backing technology: SWM, graphdb-backed wikis, Cargo-style dependency systems, Datomic, and other Datalog-family solutions. Covers query patterns, data storage, schema evolution, invariant enforcement, runtime performance, and the single-authority valuation model."
+status: settled
+verdict: "A design-level comparison of De Lore Is against mainstream lore-wiki backing technology: SWM, graphdb-backed wikis, Cargo-style dependency systems, Datomic, and other Datalog-family solutions. Covers query patterns, data storage, schema evolution, invariant enforcement, runtime perf, and the single-authority valuation model. Updated for the lorestore (LS-1/LS-2/LS-3): the three-way identity split, content-addressed fact objects, and commit DAG."
 ---
 
 # Conceptual comparison: De Lore Is vs. mainstream lore backing technology
@@ -41,6 +41,51 @@ The **decision ledger** (`decisions.md` — or the consuming project's `canon/de
 
 The machine's entire durable write surface is bounded to these two directories. It **never** writes `canon/` or ledger content that does not cite an existing ruling.
 
+### The lorestore (LS-1/LS-2/LS-3)
+
+The lorestore is the **durable, content-addressed persistence layer** that
+replaces the loose cache/evidence directories with a single transactional
+abstraction. It is built on three design invariants (DL-0041):
+
+**The three-way identity split.** Fact objects, commits, and refs have
+*independent* identity:
+
+- **Fact objects** are content-addressed (`sha256:<64-hex>` over JCS-canonical
+  JSON). Their hash embeds *no* ancestry — a fact's identity is its assertion,
+  not its history. This is the "three-way split": a fact lives in its own
+  address space, separate from commits and refs.
+- **Commits** carry storage-level ancestry (git-style parent pointers). A
+  `Commit` names the fact objects it introduces, the lineage edges, evidence
+  envelopes, the event-variable interner (the name table that makes `Atom(u32)`
+  indices in support polynomials self-describing), the known `Decl::Ratify`
+  decision ids, and the pack/scope name. The commit's hash absorbs all fields.
+- **Refs** are named pointers to commits, carrying a valuation overlay. Creating
+  a ref is O(1) — a pointer + an overlay, exactly the `dli_eval::ForkStore`
+  model made durable. The `main` ref always exists; fork refs
+  (`fork/option-x-true`) come in LS-6.
+
+**Storage layout** (LooseObject, not a graph):
+```
+objects/<2-hex>/<remaining-62-hex>   ← content-addressed JSON blobs
+refs/<name>                          ← named ref → commit hash
+root/.lock                           ← advisory fs lock (fs2)
+```
+
+**The read path** (`Lorestore::compile()`, LS-3) walks the commit chain from
+`main` → root, reads the head commit's interner + decisions + pack name,
+reads every named fact object, calls `lower::reconstruct_pack` to rebuild a
+`Pack`, then `dli_world::compile` produces the identical `CompiledWorld` as
+if the `.dli` files had been loaded directly. This is verified by a
+**differential parity oracle** (`tests/differential_parity.rs`): the same
+vendored corpus loaded from `.dli` and from its lorestore import compiles to
+identical fixpoint, findings, and digests (206 atoms, 183 facts, 183
+derived, 0 findings — all matching).
+
+This is not a graph database. There are no nodes, no edges, no maintained
+indices, no traversal. A fact object is a flat JSON blob addressed by its
+hash. The "graph" emerges at query time from the support/defeater
+polynomials, which the symbolic fixpoint saturates once.
+
 ### Schema evolution
 
 The AST's JSON Schema is normative (DL-0003). The formatter is the canonical-to-canonical migration. The **killed-form registry** ensures retired keywords are refused at parse time with a `renamed-to` diagnostic — never silently dropped, never accepted as unknown. Supersession is **revaluation**, not rewrite: changing a ruling revalues a variable, and every claim's history stays intact.
@@ -54,6 +99,8 @@ This is fundamentally different from a graph database backing. A graphdb stores 
 There is exactly one query surface: `dli.query` (CLI) and `author.query` / `dli.query` (server), with `--layer`, `--fork`, `--as-of`, `--why`.
 
 The query is a **pattern-match against the saturated relation** — every ground atom already has its support computed. What changes per query is the **valuation** (which event variables are true/false), not the fixpoint. This is the critical architectural decision: **the symbolic fixpoint is computed once, and all standing/grade computations are post-hoc evaluations over it.** A fork's evaluation reuses the same precomputed supports, applying a valuation overlay in a single pass.
+
+The **read path** through the lorestore is a compile-time concern, not a query-time one: `Lorestore::compile()` reconstructs a `Pack` from stored fact objects (via `reconstruct_pack`), then runs the existing `dli_world::compile`. Queries never touch storage directly — they operate on the in-memory `CompiledWorld`, which is `Arc`-shared across sessions.
 
 Compare to a graphdb query (Cypher/SPARQL), where each query traverses the graph from scratch against maintained indices. De Lore Is is closer to **Datalog engines** (fixpoint once, then query), but with the critical addition of **provenance polynomials** that make the fixpoint *symbolic* — a single saturation serves infinitely many valuations.
 
@@ -84,6 +131,8 @@ Concurrency: the server runs at most 4 simulation workers concurrently (hard lim
 
 This contrasts with a graphdb: Neo4j is single-writer, multi-reader. Queries run against maintained indices but re-traverse per query. There's no concept of "fork" in a graphdb — you'd model a what-if as a separate database instance (expensive) or application-level versioning.
 
+The lorestore itself (the storage backend) is **offline and deterministic** — no network, ever, in a gating lane (DL-0013). The gate is `cargo xtask gate`: 17 steps (rustfmt, clippy, nextest, doc build, doctests, build, dli-fmt, schema --check, docgen --check, fixtures, docs-oracle, authority, boundary, docs-tokens, cargo-deny). All 17 run in the deterministic offline lane and block merges.
+
 ---
 
 ## The export architecture (One Fabric vs. Satellite Semantics)
@@ -109,7 +158,7 @@ Most fan-media wikis today use **MediaWiki** (PHP + MySQL) or **Semantic MediaWi
 | Invariant enforcement | Optional constraints, often not checked | Six continuity classes, fail-closed |
 | Grade/trust | Editorial tags, manual | `checked > tested > attested > asserted` lattice with weakest-link rollup |
 | Runtime | PHP + MySQL/Elasticsearch/Redis | Rust, pure functions, thread-safe |
-| Storage | Files in git + database | `.dli` in git + `.dli-cache/` + `.dli-evidence/` |
+| Storage | Files in git + database | `.dli` in git + lorestore (content-addressed objects + commit DAG) |
 
 The key gap: in a wiki, every edit is immediately visible and (barring protection) authoritative. There is no clean separation between "proposed" and "ratified" content. In De Lore Is, `proposed` is **structurally unassertable** — a proposed fact gates on an open hypothesis variable that no one can rule true except the sovereign author.
 
@@ -126,6 +175,7 @@ The key gap: in a wiki, every edit is immediately visible and (barring protectio
 | Invariant enforcement | Structural constraints only | Six continuity classes, fail-closed |
 | Grade/trust | App-level node properties | Formal grade lattice |
 | Concurrency | Single writer, multi-reader clusters | Pure functions over shared fixpoint |
+| Storage | Nodes/edges in graphdb engine; maintained indices | Loose JSON objects, content-addressed; commit DAG for ancestry |
 
 A graphdb can store "this entity has this property" with a "source" property. It cannot express "this fact holds if ratification D-0208 AND hypothesis H-003 are both true, OR if D-0146 is true AND breached is false" — and it certainly cannot apply a valuation change in O(derived atoms) without traversing the graph again.
 
@@ -150,7 +200,7 @@ Datomic is the closest professional prior art: a fact-based, immutable database 
 | Schema evolution | Retractions/replacements | Killed-form registry; supersession-as-revaluation |
 | Concurrency | Single transactor (writes) | Pure functions, thread-safe shared fixpoint |
 | Determinism | Sequential transactions; queries may use set semantics | Fully deterministic offline gate; no clock |
-| Storage | DynamoDB/PG/SQL backend | `.dli` in git + `.dli-cache/` + `.dli-evidence/` |
+| Storage | DynamoDB/PG/SQL backend | `.dli` in git + lorestore (content-addressed objects + commit DAG) |
 
 #### Key architectural divergences from Datomic
 
