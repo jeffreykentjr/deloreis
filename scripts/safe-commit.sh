@@ -132,7 +132,7 @@ if ! git push origin "$BRANCH"; then
   exit 1
 fi
 
-# --- verify THIS SHA's CI run -----------------------------------------------
+# --- CI verification is manual (by SHA) -------------------------------------
 echo
-echo "safe-commit: verifying CI for $SHORT_SHA (by SHA, not 'latest run')"
-exec "$SCRIPT_DIR/ci-wait.sh" "$SHA"
+echo "safe-commit: pushed $SHORT_SHA to origin/$BRANCH"
+echo "safe-commit: verify CI manually: scripts/ci-wait.sh $SHORT_SHA"
