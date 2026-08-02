@@ -49,6 +49,13 @@ use crate::contract::{
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
 
+/// Whether the request negotiated the 0.6.0 wire shape. A `0.5.1` request
+/// receives byte-identical 0.5.1-shaped responses (dual-mode, DL-0045
+/// ruling 4).
+fn wire_v2(request: &Request) -> bool {
+    request.dli == crate::CONTRACT_VERSION
+}
+
 /// The Door T dispatch seam (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
@@ -64,17 +71,26 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorStatus => read(request, store, |store, request| {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::status(store, &params)))
+            let v2 = wire_v2(request);
+            Ok((params.workspace.clone(), tools::status(store, &params, v2)))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::diff(store, &params)))
+            let v2 = wire_v2(request);
+            Ok((params.workspace.clone(), tools::diff(store, &params, v2)))
         }),
-        Op::AuthorMaterialize => read(request, store, |store, request| {
+        // materialize advances the lorestore ref: a mutation, dispatched
+        // through the mutating wrapper so idempotency-key replay works
+        // (audit B9).
+        Op::AuthorMaterialize => mutate(request, store, |store, request| {
             let params: AuthorMaterializeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::materialize(store, &params)))
+            let v2 = wire_v2(request);
+            Ok((
+                params.workspace.clone(),
+                tools::materialize(store, &params, v2),
+            ))
         }),
         Op::AuthorDiscard => mutate(request, store, |store, request| {
             let params: AuthorDiscardParams = parse(request)?;
@@ -145,7 +161,8 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorQuery => read(request, store, |store, request| {
             let params: AuthorQueryParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::query(store, &params)))
+            let v2 = wire_v2(request);
+            Ok((params.workspace.clone(), reads::query(store, &params, v2)))
         }),
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;

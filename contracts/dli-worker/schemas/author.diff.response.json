@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorDiffResult",
-  "description": "`author.diff` result.",
+  "description": "`author.diff` result.\n\nContract 0.6.0 adds `root_hash` (the pinned base commit this change-set is\nrelative to) and `rows` (structured per-fact diffs) alongside the rendered\nlines and findings. Accept/reject semantics: `author.materialize` is the\naccept decision for the reviewed change-set; `author.discard` (with its\nper-declaration `decl` parameter) is the reject decision.",
   "type": "object",
   "properties": {
     "consequences": {
@@ -20,6 +20,23 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "root_hash": {
+      "description": "The lorestore commit this diff is relative to — pinned at\n`author.open`. Absent on a `0.5.1` request or without a lorestore.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rows": {
+      "description": "Structured per-fact diffs with before/after standing — the\nmachine-readable review surface. 0.6.0 only.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/AuthorDiffRow"
       }
     },
     "workspace_digest": {
@@ -60,6 +77,85 @@
         "before",
         "after",
         "rendered"
+      ]
+    },
+    "AuthorDiffRow": {
+      "description": "One structured row in the review diff: a fact-level change with\nbefore/after standing. The consumer renders this for review; accepting is\n`author.materialize`, rejecting is `author.discard` (whole workspace or\nper-declaration via `decl`).",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "The after standing — absent for a retracted fact.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthorDiffStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "atom": {
+          "description": "The atom this row describes, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "before": {
+          "description": "The before standing — absent for a newly-introduced fact.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthorDiffStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "introduced": {
+          "description": "Whether the row represents a newly-introduced fact.",
+          "type": "boolean"
+        },
+        "rendered": {
+          "description": "Deterministic rendering for the human review surface.",
+          "type": "string"
+        },
+        "retracted": {
+          "description": "Whether the row represents a retracted fact.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom",
+        "introduced",
+        "retracted",
+        "rendered"
+      ]
+    },
+    "AuthorDiffStanding": {
+      "description": "A fact's standing at a point in time: its provenance, grade, and status.",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "The procedure grade.",
+          "$ref": "#/$defs/Grade"
+        },
+        "status": {
+          "description": "The atom's standing: `certain` | `possible` | `dead`.",
+          "type": "string"
+        },
+        "support": {
+          "description": "The support antichain as resolved names: one inner list per monomial\n(an alternative derivation), each literal signed `+name`/`-name` —\ncitations, hypothesis variables, and proposal-bundle variables alike.\nNever filtered: a gated claim must never render as unconditional.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "support",
+        "grade",
+        "status"
       ]
     },
     "ConflictKind": {

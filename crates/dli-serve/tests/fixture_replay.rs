@@ -281,10 +281,15 @@ fn fixture_stores() -> (tempfile::TempDir, Sessions, Store) {
             document.killed.clone(),
         )
     });
-    let runtime = (
-        Sessions::from_project(Arc::clone(&project)),
-        Store::with_packs(packs).expect("the committed fixture project compiles"),
-    );
+    let mut store = Store::with_packs(packs).expect("the committed fixture project compiles");
+    // Attach lorestores exactly as production serve does — the 0.6.0 fixtures
+    // record store-backed responses (root_hash, facts), and the 0.5.1
+    // fixtures prove the dual-mode server answers them byte-identically even
+    // with the store present.
+    store
+        .attach_lorestore(temp.path().join(".dli-lorestore"))
+        .expect("attach fixture lorestores");
+    let runtime = (Sessions::from_project(Arc::clone(&project)), store);
     (temp, runtime.0, runtime.1)
 }
 

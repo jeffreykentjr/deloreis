@@ -289,15 +289,19 @@ impl Lorestore {
         self.storage.walk_dag(tip, base)
     }
 
-    /// Collect all unique fact-object hashes named by commits in the chain from
-    /// the head ref back to the root. Deduplicates (the same fact hash may appear
-    /// in multiple commits when a child commit re-names its full fact set rather
-    /// than only deltas) while preserving first-seen order for determinism.
+    /// Collect all unique fact-object hashes named by commits in the chain,
+    /// in **fold order: root first, head last** — reconstruction replays the
+    /// log the way it was written, so declaration order (and with it interner
+    /// index assignment) is preserved across multi-commit chains. Deduplicates
+    /// (the same fact hash may appear in multiple commits) keeping the
+    /// first-written occurrence.
     pub fn all_fact_hashes(&self) -> Result<Vec<ContentHash>, StoreError> {
         let Some(head) = self.root_hash()? else {
             return Ok(Vec::new());
         };
-        let chain = self.storage.walk_dag(&head, None)?;
+        // walk_dag returns HEAD → … → ROOT; the fold runs ROOT → … → HEAD.
+        let mut chain = self.storage.walk_dag(&head, None)?;
+        chain.reverse();
         let mut seen = std::collections::BTreeSet::new();
         let mut unique = Vec::new();
         for c in chain {

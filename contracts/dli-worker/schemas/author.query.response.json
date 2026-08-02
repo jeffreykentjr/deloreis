@@ -4,11 +4,28 @@
   "description": "`author.query` result: one row per match over the staged world, each carrying\nits support, grade, standing, and (when asked) its why-antichain.",
   "type": "object",
   "properties": {
+    "root_hash": {
+      "description": "The workspace digest the query was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).\n0.6.0 only.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "rows": {
       "description": "The answer rows over the staged world.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/QueryRow"
+      }
+    },
+    "valuation": {
+      "description": "The full effective valuation of the staged world — every ruled atom\nwith its boolean, sorted by name. 0.6.0 only.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/ValuationEntry"
       }
     }
   },
@@ -124,6 +141,24 @@
           "type": "string",
           "const": "certain"
         }
+      ]
+    },
+    "ValuationEntry": {
+      "description": "One ruled event variable in a wire valuation: the atom's resolved name and\nthe boolean it was ruled to. Explicit-false rulings are semantically\ndistinct from unruled atoms (a false kills a monomial; unruled leaves it\npossible), so the wire form carries both — never a true-only list.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The resolved event-variable name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The ruled boolean.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom",
+        "value"
       ]
     },
     "Verdict": {

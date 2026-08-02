@@ -451,6 +451,62 @@
       "attack": {"dli": "0.5.1", "id": "__DLI_FRAME_ATTACK__", "op": "author.list_workspaces", "params": {}},
       "changed_paths": ["/id"],
       "compare_paths": ["/ok", "/result"]
+    },
+    {
+      "op": "author.status",
+      "control_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "Control label", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "attack_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "__DLI_FRAME_ATTACK__", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "control": {"dli": "0.6.0", "id": "1", "op": "author.status", "params": {"workspace": "ws-1"}},
+      "attack": {"dli": "0.6.0", "id": "1", "op": "author.status", "params": {"workspace": "ws-1"}},
+      "changed_paths": [],
+      "compare_paths": ["/ok", "/result/findings", "/result/root_hash", "/result/diff_rows"],
+      "allow_taint_paths": ["/result/rendered"]
+    },
+    {
+      "op": "author.diff",
+      "control_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "Control label", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "attack_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "__DLI_FRAME_ATTACK__", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "control": {"dli": "0.6.0", "id": "1", "op": "author.diff", "params": {"workspace": "ws-1"}},
+      "attack": {"dli": "0.6.0", "id": "1", "op": "author.diff", "params": {"workspace": "ws-1"}},
+      "changed_paths": [],
+      "compare_paths": ["/ok", "/result/findings", "/result/root_hash", "/result/rows"],
+      "allow_taint_paths": ["/result/rendered"]
+    },
+    {
+      "op": "author.materialize",
+      "control_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "Control label", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "attack_precondition": [
+        {"dli": "0.5.1", "id": "open", "op": "author.open", "params": {"scope": "saltmarket"}},
+        {"dli": "0.5.1", "id": "stage", "op": "author.add_event", "params": {"workspace": "ws-1", "id": "frame-read", "name": "__DLI_FRAME_ATTACK__", "era": "first-tides", "provenance": {"kind": "proposed", "origin": "framing"}}}
+      ],
+      "control": {"dli": "0.6.0", "id": "1", "op": "author.materialize", "params": {"workspace": "ws-1"}},
+      "attack": {"dli": "0.6.0", "id": "1", "op": "author.materialize", "params": {"workspace": "ws-1"}},
+      "changed_paths": [],
+      "compare_paths": ["/ok", "/result/findings", "/result/rendered"],
+      "allow_taint_paths": ["/result/facts"]
+    },
+    {
+      "op": "dli.query",
+      "control": {"dli": "0.6.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(\"control\")"}},
+      "attack": {"dli": "0.6.0", "id": "1", "op": "dli.query", "params": {"document": "saltmarket", "goal": "marker(\"__DLI_FRAME_ATTACK__\")"}},
+      "changed_paths": ["/params/goal"],
+      "compare_paths": ["/ok", "/result/root_hash", "/result/valuation"],
+      "allow_taint_paths": ["/result/rows"]
     }
   ]
 }

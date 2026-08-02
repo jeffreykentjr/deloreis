@@ -56,7 +56,6 @@ use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, 
 use dli_world::payload::{BatteryContext, check_payload};
 use dli_world::scene_projection::project_scene;
 
-use crate::CONTRACT_VERSION;
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::evidence::{self, EvidenceError};
 use crate::finding::{Finding, Severity};
@@ -139,11 +138,14 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
 
 fn handle_version(request: &Request) -> Result<Response, Fault> {
     let _: VersionParams = params(request)?;
+    // Dual-mode: the handshake reports the version THIS conversation is
+    // speaking — a `0.5.1` caller keeps its byte-identical `0.5.1` handshake
+    // until it opts into 0.6.0 (DL-0045 ruling 4).
     Ok(ok_response(
         request,
         &VersionResult {
             contract: "dli-worker".to_owned(),
-            contract_version: CONTRACT_VERSION.to_owned(),
+            contract_version: request.dli.clone(),
             server: concat!("deloreis ", env!("CARGO_PKG_VERSION")).to_owned(),
             capabilities: capabilities(),
         },
@@ -272,6 +274,25 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         .query_with(&Query { goal }, &opts)
         .map_err(eval_fault)?;
     let interner = scope.world.model.interner();
+    // 0.6.0 replay context: bind the compiled world (facts, derived set,
+    // interner) together with the EFFECTIVE valuation — the ambient rulings
+    // with any fork overlay folded in — and the as-of cut. The digest is
+    // domain-prefixed `world:sha256:` — a binding of compiled state, never a
+    // loadable store address (audit B6). The wire valuation is the full
+    // ruled map, explicit falses included (audit B7).
+    let context = if request.dli == crate::CONTRACT_VERSION {
+        let mut effective = scope.world.model.world.valuation.clone();
+        if let Some(overlay) = &opts.fork {
+            for (atom, value) in &overlay.0 {
+                effective.0.insert(*atom, *value);
+            }
+        }
+        let entries = crate::author::reads::valuation_entries(&effective, interner);
+        let digest = world_binding_digest(&scope.world, &effective, p.as_of.as_deref());
+        Some((digest, entries))
+    } else {
+        None
+    };
     let rows = answer
         .rows
         .into_iter()
@@ -291,11 +312,69 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
                 grade: row.verdict.grade,
                 citations,
                 why: row.why,
+                root_hash: context.as_ref().map(|(digest, _)| digest.clone()),
+                valuation: context.as_ref().map(|(_, entries)| entries.clone()),
             }
         })
         .collect();
-    let result = QueryResult { rows };
+    let result = QueryResult {
+        root_hash: context.as_ref().map(|(digest, _)| digest.clone()),
+        valuation: context.map(|(_, entries)| entries),
+        rows,
+    };
     Ok(ok_response(request, &result))
+}
+
+/// The `world:sha256:` binding of a compiled world under an effective
+/// valuation and as-of cut: extensional facts with their support polynomials,
+/// the derived set, the interner name table, the full valuation, and the cut.
+/// Two worlds differing in any of these bind differently; the digest resolves
+/// in no store by design.
+fn world_binding_digest(
+    world: &dli_world::CompiledWorld,
+    effective: &Valuation,
+    as_of: Option<&str>,
+) -> String {
+    use sha2::{Digest, Sha256};
+    let model = &world.model;
+    let interner = model.interner();
+    let inner = &model.world;
+    let mut sections: Vec<String> = Vec::new();
+    let mut facts: Vec<String> = inner
+        .facts
+        .iter()
+        .map(|fact| {
+            format!(
+                "{}|{}",
+                fact.atom.render(),
+                dli_lorestore::lower::render_polynomial(&fact.ann.support, interner)
+            )
+        })
+        .collect();
+    facts.sort();
+    sections.push(format!("facts:{}", facts.join(";")));
+    let mut derived: Vec<String> = inner.derived.iter().map(|d| d.atom.render()).collect();
+    derived.sort();
+    sections.push(format!("derived:{}", derived.join(";")));
+    sections.push(format!("interner:{}", interner.names().join(";")));
+    let mut ruled: Vec<String> = effective
+        .0
+        .iter()
+        .filter_map(|(atom, value)| {
+            interner
+                .resolve(*atom)
+                .map(|name| format!("{name}={value}"))
+        })
+        .collect();
+    ruled.sort();
+    sections.push(format!("valuation:{}", ruled.join(";")));
+    sections.push(format!("as_of:{}", as_of.unwrap_or("")));
+    let mut hasher = Sha256::new();
+    for section in &sections {
+        hasher.update(section.as_bytes());
+        hasher.update([0u8]);
+    }
+    format!("world:sha256:{:x}", hasher.finalize())
 }
 
 fn handle_fork_new(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {

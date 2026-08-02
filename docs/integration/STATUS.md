@@ -35,8 +35,11 @@ The coordination points and what each side owes are defined in `migration.md`
 | **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | proposed | — |
 | **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | proposed | — |
 
-The source tree currently implements pre-v1 contract `0.5.1`, including all six
-export emission branches. That is engineering readiness, not delivery: CP-1,
+The source tree currently implements contract `0.6.0`, served **dual-mode**:
+a `0.5.1` request receives byte-identical `0.5.1`-shaped responses, and every
+vendored v1 fixture remains in the registry as the standing compatibility
+suite (DL-0046) — the v1 handshake completes on v1 terms. All six export
+emission branches are implemented. That is engineering readiness, not delivery: CP-1,
 CP-9, and CP-10 remain `proposed` until a tagged build and the corresponding
 consumer-owned evidence exist.
 

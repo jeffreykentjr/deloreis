@@ -19,6 +19,9 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
         .with_context(|| format!("reading {}", registry_path.display()))?;
     let registry: serde_yaml_ng::Value =
         serde_yaml_ng::from_str(&text).context("parsing registry.yaml")?;
+    if !update_digests {
+        check_version_rides_digest_changes(contract_dir, &registry)?;
+    }
     let fixtures_dir = contract_dir.join("fixtures");
 
     if let Some(project) = registry
@@ -169,9 +172,20 @@ fn paired_framing_ops(dir: &Path) -> Result<BTreeSet<String>> {
         for (index, case) in cases.iter().enumerate() {
             let op = validate_framing_case(case)
                 .with_context(|| format!("{} case {index}", path.display()))?;
-            if !ops.insert(op.clone()) {
-                bail!("framing: operation '{op}' has more than one paired case");
+            // Dual-mode: one paired case per (op, wire version) — the 0.6.0
+            // response surface gets its own taint-confinement proof alongside
+            // the frozen 0.5.1 one.
+            let version = case
+                .pointer("/control/dli")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_owned();
+            if !ops.insert(format!("{op}@{version}")) {
+                bail!(
+                    "framing: operation '{op}' has more than one paired case for wire version {version}"
+                );
             }
+            ops.insert(op.clone());
         }
     }
     Ok(ops)
@@ -557,6 +571,71 @@ fn update_registry_digests(registry_path: &Path, text: &str, fixtures_dir: &Path
 
 fn hex_digest(bytes: &[u8]) -> String {
     crate::util::sha256_hex(bytes)
+}
+
+/// Audit C4: released fixture bytes are frozen. Any re-pinned or removed
+/// fixture digest in the registry must ride a `contract_version` change —
+/// otherwise the vendored, digest-checked consumer copy (DL-0010) silently
+/// diverges under the same version label. Compared against `HEAD`'s registry;
+/// skipped when there is no committed registry to compare against (fresh
+/// history) or git is unavailable (the check is a repository discipline, not
+/// a runtime property).
+fn check_version_rides_digest_changes(
+    contract_dir: &Path,
+    current: &serde_yaml_ng::Value,
+) -> Result<()> {
+    let Ok(output) = std::process::Command::new("git")
+        .current_dir(contract_dir)
+        .args(["show", "HEAD:contracts/dli-worker/registry.yaml"])
+        .output()
+    else {
+        return Ok(());
+    };
+    if !output.status.success() {
+        return Ok(());
+    }
+    let Ok(head) =
+        serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&String::from_utf8_lossy(&output.stdout))
+    else {
+        return Ok(());
+    };
+    let version = |v: &serde_yaml_ng::Value| {
+        v.get("contract_version")
+            .and_then(serde_yaml_ng::Value::as_str)
+            .map(str::to_owned)
+    };
+    if version(current) != version(&head) {
+        return Ok(()); // the bump rode along — re-pinning is legitimate
+    }
+    let digests = |v: &serde_yaml_ng::Value| -> std::collections::BTreeMap<String, String> {
+        v.get("fixtures")
+            .and_then(serde_yaml_ng::Value::as_sequence)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| {
+                Some((
+                    e.get("path")?.as_str()?.to_owned(),
+                    e.get("sha256")?.as_str()?.to_owned(),
+                ))
+            })
+            .collect()
+    };
+    let head_digests = digests(&head);
+    let current_digests = digests(current);
+    for (path, want) in &head_digests {
+        match current_digests.get(path) {
+            Some(got) if got == want => {}
+            Some(_) => bail!(
+                "fixtures: {path} was re-pinned while contract_version is unchanged — \
+                 released fixture bytes are frozen; bump the version with the re-record (audit C4)"
+            ),
+            None => bail!(
+                "fixtures: {path} was removed from the registry while contract_version is \
+                 unchanged — retired fixtures ride a version change (audit C4)"
+            ),
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

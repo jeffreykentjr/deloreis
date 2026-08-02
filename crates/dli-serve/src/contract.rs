@@ -37,10 +37,22 @@ use crate::finding::{Finding, Provenance};
 pub struct AuthorMutationResult {
     /// Findings raised by the mutation (data, never instructions).
     pub findings: Vec<Finding>,
-    /// The rendered lines the mutation produced.
+    /// The rendered lines the mutation produced. On a 0.6.0 `materialize`
+    /// this is empty unless the request opted in with `rendered: true` —
+    /// the JSON-first return carries `facts` instead.
     pub rendered: Vec<String>,
-    /// The workspace digest after the mutation.
+    /// The workspace digest after the mutation — always in the fence-valid
+    /// `jcs:sha256:` regime, so fencing the next call with this value works.
     pub workspace_digest: String,
+    /// The lorestore commit hash a `materialize` advanced the workspace's
+    /// branch to. A separate field from `workspace_digest` — the two digest
+    /// regimes never share a field. 0.6.0 materialize only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// The committed fact objects as JSON — the 0.6.0 materialize JSON-first
+    /// return (`.dli` rendering is the opt-in, DL-0045 ruling 1).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub facts: Option<Vec<serde_json::Value>>,
 }
 
 /// A derived-consequence diff delta, shared by the fork mutation ops.
@@ -397,10 +409,37 @@ pub struct QueryParams {
 }
 
 /// `dli.query` result.
+///
+/// Contract 0.6.0 adds the replay context `(root_hash, valuation)`: the pair
+/// identifies exactly which world state — including any fork/as-of overlay
+/// folded into the evaluation — the answer was computed against, so a
+/// consumer can replay the triple `(root_hash, valuation, query)`. Both
+/// fields are absent on a `0.5.1` request (dual-mode).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryResult {
+    /// The domain-prefixed digest (`world:sha256:<hex>`) binding the compiled
+    /// world the query ran against: its fact set, rules, interner, and the
+    /// full effective valuation (fork/as-of overlays folded in). 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// The full effective valuation — every ruled atom with its boolean,
+    /// sorted by atom name; absence from the list means unruled. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub valuation: Option<Vec<ValuationEntry>>,
     /// Every row matching the query and its requested filters.
     pub rows: Vec<QueryResultRow>,
+}
+
+/// One ruled event variable in a wire valuation: the atom's resolved name and
+/// the boolean it was ruled to. Explicit-false rulings are semantically
+/// distinct from unruled atoms (a false kills a monomial; unruled leaves it
+/// possible), so the wire form carries both — never a true-only list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ValuationEntry {
+    /// The resolved event-variable name.
+    pub atom: String,
+    /// The ruled boolean.
+    pub value: bool,
 }
 
 /// One wire query row. It retains evaluator data and adds resolved citations
@@ -424,6 +463,13 @@ pub struct QueryResultRow {
     pub why: Option<Why>,
     /// The kernel's deterministic one-line rendering of the row.
     pub rendered: String,
+    /// The result-level `root_hash`, repeated per row so a single row is
+    /// independently verifiable. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// The result-level valuation, repeated per row. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub valuation: Option<Vec<ValuationEntry>>,
 }
 
 // -- dli.fork.list -----------------------------------------------------------
@@ -1202,6 +1248,16 @@ pub struct AuthorStatusParams {
 pub struct AuthorStatusResult {
     /// The rendered workspace state.
     pub rendered: Vec<String>,
+    /// The lorestore commit the workspace was opened against — pinned at
+    /// `author.open`, advanced by this workspace's own `materialize`, never
+    /// the moving global head. Absent on a `0.5.1` request or when no
+    /// lorestore is attached. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// Structured per-fact diff rows with before/after standing — the
+    /// machine-readable review surface. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub diff_rows: Option<Vec<AuthorDiffRow>>,
     /// Every current graded finding over the staged world.
     pub findings: Vec<Finding>,
     /// The current workspace digest.
@@ -1219,16 +1275,66 @@ pub struct AuthorDiffParams {
 }
 
 /// `author.diff` result.
+///
+/// Contract 0.6.0 adds `root_hash` (the pinned base commit this change-set is
+/// relative to) and `rows` (structured per-fact diffs) alongside the rendered
+/// lines and findings. Accept/reject semantics: `author.materialize` is the
+/// accept decision for the reviewed change-set; `author.discard` (with its
+/// per-declaration `decl` parameter) is the reject decision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorDiffResult {
     /// The rendered diff lines.
     pub rendered: Vec<String>,
+    /// The lorestore commit this diff is relative to — pinned at
+    /// `author.open`. Absent on a `0.5.1` request or without a lorestore.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// Structured per-fact diffs with before/after standing — the
+    /// machine-readable review surface. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub rows: Option<Vec<AuthorDiffRow>>,
     /// Every current graded finding over the staged world.
     pub findings: Vec<Finding>,
     /// The base-to-staged derived-consequence diff.
     pub consequences: DiffDelta,
     /// The current workspace digest.
     pub workspace_digest: String,
+}
+
+/// One structured row in the review diff: a fact-level change with
+/// before/after standing. The consumer renders this for review; accepting is
+/// `author.materialize`, rejecting is `author.discard` (whole workspace or
+/// per-declaration via `decl`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorDiffRow {
+    /// The atom this row describes, rendered `pred(a, b)`.
+    pub atom: String,
+    /// The before standing — absent for a newly-introduced fact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<AuthorDiffStanding>,
+    /// The after standing — absent for a retracted fact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<AuthorDiffStanding>,
+    /// Whether the row represents a newly-introduced fact.
+    pub introduced: bool,
+    /// Whether the row represents a retracted fact.
+    pub retracted: bool,
+    /// Deterministic rendering for the human review surface.
+    pub rendered: String,
+}
+
+/// A fact's standing at a point in time: its provenance, grade, and status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorDiffStanding {
+    /// The support antichain as resolved names: one inner list per monomial
+    /// (an alternative derivation), each literal signed `+name`/`-name` —
+    /// citations, hypothesis variables, and proposal-bundle variables alike.
+    /// Never filtered: a gated claim must never render as unconditional.
+    pub support: Vec<Vec<String>>,
+    /// The procedure grade.
+    pub grade: Grade,
+    /// The atom's standing: `certain` | `possible` | `dead`.
+    pub status: String,
 }
 
 // -- author.discard ----------------------------------------------------------
@@ -1264,6 +1370,12 @@ pub struct AuthorDiscardResult {
 pub struct AuthorMaterializeParams {
     /// The workspace id.
     pub workspace: String,
+    /// Opt into the `.dli` rendering in the result. Contract 0.6.0 returns
+    /// the committed fact objects as JSON by default (the JSON-first return);
+    /// the rendered lines are produced only on request. Ignored (always
+    /// rendered) on a `0.5.1` request.
+    #[serde(default)]
+    pub rendered: bool,
 }
 
 // -- author.add_entity -------------------------------------------------------
@@ -1439,6 +1551,15 @@ pub struct AuthorQueryParams {
 /// its support, grade, standing, and (when asked) its why-antichain.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorQueryResult {
+    /// The workspace digest the query was evaluated against (`jcs:sha256:`
+    /// regime — the staged world is workspace state, not a store commit).
+    /// 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+    /// The full effective valuation of the staged world — every ruled atom
+    /// with its boolean, sorted by name. 0.6.0 only.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub valuation: Option<Vec<ValuationEntry>>,
     /// The answer rows over the staged world.
     pub rows: Vec<QueryRow>,
 }

@@ -4,6 +4,16 @@
   "description": "`author.status` result.",
   "type": "object",
   "properties": {
+    "diff_rows": {
+      "description": "Structured per-fact diff rows with before/after standing — the\nmachine-readable review surface. 0.6.0 only.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/AuthorDiffRow"
+      }
+    },
     "findings": {
       "description": "Every current graded finding over the staged world.",
       "type": "array",
@@ -18,6 +28,13 @@
         "type": "string"
       }
     },
+    "root_hash": {
+      "description": "The lorestore commit the workspace was opened against — pinned at\n`author.open`, advanced by this workspace's own `materialize`, never\nthe moving global head. Absent on a `0.5.1` request or when no\nlorestore is attached. 0.6.0 only.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "workspace_digest": {
       "description": "The current workspace digest.",
       "type": "string"
@@ -29,6 +46,85 @@
     "workspace_digest"
   ],
   "$defs": {
+    "AuthorDiffRow": {
+      "description": "One structured row in the review diff: a fact-level change with\nbefore/after standing. The consumer renders this for review; accepting is\n`author.materialize`, rejecting is `author.discard` (whole workspace or\nper-declaration via `decl`).",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "The after standing — absent for a retracted fact.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthorDiffStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "atom": {
+          "description": "The atom this row describes, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "before": {
+          "description": "The before standing — absent for a newly-introduced fact.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthorDiffStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "introduced": {
+          "description": "Whether the row represents a newly-introduced fact.",
+          "type": "boolean"
+        },
+        "rendered": {
+          "description": "Deterministic rendering for the human review surface.",
+          "type": "string"
+        },
+        "retracted": {
+          "description": "Whether the row represents a retracted fact.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom",
+        "introduced",
+        "retracted",
+        "rendered"
+      ]
+    },
+    "AuthorDiffStanding": {
+      "description": "A fact's standing at a point in time: its provenance, grade, and status.",
+      "type": "object",
+      "properties": {
+        "grade": {
+          "description": "The procedure grade.",
+          "$ref": "#/$defs/Grade"
+        },
+        "status": {
+          "description": "The atom's standing: `certain` | `possible` | `dead`.",
+          "type": "string"
+        },
+        "support": {
+          "description": "The support antichain as resolved names: one inner list per monomial\n(an alternative derivation), each literal signed `+name`/`-name` —\ncitations, hypothesis variables, and proposal-bundle variables alike.\nNever filtered: a gated claim must never render as unconditional.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "support",
+        "grade",
+        "status"
+      ]
+    },
     "Finding": {
       "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
       "type": "object",

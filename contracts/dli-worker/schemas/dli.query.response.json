@@ -1,14 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "QueryResult",
-  "description": "`dli.query` result.",
+  "description": "`dli.query` result.\n\nContract 0.6.0 adds the replay context `(root_hash, valuation)`: the pair\nidentifies exactly which world state — including any fork/as-of overlay\nfolded into the evaluation — the answer was computed against, so a\nconsumer can replay the triple `(root_hash, valuation, query)`. Both\nfields are absent on a `0.5.1` request (dual-mode).",
   "type": "object",
   "properties": {
+    "root_hash": {
+      "description": "The domain-prefixed digest (`world:sha256:<hex>`) binding the compiled\nworld the query ran against: its fact set, rules, interner, and the\nfull effective valuation (fork/as-of overlays folded in). 0.6.0 only.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "rows": {
       "description": "Every row matching the query and its requested filters.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/QueryResultRow"
+      }
+    },
+    "valuation": {
+      "description": "The full effective valuation — every ruled atom with its boolean,\nsorted by atom name; absence from the list means unruled. 0.6.0 only.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/ValuationEntry"
       }
     }
   },
@@ -94,6 +111,13 @@
           "description": "The kernel's deterministic one-line rendering of the row.",
           "type": "string"
         },
+        "root_hash": {
+          "description": "The result-level `root_hash`, repeated per row so a single row is\nindependently verifiable. 0.6.0 only.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "status": {
           "description": "The atom's standing under the selected valuation.",
           "$ref": "#/$defs/Status"
@@ -101,6 +125,16 @@
         "support": {
           "description": "The support formula.",
           "$ref": "#/$defs/PosBool"
+        },
+        "valuation": {
+          "description": "The result-level valuation, repeated per row. 0.6.0 only.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/ValuationEntry"
+          }
         },
         "why": {
           "description": "The optional support explanation requested with `why`.",
@@ -142,6 +176,24 @@
           "type": "string",
           "const": "certain"
         }
+      ]
+    },
+    "ValuationEntry": {
+      "description": "One ruled event variable in a wire valuation: the atom's resolved name and\nthe boolean it was ruled to. Explicit-false rulings are semantically\ndistinct from unruled atoms (a false kills a monomial; unruled leaves it\npossible), so the wire form carries both — never a true-only list.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The resolved event-variable name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The ruled boolean.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom",
+        "value"
       ]
     },
     "Why": {

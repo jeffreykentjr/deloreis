@@ -21,8 +21,15 @@ pub mod serve;
 pub mod session;
 mod simulation;
 
-/// The pre-v1 worker contract and envelope protocol version.
-pub const CONTRACT_VERSION: &str = "0.5.1";
+/// The current worker contract and envelope protocol version (JSON-first,
+/// lorestore-backed — DL-0045 ruling 4, roadmap LS-4).
+pub const CONTRACT_VERSION: &str = "0.6.0";
+
+/// The prior contract version, still answered dual-mode: a `0.5.1` request
+/// receives byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until
+/// the consumer completes EXT-F4 — nothing removed, nothing reshaped
+/// (DL-0010, DL-0031..DL-0037 discipline).
+pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
 pub use finding::{Finding, Provenance, Severity};

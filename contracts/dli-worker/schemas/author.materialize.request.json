@@ -4,6 +4,11 @@
   "description": "`author.materialize` params.",
   "type": "object",
   "properties": {
+    "rendered": {
+      "description": "Opt into the `.dli` rendering in the result. Contract 0.6.0 returns\nthe committed fact objects as JSON by default (the JSON-first return);\nthe rendered lines are produced only on request. Ignored (always\nrendered) on a `0.5.1` request.",
+      "type": "boolean",
+      "default": false
+    },
     "workspace": {
       "description": "The workspace id.",
       "type": "string"

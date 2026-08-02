@@ -262,6 +262,13 @@ impl Store {
         }
         workspace.interner_names = base_names;
         workspace.bundle_counter = bundle_counter;
+        // Pin the base commit this workspace is relative to (audit B8): the
+        // store head at open time, not the moving global head.
+        workspace.base_root_hash = self
+            .lorestores
+            .get(&base_key)
+            .and_then(|ls| ls.root_hash().ok().flatten())
+            .map(|h| h.to_string());
         self.workspace_bases.insert(id.clone(), base_key);
         Some(self.workspaces.entry(id.clone()).or_insert(workspace))
     }
@@ -387,11 +394,12 @@ impl Store {
         for fo in &objects {
             hashes.push(ls.write_object(fo)?);
         }
+        let key = super::tools::decl_key(decl);
         let ws = self
             .workspaces
             .get_mut(ws_id)
             .expect("workspace existed above");
-        ws.staged_fact_hashes.extend(hashes);
+        ws.staged_fact_hashes.push((key, hashes));
         ws.interner_names = interner.names().to_vec();
         ws.bundle_counter = counter;
         Ok(())

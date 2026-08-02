@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 0.5.1
+contract_version: 0.6.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -48,7 +48,7 @@ fixtures:
 - path: framing/name-check-framing.json
   sha256: b75c36690d6fac59a8f034c6d9895c14d23034643389290bc8906a6dcb3be1e7
 - path: framing/paired-all-ops-v1.json
-  sha256: 8d1aaf872c968aa0346b5d39fcbcd7f60d8c7b04a68ad946dac60be93872461a
+  sha256: 3322eb8715da8709f8208809d592c37d6116f695e18b9055fdbe35c433cd8e38
 - path: golden/attest-missing-v1.json
   sha256: 6bcd5b1c9bf18c3160167f8c820da467752e584aea184090dcdf2d8062527d42
 - path: golden/attestation-sweep-v1.json

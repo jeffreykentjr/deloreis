@@ -75,23 +75,35 @@ pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value
 
 // -- author.status / author.diff (read-only) ---------------------------------
 
-/// The workspace's staged canonical surface and current digest.
-pub(super) fn status(store: &Store, params: &AuthorStatusParams) -> Result<Value, ErrorBody> {
+/// The workspace's staged canonical surface and current digest. On a 0.6.0
+/// request the result also carries the pinned base commit and the structured
+/// diff rows (the review surface).
+pub(super) fn status(
+    store: &Store,
+    params: &AuthorStatusParams,
+    v2: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws);
     Ok(value(&AuthorStatusResult {
         rendered: render_decls(&ws.decls),
+        root_hash: if v2 { ws.base_root_hash.clone() } else { None },
+        diff_rows: v2.then_some(report.diff_rows),
         findings: report.findings,
         workspace_digest: ws.digest.clone(),
     }))
 }
 
 /// The rendered canonical block, findings, and consequences of the staged change.
-pub(super) fn diff(store: &Store, params: &AuthorDiffParams) -> Result<Value, ErrorBody> {
+/// On a 0.6.0 request the result also carries the pinned base commit and the
+/// structured per-fact rows.
+pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws);
     Ok(value(&AuthorDiffResult {
         rendered: render_decls(&ws.decls),
+        root_hash: if v2 { ws.base_root_hash.clone() } else { None },
+        rows: v2.then_some(report.diff_rows),
         findings: report.findings,
         consequences: report.consequences,
         workspace_digest: ws.digest.clone(),
@@ -121,6 +133,16 @@ pub(super) fn discard(
     match index {
         Some(i) => {
             ws.remove_decl(i);
+            // The reject drops the durably staged group too: a rejected claim
+            // never reaches a commit (LS-5 accept/reject; the object itself
+            // becomes an orphan, garbage never corruption).
+            if let Some(pos) = ws
+                .staged_fact_hashes
+                .iter()
+                .position(|(key, _)| key == decl_id)
+            {
+                ws.staged_fact_hashes.remove(pos);
+            }
             // A structural change invalidates every cached replay: a later retry
             // must re-execute against the new state, not serve a stale result for
             // a declaration that is no longer present (R3/B5).
@@ -133,17 +155,28 @@ pub(super) fn discard(
 
 // -- author.materialize ------------------------------------------------------
 
-/// Render the workspace to `.dli` file lines **as data** — the kernel writes
-/// nothing (spec 11 §4). Refuses with `materialize-blocked` when any
-/// error-severity finding is open; the blocking finding codes ride in the error
-/// data.
+/// Materialize the workspace: commit the staged delta to the lorestore and
+/// return the committed fact objects **as data** — the kernel writes no files
+/// (spec 11 §4). Refuses with `materialize-blocked` when any error-severity
+/// finding is open; the blocking finding codes ride in the error data.
+///
+/// Digest regimes stay separate (audit A4, DL-0045 ruling 3): the returned
+/// `workspace_digest` is the fence-valid `jcs:sha256:` workspace digest —
+/// materialize does not restructure the staged declarations, so the digest is
+/// unchanged and immediately usable as the next call's fence. The lorestore
+/// commit hash travels in its own `root_hash` field (0.6.0 only).
+///
+/// Re-materializing with nothing newly staged is an idempotent no-op: no new
+/// commit is written (audit B9) and the pinned commit is returned.
+#[allow(clippy::too_many_lines)]
 pub(super) fn materialize(
     store: &mut Store,
     params: &AuthorMaterializeParams,
+    v2: bool,
 ) -> Result<Value, ErrorBody> {
     // Clone everything we need from the workspace and check the blocking
     // findings before touching the lorestore — this avoids a borrow conflict
-    // between `store.get()` (immutable) and `store.lorestore_mut()` (mutable).
+    // between `store.get()` (immutable) and the mutable lorestore access.
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let blocking = dedup(
         reads::workspace_report(store, ws)
@@ -163,64 +196,66 @@ pub(super) fn materialize(
         });
     }
 
-    // If a lorestore is attached (LS-4), commit the staged delta.
-    if store.workspace_lorestore(&params.workspace).is_some() {
-        let (base_name, staged_decls, staged_fact_hashes, ws_interner, base_docs) = {
-            let ws = store.get(&params.workspace).ok_or_else(gone)?;
-            (
-                ws.base_name.clone(),
-                ws.decls.clone(),
-                ws.staged_fact_hashes.clone(),
-                ws.interner_names.clone(),
-                store
-                    .workspace_base_docs(&params.workspace)
-                    .map(<[Document]>::to_vec)
-                    .unwrap_or_default(),
-            )
-        };
-
-        return materialize_staged_delta(
-            store
-                .workspace_lorestore_mut(&params.workspace)
-                .expect("checked above"),
-            base_name,
-            &base_docs,
-            &staged_decls,
-            &staged_fact_hashes,
-            &ws_interner,
-        );
+    // Without a lorestore the rendering IS the materialization (demo/test
+    // contexts): version-independent legacy shape.
+    if store.workspace_lorestore(&params.workspace).is_none() {
+        let ws = store.get(&params.workspace).ok_or_else(gone)?;
+        return Ok(value(&AuthorMutationResult {
+            findings: Vec::new(),
+            rendered: render_scoped(&ws.base_name, &ws.decls),
+            workspace_digest: ws.digest.clone(),
+            root_hash: None,
+            facts: None,
+        }));
     }
 
-    Ok(value(&AuthorMutationResult {
-        findings: Vec::new(),
-        rendered: render_scoped(&ws.base_name, &ws.decls),
-        workspace_digest: ws.digest.clone(),
-    }))
-}
+    let (base_name, staged_decls, staged_fact_hashes, ws_interner, base_docs, ws_digest, pinned) = {
+        let ws = store.get(&params.workspace).ok_or_else(gone)?;
+        (
+            ws.base_name.clone(),
+            ws.decls.clone(),
+            ws.staged_fact_hashes
+                .iter()
+                .flat_map(|(_, hashes)| hashes.iter().cloned())
+                .collect::<Vec<_>>(),
+            ws.interner_names.clone(),
+            store
+                .workspace_base_docs(&params.workspace)
+                .map(<[Document]>::to_vec)
+                .unwrap_or_default(),
+            ws.digest.clone(),
+            ws.base_root_hash.clone(),
+        )
+    };
 
-/// LS-4 commit write path (delta): the staged declarations have already been
-/// lowered to `FactObject`s by `stage_lorestore` during `author.add_*` calls,
-/// and those objects are written to the lorestore. Here we just compute the
-/// declared decisions (lightweight annotation scan, no compilation) and commit.
-fn materialize_staged_delta(
-    ls: &mut dli_lorestore::Lorestore,
-    base_name: String,
-    base_docs: &[Document],
-    staged_decls: &[Decl],
-    staged_fact_hashes: &[dli_lorestore::identity::ContentHash],
-    interner: &[String],
-) -> Result<Value, ErrorBody> {
-    let rendered = render_scoped(&base_name, staged_decls);
+    // JSON-first (0.6.0): the rendered lines are the opt-in, the fact objects
+    // the default. A 0.5.1 request always renders.
+    let rendered = if v2 && !params.rendered {
+        Vec::new()
+    } else {
+        render_scoped(&base_name, &staged_decls)
+    };
 
-    // Scan for Ratify declarations in the base + staged docs. This is a
-    // lightweight walk over annotations — no compilation needed.
-    let mut documents: Vec<Document> = base_docs.to_vec();
+    // Idempotent empty delta: nothing staged since the last commit.
+    if staged_fact_hashes.is_empty() {
+        return Ok(value(&AuthorMutationResult {
+            findings: Vec::new(),
+            rendered,
+            workspace_digest: ws_digest,
+            root_hash: if v2 { pinned } else { None },
+            facts: v2.then(Vec::new),
+        }));
+    }
+
+    // Scan for Ratify declarations in the base + staged docs (a lightweight
+    // annotation walk, no compilation) — the commit's known-decision list.
+    let mut documents: Vec<Document> = base_docs;
     documents.push(Document {
         scope: Some(ScopeHeader {
             name: ident(&base_name),
             span: Span::synthetic(),
         }),
-        decls: staged_decls.to_vec(),
+        decls: staged_decls,
     });
     let pack = dli_world::pack::Pack {
         name: base_name.clone(),
@@ -230,15 +265,13 @@ fn materialize_staged_delta(
         .into_iter()
         .collect();
 
-    // Commit as a child of the current head, using the staged fact hashes
-    // (already written during staging) and the workspace's interner.
-    let interner_vec: Vec<String> = interner.to_vec();
-    let fact_hashes: Vec<dli_lorestore::identity::ContentHash> = staged_fact_hashes.to_vec();
-
+    let ls = store
+        .workspace_lorestore_mut(&params.workspace)
+        .expect("checked above");
     let commit_hash = ls
         .commit(
-            interner_vec,
-            fact_hashes,
+            ws_interner,
+            staged_fact_hashes.clone(),
             Vec::new(),
             Vec::new(),
             decisions,
@@ -250,10 +283,42 @@ fn materialize_staged_delta(
             data: None,
         })?;
 
+    // The JSON-first return: the committed fact objects, read back from the
+    // store so the caller sees exactly the durable bytes.
+    let facts = if v2 {
+        let mut list = Vec::with_capacity(staged_fact_hashes.len());
+        for hash in &staged_fact_hashes {
+            let fo: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|e| ErrorBody {
+                    code: ErrorCode::Internal,
+                    message: format!("reading committed fact object: {e}"),
+                    data: None,
+                })?
+                .ok_or_else(|| ErrorBody {
+                    code: ErrorCode::Internal,
+                    message: format!("committed fact object missing: {hash}"),
+                    data: None,
+                })?;
+            list.push(serde_json::to_value(&fo).unwrap_or(Value::Null));
+        }
+        Some(list)
+    } else {
+        None
+    };
+
+    // Advance the workspace: the staged facts are durable, the pin moves to
+    // the new commit, and a retry commits nothing.
+    let (_, ws) = parts_mut(store, &params.workspace)?;
+    ws.staged_fact_hashes.clear();
+    ws.base_root_hash = Some(commit_hash.to_string());
+
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
         rendered,
-        workspace_digest: commit_hash.to_string(),
+        workspace_digest: ws_digest,
+        root_hash: v2.then(|| commit_hash.to_string()),
+        facts,
     }))
 }
 
@@ -904,7 +969,7 @@ fn annotation_fields(fields: &mut Vec<(&'static str, String)>, annot: Option<&An
 
 /// The canonical rendered line that names a staged declaration for `author.discard`
 /// (R3/C3) — the same sanitized line the agent reads in `author.diff`.
-fn decl_key(decl: &Decl) -> String {
+pub(super) fn decl_key(decl: &Decl) -> String {
     render_decls(std::slice::from_ref(decl))
         .into_iter()
         .next()
@@ -1173,6 +1238,8 @@ fn mutation(findings: Vec<Finding>, rendered: Vec<String>, digest: &str) -> Valu
         findings,
         rendered,
         workspace_digest: digest.to_owned(),
+        root_hash: None,
+        facts: None,
     })
 }
 

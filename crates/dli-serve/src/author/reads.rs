@@ -36,6 +36,7 @@ use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
+use dli_core::posbool::PosBool;
 use dli_eval::error::EvalError;
 use dli_eval::fork::{AtomChange, Standing};
 use dli_eval::query::{Answer, Query, QueryOpts};
@@ -47,9 +48,10 @@ use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
 
 use crate::contract::{
-    AuthorCheckParams, AuthorCheckResult, AuthorFindingsParams, AuthorFindingsResult,
-    AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult, AuthorWhyParams,
-    AuthorWhyResult, DiffConflict, DiffDelta, WorkspaceDigest, WorkspaceMode,
+    AuthorCheckParams, AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorFindingsParams,
+    AuthorFindingsResult, AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult,
+    AuthorWhyParams, AuthorWhyResult, DiffConflict, DiffDelta, ValuationEntry, WorkspaceDigest,
+    WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
@@ -64,7 +66,11 @@ use super::workspace::{Mode, Workspace};
 /// `?` or `?name` is a query variable that enumerates matches; a bare symbol is a
 /// ground constant. An unknown predicate over the staged world is not a fault — it
 /// is "asked and answered, nothing matched" (spec 10 §2.1), returned as no rows.
-pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, ErrorBody> {
+pub(super) fn query(
+    store: &Store,
+    params: &AuthorQueryParams,
+    v2: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let goal = parse_goal(&params.goal)?;
     let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
@@ -79,7 +85,25 @@ pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, 
         Err(EvalError::UnknownPredicate { .. }) => Answer::default(),
         Err(err) => return Err(eval_error(&err)),
     };
-    Ok(value(&AuthorQueryResult { rows: answer.rows }))
+    // 0.6.0: the replay context. The staged world is workspace state, so its
+    // anchor is the workspace digest (jcs regime); the valuation is the full
+    // ruled map — explicit falses included.
+    let (root_hash, valuation) = if v2 {
+        (
+            Some(ws.digest.clone()),
+            Some(valuation_entries(
+                &world.model.world.valuation,
+                world.model.interner(),
+            )),
+        )
+    } else {
+        (None, None)
+    };
+    Ok(value(&AuthorQueryResult {
+        root_hash,
+        valuation,
+        rows: answer.rows,
+    }))
 }
 
 // -- author.check ------------------------------------------------------------
@@ -105,6 +129,9 @@ pub(super) struct WorkspaceReport {
     pub findings: Vec<Finding>,
     /// The base-to-staged derived-consequence diff.
     pub consequences: DiffDelta,
+    /// Structured per-fact diff rows with before/after standing (0.6.0 review
+    /// surface; computed always, emitted version-dependently).
+    pub diff_rows: Vec<AuthorDiffRow>,
 }
 
 /// Compile and check one workspace without mutating it.
@@ -120,6 +147,7 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
                 citations: Vec::new(),
             }],
             consequences: DiffDelta::default(),
+            diff_rows: Vec::new(),
         };
     };
     let mut findings = workspace_findings(ws, base);
@@ -132,10 +160,11 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
                 }
             }
             let findings = dedup_findings(findings);
-            let consequences = classify_standings(base, &world, &findings);
+            let (consequences, diff_rows) = classify_standings(base, &world, &findings);
             WorkspaceReport {
                 findings,
                 consequences,
+                diff_rows,
             }
         }
         Err(err) => {
@@ -151,6 +180,7 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
                     ..DiffDelta::default()
                 },
                 findings,
+                diff_rows: Vec::new(),
             }
         }
     }
@@ -267,30 +297,67 @@ fn classify_standings(
     base: &CompiledWorld,
     staged: &CompiledWorld,
     findings: &[Finding],
-) -> DiffDelta {
+) -> (DiffDelta, Vec<AuthorDiffRow>) {
     let before = standings(base);
     let after = standings(staged);
     let mut atoms: BTreeSet<&GroundAtom> = before.keys().collect();
     atoms.extend(after.keys());
     let mut delta = DiffDelta::default();
+    let mut diff_rows: Vec<AuthorDiffRow> = Vec::new();
+    // Each side resolves its support through ITS OWN interner: staged-only
+    // variables (hypothesis and proposal-bundle vars) do not exist in the
+    // base table, and resolving through the wrong one silently drops exactly
+    // the provenance the review surface exists to show (audit B3).
+    let before_interner = base.model.interner();
+    let after_interner = staged.model.interner();
     for atom in atoms {
-        let (before_status, before_grade) = before
-            .get(atom)
-            .copied()
-            .unwrap_or((Status::Dead, Grade::Asserted));
-        let (after_status, after_grade) = after
-            .get(atom)
-            .copied()
-            .unwrap_or((Status::Dead, Grade::Asserted));
+        let before_standing = before.get(atom).cloned();
+        let after_standing = after.get(atom).cloned();
+        let before_present = before_standing.is_some();
+        let after_present = after_standing.is_some();
+        let (before_status, before_grade, before_support) =
+            before_standing.unwrap_or((Status::Dead, Grade::Asserted, PosBool::FALSE));
+        let (after_status, after_grade, after_support) =
+            after_standing.unwrap_or((Status::Dead, Grade::Asserted, PosBool::FALSE));
+        let was_dead = before_status == Status::Dead;
+        let is_dead = after_status == Status::Dead;
+        let rendered = format!(
+            "{}: {} ({before_grade}) -> {} ({after_grade})",
+            atom.render(),
+            status_word(before_status),
+            status_word(after_status)
+        );
         if before_status == after_status {
-            if after_status != Status::Dead && before_grade != after_grade {
-                delta.grade_changed.push(atom_change(
-                    atom,
-                    before_status,
-                    before_grade,
-                    after_status,
-                    after_grade,
-                ));
+            if after_status != Status::Dead
+                && (before_grade != after_grade || before_support != after_support)
+            {
+                if before_grade != after_grade {
+                    delta.grade_changed.push(atom_change(
+                        atom,
+                        before_status,
+                        before_grade,
+                        after_status,
+                        after_grade,
+                    ));
+                }
+                diff_rows.push(AuthorDiffRow {
+                    atom: atom.render(),
+                    before: Some(standing_row(
+                        before_interner,
+                        before_status,
+                        before_grade,
+                        &before_support,
+                    )),
+                    after: Some(standing_row(
+                        after_interner,
+                        after_status,
+                        after_grade,
+                        &after_support,
+                    )),
+                    introduced: false,
+                    retracted: false,
+                    rendered,
+                });
             }
             continue;
         }
@@ -300,16 +367,32 @@ fn classify_standings(
             Status::Possible => delta.newly_possible.push(change),
             Status::Dead => delta.newly_dead.push(change),
         }
+        diff_rows.push(AuthorDiffRow {
+            atom: atom.render(),
+            before: before_present.then(|| {
+                standing_row(
+                    before_interner,
+                    before_status,
+                    before_grade,
+                    &before_support,
+                )
+            }),
+            after: after_present
+                .then(|| standing_row(after_interner, after_status, after_grade, &after_support)),
+            introduced: was_dead && !is_dead,
+            retracted: !was_dead && is_dead,
+            rendered,
+        });
     }
     delta.conflicts = findings
         .iter()
         .filter(|finding| finding.severity == Severity::Error)
         .map(finding_conflict)
         .collect();
-    delta
+    (delta, diff_rows)
 }
 
-fn standings(world: &CompiledWorld) -> BTreeMap<GroundAtom, (Status, Grade)> {
+fn standings(world: &CompiledWorld) -> BTreeMap<GroundAtom, (Status, Grade, PosBool)> {
     let inner = &world.model.world;
     inner
         .derived
@@ -320,10 +403,66 @@ fn standings(world: &CompiledWorld) -> BTreeMap<GroundAtom, (Status, Grade)> {
                 (
                     derived.ann().status(&inner.valuation, &inner.theory),
                     inner.grade_under(derived, &inner.valuation),
+                    derived.ann().support.clone(),
                 ),
             )
         })
         .collect()
+}
+
+/// Build an `AuthorDiffStanding`: the support antichain as one inner list per
+/// monomial, each literal signed `+name`/`-name`, resolved through the side's
+/// OWN interner and **never filtered** — a gated claim must never render as
+/// unconditional (audit B3).
+fn standing_row(
+    interner: &dli_core::atom::Interner,
+    status: Status,
+    grade: Grade,
+    support: &PosBool,
+) -> AuthorDiffStanding {
+    let support: Vec<Vec<String>> = support
+        .monomials()
+        .map(|m| {
+            m.lits()
+                .map(|lit| {
+                    let sign = match lit.rail {
+                        dli_core::atom::Rail::Pos => '+',
+                        dli_core::atom::Rail::Neg => '-',
+                    };
+                    let name = interner
+                        .resolve(lit.atom)
+                        .map_or_else(|| format!("atom{}", lit.atom.0), str::to_owned);
+                    format!("{sign}{name}")
+                })
+                .collect()
+        })
+        .collect();
+    AuthorDiffStanding {
+        support,
+        grade,
+        status: status_word(status).to_owned(),
+    }
+}
+
+/// Render a valuation as the full sorted wire form — every ruled atom with
+/// its boolean, explicit falses included (audit B7: a true-only list is lossy
+/// and disagrees with any hash computed over the full map).
+pub(crate) fn valuation_entries(
+    valuation: &dli_core::valuation::Valuation,
+    interner: &dli_core::atom::Interner,
+) -> Vec<ValuationEntry> {
+    let mut entries: Vec<ValuationEntry> = valuation
+        .0
+        .iter()
+        .filter_map(|(atom, value)| {
+            interner.resolve(*atom).map(|name| ValuationEntry {
+                atom: name.to_owned(),
+                value: *value,
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| a.atom.cmp(&b.atom));
+    entries
 }
 
 fn atom_change(

@@ -1187,3 +1187,60 @@ findings, not this entry, carry the file-level detail.
 **Revisit trigger.** When the audit's repair sequence completes (its rows
 all `fixed`), LS-4/LS-5 flip to `done` and the 0.6.0 landing gets its own
 entry.
+
+## DL-0046 — Contract 0.6.0: dual-mode, JSON-first, replayable
+
+*Date: 2026-08-02*
+
+**Ruling.** The wire contract is **0.6.0**, served dual-mode: a `0.5.1`
+request receives byte-identical `0.5.1`-shaped responses — every vendored v1
+fixture replays unchanged against the dual-mode server, and stays in the
+registry as the standing compatibility suite — until EXT-F4 completes on v1
+terms. Nothing is removed, nothing reshaped (DL-0010, DL-0031..DL-0037).
+The handshake reports the version the conversation negotiated.
+
+The 0.6.0 surface closes the audit's wire findings
+(`design-notes/lorestore-implementation-audit.md`):
+
+1. **Digest regimes never share a field** (A4). `workspace_digest` is always
+   the fence-valid `jcs:sha256:` workspace digest; the lorestore commit hash
+   a materialize produced travels in its own `root_hash` field.
+2. **`materialize` is a mutation and the accept decision** (B9): dispatched
+   with idempotency-key replay, committing the staged delta, advancing the
+   workspace's pinned commit, and answering an empty re-materialize as a
+   no-op. `author.discard` (whole-workspace or per-declaration) is the
+   reject decision, and a rejected declaration's durably staged objects are
+   dropped from the pending commit. The JSON-first return is the committed
+   fact objects; `.dli` rendering is the `rendered: true` opt-in.
+3. **One meaning per `root_hash` field** (B8): `author.status`/`diff` return
+   the commit the workspace was **pinned to at open** (advanced only by its
+   own materialize); `author.query` returns the workspace digest (staged
+   state, `jcs:` regime); `dli.query` returns a domain-distinct
+   `world:sha256:` binding over the compiled world — facts, derived set,
+   interner, the **full effective valuation with fork/as-of overlays
+   folded in** (B6) — resolvable in no store by design.
+4. **The wire valuation is the full ruled map** (B7): sorted
+   `{atom, value}` entries, explicit falses included; absence means unruled.
+5. **Review standing is never filtered** (B3): `AuthorDiffStanding.support`
+   is the monomial-structured antichain with signed literals, resolved
+   through each side's own interner — hypothesis and proposal-bundle gates
+   included, so a gated claim never renders as unconditional.
+6. **Released fixture bytes are frozen** (C4): the fixtures lane refuses a
+   re-pinned or removed registry digest that does not ride a
+   `contract_version` change.
+
+The LS-5 oracle (`crates/dli-serve/tests/ls5_review.rs`) drives the seeded
+change-set through the JSON contract alone and proves byte-identical replay:
+recompiling the lorestore named by the materialize `root_hash` reproduces
+the query rows byte-for-byte and the full valuation exactly. The framing
+suite gains paired 0.6.0 cases for the ops with new response surface.
+
+**Rationale.** This is the audit's repair sequence completing (DL-0045
+rulings 1 and 4): LS-4 and LS-5 flip to `done` only with this entry, on real
+evidence. One fold-order defect was found and fixed on the way — the store
+now replays its commit log root-first, so multi-commit reconstruction
+preserves declaration order and interner assignment.
+
+**Revisit trigger.** EXT-F4: when the consumer completes the v1 handshake
+and migrates, the 0.5.1 dual-mode paths retire through the killed-form
+registry (LS-8), never silently.
