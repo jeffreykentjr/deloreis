@@ -193,8 +193,11 @@ impl Lorestore {
         // interner drops or reorders a parent name would silently misresolve
         // earlier facts' support polynomials. Refuse loudly instead.
         if let Some(parent_hash) = &expected {
-            let parent: Commit = storage::read_typed(&*self.storage, &ContentHash(parent_hash.clone()))?
-                .ok_or_else(|| StoreError::NotFound(format!("parent commit missing: {parent_hash}")))?;
+            let parent: Commit =
+                storage::read_typed(&*self.storage, &ContentHash(parent_hash.clone()))?
+                    .ok_or_else(|| {
+                        StoreError::NotFound(format!("parent commit missing: {parent_hash}"))
+                    })?;
             let diverges_at = parent
                 .interner
                 .iter()

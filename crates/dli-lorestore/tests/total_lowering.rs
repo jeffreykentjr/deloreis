@@ -428,7 +428,8 @@ fn lower_decl_parity_on_gated_and_malformed_shapes() {
     let mut bundle_counter = 0u32;
     let mut decl_digests: Vec<String> = Vec::new();
     for decl in &decls {
-        for fo in dli_lorestore::lower::lower_decl(decl, "parity", &mut interner, &mut bundle_counter)
+        for fo in
+            dli_lorestore::lower::lower_decl(decl, "parity", &mut interner, &mut bundle_counter)
         {
             decl_digests.push(fo.content_hash().expect("canonical encoding").to_string());
         }

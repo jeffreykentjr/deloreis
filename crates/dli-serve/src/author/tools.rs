@@ -486,13 +486,11 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
     // immediately (durable staging), tracking hashes for materialize. A write
     // failure refuses the add — the durable staged set and the in-memory
     // workspace must never diverge silently (the graded-findings law).
-    store
-        .stage_lorestore(ws_id, &decl)
-        .map_err(|e| ErrorBody {
-            code: ErrorCode::Internal,
-            message: format!("durable staging failed; the declaration was not added: {e}"),
-            data: None,
-        })?;
+    store.stage_lorestore(ws_id, &decl).map_err(|e| ErrorBody {
+        code: ErrorCode::Internal,
+        message: format!("durable staging failed; the declaration was not added: {e}"),
+        data: None,
+    })?;
 
     let (_, ws) = parts_mut(store, ws_id)?;
     ws.push_decl(decl);
