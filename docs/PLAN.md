@@ -709,8 +709,8 @@ author or consumer artifact that this repository does not own.
 | LS-1 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
 | LS-2 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-2; shipped — `src/storage.rs`, `src/lorestore.rs`, `tests/cross_platform_determinism.rs`, `tests/state_fold_invariant.rs`, `tests/crash_injection.rs` |
 | LS-3 | done | `compile()` read path, `tests/differential_parity.rs`, `all_fact_hashes()` dedup |
-| LS-4 | open | partial — commit path shipped (DL-0044 as amended by DL-0045: per-add lowering via `stage_lorestore`); outstanding per `design-notes/lorestore-implementation-audit.md`: base-pack import at attach, JSON-first materialize return, contract 0.6.0, digest-regime split |
-| LS-5 | open | partial — `(root_hash, valuation)` response context and `AuthorDiffRow` review surface drafted; outstanding per `design-notes/lorestore-implementation-audit.md`: root_hash unification, full valuation on the wire, staged-fact standing repair, byte-identical replay oracle (`tests/ls5_review.rs`) |
+| LS-4 | open | partial — commit path shipped (DL-0044 as amended by DL-0045: per-add lowering via `stage_lorestore`); audit repairs landed: fail-closed lowering + base import at attach + interner discipline + total declaration carriage + storage hardening (`f39cf12`, `8f3b8db`, `80cfa7d`, `8d19b2f`); outstanding: JSON-first materialize return, contract 0.6.0, digest-regime split (audit A4/B-rows) |
+| LS-5 | open | partial — `(root_hash, valuation)` response context and `AuthorDiffRow` review surface drafted then parked as a patch (wire changes land only with 0.6.0, DL-0045 ruling 4); outstanding per `design-notes/lorestore-implementation-audit.md`: root_hash unification, full valuation on the wire, staged-fact standing repair, byte-identical replay oracle |
 | LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
 | LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
