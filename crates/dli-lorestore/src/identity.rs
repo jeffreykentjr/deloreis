@@ -149,9 +149,11 @@ impl Authority {
 /// carried as its own `(P⁺, P⁻)` support/defeater pair. A bare parent hash
 /// inside B cannot do this: it hard-codes one true lineage.
 ///
-/// The edge's content hash does not include any parent pointer of its own; it
-/// hashes its support/defeater polynomials, its from/to pair, its authority,
-/// and its `schema_version`.
+/// The edge's content hash follows the same projection discipline as
+/// `FactObject`: it covers the authority, the from/to pair, and the
+/// support/defeater polynomials — never `claim_id` (a continuity handle that
+/// must survive revision without staling the digest), never
+/// `schema_version` (a versioning tag), and never any parent pointer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LineageEdge {
@@ -195,9 +197,26 @@ impl LineageEdge {
         }
     }
 
-    /// The content hash of this edge — over all fields except any parent or
-    /// commit pointer.
+    /// The content hash of this edge — over the content fields only:
+    /// `authority`, `from`, `to`, `support`, `defeaters`. Excluded, exactly
+    /// as for `FactObject`: `claim_id` and `schema_version`.
     pub fn content_hash(&self) -> Result<ContentHash, CanonicalError> {
-        crate::canonical::content_hash(self)
+        /// The hashed projection — the same discipline as `FactObject`'s
+        /// `HashableContent`.
+        #[derive(serde::Serialize)]
+        struct HashableContent<'a> {
+            authority: &'a Authority,
+            from: &'a ContentHash,
+            to: &'a ContentHash,
+            support: &'a PosBool,
+            defeaters: &'a PosBool,
+        }
+        crate::canonical::content_hash(&HashableContent {
+            authority: &self.authority,
+            from: &self.from,
+            to: &self.to,
+            support: &self.support,
+            defeaters: &self.defeaters,
+        })
     }
 }

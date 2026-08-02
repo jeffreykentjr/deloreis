@@ -57,22 +57,35 @@ impl Lorestore {
     pub fn open(root: PathBuf) -> Result<Self, StoreError> {
         let storage: Box<dyn Storage> = Box::new(crate::storage::FilesystemStorage::new(root));
 
-        // If there's no main ref, create the genesis commit.
-        let head = storage.load_ref(MAIN_REF)?;
-        if head.is_none() {
-            let genesis = Commit::root(
-                Vec::new(),    // empty interner at genesis
-                Vec::new(),    // no facts
-                Vec::new(),    // no lineage
-                Vec::new(),    // no evidence
-                Vec::new(),    // no decisions
-                String::new(), // no pack name at genesis
-            );
-            let genesis_hash = storage::write_typed(&*storage, &genesis)?;
-            let genesis_ref = Ref::new(MAIN_REF, genesis_hash.clone());
+        // The whole first-open sequence runs under the advisory lock: two
+        // processes racing the genesis both observe-and-write atomically
+        // (audit A11), and crash garbage is swept while no writer can be
+        // mid-flight.
+        {
             let _lock = storage.acquire_lock()?;
-            let written = storage.cas_ref(MAIN_REF, None, &genesis_ref)?;
-            assert!(written, "CAS for genesis ref must succeed on empty store");
+            let _ = storage.cleanup_orphans()?;
+            let head = storage.load_ref(MAIN_REF)?;
+            if head.is_none() {
+                let genesis = Commit::root(
+                    Vec::new(),    // empty interner at genesis
+                    Vec::new(),    // no facts
+                    Vec::new(),    // no lineage
+                    Vec::new(),    // no evidence
+                    Vec::new(),    // no decisions
+                    String::new(), // no pack name at genesis
+                );
+                let genesis_hash = storage::write_typed(&*storage, &genesis)?;
+                let genesis_ref = Ref::new(MAIN_REF, genesis_hash);
+                let written = storage.cas_ref(MAIN_REF, None, &genesis_ref)?;
+                // Under the lock a lost CAS can only mean another process
+                // initialised the identical deterministic genesis between our
+                // lock release and re-acquire paths — accept it.
+                if !written && storage.load_ref(MAIN_REF)?.is_none() {
+                    return Err(StoreError::Lock(
+                        "genesis CAS failed on an empty store".to_owned(),
+                    ));
+                }
+            }
         }
 
         Ok(Self { storage })
@@ -137,6 +150,8 @@ impl Lorestore {
 
     /// Atomically update the `main` ref from `expected` to `new`.
     ///
+    /// `expected` is the current ref's whole-ref digest (`Ref::digest()`),
+    /// covering the valuation overlay as well as the commit pointer.
     /// Acquires the store lock, so callers do not need to hold it separately.
     /// Returns `true` if the CAS succeeded, `false` if it lost the race.
     pub fn cas_main_ref(&self, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError> {
@@ -185,8 +200,14 @@ impl Lorestore {
             }
         }
 
-        // The parent is the current head commit.
-        let expected: Option<String> = self.storage.load_ref(MAIN_REF)?.map(|r| r.commit.0.clone());
+        // The parent is the current head commit; the CAS token is the whole
+        // head ref's digest (commit + valuation overlay).
+        let head_ref = self.storage.load_ref(MAIN_REF)?;
+        let expected: Option<String> = head_ref.as_ref().map(|r| r.commit.0.clone());
+        let expected_token: Option<String> = match &head_ref {
+            Some(r) => Some(r.digest()?.0),
+            None => None,
+        };
 
         // The interner is append-only across the chain: `compile()` resolves
         // every commit's facts against the *head* interner, so a child whose
@@ -246,7 +267,7 @@ impl Lorestore {
 
         let written = self
             .storage
-            .cas_ref(MAIN_REF, expected.as_deref(), &new_ref)?;
+            .cas_ref(MAIN_REF, expected_token.as_deref(), &new_ref)?;
         if !written {
             return Err(StoreError::CasConflict {
                 name: MAIN_REF.to_string(),

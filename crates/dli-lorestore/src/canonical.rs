@@ -23,9 +23,12 @@ use crate::identity::ContentHash;
 /// One canonical-bytes or content-address computation failed.
 #[derive(Debug, Error)]
 pub enum CanonicalError {
-    /// The value could not be encoded as JCS — it contains a float, a key
-    /// with non-string type, or similar. Stored objects must be integers
-    /// and strings only.
+    /// The value could not be encoded as JCS (a NaN or infinite float, a
+    /// non-string key, or similar) — or it violates the storage rule that
+    /// stored objects are integers and strings only. Note the JCS encoder
+    /// itself accepts *finite* floats; the no-floats rule is enforced by the
+    /// typed object constructors (no float-bearing fields) and by
+    /// `EvidenceEnvelope::new` for opaque payloads.
     #[error("value cannot be encoded as JCS: {0}")]
     Encode(String),
     /// An on-disk object's filename does not match its content hash.

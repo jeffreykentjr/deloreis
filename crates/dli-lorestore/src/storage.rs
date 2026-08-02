@@ -119,6 +119,15 @@ pub enum StoreError {
     /// Stored fact objects could not be reconstructed into a compilable pack.
     #[error(transparent)]
     Reconstruct(#[from] crate::lower::ReconstructError),
+    /// A stored object declares a schema version this build has no upcast
+    /// for — refused with the version named, never silently misread.
+    #[error("object {hash} declares schema_version {found}, which this build cannot upcast")]
+    UnknownSchemaVersion {
+        /// The object's content hash.
+        hash: String,
+        /// The declared schema version.
+        found: u64,
+    },
 }
 
 /// The abstract storage interface.
@@ -141,6 +150,9 @@ pub trait Storage: Send + Sync + std::fmt::Debug {
 
     /// Atomically update a ref if its current value matches `expected`.
     ///
+    /// The token is the digest of the current ref's stored bytes
+    /// (`Ref::digest()`), covering the commit pointer AND the valuation
+    /// overlay — a valuation-only change fences exactly like a commit change.
     /// `expected: None` means "create the ref only if it does not exist."
     /// Returns `true` if the CAS succeeded, `false` if it lost the race.
     fn cas_ref(&self, name: &str, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError>;
@@ -181,6 +193,27 @@ pub fn read_typed<T: DeserializeOwned + Serialize>(
 ) -> Result<Option<T>, StoreError> {
     match storage.read_object(hash)? {
         Some(bytes) => {
+            // Upcast-on-read, v1 stub (roadmap §LS-1): probe the stored
+            // schema_version FIRST and dispatch — today that means version 1
+            // maps to the identity upcast and anything else is a typed
+            // refusal, so the seam exists before the first v2 writer does.
+            let probe: serde_json::Value =
+                serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
+                    what: "object",
+                    path: hash.0.clone(),
+                    expected: "valid JSON".to_owned(),
+                    actual: e.to_string(),
+                })?;
+            if let Some(version) = probe
+                .get("schema_version")
+                .and_then(serde_json::Value::as_u64)
+                && version != 1
+            {
+                return Err(StoreError::UnknownSchemaVersion {
+                    hash: hash.0.clone(),
+                    found: version,
+                });
+            }
             let value: T = serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
                 what: "object",
                 path: hash.0.clone(),
@@ -252,7 +285,11 @@ impl FilesystemStorage {
         self.root.join(".lock")
     }
 
-    /// Make a directory durable.
+    /// Make a directory durable. Unix-only: opening a directory for fsync is
+    /// a Unix idiom (`File::open` on a directory fails on Windows), so on
+    /// other platforms this is a no-op and the crash-durability claim is
+    /// scoped to Unix (see `tests/cross_platform_determinism.rs`).
+    #[cfg(unix)]
     fn sync_dir(dir: &Path) -> Result<(), StoreError> {
         let file = File::open(dir).map_err(|e| StoreError::Io {
             path: dir.display().to_string(),
@@ -265,9 +302,23 @@ impl FilesystemStorage {
         Ok(())
     }
 
+    /// Non-Unix: directory fsync is unavailable; renames are still atomic,
+    /// but the durability window is wider. Scoped honestly, not hidden.
+    #[cfg(not(unix))]
+    fn sync_dir(_dir: &Path) -> Result<(), StoreError> {
+        Ok(())
+    }
+
     /// Publish bytes to a path atomically: write to `.tmp`, fsync, rename,
     /// fsync parent dir.
     fn publish_atomic(path: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+        // Unique per writer (pid + a process-local counter — no clock, no
+        // randomness): two concurrent writers of the same object must never
+        // share a temp path, or one can rename the other's half-written
+        // bytes into the content-addressed location (audit A8). Crash
+        // leftovers are swept by `cleanup_orphans` at open time.
+        static TEMP_NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
         let parent = path.parent().expect("path has a parent directory");
         std::fs::create_dir_all(parent).map_err(|e| StoreError::Io {
             path: parent.display().to_string(),
@@ -287,11 +338,9 @@ impl FilesystemStorage {
             .and_then(|n| n.to_str())
             .unwrap_or("objects");
 
-        let temp_name = format!(".{dir_name}.{filename}.tmp");
+        let nonce = TEMP_NONCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let temp_name = format!(".{dir_name}.{filename}.{}.{nonce}.tmp", std::process::id());
         let temp_path = parent.join(&temp_name);
-
-        // Remove a stale temp file from a crashed previous write.
-        let _ = fs::remove_file(&temp_path);
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -366,20 +415,24 @@ impl Storage for FilesystemStorage {
     fn cas_ref(&self, name: &str, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError> {
         let path = self.ref_path(name);
 
-        // Read the current commit hash (if any).
+        // The CAS token is the digest of the WHOLE current ref (its stored
+        // JCS bytes), not merely the commit hash — so a valuation-overlay
+        // change fences exactly like a commit change (audit A11; this is what
+        // `Ref::digest()` documents).
         let current: Option<String> = if path.exists() {
             let bytes = fs::read(&path).map_err(|e| StoreError::Io {
                 path: path.display().to_string(),
                 source: e,
             })?;
-            let current_ref: Ref =
+            // Parse to reject a corrupt ref before fencing on its bytes.
+            let _current_ref: Ref =
                 serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
                     what: "ref",
                     path: path.display().to_string(),
                     expected: "valid ref JSON".to_owned(),
                     actual: e.to_string(),
                 })?;
-            Some(current_ref.commit.0.clone())
+            Some(crate::canonical::digest_bytes(&bytes))
         } else {
             None
         };
@@ -497,6 +550,36 @@ impl Storage for FilesystemStorage {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .is_some_and(|n| n.starts_with('.'))
+                {
+                    fs::remove_file(&path).map_err(|e| StoreError::Io {
+                        path: path.display().to_string(),
+                        source: e,
+                    })?;
+                    count += 1;
+                }
+            }
+        }
+
+        // Sweep crashed ref-write temps too — with unique per-writer temp
+        // names nothing else ever reclaims them.
+        let refs_dir = self.root.join("refs");
+        if refs_dir.exists() {
+            for entry in fs::read_dir(&refs_dir).map_err(|e| StoreError::Io {
+                path: refs_dir.display().to_string(),
+                source: e,
+            })? {
+                let entry = entry.map_err(|e| StoreError::Io {
+                    path: refs_dir.display().to_string(),
+                    source: e,
+                })?;
+                let path = entry.path();
+                if path.is_file()
+                    && path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                        n.starts_with('.')
+                            && std::path::Path::new(n)
+                                .extension()
+                                .is_some_and(|ext| ext.eq_ignore_ascii_case("tmp"))
+                    })
                 {
                     fs::remove_file(&path).map_err(|e| StoreError::Io {
                         path: path.display().to_string(),

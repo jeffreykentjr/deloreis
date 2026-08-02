@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "LineageEdge",
-  "description": "A first-class lineage edge: the record that B supersedes A.\n\nIn a multi-authority world, *whether* B supersedes A is itself contested\nand valuation-dependent — one continuity accepts the retcon, another\nrejects it. The edge must therefore cite the ruling it happened under,\ncarried as its own `(P⁺, P⁻)` support/defeater pair. A bare parent hash\ninside B cannot do this: it hard-codes one true lineage.\n\nThe edge's content hash does not include any parent pointer of its own; it\nhashes its support/defeater polynomials, its from/to pair, its authority,\nand its `schema_version`.",
+  "description": "A first-class lineage edge: the record that B supersedes A.\n\nIn a multi-authority world, *whether* B supersedes A is itself contested\nand valuation-dependent — one continuity accepts the retcon, another\nrejects it. The edge must therefore cite the ruling it happened under,\ncarried as its own `(P⁺, P⁻)` support/defeater pair. A bare parent hash\ninside B cannot do this: it hard-codes one true lineage.\n\nThe edge's content hash follows the same projection discipline as\n`FactObject`: it covers the authority, the from/to pair, and the\nsupport/defeater polynomials — never `claim_id` (a continuity handle that\nmust survive revision without staling the digest), never\n`schema_version` (a versioning tag), and never any parent pointer.",
   "type": "object",
   "properties": {
     "authority": {

@@ -77,12 +77,18 @@ impl EvidenceEnvelope {
     /// The `payload_digest` is the SHA-256 of the payload's JCS serialization
     /// — the same canonicalization the envelope itself uses, so the two addresses
     /// are computed by the same code path.
+    ///
+    /// The payload is the one door where arbitrary JSON enters the store, so
+    /// the no-floats storage rule (roadmap §LS-1) is **enforced** here: any
+    /// number that is not an integer is refused. Future confidence values
+    /// enter as decimal strings.
     pub fn new(
         authority: Authority,
         subject: impl Into<String>,
         kind: EvidenceKind,
         payload: serde_json::Value,
     ) -> Result<Self, crate::canonical::CanonicalError> {
+        reject_floats(&payload, "$")?;
         let payload_digest = crate::canonical::content_hash(&payload)?;
         Ok(Self {
             schema_version: SCHEMA_VERSION,
@@ -113,5 +119,38 @@ impl EvidenceEnvelope {
             });
         }
         Ok(())
+    }
+}
+
+/// Enforce the no-floats storage rule on an arbitrary JSON payload: JCS
+/// happily serializes finite floats, so the guard must live here, at the one
+/// place unconstrained JSON enters the store.
+fn reject_floats(
+    value: &serde_json::Value,
+    path: &str,
+) -> Result<(), crate::canonical::CanonicalError> {
+    match value {
+        serde_json::Value::Number(n) => {
+            if n.is_i64() || n.is_u64() {
+                Ok(())
+            } else {
+                Err(crate::canonical::CanonicalError::Encode(format!(
+                    "payload contains a non-integer number at {path}: {n} — stored objects are integers and strings only; carry decimals as strings"
+                )))
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (i, item) in items.iter().enumerate() {
+                reject_floats(item, &format!("{path}[{i}]"))?;
+            }
+            Ok(())
+        }
+        serde_json::Value::Object(map) => {
+            for (key, item) in map {
+                reject_floats(item, &format!("{path}.{key}"))?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
     }
 }

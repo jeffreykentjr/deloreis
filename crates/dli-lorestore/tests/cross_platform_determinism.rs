@@ -1,10 +1,15 @@
 //! LS-2 oracle: cross-platform root-hash determinism.
 //!
 //! The store's root commit hash must be byte-identical across platforms — the
-//! same operation sequence must yield the same root hash on Linux, macOS, and
-//! Windows. This is guaranteed by JCS canonicalization (RFC 8785), the
+//! same operation sequence must yield the same root hash wherever the store
+//! runs. This is guaranteed by JCS canonicalization (RFC 8785), the
 //! absorption-normalized DNF of `PosBool`, and the lexicographic ordering of
 //! `BTreeSet` — none of which depend on the OS.
+//!
+//! Honest scope (audit A11): CI exercises this on Linux only, and the store's
+//! directory-fsync durability discipline is Unix-only (`sync_dir` is a no-op
+//! elsewhere). The determinism *claim* is platform-independent by
+//! construction; the *verification* covers the platforms CI actually runs.
 //!
 //! The test writes a small fixed set of fact objects, commits them, and checks
 //! the root hash against a hard-coded expected value. If the hash drifts, the

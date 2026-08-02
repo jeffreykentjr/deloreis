@@ -12,11 +12,12 @@
 //!   - the commit object itself
 //!   - the interner is stored *inside* the commit (not as a separate object)
 //!
-//! The test performs a random multi-commit sequence, then verifies:
-//!   1. Walking the DAG from head to root yields N+1 commits (genesis + N).
-//!   2. Every object named by every commit exists in the store.
-//!   3. The set of object hashes read from the store = the union of hashes
-//!      named by the DAG (no dangling refs, no orphaned-but-missing objects).
+//! The tests cover a fixed multi-commit example plus a seeded-random property
+//! run (`state_equals_fold_property`), which verifies **both directions**:
+//!   1. Every object named by every commit in the DAG exists and reads back.
+//!   2. Every object present on disk is named by the DAG — set equality, no
+//!      unnamed survivors (orphans are permitted only in the dedicated orphan
+//!      test, which tracks them explicitly).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stderr)]
 
@@ -255,4 +256,123 @@ fn state_equals_fold_of_commit_log_empty_store() {
     // The genesis commit must be readable.
     let genesis_bytes: Option<serde_json::Value> = store.read_object(&head).expect("read genesis");
     assert!(genesis_bytes.is_some(), "genesis commit must be readable");
+}
+
+/// The property form (audit A11): seeded-random commit sequences, verified in
+/// **both directions** — every DAG-named object reads back, and every on-disk
+/// object is DAG-named. Deterministic (fixed seeds, no clock, no OS
+/// randomness), so the gate replays byte-identically.
+#[test]
+fn state_equals_fold_property() {
+    // A tiny deterministic LCG — no external randomness enters the gate.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            self.0
+        }
+    }
+
+    for seed in [1_u64, 7, 42, 1999] {
+        let mut rng = Lcg(seed);
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let store = Lorestore::open(dir.path().to_path_buf()).expect("open store");
+
+        let mut interner: Vec<String> = Vec::new();
+        let mut named: HashSet<String> = HashSet::new();
+        // The genesis commit is named by the DAG.
+        named.insert(
+            store
+                .root_hash()
+                .expect("root ok")
+                .expect("genesis")
+                .to_string(),
+        );
+
+        let rounds = 2 + (rng.next() % 5) as usize;
+        for round in 0..rounds {
+            // 1..=3 facts per round, occasionally re-writing an earlier fact
+            // (idempotent CAS — the object must still be named exactly once
+            // on disk).
+            let fact_count = 1 + (rng.next() % 3) as usize;
+            let mut fact_hashes = Vec::new();
+            for f in 0..fact_count {
+                let key = if rng.next().is_multiple_of(4) && round > 0 {
+                    format!("seed{seed}/repeat/shared")
+                } else {
+                    format!("seed{seed}/round{round}/fact{f}")
+                };
+                let fo = common::test_fact(
+                    &key,
+                    "place",
+                    &[&format!("loc-{round}-{f}")],
+                    PosBool::truth(),
+                    Grade::Asserted,
+                );
+                let hash = store.write_object(&fo).expect("write fact");
+                named.insert(hash.to_string());
+                fact_hashes.push(hash);
+            }
+            interner.push(format!("seed{seed}-atom-{round}"));
+            let commit_hash = store
+                .commit(
+                    interner.clone(),
+                    fact_hashes,
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    String::new(),
+                )
+                .expect("commit");
+            named.insert(commit_hash.to_string());
+        }
+
+        // Direction 1: every DAG-named object reads back.
+        let head = store.root_hash().expect("root ok").expect("head");
+        let chain = store.walk_dag(&head, None).expect("walk");
+        let mut dag_named: HashSet<String> = HashSet::new();
+        for commit in &chain {
+            dag_named.insert(commit.content_hash().expect("hash").to_string());
+            for fact in &commit.facts {
+                dag_named.insert(fact.to_string());
+                let read: Option<FactObject> = store.read_object(fact).expect("read ok");
+                assert!(read.is_some(), "seed {seed}: DAG-named fact must read back");
+            }
+        }
+        assert_eq!(
+            dag_named, named,
+            "seed {seed}: the DAG must name exactly the objects the run created"
+        );
+
+        // Direction 2: every on-disk object is DAG-named — set equality.
+        let mut on_disk: HashSet<String> = HashSet::new();
+        let objects_dir = dir.path().join("objects");
+        for prefix in std::fs::read_dir(&objects_dir).expect("objects dir") {
+            let prefix = prefix.expect("entry").path();
+            if !prefix.is_dir() {
+                continue;
+            }
+            let prefix_name = prefix
+                .file_name()
+                .and_then(|n| n.to_str())
+                .expect("utf8")
+                .to_owned();
+            for file in std::fs::read_dir(&prefix).expect("prefix dir") {
+                let file = file.expect("entry").path();
+                let stem = file
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .and_then(|n| n.strip_suffix(".json"))
+                    .expect("object filename");
+                on_disk.insert(format!("sha256:{prefix_name}{stem}"));
+            }
+        }
+        assert_eq!(
+            on_disk, dag_named,
+            "seed {seed}: state ≡ fold(commit log) — no unnamed survivors, no missing objects"
+        );
+    }
 }
