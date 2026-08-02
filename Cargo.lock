@@ -401,6 +401,7 @@ dependencies = [
  "dli-ast",
  "dli-core",
  "dli-eval",
+ "dli-syntax",
  "dli-world",
  "fs2",
  "schemars",

@@ -94,7 +94,7 @@
       ]
     },
     "ExpertBody": {
-      "description": "The expert-tier clause body carried as a marked string in v1.\n\nThe `kind` + `name` tags identify which of the eleven declaration types this\nbody belongs to, so LS-9's typed upcasts know what interior to deepen. The\n`body` is whitespace-normalized clause text (as [`Clause`](dli_ast::clause::Clause)\ncaptures it); `head` carries any header tokens after the name. This is\nexplicitly **named, versioned debt** — the field is marked so nobody mistakes\nan embedded micro-syntax string for a structured interior.",
+      "description": "A declaration carried as a marked string in v1 (the expert-tier debt rule,\nroadmap §LS-1).\n\nThe `kind` + `name` tags identify which declaration type this body belongs\nto, so LS-9's typed upcasts know what interior to deepen. In the v1\nencoding `body` holds exactly one element: the canonical JSON serialization\nof the whole [`Decl`](dli_ast::decl::Decl) — deterministic to hash, exactly\nreconstructable by serde, semantically opaque to the store. (For the eleven\nstring-bodied expert-tier types that JSON in turn embeds their\nwhitespace-normalized clause strings — debt inside debt, both deepened by\nLS-9.) `head` is reserved for header tokens and empty in the v1 encoding.\nThis is explicitly **named, versioned debt** — the field is marked so\nnobody mistakes an embedded encoding for a structured interior.",
       "type": "object",
       "properties": {
         "body": {
@@ -184,6 +184,76 @@
           "description": "`proof <name> { body }`",
           "type": "string",
           "const": "proof"
+        },
+        {
+          "description": "`kind <name>` — a sort declaration.",
+          "type": "string",
+          "const": "kind"
+        },
+        {
+          "description": "`state …` — a fluent-state declaration.",
+          "type": "string",
+          "const": "state"
+        },
+        {
+          "description": "`cycle <name> …` — a cycle declaration.",
+          "type": "string",
+          "const": "cycle"
+        },
+        {
+          "description": "`question <name> { options }` — carried whole so option families and\nimplied atoms regenerate on recompile.",
+          "type": "string",
+          "const": "question"
+        },
+        {
+          "description": "`hypothesis <name>` — carried so `suppose` targets survive the store.",
+          "type": "string",
+          "const": "hypothesis"
+        },
+        {
+          "description": "`use <path>` — an import declaration.",
+          "type": "string",
+          "const": "use"
+        },
+        {
+          "description": "A lexicon `word` declaration.",
+          "type": "string",
+          "const": "word"
+        },
+        {
+          "description": "A `namepart` declaration.",
+          "type": "string",
+          "const": "namepart"
+        },
+        {
+          "description": "An `attest` declaration.",
+          "type": "string",
+          "const": "attest"
+        },
+        {
+          "description": "A `term` declaration.",
+          "type": "string",
+          "const": "term"
+        },
+        {
+          "description": "A `banned` declaration.",
+          "type": "string",
+          "const": "banned"
+        },
+        {
+          "description": "A `narration` declaration.",
+          "type": "string",
+          "const": "narration"
+        },
+        {
+          "description": "An `entity` declaration that carries more than its ground atom —\na display label, a time clause, or indented slots — and so cannot be\nreconstructed from the atom object alone.",
+          "type": "string",
+          "const": "entity"
+        },
+        {
+          "description": "A `before` ordering declaration — carried because its ground atom is\nindistinguishable from an ordinary `before(a, b)` fact, and only the\ndeclaration form adds a chronology edge.",
+          "type": "string",
+          "const": "before"
         }
       ]
     },

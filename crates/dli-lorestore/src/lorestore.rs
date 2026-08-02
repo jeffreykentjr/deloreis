@@ -313,25 +313,19 @@ impl Lorestore {
     /// The stored fact objects are byte-identical to the compiled world model
     /// (the total-lowering oracle on LS-1 guarantees this).
     pub fn import_pack(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
-        use dli_world::compile;
+        // 1 — lower the pack per-declaration (carriage objects interleaved in
+        //     document order) and refuse it if the walk cannot track the
+        //     loader.
+        let (objects, interner) = Self::lower_pack_checked(pack)?;
 
-        // 1 — compile the pack into a world model (the existing path).
-        let compiled = compile(pack).map_err(|e| StoreError::Io {
-            path: "compile".to_owned(),
-            source: std::io::Error::other(e.to_string()),
-        })?;
-        let model = compiled.model();
-
-        // 2 — lower atoms to fact objects and persist them.
-        let objects = crate::lower::lower_atoms(model.atoms());
+        // 2 — persist the objects.
         let mut fact_hashes: Vec<ContentHash> = Vec::with_capacity(objects.len());
         for obj in &objects {
             let hash = self.write_object(obj)?;
             fact_hashes.push(hash);
         }
 
-        // 3 — extract the interner name table and known decisions (append-only name list).
-        let interner: Vec<String> = model.interner().names().to_vec();
+        // 3 — known decisions (append-only name list).
         let decisions = crate::lower::declared_decisions(pack).into_iter().collect();
 
         // 4 — commit, chaining from the current head.
@@ -345,6 +339,35 @@ impl Lorestore {
         )
     }
 
+    /// Lower a pack per-declaration and verify the walk's interner matches the
+    /// compiled model's exactly — the loud-totality gate every import passes
+    /// through. Returns the objects (carriage + atoms, document order) and the
+    /// verified interner name table.
+    fn lower_pack_checked(
+        pack: &dli_world::Pack,
+    ) -> Result<(Vec<crate::FactObject>, Vec<String>), StoreError> {
+        let compiled = dli_world::compile(pack).map_err(|e| StoreError::Io {
+            path: "compile".to_owned(),
+            source: std::io::Error::other(e.to_string()),
+        })?;
+        let model_interner: Vec<String> = compiled.model().interner().names().to_vec();
+        let (objects, walk_interner) = crate::lower::lower_pack(pack);
+        if walk_interner != model_interner {
+            let index = walk_interner
+                .iter()
+                .zip(model_interner.iter())
+                .take_while(|(a, b)| a == b)
+                .count();
+            return Err(StoreError::LoweringDiverged {
+                pack: pack.name.clone(),
+                index,
+                walk: walk_interner.get(index).cloned(),
+                model: model_interner.get(index).cloned(),
+            });
+        }
+        Ok((objects, model_interner))
+    }
+
     /// Import a base pack **idempotently**: if the store's head state already
     /// covers the pack (every lowered fact object present, the pack's interner
     /// a prefix of the head interner), no commit is written and the current
@@ -355,14 +378,7 @@ impl Lorestore {
     /// import (`ForeignBase`): a single-branch store holds exactly one pack
     /// lineage, and silently mixing two would desync the interner chain.
     pub fn ensure_pack_imported(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
-        use dli_world::compile;
-
-        let compiled = compile(pack).map_err(|e| StoreError::Io {
-            path: "compile".to_owned(),
-            source: std::io::Error::other(e.to_string()),
-        })?;
-        let model = compiled.model();
-        let objects = crate::lower::lower_atoms(model.atoms());
+        let (objects, interner) = Self::lower_pack_checked(pack)?;
         // Storage addresses are the full-object JCS hash (the address domain),
         // not `FactObject::content_hash`'s identity projection — compute the
         // same hash `write_object` would, without writing.
@@ -370,7 +386,6 @@ impl Lorestore {
         for obj in &objects {
             pack_hashes.push(crate::canonical::content_hash(obj)?);
         }
-        let interner: Vec<String> = model.interner().names().to_vec();
 
         let head = self
             .root_hash()?
@@ -447,14 +462,15 @@ impl Lorestore {
             fact_objects.push(obj);
         }
 
-        // 4 — reconstruct the Pack.
+        // 4 — reconstruct the Pack; a stream that cannot round-trip is a
+        //     typed refusal, never a silently different world.
         let interner = dli_core::Interner::from_names(interner_names.clone());
         let pack = crate::lower::reconstruct_pack(
             &fact_objects,
             &interner,
             &known_decisions,
             &head_commit.pack_name,
-        );
+        )?;
 
         // 5 — compile via the existing path.
         dli_world::compile(&pack).map_err(|e| StoreError::Io {

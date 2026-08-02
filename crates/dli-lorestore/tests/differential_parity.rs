@@ -107,3 +107,126 @@ fn compile_from_lorestore_matches_direct_compile() {
         render_findings(model_a.findings()).len(),
     );
 }
+
+/// Assert full compiled parity between a direct compile and the
+/// import → store → recompile path, for one pack.
+#[allow(clippy::too_many_lines)]
+fn assert_store_parity(pack: &dli_world::Pack, label: &str) {
+    let compiled_a = compile(pack).unwrap_or_else(|e| panic!("{label}: direct compile: {e}"));
+    let model_a = compiled_a.model();
+
+    let tmp = TempDir::new().expect("tempdir");
+    let store = Lorestore::open(tmp.path().to_path_buf()).expect("open lorestore");
+    store
+        .import_pack(pack)
+        .unwrap_or_else(|e| panic!("{label}: import refused: {e}"));
+    let compiled_b = store
+        .compile()
+        .unwrap_or_else(|e| panic!("{label}: store compile: {e}"));
+    let model_b = compiled_b.model();
+
+    assert_eq!(
+        render_facts(&model_a.world),
+        render_facts(&model_b.world),
+        "{label}: extensional facts must be identical"
+    );
+    assert_eq!(
+        render_derived(&model_a.world),
+        render_derived(&model_b.world),
+        "{label}: fixpoint must be identical"
+    );
+    assert_eq!(
+        render_findings(model_a.findings()),
+        render_findings(model_b.findings()),
+        "{label}: findings must be identical"
+    );
+    assert_eq!(
+        model_a.interner().names(),
+        model_b.interner().names(),
+        "{label}: interned variable sets must match"
+    );
+    let names_b = model_b.interner().names().to_vec();
+    for (&atom_idx, val_a) in &model_a.world.valuation.0 {
+        let name = model_a.interner().resolve(atom_idx).expect("atom has name");
+        let b_idx = dli_core::atom::Atom(
+            u32::try_from(
+                names_b
+                    .iter()
+                    .position(|n| n == name)
+                    .unwrap_or_else(|| panic!("{label}: `{name}` missing in B interner")),
+            )
+            .expect("fits in u32"),
+        );
+        assert_eq!(
+            *val_a,
+            model_b.world.valuation.get(b_idx).unwrap_or(false),
+            "{label}: valuation disagrees on `{name}`"
+        );
+    }
+    assert_eq!(
+        model_a.atoms().len(),
+        model_b.atoms().len(),
+        "{label}: loaded atom count must match"
+    );
+}
+
+/// The corpus-wide oracle (audit A7, DL-0045 ruling 5): every vendored `.dli`
+/// pack — rules, cycles, practices, dialects, proofs, forks and all — must
+/// survive the `.dli → parse → import → store → recompile` round-trip with an
+/// identical compiled world, or be *refused* by the import. Nothing may pass
+/// through the store and come out silently different.
+#[test]
+#[allow(clippy::print_stdout)]
+fn every_vendored_dli_pack_round_trips_through_the_store() {
+    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds");
+    let mut dli_files: Vec<std::path::PathBuf> = walk_dli(&worlds);
+    dli_files.sort();
+    assert!(
+        !dli_files.is_empty(),
+        "the vendored worlds tree contains .dli packs"
+    );
+
+    for path in &dli_files {
+        let source = std::fs::read_to_string(path).expect("read .dli file");
+        let (document, diagnostics) = dli_syntax::parse_document(&source);
+        assert!(
+            diagnostics.is_empty(),
+            "{}: vendored pack must parse clean, got {diagnostics:?}",
+            path.display()
+        );
+        let name = document.scope.as_ref().map_or_else(
+            || {
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("pack")
+                    .to_owned()
+            },
+            |s| s.name.text.clone(),
+        );
+        let pack = dli_world::Pack {
+            name,
+            documents: vec![document],
+        };
+        assert_store_parity(&pack, &path.display().to_string());
+    }
+    println!(
+        "vendored differential parity passed over {} packs",
+        dli_files.len()
+    );
+}
+
+fn walk_dli(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            out.extend(walk_dli(&path));
+        } else if path.extension().is_some_and(|e| e == "dli") {
+            out.push(path);
+        }
+    }
+    out
+}

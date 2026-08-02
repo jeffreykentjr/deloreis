@@ -36,7 +36,7 @@ use dli_world::model::LoadedAtom;
 use dli_world::pack::Pack;
 
 use crate::identity::ClaimId;
-use crate::object::{CondPair, FactObject};
+use crate::object::{CondPair, ExpertBody, ExpertDeclKind, FactObject};
 
 // ── rendering ─────────────────────────────────────────────────────────
 
@@ -94,6 +94,130 @@ pub fn render_polynomial(p: &PosBool, interner: &Interner) -> String {
     }
 }
 
+// ── claim identity ─────────────────────────────────────────────────────
+
+/// Mint the stable claim id for a ground atom — the **one** minting scheme
+/// every write path shares (audit A3). Claim continuity is keyed by the
+/// proposition's surface form, never by a positional index, so inserting or
+/// removing an earlier declaration renumbers nothing, and the same fact
+/// reaches the same claim id through `lower_atoms`, `lower_decl`, and
+/// `lower_facts` alike.
+fn claim_for(ground: &dli_eval::world::GroundAtom) -> ClaimId {
+    ClaimId::from_label(&format!("atom:{}", ground.render()))
+}
+
+/// Mint the stable claim id for a carried declaration.
+fn claim_for_decl(kind: ExpertDeclKind, name: &str) -> ClaimId {
+    ClaimId::from_label(&format!("decl:{kind:?}:{name}"))
+}
+
+// ── declaration carriage ───────────────────────────────────────────────
+
+/// Which declarations are carried whole (audit A2, DL-0045 ruling 5):
+/// everything not fully captured by its extensional ground atoms. Returns the
+/// carriage kind and display name, or `None` for a gentle declaration whose
+/// atom objects alone reconstruct it faithfully (`Attr`, `Fact`, and a bare
+/// `Entity` with no label, time clause, or slots).
+fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
+    use ExpertDeclKind as K;
+    match decl {
+        Decl::Attr(_) | Decl::Fact(_) => None,
+        Decl::Entity(e) => (e.label.is_some() || e.time.is_some() || !e.slots.is_empty())
+            .then(|| (K::Entity, e.name.text.clone())),
+        Decl::Before(b) => Some((K::Before, format!("{}->{}", b.earlier.text, b.later.text))),
+        Decl::Rule(d) => Some((K::Rule, d.name.text.clone())),
+        Decl::Fork(d) => Some((K::Fork, d.question.text.clone())),
+        Decl::Practice(d) => Some((K::Practice, d.name.text.clone())),
+        Decl::Dialect(d) => Some((K::Dialect, d.name.text.clone())),
+        Decl::Draft(d) => Some((K::Draft, d.name.text.clone())),
+        Decl::Export(d) => Some((K::Export, d.profile.text.clone())),
+        Decl::Name(d) => Some((K::Name, d.name.text.clone())),
+        Decl::Variant(d) => Some((K::Variant, d.path.text.clone())),
+        Decl::Ratify(d) => Some((K::Ratify, d.decision.text.clone())),
+        Decl::Principle(d) => Some((K::Principle, d.name.text.clone())),
+        Decl::Proof(d) => Some((K::Proof, d.name.text.clone())),
+        Decl::Kind(d) => Some((K::Kind, d.name.text.clone())),
+        Decl::State(d) => Some((K::State, d.name.text.clone())),
+        Decl::Cycle(d) => Some((K::Cycle, d.name.text.clone())),
+        Decl::Question(d) => Some((K::Question, d.name.text.clone())),
+        Decl::Hypothesis(d) => Some((K::Hypothesis, d.name.text.clone())),
+        Decl::Use(d) => Some((K::Use, d.target.text.clone())),
+        Decl::Word(d) => Some((K::Word, d.name.text.clone())),
+        Decl::NamePart(d) => Some((K::NamePart, d.name.text.clone())),
+        Decl::Attest(d) => Some((K::Attest, d.question.text.clone())),
+        Decl::Term(d) => Some((K::Term, d.name.text.clone())),
+        Decl::Banned(d) => Some((K::Banned, d.word.text.clone())),
+        Decl::Narration(_) => Some((K::Narration, String::new())),
+    }
+}
+
+/// Build the carriage object for a declaration: the whole `Decl` as canonical
+/// JSON inside an [`ExpertBody`], under a synthetic `__decl` atom. Support is
+/// truth and defeaters false — the declaration's *compiled* provenance is
+/// re-derived on recompile; the carriage binds the source form only.
+fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject {
+    let body = serde_json::to_string(decl).expect("the AST serializes to JSON");
+    let ground = dli_eval::world::GroundAtom {
+        pred: "__decl".to_owned(),
+        args: vec![format!("{kind:?}"), name.to_owned()],
+    };
+    FactObject::with_expert_body(
+        claim_for_decl(kind, name),
+        ground,
+        PosBool::truth(),
+        PosBool::FALSE,
+        Vec::new(),
+        Grade::Asserted,
+        ExpertBody::new(kind, name, Vec::new(), vec![body]),
+    )
+}
+
+/// The rendered ground atoms a carried declaration regenerates on recompile —
+/// the reconstruction walk skips exactly these if they follow the carriage
+/// object in the stream. Identity-based (not count-based) because commit-chain
+/// deduplication can elide an atom that already exists in an earlier commit.
+#[must_use]
+pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
+    let implies_renders = |options: &[dli_ast::decl::OptionClause]| {
+        options
+            .iter()
+            .filter_map(|o| o.implies.as_ref())
+            .map(|implied| atom_expr_to_ground(implied).render())
+            .collect::<Vec<_>>()
+    };
+    match decl {
+        Decl::Entity(e) => {
+            let mut renders = Vec::with_capacity(1 + e.slots.len());
+            renders.push(
+                dli_eval::world::GroundAtom {
+                    pred: e.kind.keyword().to_owned(),
+                    args: vec![e.name.text.clone()],
+                }
+                .render(),
+            );
+            for slot in &e.slots {
+                let atom = AtomExpr {
+                    pred: slot.attr.clone(),
+                    args: vec![Term::Sym(slot.subject.clone()), slot.value.clone()],
+                };
+                renders.push(atom_expr_to_ground(&atom).render());
+            }
+            renders
+        }
+        Decl::Before(b) => vec![
+            dli_eval::world::GroundAtom {
+                pred: "before".to_owned(),
+                args: vec![b.earlier.text.clone(), b.later.text.clone()],
+            }
+            .render(),
+        ],
+        Decl::Question(q) => implies_renders(&q.options),
+        Decl::Fork(f) => implies_renders(&f.options),
+        // Attr/Fact are never carried; other declarations regenerate no atoms.
+        _ => Vec::new(),
+    }
+}
+
 // ── per-declaration lowering ────────────────────────────────────────────
 
 /// Lower a single [`Decl`] into [`FactObject`]s, without a full world compilation.
@@ -128,22 +252,33 @@ pub fn lower_decl(
     interner: &mut Interner,
     bundle_counter: &mut u32,
 ) -> Vec<FactObject> {
+    // Carried declarations emit their carriage object FIRST, before any atom
+    // objects they imply — reconstruction relies on that order to skip the
+    // regenerated atoms. Carriage emission has no interner side effect, so
+    // interner order stays in lock-step with the loader regardless.
+    let mut objects: Vec<FactObject> = Vec::new();
+    if let Some((kind, name)) = carriage_kind(decl) {
+        objects.push(carriage_object(decl, kind, &name));
+    }
+
     // Question and Fork declarations don't process their own provenance in the
     // loader — only their options (which intern names and produce implied-atom
     // fact objects). Handle them specially.
     if let Decl::Question(q) = decl {
-        return lower_options(&q.options, pack_name, interner);
+        objects.extend(lower_options(&q.options, pack_name, interner));
+        return objects;
     }
     if let Decl::Fork(f) = decl {
-        return lower_options(&f.options, pack_name, interner);
+        objects.extend(lower_options(&f.options, pack_name, interner));
+        return objects;
     }
 
-    // Hypothesis declarations intern their name as a variable — no fact object
-    // is produced, but the variable must be interned to keep the interner in
-    // sync (it may be referenced later by `suppose` or `assumes` conditions).
+    // Hypothesis declarations intern their name as a variable — the carriage
+    // object preserves the declaration; the interning keeps `suppose` and
+    // `assumes` references resolvable.
     if let Decl::Hypothesis(h) = decl {
         let _ = interner.intern(&h.name.text);
-        return Vec::new();
+        return objects;
     }
 
     // Always intern the decl's provenance variables. For fact-producing
@@ -154,22 +289,21 @@ pub fn lower_decl(
 
     let (atom_expr, _) = decl_to_atom(decl);
     let Some(atom_expr) = atom_expr else {
-        return Vec::new(); // hypotheses, use-decls, questions-without-options
+        return objects; // carried declarations with no extensional atom
     };
 
     let ann = ann.unwrap_or_else(|| dli_core::ann::Ann::supported(PosBool::FALSE));
     let ground = atom_expr_to_ground(&atom_expr);
     let conditions = cond_pairs(&ann);
 
-    let claim_label = format!("decl:{}", ground.render());
-    let mut objects = vec![FactObject::new(
-        ClaimId::from_label(&claim_label),
+    objects.push(FactObject::new(
+        claim_for(&ground),
         ground,
         ann.support,
         ann.defeaters,
         conditions,
         Grade::Asserted,
-    )];
+    ));
 
     // Entity slots — the loader lowers each slot as an attr atom with
     // provenance inherited from the entity when the slot carries none
@@ -186,9 +320,8 @@ pub fn lower_decl(
             };
             let ground = atom_expr_to_ground(&atom);
             let conditions = cond_pairs(&slot_ann);
-            let claim_label = format!("decl:{}", ground.render());
             objects.push(FactObject::new(
-                ClaimId::from_label(&claim_label),
+                claim_for(&ground),
                 ground,
                 slot_ann.support,
                 slot_ann.defeaters,
@@ -228,9 +361,8 @@ fn lower_options(
         if let Some(implied) = &option.implies {
             let ground = atom_expr_to_ground(implied);
             let support = PosBool::pos(var);
-            let claim_label = format!("option-implies:{}", ground.render());
             objects.push(FactObject::new(
-                ClaimId::from_label(&claim_label),
+                claim_for(&ground),
                 ground,
                 support,
                 PosBool::FALSE,
@@ -459,8 +591,7 @@ fn cond_group(
 pub fn lower_atoms(atoms: &[LoadedAtom]) -> Vec<FactObject> {
     atoms
         .iter()
-        .enumerate()
-        .map(|(index, la)| {
+        .map(|la| {
             let ground = atom_expr_to_ground(&la.atom);
             let conditions: Vec<CondPair> = la
                 .ann
@@ -473,9 +604,8 @@ pub fn lower_atoms(atoms: &[LoadedAtom]) -> Vec<FactObject> {
                     )
                 })
                 .collect();
-            let label = format!("atom#{index}:{}", ground.render());
             FactObject::new(
-                ClaimId::from_label(&label),
+                claim_for(&ground),
                 ground,
                 la.ann.support.clone(),
                 la.ann.defeaters.clone(),
@@ -495,8 +625,7 @@ pub fn lower_atoms(atoms: &[LoadedAtom]) -> Vec<FactObject> {
 pub fn lower_facts(facts: &[Fact]) -> Vec<FactObject> {
     facts
         .iter()
-        .enumerate()
-        .map(|(index, fact)| {
+        .map(|fact| {
             let conditions: Vec<CondPair> = fact
                 .ann
                 .conditions
@@ -508,13 +637,8 @@ pub fn lower_facts(facts: &[Fact]) -> Vec<FactObject> {
                     )
                 })
                 .collect();
-            let label = format!(
-                "fact#{index}:{}({})",
-                fact.atom.pred,
-                fact.atom.args.join(",")
-            );
             FactObject::new(
-                ClaimId::from_label(&label),
+                claim_for(&fact.atom),
                 fact.atom.clone(),
                 fact.ann.support.clone(),
                 fact.ann.defeaters.clone(),
@@ -546,74 +670,192 @@ fn entity_kind_from_keyword(pred: &str) -> EntityKind {
     }
 }
 
+/// Turn a positive-Boolean polynomial back into the `CondExpr` DNF that
+/// compiles to it: each monomial becomes an `And` of hypotheses (negative
+/// rails wrapped in `Not`), the polynomial an `Or` of monomials. Recompiling
+/// through `cond_to_posbool` reproduces the polynomial exactly, because the
+/// stored form is already absorption-normalized DNF.
+fn polynomial_to_condexpr(p: &PosBool, interner: &Interner) -> Result<CondExpr, String> {
+    let mut monomials: Vec<CondExpr> = Vec::new();
+    for m in p.monomials() {
+        let mut lits: Vec<CondExpr> = Vec::new();
+        for lit in m.lits() {
+            let name = interner
+                .resolve(lit.atom)
+                .ok_or_else(|| format!("condition variable atom{} has no name", lit.atom.0))?;
+            let hyp = CondExpr::Hyp(Ident::synthetic(name));
+            lits.push(match lit.rail {
+                Rail::Pos => hyp,
+                Rail::Neg => CondExpr::Not(Box::new(hyp)),
+            });
+        }
+        monomials.push(if lits.len() == 1 {
+            lits.pop().expect("one element")
+        } else {
+            CondExpr::And(lits)
+        });
+    }
+    Ok(if monomials.len() == 1 {
+        monomials.pop().expect("one element")
+    } else {
+        CondExpr::Or(monomials)
+    })
+}
+
 /// Derive an [`Annotation`] from a support polynomial.
 ///
-/// The support polynomial is the canonical encoding of provenance: decision
-/// variables (`D-XXXX`) in the support are citations; all-positive supports
-/// gated only on hypothesis variables (`h.*`) are proposals; `FALSE` means
-/// fail-closed (no annotation at all).
+/// The support polynomial is the canonical encoding of provenance, factored
+/// back as follows:
 ///
-/// This function uses the committed `interner` to resolve `Atom` indices to
-/// variable names and `known_decisions` to distinguish citations from
-/// hypotheses. The marker for all ledger-gated claims is reconstructed as
-/// `Ratified` — the loader treats `Decided`, `Ratified`, and `Provisional`
-/// identically for valuation setting, so the fixpoint is unaffected.
+/// - `FALSE` — fail-closed: no annotation at all.
+/// - Citations: positive known-decision variables present in **every**
+///   monomial (a ledger claim conjoins its citations). Marker `Ratified` —
+///   the loader treats `Decided`/`Ratified`/`Provisional` identically for
+///   valuation, so the fixpoint is unaffected.
+/// - After stripping citations, a residual single positive `h.<pack>#N`
+///   literal is a positional proposal bundle (re-minted on recompile, so no
+///   tags); a residual single positive `h.<key>` literal is a tag-gated
+///   proposal with `tags = key.split('+')`.
+/// - Any other residual is an `assumes` condition, factored back to
+///   `CondExpr` DNF (each monomial an `And`, the polynomial an `Or`).
+/// - A residual that *mixes* `h.`-gates with condition variables cannot be
+///   factored — that shape is refused, never guessed (DL-0045 ruling 5).
+#[allow(clippy::too_many_lines)]
 pub fn derive_annotation(
     support: &PosBool,
     interner: &Interner,
     known_decisions: &BTreeSet<String>,
-) -> Option<Annotation> {
+    pack_name: &str,
+) -> Result<Option<Annotation>, String> {
     if support.is_false() {
-        return None; // fail-closed: no provenance (spec 02 §3)
+        return Ok(None); // fail-closed: no provenance (spec 02 §3)
     }
 
-    // Collect positive variable names that are known decisions (citations).
-    let citations: Vec<String> = support
-        .monomials()
-        .flat_map(dli_core::posbool::Monomial::lits)
-        .filter(|lit| {
-            lit.rail == Rail::Pos && {
-                interner
-                    .resolve(lit.atom)
-                    .is_some_and(|name| known_decisions.contains(name))
-            }
-        })
-        .filter_map(|lit| interner.resolve(lit.atom).map(String::from))
-        .collect();
-
-    if !citations.is_empty() {
-        // Ledger-gated: every cited decision is a citation.
+    let annotation = |marker, citations: Vec<String>, condition, tags| {
         Some(Annotation {
-            marker: ProvenanceMarker::Ratified,
+            marker,
             citations: citations
                 .into_iter()
                 .map(|c| CitationRef {
                     id: Ident::synthetic(c),
                 })
                 .collect(),
-            condition: None,
-            tags: Vec::new(),
+            condition,
+            tags,
             span: Span::synthetic(),
         })
-    } else if support.is_true() {
-        // Unconditional proposal (no gating variable).
-        Some(Annotation {
-            marker: ProvenanceMarker::Proposed,
-            citations: Vec::new(),
-            condition: None,
-            tags: Vec::new(),
-            span: Span::synthetic(),
+    };
+
+    // Citations: positive known-decision names present in every monomial.
+    let monomial_names: Vec<Vec<(String, Rail)>> = support
+        .monomials()
+        .map(|m| {
+            m.lits()
+                .map(|lit| {
+                    interner
+                        .resolve(lit.atom)
+                        .map(|n| (n.to_owned(), lit.rail))
+                        .ok_or_else(|| format!("support variable atom{} has no name", lit.atom.0))
+                })
+                .collect::<Result<Vec<_>, String>>()
         })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let is_citation =
+        |(name, rail): &(String, Rail)| *rail == Rail::Pos && known_decisions.contains(name);
+    let citations: Vec<String> = monomial_names
+        .first()
+        .map(|first| {
+            first
+                .iter()
+                .filter(|l| is_citation(l))
+                .filter(|l| monomial_names.iter().all(|m| m.contains(l)))
+                .map(|(n, _)| n.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // The residual polynomial: every monomial minus the shared citations.
+    let residual: Vec<Vec<(String, Rail)>> = monomial_names
+        .iter()
+        .map(|m| {
+            m.iter()
+                .filter(|l| !(is_citation(l) && citations.contains(&l.0)))
+                .cloned()
+                .collect()
+        })
+        .collect();
+    let residual_empty = residual.iter().all(Vec::is_empty);
+    let marker = if citations.is_empty() {
+        ProvenanceMarker::Proposed
     } else {
-        // Hypothesis-gated proposal: the support variables are hypothesis names.
-        Some(Annotation {
-            marker: ProvenanceMarker::Proposed,
-            citations: Vec::new(),
-            condition: None,
-            tags: Vec::new(),
-            span: Span::synthetic(),
-        })
+        ProvenanceMarker::Ratified
+    };
+
+    if residual_empty {
+        return Ok(annotation(marker, citations, None, Vec::new()));
     }
+
+    // A single residual literal that is an `h.` gate: positional bundle or tags.
+    let bundle_prefix = format!("h.{pack_name}#");
+    if residual.len() == 1 && residual[0].len() == 1 && residual[0][0].1 == Rail::Pos {
+        let name = &residual[0][0].0;
+        if let Some(counter) = name.strip_prefix(&bundle_prefix)
+            && counter.parse::<u32>().is_ok()
+        {
+            // Positional proposal bundle — re-minted on recompile.
+            return Ok(annotation(
+                ProvenanceMarker::Proposed,
+                citations,
+                None,
+                Vec::new(),
+            ));
+        }
+        if let Some(key) = name.strip_prefix("h.") {
+            return Ok(annotation(
+                ProvenanceMarker::Proposed,
+                citations,
+                None,
+                key.split('+').map(str::to_owned).collect(),
+            ));
+        }
+    }
+
+    // Any `h.` gate mixed into a wider residual is unfactorable — refuse.
+    if residual
+        .iter()
+        .flatten()
+        .any(|(name, _)| name.starts_with("h."))
+    {
+        return Err(format!(
+            "support mixes proposal gates with condition variables and cannot be factored: {residual:?}"
+        ));
+    }
+
+    // The residual is an `assumes` condition in DNF.
+    let residual_poly = {
+        let mut acc = PosBool::FALSE;
+        for m in &residual {
+            let mut mono = PosBool::truth();
+            for (name, rail) in m {
+                let atom = interner
+                    .names()
+                    .iter()
+                    .position(|n| n == name)
+                    .map(|i| dli_core::atom::Atom(u32::try_from(i).expect("interner fits u32")))
+                    .ok_or_else(|| format!("condition variable `{name}` not in interner"))?;
+                let lit_poly = match rail {
+                    Rail::Pos => PosBool::pos(atom),
+                    Rail::Neg => PosBool::neg(atom),
+                };
+                mono = mono.and_(&lit_poly);
+            }
+            acc = acc.or_(&mono);
+        }
+        acc
+    };
+    let condition = polynomial_to_condexpr(&residual_poly, interner)?;
+    Ok(annotation(marker, citations, Some(condition), Vec::new()))
 }
 
 /// Build an `AtomExpr` from a `GroundAtom`, choosing a term shape that
@@ -634,18 +876,43 @@ fn atom_expr_from_ground(ground: &dli_eval::world::GroundAtom) -> AtomExpr {
     }
 }
 
+/// A fact-object stream that cannot be faithfully reconstructed. Loud by
+/// design (DL-0045 ruling 5): the store must refuse what it cannot round-trip,
+/// never compile a silently different world.
+#[derive(Debug, thiserror::Error)]
+pub enum ReconstructError {
+    /// A carried declaration failed to decode.
+    #[error("carried declaration `{name}` does not decode: {reason}")]
+    Carriage {
+        /// The carriage object's display name.
+        name: String,
+        /// Why decoding failed.
+        reason: String,
+    },
+    /// A base fact object carries state the declaration forms cannot express.
+    #[error("cannot reconstruct `{atom}`: {reason}")]
+    Unfaithful {
+        /// The rendered ground atom.
+        atom: String,
+        /// What could not be expressed.
+        reason: String,
+    },
+}
+
 /// Reconstruct a [`Pack`] from a set of [`FactObject`]s, ready for
 /// recompilation.
 ///
-/// The reconstruction derives each fact's `Annotation` from its support
-/// polynomial (using the committed `interner` to resolve `Atom` indices to
-/// variable names) and re-emits `Decl::Ratify` declarations for every cited
-/// decision so the loader can restore the ledger valuation on recompile.
+/// Carried declarations (`expert_body` present) decode back to their exact
+/// source `Decl` and **skip** the atom objects they regenerate on recompile
+/// ([`carried_atom_renders`]). Plain atom objects reconstruct as
+/// `Entity`/`Fact` declarations with the `Annotation` derived from the stored
+/// support polynomial — citations, tags, and `assumes` conditions included.
+/// Anything that cannot be reconstructed faithfully is a
+/// [`ReconstructError`], never a silently different world.
 ///
-/// Entity-kind predicates (`place`, `era`, …) are reconstructed as
-/// `Decl::Entity` so the loader's entity registry and proposal counter advance
-/// in exactly the same order as the original — preserving `Atom` index
-/// assignments and keeping content-address digests stable across the round-trip.
+/// Streams lowered from `LoadedAtom`s alone (no carriage objects — the
+/// compile-side oracle path) get a `Ratify` prelude from `known_decisions`,
+/// preserving the historical interner growth order.
 ///
 /// The `pack_name` seeds the proposal-bundle variable naming — it must match
 /// the original pack's scope header.
@@ -654,22 +921,69 @@ pub fn reconstruct_pack(
     interner: &Interner,
     known_decisions: &BTreeSet<String>,
     pack_name: &str,
-) -> Pack {
+) -> Result<Pack, ReconstructError> {
     let mut decls: Vec<Decl> = Vec::new();
 
-    // Ratify first: this interns every decision-id variable before any fact,
-    // matching the loader's interner growth order exactly.
-    for decision in known_decisions {
-        decls.push(Decl::Ratify(RatifyDecl {
-            decision: Ident::synthetic(decision),
-            body: Vec::new(),
-        }));
+    // Ratify prelude — only for carriage-free streams; carried packs replay
+    // their ratify declarations in original document order instead.
+    let has_ratify_carriage = fact_objects.iter().any(|fo| {
+        fo.expert_body
+            .as_ref()
+            .is_some_and(|b| b.kind == ExpertDeclKind::Ratify)
+    });
+    if !has_ratify_carriage {
+        for decision in known_decisions {
+            decls.push(Decl::Ratify(RatifyDecl {
+                decision: Ident::synthetic(decision),
+                body: Vec::new(),
+            }));
+        }
     }
 
-    // Then facts/entities in lowered order — proposal-bundle counters advance
-    // in the same sequence as the original pack.
-    for fo in fact_objects {
-        let annotation = derive_annotation(&fo.support, interner, known_decisions);
+    let mut index = 0;
+    while index < fact_objects.len() {
+        let fo = &fact_objects[index];
+
+        if let Some(body) = &fo.expert_body {
+            let json = body
+                .body
+                .first()
+                .ok_or_else(|| ReconstructError::Carriage {
+                    name: body.name.clone(),
+                    reason: "carriage body is empty".to_owned(),
+                })?;
+            let decl: Decl =
+                serde_json::from_str(json).map_err(|e| ReconstructError::Carriage {
+                    name: body.name.clone(),
+                    reason: e.to_string(),
+                })?;
+            // Skip the atom objects this declaration regenerates on recompile
+            // — by identity, in order, tolerating absences (commit-chain
+            // dedup can elide an atom already present in an earlier commit).
+            index += 1;
+            for expected in carried_atom_renders(&decl) {
+                if fact_objects.get(index).is_some_and(|next| {
+                    next.expert_body.is_none() && next.atom.render() == expected
+                }) {
+                    index += 1;
+                }
+            }
+            decls.push(decl);
+            continue;
+        }
+
+        // Base atoms must not carry state the declaration forms cannot say.
+        if !fo.defeaters.is_false() {
+            return Err(ReconstructError::Unfaithful {
+                atom: fo.atom.render(),
+                reason: "a base fact with a non-false defeater polynomial".to_owned(),
+            });
+        }
+        let annotation = derive_annotation(&fo.support, interner, known_decisions, pack_name)
+            .map_err(|reason| ReconstructError::Unfaithful {
+                atom: fo.atom.render(),
+                reason,
+            })?;
 
         if is_entity_kind(&fo.atom.pred) && fo.atom.args.len() == 1 {
             // Reconstruct as Decl::Entity — entity facts always have exactly one
@@ -694,6 +1008,7 @@ pub fn reconstruct_pack(
                 provenance: annotation,
             }));
         }
+        index += 1;
     }
 
     let scope = if pack_name.is_empty() {
@@ -705,10 +1020,41 @@ pub fn reconstruct_pack(
         })
     };
 
-    dli_world::pack::Pack {
+    Ok(dli_world::pack::Pack {
         name: pack_name.to_owned(),
         documents: vec![Document { scope, decls }],
+    })
+}
+
+/// Lower a whole pack per-declaration, in document order — the store's write
+/// path. Uses each document's scope-header name (falling back to the pack
+/// name) for proposal-bundle minting, exactly as the loader does. Returns the
+/// lowered objects and the interner name table the walk built; callers refuse
+/// the result when that table diverges from the compiled model's (loud
+/// totality — the walk must track the loader or the pack does not import).
+#[must_use]
+pub fn lower_pack(pack: &Pack) -> (Vec<FactObject>, Vec<String>) {
+    let mut interner = Interner::new();
+    // One bundle counter across the whole pack — the loader's counter is a
+    // LoadCtx field that never resets between documents, even though the
+    // minted prefix follows each document's scope name.
+    let mut bundle_counter = 0u32;
+    let mut objects: Vec<FactObject> = Vec::new();
+    for doc in &pack.documents {
+        let scope_name = doc
+            .scope
+            .as_ref()
+            .map_or(pack.name.as_str(), |s| s.name.text.as_str());
+        for decl in &doc.decls {
+            objects.extend(lower_decl(
+                decl,
+                scope_name,
+                &mut interner,
+                &mut bundle_counter,
+            ));
+        }
     }
+    (objects, interner.names().to_vec())
 }
 
 /// Extract the `Decl::Ratify` decision ids from a pack — mirrors the private

@@ -97,6 +97,28 @@ pub enum StoreError {
         /// The pack that was being imported.
         importing: String,
     },
+    /// The per-declaration lowering walk did not track the loader on this
+    /// pack — its interner diverged from the compiled model's. The pack is
+    /// refused rather than stored with misresolvable polynomials (loud
+    /// totality, DL-0045 ruling 5).
+    #[error(
+        "pack `{pack}` cannot be lowered faithfully: the lowering walk's \
+         interner diverges from the compiled model's at index {index} \
+         (walk: {walk:?}, model: {model:?})"
+    )]
+    LoweringDiverged {
+        /// The pack that was being imported.
+        pack: String,
+        /// The first divergent interner index.
+        index: usize,
+        /// The walk's name at that index, if any.
+        walk: Option<String>,
+        /// The model's name at that index, if any.
+        model: Option<String>,
+    },
+    /// Stored fact objects could not be reconstructed into a compilable pack.
+    #[error(transparent)]
+    Reconstruct(#[from] crate::lower::ReconstructError),
 }
 
 /// The abstract storage interface.

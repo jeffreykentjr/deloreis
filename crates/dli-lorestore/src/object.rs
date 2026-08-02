@@ -82,16 +82,54 @@ pub enum ExpertDeclKind {
     Principle,
     /// `proof <name> { body }`
     Proof,
+    /// `kind <name>` — a sort declaration.
+    Kind,
+    /// `state …` — a fluent-state declaration.
+    State,
+    /// `cycle <name> …` — a cycle declaration.
+    Cycle,
+    /// `question <name> { options }` — carried whole so option families and
+    /// implied atoms regenerate on recompile.
+    Question,
+    /// `hypothesis <name>` — carried so `suppose` targets survive the store.
+    Hypothesis,
+    /// `use <path>` — an import declaration.
+    Use,
+    /// A lexicon `word` declaration.
+    Word,
+    /// A `namepart` declaration.
+    NamePart,
+    /// An `attest` declaration.
+    Attest,
+    /// A `term` declaration.
+    Term,
+    /// A `banned` declaration.
+    Banned,
+    /// A `narration` declaration.
+    Narration,
+    /// An `entity` declaration that carries more than its ground atom —
+    /// a display label, a time clause, or indented slots — and so cannot be
+    /// reconstructed from the atom object alone.
+    Entity,
+    /// A `before` ordering declaration — carried because its ground atom is
+    /// indistinguishable from an ordinary `before(a, b)` fact, and only the
+    /// declaration form adds a chronology edge.
+    Before,
 }
 
-/// The expert-tier clause body carried as a marked string in v1.
+/// A declaration carried as a marked string in v1 (the expert-tier debt rule,
+/// roadmap §LS-1).
 ///
-/// The `kind` + `name` tags identify which of the eleven declaration types this
-/// body belongs to, so LS-9's typed upcasts know what interior to deepen. The
-/// `body` is whitespace-normalized clause text (as [`Clause`](dli_ast::clause::Clause)
-/// captures it); `head` carries any header tokens after the name. This is
-/// explicitly **named, versioned debt** — the field is marked so nobody mistakes
-/// an embedded micro-syntax string for a structured interior.
+/// The `kind` + `name` tags identify which declaration type this body belongs
+/// to, so LS-9's typed upcasts know what interior to deepen. In the v1
+/// encoding `body` holds exactly one element: the canonical JSON serialization
+/// of the whole [`Decl`](dli_ast::decl::Decl) — deterministic to hash, exactly
+/// reconstructable by serde, semantically opaque to the store. (For the eleven
+/// string-bodied expert-tier types that JSON in turn embeds their
+/// whitespace-normalized clause strings — debt inside debt, both deepened by
+/// LS-9.) `head` is reserved for header tokens and empty in the v1 encoding.
+/// This is explicitly **named, versioned debt** — the field is marked so
+/// nobody mistakes an embedded encoding for a structured interior.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExpertBody {

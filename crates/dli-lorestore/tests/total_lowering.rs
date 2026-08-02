@@ -92,7 +92,9 @@ fn total_lowering_reproduces_fixpoint_findings_and_digests() {
     //    that every citation resolves to a known decision.
     let interner_a = model_a.interner();
     for fo in &fact_objects {
-        if let Some(ann) = derive_annotation(&fo.support, interner_a, &known_decisions) {
+        if let Some(ann) = derive_annotation(&fo.support, interner_a, &known_decisions, &pack.name)
+            .expect("annotation derives")
+        {
             for cite in &ann.citations {
                 assert!(
                     known_decisions.contains(&cite.id.text),
@@ -104,7 +106,8 @@ fn total_lowering_reproduces_fixpoint_findings_and_digests() {
     }
 
     // 5 — reconstruct source Decls from the FactObjects.
-    let reconstructed = reconstruct_pack(&fact_objects, interner_a, &known_decisions, &pack.name);
+    let reconstructed = reconstruct_pack(&fact_objects, interner_a, &known_decisions, &pack.name)
+        .expect("the lowered corpus reconstructs");
 
     //    The reconstructed documents carry ratify decls first, then entity decls,
     //    then fact decls — matching the original pack's ordering.
@@ -253,21 +256,27 @@ fn lower_decl_reproduces_lower_atoms() {
 
     // lower_atoms over the full compiled model — reference set.
     let reference = lower_atoms(model.atoms());
-    let ref_digests: Vec<String> = reference
+    let ref_keys: Vec<(String, String)> = reference
         .iter()
-        .map(|fo| fo.content_hash().expect("canonical encoding").to_string())
+        .map(|fo| {
+            (
+                fo.content_hash().expect("canonical encoding").to_string(),
+                fo.claim_id.to_string(),
+            )
+        })
         .collect();
 
     // Re-lower each decl using lower_decl, starting with an empty interner
     // and bundle_counter=0 — the same state the loader starts from when
     // compiling the full pack. lower_decl must produce identical FactObjects
-    // to lower_atoms.
+    // to lower_atoms on the atom layer; carriage objects (expert_body) carry
+    // declarations lower_atoms cannot see and are excluded from the atom
+    // comparison.
     let mut interner = dli_core::atom::Interner::new();
     let mut bundle_counter = 0u32;
     let pack_name_str = &pack.name;
 
-    let mut decl_fact_objects: Vec<FactObject> = Vec::new();
-    let mut decl_digests: Vec<String> = Vec::new();
+    let mut decl_keys: Vec<(String, String)> = Vec::new();
     for doc in &pack.documents {
         for decl in &doc.decls {
             let objects = dli_lorestore::lower::lower_decl(
@@ -276,29 +285,32 @@ fn lower_decl_reproduces_lower_atoms() {
                 &mut interner,
                 &mut bundle_counter,
             );
-            for fo in &objects {
-                decl_digests.push(fo.content_hash().expect("canonical encoding").to_string());
-                decl_fact_objects.push(fo.clone());
+            for fo in objects.iter().filter(|fo| fo.expert_body.is_none()) {
+                decl_keys.push((
+                    fo.content_hash().expect("canonical encoding").to_string(),
+                    fo.claim_id.to_string(),
+                ));
             }
         }
     }
 
     assert_eq!(
-        ref_digests.len(),
-        decl_digests.len(),
-        "lower_decl must produce one FactObject per fact-producing decl,\n\
+        ref_keys.len(),
+        decl_keys.len(),
+        "lower_decl must produce one atom FactObject per fact-producing decl,\n\
          reference has {} objects, decl-lowering produced {}",
-        ref_digests.len(),
-        decl_digests.len()
+        ref_keys.len(),
+        decl_keys.len()
     );
 
     // Both sets are in declaration order (the loader pushes atoms in the same
     // order lower_decl processes them), so direct position comparison is
-    // valid — not just set equality.
-    for (i, (ref_hash, decl_hash)) in ref_digests.iter().zip(decl_digests.iter()).enumerate() {
+    // valid — not just set equality. Claim ids must agree too (audit A3): the
+    // same fact reaches the same claim id through every write path.
+    for (i, (ref_key, decl_key)) in ref_keys.iter().zip(decl_keys.iter()).enumerate() {
         assert_eq!(
-            ref_hash, decl_hash,
-            "FactObject at position {i} differs:\n  lower_atoms: {ref_hash}\n  lower_decl:  {decl_hash}"
+            ref_key, decl_key,
+            "FactObject at position {i} differs (hash, claim_id):\n  lower_atoms: {ref_key:?}\n  lower_decl:  {decl_key:?}"
         );
     }
 }
@@ -431,6 +443,8 @@ fn lower_decl_parity_on_gated_and_malformed_shapes() {
     for decl in &decls {
         for fo in
             dli_lorestore::lower::lower_decl(decl, "parity", &mut interner, &mut bundle_counter)
+                .iter()
+                .filter(|fo| fo.expert_body.is_none())
         {
             decl_digests.push(fo.content_hash().expect("canonical encoding").to_string());
         }
