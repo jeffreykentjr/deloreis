@@ -23,7 +23,7 @@ use dli_lorestore::{FactObject, Lorestore};
 /// serialization invariant was broken (floats, unsorted keys, platform path
 /// separators in content).
 const EXPECTED_ROOT_HASH: &str =
-    "sha256:aefd0b960df32eb17865e01aac0ad80a31a50c135ef9613fe9526dd29c801b63";
+    "sha256:8b6b0d61b4dbb92325b82e804784f8ad4acf5350c1ee326c906e7298cc63b6c7";
 
 /// Build the deterministic sequence of fact objects used by this test.
 fn deterministic_facts() -> Vec<FactObject> {
@@ -80,7 +80,14 @@ fn root_hash_is_deterministic_across_writes() {
     // Commit them with an empty interner (no event-variable names needed for
     // these positive-only atoms).
     let root_hash = store
-        .commit(Vec::new(), fact_hashes, Vec::new(), Vec::new(), Vec::new())
+        .commit(
+            Vec::new(),
+            fact_hashes,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            String::new(),
+        )
         .expect("commit");
 
     // The root hash must be deterministic — content-addressed and platform-
@@ -110,7 +117,14 @@ fn root_hash_changes_when_content_changes() {
     let fo1 = deterministic_facts().into_iter().next().unwrap();
     let hash1 = store.write_object(&fo1).expect("write");
     let root1 = store
-        .commit(Vec::new(), vec![hash1], Vec::new(), Vec::new(), Vec::new())
+        .commit(
+            Vec::new(),
+            vec![hash1],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            String::new(),
+        )
         .expect("commit");
     assert_ne!(root1.to_string(), EXPECTED_ROOT_HASH);
 
@@ -128,7 +142,14 @@ fn root_hash_changes_when_content_changes() {
     );
     let hash2 = store.write_object(&fo2).expect("write");
     let root2 = store
-        .commit(Vec::new(), vec![hash2], Vec::new(), Vec::new(), Vec::new())
+        .commit(
+            Vec::new(),
+            vec![hash2],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            String::new(),
+        )
         .expect("commit");
     assert_ne!(
         root1.to_string(),
@@ -155,10 +176,24 @@ fn root_hash_is_stable_for_identical_re_writes() {
     // Committing the same hash twice (in separate commits) must produce
     // different root hashes (different commit objects — parent differs).
     let root1 = store
-        .commit(Vec::new(), vec![h1], Vec::new(), Vec::new(), Vec::new())
+        .commit(
+            Vec::new(),
+            vec![h1],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            String::new(),
+        )
         .expect("commit 1");
     let root2 = store
-        .commit(Vec::new(), vec![h2], Vec::new(), Vec::new(), Vec::new())
+        .commit(
+            Vec::new(),
+            vec![h2],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            String::new(),
+        )
         .expect("commit 2");
     assert_ne!(
         root1.to_string(),

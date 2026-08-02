@@ -1,11 +1,27 @@
 #![allow(dead_code)]
 
-//! Shared helpers for LS-2 lorestore oracle tests.
+//! Shared helpers for LS-1/LS-2/LS-3 lorestore oracle tests.
+//!
+//! The corpus-bridge section mirrors `crates/dli-world/tests/check.rs:corpus_pack`.
+
+use std::path::PathBuf;
+
+use serde::Deserialize;
+
+use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
+use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader};
+use dli_ast::ident::Ident;
+use dli_ast::span::Span;
+use dli_ast::term::{AtomExpr, Term};
 
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_lorestore::ClaimId;
 use dli_lorestore::FactObject;
+use dli_lorestore::lower::render_polynomial;
+use dli_world::pack::Pack;
+
+// ── fact-object fixture ────────────────────────────────────────────────
 
 /// Build a simple `FactObject` for testing with a positive support polynomial.
 pub fn test_fact(
@@ -26,4 +42,234 @@ pub fn test_fact(
         Vec::new(),
         grade,
     )
+}
+
+// ── vendored corpus bridge ───────────────────────────────────────────────
+
+/// The root directory of the vendored corpus used by oracle tests.
+pub fn vendor_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-099e04cd")
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FactsDoc {
+    #[serde(default)]
+    pub entities: Vec<EntityRow>,
+    #[serde(default)]
+    pub relations: Vec<RelRow>,
+    #[serde(default)]
+    pub facts: Vec<FactRow>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EntityRow {
+    pub id: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub decisions: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RelRow {
+    pub subject: String,
+    pub kind: String,
+    pub object: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub decisions: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FactRow {
+    pub entity: String,
+    pub key: String,
+    pub value: serde_yaml_ng::Value,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub decisions: Vec<String>,
+}
+
+pub fn id(text: &str) -> Ident {
+    Ident::synthetic(text)
+}
+
+fn an_marker(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
+    Annotation {
+        marker,
+        citations: cites.iter().map(|c| CitationRef { id: id(c) }).collect(),
+        condition: None,
+        tags: Vec::new(),
+        span: Span::synthetic(),
+    }
+}
+
+fn ratify_decl(decision: &str) -> Decl {
+    Decl::Ratify(RatifyDecl {
+        decision: id(decision),
+        body: Vec::new(),
+    })
+}
+
+fn map_kind(kind: &str) -> EntityKind {
+    match kind {
+        "place" => EntityKind::Place,
+        "era" => EntityKind::Era,
+        "event" => EntityKind::Event,
+        "person" | "character" => EntityKind::Person,
+        _ => EntityKind::Thing,
+    }
+}
+
+fn provenance(status: &str, decisions: &[String]) -> Option<Annotation> {
+    let marker = match status {
+        "ratified" => ProvenanceMarker::Ratified,
+        "provisional" => ProvenanceMarker::Provisional,
+        "rejected" => return None,
+        _ => ProvenanceMarker::Proposed,
+    };
+    let cites: Vec<&str> = if matches!(marker, ProvenanceMarker::Proposed) {
+        Vec::new()
+    } else {
+        decisions.iter().map(String::as_str).collect()
+    };
+    Some(an_marker(marker, &cites))
+}
+
+fn render_value(value: &serde_yaml_ng::Value) -> String {
+    match value {
+        serde_yaml_ng::Value::String(s) => s.clone(),
+        serde_yaml_ng::Value::Bool(b) => b.to_string(),
+        serde_yaml_ng::Value::Number(n) => n.to_string(),
+        other => serde_yaml_ng::to_string(other)
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
+    }
+}
+
+fn atom(pred: &str, args: &[&str]) -> AtomExpr {
+    AtomExpr {
+        pred: id(pred),
+        args: args.iter().map(|a| Term::Sym(id(a))).collect(),
+    }
+}
+
+fn fact_decl(pred: &str, args: &[&str], prov: Option<Annotation>) -> Decl {
+    Decl::Fact(FactDecl {
+        atom: atom(pred, args),
+        triple: false,
+        provenance: prov,
+    })
+}
+
+/// Bridge the vendored `facts.yaml` into a `Pack`.
+pub fn corpus_pack(facts: &FactsDoc) -> Pack {
+    use std::collections::BTreeSet;
+    let mut decls: Vec<Decl> = Vec::new();
+    let mut decisions = BTreeSet::new();
+    for row in &facts.entities {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for row in &facts.facts {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for row in &facts.relations {
+        decisions.extend(row.decisions.iter().cloned());
+    }
+    for decision in &decisions {
+        decls.push(ratify_decl(decision));
+    }
+    let mut seen = BTreeSet::new();
+    for entity in &facts.entities {
+        if seen.insert(entity.id.clone()) {
+            decls.push(Decl::Entity(EntityDecl {
+                kind: map_kind(&entity.kind),
+                name: id(&entity.id),
+                label: None,
+                time: None,
+                slots: Vec::new(),
+                provenance: provenance(&entity.status, &entity.decisions),
+            }));
+        }
+    }
+    for row in &facts.facts {
+        decls.push(fact_decl(
+            &row.key,
+            &[&row.entity, &render_value(&row.value)],
+            provenance(&row.status, &row.decisions),
+        ));
+    }
+    for row in &facts.relations {
+        decls.push(fact_decl(
+            &row.kind,
+            &[&row.subject, &row.object],
+            provenance(&row.status, &row.decisions),
+        ));
+    }
+    Pack {
+        name: "canon".to_owned(),
+        documents: vec![Document {
+            scope: Some(ScopeHeader {
+                name: id("canon"),
+                span: Span::synthetic(),
+            }),
+            decls,
+        }],
+    }
+}
+
+/// Load the vendored corpus `facts.yaml` into a `FactsDoc`.
+pub fn load_corpus() -> FactsDoc {
+    let path = vendor_root().join("canon/data/facts.yaml");
+    let text = std::fs::read_to_string(&path).expect("read facts.yaml");
+    serde_yaml_ng::from_str(&text).expect("parse facts.yaml")
+}
+
+// ── comparison helpers ─────────────────────────────────────────────────
+
+/// Render a `World`'s derived relation as a sorted list of canonical strings.
+pub fn render_derived(world: &dli_eval::world::World) -> Vec<String> {
+    let interner = &world.interner;
+    let mut rows: Vec<String> = world
+        .derived
+        .iter()
+        .map(|d| {
+            let support = render_polynomial(&d.support, interner);
+            let atom = serde_json::to_string(&d.atom).expect("ground atom serializes");
+            format!("{atom}|{support}|{:?}", d.grade)
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// Render a `World`'s extensional facts as canonical strings (sorted).
+pub fn render_facts(world: &dli_eval::world::World) -> Vec<String> {
+    let interner = &world.interner;
+    let mut rows: Vec<String> = world
+        .facts
+        .iter()
+        .map(|f| {
+            let support = render_polynomial(&f.ann.support, interner);
+            let atom = serde_json::to_string(&f.atom).expect("ground atom serializes");
+            format!("{atom}|{support}|{:?}", f.grade)
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// Render findings as comparable strings (sorted).
+pub fn render_findings(findings: &[dli_world::model::LoadFinding]) -> Vec<String> {
+    let mut rows: Vec<String> = findings
+        .iter()
+        .map(|f| format!("{}:{}", f.code(), f.message()))
+        .collect();
+    rows.sort();
+    rows
 }

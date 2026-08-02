@@ -56,6 +56,10 @@ pub struct Commit {
     /// read (empty default); wire-compatible with v1 commits that lack it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub decisions: Vec<String>,
+    /// The scope/pack name from the original `.dli` source — used as the
+    /// `ScopeHeader` name in `reconstruct_pack` so that interner variable
+    /// names (`h.<pack_name>#N`) are preserved across the round-trip.
+    pub pack_name: String,
 }
 
 impl Commit {
@@ -67,6 +71,7 @@ impl Commit {
         lineage: Vec<ContentHash>,
         evidence: Vec<ContentHash>,
         decisions: Vec<String>,
+        pack_name: String,
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
@@ -77,6 +82,7 @@ impl Commit {
             evidence,
             interner,
             decisions,
+            pack_name,
         }
     }
 
@@ -89,6 +95,7 @@ impl Commit {
         lineage: Vec<ContentHash>,
         evidence: Vec<ContentHash>,
         decisions: Vec<String>,
+        pack_name: String,
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
@@ -99,6 +106,7 @@ impl Commit {
             evidence,
             interner,
             decisions,
+            pack_name,
         }
     }
 

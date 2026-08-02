@@ -43,6 +43,10 @@
         "$ref": "#/$defs/ContentHash"
       }
     },
+    "pack_name": {
+      "description": "The scope/pack name from the original `.dli` source — used as the\n`ScopeHeader` name in `reconstruct_pack` so that interner variable\nnames (`h.<pack_name>#N`) are preserved across the round-trip.",
+      "type": "string"
+    },
     "parent": {
       "description": "The parent commit hash — storage-level ancestry only. This field is\nNOT and NEVER will be part of any fact object's content hash.",
       "anyOf": [
@@ -68,7 +72,8 @@
     "facts",
     "lineage",
     "evidence",
-    "interner"
+    "interner",
+    "pack_name"
   ],
   "$defs": {
     "Authority": {

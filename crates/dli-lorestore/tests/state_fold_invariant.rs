@@ -49,6 +49,7 @@ fn state_equals_fold_of_commit_log_single_commit() {
             Vec::new(),
             Vec::new(),
             Vec::new(),
+            String::new(),
         )
         .expect("commit");
 
@@ -109,6 +110,7 @@ fn state_equals_fold_of_commit_log_multi_commit() {
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
+                String::new(),
             )
             .expect("commit");
         all_fact_hashes.push(vec![fact_hash]);
@@ -198,6 +200,7 @@ fn state_equals_fold_of_commit_log_orphan_cleanup() {
             Vec::new(),
             Vec::new(),
             Vec::new(),
+            String::new(),
         )
         .expect("commit");
 
