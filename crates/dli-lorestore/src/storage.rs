@@ -73,6 +73,30 @@ pub enum StoreError {
     /// Lock acquisition failed.
     #[error("could not acquire store lock: {0}")]
     Lock(String),
+    /// A commit's interner is not a prefix-preserving extension of its
+    /// parent's — accepting it would silently misresolve every earlier fact's
+    /// support polynomial (`compile()` resolves the whole chain against the
+    /// head interner).
+    #[error(
+        "commit interner is not an append-only extension of its parent's \
+         (parent has {parent_len} names, candidate diverges at index {diverges_at})"
+    )]
+    InternerRegression {
+        /// The parent commit's interner length.
+        parent_len: usize,
+        /// The first index at which the candidate differs from the parent
+        /// (equal to the candidate's length when the candidate is shorter).
+        diverges_at: usize,
+    },
+    /// The store already holds a different base lineage than the pack being
+    /// imported — a single-branch store carries exactly one pack lineage.
+    #[error("store at head pack `{store_pack}` cannot import base pack `{importing}`")]
+    ForeignBase {
+        /// The pack name recorded on the store's head commit.
+        store_pack: String,
+        /// The pack that was being imported.
+        importing: String,
+    },
 }
 
 /// The abstract storage interface.

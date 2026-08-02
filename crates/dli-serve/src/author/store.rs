@@ -37,12 +37,13 @@ pub struct Store {
     discard_replays: BTreeMap<String, (String, String, serde_json::Value)>,
     discard_replay_order: VecDeque<String>,
     next_id: u32,
-    /// The durable lorestore backend — `None` in test/demo contexts without a
-    /// project directory. When present, `author.materialize` commits staged
-    /// fact objects here (LS-4).
-    lorestore: Option<dli_lorestore::Lorestore>,
-    /// The root path the lorestore was opened from, so new packs can be
-    /// imported on-demand.
+    /// The durable lorestore backends, one per base — empty in test/demo
+    /// contexts without a project directory. Each base pack has its own
+    /// single-branch store (one store carries one pack lineage), attached and
+    /// idempotently seeded by [`attach_lorestore`](Store::attach_lorestore).
+    lorestores: BTreeMap<String, dli_lorestore::Lorestore>,
+    /// The root path the lorestores were opened under (one subdirectory per
+    /// base), so new packs can be imported on-demand.
     lorestore_root: Option<std::path::PathBuf>,
 }
 
@@ -52,6 +53,9 @@ const MAX_DISCARD_REPLAYS: usize = 1024;
 struct Base {
     world: CompiledWorld,
     documents: Vec<Document>,
+    /// The pack name the base was compiled under — the scope identity a
+    /// lorestore import must reproduce to yield identical fact objects.
+    pack_name: String,
 }
 
 /// A caller-project store cannot be constructed unambiguously.
@@ -81,6 +85,7 @@ impl Default for Store {
             fallback: Some(Base {
                 world: CompiledWorld::default(),
                 documents: Vec::new(),
+                pack_name: String::new(),
             }),
             bases: BTreeMap::new(),
             fork_bases: BTreeMap::new(),
@@ -90,7 +95,7 @@ impl Default for Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
-            lorestore: None,
+            lorestores: BTreeMap::new(),
             lorestore_root: None,
         }
     }
@@ -107,6 +112,7 @@ impl Store {
             fallback: Some(Base {
                 world: base,
                 documents: Vec::new(),
+                pack_name: String::new(),
             }),
             bases: BTreeMap::new(),
             fork_bases: BTreeMap::new(),
@@ -116,7 +122,7 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
-            lorestore: None,
+            lorestores: BTreeMap::new(),
             lorestore_root: None,
         }
     }
@@ -141,6 +147,7 @@ impl Store {
             Base {
                 world: base,
                 documents: pack.documents,
+                pack_name: pack.name,
             },
         );
         Ok(Self {
@@ -153,7 +160,7 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
-            lorestore: None,
+            lorestores: BTreeMap::new(),
             lorestore_root: None,
         })
     }
@@ -186,6 +193,7 @@ impl Store {
                 Base {
                     world,
                     documents: pack.documents,
+                    pack_name: pack.name,
                 },
             );
         }
@@ -199,7 +207,7 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
-            lorestore: None,
+            lorestores: BTreeMap::new(),
             lorestore_root: None,
         })
     }
@@ -226,13 +234,22 @@ impl Store {
                 .or_else(|| (!self.strict_forks).then(|| base_name.clone()))?,
         };
         let base = self.base_named(&base_key)?;
-        let base_names = base.world.model().interner().names().to_vec();
+        // Seed the workspace interner from the lorestore head when one is
+        // attached — the head interner extends the base compile's append-only
+        // as materializes land, and a workspace seeded from the stale base
+        // would commit an interner regression (audit A6). Without a store,
+        // the base world's interner is the seed.
+        let base_names = match self.lorestores.get(&base_key) {
+            Some(ls) => ls
+                .head_interner()
+                .unwrap_or_else(|_| base.world.model().interner().names().to_vec()),
+            None => base.world.model().interner().names().to_vec(),
+        };
         self.next_id += 1;
         let id = format!("ws-{}", self.next_id);
         let mut workspace = Workspace::new(id.clone(), mode, base_name);
-        // Seed the workspace interner from the base world's interner, so
-        // `lower_decl` (LS-4b) can produce fact objects with matching Atom
-        // indices. Also compute the bundle counter continuation.
+        // The seeded names give `lower_decl` (LS-4b) matching Atom indices.
+        // Also compute the bundle counter continuation.
         let mut bundle_counter = 0u32;
         let prefix = format!("h.{}", workspace.base_name);
         for name in &base_names {
@@ -283,26 +300,51 @@ impl Store {
             .map(|base| base.documents.as_slice())
     }
 
-    /// The lorestore backing this store, if one is attached (LS-4).
+    /// The lorestore backing a base, if one is attached (LS-4). Each base has
+    /// its own single-branch store — one store, one pack lineage.
     #[must_use]
-    pub fn lorestore(&self) -> Option<&dli_lorestore::Lorestore> {
-        self.lorestore.as_ref()
+    pub fn lorestore_for(&self, base_key: &str) -> Option<&dli_lorestore::Lorestore> {
+        self.lorestores.get(base_key)
     }
 
-    /// The lorestore backing this store, if one is attached (LS-4).
-    pub fn lorestore_mut(&mut self) -> Option<&mut dli_lorestore::Lorestore> {
-        self.lorestore.as_mut()
+    /// The lorestore backing the base a workspace was opened over, if any.
+    #[must_use]
+    pub fn workspace_lorestore(&self, ws_id: &str) -> Option<&dli_lorestore::Lorestore> {
+        let base_key = self.workspace_bases.get(ws_id)?;
+        self.lorestores.get(base_key)
     }
 
-    /// Attach a lorestore at the given path. Called by `serve.rs` when a
-    /// project directory is available so `author.materialize` can commit.
+    /// Mutable access to the lorestore backing a workspace's base.
+    pub fn workspace_lorestore_mut(
+        &mut self,
+        ws_id: &str,
+    ) -> Option<&mut dli_lorestore::Lorestore> {
+        let base_key = self.workspace_bases.get(ws_id)?.clone();
+        self.lorestores.get_mut(&base_key)
+    }
+
+    /// Attach lorestores under the given root — one subdirectory per base —
+    /// and idempotently import each base pack, so the store's folded state
+    /// always contains the world the findings are graded against (audit A1).
+    /// Called by `serve.rs` when a project directory is available.
+    ///
+    /// Re-attaching is cheap: `ensure_pack_imported` writes nothing when the
+    /// head already covers the base.
     pub fn attach_lorestore(
         &mut self,
         root: std::path::PathBuf,
     ) -> Result<(), dli_lorestore::StoreError> {
-        if self.lorestore.is_none() {
-            let ls = dli_lorestore::Lorestore::open(root.clone())?;
-            self.lorestore = Some(ls);
+        for (key, base) in &self.bases {
+            if self.lorestores.contains_key(key) {
+                continue;
+            }
+            let ls = dli_lorestore::Lorestore::open(root.join(key))?;
+            let pack = Pack {
+                name: base.pack_name.clone(),
+                documents: base.documents.clone(),
+            };
+            ls.ensure_pack_imported(&pack)?;
+            self.lorestores.insert(key.clone(), ls);
         }
         self.lorestore_root = Some(root);
         Ok(())
@@ -323,6 +365,9 @@ impl Store {
         ws_id: &str,
         decl: &Decl,
     ) -> Result<(), dli_lorestore::StoreError> {
+        let Some(base_key) = self.workspace_bases.get(ws_id).cloned() else {
+            return Ok(());
+        };
         let Some(ws) = self.workspaces.get_mut(ws_id) else {
             return Ok(());
         };
@@ -330,7 +375,7 @@ impl Store {
         let interner_names = ws.interner_names.clone();
         let bundle_counter = ws.bundle_counter;
 
-        let Some(ls) = self.lorestore.as_ref() else {
+        let Some(ls) = self.lorestores.get(&base_key) else {
             return Ok(());
         };
         let mut interner = dli_core::atom::Interner::from_names(interner_names);
@@ -342,6 +387,10 @@ impl Store {
         for fo in &objects {
             hashes.push(ls.write_object(fo)?);
         }
+        let ws = self
+            .workspaces
+            .get_mut(ws_id)
+            .expect("workspace existed above");
         ws.staged_fact_hashes.extend(hashes);
         ws.interner_names = interner.names().to_vec();
         ws.bundle_counter = counter;

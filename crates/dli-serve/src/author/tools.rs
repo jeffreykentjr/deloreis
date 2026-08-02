@@ -29,7 +29,6 @@ use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_world::CompiledWorld;
 use dli_world::check::factcheck::{Verdict, factcheck};
-use dli_world::pack::Pack;
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
@@ -164,21 +163,31 @@ pub(super) fn materialize(
         });
     }
 
-    // If a lorestore is attached (LS-4), commit to it.
-    if store.lorestore().is_some() {
-        let (base_name, base_docs, staged_decls) = {
+    // If a lorestore is attached (LS-4), commit the staged delta.
+    if store.workspace_lorestore(&params.workspace).is_some() {
+        let (base_name, staged_decls, staged_fact_hashes, ws_interner, base_docs) = {
             let ws = store.get(&params.workspace).ok_or_else(gone)?;
-            let base_docs = store
-                .workspace_base_docs(&params.workspace)
-                .map(<[Document]>::to_vec)
-                .unwrap_or_default();
-            (ws.base_name.clone(), base_docs, ws.decls.clone())
+            (
+                ws.base_name.clone(),
+                ws.decls.clone(),
+                ws.staged_fact_hashes.clone(),
+                ws.interner_names.clone(),
+                store
+                    .workspace_base_docs(&params.workspace)
+                    .map(<[Document]>::to_vec)
+                    .unwrap_or_default(),
+            )
         };
-        return materialize_to_lorestore(
-            store.lorestore_mut().expect("checked above"),
+
+        return materialize_staged_delta(
+            store
+                .workspace_lorestore_mut(&params.workspace)
+                .expect("checked above"),
             base_name,
             &base_docs,
-            staged_decls,
+            &staged_decls,
+            &staged_fact_hashes,
+            &ws_interner,
         );
     }
 
@@ -189,62 +198,46 @@ pub(super) fn materialize(
     }))
 }
 
-/// LS-4 write path: lower the staged declarations into fact objects, write
-/// them to the lorestore, and commit as a child of the current head.
-fn materialize_to_lorestore(
+/// LS-4 commit write path (delta): the staged declarations have already been
+/// lowered to `FactObject`s by `stage_lorestore` during `author.add_*` calls,
+/// and those objects are written to the lorestore. Here we just compute the
+/// declared decisions (lightweight annotation scan, no compilation) and commit.
+fn materialize_staged_delta(
     ls: &mut dli_lorestore::Lorestore,
     base_name: String,
     base_docs: &[Document],
-    staged_decls: Vec<Decl>,
+    staged_decls: &[Decl],
+    staged_fact_hashes: &[dli_lorestore::identity::ContentHash],
+    interner: &[String],
 ) -> Result<Value, ErrorBody> {
-    // Render the staged decls for the result (before they're moved into the pack).
-    let rendered = render_scoped(&base_name, &staged_decls);
+    let rendered = render_scoped(&base_name, staged_decls);
 
-    // Build the documents: base scope + staged decls under the same scope.
+    // Scan for Ratify declarations in the base + staged docs. This is a
+    // lightweight walk over annotations — no compilation needed.
     let mut documents: Vec<Document> = base_docs.to_vec();
     documents.push(Document {
         scope: Some(ScopeHeader {
             name: ident(&base_name),
             span: Span::synthetic(),
         }),
-        decls: staged_decls,
+        decls: staged_decls.to_vec(),
     });
-
-    let pack = Pack {
+    let pack = dli_world::pack::Pack {
         name: base_name.clone(),
         documents,
     };
-
-    // Compile the full pack (base + staged) and lower atoms to fact objects.
-    let compiled = dli_world::compile(&pack).map_err(|e| ErrorBody {
-        code: ErrorCode::Internal,
-        message: format!("compile failed during materialize: {e}"),
-        data: None,
-    })?;
-
-    let model = compiled.model();
-    let fact_objects = dli_lorestore::lower::lower_atoms(model.atoms());
-    let interner: Vec<String> = model.interner().names().to_vec();
-    let decisions = dli_lorestore::lower::declared_decisions(&pack)
+    let decisions: Vec<String> = dli_lorestore::lower::declared_decisions(&pack)
         .into_iter()
         .collect();
 
-    // Write all fact objects to the store (idempotent — duplicates are no-ops).
-    let mut fact_hashes: Vec<dli_lorestore::identity::ContentHash> =
-        Vec::with_capacity(fact_objects.len());
-    for fo in &fact_objects {
-        let hash = ls.write_object(fo).map_err(|e| ErrorBody {
-            code: ErrorCode::Internal,
-            message: format!("writing fact object to lorestore: {e}"),
-            data: None,
-        })?;
-        fact_hashes.push(hash);
-    }
+    // Commit as a child of the current head, using the staged fact hashes
+    // (already written during staging) and the workspace's interner.
+    let interner_vec: Vec<String> = interner.to_vec();
+    let fact_hashes: Vec<dli_lorestore::identity::ContentHash> = staged_fact_hashes.to_vec();
 
-    // Commit as a child of the current head.
     let commit_hash = ls
         .commit(
-            interner,
+            interner_vec,
             fact_hashes,
             Vec::new(),
             Vec::new(),
@@ -478,10 +471,30 @@ pub(super) fn suppose(store: &mut Store, params: &AuthorSupposeParams) -> Result
 /// Stage a world declaration: check the candidate against the current staged
 /// state and the base, render it, push it, and reseal the digest. The check runs
 /// *before* the push, so a reference resolves against what is already present.
+/// If a lorestore is attached (LS-4b), the decl is also lowered to a
+/// `FactObject` and written immediately, with the hash tracked in the
+/// workspace for `materialize` to commit.
 fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody> {
-    let (base, ws) = parts_mut(store, ws_id)?;
-    let findings = decl_findings(&decl, ws, base);
-    let rendered = render_decls(std::slice::from_ref(&decl));
+    let (findings, rendered) = {
+        let (base, ws) = parts_mut(store, ws_id)?;
+        let findings = decl_findings(&decl, ws, base);
+        let rendered = render_decls(std::slice::from_ref(&decl));
+        (findings, rendered)
+    };
+
+    // LS-4b: lower the decl and write fact objects to the lorestore
+    // immediately (durable staging), tracking hashes for materialize. A write
+    // failure refuses the add — the durable staged set and the in-memory
+    // workspace must never diverge silently (the graded-findings law).
+    store
+        .stage_lorestore(ws_id, &decl)
+        .map_err(|e| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("durable staging failed; the declaration was not added: {e}"),
+            data: None,
+        })?;
+
+    let (_, ws) = parts_mut(store, ws_id)?;
     ws.push_decl(decl);
     Ok(mutation(findings, rendered, &ws.digest))
 }

@@ -123,6 +123,18 @@ impl Lorestore {
         self.storage.load_ref(MAIN_REF)
     }
 
+    /// The head commit's interner name table — the table every fact in the
+    /// chain resolves against, and the seed for any state that must extend it
+    /// append-only (audit A6).
+    pub fn head_interner(&self) -> Result<Vec<String>, StoreError> {
+        let Some(head) = self.root_hash()? else {
+            return Ok(Vec::new());
+        };
+        let commit: Commit = storage::read_typed(&*self.storage, &head)?
+            .ok_or_else(|| StoreError::NotFound(format!("head commit missing: {head}")))?;
+        Ok(commit.interner)
+    }
+
     /// Atomically update the `main` ref from `expected` to `new`.
     ///
     /// Acquires the store lock, so callers do not need to hold it separately.
@@ -175,6 +187,27 @@ impl Lorestore {
 
         // The parent is the current head commit.
         let expected: Option<String> = self.storage.load_ref(MAIN_REF)?.map(|r| r.commit.0.clone());
+
+        // The interner is append-only across the chain: `compile()` resolves
+        // every commit's facts against the *head* interner, so a child whose
+        // interner drops or reorders a parent name would silently misresolve
+        // earlier facts' support polynomials. Refuse loudly instead.
+        if let Some(parent_hash) = &expected {
+            let parent: Commit = storage::read_typed(&*self.storage, &ContentHash(parent_hash.clone()))?
+                .ok_or_else(|| StoreError::NotFound(format!("parent commit missing: {parent_hash}")))?;
+            let diverges_at = parent
+                .interner
+                .iter()
+                .zip(interner.iter())
+                .take_while(|(a, b)| a == b)
+                .count();
+            if diverges_at < parent.interner.len() {
+                return Err(StoreError::InternerRegression {
+                    parent_len: parent.interner.len(),
+                    diverges_at,
+                });
+            }
+        }
 
         let commit = match &expected {
             Some(parent_hash) => Commit::child(
@@ -302,6 +335,70 @@ impl Lorestore {
         self.commit(
             interner,
             fact_hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            pack.name.clone(),
+        )
+    }
+
+    /// Import a base pack **idempotently**: if the store's head state already
+    /// covers the pack (every lowered fact object present, the pack's interner
+    /// a prefix of the head interner), no commit is written and the current
+    /// head hash is returned — so re-attaching at every serve start does not
+    /// stack duplicate commits.
+    ///
+    /// A store whose head carries a different, non-empty lineage refuses the
+    /// import (`ForeignBase`): a single-branch store holds exactly one pack
+    /// lineage, and silently mixing two would desync the interner chain.
+    pub fn ensure_pack_imported(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
+        use dli_world::compile;
+
+        let compiled = compile(pack).map_err(|e| StoreError::Io {
+            path: "compile".to_owned(),
+            source: std::io::Error::other(e.to_string()),
+        })?;
+        let model = compiled.model();
+        let objects = crate::lower::lower_atoms(model.atoms());
+        // Storage addresses are the full-object JCS hash (the address domain),
+        // not `FactObject::content_hash`'s identity projection — compute the
+        // same hash `write_object` would, without writing.
+        let mut pack_hashes: Vec<ContentHash> = Vec::with_capacity(objects.len());
+        for obj in &objects {
+            pack_hashes.push(crate::canonical::content_hash(obj)?);
+        }
+        let interner: Vec<String> = model.interner().names().to_vec();
+
+        let head = self
+            .root_hash()?
+            .ok_or_else(|| StoreError::NotFound("store has no head commit".to_owned()))?;
+        let chain = self.storage.walk_dag(&head, None)?;
+        let head_commit = chain.first().expect("walk_dag returns at least one commit");
+
+        let existing: std::collections::BTreeSet<ContentHash> =
+            self.all_fact_hashes()?.into_iter().collect();
+        let interner_covered = head_commit.interner.len() >= interner.len()
+            && head_commit.interner[..interner.len()] == interner[..];
+        if interner_covered && pack_hashes.iter().all(|h| existing.contains(h)) {
+            return Ok(head);
+        }
+
+        // Not covered: only a fresh store (empty genesis lineage) may accept a
+        // base import.
+        if !existing.is_empty() || !head_commit.interner.is_empty() {
+            return Err(StoreError::ForeignBase {
+                store_pack: head_commit.pack_name.clone(),
+                importing: pack.name.clone(),
+            });
+        }
+
+        for obj in &objects {
+            self.write_object(obj)?;
+        }
+        let decisions = crate::lower::declared_decisions(pack).into_iter().collect();
+        self.commit(
+            interner,
+            pack_hashes,
             Vec::new(),
             Vec::new(),
             decisions,

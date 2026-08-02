@@ -92,8 +92,10 @@ fn state_equals_fold_of_commit_log_multi_commit() {
     let dir = tempfile::tempdir().expect("create temp dir");
     let store = Lorestore::open(dir.path().to_path_buf()).expect("open store");
 
-    // Commit 3 rounds of facts.
+    // Commit 3 rounds of facts. The interner grows append-only across the
+    // rounds — a whole-replacement interner is refused by `commit` (audit A6).
     let mut all_fact_hashes: Vec<Vec<dli_lorestore::ContentHash>> = Vec::new();
+    let mut interner: Vec<String> = Vec::new();
     for round in 0..3 {
         let fo = common::test_fact(
             &format!("test/place/location-{round}"),
@@ -103,9 +105,10 @@ fn state_equals_fold_of_commit_log_multi_commit() {
             Grade::Asserted,
         );
         let fact_hash = store.write_object(&fo).expect("write fact");
+        interner.push(format!("atom-{round}"));
         let _commit_hash = store
             .commit(
-                vec![format!("atom-{round}")],
+                interner.clone(),
                 vec![fact_hash.clone()],
                 Vec::new(),
                 Vec::new(),

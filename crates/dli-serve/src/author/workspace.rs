@@ -68,6 +68,14 @@ pub struct Workspace {
     /// (LS-4). Populated on each `author.add_*` call; consumed by
     /// `author.materialize` when committing to `main`.
     pub staged_fact_hashes: Vec<dli_lorestore::identity::ContentHash>,
+    /// The interner names from the base pack, to seed per-decl lowering
+    /// (`lower_decl`) so that citation and proposal-bundle variables resolve
+    /// to the same `Atom` indices the full compilation assigns. Grown
+    /// incrementally as staged declarations intern new variables.
+    pub interner_names: Vec<String>,
+    /// The bundle counter for staged proposal-bundle variables — continues
+    /// from the base pack's count so `h.<pack>#N` indices are stable.
+    pub bundle_counter: u32,
     /// Idempotency replay cache: key → (payload fingerprint, the exact result
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
@@ -94,6 +102,8 @@ impl Workspace {
             digest: String::new(),
             idempotency: BTreeMap::new(),
             staged_fact_hashes: Vec::new(),
+            interner_names: Vec::new(),
+            bundle_counter: 0,
         };
         workspace.absorb_head();
         workspace.reseal();
