@@ -225,10 +225,26 @@ impl Store {
                 })
                 .or_else(|| (!self.strict_forks).then(|| base_name.clone()))?,
         };
-        self.base_named(&base_key)?;
+        let base = self.base_named(&base_key)?;
+        let base_names = base.world.model().interner().names().to_vec();
         self.next_id += 1;
         let id = format!("ws-{}", self.next_id);
-        let workspace = Workspace::new(id.clone(), mode, base_name);
+        let mut workspace = Workspace::new(id.clone(), mode, base_name);
+        // Seed the workspace interner from the base world's interner, so
+        // `lower_decl` (LS-4b) can produce fact objects with matching Atom
+        // indices. Also compute the bundle counter continuation.
+        let mut bundle_counter = 0u32;
+        let prefix = format!("h.{}", workspace.base_name);
+        for name in &base_names {
+            let Some(n_str) = name.strip_prefix(&format!("{prefix}#")) else {
+                continue;
+            };
+            if let Ok(n) = n_str.parse::<u32>() {
+                bundle_counter = bundle_counter.max(n + 1);
+            }
+        }
+        workspace.interner_names = base_names;
+        workspace.bundle_counter = bundle_counter;
         self.workspace_bases.insert(id.clone(), base_key);
         Some(self.workspaces.entry(id.clone()).or_insert(workspace))
     }
@@ -289,6 +305,46 @@ impl Store {
             self.lorestore = Some(ls);
         }
         self.lorestore_root = Some(root);
+        Ok(())
+    }
+
+    /// LS-4b: lower a staged decl to `FactObject`s and write them to the
+    /// lorestore immediately (durable staging). Updates the workspace's
+    /// `staged_fact_hashes`, `interner_names`, and `bundle_counter` in place.
+    /// Does nothing if no lorestore is attached.
+    ///
+    /// Fail-closed: a write error advances **no** workspace state — no hash is
+    /// recorded, the interner and bundle counter stay untouched — and the
+    /// error propagates so the caller refuses the add. Objects written before
+    /// the failure are orphans, not corruption: a retry rewrites them
+    /// idempotently (CAS dedup) and only then commits the state advance.
+    pub fn stage_lorestore(
+        &mut self,
+        ws_id: &str,
+        decl: &Decl,
+    ) -> Result<(), dli_lorestore::StoreError> {
+        let Some(ws) = self.workspaces.get_mut(ws_id) else {
+            return Ok(());
+        };
+        let pack_name = ws.base_name.clone();
+        let interner_names = ws.interner_names.clone();
+        let bundle_counter = ws.bundle_counter;
+
+        let Some(ls) = self.lorestore.as_ref() else {
+            return Ok(());
+        };
+        let mut interner = dli_core::atom::Interner::from_names(interner_names);
+        let mut counter = bundle_counter;
+        let objects =
+            dli_lorestore::lower::lower_decl(decl, &pack_name, &mut interner, &mut counter);
+
+        let mut hashes = Vec::with_capacity(objects.len());
+        for fo in &objects {
+            hashes.push(ls.write_object(fo)?);
+        }
+        ws.staged_fact_hashes.extend(hashes);
+        ws.interner_names = interner.names().to_vec();
+        ws.bundle_counter = counter;
         Ok(())
     }
 

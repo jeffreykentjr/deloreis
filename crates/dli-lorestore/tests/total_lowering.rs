@@ -241,3 +241,209 @@ fn fact_object_is_content_addressed_and_upcast_safe() {
         "different atoms must produce different hashes"
     );
 }
+
+#[test]
+fn lower_decl_reproduces_lower_atoms() {
+    // Verify that lower_decl (per-declaration, LS-4b) produces byte-identical
+    // FactObjects to lower_atoms (full-compilation, LS-1) when given the same
+    // interner state. This is the parity guarantee the write path depends on.
+    let pack = corpus_pack(&load_corpus());
+    let compiled = compile(&pack).expect("corpus compiles");
+    let model = compiled.model();
+
+    // lower_atoms over the full compiled model — reference set.
+    let reference = lower_atoms(model.atoms());
+    let ref_digests: Vec<String> = reference
+        .iter()
+        .map(|fo| fo.content_hash().expect("canonical encoding").to_string())
+        .collect();
+
+    // Re-lower each decl using lower_decl, starting with an empty interner
+    // and bundle_counter=0 — the same state the loader starts from when
+    // compiling the full pack. lower_decl must produce identical FactObjects
+    // to lower_atoms.
+    let mut interner = dli_core::atom::Interner::new();
+    let mut bundle_counter = 0u32;
+    let pack_name_str = &pack.name;
+
+    let mut decl_fact_objects: Vec<FactObject> = Vec::new();
+    let mut decl_digests: Vec<String> = Vec::new();
+    for doc in &pack.documents {
+        for decl in &doc.decls {
+            let objects = dli_lorestore::lower::lower_decl(
+                decl,
+                pack_name_str,
+                &mut interner,
+                &mut bundle_counter,
+            );
+            for fo in &objects {
+                decl_digests.push(fo.content_hash().expect("canonical encoding").to_string());
+                decl_fact_objects.push(fo.clone());
+            }
+        }
+    }
+
+    assert_eq!(
+        ref_digests.len(),
+        decl_digests.len(),
+        "lower_decl must produce one FactObject per fact-producing decl,\n\
+         reference has {} objects, decl-lowering produced {}",
+        ref_digests.len(),
+        decl_digests.len()
+    );
+
+    // Both sets are in declaration order (the loader pushes atoms in the same
+    // order lower_decl processes them), so direct position comparison is
+    // valid — not just set equality.
+    for (i, (ref_hash, decl_hash)) in ref_digests.iter().zip(decl_digests.iter()).enumerate() {
+        assert_eq!(
+            ref_hash, decl_hash,
+            "FactObject at position {i} differs:\n  lower_atoms: {ref_hash}\n  lower_decl:  {decl_hash}"
+        );
+    }
+}
+
+/// Parity on the shapes the vendored corpus never exercises — each was a live
+/// divergence between `lower_decl` and the loader before the audit repairs:
+/// tag-gated proposals (the `h.` prefix), negated condition groups (De
+/// Morgan), citation-requiring markers with no citations (fail-closed), a
+/// malformed `assumes` (fail-closed, never fail-open), and entity slots
+/// (inherited provenance, per-slot bundle vars).
+#[test]
+fn lower_decl_parity_on_gated_and_malformed_shapes() {
+    use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
+    use dli_ast::decl::{AttrDecl, Document, EntityDecl, EntityKind, FactDecl, ScopeHeader};
+    use dli_ast::ident::Ident;
+    use dli_ast::span::Span;
+    use dli_ast::term::{AtomExpr, Term};
+    use dli_world::pack::Pack;
+
+    let id = |text: &str| Ident {
+        text: text.to_owned(),
+        span: Span::synthetic(),
+    };
+    let ann = |marker: ProvenanceMarker, tags: Vec<&str>, condition: Option<CondExpr>| Annotation {
+        marker,
+        citations: Vec::new(),
+        condition,
+        tags: tags.into_iter().map(str::to_owned).collect(),
+        span: Span::synthetic(),
+    };
+    let fact = |pred: &str, subject: &str, object: &str, provenance: Option<Annotation>| {
+        Decl::Fact(FactDecl {
+            atom: AtomExpr {
+                pred: id(pred),
+                args: vec![Term::Sym(id(subject)), Term::Sym(id(object))],
+            },
+            triple: true,
+            provenance,
+        })
+    };
+
+    let decls = vec![
+        // A plain proposal: fresh bundle var `h.parity#0`.
+        fact(
+            "allied",
+            "keep",
+            "mill",
+            Some(ann(ProvenanceMarker::Proposed, Vec::new(), None)),
+        ),
+        // A tag-gated proposal: must intern `h.origin-a`, not bare `origin-a`.
+        fact(
+            "allied",
+            "keep",
+            "forge",
+            Some(ann(ProvenanceMarker::Proposed, vec!["origin-a"], None)),
+        ),
+        // A negated condition group: De Morgan must flip the connective —
+        // `not (ha and hb)` is the disjunction `-ha | -hb`.
+        fact(
+            "allied",
+            "mill",
+            "forge",
+            Some(ann(
+                ProvenanceMarker::Proposed,
+                Vec::new(),
+                Some(CondExpr::Not(Box::new(CondExpr::And(vec![
+                    CondExpr::Hyp(id("ha")),
+                    CondExpr::Hyp(id("hb")),
+                ])))),
+            )),
+        ),
+        // A citation-requiring marker with zero citations: fail-closed.
+        fact(
+            "allied",
+            "keep",
+            "gate",
+            Some(ann(ProvenanceMarker::Ratified, Vec::new(), None)),
+        ),
+        // A malformed `assumes` (empty hypothesis name): fail-closed, never
+        // truth support.
+        fact(
+            "allied",
+            "mill",
+            "gate",
+            Some(ann(
+                ProvenanceMarker::Proposed,
+                Vec::new(),
+                Some(CondExpr::Hyp(id("  "))),
+            )),
+        ),
+        // An entity with a slot: the slot inherits the entity's provenance and
+        // mints its own bundle variable.
+        Decl::Entity(EntityDecl {
+            kind: EntityKind::Place,
+            name: id("keep"),
+            label: None,
+            time: None,
+            slots: vec![AttrDecl {
+                subject: id("keep"),
+                attr: id("standing"),
+                value: Term::Sym(id("fortified")),
+                provenance: None,
+            }],
+            provenance: Some(ann(ProvenanceMarker::Proposed, Vec::new(), None)),
+        }),
+    ];
+
+    let pack = Pack {
+        name: "parity".to_owned(),
+        documents: vec![Document {
+            scope: Some(ScopeHeader {
+                name: id("parity"),
+                span: Span::synthetic(),
+            }),
+            decls: decls.clone(),
+        }],
+    };
+
+    let compiled = compile(&pack).expect("parity pack compiles");
+    let reference = lower_atoms(compiled.model().atoms());
+    let ref_digests: Vec<String> = reference
+        .iter()
+        .map(|fo| fo.content_hash().expect("canonical encoding").to_string())
+        .collect();
+
+    let mut interner = dli_core::atom::Interner::new();
+    let mut bundle_counter = 0u32;
+    let mut decl_digests: Vec<String> = Vec::new();
+    for decl in &decls {
+        for fo in dli_lorestore::lower::lower_decl(decl, "parity", &mut interner, &mut bundle_counter)
+        {
+            decl_digests.push(fo.content_hash().expect("canonical encoding").to_string());
+        }
+    }
+
+    assert_eq!(
+        ref_digests, decl_digests,
+        "lower_decl must be byte-identical to lower_atoms on gated and malformed shapes"
+    );
+
+    // The interners must agree too — a name-set divergence would poison every
+    // later index even where the hashes happen to coincide.
+    assert_eq!(
+        compiled.model().interner().names().to_vec(),
+        interner.names().to_vec(),
+        "per-decl lowering must keep the interner in lock-step with the loader"
+    );
+}

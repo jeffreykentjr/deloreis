@@ -23,7 +23,7 @@
 
 use std::collections::BTreeSet;
 
-use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
+use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -92,6 +92,357 @@ pub fn render_polynomial(p: &PosBool, interner: &Interner) -> String {
     } else {
         monomials.join(" | ")
     }
+}
+
+// ── per-declaration lowering ────────────────────────────────────────────
+
+/// Lower a single [`Decl`] into [`FactObject`]s, without a full world compilation.
+///
+/// This is the LS-4b write path: each `author.add_*` call lowers its
+/// declaration here and writes the resulting `FactObject` to the lorestore
+/// immediately, so fact objects are durable before `materialize` commits them.
+///
+/// The `interner` must be seeded with the **base pack's** variable names (in
+/// order) so that:
+/// - citation variables (`D-nnnn`) and hypothesis names resolve to the same
+///   `Atom` indices the full compilation would assign, producing identical
+///   content hashes.
+/// - fresh proposal-bundle variables (`h.<pack>#N`) are appended sequentially,
+///   matching the loader's `bundle_counter`.
+///
+/// **Interner fidelity:** every declaration — not just the four fact-producing
+/// types — is run through provenance interning to keep the interner's Atom
+/// indices in lock-step with the full loader. Without this, citation
+/// variables from expert-tier declarations (e.g. a `ratified` rule decl) would
+/// shift the bundle counter and desync all subsequent indices.
+///
+/// Only the four fact-producing gentle-subset declarations yield objects:
+/// `Entity`, `Attr` (slot), `Fact` (relation), and `Before`. Returns an empty
+/// vector for all others.
+///
+/// **Must produce byte-identical `FactObject`s to [`lower_atoms`] given the
+/// same interner state** — the total-lowering oracle verifies this.
+pub fn lower_decl(
+    decl: &Decl,
+    pack_name: &str,
+    interner: &mut Interner,
+    bundle_counter: &mut u32,
+) -> Vec<FactObject> {
+    // Question and Fork declarations don't process their own provenance in the
+    // loader — only their options (which intern names and produce implied-atom
+    // fact objects). Handle them specially.
+    if let Decl::Question(q) = decl {
+        return lower_options(&q.options, pack_name, interner);
+    }
+    if let Decl::Fork(f) = decl {
+        return lower_options(&f.options, pack_name, interner);
+    }
+
+    // Hypothesis declarations intern their name as a variable — no fact object
+    // is produced, but the variable must be interned to keep the interner in
+    // sync (it may be referenced later by `suppose` or `assumes` conditions).
+    if let Decl::Hypothesis(h) = decl {
+        let _ = interner.intern(&h.name.text);
+        return Vec::new();
+    }
+
+    // Always intern the decl's provenance variables. For fact-producing
+    // decls, the resulting Ann is reused below.
+    let provenance = decl_provenance(decl);
+    let label = decl_label(decl);
+    let ann = provenance.map(|p| compile_ann(Some(p), &label, pack_name, interner, bundle_counter));
+
+    let (atom_expr, _) = decl_to_atom(decl);
+    let Some(atom_expr) = atom_expr else {
+        return Vec::new(); // hypotheses, use-decls, questions-without-options
+    };
+
+    let ann = ann.unwrap_or_else(|| dli_core::ann::Ann::supported(PosBool::FALSE));
+    let ground = atom_expr_to_ground(&atom_expr);
+    let conditions = cond_pairs(&ann);
+
+    let claim_label = format!("decl:{}", ground.render());
+    let mut objects = vec![FactObject::new(
+        ClaimId::from_label(&claim_label),
+        ground,
+        ann.support,
+        ann.defeaters,
+        conditions,
+        Grade::Asserted,
+    )];
+
+    // Entity slots — the loader lowers each slot as an attr atom with
+    // provenance inherited from the entity when the slot carries none
+    // (`process_attr`'s `inherit` parameter), each through its own
+    // `compile_ann` call so bundle-counter side effects stay in lock-step.
+    if let Decl::Entity(e) = decl {
+        for slot in &e.slots {
+            let provenance = slot.provenance.as_ref().or(e.provenance.as_ref());
+            let label = format!("slot '{}.{}'", slot.subject.text, slot.attr.text);
+            let slot_ann = compile_ann(provenance, &label, pack_name, interner, bundle_counter);
+            let atom = AtomExpr {
+                pred: slot.attr.clone(),
+                args: vec![Term::Sym(slot.subject.clone()), slot.value.clone()],
+            };
+            let ground = atom_expr_to_ground(&atom);
+            let conditions = cond_pairs(&slot_ann);
+            let claim_label = format!("decl:{}", ground.render());
+            objects.push(FactObject::new(
+                ClaimId::from_label(&claim_label),
+                ground,
+                slot_ann.support,
+                slot_ann.defeaters,
+                conditions,
+                Grade::Asserted,
+            ));
+        }
+    }
+    objects
+}
+
+/// Convert an `Ann`'s per-monomial condition pairs into stored `CondPair`s.
+fn cond_pairs(ann: &dli_core::ann::Ann) -> Vec<CondPair> {
+    ann.conditions
+        .iter()
+        .map(|(monomial, poison)| {
+            CondPair::new(
+                PosBool(std::iter::once(monomial.clone()).collect()),
+                poison.clone(),
+            )
+        })
+        .collect()
+}
+
+/// Lower a question/fork's option clauses — mirrors the loader's
+/// `process_options`: each option name is interned as a hypothesis variable,
+/// and each `implies` atom becomes a `FactObject` with option-gated support.
+fn lower_options(
+    options: &[dli_ast::decl::OptionClause],
+    pack_name: &str,
+    interner: &mut Interner,
+) -> Vec<FactObject> {
+    let mut objects = Vec::new();
+    for option in options {
+        // Intern the option name — same side-effect as `self.intern(...)`.
+        let var = interner.intern(&option.name.text);
+        if let Some(implied) = &option.implies {
+            let ground = atom_expr_to_ground(implied);
+            let support = PosBool::pos(var);
+            let claim_label = format!("option-implies:{}", ground.render());
+            objects.push(FactObject::new(
+                ClaimId::from_label(&claim_label),
+                ground,
+                support,
+                PosBool::FALSE,
+                Vec::new(),
+                Grade::Asserted,
+            ));
+        }
+    }
+    // Suppress unused `pack_name` warning — retained for API symmetry.
+    let _ = pack_name;
+    objects
+}
+
+/// Extract the provenance annotation from the decl types the world loader
+/// actually routes through its `compile_ann` (loader `process_decl`:
+/// Entity, Attr, Fact, Before, Kind, Rule, Cycle — Question/Fork/Hypothesis
+/// are special-cased in `lower_decl`). Every other declaration kind carries
+/// its provenance to the *language* model's separate interner, so interning
+/// it here would shift world-interner indices against a full compile.
+fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
+    match decl {
+        Decl::Entity(d) => d.provenance.as_ref(),
+        Decl::Attr(d) => d.provenance.as_ref(),
+        Decl::Fact(d) => d.provenance.as_ref(),
+        Decl::Before(d) => d.provenance.as_ref(),
+        Decl::Kind(d) => d.provenance.as_ref(),
+        Decl::Rule(d) => d.provenance.as_ref(),
+        Decl::Cycle(d) => d.provenance.as_ref(),
+        _ => None,
+    }
+}
+
+/// A surface label for the decl — used by `compile_ann` for diagnostics (which
+/// we discard in `lower_decl`), but the label string itself does not affect
+/// the interned variable names or the `FactObject` content hash.
+fn decl_label(decl: &Decl) -> String {
+    match decl {
+        Decl::Entity(e) => format!("entity '{}'", e.name.text),
+        Decl::Attr(a) => format!("slot '{}.{}'", a.subject.text, a.attr.text),
+        Decl::Fact(f) => format!("fact '{}'", f.atom.pred.text),
+        Decl::Before(b) => format!("ordering '{} -> {}'", b.earlier.text, b.later.text),
+        other => format!("{other:?}"),
+    }
+}
+
+/// Extract the `AtomExpr` (if any) from a decl — mirrors the loader's
+/// per-declaration atom construction.
+fn decl_to_atom(decl: &Decl) -> (Option<AtomExpr>, String) {
+    match decl {
+        Decl::Entity(e) => {
+            let sort = e.kind.keyword();
+            let atom = AtomExpr {
+                pred: Ident {
+                    text: sort.to_owned(),
+                    span: e.name.span,
+                },
+                args: vec![Term::Sym(e.name.clone())],
+            };
+            let label = format!("entity '{}'", e.name.text);
+            (Some(atom), label)
+        }
+        Decl::Attr(a) => {
+            let atom = AtomExpr {
+                pred: a.attr.clone(),
+                args: vec![Term::Sym(a.subject.clone()), a.value.clone()],
+            };
+            let label = format!("slot '{}.{}'", a.subject.text, a.attr.text);
+            (Some(atom), label)
+        }
+        Decl::Fact(f) => {
+            let label = format!("fact '{}'", f.atom.pred.text);
+            (Some(f.atom.clone()), label)
+        }
+        Decl::Before(b) => {
+            let atom = AtomExpr {
+                pred: Ident {
+                    text: "before".to_owned(),
+                    span: b.earlier.span,
+                },
+                args: vec![Term::Sym(b.earlier.clone()), Term::Sym(b.later.clone())],
+            };
+            let label = format!("ordering '{} -> {}'", b.earlier.text, b.later.text);
+            (Some(atom), label)
+        }
+        // Questions, hypotheses, use-decls, and expert-tier forms do not lower
+        // to extensional fact objects — they affect the workspace index only.
+        _ => (None, String::new()),
+    }
+}
+
+/// Compile an `Annotation` into an `Ann`, mirroring the loader's `compile_ann`.
+///
+/// On `None` provenance (required=false), returns a fail-closed annotation —
+/// matches `Compiled::fail_closed()`.
+fn compile_ann(
+    provenance: Option<&Annotation>,
+    _label: &str,
+    pack: &str,
+    interner: &mut Interner,
+    bundle_counter: &mut u32,
+) -> dli_core::ann::Ann {
+    let Some(annotation) = provenance else {
+        return dli_core::ann::Ann::supported(PosBool::FALSE);
+    };
+
+    // A citation-requiring marker with no citations fails closed, exactly as
+    // the loader's compile_ann does — the durable object must never record
+    // support the full compile would refuse.
+    if annotation.marker.requires_citation() && annotation.citations.is_empty() {
+        return dli_core::ann::Ann::supported(PosBool::FALSE);
+    }
+
+    let mut support = if annotation.marker == ProvenanceMarker::Proposed {
+        // A proposal is gated by an open hypothesis. With an explicit
+        // `assumes` condition the truth base lets the condition stand alone;
+        // otherwise it enters under a fresh bundle variable — the `h.` prefix
+        // applies to the tag key too, matching the loader.
+        if annotation.condition.is_some() {
+            PosBool::truth()
+        } else {
+            let key = if annotation.tags.is_empty() {
+                let key = format!("{pack}#{}", *bundle_counter);
+                *bundle_counter += 1;
+                key
+            } else {
+                annotation.tags.join("+")
+            };
+            let var = interner.intern(&format!("h.{key}"));
+            PosBool::pos(var)
+        }
+    } else {
+        // Ledger claims: conjunct all cited decision variables into one
+        // monomial, in citation order.
+        let mut acc = PosBool::truth();
+        for citation in &annotation.citations {
+            let var = interner.intern(citation.id.text.trim());
+            acc = acc.and_(&PosBool::pos(var));
+        }
+        acc
+    };
+
+    if let Some(condition) = &annotation.condition {
+        match cond_to_posbool(condition, false, interner) {
+            Ok(cond) => support = support.and_(&cond),
+            // A malformed condition fails closed, never open.
+            Err(_) => return dli_core::ann::Ann::supported(PosBool::FALSE),
+        }
+    }
+
+    if support.is_false() {
+        return dli_core::ann::Ann::supported(PosBool::FALSE);
+    }
+
+    dli_core::ann::Ann::supported(support)
+}
+
+/// Compile a `CondExpr` into a `PosBool`, interning named hypotheses — a
+/// verbatim port of the loader's `cond_to_posbool`: negation is pushed to the
+/// literals via De Morgan, so `not (a and b)` becomes a disjunction.
+fn cond_to_posbool(
+    cond: &CondExpr,
+    negated: bool,
+    interner: &mut Interner,
+) -> Result<PosBool, String> {
+    match cond {
+        CondExpr::Hyp(id) => {
+            let text = id.text.trim();
+            if text.is_empty() {
+                return Err("a hypothesis in the condition has no name".to_owned());
+            }
+            let atom = interner.intern(text);
+            Ok(if negated {
+                PosBool::neg(atom)
+            } else {
+                PosBool::pos(atom)
+            })
+        }
+        CondExpr::Not(inner) => cond_to_posbool(inner, !negated, interner),
+        CondExpr::And(list) => cond_group(list, negated, negated, interner),
+        CondExpr::Or(list) => cond_group(list, negated, !negated, interner),
+    }
+}
+
+/// Compile an `and`/`or` group — the loader's `cond_group`, ported verbatim:
+/// `effective_or` is the connective *after* De Morgan, and an empty group is
+/// an error, never a vacuous truth/false.
+fn cond_group(
+    list: &[CondExpr],
+    negated: bool,
+    effective_or: bool,
+    interner: &mut Interner,
+) -> Result<PosBool, String> {
+    if list.is_empty() {
+        return Err("a condition group has no members".to_owned());
+    }
+    let mut children = Vec::with_capacity(list.len());
+    for member in list {
+        children.push(cond_to_posbool(member, negated, interner)?);
+    }
+    let mut acc = if effective_or {
+        PosBool::FALSE
+    } else {
+        PosBool::truth()
+    };
+    for child in &children {
+        acc = if effective_or {
+            acc.or_(child)
+        } else {
+            acc.and_(child)
+        };
+    }
+    Ok(acc)
 }
 
 // ── forward lowering ──────────────────────────────────────────────────
