@@ -193,6 +193,9 @@ pub(crate) fn demo_author_store() -> io::Result<author::store::Store> {
 }
 
 /// Construct a strict Door T store over every manifest-declared document.
+/// When possible, attaches a lorestore at `<project_root>/.dli-lorestore/` so
+/// `author.materialize` can commit staged fact objects durably (DL-0044, LS-4).
+#[allow(clippy::print_stderr)] // diagnostics for operator, not a wire response
 pub(crate) fn project_author_store(project: &Project) -> io::Result<author::store::Store> {
     let packs = project.documents().map(|(id, document)| {
         (
@@ -201,7 +204,16 @@ pub(crate) fn project_author_store(project: &Project) -> io::Result<author::stor
             document.killed.clone(),
         )
     });
-    author::store::Store::with_packs(packs).map_err(io::Error::other)
+    let mut store = author::store::Store::with_packs(packs).map_err(io::Error::other)?;
+    let lorestore_path = project.root().join(".dli-lorestore");
+    if let Err(e) = store.attach_lorestore(lorestore_path.clone()) {
+        eprintln!(
+            "author: lorestore unavailable at {}: {}",
+            lorestore_path.display(),
+            e
+        );
+    }
+    Ok(store)
 }
 
 // -- framing -----------------------------------------------------------------

@@ -708,8 +708,8 @@ author or consumer artifact that this repository does not own.
 | LS-0 | done | DL-0041; `design-notes/lorestore-roadmap.md`; the law updates in `AGENTS.md` |
 | LS-1 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
 | LS-2 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-2; shipped — `src/storage.rs`, `src/lorestore.rs`, `tests/cross_platform_determinism.rs`, `tests/state_fold_invariant.rs`, `tests/crash_injection.rs` |
-| LS-3 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-3; in progress — `compile()` read path, `tests/differential_parity.rs` |
-| LS-4 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-4 |
+| LS-3 | done | `compile()` read path, `tests/differential_parity.rs`, `all_fact_hashes()` dedup |
+| LS-4 | open | `materialize` commits to lorestore, `Store` carries `Lorestore` handle |
 | LS-5 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-5 |
 | LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |

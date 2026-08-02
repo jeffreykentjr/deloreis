@@ -1103,3 +1103,30 @@ distinction was always authority. Naming the boundary correctly matters for
 what comes next: multi-authority evolution extends the authority model, and a
 vocabulary that pins authorship to entry channels would fight that extension
 at every step.
+
+## DL-0044 — LS-4 write path: materialize commits to lorestore
+
+*Date: 2026-08-01*
+
+**Ruling.** The authoring `materialize` path commits staged declarations to the
+lorestore as a child `Commit` on `main`, returning the new root hash as the
+workspace digest. When no lorestore is attached (demo/test contexts), it falls
+back to rendering `.dli` bytes as data — preserving backward compatibility.
+
+The initial implementation takes the full-pack approach: `materialize` builds a
+`Pack` from base documents + staged declarations, compiles it, lowers all atoms
+to `FactObject`s via `lower_atoms()`, writes them to the lorestore (idempotent
+CAS), and commits. `all_fact_hashes()` was deduplicated (via `BTreeSet`) to
+handle the case where multiple commits reference the same fact objects.
+
+Per-declaration lowering (`Decl` → `FactObject` on each `author.add_*`) is
+deferred to LS-4b; the full-pack approach is simpler, reuses the tested
+`import_pack` pipeline, and produces identical fact objects.
+
+**Rationale.** This is the first step in making the lorestore the durable
+source of truth for authored content (DL-0041). The full-pack approach is
+chosen for safety: it exercises the complete `compile → lower_atoms → write_object
+→ commit` chain exactly as `import_pack` does, producing identical `FactObject`s.
+The CAS deduplication makes the "rewrite base facts" overhead zero — identical
+objects produce identical hashes. The `all_fact_hashes()` dedup fix is required
+for the read path's `compile()` to handle multi-commit chains correctly.

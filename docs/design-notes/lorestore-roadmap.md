@@ -214,6 +214,21 @@ expert-tier clause bodies are still re-parsed during semantic analysis
 (`dli-world`, `dli-ledger`, `dli-time` — see the coupling audit), and that
 dependency falls only with LS-9.
 
+**DL-0042 (refined):** The root commit gained an optional
+`decisions: Vec<String>` field (the known decision ids). This is additive —
+the v1 schema's `skip_serializing_if = "Vec::is_empty"` keeps it
+wire-compatible with existing readers. The field is excluded from
+content-addressing of individual facts (it lives on the commit, which has
+its own hash).
+
+**DL-0043:** A `pack_name: String` field was added to `Commit` to preserve
+the pack/scope name across the round-trip. The loader mints proposal-bundle
+variables as `h.<pack_name>#N` (see `loader.rs:624`); without the pack name,
+`reconstruct_pack` produced `h.#N` references that desynced the interner.
+The field flows: `import_pack` → `commit(pack_name)` → root commit;
+`compile()` reads it from the head commit and passes it to
+`reconstruct_pack` for the `ScopeHeader`.
+
 ### LS-4 — The write path (author.* writes the store; JSON-first contract)
 
 *Deliverable:* mutating `author.*` tools write fact objects directly
@@ -239,6 +254,16 @@ JSON-first on input — all twenty `author.*` tools take typed
 memory, and the digest is already a SHA-256 over canonical JSON. The `.dli`
 coupling is output-side only (`materialize` and the rendered diff), plus two
 text-on-wire remnants (`fork.add`, wire query goals) that retire in LS-7.
+
+**Initial implementation (see DL-0044):** `materialize` builds a `Pack` from
+base documents + staged declarations, compiles, lowers all atoms to `FactObject`s
+via `lower_atoms()`, writes them to the lorestore (idempotent CAS), and commits
+as a child of the current head. `Store` carries an `Option<Lorestore>` handle
+attached at `project_author_store` time via `attach_lorestore()`. Falls back
+to rendering `.dli` bytes when no lorestore is present. Per-declaration
+lowering (`Decl` → `FactObject` on each `author.add_*`) is deferred to LS-4b;
+the full-pack approach produces identical fact objects and reuses the tested
+`import_pack` pipeline.
 
 ### LS-5 — The query and review contract
 

@@ -37,6 +37,13 @@ pub struct Store {
     discard_replays: BTreeMap<String, (String, String, serde_json::Value)>,
     discard_replay_order: VecDeque<String>,
     next_id: u32,
+    /// The durable lorestore backend — `None` in test/demo contexts without a
+    /// project directory. When present, `author.materialize` commits staged
+    /// fact objects here (LS-4).
+    lorestore: Option<dli_lorestore::Lorestore>,
+    /// The root path the lorestore was opened from, so new packs can be
+    /// imported on-demand.
+    lorestore_root: Option<std::path::PathBuf>,
 }
 
 const MAX_DISCARD_REPLAYS: usize = 1024;
@@ -83,6 +90,8 @@ impl Default for Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
+            lorestore: None,
+            lorestore_root: None,
         }
     }
 }
@@ -107,6 +116,8 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
+            lorestore: None,
+            lorestore_root: None,
         }
     }
 
@@ -142,6 +153,8 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
+            lorestore: None,
+            lorestore_root: None,
         })
     }
 
@@ -186,6 +199,8 @@ impl Store {
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
+            lorestore: None,
+            lorestore_root: None,
         })
     }
 
@@ -250,6 +265,31 @@ impl Store {
         let base_name = self.workspace_bases.get(id)?;
         self.base_named(base_name)
             .map(|base| base.documents.as_slice())
+    }
+
+    /// The lorestore backing this store, if one is attached (LS-4).
+    #[must_use]
+    pub fn lorestore(&self) -> Option<&dli_lorestore::Lorestore> {
+        self.lorestore.as_ref()
+    }
+
+    /// The lorestore backing this store, if one is attached (LS-4).
+    pub fn lorestore_mut(&mut self) -> Option<&mut dli_lorestore::Lorestore> {
+        self.lorestore.as_mut()
+    }
+
+    /// Attach a lorestore at the given path. Called by `serve.rs` when a
+    /// project directory is available so `author.materialize` can commit.
+    pub fn attach_lorestore(
+        &mut self,
+        root: std::path::PathBuf,
+    ) -> Result<(), dli_lorestore::StoreError> {
+        if self.lorestore.is_none() {
+            let ls = dli_lorestore::Lorestore::open(root.clone())?;
+            self.lorestore = Some(ls);
+        }
+        self.lorestore_root = Some(root);
+        Ok(())
     }
 
     /// Cache a mutating call's result under its idempotency key together with the

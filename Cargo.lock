@@ -423,6 +423,7 @@ dependencies = [
  "dli-export",
  "dli-game",
  "dli-ledger",
+ "dli-lorestore",
  "dli-sim",
  "dli-syntax",
  "dli-time",

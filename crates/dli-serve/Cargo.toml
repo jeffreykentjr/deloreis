@@ -14,6 +14,7 @@ dli-core.workspace = true
 dli-eval.workspace = true
 dli-ledger.workspace = true
 dli-world.workspace = true
+dli-lorestore.workspace = true
 dli-export.workspace = true
 dli-sim.workspace = true
 dli-game.workspace = true

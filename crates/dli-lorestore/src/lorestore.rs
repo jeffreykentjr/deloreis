@@ -232,15 +232,25 @@ impl Lorestore {
         self.storage.walk_dag(tip, base)
     }
 
-    /// Collect all fact-object hashes named by commits in the chain from the
-    /// head ref back to the root. This is the `fold(commit log)` half of the
-    /// `state ≡ fold(log)` invariant.
+    /// Collect all unique fact-object hashes named by commits in the chain from
+    /// the head ref back to the root. Deduplicates (the same fact hash may appear
+    /// in multiple commits when a child commit re-names its full fact set rather
+    /// than only deltas) while preserving first-seen order for determinism.
     pub fn all_fact_hashes(&self) -> Result<Vec<ContentHash>, StoreError> {
         let Some(head) = self.root_hash()? else {
             return Ok(Vec::new());
         };
         let chain = self.storage.walk_dag(&head, None)?;
-        Ok(chain.into_iter().flat_map(|c| c.facts).collect())
+        let mut seen = std::collections::BTreeSet::new();
+        let mut unique = Vec::new();
+        for c in chain {
+            for h in c.facts {
+                if seen.insert(h.clone()) {
+                    unique.push(h);
+                }
+            }
+        }
+        Ok(unique)
     }
 
     /// The current valuation overlay on the head ref.

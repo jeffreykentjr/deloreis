@@ -2,3 +2,4 @@
 /target/
 *.snap.new
 .poolside/
+.dli-lorestore/

@@ -19,8 +19,8 @@ use serde_json::{Value, json};
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, EntityDecl, EntityKind as AstEntityKind, FactDecl, HypothesisDecl,
-    OptionClause, QuestionDecl, TimeClause,
+    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind as AstEntityKind, FactDecl,
+    HypothesisDecl, OptionClause, QuestionDecl, ScopeHeader, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -29,6 +29,7 @@ use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_world::CompiledWorld;
 use dli_world::check::factcheck::{Verdict, factcheck};
+use dli_world::pack::Pack;
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
@@ -138,9 +139,12 @@ pub(super) fn discard(
 /// error-severity finding is open; the blocking finding codes ride in the error
 /// data.
 pub(super) fn materialize(
-    store: &Store,
+    store: &mut Store,
     params: &AuthorMaterializeParams,
 ) -> Result<Value, ErrorBody> {
+    // Clone everything we need from the workspace and check the blocking
+    // findings before touching the lorestore — this avoids a borrow conflict
+    // between `store.get()` (immutable) and `store.lorestore_mut()` (mutable).
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let blocking = dedup(
         reads::workspace_report(store, ws)
@@ -159,10 +163,104 @@ pub(super) fn materialize(
             data: Some(json!({ "blocking": blocking })),
         });
     }
+
+    // If a lorestore is attached (LS-4), commit to it.
+    if store.lorestore().is_some() {
+        let (base_name, base_docs, staged_decls) = {
+            let ws = store.get(&params.workspace).ok_or_else(gone)?;
+            let base_docs = store
+                .workspace_base_docs(&params.workspace)
+                .map(<[Document]>::to_vec)
+                .unwrap_or_default();
+            (ws.base_name.clone(), base_docs, ws.decls.clone())
+        };
+        return materialize_to_lorestore(
+            store.lorestore_mut().expect("checked above"),
+            base_name,
+            &base_docs,
+            staged_decls,
+        );
+    }
+
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
         rendered: render_scoped(&ws.base_name, &ws.decls),
         workspace_digest: ws.digest.clone(),
+    }))
+}
+
+/// LS-4 write path: lower the staged declarations into fact objects, write
+/// them to the lorestore, and commit as a child of the current head.
+fn materialize_to_lorestore(
+    ls: &mut dli_lorestore::Lorestore,
+    base_name: String,
+    base_docs: &[Document],
+    staged_decls: Vec<Decl>,
+) -> Result<Value, ErrorBody> {
+    // Render the staged decls for the result (before they're moved into the pack).
+    let rendered = render_scoped(&base_name, &staged_decls);
+
+    // Build the documents: base scope + staged decls under the same scope.
+    let mut documents: Vec<Document> = base_docs.to_vec();
+    documents.push(Document {
+        scope: Some(ScopeHeader {
+            name: ident(&base_name),
+            span: Span::synthetic(),
+        }),
+        decls: staged_decls,
+    });
+
+    let pack = Pack {
+        name: base_name.clone(),
+        documents,
+    };
+
+    // Compile the full pack (base + staged) and lower atoms to fact objects.
+    let compiled = dli_world::compile(&pack).map_err(|e| ErrorBody {
+        code: ErrorCode::Internal,
+        message: format!("compile failed during materialize: {e}"),
+        data: None,
+    })?;
+
+    let model = compiled.model();
+    let fact_objects = dli_lorestore::lower::lower_atoms(model.atoms());
+    let interner: Vec<String> = model.interner().names().to_vec();
+    let decisions = dli_lorestore::lower::declared_decisions(&pack)
+        .into_iter()
+        .collect();
+
+    // Write all fact objects to the store (idempotent — duplicates are no-ops).
+    let mut fact_hashes: Vec<dli_lorestore::identity::ContentHash> =
+        Vec::with_capacity(fact_objects.len());
+    for fo in &fact_objects {
+        let hash = ls.write_object(fo).map_err(|e| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("writing fact object to lorestore: {e}"),
+            data: None,
+        })?;
+        fact_hashes.push(hash);
+    }
+
+    // Commit as a child of the current head.
+    let commit_hash = ls
+        .commit(
+            interner,
+            fact_hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            base_name,
+        )
+        .map_err(|e| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("committing to lorestore: {e}"),
+            data: None,
+        })?;
+
+    Ok(value(&AuthorMutationResult {
+        findings: Vec::new(),
+        rendered,
+        workspace_digest: commit_hash.to_string(),
     }))
 }
 

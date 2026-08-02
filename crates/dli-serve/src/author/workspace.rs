@@ -64,6 +64,10 @@ pub struct Workspace {
     pub suppositions: Vec<String>,
     /// The current digest fence.
     pub digest: String,
+    /// Fact object hashes written to the lorestore for staged declarations
+    /// (LS-4). Populated on each `author.add_*` call; consumed by
+    /// `author.materialize` when committing to `main`.
+    pub staged_fact_hashes: Vec<dli_lorestore::identity::ContentHash>,
     /// Idempotency replay cache: key → (payload fingerprint, the exact result
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
@@ -89,6 +93,7 @@ impl Workspace {
             suppositions: Vec::new(),
             digest: String::new(),
             idempotency: BTreeMap::new(),
+            staged_fact_hashes: Vec::new(),
         };
         workspace.absorb_head();
         workspace.reseal();
