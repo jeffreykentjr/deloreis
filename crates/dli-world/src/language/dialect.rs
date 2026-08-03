@@ -34,12 +34,12 @@
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{Decl, DialectDecl, Document, NamePartDecl, RatifyDecl};
-use dli_ast::span::{FileId, Span};
+use dli_ast::language::{DialectClause, DialectItem};
+use dli_ast::span::Span;
 use dli_core::ann::{Ann, Status, Theory};
 use dli_core::atom::{Atom, Interner};
 use dli_core::posbool::PosBool;
 use dli_core::valuation::Valuation;
-use dli_syntax::{Token, TokenKind, lex, parse_document};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -444,61 +444,55 @@ impl Compiler {
             citations,
             span: decl.name.span,
         };
-        for clause in &decl.body {
+        for clause in &decl.body.clauses {
             self.register_clause(&mut reg, clause, pack);
         }
         self.model.registers.push(reg);
     }
 
-    /// Structure one interior clause of a register body (grammar in the module
-    /// docs).
-    fn register_clause(
-        &mut self,
-        reg: &mut DialectDef,
-        clause: &dli_ast::clause::Clause,
-        pack: &str,
-    ) {
-        let toks = clause_tokens(&clause.text, clause.span.file);
-        let Some(head) = toks.first() else { return };
-        let rest = &toks[1..];
-        match head.text.as_str() {
-            "basis" => {
-                reg.basis_attested = rest.first().is_some_and(|t| t.text == "attested");
-                reg.basis = rest
-                    .iter()
-                    .find(|t| t.kind == TokenKind::Str)
-                    .map(|t| t.text.clone());
+    /// Read one typed interior clause of a register body into the [`DialectDef`].
+    ///
+    /// The parser (`dli_syntax::structure_dialect_body`) already classified the
+    /// clause and pre-derived its values; this applies them, preserving the exact
+    /// precedence of the old string-body compile (a later `cluster-max` line
+    /// overrides an earlier one only when it named a count, and so on).
+    fn register_clause(&mut self, reg: &mut DialectDef, clause: &DialectClause, pack: &str) {
+        match &clause.item {
+            DialectItem::Basis { attested, text } => {
+                reg.basis_attested = *attested;
+                reg.basis.clone_from(text);
             }
-            "vowels" => reg.phonotactics.vowels = word_list(rest, false),
-            "endings" => reg.phonotactics.endings = word_list(rest, true),
-            "foreign" => reg.phonotactics.foreign = word_list(rest, false),
-            "cluster-max" => {
-                if let Some(n) = rest.iter().find_map(|t| t.text.parse::<usize>().ok()) {
-                    reg.phonotactics.cluster_max = n;
+            DialectItem::Vowels(vowels) => reg.phonotactics.vowels.clone_from(vowels),
+            DialectItem::Endings(endings) => reg.phonotactics.endings.clone_from(endings),
+            DialectItem::Foreign(foreign) => reg.phonotactics.foreign.clone_from(foreign),
+            DialectItem::ClusterMax(n) => {
+                if let Some(n) = n {
+                    reg.phonotactics.cluster_max = *n;
                 }
             }
-            "sayability-max" => {
-                if let Some(n) = rest.iter().find_map(|t| t.text.parse::<usize>().ok()) {
-                    reg.phonotactics.sayability_max = n;
+            DialectItem::SayabilityMax(n) => {
+                if let Some(n) = n {
+                    reg.phonotactics.sayability_max = *n;
                 }
             }
-            "stress" => {
-                if let Some(word) = rest.first() {
-                    reg.phonotactics.stress = Stress::from_keyword(&word.text);
+            DialectItem::Stress(word) => {
+                if let Some(word) = word {
+                    reg.phonotactics.stress = Stress::from_keyword(word);
                 }
             }
-            "name-kind" => {
-                if let Some(nk) = parse_name_kind(rest) {
-                    reg.name_kinds.push(nk);
+            DialectItem::NameKind(nk) => {
+                if let Some(nk) = nk {
+                    reg.name_kinds.push(NameKind {
+                        kind: nk.kind.clone(),
+                        patterns: nk.patterns.clone(),
+                    });
                 }
             }
-            "name-part" => {
-                if let Some(part) = reparse_name_part(&clause.text) {
-                    let m = self.morpheme(&part, &reg.name, pack);
-                    reg.morphemes.push(m);
-                }
+            DialectItem::NamePart(part) => {
+                let m = self.morpheme(part, &reg.name, pack);
+                reg.morphemes.push(m);
             }
-            _ => {}
+            DialectItem::Other => {}
         }
     }
 
@@ -522,21 +516,15 @@ impl Compiler {
 
     /// Record a `ratify <d> { h := true }` valuation: rule the decision true and
     /// apply each hypothesis assignment (05 §5, one valuation ratifies a bundle).
+    ///
+    /// The parser (`dli_syntax::structure_ratify_body`) already derived each
+    /// `hyp := true|false` assignment; this applies them.
     fn ratify(&mut self, decl: &RatifyDecl) {
         self.intern_decision(&decl.decision.text);
-        for clause in &decl.body {
-            let toks = clause_tokens(&clause.text, clause.span.file);
-            let hyp = toks
-                .iter()
-                .find(|t| t.kind == TokenKind::Word && !is_assign_op(&t.text));
-            let value = toks.iter().rev().find_map(|t| match t.text.as_str() {
-                "true" => Some(true),
-                "false" => Some(false),
-                _ => None,
-            });
-            if let (Some(hyp), Some(value)) = (hyp, value) {
-                let atom = self.model.interner.intern(hyp.text.trim());
-                self.model.valuation.set(atom, value);
+        for clause in &decl.body.clauses {
+            if let Some(assignment) = &clause.assignment {
+                let atom = self.model.interner.intern(assignment.hyp.trim());
+                self.model.valuation.set(atom, assignment.value);
             }
         }
     }
@@ -658,32 +646,10 @@ impl Compiler {
 // Shared low-level helpers (used across the language submodules).
 // ---------------------------------------------------------------------------
 
-/// Lex a clause's normalized text into non-newline tokens.
-pub(crate) fn clause_tokens(text: &str, file: FileId) -> Vec<Token> {
-    lex(text, file)
-        .into_iter()
-        .filter(|t| t.kind != TokenKind::Newline)
-        .collect()
-}
-
-/// Collect the bareword/string tokens as strings, lowercased; when `strip_dash`,
-/// a leading `-` is removed (endings are written `-ys`, matched as `ys`).
-fn word_list(toks: &[Token], strip_dash: bool) -> Vec<String> {
-    toks.iter()
-        .filter(|t| matches!(t.kind, TokenKind::Word | TokenKind::Str))
-        .map(|t| {
-            let text = t.text.to_lowercase();
-            if strip_dash {
-                text.trim_start_matches('-').to_owned()
-            } else {
-                text
-            }
-        })
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
 /// The value token after a header keyword (`role given-proto` → `given-proto`).
+///
+/// Reads a `name-part` declaration's typed `head` tokens — not clause text — so
+/// it needs no lexer (LS-9).
 fn head_value(head: &[String], keyword: &str) -> Option<String> {
     head.iter()
         .position(|t| t == keyword)
@@ -691,61 +657,10 @@ fn head_value(head: &[String], keyword: &str) -> Option<String> {
         .cloned()
 }
 
-/// Whether a token is an assignment operator in a `ratify` body (`:=`, `=`, `:`).
-fn is_assign_op(text: &str) -> bool {
-    matches!(text, ":=" | "=" | ":")
-}
-
-/// Parse a `name-kind <kind> = <role>… [ | <role>… ]` clause tail (the tokens
-/// after the `name-kind` keyword).
-fn parse_name_kind(rest: &[Token]) -> Option<NameKind> {
-    let kind = rest.first().filter(|t| t.kind == TokenKind::Word)?;
-    let eq = rest.iter().position(|t| t.kind == TokenKind::Equals)?;
-    let mut patterns = Vec::new();
-    let mut current = Vec::new();
-    for tok in &rest[eq + 1..] {
-        if tok.text == "|" {
-            if !current.is_empty() {
-                patterns.push(std::mem::take(&mut current));
-            }
-        } else if tok.kind == TokenKind::Word {
-            current.push(tok.text.clone());
-        }
-    }
-    if !current.is_empty() {
-        patterns.push(current);
-    }
-    (!patterns.is_empty()).then(|| NameKind {
-        kind: kind.text.clone(),
-        patterns,
-    })
-}
-
-/// Re-lift a `name-part …` interior clause through the real parser, so its gloss,
-/// role/gender header, and provenance are typed exactly as the top-level parser
-/// would type them.
-fn reparse_name_part(text: &str) -> Option<NamePartDecl> {
-    let (doc, _diags) = parse_document(text);
-    doc.decls.into_iter().find_map(|d| match d {
-        Decl::NamePart(m) => Some(m),
-        _ => None,
-    })
-}
-
-/// Re-lift a provenance tail through the real parser by probing it onto a `term`
-/// declaration, so annotations captured inside a name/lexeme body are typed
-/// exactly as the top-level parser types them.
-pub(crate) fn reparse_provenance(tail: &str) -> Option<Annotation> {
-    let (doc, _diags) = parse_document(&format!("term __probe__ {tail}"));
-    doc.decls.into_iter().find_map(|d| match d {
-        Decl::Term(t) => t.provenance,
-        _ => None,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dli_syntax::parse_document;
 
     fn model(src: &str) -> LanguageModel {
         let (doc, _diags) = parse_document(src);

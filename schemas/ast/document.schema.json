@@ -72,6 +72,24 @@
         "span"
       ]
     },
+    "Assignment": {
+      "description": "A `hyp := true|false` valuation: rule a bundle hypothesis true or false.",
+      "type": "object",
+      "properties": {
+        "hyp": {
+          "description": "The hypothesis name being valued (the first non-operator word).",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value assigned (the last `true`/`false` word on the line).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hyp",
+        "value"
+      ]
+    },
     "AtomExpr": {
       "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
       "type": "object",
@@ -258,6 +276,24 @@
       "required": [
         "text",
         "span"
+      ]
+    },
+    "CompositionStep": {
+      "description": "One composition step: a slot role filled by a named morpheme.",
+      "type": "object",
+      "properties": {
+        "morpheme": {
+          "description": "The morpheme surface filling it (e.g. `en`).",
+          "type": "string"
+        },
+        "role": {
+          "description": "The slot role (e.g. `given-proto`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "morpheme"
       ]
     },
     "CondExpr": {
@@ -740,16 +776,44 @@
         }
       ]
     },
+    "DialectBody": {
+      "description": "The structured body of a [`DialectDecl`](crate::decl::DialectDecl): its\ninterior clauses in source order, each pre-classified into a [`DialectItem`].",
+      "type": "object",
+      "properties": {
+        "clauses": {
+          "description": "The structured interior clauses, in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DialectClause"
+          }
+        }
+      }
+    },
+    "DialectClause": {
+      "description": "One structured clause of a dialect body: its normalized text (retained for\nexact round-trip) plus the typed payload the compiler reads.",
+      "type": "object",
+      "properties": {
+        "clause": {
+          "description": "The whitespace-normalized clause text and its span. Retained so the\nformatter round-trips exactly.",
+          "$ref": "#/$defs/Clause"
+        },
+        "item": {
+          "description": "The typed interpretation of the clause.",
+          "$ref": "#/$defs/DialectItem"
+        }
+      },
+      "required": [
+        "clause",
+        "item"
+      ]
+    },
     "DialectDecl": {
       "description": "`dialect <name> [\"label\"] { … }`.",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed interior: each interior clause pre-classified into a\n[`DialectItem`](crate::language::DialectItem) at parse time (LS-9), so the\nlanguage compiler reads typed AST instead of re-lexing clause text.",
+          "$ref": "#/$defs/DialectBody"
         },
         "label": {
           "description": "The display label, if written.",
@@ -775,8 +839,179 @@
         }
       },
       "required": [
-        "name",
-        "body"
+        "name"
+      ]
+    },
+    "DialectItem": {
+      "description": "The recognized interior forms of a dialect body (the grammar owned by the\nlanguage compiler, `crates/dli-world/src/language/dialect.rs`).\n\nEach variant carries exactly the values the pre-LS-9 compiler derived from\nthe clause tokens, so the typed reader reproduces the old string-body result\nbyte-for-byte. A clause whose head keyword is not recognized is\n[`Other`](DialectItem::Other) — the compiler ignored it before, and ignores\nit now.",
+      "oneOf": [
+        {
+          "description": "`basis [attested] \"<real-world basis>\"` — the attestation seam.",
+          "type": "object",
+          "properties": {
+            "Basis": {
+              "type": "object",
+              "properties": {
+                "attested": {
+                  "description": "Whether the `attested` grade word led the clause tail.",
+                  "type": "boolean"
+                },
+                "text": {
+                  "description": "The quoted real-world basis, if written.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "attested"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Basis"
+          ]
+        },
+        {
+          "description": "`vowels <v> <v> …` — the vowel inventory (lowercased words).",
+          "type": "object",
+          "properties": {
+            "Vowels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Vowels"
+          ]
+        },
+        {
+          "description": "`endings <e> <e> …` — characteristic name-endings (lowercased, a leading\n`-` stripped).",
+          "type": "object",
+          "properties": {
+            "Endings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Endings"
+          ]
+        },
+        {
+          "description": "`foreign <c> <c> …` — clusters marking a form as not-ours (lowercased).",
+          "type": "object",
+          "properties": {
+            "Foreign": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Foreign"
+          ]
+        },
+        {
+          "description": "`cluster-max <n>` — the consonant-cluster ceiling, `None` if no token\nparsed as a count.",
+          "type": "object",
+          "properties": {
+            "ClusterMax": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "ClusterMax"
+          ]
+        },
+        {
+          "description": "`sayability-max <n>` — the per-word syllable ceiling, `None` if no token\nparsed as a count.",
+          "type": "object",
+          "properties": {
+            "SayabilityMax": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "SayabilityMax"
+          ]
+        },
+        {
+          "description": "`stress <keyword>` — the stress rule keyword (the first tail token), if\npresent.",
+          "type": "object",
+          "properties": {
+            "Stress": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Stress"
+          ]
+        },
+        {
+          "description": "`name-kind <kind> = <role>… [ | <role>… ]` — a slot grammar, `None` if\nthe clause held no well-formed pattern.",
+          "type": "object",
+          "properties": {
+            "NameKind": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NameKindSpec"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "NameKind"
+          ]
+        },
+        {
+          "description": "`name-part <surface> …` — a morpheme declaration, typed exactly as the\ntop-level parser types a `name-part` line.",
+          "type": "object",
+          "properties": {
+            "NamePart": {
+              "$ref": "#/$defs/NamePartDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "NamePart"
+          ]
+        },
+        {
+          "description": "A clause whose head keyword the dialect grammar does not recognize.",
+          "type": "string",
+          "const": "Other"
+        }
       ]
     },
     "DraftDecl": {
@@ -1079,16 +1314,44 @@
         "name"
       ]
     },
+    "NameBody": {
+      "description": "The structured body of a [`NameDecl`](crate::decl::NameDecl): its interior\nclauses in source order, each pre-classified into a [`NameItem`].",
+      "type": "object",
+      "properties": {
+        "clauses": {
+          "description": "The structured interior clauses, in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NameClause"
+          }
+        }
+      }
+    },
+    "NameClause": {
+      "description": "One structured clause of a name body: its normalized text (retained for exact\nround-trip) plus the typed payload the compiler reads.",
+      "type": "object",
+      "properties": {
+        "clause": {
+          "description": "The whitespace-normalized clause text and its span. Retained so the\nformatter round-trips exactly.",
+          "$ref": "#/$defs/Clause"
+        },
+        "item": {
+          "description": "The typed interpretation of the clause.",
+          "$ref": "#/$defs/NameItem"
+        }
+      },
+      "required": [
+        "clause",
+        "item"
+      ]
+    },
     "NameDecl": {
       "description": "`name <name> [\"label\"] …` — a composed proper name.",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses (composition, bearer).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed interior: each interior clause (composition, bearer, provenance)\npre-classified into a [`NameItem`](crate::language::NameItem) at parse\ntime (LS-9), so the name compiler reads typed AST instead of re-lexing\nclause text.",
+          "$ref": "#/$defs/NameBody"
         },
         "head": {
           "description": "Remaining header tokens (`person.given in cymric-fringe`).",
@@ -1122,8 +1385,103 @@
       },
       "required": [
         "name",
-        "head",
-        "body"
+        "head"
+      ]
+    },
+    "NameItem": {
+      "description": "The recognized interior forms of a name body (the grammar owned by the\nlanguage compiler, `crates/dli-world/src/language/name.rs`).\n\nClassification is by the clause's first token, exactly as the pre-LS-9\ncompiler classified it; the compiler applies the same header-first precedence\n(a header composition or bearer wins; the first body provenance wins) when it\nreads these.",
+      "oneOf": [
+        {
+          "description": "`= <role> <morpheme> [ + <role> <morpheme> … ]` — the composition steps\n(empty when the clause held no well-formed `role morpheme` step).",
+          "type": "object",
+          "properties": {
+            "Composition": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CompositionStep"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Composition"
+          ]
+        },
+        {
+          "description": "`bearer <entity> [<provenance>]` — the entity that bears the name and any\nprovenance riding the same line.",
+          "type": "object",
+          "properties": {
+            "Bearer": {
+              "type": "object",
+              "properties": {
+                "entity": {
+                  "description": "The bearer entity, if a token followed `bearer`.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "provenance": {
+                  "description": "Provenance parsed from the line's tail, if any.",
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Annotation"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Bearer"
+          ]
+        },
+        {
+          "description": "A standalone provenance line (`ratified D-1`, …).",
+          "type": "object",
+          "properties": {
+            "Provenance": {
+              "$ref": "#/$defs/Annotation"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Provenance"
+          ]
+        },
+        {
+          "description": "A clause the name grammar does not recognize.",
+          "type": "string",
+          "const": "Other"
+        }
+      ]
+    },
+    "NameKindSpec": {
+      "description": "A `name-kind` slot grammar: the name kind and its admissible slot-role\nsequences (alternatives split by `|`).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "The name kind this grammar governs (e.g. `person.given`, `place`).",
+          "type": "string"
+        },
+        "patterns": {
+          "description": "The admissible slot-role sequences (alternatives).",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "patterns"
       ]
     },
     "NamePartDecl": {
@@ -1406,16 +1764,57 @@
         "options"
       ]
     },
+    "RatifyBody": {
+      "description": "The structured body of a [`RatifyDecl`](crate::decl::RatifyDecl): the\nhypothesis valuation lines it carries, plus the decision ids its lines cite.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "The decision ids cited across the body lines, harvested at parse time so\nthe citation gate reads them without re-scanning clause text.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "clauses": {
+          "description": "The valuation clauses, in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RatifyClause"
+          }
+        }
+      }
+    },
+    "RatifyClause": {
+      "description": "One clause of a ratify body: its normalized text (retained for exact\nround-trip) plus the typed hypothesis assignment it makes, if any.",
+      "type": "object",
+      "properties": {
+        "assignment": {
+          "description": "The `hyp := true|false` assignment this clause makes, if it is one.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Assignment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clause": {
+          "description": "The whitespace-normalized clause text and its span. Retained so the\nformatter round-trips exactly.",
+          "$ref": "#/$defs/Clause"
+        }
+      },
+      "required": [
+        "clause"
+      ]
+    },
     "RatifyDecl": {
       "description": "`ratify <d-id> { … }`.",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses (`h-cymric := true`).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed interior: the `h-cymric := true` valuation lines and the\ndecision ids the body cites, structured at parse time (LS-9), so the\nlanguage compiler and the citation gate read typed AST instead of\nre-lexing clause text.",
+          "$ref": "#/$defs/RatifyBody"
         },
         "decision": {
           "description": "The ratifying decision id.",
@@ -1423,8 +1822,7 @@
         }
       },
       "required": [
-        "decision",
-        "body"
+        "decision"
       ]
     },
     "RuleBody": {

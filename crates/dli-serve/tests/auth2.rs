@@ -345,7 +345,7 @@ fn pinned_projection() -> String {
         .map(|decision| {
             Decl::Ratify(RatifyDecl {
                 decision: ident(&decision),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             })
         })
         .collect::<Vec<_>>();
@@ -424,7 +424,7 @@ fn pinned_constraints_projection() -> String {
         .map(|decision| {
             Decl::Ratify(RatifyDecl {
                 decision: ident(&decision),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             })
         })
         .collect::<Vec<_>>();

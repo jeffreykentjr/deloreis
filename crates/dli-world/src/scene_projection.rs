@@ -374,7 +374,7 @@ mod tests {
     fn ratify(decision: &str) -> Decl {
         Decl::Ratify(RatifyDecl {
             decision: id(decision),
-            body: Vec::new(),
+            body: dli_ast::language::RatifyBody::default(),
         })
     }
 

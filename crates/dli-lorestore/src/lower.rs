@@ -935,7 +935,7 @@ pub fn reconstruct_pack(
         for decision in known_decisions {
             decls.push(Decl::Ratify(RatifyDecl {
                 decision: Ident::synthetic(decision),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             }));
         }
     }
