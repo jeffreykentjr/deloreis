@@ -27,6 +27,7 @@ pub mod evidence;
 pub mod identity;
 pub mod lorestore;
 pub mod lower;
+pub mod merge;
 pub mod object;
 pub mod storage;
 pub mod store;
@@ -37,7 +38,8 @@ pub use canonical::{
 };
 pub use evidence::{EvidenceEnvelope, EvidenceKind};
 pub use identity::{Authority, ClaimId, ContentHash, LineageEdge};
-pub use lorestore::{Lorestore, MAIN_REF};
+pub use lorestore::{HEADS_PREFIX, Lorestore, MAIN_REF, branch_ref_name};
+pub use merge::{MergeReport, StandingChange};
 pub use object::{CondPair, ExpertBody, ExpertDeclKind, FactObject};
 pub use storage::{FilesystemStorage, Storage, StoreError};
 pub use store::{Commit, Ref};

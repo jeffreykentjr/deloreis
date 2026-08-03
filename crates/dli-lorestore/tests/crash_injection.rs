@@ -109,6 +109,10 @@ impl Storage for FaultStorage {
         self.inner.load_ref(name)
     }
 
+    fn list_refs(&self) -> Result<Vec<String>, StoreError> {
+        self.inner.list_refs()
+    }
+
     fn acquire_lock(&self) -> Result<std::fs::File, StoreError> {
         self.inner.acquire_lock()
     }

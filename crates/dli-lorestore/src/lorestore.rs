@@ -36,10 +36,26 @@ use serde::de::DeserializeOwned;
 use crate::identity::ContentHash;
 use crate::storage::{self, Storage, StoreError};
 use crate::store::{Commit, Ref};
-use dli_core::valuation::Valuation;
 
 /// The name of the default branch ref.
 pub const MAIN_REF: &str = "main";
+
+/// The ref namespace for named branches (LS-6). `main` stays **unqualified**
+/// for back-compat with LS-2 stores that predate branches; every other branch
+/// is a ref under this prefix (`refs/heads/<name>`), reusing the storage layer's
+/// existing support for `/` in ref names.
+pub const HEADS_PREFIX: &str = "refs/heads/";
+
+/// The storage ref name for a branch: `main` unqualified, any other branch under
+/// [`HEADS_PREFIX`]. This is the one place the back-compat asymmetry lives.
+#[must_use]
+pub fn branch_ref_name(branch: &str) -> String {
+    if branch == MAIN_REF {
+        MAIN_REF.to_owned()
+    } else {
+        format!("{HEADS_PREFIX}{branch}")
+    }
+}
 
 /// A durable lorestore: the append-only commit log over a [`Storage`] backend.
 ///
@@ -159,11 +175,90 @@ impl Lorestore {
         self.storage.cas_ref(MAIN_REF, expected, new)
     }
 
-    /// Commit a new `Commit` to the log.
+    // -- branches (LS-6) -----------------------------------------------------
+
+    /// The head commit of a branch, or `None` if the branch does not exist.
+    pub fn branch_head(&self, branch: &str) -> Result<Option<ContentHash>, StoreError> {
+        Ok(self
+            .storage
+            .load_ref(&branch_ref_name(branch))?
+            .map(|r| r.commit))
+    }
+
+    /// The full [`Ref`] of a branch (commit pointer + valuation overlay).
+    pub fn branch_ref(&self, branch: &str) -> Result<Option<Ref>, StoreError> {
+        self.storage.load_ref(&branch_ref_name(branch))
+    }
+
+    /// Create a new branch `name` at the current head of `from` (default is
+    /// `main`). The new branch inherits `from`'s commit **and** its valuation
+    /// overlay — a branch is a divergent line of writes, and its point of
+    /// departure is whatever the source ruled. Refuses if `name` already exists
+    /// or `from` does not.
+    ///
+    /// Returns the commit the new branch points at.
+    pub fn create_branch(&self, name: &str, from: &str) -> Result<ContentHash, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        let ref_name = branch_ref_name(name);
+        if self.storage.load_ref(&ref_name)?.is_some() {
+            return Err(StoreError::BranchExists {
+                name: name.to_owned(),
+            });
+        }
+        let source = self
+            .storage
+            .load_ref(&branch_ref_name(from))?
+            .ok_or_else(|| StoreError::NotFound(format!("branch `{from}` does not exist")))?;
+        let new_ref =
+            Ref::with_valuation(ref_name.clone(), source.commit.clone(), source.valuation);
+        // `expected: None` means create-only; under the lock a lost race means a
+        // concurrent create of the same name — surface it as BranchExists.
+        if !self.storage.cas_ref(&ref_name, None, &new_ref)? {
+            return Err(StoreError::BranchExists {
+                name: name.to_owned(),
+            });
+        }
+        Ok(source.commit)
+    }
+
+    /// Every branch name in the store, sorted with `main` first. Only `main` and
+    /// `refs/heads/<name>` refs are branches; other refs (fork overlays, say) are
+    /// not surfaced.
+    pub fn list_branches(&self) -> Result<Vec<String>, StoreError> {
+        let mut names = Vec::new();
+        let mut has_main = false;
+        for r in self.storage.list_refs()? {
+            if r == MAIN_REF {
+                has_main = true;
+            } else if let Some(branch) = r.strip_prefix(HEADS_PREFIX) {
+                names.push(branch.to_owned());
+            }
+        }
+        names.sort();
+        names.dedup();
+        if has_main {
+            names.insert(0, MAIN_REF.to_owned());
+        }
+        Ok(names)
+    }
+
+    /// Atomically update a branch ref from `expected` to `new` (the branch analog
+    /// of [`cas_main_ref`](Lorestore::cas_main_ref)).
+    pub fn cas_branch_ref(
+        &self,
+        branch: &str,
+        expected: Option<&str>,
+        new: &Ref,
+    ) -> Result<bool, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        self.storage.cas_ref(&branch_ref_name(branch), expected, new)
+    }
+
+    /// Commit a new `Commit` to the `main` branch.
     ///
     /// Verifies that every referenced fact, lineage-edge, and evidence-envelope
     /// object exists in the store before writing the commit. The new commit's
-    /// parent is the current head (CAS on `main`).
+    /// parent is the current `main` head (CAS on `main`).
     ///
     /// Returns the content hash of the new commit.
     pub fn commit(
@@ -175,7 +270,28 @@ impl Lorestore {
         decisions: Vec<String>,
         pack_name: String,
     ) -> Result<ContentHash, StoreError> {
+        self.commit_on_branch(
+            MAIN_REF, interner, fact_hashes, lineage, evidence, decisions, pack_name,
+        )
+    }
+
+    /// Commit a new `Commit` to an arbitrary branch (LS-6). The parent is that
+    /// branch's current head; the CAS fences on that branch's whole-ref digest.
+    /// The interner-append-only discipline is checked against the branch's own
+    /// head — the same guard `commit` runs on `main`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn commit_on_branch(
+        &self,
+        branch: &str,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<ContentHash, StoreError> {
         let _lock = self.storage.acquire_lock()?;
+        let ref_name = branch_ref_name(branch);
 
         // Verify all referenced objects exist before writing the commit.
         for hash in &fact_hashes {
@@ -200,14 +316,15 @@ impl Lorestore {
             }
         }
 
-        // The parent is the current head commit; the CAS token is the whole
-        // head ref's digest (commit + valuation overlay).
-        let head_ref = self.storage.load_ref(MAIN_REF)?;
+        // The parent is the branch's current head commit; the CAS token is the
+        // whole head ref's digest (commit + valuation overlay).
+        let head_ref = self.storage.load_ref(&ref_name)?;
         let expected: Option<String> = head_ref.as_ref().map(|r| r.commit.0.clone());
         let expected_token: Option<String> = match &head_ref {
             Some(r) => Some(r.digest()?.0),
             None => None,
         };
+        let branch_valuation = head_ref.map(|r| r.valuation).unwrap_or_default();
 
         // The interner is append-only across the chain: `compile()` resolves
         // every commit's facts against the *head* interner, so a child whose
@@ -255,24 +372,23 @@ impl Lorestore {
 
         let commit_hash = storage::write_typed(&*self.storage, &commit)?;
 
-        // Build the new ref with the commit as its target.
+        // Build the new ref with the commit as its target, preserving the
+        // branch's valuation overlay.
         let new_ref = match &expected {
-            Some(_) => Ref::with_valuation(
-                MAIN_REF.to_owned(),
-                commit_hash.clone(),
-                self.current_valuation(),
-            ),
-            None => Ref::new(MAIN_REF, commit_hash.clone()),
+            Some(_) => {
+                Ref::with_valuation(ref_name.clone(), commit_hash.clone(), branch_valuation)
+            }
+            None => Ref::new(ref_name.clone(), commit_hash.clone()),
         };
 
         let written = self
             .storage
-            .cas_ref(MAIN_REF, expected_token.as_deref(), &new_ref)?;
+            .cas_ref(&ref_name, expected_token.as_deref(), &new_ref)?;
         if !written {
             return Err(StoreError::CasConflict {
-                name: MAIN_REF.to_string(),
+                name: ref_name,
                 expected,
-                found: self.storage.load_ref(MAIN_REF)?.map(|r| r.commit.0),
+                found: self.storage.load_ref(&branch_ref_name(branch))?.map(|r| r.commit.0),
             });
         }
 
@@ -299,8 +415,18 @@ impl Lorestore {
         let Some(head) = self.root_hash()? else {
             return Ok(Vec::new());
         };
+        self.fact_hashes_from(&head)
+    }
+
+    /// Collect the unique fact-object hashes reachable from `head` in **fold
+    /// order (root first, head last)**. For a merge commit the walk follows both
+    /// parents, so the returned set is the **union** of the two merged branches'
+    /// facts — the polynomial join then happens for free on recompile
+    /// (`PosBool::or_` re-joins alternative supports at the fixpoint). Dedup keeps
+    /// the first-written occurrence, exactly as the single-branch path does.
+    pub fn fact_hashes_from(&self, head: &ContentHash) -> Result<Vec<ContentHash>, StoreError> {
         // walk_dag returns HEAD → … → ROOT; the fold runs ROOT → … → HEAD.
-        let mut chain = self.storage.walk_dag(&head, None)?;
+        let mut chain = self.storage.walk_dag(head, None)?;
         chain.reverse();
         let mut seen = std::collections::BTreeSet::new();
         let mut unique = Vec::new();
@@ -314,14 +440,54 @@ impl Lorestore {
         Ok(unique)
     }
 
-    /// The current valuation overlay on the head ref.
-    fn current_valuation(&self) -> Valuation {
-        self.storage
-            .load_ref(MAIN_REF)
-            .ok()
-            .flatten()
-            .map(|r| r.valuation)
-            .unwrap_or_default()
+    /// The set of commit hashes reachable from `head` (inclusive), following both
+    /// the linear parent and any merge parent.
+    pub fn ancestors(
+        &self,
+        head: &ContentHash,
+    ) -> Result<std::collections::BTreeSet<ContentHash>, StoreError> {
+        let chain = self.storage.walk_dag(head, None)?;
+        let mut set = std::collections::BTreeSet::new();
+        for c in &chain {
+            set.insert(c.content_hash()?);
+        }
+        Ok(set)
+    }
+
+    /// The **merge base** (lowest common ancestor) of two commits over the
+    /// two-parent DAG, or `None` if they share no history. The LCA is the common
+    /// ancestor that is not itself a proper ancestor of any other common
+    /// ancestor. A criss-cross history can leave several; the smallest hash is
+    /// chosen deterministically (an honest limitation for the first cut — simple
+    /// branch-and-merge topologies have exactly one).
+    pub fn merge_base(
+        &self,
+        a: &ContentHash,
+        b: &ContentHash,
+    ) -> Result<Option<ContentHash>, StoreError> {
+        let anc_a = self.ancestors(a)?;
+        let anc_b = self.ancestors(b)?;
+        let common: Vec<ContentHash> = anc_a.intersection(&anc_b).cloned().collect();
+        if common.is_empty() {
+            return Ok(None);
+        }
+        // Precompute each common node's ancestor set, then keep only nodes that
+        // no *other* common node has as a proper ancestor (the lowest ones).
+        let mut lowest: Vec<ContentHash> = Vec::new();
+        for c in &common {
+            let dominated = common.iter().try_fold(false, |acc, c2| {
+                if acc || c2 == c {
+                    return Ok::<bool, StoreError>(acc);
+                }
+                // c is dominated if c2 is a descendant of c, i.e. c ∈ ancestors(c2).
+                Ok(self.ancestors(c2)?.contains(c))
+            })?;
+            if !dominated {
+                lowest.push(c.clone());
+            }
+        }
+        lowest.sort();
+        Ok(lowest.into_iter().next())
     }
 
     /// Import a compiled pack into the store: lower every `LoadedAtom` to a
@@ -495,22 +661,28 @@ impl Lorestore {
     /// LS-3 is differential parity — the same corpus loaded from `.dli` and
     /// from its lorestore import compiles to identical results.
     pub fn compile(&self) -> Result<dli_world::CompiledWorld, StoreError> {
-        // 1 — read the head commit; walk the chain to the root.
         let head = self
             .root_hash()?
             .ok_or_else(|| StoreError::NotFound("store has no head commit".to_owned()))?;
-        let chain = self.storage.walk_dag(&head, None)?;
-        // walk_dag returns commits ordered HEAD → … → ROOT; the head carries
-        // the current interner, decisions, and pack name (the most recent state).
+        self.compile_at(&head)
+    }
+
+    /// Reconstruct the `Pack` at an arbitrary `head` commit — walk the chain
+    /// (both parents), collect the head's interner / decisions / pack name, read
+    /// every reachable fact object, and rebuild the pack. Shared by
+    /// [`compile_at`](Lorestore::compile_at) and the merge engine, which needs to
+    /// reconstruct branch heads and the merge commit that are not `main`.
+    pub fn reconstruct_at(&self, head: &ContentHash) -> Result<dli_world::Pack, StoreError> {
+        let chain = self.storage.walk_dag(head, None)?;
+        // walk_dag returns commits tip-first; the head carries the current
+        // interner, decisions, and pack name (the most recent state).
         let head_commit = chain.first().expect("walk_dag returns at least one commit");
 
-        // 2 — collect the interner name table and known decisions from the head.
         let interner_names = &head_commit.interner;
         let known_decisions: std::collections::BTreeSet<String> =
             head_commit.decisions.iter().cloned().collect();
 
-        // 3 — read all fact objects from the store.
-        let fact_hashes = self.all_fact_hashes()?;
+        let fact_hashes = self.fact_hashes_from(head)?;
         let mut fact_objects: Vec<crate::FactObject> = Vec::with_capacity(fact_hashes.len());
         for hash in &fact_hashes {
             let obj: crate::FactObject = self
@@ -519,20 +691,155 @@ impl Lorestore {
             fact_objects.push(obj);
         }
 
-        // 4 — reconstruct the Pack; a stream that cannot round-trip is a
-        //     typed refusal, never a silently different world.
+        // A stream that cannot round-trip is a typed refusal, never a silently
+        // different world.
         let interner = dli_core::Interner::from_names(interner_names.clone());
-        let pack = crate::lower::reconstruct_pack(
+        crate::lower::reconstruct_pack(
             &fact_objects,
             &interner,
             &known_decisions,
             &head_commit.pack_name,
-        )?;
+        )
+        .map_err(StoreError::from)
+    }
 
-        // 5 — compile via the existing path.
+    /// Compile the world at an arbitrary `head` commit (LS-3 read path,
+    /// generalized for LS-6 to any branch head or merge commit).
+    ///
+    /// This is the **`.dli → lorestore → .dli` round-trip**: the oracle for
+    /// LS-3 is differential parity — the same corpus loaded from `.dli` and
+    /// from its lorestore import compiles to identical results.
+    pub fn compile_at(&self, head: &ContentHash) -> Result<dli_world::CompiledWorld, StoreError> {
+        let pack = self.reconstruct_at(head)?;
         dli_world::compile(&pack).map_err(|e| StoreError::Io {
             path: "compile".to_owned(),
             source: std::io::Error::other(e.to_string()),
+        })
+    }
+
+    /// Merge branch `source` into branch `target` (LS-6, the merge engine).
+    ///
+    /// The whole operation runs under the store lock. It reconciles the two
+    /// heads' interners (refusing a merge whose branches minted colliding event
+    /// variables — [`crate::merge::reconcile_interners`]), unions the reachable
+    /// fact-hash sets, writes a **merge commit** (`parent` = target head,
+    /// `merge_parent` = source head) naming that union, and advances `target` to
+    /// it. The polynomial join happens for free on recompile: the union of two
+    /// branches' facts re-joins alternative supports at the fixpoint.
+    ///
+    /// The fact-set union is confluent (CALM, roadmap §4), so the commit is
+    /// always written; the returned [`MergeReport`](crate::merge::MergeReport)
+    /// carries the structural conflicts (valuation disagreement, constraint
+    /// violation, stratified-negation effect) for the sovereign to rule on.
+    /// A variable the two branches ruled differently keeps the **target**'s value
+    /// on the merged ref and is reported — never silently reconciled.
+    pub fn merge(
+        &self,
+        target: &str,
+        source: &str,
+    ) -> Result<crate::merge::MergeReport, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+
+        let target_ref = self
+            .storage
+            .load_ref(&branch_ref_name(target))?
+            .ok_or_else(|| StoreError::NotFound(format!("branch `{target}` does not exist")))?;
+        let source_ref = self
+            .storage
+            .load_ref(&branch_ref_name(source))?
+            .ok_or_else(|| StoreError::NotFound(format!("branch `{source}` does not exist")))?;
+        let target_head = target_ref.commit.clone();
+        let source_head = source_ref.commit.clone();
+
+        let target_commit: Commit = storage::read_typed(&*self.storage, &target_head)?
+            .ok_or_else(|| StoreError::NotFound(format!("target head missing: {target_head}")))?;
+        let source_commit: Commit = storage::read_typed(&*self.storage, &source_head)?
+            .ok_or_else(|| StoreError::NotFound(format!("source head missing: {source_head}")))?;
+
+        // Interner reconciliation — prefix-preservation against BOTH parents.
+        let merged_interner =
+            crate::merge::reconcile_interners(&target_commit.interner, &source_commit.interner)?;
+
+        // Union the reachable fact-hash sets (fold order: target first, then
+        // source-only), so a linear fast-forward degenerates to the target set.
+        let mut union = self.fact_hashes_from(&target_head)?;
+        let mut seen: std::collections::BTreeSet<ContentHash> = union.iter().cloned().collect();
+        for h in self.fact_hashes_from(&source_head)? {
+            if seen.insert(h.clone()) {
+                union.push(h);
+            }
+        }
+
+        // Union of known decisions (append-only over target then source).
+        let mut merged_decisions = target_commit.decisions.clone();
+        let mut dseen: std::collections::BTreeSet<String> =
+            merged_decisions.iter().cloned().collect();
+        for d in &source_commit.decisions {
+            if dseen.insert(d.clone()) {
+                merged_decisions.push(d.clone());
+            }
+        }
+
+        let base = self.merge_base(&target_head, &source_head)?;
+
+        // Write the merge commit — its facts are already stored, so it is a pure
+        // pointer object over the union.
+        let merge_commit = Commit::merge(
+            target_head.clone(),
+            source_head.clone(),
+            merged_interner.clone(),
+            union,
+            Vec::new(),
+            Vec::new(),
+            merged_decisions,
+            target_commit.pack_name.clone(),
+        );
+        let merge_hash = storage::write_typed(&*self.storage, &merge_commit)?;
+
+        // Advance the target branch to the merge commit, carrying the union
+        // overlay (target wins on disagreement — reported, never silent).
+        let merged_valuation =
+            crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
+        let new_ref = Ref::with_valuation(
+            branch_ref_name(target),
+            merge_hash.clone(),
+            merged_valuation.clone(),
+        );
+        let expected_token = Some(target_ref.digest()?.0);
+        if !self
+            .storage
+            .cas_ref(&branch_ref_name(target), expected_token.as_deref(), &new_ref)?
+        {
+            return Err(StoreError::CasConflict {
+                name: branch_ref_name(target),
+                expected: Some(target_head.0.clone()),
+                found: self
+                    .storage
+                    .load_ref(&branch_ref_name(target))?
+                    .map(|r| r.commit.0),
+            });
+        }
+
+        // Detect the three conflict classes over the merged state.
+        let scan = crate::merge::scan(
+            self,
+            &merge_hash,
+            &target_head,
+            &source_head,
+            base.as_ref(),
+            &target_ref.valuation,
+            &source_ref.valuation,
+            &merged_valuation,
+            &merged_interner,
+        )?;
+
+        Ok(crate::merge::MergeReport {
+            merge_commit: merge_hash,
+            merge_base: base,
+            conflicts: scan.conflicts,
+            findings: scan.findings,
+            stratifies: scan.stratifies,
+            standing_changes: scan.standing_changes,
         })
     }
 }
