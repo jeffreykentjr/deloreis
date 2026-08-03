@@ -284,6 +284,26 @@ impl Sessions {
         }
     }
 
+    /// Run every queued simulation worker to completion synchronously, inline on
+    /// the caller's thread, returning only once each queued job is terminal.
+    ///
+    /// This is the deterministic, clock-free drain (DL-0013): a durable job's
+    /// terminal state is a pure function of its committed inputs, so a test or
+    /// an offline tool can assert on completion with nothing to poll. Production
+    /// transports use the threaded [`Sessions::release_simulation_workers`];
+    /// this is the offline path.
+    pub fn drain_simulation_workers(&mut self) {
+        let CorpusSource::Project(project) = &self.source else {
+            self.queued_jobs.clear();
+            return;
+        };
+        let project = Arc::clone(project);
+        let queued = std::mem::take(&mut self.queued_jobs);
+        for job_id in queued {
+            let _ = crate::simulation::run_to_terminal(&project, &job_id);
+        }
+    }
+
     /// Resolve and clone a logical document's source pack.
     #[must_use]
     pub fn pack(&self, document: &str) -> Option<Pack> {
