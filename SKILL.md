@@ -66,8 +66,13 @@ in its params.
 - **`findings`** — graded observations, each with a machine `code`, a
   domain-spoken `message`, and typed `repair` data (§3). They tell you exactly
   what is wrong and how to fix it.
-- **`rendered`** — the canonical `.dli` line(s) the call produced, the same
-  surface a human reviews.
+- **`rendered`** — the **opt-in** `.dli` rendering of the result, a convenience
+  view for a human reviewer. The canonical result is the structured JSON above
+  (findings plus the staged fact objects / rows and the digest); `rendered` is
+  returned only when asked (`rendered: true`, contract 0.6.0 / DL-0046) and is
+  **empty on a build with no formatter linked** — the default build links none
+  (LS-7). It is never the authoring surface: you propose through the typed tool
+  params, not by writing these lines.
 - **`workspace_digest`** — the new fence.
 
 Read the findings on every call. Do not guess and re-emit — the tool already told
@@ -85,7 +90,7 @@ blocks materialize.
 | `author.status` | The staged declarations + current digest (read-only). |
 | `author.diff` | The full rendered block of everything staged (read-only). |
 | `author.discard` | Drop one staged declaration (by its rendered line) or the whole workspace. |
-| `author.materialize` | Return the `.dli` file bytes **as data**; refuses if any error-severity finding is open. |
+| `author.materialize` | Commit the staged fact objects to the lorestore and return them as JSON (`facts` + `root_hash`); `.dli` rendering is the `rendered: true` opt-in (DL-0046). Refuses if any error-severity finding is open. |
 | `author.add_entity` | Add a `person` / `place` / `thing` / `era`. Provenance required. |
 | `author.add_fact` | Set `entity.key = value`. Provenance required. |
 | `author.add_relation` | Assert `relation(from, to)`. Provenance required. |
