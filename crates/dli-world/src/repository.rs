@@ -52,9 +52,13 @@ pub struct RepositoryFinding {
 
 impl RepositoryFinding {
     fn new(path: &str, code: &str, message: impl Into<String>) -> Self {
+        Self::at_line(path, 1, code, message)
+    }
+
+    fn at_line(path: &str, line: usize, code: &str, message: impl Into<String>) -> Self {
         Self {
             path: path.to_owned(),
-            line: 1,
+            line,
             code: code.to_owned(),
             message: message.into(),
             severity: "error".to_owned(),
@@ -62,7 +66,8 @@ impl RepositoryFinding {
     }
 }
 
-/// Validate V1/V2 frontmatter for every non-exempt Markdown file under `canon`.
+/// Validate V1/V2 frontmatter and V3 section markers for every non-exempt
+/// Markdown file under `canon`.
 ///
 /// Missing roots and unreadable files are represented as findings rather than
 /// panics. Results are deterministic by relative path, line, code, message.
@@ -255,6 +260,120 @@ fn check_frontmatter(path: &str, source: &str, out: &mut Vec<RepositoryFinding>)
             "frontmatter diegetic: must be a boolean",
         ));
     }
+    check_sections(path, source, out);
+}
+
+fn check_sections(path: &str, source: &str, out: &mut Vec<RepositoryFinding>) {
+    let mut in_frontmatter = false;
+    let mut frontmatter_closed = false;
+    let lines: Vec<&str> = source.lines().collect();
+    let mut index = 0;
+    while index < lines.len() {
+        let line = lines[index];
+        if index == 0 && line.trim() == "---" {
+            in_frontmatter = true;
+            index += 1;
+            continue;
+        }
+        if in_frontmatter {
+            if line.trim() == "---" {
+                in_frontmatter = false;
+                frontmatter_closed = true;
+            }
+            index += 1;
+            continue;
+        }
+        if !frontmatter_closed || !line.starts_with("## ") || line.starts_with("### ") {
+            index += 1;
+            continue;
+        }
+        let heading = line.trim_start_matches("## ");
+        let mut marker = None;
+        let mut cursor = index + 1;
+        while cursor < lines.len() {
+            let candidate = lines[cursor];
+            if candidate.starts_with("## ") {
+                break;
+            }
+            if !candidate.trim().is_empty() {
+                marker = Some((candidate, cursor + 1));
+                break;
+            }
+            cursor += 1;
+        }
+        match marker
+            .and_then(|(value, line)| parse_status_marker(value).map(|parsed| (parsed, line)))
+        {
+            None => out.push(RepositoryFinding::at_line(
+                path,
+                index + 1,
+                "V3",
+                format!("section '{heading}' has no well-formed status marker"),
+            )),
+            Some(((status, citations), _marker_line)) => {
+                let d_refs = citations
+                    .iter()
+                    .filter(|ref_id| ref_id.starts_with("D-"))
+                    .count();
+                let q_refs = citations
+                    .iter()
+                    .filter(|ref_id| ref_id.starts_with("Q-"))
+                    .count();
+                let valid = match status {
+                    "ratified" | "provisional" | "rejected" => d_refs > 0 && q_refs == 0,
+                    "open-question" => d_refs == 0 && q_refs == 1,
+                    "proposed" => citations.is_empty(),
+                    _ => false,
+                };
+                if !valid {
+                    let requirement = match status {
+                        "open-question" => "open-question needs one Q-ref",
+                        "proposed" => "proposed must cite nothing",
+                        _ => "status needs >=1 D-ref",
+                    };
+                    out.push(RepositoryFinding::at_line(
+                        path,
+                        index + 1,
+                        "V3",
+                        format!("section '{heading}' {requirement}"),
+                    ));
+                }
+            }
+        }
+        index += 1;
+    }
+}
+
+fn parse_status_marker(line: &str) -> Option<(&str, Vec<&str>)> {
+    let rest = line.strip_prefix("> status: ")?;
+    let (status, citation_text) = match rest.split_once(' ') {
+        Some((status, refs)) => (status, Some(refs)),
+        None => (rest, None),
+    };
+    if !STATUSES.contains(&status) {
+        return None;
+    }
+    let citations = match citation_text {
+        None => Vec::new(),
+        Some(refs) => {
+            let refs = refs.strip_prefix('(')?.strip_suffix(')')?;
+            if refs.is_empty() {
+                return None;
+            }
+            let values: Vec<&str> = refs.split(", ").collect();
+            if values.iter().any(|value| !valid_ref(value)) {
+                return None;
+            }
+            values
+        }
+    };
+    Some((status, citations))
+}
+
+fn valid_ref(value: &str) -> bool {
+    (value.starts_with("D-") || value.starts_with("Q-"))
+        && value.len() == 6
+        && value[2..].chars().all(|ch| ch.is_ascii_digit())
 }
 
 fn require_string(
@@ -337,7 +456,7 @@ mod tests {
         write(
             dir.path(),
             "anchor.md",
-            "---\nid: anchor\ntitle: Anchor\ntype: character\nstatus: ratified\ntags: []\n---\n\n## Anchor\n",
+            "---\nid: anchor\ntitle: Anchor\ntype: character\nstatus: ratified\ntags: []\n---\n\n## Anchor\n> status: ratified (D-0001)\n",
         );
         let findings = validate_repository(dir.path());
         assert!(findings.is_empty(), "{findings:?}");
@@ -387,6 +506,19 @@ mod tests {
                 .iter()
                 .any(|f| f.code == "V2" && f.message.contains("filename stem"))
         );
+    }
+
+    #[test]
+    fn v3_enforces_marker_citation_shape() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "markers.md",
+            "---\nid: markers\ntitle: Markers\ntype: narrative\nstatus: proposed\n---\n\n## Ratified\n> status: ratified (Q-0001)\n\n## Question\n> status: open-question (D-0001)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert_eq!(findings.iter().filter(|f| f.code == "V3").count(), 2);
+        assert!(findings.iter().all(|f| f.line == 1));
     }
 
     #[test]

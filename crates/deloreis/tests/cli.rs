@@ -28,17 +28,27 @@ fn validate_repo_emits_stable_json_findings() {
     let root = tmp("validate-repo");
     fs::write(
         root.join("clean.md"),
-        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\n---\n",
+        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\n---\n\n## Clean\n> status: proposed\n",
     )
     .unwrap();
     fs::write(root.join("broken.md"), "# missing frontmatter\n").unwrap();
+    fs::write(
+        root.join("bad-section.md"),
+        "---\nid: bad-section\ntitle: Bad\ntype: narrative\nstatus: proposed\n---\n\n## Bad\n> status: ratified (Q-0001)\n",
+    )
+    .unwrap();
 
     let output = bin().arg("validate-repo").arg(&root).output().unwrap();
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     let findings: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
-    assert_eq!(findings[0]["path"], "broken.md");
-    assert_eq!(findings[0]["code"], "V1");
-    assert_eq!(findings[0]["severity"], "error");
+    let rows = findings.as_array().expect("findings array");
+    assert!(rows.iter().any(|finding| {
+        finding["path"] == "broken.md" && finding["code"] == "V1" && finding["severity"] == "error"
+    }));
+    assert!(
+        rows.iter()
+            .any(|finding| { finding["path"] == "bad-section.md" && finding["code"] == "V3" })
+    );
 }
 
 /// The shared saltmarket corpus.
