@@ -467,44 +467,46 @@ fn seed_stratified_negation_flip() {
     assert!(report.stratifies, "the merged rule set still stratifies");
 }
 
-/// A base pack with `seated(oak)` and the negation rule that derives
-/// `ward-holds(oak)` while `oak` is un-breached.
-fn ward_base_pack() -> dli_world::Pack {
-    fn ratified() -> Annotation {
-        Annotation {
-            marker: ProvenanceMarker::Ratified,
-            citations: vec![CitationRef {
-                id: Ident::synthetic(DECISION),
-            }],
-            condition: None,
-            tags: Vec::new(),
-            span: Span::synthetic(),
-        }
+/// A `@ratified D-1` provenance annotation.
+fn ratified() -> Annotation {
+    Annotation {
+        marker: ProvenanceMarker::Ratified,
+        citations: vec![CitationRef {
+            id: Ident::synthetic(DECISION),
+        }],
+        condition: None,
+        tags: Vec::new(),
+        span: Span::synthetic(),
     }
-    let decls = vec![
-        Decl::Ratify(RatifyDecl {
-            decision: Ident::synthetic(DECISION),
-            body: Vec::new(),
-        }),
-        Decl::Fact(FactDecl {
-            atom: AtomExpr {
-                pred: Ident::synthetic("seated"),
-                args: vec![Term::Sym(Ident::synthetic("oak"))],
-            },
-            triple: false,
-            provenance: Some(ratified()),
-        }),
-        Decl::Rule(RuleDecl {
-            name: Ident::synthetic("ward"),
-            domain: None,
-            head: Vec::new(),
-            body: vec![Clause {
-                text: "ward-holds(oak) :- seated(oak), not breached(oak)".to_owned(),
-                span: Span::synthetic(),
-            }],
-            provenance: Some(ratified()),
-        }),
-    ];
+}
+
+/// A `@ratified D-1` fact declaration `pred(arg)`.
+fn fact_decl(pred: &str, arg: &str) -> Decl {
+    Decl::Fact(FactDecl {
+        atom: AtomExpr {
+            pred: Ident::synthetic(pred),
+            args: vec![Term::Sym(Ident::synthetic(arg))],
+        },
+        triple: false,
+        provenance: Some(ratified()),
+    })
+}
+
+/// A `@ratified D-1` rule declaration from its clause text.
+fn rule_decl(name: &str, body_text: &str) -> Decl {
+    Decl::Rule(RuleDecl {
+        name: Ident::synthetic(name),
+        domain: None,
+        head: Vec::new(),
+        body: vec![Clause {
+            text: body_text.to_owned(),
+            span: Span::synthetic(),
+        }],
+        provenance: Some(ratified()),
+    })
+}
+
+fn pack_of(decls: Vec<Decl>) -> dli_world::Pack {
     dli_world::Pack {
         name: "canon".to_owned(),
         documents: vec![Document {
@@ -515,6 +517,205 @@ fn ward_base_pack() -> dli_world::Pack {
             decls,
         }],
     }
+}
+
+/// A base pack with `seated(oak)` and the negation rule that derives
+/// `ward-holds(oak)` while `oak` is un-breached.
+fn ward_base_pack() -> dli_world::Pack {
+    pack_of(vec![
+        Decl::Ratify(RatifyDecl {
+            decision: Ident::synthetic(DECISION),
+            body: Vec::new(),
+        }),
+        fact_decl("seated", "oak"),
+        rule_decl("ward", "ward-holds(oak) :- seated(oak), not breached(oak)"),
+    ])
+}
+
+/// A base pack with several `seated` entities and the *variable* negation rule
+/// `ward-holds($g) :- seated($g), not breached($g)`. Branches that add `breached`
+/// facts touch the negated stratum, so the merged fixpoint is genuinely
+/// non-monotone (a fact from one branch un-derives the other's `ward-holds`).
+fn ward_multi_pack() -> dli_world::Pack {
+    pack_of(vec![
+        Decl::Ratify(RatifyDecl {
+            decision: Ident::synthetic(DECISION),
+            body: Vec::new(),
+        }),
+        fact_decl("seated", "oak"),
+        fact_decl("seated", "elm"),
+        fact_decl("seated", "ash"),
+        rule_decl("ward", "ward-holds($g) :- seated($g), not breached($g)"),
+    ])
+}
+
+/// Commit an expert-tier declaration (e.g. a rule) to a branch, lowering it to
+/// carriage fact objects — the store's own write path (`lower::lower_decl`), the
+/// only way to put a rule on a branch without a `.dli` file.
+fn commit_decl(store: &Lorestore, branch: &str, decl: &Decl) -> ContentHash {
+    let (interner_names, decisions) = branch_state(store, branch);
+    let mut interner = dli_core::atom::Interner::from_names(interner_names);
+    let mut counter = 0u32;
+    let objects = dli_lorestore::lower::lower_decl(decl, "canon", &mut interner, &mut counter);
+    let mut hashes = Vec::new();
+    for fo in &objects {
+        hashes.push(store.write_object(fo).expect("write carriage object"));
+    }
+    store
+        .commit_on_branch(
+            branch,
+            interner.names().to_vec(),
+            hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            "canon".to_owned(),
+        )
+        .expect("commit decl on branch")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 2b — CONFLUENCE ON THE NON-MONOTONE (NEGATION) CASE
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Confluence must hold even when the merge is genuinely non-monotone: the base
+/// carries a negation rule, and each branch breaches a *different* entity, so the
+/// union downgrades atoms that were certain on the opposite branch. The
+/// defeater-inclusive signature (red-team item 1) must still match across orders.
+#[test]
+fn merge_is_commutative_on_the_negation_stratum() {
+    // Store 1: merge B into A.
+    let (s1, _d1) = open_store();
+    s1.import_pack(&ward_multi_pack())
+        .expect("import ward base");
+    s1.create_branch("a", "main").expect("a");
+    s1.create_branch("b", "main").expect("b");
+    commit_facts(&s1, "a", &[certain_fact("a-br", "breached", &["oak"])]);
+    commit_facts(&s1, "b", &[certain_fact("b-br", "breached", &["elm"])]);
+    let ab = s1.merge("a", "b").expect("a<-b");
+    let sig_ab = world_signature(&s1, &ab.merge_commit);
+
+    // Store 2: merge A into B (opposite order).
+    let (s2, _d2) = open_store();
+    s2.import_pack(&ward_multi_pack())
+        .expect("import ward base");
+    s2.create_branch("a", "main").expect("a");
+    s2.create_branch("b", "main").expect("b");
+    commit_facts(&s2, "a", &[certain_fact("a-br", "breached", &["oak"])]);
+    commit_facts(&s2, "b", &[certain_fact("b-br", "breached", &["elm"])]);
+    let ba = s2.merge("b", "a").expect("b<-a");
+    let sig_ba = world_signature(&s2, &ba.merge_commit);
+
+    assert_eq!(
+        sig_ab, sig_ba,
+        "non-monotone merge must be confluent (defeater channel included)"
+    );
+    // The merge genuinely touched the negated stratum: ward-holds atoms appear,
+    // and the merge reports non-monotone standing downgrades vs the branches.
+    assert!(
+        sig_ab.iter().any(|r| r.contains("ward-holds")),
+        "the negation-derived predicate is present: {sig_ab:?}"
+    );
+    assert!(
+        !ab.standing_changes.is_empty(),
+        "the merge downgraded ward-holds atoms vs the pre-merge branches"
+    );
+}
+
+/// Associativity on the same non-monotone base: a third branch breaches `ash`.
+#[test]
+fn merge_is_associative_on_the_negation_stratum() {
+    fn build(store: &Lorestore) {
+        store
+            .import_pack(&ward_multi_pack())
+            .expect("import ward base");
+        for br in ["a", "b", "c"] {
+            store.create_branch(br, "main").expect("branch");
+        }
+        commit_facts(store, "a", &[certain_fact("a-br", "breached", &["oak"])]);
+        commit_facts(store, "b", &[certain_fact("b-br", "breached", &["elm"])]);
+        commit_facts(store, "c", &[certain_fact("c-br", "breached", &["ash"])]);
+    }
+
+    let (s1, _d1) = open_store();
+    build(&s1);
+    s1.merge("a", "b").expect("a<-b");
+    let left = s1.merge("a", "c").expect("a<-c");
+    let sig_left = world_signature(&s1, &left.merge_commit);
+
+    let (s2, _d2) = open_store();
+    build(&s2);
+    s2.merge("b", "c").expect("b<-c");
+    let right = s2.merge("a", "b").expect("a<-b");
+    let sig_right = world_signature(&s2, &right.merge_commit);
+
+    assert_eq!(
+        sig_left, sig_right,
+        "non-monotone merge must associate (defeater channel included)"
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 2c — CLASS 3 (EXTREME): AN UNSTRATIFIABLE MERGE
+// ════════════════════════════════════════════════════════════════════════════
+
+/// The union of two branches closes a negative-dependency cycle
+/// (`alive :- not dead`, `dead :- not alive`), so the merged rule set is
+/// unstratifiable. The stratify seam surfaces it: the report flags
+/// `stratifies == false`, names the reason, and carries a `merge.unstratifiable`
+/// finding plus a conflict. (New coverage of an existing early-return path.)
+#[test]
+fn merge_that_closes_a_negation_cycle_is_unstratifiable() {
+    let (store, _dir) = open_store();
+    // A base carrying only the D-1 decision (no facts, no rules yet).
+    seed_main(&store, &[]);
+    store.create_branch("a", "main").expect("a");
+    store.create_branch("b", "main").expect("b");
+    commit_decl(
+        &store,
+        "a",
+        &rule_decl("ra", "alive(mara) :- not dead(mara)"),
+    );
+    commit_decl(
+        &store,
+        "b",
+        &rule_decl("rb", "dead(mara) :- not alive(mara)"),
+    );
+
+    let report = store
+        .merge("a", "b")
+        .expect("merge still writes the union commit");
+    assert!(
+        !report.stratifies,
+        "the merged rule set must be unstratifiable: {:?}",
+        report.conflicts
+    );
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "merge.unstratifiable"),
+        "a merge.unstratifiable finding is surfaced: {:?}",
+        report.findings.iter().map(|f| &f.code).collect::<Vec<_>>()
+    );
+    let conflict = report
+        .conflicts
+        .iter()
+        .find(|c| c.rendered.contains("stratif"))
+        .unwrap_or_else(|| {
+            panic!(
+                "a stratification conflict is reported: {:?}",
+                report.conflicts
+            )
+        });
+    assert!(
+        conflict.rendered.contains("cycle") || conflict.blame.1.contains("cycle"),
+        "the conflict names the negative-dependency cycle: {conflict:?}"
+    );
+    assert!(
+        report.standing_changes.is_empty(),
+        "an unstratifiable merge yields no standing diff (the world does not compile)"
+    );
 }
 
 // ════════════════════════════════════════════════════════════════════════════

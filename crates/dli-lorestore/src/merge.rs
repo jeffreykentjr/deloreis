@@ -104,6 +104,12 @@ pub(crate) struct ConflictScan {
 /// prefix of the longer. When neither is a prefix of the other the branches
 /// minted colliding event variables independently, and the merge is refused —
 /// loud totality over a silent misresolution.
+///
+/// Scope caveat (interner review, low): even when this succeeds, bare-`@proposed`
+/// facts mint order-dependent positional gates (`h.<pack>#N`), so recompiled
+/// *bytes* — not observable worlds — can depend on merge fold-order. The LS-6
+/// oracles cite a ruled decision (`D-1`) to stay in the order-independent regime;
+/// the roadmap + the DL entry document the caveat.
 pub fn reconcile_interners(a: &[String], b: &[String]) -> Result<Vec<String>, StoreError> {
     let (short, long) = if a.len() <= b.len() { (a, b) } else { (b, a) };
     let diverges_at = short

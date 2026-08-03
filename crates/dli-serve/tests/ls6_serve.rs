@@ -210,6 +210,67 @@ fn merge_conflict_surfaces_through_the_wire() {
     );
 }
 
+// ── why a conflict cannot be forced from the wire (structural finding) ──────
+
+/// A regression test pinning the LS-6 scope boundary: a merge **conflict cannot
+/// be driven through pure wire ops**. Two independent guards make it so.
+///
+/// 1. Door T never mints certain content — facts are always `proposed`
+///    (`refuse_cited` blocks citations, DL-0014/DL-0043) — and no wire op sets a
+///    branch valuation. Every conflict class needs one or the other.
+/// 2. Even the *attempt* is caught upstream: materializing a value that
+///    contradicts the canon functional slot is **blocked by the workspace's own
+///    continuity check** (`factcheck.contradicted`) before it can reach a
+///    branch, so the merge layer never sees a conflicting fact.
+///
+/// So the conflict-report shape is pinned by the digest-checked
+/// `author.merge.response.json` schema and proven end-to-end by
+/// `merge_conflict_surfaces_through_the_wire` (which seeds divergence via the
+/// lorestore, a legitimate test affordance), not by a wire-only golden fixture —
+/// which is not constructible.
+#[test]
+fn wire_added_contradiction_is_blocked_before_it_can_conflict() {
+    let (_t, mut sessions, mut store) = functional_store();
+    let ws = open_workspace("canon", &mut sessions, &mut store);
+
+    drive(
+        &json!({ "dli": V, "id": "1", "op": "author.branch",
+                 "params": { "workspace": ws, "action": "create", "name": "rival" } }),
+        &mut sessions,
+        &mut store,
+    );
+
+    // A *proposed* second `home` value for mara contradicts the canon functional
+    // slot `home(mara, shallows)`.
+    drive(
+        &json!({ "dli": V, "id": "2", "op": "author.add_relation",
+                 "params": { "workspace": ws, "relation": "home", "from": "mara", "to": "highlands",
+                             "provenance": { "kind": "proposed", "origin": "demo" } } }),
+        &mut sessions,
+        &mut store,
+    );
+    // Materialize is refused by the workspace continuity guard — the conflicting
+    // value never reaches a branch, so no merge conflict can be authored.
+    let mat = drive(
+        &json!({ "dli": V, "id": "3", "op": "author.materialize",
+                 "params": { "workspace": ws } }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        mat["error"]["code"], "materialize-blocked",
+        "the contradicting value is barred upstream, before any merge: {mat}"
+    );
+    assert!(
+        mat["error"]["data"]["blocking"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "factcheck.contradicted"),
+        "blocked specifically on the functional-slot contradiction: {mat}"
+    );
+}
+
 // ── version negotiation: branch/merge are 0.6.1-only capabilities ───────────
 
 #[test]
