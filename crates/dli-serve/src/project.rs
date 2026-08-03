@@ -10,11 +10,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
-use dli_ast::decl::Decl;
+use dli_ast::decl::{Decl, Document};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
-use dli_syntax::parse_document;
 use dli_world::attest::Question;
 use dli_world::craft::{
     AppliedCraft, CONFIG_FILES, CraftLedger, EpisodePolicy, SeasonOutline, Thresholds, apply,
@@ -702,14 +701,7 @@ fn load_pack(
             path: path.display().to_string(),
             message: error.to_string(),
         })?;
-        let (document, diagnostics) = parse_document(&source);
-        if let Some(diagnostic) = diagnostics.iter().find(|diag| diag.class.is_error()) {
-            return Err(ProjectError::Syntax {
-                document: id.to_owned(),
-                path: path.display().to_string(),
-                message: format!("{} ({})", diagnostic.message, diagnostic.class.code()),
-            });
-        }
+        let document = parse_source(id, path, &source)?;
         documents.push(document);
         contents.push(source.into_bytes());
     }
@@ -722,6 +714,38 @@ fn load_pack(
         paths,
         source_digest,
     ))
+}
+
+/// Read one `.dli` project source into a typed [`Document`], refusing on the
+/// first error-class diagnostic.
+///
+/// LS-7 gates the parse. A build without the `syntax` feature has no front end
+/// to read `.dli` text with, so a `.dli`-sourced project refuses at load with a
+/// message that names the two ways forward — a `syntax`-enabled build, or a
+/// corpus served from committed fact objects. It never loads an empty pack and
+/// pretends the project was fine.
+#[cfg(feature = "syntax")]
+fn parse_source(id: &str, path: &Path, source: &str) -> Result<Document, ProjectError> {
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    if let Some(diagnostic) = diagnostics.iter().find(|diag| diag.class.is_error()) {
+        return Err(ProjectError::Syntax {
+            document: id.to_owned(),
+            path: path.display().to_string(),
+            message: format!("{} ({})", diagnostic.message, diagnostic.class.code()),
+        });
+    }
+    Ok(document)
+}
+
+#[cfg(not(feature = "syntax"))]
+fn parse_source(id: &str, path: &Path, _source: &str) -> Result<Document, ProjectError> {
+    Err(ProjectError::Syntax {
+        document: id.to_owned(),
+        path: path.display().to_string(),
+        message: "this build links no `.dli` front end; load this project with a `syntax`-enabled \
+                  build, or serve the corpus from committed fact objects"
+            .to_owned(),
+    })
 }
 
 fn reject_duplicate_decls(

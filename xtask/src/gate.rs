@@ -61,13 +61,61 @@ fn command_step(label: &'static str, parts: &[&str]) -> GateStep {
 }
 
 /// The canonical, ordered gate list. `ci` selects the nextest CI profile.
+///
+/// # The two-build matrix (LS-7)
+///
+/// `dli_syntax` is opt-in, so there are two builds to keep honest and the gate
+/// runs both:
+///
+/// - **The default lane** is the oracle. It builds the two shipped artifacts
+///   with *no* features, proves `dli-syntax` is absent from their whole
+///   dependency graph (`syntax-free`, via `cargo tree --edges normal`), and runs
+///   the 1.0-native acceptance test — demo-backed reads, typed requests,
+///   structured diff rows, and a named refusal for every legacy form.
+/// - **The syntax lane** is everything else, with `--features syntax`. It is the
+///   pre-LS-7 gate unchanged in substance: the whole workspace, every existing
+///   test, every fixture replayed byte-for-byte. That is what keeps the 0.5.1 /
+///   0.6.x consumer served.
+///
+/// The lanes share a target directory, so the default lane's artifacts are the
+/// ones the oracle inspects; nothing in the syntax lane can turn the feature on
+/// behind its back.
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn gate_steps(ci: bool) -> Vec<GateStep> {
-    let mut nextest = vec!["cargo", "nextest", "run", "--workspace", "--locked"];
+    let mut nextest = vec![
+        "cargo",
+        "nextest",
+        "run",
+        "--workspace",
+        "--locked",
+        "--features",
+        "syntax",
+    ];
     if ci {
         nextest.push("--profile");
         nextest.push("ci");
+    }
+    // The default lane's tests, selected by name rather than by target: the
+    // `dli-serve` acceptance file plus the store's upcast unit tests, which are
+    // the other place the two builds visibly diverge. Everything else in the
+    // suite is `.dli`-fixture-driven and belongs to the syntax lane.
+    let mut default_nextest = vec![
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "dli-serve",
+        "-p",
+        "dli-lorestore",
+        "--lib",
+        "--test",
+        "default_build",
+        "--locked",
+    ];
+    if ci {
+        default_nextest.push("--profile");
+        default_nextest.push("ci");
     }
     vec![
         GateStep {
@@ -83,6 +131,37 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
             env: Vec::new(),
         },
         command_step("rustfmt", &["cargo", "fmt", "--all", "--check"]),
+        // --- the default lane: the 1.0-native build, no features ------------
+        command_step(
+            "default lane: clippy",
+            &[
+                "cargo",
+                "clippy",
+                "-p",
+                "dli-serve",
+                "-p",
+                "deloreis",
+                "--all-targets",
+                "--locked",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        ),
+        command_step(
+            "default lane: build",
+            &[
+                "cargo",
+                "build",
+                "-p",
+                "dli-serve",
+                "-p",
+                "deloreis",
+                "--locked",
+            ],
+        ),
+        command_step("default lane: 1.0-native acceptance", &default_nextest),
+        // --- the syntax lane: the full legacy surface -----------------------
         command_step(
             "clippy",
             &[
@@ -91,6 +170,8 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "--workspace",
                 "--all-targets",
                 "--locked",
+                "--features",
+                "syntax",
                 "--",
                 "-D",
                 "warnings",
@@ -102,15 +183,41 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
         // doctest run below closes that hole.
         GateStep {
             label: "doc build",
-            argv: argv(&["cargo", "doc", "--workspace", "--no-deps", "--locked"]),
+            argv: argv(&[
+                "cargo",
+                "doc",
+                "--workspace",
+                "--no-deps",
+                "--locked",
+                "--features",
+                "syntax",
+            ]),
             kind: StepKind::Command,
             env: vec![("RUSTDOCFLAGS", "-D warnings")],
         },
         command_step(
             "doctests",
-            &["cargo", "test", "--doc", "--workspace", "--locked"],
+            &[
+                "cargo",
+                "test",
+                "--doc",
+                "--workspace",
+                "--locked",
+                "--features",
+                "syntax",
+            ],
         ),
-        command_step("build", &["cargo", "build", "--workspace", "--locked"]),
+        command_step(
+            "build",
+            &[
+                "cargo",
+                "build",
+                "--workspace",
+                "--locked",
+                "--features",
+                "syntax",
+            ],
+        ),
         command_step(
             "dli-fmt --check",
             &[
@@ -119,6 +226,8 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "-p",
                 "deloreis",
                 "--locked",
+                "--features",
+                "syntax",
                 "--",
                 "fmt",
                 "--check",
@@ -132,10 +241,23 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "cargo", "run", "-p", "xtask", "--locked", "--", "schema", "--check",
             ],
         ),
+        // The committed CLI reference documents the whole toolchain, including
+        // the `.dli` subcommands behind `deloreis/syntax` — so the generator
+        // reads the syntax-enabled command graph. It is the only xtask step
+        // whose output depends on the feature.
         command_step(
             "docgen --check",
             &[
-                "cargo", "run", "-p", "xtask", "--locked", "--", "docgen", "--check",
+                "cargo",
+                "run",
+                "-p",
+                "xtask",
+                "--locked",
+                "--features",
+                "syntax",
+                "--",
+                "docgen",
+                "--check",
             ],
         ),
         command_step(

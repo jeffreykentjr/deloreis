@@ -37,7 +37,6 @@ use dli_eval::world::{GroundAtom, World};
 use dli_ast::decl::{Decl, ProofDecl};
 use dli_ast::term::AtomExpr;
 
-use dli_syntax::parse_document;
 use dli_time::chronology::{TemporalVerdict, TimePoint};
 
 use dli_export::profile::ExportTarget;
@@ -561,9 +560,14 @@ fn additions_from_atoms(atoms: &[GroundAtom]) -> Vec<Addition> {
 /// unground fact is a clean [`ErrorCode::SchemaViolation`], never a panic.
 /// Declarations that are not facts or slots are refused instead of being
 /// accepted and silently dropped.
+///
+/// LS-7 gates the parse: a build without the `syntax` feature refuses the whole
+/// text form by naming [`ForkAddParams::additions`], the 0.6.3 typed successor
+/// that reaches the same additions.
+#[cfg(feature = "syntax")]
 fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>, Fault> {
     let source = declarations.join("\n");
-    let (document, diags) = parse_document(&source);
+    let (document, diags) = dli_syntax::parse_document(&source);
     if let Some(diag) = diags.iter().find(|diag| diag.class.is_error()) {
         return Err((
             ErrorCode::SchemaViolation,
@@ -586,6 +590,18 @@ fn additions_from_declarations(declarations: &[String]) -> Result<Vec<Addition>,
         .iter()
         .map(|fact| Addition::asserted(fact.atom.clone(), Ann::unconditional()))
         .collect())
+}
+
+/// The default (parser-free) build's answer to the text form: a refusal that
+/// names the typed successor. Never a silent drop — the fork is left untouched.
+#[cfg(not(feature = "syntax"))]
+fn additions_from_declarations(_declarations: &[String]) -> Result<Vec<Addition>, Fault> {
+    Err((
+        ErrorCode::SchemaViolation,
+        "this build links no `.dli` front end, so `declarations` cannot be read; send the typed \
+         `additions` successor (ground atoms) instead"
+            .to_owned(),
+    ))
 }
 
 fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
@@ -1773,14 +1789,16 @@ fn goal_atom(typed: Option<&AtomExpr>, text: &str) -> Result<AtomExpr, Fault> {
     }
 }
 
-/// Parse a rendered goal atom through the shared syntax-backed wire adapter.
+/// Parse a rendered goal atom through the shared syntax-backed wire adapter. A
+/// build without the front end resolves nothing here and the refusal names
+/// `goal_atom` (`query_goal::UNTYPED_GOAL`).
 fn parse_atom(text: &str) -> Result<AtomExpr, Fault> {
     crate::query_goal::parse(text).ok_or_else(|| {
         (
             ErrorCode::SchemaViolation,
             format!(
-                "'{text}' is not a query atom; write a rendered goal like \
-                 serves(lancelot, ?who)"
+                "'{text}' is not a query atom; {}",
+                crate::query_goal::UNTYPED_GOAL
             ),
         )
     })

@@ -8,6 +8,15 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# `docgen` renders the CLI reference from `deloreis::command()`, and the
+# committed reference documents the *whole* toolchain — including the `.dli`
+# subcommands LS-7 put behind `deloreis/syntax`. So the docgen step (and the
+# workspace's syntax lane) builds xtask with this on; the LS-7 default-build
+# oracle in `syntax_free` never runs xtask against the crates it inspects, so
+# nothing here can mask it.
+syntax = ["deloreis/syntax", "dli-serve/syntax", "dli-world/syntax", "dli-lorestore/syntax"]
+
 [dependencies]
 dli-ast.workspace = true
 dli-lorestore.workspace = true

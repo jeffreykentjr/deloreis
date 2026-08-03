@@ -26,37 +26,63 @@ macro_rules! outln {
 }
 
 /// Write formatted text to stdout without a trailing newline, EPIPE-safe (see
-/// [`emit_raw`]). Reads like `print!`.
+/// [`emit_raw`]). Reads like `print!`. Only the `.dli` handlers emit
+/// pre-rendered blocks (diagnostic ladders), so it is theirs.
+#[cfg(feature = "syntax")]
 macro_rules! out {
     ($($arg:tt)*) => { $crate::cmd::emit_raw(&::std::format!($($arg)*)) };
 }
 
+// The `.dli` toolchain (LS-7): every handler that reads `.dli` text off disk or
+// off the command line lives behind the `syntax` feature, together with the
+// shared corpus front door below. A default build is the 1.0-native binary —
+// `serve`/`mcp`, `craft`, `validate-repo` — and links no parser.
+#[cfg(feature = "syntax")]
 pub(crate) mod check;
 pub(crate) mod craft;
+#[cfg(feature = "syntax")]
 pub(crate) mod drafts;
+#[cfg(feature = "syntax")]
 pub(crate) mod fmt;
+#[cfg(feature = "syntax")]
 pub(crate) mod fork;
+#[cfg(feature = "syntax")]
 pub(crate) mod name;
+#[cfg(feature = "syntax")]
 pub(crate) mod query;
+#[cfg(feature = "syntax")]
 pub(crate) mod report;
 pub(crate) mod repository;
 pub(crate) mod serve;
+#[cfg(feature = "syntax")]
 pub(crate) mod timeline;
 
-use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
+#[cfg(feature = "syntax")]
+use std::fs;
+#[cfg(feature = "syntax")]
+use std::path::PathBuf;
+
+#[cfg(feature = "syntax")]
 use dli_ast::clause::Clause;
+#[cfg(feature = "syntax")]
 use dli_ast::decl::Document;
+#[cfg(feature = "syntax")]
 use dli_ast::span::Span;
+#[cfg(feature = "syntax")]
 use dli_ast::term::AtomExpr;
+#[cfg(feature = "syntax")]
 use dli_syntax::{Diagnostic, parse_clause_atom, parse_document};
 use dli_world::craft::{
     AppliedCraft, EpisodePolicy, Thresholds, apply, build_episode_policy, doctrines, load_config,
     validate,
 };
-use dli_world::{CompiledWorld, Pack, Severity, WorldFinding, compile};
+#[cfg(feature = "syntax")]
+use dli_world::{CompiledWorld, Pack, compile};
+#[cfg(feature = "syntax")]
+use dli_world::{Severity, WorldFinding};
 
 /// A handler's result: the verdict exit code, or a message describing an
 /// operational failure (mapped to [`EXIT_USAGE`] by `main`).
@@ -89,6 +115,7 @@ pub(crate) fn emit(line: &str) {
 /// Write text to stdout with no trailing newline, EPIPE-safe like [`emit`]. Used
 /// for pre-rendered blocks (the diagnostic ladder already carries its newlines).
 /// Prefer the `out!` macro.
+#[cfg(feature = "syntax")]
 pub(crate) fn emit_raw(text: &str) {
     let stdout = std::io::stdout();
     let mut lock = stdout.lock();
@@ -108,6 +135,7 @@ pub(crate) fn emit_err(line: &str) {
 
 /// One source document read off disk: its path, its raw text (kept for the
 /// ladder renderer), the parsed AST, and the parse diagnostics.
+#[cfg(feature = "syntax")]
 #[derive(Debug)]
 pub(crate) struct CorpusFile {
     /// Where the document was read from.
@@ -126,6 +154,7 @@ pub(crate) struct CorpusFile {
 /// files). Files are returned sorted by path so a multi-file corpus compiles and
 /// reports deterministically. An unreadable path or an empty result is an
 /// operational error.
+#[cfg(feature = "syntax")]
 pub(crate) fn load_corpus(paths: &[PathBuf]) -> Result<Vec<CorpusFile>, String> {
     if paths.is_empty() {
         return Err("no corpus given — pass one or more .dli files or a directory".to_owned());
@@ -162,6 +191,7 @@ pub(crate) fn load_corpus(paths: &[PathBuf]) -> Result<Vec<CorpusFile>, String> 
 }
 
 /// Collect every `.dli` file under `dir`, recursively, in sorted order.
+#[cfg(feature = "syntax")]
 fn discover_dli(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)
         .map_err(|err| format!("cannot read directory {}: {err}", dir.display()))?
@@ -182,6 +212,7 @@ fn discover_dli(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
 }
 
 /// The parsed documents of a corpus, cloned for the loader.
+#[cfg(feature = "syntax")]
 pub(crate) fn documents(files: &[CorpusFile]) -> Vec<Document> {
     files.iter().map(|file| file.document.clone()).collect()
 }
@@ -191,6 +222,7 @@ pub(crate) fn documents(files: &[CorpusFile]) -> Vec<Document> {
 /// The pack name is cosmetic; the loader keys residency on each document's own
 /// `scope` header. An unstratifiable rule set is the only compile error — a
 /// malformed input is a *finding* held on the model, not a failure here.
+#[cfg(feature = "syntax")]
 pub(crate) fn compile_corpus(files: &[CorpusFile], name: &str) -> Result<CompiledWorld, String> {
     let pack = Pack {
         name: name.to_owned(),
@@ -202,6 +234,7 @@ pub(crate) fn compile_corpus(files: &[CorpusFile], name: &str) -> Result<Compile
 /// Parse a goal atom off the command line — `pred(a, b)`, the `fact s r o`
 /// triple, or a `subject.slot = value` attribute — through the shared
 /// `parse_clause_atom` seam.
+#[cfg(feature = "syntax")]
 pub(crate) fn parse_goal(goal: &str) -> Result<AtomExpr, String> {
     let clause = Clause {
         text: goal.to_owned(),
@@ -241,6 +274,7 @@ pub(crate) fn load_craft_config(
 }
 
 /// The lowercase word for a finding's severity, for a stable report line.
+#[cfg(feature = "syntax")]
 pub(crate) fn severity_word(severity: Severity) -> &'static str {
     match severity {
         Severity::Error => "error",
@@ -249,6 +283,7 @@ pub(crate) fn severity_word(severity: Severity) -> &'static str {
 }
 
 /// The lowercase word for a three-valued standing.
+#[cfg(feature = "syntax")]
 pub(crate) fn status_word(status: dli_core::ann::Status) -> &'static str {
     use dli_core::ann::Status;
     match status {
@@ -263,6 +298,7 @@ pub(crate) fn status_word(status: dli_core::ann::Status) -> &'static str {
 /// The shape is `<severity>  <code> — <message>` with any ledger citations
 /// appended in brackets, so a report is greppable by code and diffable between
 /// runs.
+#[cfg(feature = "syntax")]
 pub(crate) fn render_world_finding(finding: &WorldFinding) -> String {
     let citations = if finding.citations.is_empty() {
         String::new()

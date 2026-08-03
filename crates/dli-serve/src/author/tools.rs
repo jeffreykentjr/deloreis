@@ -121,6 +121,11 @@ pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result
 /// staged declaration — drops only that declaration, leaving the workspace open,
 /// and answers `{discarded, workspace_digest}`; a `decl` that matches nothing is
 /// an `unknown-doc` refusal (it never falls through to nuking the workspace).
+///
+/// The per-declaration form is keyed on the rendered line, so a build that
+/// renders no `.dli` (LS-7) refuses it by name rather than matching nothing and
+/// answering `unknown-doc` — which would read as "that declaration is not
+/// staged" when the truth is "this build cannot name it".
 pub(super) fn discard(
     store: &mut Store,
     ws_id: &str,
@@ -129,6 +134,16 @@ pub(super) fn discard(
     let Some(decl_id) = decl else {
         return Ok(json!({ "discarded": store.discard(ws_id) }));
     };
+    if !super::render::renders_dli() {
+        return Err(ErrorBody {
+            code: ErrorCode::SchemaViolation,
+            message: "per-declaration `discard` names a staged declaration by its rendered `.dli` \
+                      line, and this build links no formatter; discard the whole workspace, or \
+                      use a `syntax`-enabled build"
+                .to_owned(),
+            data: None,
+        });
+    }
     let (_, ws) = parts_mut(store, ws_id)?;
     let index = ws
         .decls
@@ -973,11 +988,22 @@ fn annotation_fields(fields: &mut Vec<(&'static str, String)>, annot: Option<&An
 
 /// The canonical rendered line that names a staged declaration for `author.discard`
 /// (R3/C3) — the same sanitized line the agent reads in `author.diff`.
+///
+/// A build that renders no `.dli` (LS-7) has no such line, so the key falls back
+/// to the declaration's own JSON: still stable and still one-per-declaration, so
+/// the internal `staged_fact_hashes` bookkeeping is unaffected. It is not a wire
+/// identifier — nothing surfaces it — which is why [`discard`] refuses the
+/// per-declaration form outright on that build instead of silently matching
+/// nothing.
 pub(super) fn decl_key(decl: &Decl) -> String {
-    render_decls(std::slice::from_ref(decl))
-        .into_iter()
-        .next()
-        .unwrap_or_default()
+    if super::render::renders_dli() {
+        render_decls(std::slice::from_ref(decl))
+            .into_iter()
+            .next()
+            .unwrap_or_default()
+    } else {
+        serde_json::to_string(decl).unwrap_or_default()
+    }
 }
 
 // -- finding constructors ----------------------------------------------------

@@ -8,6 +8,15 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# LS-7: the `.dli` front end is opt-in, and the default build is a 1.0-native
+# worker — lorestore-backed and demo corpora, typed requests (`goal_atom`,
+# `additions`), structured LS-5 diff rows. Off, the crate links no `dli_syntax`
+# and every request that would need the parser refuses by name. On, the legacy
+# surface is restored whole: `.dli` projects, string `goal`/`declarations`, and
+# the canonical `.dli` renderer behind `author.*`.
+syntax = ["dep:dli-syntax", "dli-world/syntax", "dli-lorestore/syntax"]
+
 [dependencies]
 dli-ast.workspace = true
 dli-core.workspace = true
@@ -18,7 +27,7 @@ dli-lorestore.workspace = true
 dli-export.workspace = true
 dli-sim.workspace = true
 dli-game.workspace = true
-dli-syntax.workspace = true
+dli-syntax = { workspace = true, optional = true }
 dli-time.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -31,6 +40,10 @@ thiserror.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
+# The fixture corpora and most test worlds are still `.dli` text built through
+# the front end, so the parser is present for every test build; the tests that
+# exercise the *server's* legacy surface additionally need `--features syntax`.
+dli-syntax.workspace = true
 jsonschema.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

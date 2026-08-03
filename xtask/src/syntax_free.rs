@@ -1,49 +1,111 @@
-//! The LS-9 no-parse gate — the acceptance bar for expert-tier structuring.
+//! The no-parse gate: LS-9's acceptance bar, and LS-7's default-build oracle.
 //!
-//! `dli-world`, `dli-ledger`, and `dli-time` must not depend on `dli-syntax` on
-//! the **default build path**. A normal `[dependencies]` entry links the parser
-//! into the library, which is exactly the coupling LS-9 retires so LS-7 can
-//! feature-gate `dli_syntax` out of the default build
-//! (`docs/design-notes/lorestore-roadmap.md` §LS-9, §LS-7). `dli-syntax` under
-//! `[dev-dependencies]` is fine — tests and doc examples still build `.dli`
-//! text through the front end, and a one-off v1→v2 store upcast at the load
-//! boundary is allowed to (that lives in `dli-lorestore`, not a target crate).
+//! Two checks, one law — **the parser is not on the default build path.**
 //!
-//! Rust enforces the deeper property for free: a crate's non-test code cannot
-//! `use dli_syntax::…` unless `dli-syntax` is a normal dependency. So the
-//! manifest classification is both necessary and sufficient — checking it is the
-//! objective truth about whether the parser is on a crate's default path.
+//! 1. *The LS-9 manifest ratchet.* `dli-world`, `dli-ledger`, and `dli-time`
+//!    must not declare `dli-syntax` as a non-optional normal dependency: that
+//!    links the parser into the library unconditionally, the coupling LS-9
+//!    retires (`docs/design-notes/lorestore-roadmap.md` §LS-9). `dli-syntax`
+//!    under `[dev-dependencies]` is fine — tests and doc examples still build
+//!    `.dli` text through the front end — and so is an `optional = true` entry
+//!    reached only through an off-by-default feature, which is exactly the
+//!    shape LS-7 gives it.
 //!
-//! This gate is a **ratchet**. `STILL_COUPLED` is the honest, tracked set of
-//! target crates LS-9 has not yet fully converted; the goal is the empty set,
-//! at which point LS-7 is unblocked. A crate that is cleared must be removed
-//! from `STILL_COUPLED` in the same change; a crate that regresses (re-adds
-//! the normal dependency) fails the gate. It "tells the truth" — it never
-//! claims the bar is met when it is not.
+//!    Rust enforces the deeper property for free: a crate's non-test code
+//!    cannot `use dli_syntax::…` unless `dli-syntax` is a normal dependency,
+//!    and cannot reach an optional one outside `#[cfg(feature = …)]`. So the
+//!    manifest classification is both necessary and sufficient.
+//!
+//! 2. *The LS-7 default-graph oracle.* The two shipped artifacts — the
+//!    `dli-serve` worker and the `deloreis` binary — must resolve, with no
+//!    features, to a dependency graph that **contains no `dli-syntax` at all**
+//!    (§LS-7). This is the whole-graph statement a per-manifest scan cannot
+//!    make: it catches a parser reintroduced anywhere beneath either root, in a
+//!    crate nobody thought to list. `cargo tree -e normal` is the authority.
+//!
+//! The ratchet "tells the truth": it never claims a bar is met when it is not,
+//! and it fails just as loudly when a crate is *cleared* without the tracked
+//! set being updated to say so.
 
 use std::path::Path;
+use std::process::Command;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
-/// The engine crates whose default build LS-9 is retiring the parser from.
+/// The engine crates whose default build LS-9 retired the parser from.
 const TARGET_CRATES: &[&str] = &["dli-world", "dli-ledger", "dli-time"];
 
-/// Target crates that still declare `dli-syntax` as a normal `[dependencies]`
-/// entry — tracked LS-9 debt, retired as each crate's expert-tier declaration
-/// interiors are structured. The acceptance bar is met when this is empty.
-///
-/// - `dli-world`: `payload.rs` still parses non-declaration payload-claim /
-///   runtime-fact atoms via `dli_syntax::parse_clause_atom` — a load-boundary
-///   parse that LS-7 feature-gates, not an expert-tier declaration body
-///   (every eleven-decl-type parser was retired by LS-9).
-///
-/// `dli-time` is **not** here: its only parse site (`order_rules.rs`) was
-/// retired by the `RuleDecl` structuring, and `dli-syntax` moved to its
-/// `[dev-dependencies]`.
-const STILL_COUPLED: &[&str] = &["dli-world"];
+/// The shipped artifacts whose *whole* default dependency graph must be free of
+/// `dli-syntax` — the LS-7 acceptance oracle.
+const DEFAULT_BUILD_ROOTS: &[&str] = &["dli-serve", "deloreis"];
 
-/// Run the LS-9 no-parse gate over the workspace at `root`.
+/// Target crates that still declare `dli-syntax` as a non-optional normal
+/// `[dependencies]` entry — tracked LS-9 debt. The acceptance bar is met when
+/// this is empty, and it is: LS-9 retired every expert-tier declaration parser,
+/// and LS-7 made the one remaining load-boundary parse in `dli-world`
+/// (`payload.rs`, a payload claim's surface `atom` string) reachable only
+/// through the off-by-default `syntax` feature.
+const STILL_COUPLED: &[&str] = &[];
+
+/// Run the no-parse gate over the workspace at `root`: the LS-9 manifest
+/// ratchet, then the LS-7 default-graph oracle.
 pub fn run_syntax_free(root: &Path) -> Result<()> {
+    run_manifest_ratchet(root)?;
+    run_default_graph_oracle(root)
+}
+
+/// The LS-7 acceptance oracle: with no features, neither shipped artifact's
+/// normal dependency graph may contain `dli-syntax`.
+///
+/// `cargo tree -e normal` is the whole truth — it resolves the real graph rather
+/// than reading one manifest at a time, so a parser pulled in three crates down
+/// is caught. `-p <root>` alone would let cargo unify features across every
+/// workspace member (`xtask` enables `deloreis/syntax` for the docgen step), so
+/// the query runs against the root's own manifest, which selects that package
+/// and nothing else.
+fn run_default_graph_oracle(root: &Path) -> Result<()> {
+    for artifact in DEFAULT_BUILD_ROOTS {
+        let manifest = root.join("crates").join(artifact).join("Cargo.toml");
+        let output = Command::new("cargo")
+            .arg("tree")
+            .arg("--locked")
+            .arg("--manifest-path")
+            .arg(&manifest)
+            .args(["--edges", "normal"])
+            .output()
+            .with_context(|| format!("running cargo tree for {artifact}"))?;
+        if !output.status.success() {
+            bail!(
+                "LS-7 default-build oracle: `cargo tree` failed for {artifact}:\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let tree = String::from_utf8_lossy(&output.stdout);
+        let hits: Vec<&str> = tree
+            .lines()
+            .filter(|line| line.contains("dli-syntax"))
+            .collect();
+        if !hits.is_empty() {
+            bail!(
+                "LS-7 default-build oracle: the default build of `{artifact}` links the parser — \
+                 `cargo tree --edges normal` names dli-syntax at:\n{}\n\
+                 The default build must be 1.0-native. Put the edge behind the crate's \
+                 off-by-default `syntax` feature (`dli-syntax = {{ workspace = true, optional = \
+                 true }}`) and `#[cfg(feature = \"syntax\")]` the call sites.",
+                hits.join("\n")
+            );
+        }
+    }
+    println!(
+        "LS-7 default-build oracle: {} shipped artifact(s) resolve with no `dli-syntax` on the \
+         default path — the parser is opt-in.",
+        DEFAULT_BUILD_ROOTS.len()
+    );
+    Ok(())
+}
+
+/// The LS-9 manifest ratchet over [`TARGET_CRATES`].
+fn run_manifest_ratchet(root: &Path) -> Result<()> {
     let mut coupled: Vec<&str> = Vec::new();
     for crate_name in TARGET_CRATES {
         let manifest = root.join("crates").join(crate_name).join("Cargo.toml");
@@ -98,7 +160,7 @@ pub fn run_syntax_free(root: &Path) -> Result<()> {
 }
 
 /// Whether the normal-dependencies table (and never `[dev-dependencies]`) of a
-/// manifest names `dli-syntax`, in either form TOML allows:
+/// manifest names `dli-syntax` **unconditionally**, in either form TOML allows:
 ///
 /// - flat table with a key row — `[dependencies]` … `dli-syntax.workspace = true`;
 /// - dotted sub-table header — `[dependencies.dli-syntax]` (`workspace = true`
@@ -109,21 +171,35 @@ pub fn run_syntax_free(root: &Path) -> Result<()> {
 /// being distinct single segments). The dotted sub-table form is caught by the
 /// header naming both `dependencies` and `dli-syntax`; the flat form is caught
 /// by scanning the body of a table whose final segment is `dependencies`.
+///
+/// An entry marked `optional = true` does **not** count. An optional dependency
+/// links only when a feature turns it on, and LS-7's features are all
+/// off-by-default, so such an entry is not on the default build path — which is
+/// the only thing this gate is about. The whole-graph oracle
+/// ([`run_default_graph_oracle`]) is what proves those features stay off.
 fn normal_deps_include_dli_syntax(manifest: &str) -> bool {
     let mut scanning_normal_body = false;
+    let mut in_dli_syntax_subtable = false;
+    let mut subtable_is_optional = false;
+    let mut saw_unconditional_subtable = false;
     for line in manifest.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with('[') {
+            if in_dli_syntax_subtable && !subtable_is_optional {
+                saw_unconditional_subtable = true;
+            }
             let Some(segments) = table_header_segments(trimmed) else {
                 scanning_normal_body = false;
+                in_dli_syntax_subtable = false;
                 continue;
             };
             let is_normal = segments.iter().any(|s| s == "dependencies");
             // Dotted-sub-table form: the header itself names the dependency, e.g.
             // `[dependencies.dli-syntax]` — this is the hole the flat scan missed.
-            if is_normal && segments.iter().any(|s| s == "dli-syntax") {
-                return true;
-            }
+            // Its `optional` flag lives in the body, so the verdict waits for the
+            // next header (or end of file).
+            in_dli_syntax_subtable = is_normal && segments.iter().any(|s| s == "dli-syntax");
+            subtable_is_optional = false;
             // Only a table whose final segment is `dependencies` carries ordinary
             // `key = value` dependency rows worth scanning (a `[dependencies.foo]`
             // body holds `foo`'s fields, not sibling dependencies).
@@ -131,11 +207,30 @@ fn normal_deps_include_dli_syntax(manifest: &str) -> bool {
                 is_normal && segments.last().map(String::as_str) == Some("dependencies");
             continue;
         }
-        if scanning_normal_body && line_declares_dli_syntax(trimmed) {
+        if in_dli_syntax_subtable && declares_optional(trimmed) {
+            subtable_is_optional = true;
+        }
+        if scanning_normal_body && line_declares_dli_syntax(trimmed) && !declares_optional(trimmed)
+        {
             return true;
         }
     }
-    false
+    saw_unconditional_subtable || (in_dli_syntax_subtable && !subtable_is_optional)
+}
+
+/// Whether a manifest line carries `optional = true`, ignoring comments. Covers
+/// both the inline-table row (`dli-syntax = { …, optional = true }`) and the
+/// sub-table body row (`optional = true` under `[dependencies.dli-syntax]`).
+fn declares_optional(line: &str) -> bool {
+    if line.starts_with('#') {
+        return false;
+    }
+    let Some(rest) = line.split("optional").nth(1) else {
+        return false;
+    };
+    rest.trim_start()
+        .strip_prefix('=')
+        .is_some_and(|value| value.trim_start().starts_with("true"))
 }
 
 /// Split a TOML table header line (`[a.b.c]`) into its dotted segments, trimming
@@ -228,6 +323,41 @@ mod tests {
     #[test]
     fn target_scoped_dotted_normal_subtable_is_detected() {
         let manifest = "[target.'cfg(unix)'.dependencies.dli-syntax]\nworkspace = true\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn optional_inline_dependency_is_not_the_default_path() {
+        // The LS-7 shape: reachable only through an off-by-default feature.
+        let manifest = "[features]\nsyntax = [\"dep:dli-syntax\"]\n\n[dependencies]\n\
+                        dli-syntax = { workspace = true, optional = true }\n";
+        assert!(!normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn optional_dotted_subtable_is_not_the_default_path() {
+        let manifest = "[dependencies.dli-syntax]\nworkspace = true\noptional = true\n";
+        assert!(!normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn dotted_subtable_without_optional_is_still_detected() {
+        // The `optional` verdict is decided at the *end* of the sub-table body,
+        // so a body that never says `optional` must still count.
+        let manifest = "[dependencies.dli-syntax]\nworkspace = true\n\n[lints]\nworkspace = true\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn optional_false_is_still_the_default_path() {
+        let manifest = "[dependencies]\ndli-syntax = { workspace = true, optional = false }\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn optional_on_a_sibling_dependency_does_not_excuse_dli_syntax() {
+        let manifest = "[dependencies]\nserde = { version = \"1\", optional = true }\n\
+                        dli-syntax.workspace = true\n";
         assert!(normal_deps_include_dli_syntax(manifest));
     }
 }

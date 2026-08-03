@@ -8,6 +8,21 @@
 //! one declaration renders as a mutation's `rendered`, and the whole staged set
 //! renders as `author.diff`.
 //!
+//! # The `.dli` rendering is opt-in (LS-7)
+//!
+//! There is exactly one formatter and it lives in the parser crate, so LS-7
+//! puts this whole rendering behind the `syntax` feature. **A default build
+//! renders no lines**: every `rendered` field comes back empty, and the review
+//! surface is the one the LS-5 contract already made canonical — the fact
+//! objects `author.materialize` returns and the per-fact `AuthorDiffRow`s with
+//! their before/after standing, neither of which passes through a formatter.
+//! That is the direction contract 0.6.0 already set (`rendered: true` is the
+//! opt-in, DL-0046); the default build simply has no opt-in to give.
+//!
+//! The sanitization below ([`escape_controls`], [`is_forbidden_char`]) is not
+//! part of the formatter and stays on the default path — `is_forbidden_char`
+//! also backs the `field.control-char` finding that bars materialization.
+//!
 //! **The rendered diff is the human's only supervision surface, so it is
 //! forgery-proof.** Every string a declaration carries is escaped for control
 //! characters *before* it reaches the formatter ([`escape_controls`]): a newline
@@ -25,9 +40,40 @@ use dli_ast::decl::{
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
-use dli_syntax::format_document;
 
-/// Render a slice of staged declarations to canonical `.dli` lines.
+/// Format a synthetic document through the one canonical formatter, or `None`
+/// when this build links no formatter to do it with (LS-7).
+///
+/// Every renderer in this module funnels through here, so "the default build
+/// renders nothing" is one fact in one place rather than a per-function
+/// convention.
+// The `Option` is the seam, not this arm's choice: the parser-free arm below is
+// the one that can answer `None`, and both must share a signature.
+#[cfg(feature = "syntax")]
+#[allow(clippy::unnecessary_wraps)]
+fn format(document: &Document) -> Option<String> {
+    Some(dli_syntax::format_document(document))
+}
+
+#[cfg(not(feature = "syntax"))]
+fn format(_document: &Document) -> Option<String> {
+    None
+}
+
+/// Whether this build can render staged declarations as canonical `.dli`.
+///
+/// `false` on a default build, where the fact objects and the structured diff
+/// rows are the review surface; a caller that needs the *lines* — the one
+/// remaining case is `author.discard`, which keys a rejection on a rendered
+/// line — checks this and refuses by name rather than silently matching
+/// nothing.
+#[must_use]
+pub const fn renders_dli() -> bool {
+    cfg!(feature = "syntax")
+}
+
+/// Render a slice of staged declarations to canonical `.dli` lines. Empty on a
+/// build without the `syntax` feature (see the module docs).
 ///
 /// ```
 /// use dli_ast::decl::{Decl, EntityDecl, EntityKind};
@@ -41,7 +87,11 @@ use dli_syntax::format_document;
 ///     slots: Vec::new(),
 ///     provenance: None,
 /// });
-/// assert_eq!(render_decls(&[decl]), vec!["person mara \"Mara\""]);
+/// let lines = render_decls(&[decl]);
+/// # #[cfg(feature = "syntax")]
+/// assert_eq!(lines, vec!["person mara \"Mara\""]);
+/// # #[cfg(not(feature = "syntax"))]
+/// assert!(lines.is_empty());
 /// ```
 #[must_use]
 pub fn render_decls(decls: &[Decl]) -> Vec<String> {
@@ -49,7 +99,10 @@ pub fn render_decls(decls: &[Decl]) -> Vec<String> {
         scope: None,
         decls: sanitized(decls),
     };
-    non_empty_lines(&format_document(&document))
+    format(&document)
+        .as_deref()
+        .map(non_empty_lines)
+        .unwrap_or_default()
 }
 
 /// Render the whole staged set under a scope header — the canonical surface
@@ -58,11 +111,16 @@ pub fn render_decls(decls: &[Decl]) -> Vec<String> {
 /// formatter emits between header and body is **preserved** so the joined
 /// contents are the canonical `.dli` a Door H author would write and
 /// `deloreis fmt --check` accepts (koan 7 round-trip; R3/B3). Only the trailing
-/// newline is dropped so the lines join cleanly.
+/// newline is dropped so the lines join cleanly. Empty on a build without the
+/// `syntax` feature (see the module docs).
 ///
 /// ```
 /// use dli_serve::author::render::render_scoped;
-/// assert_eq!(render_scoped("tpth", &[]), vec!["scope tpth"]);
+/// let lines = render_scoped("tpth", &[]);
+/// # #[cfg(feature = "syntax")]
+/// assert_eq!(lines, vec!["scope tpth"]);
+/// # #[cfg(not(feature = "syntax"))]
+/// assert!(lines.is_empty());
 /// ```
 #[must_use]
 pub fn render_scoped(scope: &str, decls: &[Decl]) -> Vec<String> {
@@ -73,17 +131,24 @@ pub fn render_scoped(scope: &str, decls: &[Decl]) -> Vec<String> {
         }),
         decls: sanitized(decls),
     };
-    canonical_lines(&format_document(&document))
+    format(&document)
+        .as_deref()
+        .map(canonical_lines)
+        .unwrap_or_default()
 }
 
 /// Render the option lines a single `author.add_option` produced: the canonical
 /// `option <id> "<label>"` line the formatter emits beneath its question, without the
-/// question header (the mutation added an option, not a question).
+/// question header (the mutation added an option, not a question). Empty on a
+/// build without the `syntax` feature (see the module docs).
 ///
 /// ```
 /// use dli_serve::author::render::render_option;
-/// assert_eq!(render_option("where-the-first-ward-stood", "the-tidewall", "The Tidewall"),
-///            vec!["  option the-tidewall \"The Tidewall\""]);
+/// let lines = render_option("where-the-first-ward-stood", "the-tidewall", "The Tidewall");
+/// # #[cfg(feature = "syntax")]
+/// assert_eq!(lines, vec!["  option the-tidewall \"The Tidewall\""]);
+/// # #[cfg(not(feature = "syntax"))]
+/// assert!(lines.is_empty());
 /// ```
 #[must_use]
 pub fn render_option(question: &str, option: &str, label: &str) -> Vec<String> {
@@ -102,7 +167,10 @@ pub fn render_option(question: &str, option: &str, label: &str) -> Vec<String> {
         decls: vec![Decl::Question(synthetic)],
     };
     // Drop the `question <name>` header; keep only the option line(s).
-    non_empty_lines(&format_document(&document))
+    format(&document)
+        .as_deref()
+        .map(non_empty_lines)
+        .unwrap_or_default()
         .into_iter()
         .skip(1)
         .collect()

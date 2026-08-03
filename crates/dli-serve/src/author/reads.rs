@@ -537,12 +537,15 @@ fn staged_claims(decls: &[Decl]) -> Vec<AtomExpr> {
 /// Parse a rendered goal atom (`pred(a, b)`) into an [`AtomExpr`]. An argument
 /// written `?` or `?name` is a query variable; every other argument is a ground
 /// symbol. A string that is not a `pred(args)` atom is a self-explanatory
-/// `schema-violation` — never a bare error.
+/// `schema-violation` — never a bare error. A build without the front end
+/// resolves nothing here and the refusal names `goal_atom`
+/// (`query_goal::UNTYPED_GOAL`).
 fn parse_goal(text: &str) -> Result<AtomExpr, ErrorBody> {
     crate::query_goal::parse(text).ok_or_else(|| ErrorBody {
         code: ErrorCode::SchemaViolation,
         message: format!(
-            "'{text}' is not a pred(args) atom; write a rendered goal like serves(lancelot, ?who)"
+            "'{text}' is not a pred(args) atom; {}",
+            crate::query_goal::UNTYPED_GOAL
         ),
         data: None,
     })

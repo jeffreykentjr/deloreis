@@ -27,6 +27,27 @@ jobs:
           tool: nextest,cargo-deny
       - run: cargo run -p xtask --locked -- gate --ci --receipt out/greengate/ci
 
+  # The LS-7 default-build oracle, standing alone. It is already inside the
+  # canonical gate (these are gate steps, verbatim); running it as its own job
+  # means "the shipped artifacts still link no parser" reads off the checks list
+  # without decoding a gate log.
+  default-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: gate
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - run: cargo build -p dli-serve -p deloreis --locked
+      - run: cargo run -p xtask --locked -- syntax-free
+      - run: >-
+          cargo nextest run -p dli-serve -p dli-lorestore
+          --lib --test default_build --locked --profile ci
+
   docs-oracle:
     runs-on: ubuntu-latest
     timeout-minutes: 10
