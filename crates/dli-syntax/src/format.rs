@@ -305,7 +305,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             p.label.as_deref(),
             &[],
             p.provenance.as_ref(),
-            &p.body,
+            &p.body.clauses,
         ),
         Decl::Dialect(r) => braced(
             "dialect",

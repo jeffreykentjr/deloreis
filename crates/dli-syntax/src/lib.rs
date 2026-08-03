@@ -17,6 +17,7 @@ pub mod format;
 pub mod ladder;
 pub mod lexer;
 pub mod parser;
+pub mod practice;
 pub mod probe;
 
 pub use diag::{DiagClass, Diagnostic, render};
@@ -28,6 +29,7 @@ pub use parser::{
     structure_dialect_body, structure_name_body, structure_proof_body,
     structure_ratify_body, structure_rule_body,
 };
+pub use practice::structure_practice_body;
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};
 
 // `validate_proof_decl` — the format-and-reparse round-trip that revalidated a

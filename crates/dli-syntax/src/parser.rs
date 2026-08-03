@@ -1465,6 +1465,8 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             if let Some((name, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "practice")
             {
+                let body =
+                    crate::practice::structure_practice_body(&body, &name, provenance.as_ref());
                 items.push(Item::Decl(Decl::Practice(PracticeDecl {
                     name,
                     label,

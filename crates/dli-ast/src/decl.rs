@@ -7,6 +7,7 @@ use crate::annot::Annotation;
 use crate::clause::Clause;
 use crate::ident::Ident;
 use crate::language::{DialectBody, NameBody, RatifyBody};
+use crate::practice::PracticeBody;
 use crate::proof::ProofBody;
 use crate::rule::RuleBody;
 use crate::span::Span;
@@ -334,8 +335,11 @@ pub struct PracticeDecl {
     /// The display label, if written.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// The captured body clauses.
-    pub body: Vec<Clause>,
+    /// The typed body: the retained interior clauses plus the structured
+    /// [`PracticeDef`](crate::practice::PracticeDef), pre-parsed by the front end
+    /// (LS-9, `docs/design-notes/lorestore-roadmap.md`). `dli-ledger` reads the
+    /// typed structure without re-entering `dli_syntax`.
+    pub body: PracticeBody,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }

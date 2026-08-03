@@ -52,10 +52,11 @@ pub use store::{Commit, Ref};
 ///   embed the whole `Decl` as JSON with `Vec<Clause>` string bodies (named,
 ///   versioned debt, roadmap §LS-1).
 /// - **v2** — LS-9 expert-tier structuring: the `rule` carriage embeds a `Decl`
-///   whose body is the typed `RuleBody`. A v1 rule carriage deepens to v2 on
-///   read via the front-end lowering ([`upcast::upcast_value`]); every other
-///   carriage is byte-identical across v1 and v2. No stored fact is rewritten —
-///   the deepening happens in memory, at the load boundary.
+///   whose body is the typed `RuleBody`, and the `practice` carriage a `Decl`
+///   whose body is the typed `PracticeBody`. A v1 rule or practice carriage
+///   deepens to v2 on read via the front-end lowering ([`upcast::upcast_value`]);
+///   every other carriage is byte-identical across v1 and v2. No stored fact is
+///   rewritten — the deepening happens in memory, at the load boundary.
 pub const SCHEMA_VERSION: u32 = 2;
 
 /// All schemars-derived JSON schemas for this crate's stored objects, paired

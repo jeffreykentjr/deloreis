@@ -14,6 +14,7 @@ pub mod doc;
 pub mod ident;
 pub mod language;
 pub mod literal;
+pub mod practice;
 pub mod proof;
 pub mod rule;
 pub mod schema;
@@ -36,6 +37,10 @@ pub use language::{
     NameItem, NameKindSpec, RatifyBody, RatifyClause,
 };
 pub use literal::BodyLiteral;
+pub use practice::{
+    ConditionDef, EffectDef, ErrorClassDef, GradeDirection, PracticeBody, PracticeDef,
+    ResourceDecl, ResourceKind, RoleDef, RuleDef, SortDef, StructuralClass,
+};
 pub use proof::{
     Binding, MalformedOp, PhaseEq, ProofAssume, ProofBody, ProofClause, ProofClose, ProofOp,
     ProofPremise, ProofResource, ProofStep, ResourceKeyword,
