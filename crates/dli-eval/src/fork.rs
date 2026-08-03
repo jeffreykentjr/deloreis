@@ -591,8 +591,9 @@ impl ForkStore {
 
     /// Merge two forks, reporting the conflicts that block a join (spec 02 §5).
     /// An empty result means the forks are joinable. This is the constraint-join
-    /// over the two overlays; the `Certain`-kind (functional-dependency) check
-    /// lands with the continuity/slot layer.
+    /// over the two overlays and their fork-local additions, across all three
+    /// conflict kinds: valuation disagreement, exclusivity, and the certain-layer
+    /// functional-dependency check (LS-6 closed the noted gap).
     pub fn merge(&self, left: ForkId, right: ForkId) -> Result<Vec<Conflict>, ForkError> {
         let a = self.get(left)?;
         let b = self.get(right)?;
@@ -623,7 +624,65 @@ impl ForkStore {
         conflicts
             .extend(self.exclusivity_conflicts(|atom| joined.get(&atom).copied() == Some(true)));
 
+        // (3) Certain-layer functional dependency: the joined certain layer sets
+        // one functional slot two ways. The `Certain`-kind check the code used to
+        // defer — now implemented over the two forks' overlays *and* their local
+        // additions, mirroring the continuity/slot single-valuedness rule.
+        conflicts.extend(self.certain_conflicts(a, b)?);
+
         Ok(conflicts)
+    }
+
+    /// The certain-layer functional-dependency conflicts of joining two forks: a
+    /// predicate the base holds functional carries two distinct certain values
+    /// for one subject once both forks' overlays and additions are laid on. The
+    /// blame pair is the two `pred(subject) = value` claims that cannot co-hold.
+    fn certain_conflicts(&self, a: &Fork, b: &Fork) -> Result<Vec<Conflict>, ForkError> {
+        // A merged fork carrying both overlays and both additions.
+        let mut merged = Fork::default();
+        for (&atom, &val) in a.overlay.iter().chain(&b.overlay) {
+            merged.overlay.entry(atom).or_insert(val);
+        }
+        merged.additions = a.additions.iter().chain(&b.additions).cloned().collect();
+        let joined = self.effective_valuation(&merged);
+        let layered = self.saturated(&merged)?;
+
+        // Functional predicates come from the BASE certain layer (the canon
+        // baseline): a predicate is functional if it appears and no subject
+        // carries more than one certain value there.
+        let functional = functional_predicates(&self.base, &self.base.valuation);
+
+        // The joined certain slots, over the layered (base + additions) program.
+        let mut slots: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
+        for derived in &layered.derived {
+            if derived.ann().status(&joined, &layered.theory) != Status::Certain {
+                continue;
+            }
+            if let Some(((pred, subject), value)) = binary_slot(&derived.atom) {
+                slots.entry((pred, subject)).or_default().insert(value);
+            }
+        }
+
+        let mut out = Vec::new();
+        for ((pred, subject), values) in slots {
+            if values.len() >= 2 && functional.contains(&pred) {
+                let rendered: Vec<&str> = values.iter().map(String::as_str).collect();
+                out.push(Conflict {
+                    kind: ConflictKind::Certain,
+                    blame: (
+                        format!("{pred}({subject}) = {}", rendered[0]),
+                        format!("{pred}({subject}) = {}", rendered[1]),
+                    ),
+                    rendered: format!(
+                        "the joined certain layer breaks the functional dependency on \
+                         '{pred}': {subject} carries {} certain values [{}]",
+                        values.len(),
+                        rendered.join(", ")
+                    ),
+                });
+            }
+        }
+        Ok(out)
     }
 
     // -- internals -----------------------------------------------------------
@@ -754,6 +813,46 @@ impl ForkStore {
         }
         conflicts
     }
+}
+
+/// A binary atom's functional slot: `((pred, subject), value)` for a 2-ary atom,
+/// `None` otherwise. The subject is arg0, the value arg1.
+fn binary_slot(atom: &GroundAtom) -> Option<((String, String), String)> {
+    if atom.args.len() == 2 {
+        Some((
+            (atom.pred.clone(), atom.args[0].clone()),
+            atom.args[1].clone(),
+        ))
+    } else {
+        None
+    }
+}
+
+/// The set of predicates a world holds functional under `nu`: every predicate
+/// that appears in at least one certain binary fact and whose every subject
+/// carries at most one certain value. Mirrors `continuity::predicate_is_functional`.
+fn functional_predicates(world: &World, nu: &Valuation) -> BTreeSet<String> {
+    let mut by_pred: BTreeMap<String, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
+    for derived in &world.derived {
+        if derived.ann().status(nu, &world.theory) != Status::Certain {
+            continue;
+        }
+        if let Some(((pred, subject), value)) = binary_slot(&derived.atom) {
+            by_pred
+                .entry(pred)
+                .or_default()
+                .entry(subject)
+                .or_default()
+                .insert(value);
+        }
+    }
+    by_pred
+        .into_iter()
+        .filter(|(_, subjects)| {
+            !subjects.is_empty() && subjects.values().all(|values| values.len() <= 1)
+        })
+        .map(|(pred, _)| pred)
+        .collect()
 }
 
 /// Every atom's standing in a world under a valuation, dead atoms included (the
