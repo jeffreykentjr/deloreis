@@ -80,6 +80,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
     let index = build_id_index(&files, root, &mut findings);
     check_structured_data(root, &mut findings);
+    check_characters_sync(root, &files, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -122,6 +123,59 @@ fn check_structured_data(root: &Path, findings: &mut Vec<RepositoryFinding>) {
         "data/characters.yaml",
         findings,
     );
+}
+
+fn check_characters_sync(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
+    let path = root.join("data/characters.yaml");
+    if !path.exists() {
+        return;
+    }
+    let Ok(source) = fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(value) = serde_yaml_ng::from_str::<Value>(&source) else {
+        return;
+    };
+    let registry: BTreeSet<String> = value
+        .get("characters")
+        .and_then(Value::as_sequence)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            entry
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+    let mut file_ids = BTreeSet::new();
+    for file in files {
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if let Some(id) = rel
+            .strip_prefix("characters/")
+            .and_then(|value| value.strip_suffix(".md"))
+        {
+            file_ids.insert(frontmatter_id(file).unwrap_or_else(|| id.to_owned()));
+        }
+    }
+    for id in registry.difference(&file_ids) {
+        findings.push(RepositoryFinding::new(
+            "data/characters.yaml",
+            "V7",
+            format!("registry character {id} has no characters/{id}.md file"),
+        ));
+    }
+    for id in file_ids.difference(&registry) {
+        findings.push(RepositoryFinding::new(
+            &format!("characters/{id}.md"),
+            "V7",
+            format!("character file characters/{id}.md has no registry row"),
+        ));
+    }
 }
 
 fn read_yaml(path: &Path, label: &str, findings: &mut Vec<RepositoryFinding>) -> Option<Value> {
@@ -1080,6 +1134,38 @@ mod tests {
             findings
                 .iter()
                 .any(|f| f.code == "V6" && f.message.contains("duplicate character"))
+        );
+    }
+
+    #[test]
+    fn v7_requires_registry_and_character_files_to_match() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/characters.yaml",
+            "characters:\n  - id: anchor\n    name: Anchor\n    role: person\n    status: proposed\n  - id: missing\n    name: Missing\n    role: person\n    status: proposed\n",
+        );
+        write(
+            dir.path(),
+            "characters/anchor.md",
+            "---\nid: anchor\ntitle: Anchor\ntype: character\nstatus: proposed\n---\n\n## Anchor\n> status: proposed\n",
+        );
+        write(
+            dir.path(),
+            "characters/orphan.md",
+            "---\nid: orphan\ntitle: Orphan\ntype: character\nstatus: proposed\n---\n\n## Orphan\n> status: proposed\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V7" && f.message.contains("missing.md"))
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V7" && f.message.contains("orphan"))
         );
     }
 
