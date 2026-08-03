@@ -35,17 +35,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use dli_ast::clause::Clause;
 use dli_ast::decl::ProofDecl;
 use dli_ast::ident::Ident;
-use dli_ast::span::{FileId, Span};
+use dli_ast::proof::{ProofBody, ProofOp, ProofPremise, ProofStep, ResourceKeyword};
 use dli_ast::term::Term;
 use dli_core::grade::Grade;
-use dli_syntax::{
-    lexer::{TokenKind, lex},
-    parse_clause_atom, parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts,
-    validate_proof_decl,
-};
 
 use crate::practice::{PracticeDef, StructuralClass};
 use crate::premise::{PremiseStatus, SceneProjection, normalize_atom};
@@ -53,32 +47,6 @@ use crate::resource::{
     Delta, ResourceKind, ResourceViolationCode, check_affine_bounded, check_conserved,
     check_graded_monotone, check_linear,
 };
-
-/// The interior keywords that open a proof-block form (`docs/spec/04` §5). A
-/// clause opening with any other word continues the form above it.
-const PROOF_KEYWORDS: &[&str] = &[
-    "premise",
-    "step",
-    "spend",
-    "release",
-    "redistribute",
-    "reveal",
-    "assume",
-    "close",
-];
-
-/// The provenance/grade tokens a premise may carry after its atom.
-const PREMISE_MODIFIERS: &[&str] = &[
-    "cited",
-    "cue",
-    "from-scene",
-    "observed",
-    "drawn-against",
-    "asserted",
-    "attested",
-    "tested",
-    "checked",
-];
 
 /// Which proof form a [`StepVerdict`] records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -561,11 +529,7 @@ pub fn check_proof(
     let close_count = items.iter().filter(|item| item.keyword == "close").count();
     let close_is_final = items.last().is_some_and(|item| item.keyword == "close");
     let surface_errors = if header_valid && close_count == 1 && close_is_final {
-        validate_proof_decl(proof)
-            .into_iter()
-            .filter(|diagnostic| diagnostic.class.is_error())
-            .map(|diagnostic| diagnostic.message)
-            .collect()
+        proof_structural_errors(&proof.body)
     } else {
         Vec::new()
     };
@@ -784,8 +748,9 @@ struct LedgerRun {
 
 /// Walk the reassembled proof forms in order, building the per-step verdicts, the
 /// procedure-chain grades, the established atoms, and the per-resource deltas.
+#[expect(clippy::too_many_lines)]
 fn run_ledger(
-    items: &[RawItem],
+    items: &[Item<'_>],
     practice: &PracticeDef,
     scene: &SceneProjection,
     resources: &BTreeSet<&str>,
@@ -801,32 +766,52 @@ fn run_ledger(
     let mut close: Option<(String, Expectation)> = None;
 
     for (pos, item) in items.iter().enumerate() {
-        let body = item.text[item.keyword.len()..].trim();
-        match item.keyword.as_str() {
-            "premise" | "assume" => {
-                let is_assume = item.keyword == "assume";
-                let premise = parse_premise(body, resources, cycles, item.span, is_assume);
-                grades.push(premise.grade);
-                seen_labels.insert(premise.label.clone());
-                let outcome = handle_premise(&premise, is_assume, scene);
-                if let Some(atom) = outcome.establish {
-                    established.insert(atom);
-                }
-                if let Some((name, amount)) = outcome.delta {
-                    deltas
-                        .entry(name)
-                        .or_default()
-                        .push((premise.label.clone(), amount));
-                }
-                if let Some(finding) = outcome.finding {
-                    findings.push((pos, finding));
-                }
-                steps.push(outcome.verdict);
-                premises.insert(premise.label.clone(), premise);
+        match item.op {
+            ProofOp::Premise(premise) => {
+                let premise = Premise {
+                    label: premise.label.clone(),
+                    atom: premise.atom.clone(),
+                    grade: premise_grade(&premise.mods),
+                    kind: classify_premise(premise, resources, cycles),
+                };
+                run_premise(
+                    premise,
+                    false,
+                    scene,
+                    pos,
+                    &mut grades,
+                    &mut seen_labels,
+                    &mut established,
+                    &mut deltas,
+                    &mut findings,
+                    &mut steps,
+                    &mut premises,
+                );
             }
-            "step" => {
+            ProofOp::Assume(assume) => {
+                let premise = Premise {
+                    label: assume.label.clone(),
+                    atom: assume.atom.clone(),
+                    grade: Grade::Asserted,
+                    kind: PremiseKind::Assumed,
+                };
+                run_premise(
+                    premise,
+                    true,
+                    scene,
+                    pos,
+                    &mut grades,
+                    &mut seen_labels,
+                    &mut established,
+                    &mut deltas,
+                    &mut findings,
+                    &mut steps,
+                    &mut premises,
+                );
+            }
+            ProofOp::Step(step) => {
                 let (label, verdict, finding) =
-                    check_step(body, practice, &seen_labels, &mut established);
+                    check_step(step, item.text, practice, &seen_labels, &mut established);
                 seen_labels.insert(label);
                 if let Some(finding) = finding {
                     findings.push((pos, finding));
@@ -834,50 +819,56 @@ fn run_ledger(
                 grades.push(Grade::Checked);
                 steps.push(verdict);
             }
-            "spend" | "release" => {
-                let label = first_word(body);
+            ProofOp::Resource(resource) => {
+                let keyword = resource.keyword.keyword();
+                let label = resource.label.as_str();
                 grades.push(Grade::Checked);
-                let (verdict, delta, finding) = spend_step(&item.keyword, label, &premises);
-                if let Some((name, amount)) = delta {
-                    deltas
-                        .entry(name)
-                        .or_default()
-                        .push((label.to_owned(), amount));
+                match resource.keyword {
+                    ResourceKeyword::Spend | ResourceKeyword::Release => {
+                        let (verdict, delta, finding) = spend_step(keyword, label, &premises);
+                        if let Some((name, amount)) = delta {
+                            deltas
+                                .entry(name)
+                                .or_default()
+                                .push((label.to_owned(), amount));
+                        }
+                        if let Some(finding) = finding {
+                            findings.push((pos, finding));
+                        }
+                        steps.push(verdict);
+                    }
+                    // Reveal surfaces a conserved unit already implied (net zero);
+                    // redistribute moves one between accounts (net zero). Neither
+                    // mints nor burns, so neither perturbs the multiset.
+                    ResourceKeyword::Reveal | ResourceKeyword::Redistribute => {
+                        let (verdict, finding) = neutral_resource_step(keyword, label, &premises);
+                        if let Some(finding) = finding {
+                            findings.push((pos, finding));
+                        }
+                        steps.push(verdict);
+                    }
                 }
-                if let Some(finding) = finding {
-                    findings.push((pos, finding));
-                }
-                steps.push(verdict);
             }
-            "reveal" | "redistribute" => {
-                // Reveal surfaces a conserved unit already implied (net zero);
-                // redistribute moves one between accounts (net zero). Neither mints
-                // nor burns, so neither perturbs the multiset.
-                grades.push(Grade::Checked);
-                let label = first_word(body);
-                let (verdict, finding) = neutral_resource_step(&item.keyword, label, &premises);
-                if let Some(finding) = finding {
-                    findings.push((pos, finding));
-                }
-                steps.push(verdict);
-            }
-            "close" => {
-                let (atom, expect) = parse_close(body);
-                close = Some((atom.clone(), expect));
+            ProofOp::Close(c) => {
+                let expect = c
+                    .verdict
+                    .as_deref()
+                    .map_or(Expectation::Holds, parse_expectation);
+                close = Some((c.atom.clone(), expect));
                 steps.push(StepVerdict {
                     label: "close".to_owned(),
                     form: ProofForm::Close,
                     ok: true,
                     grade: Grade::Checked,
-                    note: atom,
+                    note: c.atom.clone(),
                 });
             }
-            _ => steps.push(StepVerdict {
-                label: item.keyword.clone(),
+            ProofOp::Malformed(m) => steps.push(StepVerdict {
+                label: m.keyword.clone(),
                 form: ProofForm::Other,
                 ok: true,
                 grade: Grade::Checked,
-                note: item.text.clone(),
+                note: item.text.to_owned(),
             }),
         }
     }
@@ -890,6 +881,41 @@ fn run_ledger(
         deltas,
         close,
     }
+}
+
+/// Fold one premise/assumption into the running ledger state: its grade, its
+/// established atom, any resource delta, and its step verdict/finding.
+#[expect(clippy::too_many_arguments)]
+fn run_premise(
+    premise: Premise,
+    is_assume: bool,
+    scene: &SceneProjection,
+    pos: usize,
+    grades: &mut Vec<Grade>,
+    seen_labels: &mut BTreeSet<String>,
+    established: &mut BTreeSet<String>,
+    deltas: &mut BTreeMap<String, Vec<(String, i64)>>,
+    findings: &mut Vec<(usize, ProofFinding)>,
+    steps: &mut Vec<StepVerdict>,
+    premises: &mut BTreeMap<String, Premise>,
+) {
+    grades.push(premise.grade);
+    seen_labels.insert(premise.label.clone());
+    let outcome = handle_premise(&premise, is_assume, scene);
+    if let Some(atom) = outcome.establish {
+        established.insert(atom);
+    }
+    if let Some((name, amount)) = outcome.delta {
+        deltas
+            .entry(name)
+            .or_default()
+            .push((premise.label.clone(), amount));
+    }
+    if let Some(finding) = outcome.finding {
+        findings.push((pos, finding));
+    }
+    steps.push(outcome.verdict);
+    premises.insert(premise.label.clone(), premise);
 }
 
 /// The effect of processing one premise: its step verdict, any finding it raised,
@@ -1122,7 +1148,7 @@ fn replay_resources(
     practice: &PracticeDef,
     scene: &SceneProjection,
     deltas: &BTreeMap<String, Vec<(String, i64)>>,
-    items: &[RawItem],
+    items: &[Item<'_>],
 ) -> Vec<(usize, ProofFinding)> {
     let mut findings = Vec::new();
     for (name, seq) in deltas {
@@ -1168,29 +1194,57 @@ fn replay_resources(
     findings
 }
 
-// --- proof-form parsing -----------------------------------------------------
+// --- proof-form reading -----------------------------------------------------
 
-/// One reassembled proof-block form: a leading keyword and its full text.
-struct RawItem {
-    keyword: String,
-    text: String,
-    span: Span,
+/// One recognized proof-block operation from the typed interior: its keyword
+/// discriminant, the typed op, and the retained clause text (used only to render
+/// a malformed operation's note).
+struct Item<'a> {
+    keyword: &'a str,
+    op: &'a ProofOp,
+    text: &'a str,
 }
 
-/// Collect the proof operations recognized by the syntax layer.
+/// Collect the recognized proof operations from the typed interior.
 ///
-/// Every body clause is one complete operation. Unknown children remain in the
-/// AST so canonical replay can report them, but they must not be appended to a
-/// preceding valid operation and thereby alter its diegetic meaning.
-fn reassemble(body: &[Clause]) -> Vec<RawItem> {
-    body.iter()
+/// Every interior line that opened with a proof keyword carries a typed
+/// [`ProofOp`] (`op.is_some()`); a line opening with no keyword is skipped here
+/// (it is refused by [`proof_structural_errors`] instead). A malformed operation
+/// is kept — its keyword still counts (e.g. toward the close layout).
+fn reassemble(body: &ProofBody) -> Vec<Item<'_>> {
+    body.items
+        .iter()
         .filter_map(|clause| {
-            let first = clause.text.split_whitespace().next().unwrap_or_default();
-            PROOF_KEYWORDS.contains(&first).then(|| RawItem {
-                keyword: first.to_owned(),
-                text: clause.text.clone(),
-                span: clause.span,
+            clause.op.as_ref().map(|op| Item {
+                keyword: op.keyword(),
+                op,
+                text: clause.clause.text.as_str(),
             })
+        })
+        .collect()
+}
+
+/// The structural well-formedness check over the typed proof interior — the
+/// replacement for the retired `validate_proof_decl` format-and-reparse round
+/// trip. A line the front end could not read as a valid proof operation — one
+/// opening with no proof keyword, or a recognized keyword whose arguments failed
+/// the strict per-line check ([`ProofOp::Malformed`]) — is refused here. A
+/// well-formed body returns no errors (charter koan 4: nothing is dropped, the
+/// malformed line is named).
+fn proof_structural_errors(body: &ProofBody) -> Vec<String> {
+    body.items
+        .iter()
+        .filter_map(|clause| match &clause.op {
+            None if !clause.clause.text.trim().is_empty() => Some(format!(
+                "a proof line cannot be read as an operation: `{}` — write premise, assume, \
+                 step, spend, release, redistribute, reveal, or close",
+                clause.clause.text
+            )),
+            Some(ProofOp::Malformed(op)) => Some(format!(
+                "a `{}` operation is malformed: `{}`",
+                op.keyword, clause.clause.text
+            )),
+            _ => None,
         })
         .collect()
 }
@@ -1218,7 +1272,8 @@ enum PremiseKind {
     Assumed,
 }
 
-/// A parsed premise line.
+/// A premise as the ledger run reads it: its label, atom, contributed grade, and
+/// how it stands against the practice's law-set.
 struct Premise {
     label: String,
     atom: String,
@@ -1226,52 +1281,25 @@ struct Premise {
     kind: PremiseKind,
 }
 
-fn parse_premise(
-    body: &str,
+/// Classify a premise as a resource draw, a timing claim, or a world fact, from
+/// the front end's pre-parsed atom and phase-comparison. The practice's declared
+/// resources and in-scope cycles are the runtime data the front end could not
+/// know, so the classification stays here — but it reads the typed
+/// [`ProofPremise`] rather than re-parsing the atom text.
+fn classify_premise(
+    premise: &ProofPremise,
     resources: &BTreeSet<&str>,
     cycles: &BTreeSet<&str>,
-    span: Span,
-    is_assume: bool,
-) -> Premise {
-    let (label, rest) = split_first_word(body);
-    let (atom, mods) = split_atom_and_mods(rest);
-    // An assumption is authorial/fork-local ground with no re-runnable
-    // establishing procedure. Parser validation rejects promoted grade words,
-    // and this branch is the semantic backstop for programmatically built ASTs.
-    let grade = if is_assume {
-        Grade::Asserted
-    } else {
-        premise_grade(&mods)
-    };
-    let kind = if is_assume {
-        PremiseKind::Assumed
-    } else {
-        classify_atom(&atom, resources, cycles, span)
-    };
-    Premise {
-        label: label.to_owned(),
-        atom,
-        grade,
-        kind,
-    }
-}
-
-/// Classify a premise atom as a resource draw, a timing claim, or a world fact.
-fn classify_atom(
-    atom: &str,
-    resources: &BTreeSet<&str>,
-    cycles: &BTreeSet<&str>,
-    span: Span,
 ) -> PremiseKind {
-    if let Some((cycle, spoke)) = phase_comparison(atom, span)
-        && cycles.contains(cycle.as_str())
+    if let Some(phase) = &premise.phase_eq
+        && cycles.contains(phase.cycle.as_str())
     {
-        return PremiseKind::Timing { cycle, spoke };
+        return PremiseKind::Timing {
+            cycle: phase.cycle.clone(),
+            spoke: phase.spoke.clone(),
+        };
     }
-    let Some(expr) = parse_clause_atom(&Clause {
-        text: atom.to_owned(),
-        span,
-    }) else {
+    let Some(expr) = &premise.atom_expr else {
         return PremiseKind::World;
     };
     let pred = expr.pred.text.as_str();
@@ -1291,27 +1319,6 @@ fn classify_atom(
         return PremiseKind::Timing { cycle, spoke };
     }
     PremiseKind::World
-}
-
-fn phase_comparison(atom: &str, span: Span) -> Option<(String, String)> {
-    let (left, right) = atom.split_once('=')?;
-    let expr = parse_clause_atom(&Clause {
-        text: left.trim().to_owned(),
-        span,
-    })?;
-    if expr.pred.text != "phase" || expr.args.len() != 1 {
-        return None;
-    }
-    let cycle = term_sym(&expr.args[0])?;
-    let spoke = right.trim();
-    if spoke.is_empty()
-        || !spoke
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
-        return None;
-    }
-    Some((cycle, spoke.to_owned()))
 }
 
 /// The grade a premise contributes, read from its provenance tokens
@@ -1337,100 +1344,68 @@ fn premise_grade(mods: &[String]) -> Grade {
     }
 }
 
-/// Split a premise body into its atom (up to the first top-level modifier) and its
-/// modifier tokens. Parenthesized arguments are skipped so a `cited` inside a
-/// nested atom is not mistaken for the provenance keyword.
-fn split_atom_and_mods(rest: &str) -> (String, Vec<String>) {
-    let tokens = lex(rest, FileId(0))
-        .into_iter()
-        .filter(|token| token.kind != TokenKind::Newline)
-        .collect::<Vec<_>>();
-    let mut depth = 0usize;
-    for (index, token) in tokens.iter().enumerate() {
-        match token.kind {
-            TokenKind::LParen => depth += 1,
-            TokenKind::RParen => depth = depth.saturating_sub(1),
-            TokenKind::Word if depth == 0 && PREMISE_MODIFIERS.contains(&token.text.as_str()) => {
-                let start = usize::try_from(token.span.start).unwrap_or(rest.len());
-                return (
-                    rest.get(..start).unwrap_or(rest).trim().to_owned(),
-                    tokens[index..]
-                        .iter()
-                        .map(|modifier| modifier.text.clone())
-                        .collect(),
-                );
-            }
-            _ => {}
-        }
-    }
-    (rest.trim().to_owned(), Vec::new())
-}
-
-/// Check a `step …` form: `instantiate <form> with …` or `chain from … by <law>
-/// conclusion <atom>`. Returns the step's label, its verdict, and any finding.
+/// Check a `step …` operation from the typed interior. Returns the step's label,
+/// its verdict, and any finding. A step reaches here only when the front end read
+/// it as a valid operation, so the bindings/argument lists are already parsed.
+/// `clause_text` is the retained normalized line, used to render a custom step's
+/// note exactly as the surface wrote it.
 fn check_step(
-    body: &str,
+    step: &ProofStep,
+    clause_text: &str,
     practice: &PracticeDef,
     seen_labels: &BTreeSet<String>,
     established: &mut BTreeSet<String>,
 ) -> (String, StepVerdict, Option<ProofFinding>) {
-    let (label, rest) = split_first_word(body);
-    let (verb, tail) = split_first_word(rest);
-    match verb {
-        "instantiate" => {
-            let (form, bindings) = split_first_word(tail);
+    match step {
+        ProofStep::Instantiate {
+            label,
+            form,
+            bindings,
+        } => {
             let mut verdict = StepVerdict {
-                label: label.to_owned(),
+                label: label.clone(),
                 form: ProofForm::Instantiate,
                 ok: true,
                 grade: Grade::Checked,
                 note: format!("instantiate {form}"),
             };
-            let Some(rule) = practice.rules.iter().find(|r| r.form.text == form) else {
+            let Some(rule) = practice.rules.iter().find(|r| r.form.text == *form) else {
                 verdict.ok = false;
                 verdict.note = format!("no such form '{form}'");
                 return (
-                    label.to_owned(),
+                    label.clone(),
                     verdict,
                     Some(ProofFinding::UnknownForm {
-                        form: form.to_owned(),
-                        at: label.to_owned(),
+                        form: form.clone(),
+                        at: label.clone(),
                     }),
                 );
             };
-            let Some(bindings) = parse_proof_bindings(bindings) else {
-                verdict.ok = false;
-                let binding = "malformed binding list".to_owned();
-                verdict.note = format!("'{form}' has an invalid binding: {binding}");
-                return (
-                    label.to_owned(),
-                    verdict,
-                    Some(ProofFinding::BadInstantiation {
-                        form: form.to_owned(),
-                        binding,
-                        at: label.to_owned(),
-                    }),
-                );
-            };
+            let bindings: Vec<(String, String)> = bindings
+                .iter()
+                .map(|binding| (binding.name.clone(), binding.value.clone()))
+                .collect();
             if let Some(binding) = invalid_bindings(practice, rule, &bindings) {
                 verdict.ok = false;
                 verdict.note = format!("'{form}' has an invalid binding: {binding}");
                 return (
-                    label.to_owned(),
+                    label.clone(),
                     verdict,
                     Some(ProofFinding::BadInstantiation {
-                        form: form.to_owned(),
+                        form: form.clone(),
                         binding,
-                        at: label.to_owned(),
+                        at: label.clone(),
                     }),
                 );
             }
-            (label.to_owned(), verdict, None)
+            (label.clone(), verdict, None)
         }
-        "chain" => {
-            let joins = chain_joins(tail);
-            let law = chain_law(tail);
-            let conclusion = chain_conclusion(tail);
+        ProofStep::Chain {
+            label,
+            joins,
+            law,
+            conclusion,
+        } => {
             let law_ok = law
                 .as_deref()
                 .is_some_and(|l| practice.rules.iter().any(|r| r.form.text == l));
@@ -1438,7 +1413,7 @@ fn check_step(
                 .iter()
                 .all(|j| seen_labels.contains(j) || established.contains(&normalize_atom(j)));
             let ok = law_ok && joins_ok;
-            if let Some(atom) = &conclusion {
+            if let Some(atom) = conclusion {
                 established.insert(normalize_atom(atom));
             }
             let note = if ok {
@@ -1448,50 +1423,51 @@ fn check_step(
                 "chain not licensed".to_owned()
             };
             let verdict = StepVerdict {
-                label: label.to_owned(),
+                label: label.clone(),
                 form: ProofForm::Chain,
                 ok,
                 grade: Grade::Checked,
                 note,
             };
             let finding = (!ok).then(|| ProofFinding::InvalidChain {
-                law: law.unwrap_or_else(|| "<unknown>".to_owned()),
-                at: label.to_owned(),
+                law: law.clone().unwrap_or_else(|| "<unknown>".to_owned()),
+                at: label.clone(),
             });
-            (label.to_owned(), verdict, finding)
+            (label.clone(), verdict, finding)
         }
-        other => custom_step(label, other, tail, practice),
+        ProofStep::Custom {
+            label,
+            operation,
+            args,
+        } => custom_step(label, operation, args, clause_text, practice),
     }
 }
 
 fn custom_step(
     label: &str,
     operation: &str,
-    tail: &str,
+    args: &[String],
+    clause_text: &str,
     practice: &PracticeDef,
 ) -> (String, StepVerdict, Option<ProofFinding>) {
     let rule = practice
         .rules
         .iter()
         .find(|rule| rule.form.text == operation);
-    let positional = parse_proof_arguments(tail);
     let invalid = rule.and_then(|rule| {
-        let Some(positional) = positional.as_ref() else {
-            return Some("malformed argument list".to_owned());
-        };
         let bindings = rule
             .args
             .iter()
-            .zip(positional)
+            .zip(args)
             .map(|(arg, value)| (arg.text.clone(), value.clone()))
             .collect::<Vec<_>>();
-        if positional.len() == rule.args.len() {
+        if args.len() == rule.args.len() {
             invalid_bindings(practice, rule, &bindings)
         } else {
             Some(format!(
                 "expected {} argument(s), got {}",
                 rule.args.len(),
-                positional.len()
+                args.len()
             ))
         }
     });
@@ -1504,10 +1480,8 @@ fn custom_step(
         grade: Grade::Checked,
         note: if let Some(problem) = &invalid {
             format!("{operation}: {problem}")
-        } else if tail.is_empty() {
-            operation.to_owned()
         } else {
-            format!("{operation} {tail}")
+            custom_step_note(clause_text, label).to_owned()
         },
     };
     let finding = if declared {
@@ -1523,6 +1497,16 @@ fn custom_step(
         })
     };
     (label.to_owned(), verdict, finding)
+}
+
+/// The `<operation> [<args…>]` body of a custom step, read straight off the
+/// retained line (`step <label> <operation> …`) so the step note round-trips the
+/// surface argument text exactly, quotes and comma spacing included.
+fn custom_step_note<'a>(clause_text: &'a str, label: &str) -> &'a str {
+    clause_text
+        .strip_prefix("step ")
+        .and_then(|rest| rest.strip_prefix(label))
+        .map_or(clause_text, str::trim_start)
 }
 
 fn invalid_bindings(
@@ -1559,17 +1543,6 @@ fn invalid_bindings(
         .iter()
         .find(|arg| !seen.contains(arg.text.as_str()))
         .map(|arg| format!("missing parameter '{}'", arg.text))
-}
-
-fn parse_close(body: &str) -> (String, Expectation) {
-    match parse_proof_close_parts(body) {
-        Some((atom, Some(verdict))) => (atom, parse_expectation(&verdict)),
-        Some((atom, None)) => (atom, Expectation::Holds),
-        None => (
-            body.trim().to_owned(),
-            Expectation::Unknown("<malformed-close>".to_owned()),
-        ),
-    }
 }
 
 fn parse_expectation(verdict: &str) -> Expectation {
@@ -1698,40 +1671,29 @@ fn first_word(text: &str) -> &str {
     text.split_whitespace().next().unwrap_or_default()
 }
 
-/// The labels a chain joins: the words between `from` and `by`.
-fn chain_joins(tail: &str) -> Vec<String> {
-    let Some(after_from) = tail.split_once("from ").map(|(_, r)| r) else {
-        return Vec::new();
-    };
-    let span = after_from.split_once(" by ").map_or(after_from, |(s, _)| s);
-    span.split(',')
-        .map(|s| s.trim().to_owned())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
-/// The law a chain applies: the word after `by`.
-fn chain_law(tail: &str) -> Option<String> {
-    tail.split_once(" by ")
-        .map(|(_, r)| first_word(r).to_owned())
-        .filter(|s| !s.is_empty())
-}
-
-/// The atom a chain concludes: the text after `conclusion`.
-fn chain_conclusion(tail: &str) -> Option<String> {
-    tail.split_once(" conclusion ")
-        .map(|(_, r)| r.trim().to_owned())
-        .filter(|s| !s.is_empty())
-}
-
-fn position_of(items: &[RawItem], label: &str) -> usize {
+/// The index of the reassembled item labeled `label`, so a resource breach binds
+/// to the step where the offending delta was applied.
+fn position_of(items: &[Item<'_>], label: &str) -> usize {
     items
         .iter()
-        .position(|it| {
-            let body = it.text[it.keyword.len()..].trim();
-            first_word(body) == label
-        })
+        .position(|it| item_label(it.op) == Some(label))
         .unwrap_or(items.len())
+}
+
+/// The label a proof operation is keyed by in the ledger run (its premise/step
+/// label). A close and a malformed operation carry no such label.
+fn item_label(op: &ProofOp) -> Option<&str> {
+    match op {
+        ProofOp::Premise(p) => Some(p.label.as_str()),
+        ProofOp::Assume(a) => Some(a.label.as_str()),
+        ProofOp::Step(
+            ProofStep::Instantiate { label, .. }
+            | ProofStep::Chain { label, .. }
+            | ProofStep::Custom { label, .. },
+        ) => Some(label.as_str()),
+        ProofOp::Resource(r) => Some(r.label.as_str()),
+        ProofOp::Close(_) | ProofOp::Malformed(_) => None,
+    }
 }
 
 fn term_int(term: &Term) -> Option<i64> {

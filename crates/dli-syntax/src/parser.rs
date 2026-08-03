@@ -28,6 +28,10 @@ use dli_ast::language::{
     NameItem, NameKindSpec, RatifyBody, RatifyClause,
 };
 use dli_ast::literal::BodyLiteral;
+use dli_ast::proof::{
+    Binding, MalformedOp, PhaseEq, ProofAssume, ProofBody, ProofClause, ProofClose, ProofOp,
+    ProofPremise, ProofResource, ProofStep, ResourceKeyword,
+};
 use dli_ast::rule::{Datalog, RuleBody, RuleClause};
 use dli_ast::span::{FileId, Span};
 use dli_ast::term::{AtomExpr, Term, TimeRef};
@@ -769,6 +773,261 @@ fn harvest_ratify_citations(clauses: &[Clause]) -> Vec<String> {
     out
 }
 
+/// The provenance/grade tokens a premise may carry after its atom. A clause word
+/// in this set at paren-depth zero opens the modifier tail (the atom is
+/// everything before it). Mirrors the checker's reading of the same tail.
+const PREMISE_MODIFIERS: &[&str] = &[
+    "cited",
+    "cue",
+    "from-scene",
+    "observed",
+    "drawn-against",
+    "asserted",
+    "attested",
+    "tested",
+    "checked",
+];
+
+/// Structure a `proof` declaration's captured clauses into its typed
+/// [`ProofBody`] (LS-9, `docs/design-notes/lorestore-roadmap.md`).
+///
+/// Each interior line is parsed into a typed [`ProofOp`]: the parse-dependent
+/// pieces the checker used to recompute at check time — the premise atom split
+/// from its modifiers, the atom pre-parsed into an [`AtomExpr`], the
+/// phase-comparison, the instantiate bindings, the custom-step arguments, and
+/// the close claim/verdict — are computed here, once. A line opening with a
+/// recognized keyword whose arguments fail the strict per-line check
+/// (`validate_proof_clause`) becomes [`ProofOp::Malformed`]; a line opening
+/// with no proof keyword gets no op (`None`). Both are kept for round-trip and
+/// refused by the checker's structural validator, retiring the old
+/// format-and-reparse guard.
+///
+/// This is a **front-end lowering** the v1 → v2 store upcast reuses at the load
+/// boundary (`dli_lorestore::upcast`); the parser is the single producer.
+#[must_use]
+pub fn structure_proof_body(clauses: &[Clause]) -> ProofBody {
+    ProofBody {
+        items: clauses
+            .iter()
+            .map(|clause| ProofClause {
+                clause: clause.clone(),
+                op: structure_proof_op(clause),
+            })
+            .collect(),
+    }
+}
+
+/// Structure one proof body line into its typed [`ProofOp`], or `None` when the
+/// line does not open with a recognized proof keyword.
+fn structure_proof_op(clause: &Clause) -> Option<ProofOp> {
+    let tokens: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect();
+    let first = tokens.first()?;
+    if first.kind != TokenKind::Word {
+        return None;
+    }
+    let keyword = first.text.clone();
+    if !PROOF_CHILD_KEYWORDS.contains(&keyword.as_str()) {
+        return None;
+    }
+    // Refuse exactly what the surface grammar refuses; a malformed operation is
+    // kept as `Malformed` rather than silently coerced to a valid shape.
+    let mut diags: Vec<Diagnostic> = Vec::new();
+    validate_proof_clause(&keyword, &tokens, clause.span, &mut diags);
+    if diags.iter().any(|diagnostic| diagnostic.class.is_error()) {
+        return Some(ProofOp::Malformed(MalformedOp { keyword }));
+    }
+    Some(build_proof_op(&keyword, &clause.text, clause.span))
+}
+
+/// Build the typed op for a proof line already known to be a strictly valid
+/// operation of `keyword`. `text` is the whole clause; `span` seeds the
+/// pre-parsed atom's file id.
+fn build_proof_op(keyword: &str, text: &str, span: Span) -> ProofOp {
+    let body = text.get(keyword.len()..).unwrap_or_default().trim();
+    match keyword {
+        "premise" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (atom, mods) = split_atom_and_mods(rest);
+            let atom_expr = parse_clause_atom(&Clause {
+                text: atom.clone(),
+                span,
+            });
+            let phase_eq =
+                phase_comparison(&atom, span).map(|(cycle, spoke)| PhaseEq { cycle, spoke });
+            ProofOp::Premise(ProofPremise {
+                label: label.to_owned(),
+                atom,
+                mods,
+                atom_expr,
+                phase_eq,
+            })
+        }
+        "assume" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (atom, _mods) = split_atom_and_mods(rest);
+            ProofOp::Assume(ProofAssume {
+                label: label.to_owned(),
+                atom,
+            })
+        }
+        "step" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (verb, tail) = proof_split_first_word(rest);
+            match verb {
+                "instantiate" => {
+                    let (form, binding_text) = proof_split_first_word(tail);
+                    let bindings = parse_proof_bindings(binding_text)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(name, value)| Binding { name, value })
+                        .collect();
+                    ProofOp::Step(ProofStep::Instantiate {
+                        label: label.to_owned(),
+                        form: form.to_owned(),
+                        bindings,
+                    })
+                }
+                "chain" => ProofOp::Step(ProofStep::Chain {
+                    label: label.to_owned(),
+                    joins: chain_joins(tail),
+                    law: chain_law(tail),
+                    conclusion: chain_conclusion(tail),
+                }),
+                other => ProofOp::Step(ProofStep::Custom {
+                    label: label.to_owned(),
+                    operation: other.to_owned(),
+                    args: parse_proof_arguments(tail).unwrap_or_default(),
+                }),
+            }
+        }
+        "spend" | "release" | "reveal" | "redistribute" => {
+            let keyword = match keyword {
+                "spend" => ResourceKeyword::Spend,
+                "release" => ResourceKeyword::Release,
+                "reveal" => ResourceKeyword::Reveal,
+                _ => ResourceKeyword::Redistribute,
+            };
+            ProofOp::Resource(ProofResource {
+                keyword,
+                label: proof_first_word(body).to_owned(),
+            })
+        }
+        "close" => {
+            let (atom, verdict) =
+                parse_proof_close_parts(body).unwrap_or_else(|| (body.trim().to_owned(), None));
+            ProofOp::Close(ProofClose { atom, verdict })
+        }
+        // Unreachable: `keyword` is one of `PROOF_CHILD_KEYWORDS` and the line
+        // passed `validate_proof_clause`. Kept total rather than panicking.
+        _ => ProofOp::Malformed(MalformedOp {
+            keyword: keyword.to_owned(),
+        }),
+    }
+}
+
+/// Split a premise/assume body into its atom (up to the first top-level modifier)
+/// and its modifier tokens. Parenthesized arguments are skipped so a modifier
+/// word nested inside an atom is not mistaken for the provenance keyword. Byte
+/// offsets index the passed `rest`, so this must be given the same
+/// whitespace-normalized text the checker would have read.
+fn split_atom_and_mods(rest: &str) -> (String, Vec<String>) {
+    let tokens = crate::lexer::lex(rest, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect::<Vec<_>>();
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => depth = depth.saturating_sub(1),
+            TokenKind::Word if depth == 0 && PREMISE_MODIFIERS.contains(&token.text.as_str()) => {
+                let start = usize::try_from(token.span.start).unwrap_or(rest.len());
+                return (
+                    rest.get(..start).unwrap_or(rest).trim().to_owned(),
+                    tokens[index..]
+                        .iter()
+                        .map(|modifier| modifier.text.clone())
+                        .collect(),
+                );
+            }
+            _ => {}
+        }
+    }
+    (rest.trim().to_owned(), Vec::new())
+}
+
+/// Decode a `phase(<cycle>) = <spoke>` premise comparison, when the atom takes
+/// that shape. The cycle-in-scope guard is the checker's; this only recognizes
+/// the surface form.
+fn phase_comparison(atom: &str, span: Span) -> Option<(String, String)> {
+    let (left, right) = atom.split_once('=')?;
+    let expr = parse_clause_atom(&Clause {
+        text: left.trim().to_owned(),
+        span,
+    })?;
+    if expr.pred.text != "phase" || expr.args.len() != 1 {
+        return None;
+    }
+    let cycle = proof_term_sym(&expr.args[0])?;
+    let spoke = right.trim();
+    if spoke.is_empty()
+        || !spoke
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return None;
+    }
+    Some((cycle, spoke.to_owned()))
+}
+
+fn proof_term_sym(term: &Term) -> Option<String> {
+    match term {
+        Term::Sym(id) | Term::Var(id) => Some(id.text.clone()),
+        _ => None,
+    }
+}
+
+/// The labels a chain joins: the words between `from` and `by`.
+fn chain_joins(tail: &str) -> Vec<String> {
+    let Some(after_from) = tail.split_once("from ").map(|(_, rest)| rest) else {
+        return Vec::new();
+    };
+    let span = after_from.split_once(" by ").map_or(after_from, |(s, _)| s);
+    span.split(',')
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// The law a chain applies: the word after `by`.
+fn chain_law(tail: &str) -> Option<String> {
+    tail.split_once(" by ")
+        .map(|(_, rest)| proof_first_word(rest).to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+/// The atom a chain concludes: the text after `conclusion`.
+fn chain_conclusion(tail: &str) -> Option<String> {
+    tail.split_once(" conclusion ")
+        .map(|(_, rest)| rest.trim().to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+fn proof_split_first_word(text: &str) -> (&str, &str) {
+    let text = text.trim_start();
+    match text.split_once(char::is_whitespace) {
+        Some((first, rest)) => (first, rest.trim_start()),
+        None => (text, ""),
+    }
+}
+
+fn proof_first_word(text: &str) -> &str {
+    text.split_whitespace().next().unwrap_or_default()
+}
+
 /// Parse a rule atom `pred` or `pred(args…)`. Unlike [`parse_atom`], a nullary
 /// atom (a bare predicate with no argument list) is accepted, so a propositional
 /// rule (`p :- not q`) parses.
@@ -1389,7 +1648,7 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 items.push(Item::Decl(Decl::Proof(ProofDecl {
                     name,
                     head,
-                    body: record.body.clone(),
+                    body: structure_proof_body(&record.body),
                     provenance,
                 })));
             }
@@ -1532,24 +1791,38 @@ fn validate_proof_body(record: &Record, diags: &mut Vec<Diagnostic>) {
             continue;
         }
 
-        match keyword {
-            "spend" | "release" | "redistribute" | "reveal" => {
-                if tokens.len() != 2 || tokens[1].kind != TokenKind::Word {
-                    let span = tokens.get(2).map_or(clause.span, |token| token.span);
-                    diags.push(Diagnostic::new(
-                        DiagClass::Malformed,
-                        format!("unexpected proof text — `{keyword}` reads `{keyword} <label>`."),
-                        span,
-                    ));
-                }
+        validate_proof_clause(keyword, tokens, clause.span, diags);
+    }
+}
+
+/// Strict per-line validation for a proof body line whose first token is a
+/// recognized proof keyword. Shared by the parser's diagnostic pass
+/// ([`validate_proof_body`]) and the interior producer
+/// ([`structure_proof_body`]), so the typed interior refuses exactly what the
+/// surface grammar refuses.
+fn validate_proof_clause(
+    keyword: &str,
+    tokens: &[Token],
+    clause_span: Span,
+    diags: &mut Vec<Diagnostic>,
+) {
+    match keyword {
+        "spend" | "release" | "redistribute" | "reveal" => {
+            if tokens.len() != 2 || tokens[1].kind != TokenKind::Word {
+                let span = tokens.get(2).map_or(clause_span, |token| token.span);
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    format!("unexpected proof text — `{keyword}` reads `{keyword} <label>`."),
+                    span,
+                ));
             }
-            "close" => validate_proof_close(tokens, clause.span, diags),
-            "premise" | "assume" => {
-                validate_proof_premise(keyword, tokens, clause.span, diags);
-            }
-            "step" => validate_proof_step(tokens, clause.span, diags),
-            _ => {}
         }
+        "close" => validate_proof_close(tokens, clause_span, diags),
+        "premise" | "assume" => {
+            validate_proof_premise(keyword, tokens, clause_span, diags);
+        }
+        "step" => validate_proof_step(tokens, clause_span, diags),
+        _ => {}
     }
 }
 

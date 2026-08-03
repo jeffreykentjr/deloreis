@@ -14,6 +14,7 @@ pub mod doc;
 pub mod ident;
 pub mod language;
 pub mod literal;
+pub mod proof;
 pub mod rule;
 pub mod schema;
 pub mod span;
@@ -35,6 +36,10 @@ pub use language::{
     NameItem, NameKindSpec, RatifyBody, RatifyClause,
 };
 pub use literal::BodyLiteral;
+pub use proof::{
+    Binding, MalformedOp, PhaseEq, ProofAssume, ProofBody, ProofClause, ProofClose, ProofOp,
+    ProofPremise, ProofResource, ProofStep, ResourceKeyword,
+};
 pub use rule::{Datalog, RuleBody, RuleClause};
 pub use span::{FileId, Span};
 pub use term::{AtomExpr, Term, TimeRef};

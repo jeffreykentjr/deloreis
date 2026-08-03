@@ -7,6 +7,7 @@ use crate::annot::Annotation;
 use crate::clause::Clause;
 use crate::ident::Ident;
 use crate::language::{DialectBody, NameBody, RatifyBody};
+use crate::proof::ProofBody;
 use crate::rule::RuleBody;
 use crate::span::Span;
 use crate::term::{AtomExpr, Term};
@@ -506,15 +507,20 @@ pub struct PrincipleDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `proof <name> … { … }`.
+/// `proof <name> … { … }` — header plus its typed body (LS-9).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ProofDecl {
     /// The proof name.
     pub name: Ident,
     /// Remaining header tokens (`speaker protagonist in spoken-proof`).
     pub head: Vec<String>,
-    /// The captured body clauses (`premise …`, `step …`, `spend …`, `close …`).
-    pub body: Vec<Clause>,
+    /// The typed body: each interior line pre-parsed into a
+    /// [`ProofOp`](crate::proof::ProofOp) by the front end, with the normalized
+    /// clause text retained for the formatter (LS-9,
+    /// `docs/design-notes/lorestore-roadmap.md`). `dli-ledger` and `dli-world`
+    /// read this typed interior without re-entering the parser.
+    #[serde(default, skip_serializing_if = "ProofBody::is_empty")]
+    pub body: ProofBody,
     /// Provenance annotation, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Annotation>,

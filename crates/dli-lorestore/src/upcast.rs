@@ -17,7 +17,7 @@ use serde_json::Value;
 
 use dli_ast::annot::Annotation;
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, DialectDecl, NameDecl, RatifyDecl, RuleDecl, RuleDomain};
+use dli_ast::decl::{Decl, DialectDecl, NameDecl, ProofDecl, RatifyDecl, RuleDecl, RuleDomain};
 use dli_ast::ident::Ident;
 
 use crate::SCHEMA_VERSION;
@@ -45,28 +45,43 @@ struct RuleDeclV1 {
     provenance: Option<Annotation>,
 }
 
+/// The v1 shape of a [`ProofDecl`]: the body is the old `Vec<Clause>` of
+/// whitespace-normalized text, before LS-9 structured it into a `ProofBody`.
+#[derive(serde::Deserialize)]
+struct ProofDeclV1 {
+    name: Ident,
+    #[serde(default)]
+    head: Vec<String>,
+    #[serde(default)]
+    body: Vec<Clause>,
+    #[serde(default)]
+    provenance: Option<Annotation>,
+}
+
 /// Lift a stored object's JSON `value` from `from_version` to the current
 /// [`SCHEMA_VERSION`].
 ///
 /// v1 → v2 deepens each expert-tier carriage whose interior LS-9 structured —
-/// **rule**, **dialect**, **name**, and **ratify** — from a `Vec<Clause>` string
-/// body to its typed interior, via the front-end lowering. Every other v1 object
-/// (gentle facts, other carriages, commits, refs, edges, evidence) is
-/// byte-identical to its v2 form, so the lift is just the version stamp. A
-/// `from_version` already at (or above) the current schema is returned
-/// unchanged.
+/// **rule**, **dialect**, **name**, **ratify**, and **proof** — from a
+/// `Vec<Clause>` string body to its typed interior, via the front-end lowering.
+/// Every other v1 object (gentle facts, other carriages, commits, refs, edges,
+/// evidence) is byte-identical to its v2 form, so the lift is just the version
+/// stamp. Each deepen is a no-op on a carriage of the wrong kind, so applying
+/// every one to every object is safe. A `from_version` already at (or above)
+/// the current schema is returned unchanged.
 pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, UpcastError> {
     if from_version >= u64::from(SCHEMA_VERSION) {
         return Ok(value);
     }
 
     // v1 → v2: deepen every expert carriage whose interior LS-9 structured. Each
-    // is a no-op unless the carriage is that kind, so exactly one fires per
+    // is a no-op unless the carriage is that kind, so at most one fires per
     // object.
     deepen_rule_carriage(&mut value)?;
     deepen_dialect_carriage(&mut value)?;
     deepen_name_carriage(&mut value)?;
     deepen_ratify_carriage(&mut value)?;
+    deepen_proof_carriage(&mut value)?;
 
     // Stamp the lifted object with the schema it now conforms to.
     if let Some(obj) = value.as_object_mut() {
@@ -244,4 +259,47 @@ fn carriage_decl_json<'a>(value: &'a mut Value, kind: &str) -> Option<&'a mut Va
         .get_mut("body")
         .and_then(Value::as_array_mut)
         .and_then(|arr| arr.first_mut())
+}
+
+/// If `value` is a fact object carrying a v1 `proof` expert body, rewrite the
+/// embedded declaration JSON in place so its body is the typed `ProofBody`. A
+/// value that is not a proof carriage is left untouched.
+fn deepen_proof_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(expert) = value.get_mut("expert_body") else {
+        return Ok(());
+    };
+    if expert.get("kind").and_then(Value::as_str) != Some("proof") {
+        return Ok(());
+    }
+    let Some(first) = expert
+        .get_mut("body")
+        .and_then(Value::as_array_mut)
+        .and_then(|arr| arr.first_mut())
+    else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    // The embedded declaration is an externally-tagged `Decl`; only the `Proof`
+    // variant needs deepening.
+    let Some(proof_v) = decl_value.get("Proof").cloned() else {
+        return Ok(());
+    };
+    let v1: ProofDeclV1 =
+        serde_json::from_value(proof_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+
+    let body = dli_syntax::structure_proof_body(&v1.body);
+    let v2 = Decl::Proof(ProofDecl {
+        name: v1.name,
+        head: v1.head,
+        body,
+        provenance: v1.provenance,
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
 }
