@@ -714,7 +714,7 @@ author or consumer artifact that this repository does not own.
 | LS-6 | done | DL-0048; merge commits (additive `merge_parent`), two-parent DAG walk + merge-base, `refs/heads` branches, union+recompile 3-way merge, three-class conflict detection (valuation/constraint/stratified-negation), `author.branch`/`author.merge` at contract 0.6.1; oracles `tests/merge.rs` (confluence incl. the non-monotone stratum + seeded-conflict corpus) + `dli-serve/tests/ls6_serve.rs` |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
 | LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
-| LS-9 | open | partial (foundation, DL-0047) — `RuleDecl` typed interior end-to-end, v1→v2 upcast seam, no-parse ratchet gate (`xtask syntax-free`); `dli-time` syntax-free; `dli-world`/`dli-ledger` still coupled via the other ten types; evidence in `design-notes/dli-syntax-coupling-audit.md` |
+| LS-9 | done | DL-0049; all eleven declaration interiors typed (`RuleDecl` DL-0047 + `Practice`/`Proof`/`Dialect`/`NamePart`/`Name`/`Ratify` + five near-empty), `dli_syntax` the single producer via `structure_<type>_body`, `dli-world`/`dli-ledger` typed readers; proof structural validator replaces format-and-reparse; v1→v2 upcast (`deepen_<type>_carriage`) for all eleven; contract 0.6.2; `dli-ledger`+`dli-time` syntax-free (ratchet 2/3). Residual `dli-world` `payload.rs` claim/fact parse is LS-7's load-boundary concern, not a declaration body. Evidence in `design-notes/dli-syntax-coupling-audit.md` |
 
 ## Milestones (node-sets, not dates)
 

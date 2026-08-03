@@ -21,7 +21,7 @@
 //!
 //! The typed [`PracticeDef`] and its sub-structs now live in `dli-ast`; the
 //! ~1k-line interior parser that folded the body's `Clause`s into forms moved
-//! behind the front end as [`dli_syntax::structure_practice_body`]. This module
+//! behind the front end as `dli_syntax::structure_practice_body`. This module
 //! is a *reader*: [`compile_practice`] takes the front end's typed structure and
 //! overlays the document's cycle scope, and [`check_practice`] runs the
 //! well-formedness obligations over it. There is no `dli_syntax` dependency on
@@ -234,7 +234,7 @@ impl PracticeFinding {
 /// Compile a parsed practice declaration against an environment.
 ///
 /// The typed [`PracticeDef`] was already structured by the front end
-/// ([`dli_syntax::structure_practice_body`]); the compile is the thin overlay
+/// (`dli_syntax::structure_practice_body`); the compile is the thin overlay
 /// that seats the practice in its document's cycle scope. It is total — it never
 /// fails and never panics; anything the front end could not make sense of is
 /// recorded faithfully (a resource whose law is outside the algebra keeps
