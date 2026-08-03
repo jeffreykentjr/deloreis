@@ -116,20 +116,23 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
 
 fn check_structured_data(root: &Path, findings: &mut Vec<RepositoryFinding>) {
     let data = root.join("data");
-    check_timeline(&data.join("timeline.yaml"), findings);
-    check_characters(&data.join("characters.yaml"), findings);
+    check_timeline(&data.join("timeline.yaml"), "data/timeline.yaml", findings);
+    check_characters(
+        &data.join("characters.yaml"),
+        "data/characters.yaml",
+        findings,
+    );
 }
 
-fn read_yaml(path: &Path, findings: &mut Vec<RepositoryFinding>) -> Option<Value> {
+fn read_yaml(path: &Path, label: &str, findings: &mut Vec<RepositoryFinding>) -> Option<Value> {
     if !path.exists() {
         return None;
     }
-    let rel = path.to_string_lossy();
     let source = match fs::read_to_string(path) {
         Ok(source) => source,
         Err(error) => {
             findings.push(RepositoryFinding::new(
-                &rel,
+                label,
                 "V6",
                 format!("cannot read YAML: {error}"),
             ));
@@ -140,7 +143,7 @@ fn read_yaml(path: &Path, findings: &mut Vec<RepositoryFinding>) -> Option<Value
         Ok(value) => Some(value),
         Err(error) => {
             findings.push(RepositoryFinding::new(
-                &rel,
+                label,
                 "V6",
                 format!("invalid YAML: {error}"),
             ));
@@ -149,11 +152,11 @@ fn read_yaml(path: &Path, findings: &mut Vec<RepositoryFinding>) -> Option<Value
     }
 }
 
-fn check_timeline(path: &Path, findings: &mut Vec<RepositoryFinding>) {
-    let Some(value) = read_yaml(path, findings) else {
+fn check_timeline(path: &Path, label: &str, findings: &mut Vec<RepositoryFinding>) {
+    let Some(value) = read_yaml(path, label, findings) else {
         return;
     };
-    let rel = path.to_string_lossy();
+    let rel = label.to_owned();
     let Some(map) = value.as_mapping() else {
         findings.push(RepositoryFinding::new(
             &rel,
@@ -229,11 +232,11 @@ fn check_timeline(path: &Path, findings: &mut Vec<RepositoryFinding>) {
     }
 }
 
-fn check_characters(path: &Path, findings: &mut Vec<RepositoryFinding>) {
-    let Some(value) = read_yaml(path, findings) else {
+fn check_characters(path: &Path, label: &str, findings: &mut Vec<RepositoryFinding>) {
+    let Some(value) = read_yaml(path, label, findings) else {
         return;
     };
-    let rel = path.to_string_lossy();
+    let rel = label.to_owned();
     let Some(map) = value.as_mapping() else {
         findings.push(RepositoryFinding::new(
             &rel,
