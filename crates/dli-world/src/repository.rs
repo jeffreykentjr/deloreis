@@ -82,6 +82,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     check_structured_data(root, &mut findings);
     check_characters_sync(root, &files, &mut findings);
     check_lexicon(root, &files, &mut findings);
+    check_question_placement(root, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -114,6 +115,43 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn check_question_placement(root: &Path, findings: &mut Vec<RepositoryFinding>) {
+    for (name, expected) in [
+        ("open-questions.md", "open"),
+        ("resolved-questions.md", "resolved"),
+    ] {
+        let path = root.join(name);
+        let Ok(source) = fs::read_to_string(path) else {
+            continue;
+        };
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            if !line.starts_with("## Q-") {
+                continue;
+            }
+            let end = lines[index + 1..]
+                .iter()
+                .position(|candidate| candidate.starts_with("## "))
+                .map_or(lines.len(), |offset| index + 1 + offset);
+            let status = lines[index..end]
+                .iter()
+                .find_map(|candidate| candidate.strip_prefix("- status: "));
+            if status != Some(expected) {
+                let found = status.unwrap_or("missing");
+                findings.push(RepositoryFinding::at_line(
+                    name,
+                    index + 1,
+                    "V10",
+                    format!(
+                        "question {} has status {found:?}; expected {expected:?}",
+                        line.trim_start_matches("## ")
+                    ),
+                ));
+            }
+        }
+    }
 }
 
 fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
@@ -1314,6 +1352,23 @@ mod tests {
                 .iter()
                 .any(|f| f.code == "V8" && f.message.contains("algorithm"))
         );
+    }
+
+    #[test]
+    fn v10_enforces_live_and_resolved_question_placement() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "open-questions.md",
+            "## Q-0001 — moved\n- status: resolved\n",
+        );
+        write(
+            dir.path(),
+            "resolved-questions.md",
+            "## Q-0002 — live\n- status: open\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert_eq!(findings.iter().filter(|f| f.code == "V10").count(), 2);
     }
 
     #[test]

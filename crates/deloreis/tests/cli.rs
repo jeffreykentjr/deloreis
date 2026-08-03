@@ -44,6 +44,11 @@ fn validate_repo_emits_stable_json_findings() {
     )
     .unwrap();
     fs::write(
+        root.join("open-questions.md"),
+        "## Q-0001 — moved\n- status: resolved\n",
+    )
+    .unwrap();
+    fs::write(
         root.join("bad-section.md"),
         "---\nid: bad-section\ntitle: Bad\ntype: narrative\nstatus: proposed\n---\n\n## Bad\n> status: ratified (Q-0001)\n",
     )
@@ -66,6 +71,7 @@ fn validate_repo_emits_stable_json_findings() {
     );
     assert!(rows.iter().any(|finding| finding["code"] == "V7"));
     assert!(rows.iter().any(|finding| finding["code"] == "V8"));
+    assert!(rows.iter().any(|finding| finding["code"] == "V10"));
 }
 
 /// The shared saltmarket corpus.
