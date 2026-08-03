@@ -10,16 +10,18 @@ publish = false
 
 [dependencies]
 dli-core.workspace = true
-# The order-rule compiler reads `rule … over order` decls (dli-ast) through the
-# one shared clause-atom parser (dli-syntax). Neither depends on dli-time, so
-# there is no cycle; the generic order/slack engine itself stays AST-free.
+# The order-rule compiler reads `rule … over order` decls as typed AST (dli-ast);
+# the world-rule datalog is pre-parsed by the front end (LS-9), and the
+# order-rule micro-grammar is this crate's own domain parser over the retained
+# clause text — so dli-time no longer depends on dli-syntax on the default path.
 dli-ast.workspace = true
-dli-syntax.workspace = true
 serde.workspace = true
 schemars.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+# Tests and doc examples still build `.dli` source through the front end.
+dli-syntax.workspace = true
 
 [lints]
 workspace = true

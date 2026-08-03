@@ -211,6 +211,24 @@
         "later"
       ]
     },
+    "BodyLiteral": {
+      "description": "One literal of a rule body: an atom on a polarity rail.\n\nA positive literal ([`negated`](BodyLiteral::negated) is `false`) joins over\nthe relation and binds its variables; a negated literal filters against the\ncertain layer and binds nothing (datalog safety: every variable in a negated\nliteral must also appear in a positive body atom).",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The atom pattern.",
+          "$ref": "#/$defs/AtomExpr"
+        },
+        "negated": {
+          "description": "Whether the atom is negated (`not <atom>` at the surface).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom",
+        "negated"
+      ]
+    },
     "CitationRef": {
       "description": "A reference to a decision-ledger entry, e.g. `D-0042`.",
       "type": "object",
@@ -343,6 +361,27 @@
       "required": [
         "name",
         "spokes"
+      ]
+    },
+    "Datalog": {
+      "description": "A datalog derivation rule: one head atom and its body conjunction of\nliterals. Produced by the front end from a `head :- body` clause; consumed by\nthe evaluator's typed rule intake.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The body conjunction of literals (a negated literal is `not <atom>`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BodyLiteral"
+          }
+        },
+        "head": {
+          "description": "The head atom derived when the body holds.",
+          "$ref": "#/$defs/AtomExpr"
+        }
+      },
+      "required": [
+        "head",
+        "body"
       ]
     },
     "Decl": {
@@ -1388,16 +1427,61 @@
         "body"
       ]
     },
+    "RuleBody": {
+      "description": "The structured body of a [`RuleDecl`](crate::decl::RuleDecl).",
+      "type": "object",
+      "properties": {
+        "clauses": {
+          "description": "The structured block-body clauses (indented or braced), in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RuleClause"
+          }
+        },
+        "inline": {
+          "description": "The inline `head : body` clause carried on the rule line itself, present\nonly when the header holds a `:`/`:-` separator and the block body is\nempty. It is rendered from the header tokens, never as a body line, so\nthe surface round-trips; the loader reads its structure here.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleClause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RuleClause": {
+      "description": "One structured clause of a rule body.",
+      "type": "object",
+      "properties": {
+        "clause": {
+          "description": "The whitespace-normalized clause text and its span. Retained so the\nformatter round-trips exactly and the order/season domain engines read\ntheir own micro-grammar off it without re-entering the front end.",
+          "$ref": "#/$defs/Clause"
+        },
+        "datalog": {
+          "description": "The world-rule datalog structure, present when this clause is a clean\n`head :- body` (or `head : body`) derivation rule. `None` for an\norder/season domain clause or a clause that is not clean datalog — the\nworld loader turns a `None` in a world rule into a malformed-rule\nfinding, exactly as it did when it re-parsed the text itself.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Datalog"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "clause"
+      ]
+    },
     "RuleDecl": {
-      "description": "`rule <name> [over <domain>] …` — header plus captured body clauses.",
+      "description": "`rule <name> [over <domain>] …` — header plus its typed body (LS-9).",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses (`: … requires …` or `:- …`).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed body: world-rule datalog pre-parsed into\n[`Datalog`](crate::rule::Datalog); order/season clauses retained as text\nfor their domain engines (LS-9, `docs/design-notes/lorestore-roadmap.md`).",
+          "$ref": "#/$defs/RuleBody"
         },
         "domain": {
           "description": "The domain the rule is enforced over: `None` is a world rule, `over order`\nan episode-ordering constraint, `over season` a season-ledger rule.",
@@ -1411,7 +1495,7 @@
           ]
         },
         "head": {
-          "description": "Header tokens after the name (and any `over <domain>`), before the body\n(e.g. `severity error`).",
+          "description": "Header tokens after the name (and any `over <domain>`), before the body\n(e.g. `severity error`, or the inline `head : body` datalog tokens).",
           "type": "array",
           "items": {
             "type": "string"
@@ -1435,8 +1519,7 @@
       },
       "required": [
         "name",
-        "head",
-        "body"
+        "head"
       ]
     },
     "RuleDomain": {

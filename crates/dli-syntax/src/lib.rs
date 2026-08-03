@@ -25,6 +25,7 @@ pub use lexer::{Token, TokenKind, lex};
 pub use parser::{
     LINE_OPEN_KEYWORDS, line_open_keywords, parse_clause_atom, parse_document,
     parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts, parse_rule_clause,
+    structure_rule_body,
 };
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};
 

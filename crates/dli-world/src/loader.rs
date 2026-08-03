@@ -33,11 +33,12 @@
 //!
 //! # Rules: the load-time checks of spec 08 §1
 //!
-//! A **bare** world `rule` is a derivation rule. The loader parses its captured
-//! `head :- body` clause into typed literals
-//! ([`parse_rule_clause`](dli_syntax::parse_rule_clause)) — a body literal
-//! prefixed by `not` is negated — and routes it through the evaluator's
-//! negation-aware intake
+//! A **bare** world `rule` is a derivation rule. Its `head :- body` clause is
+//! pre-parsed by the front end into typed literals (LS-9:
+//! [`RuleClause::datalog`](dli_ast::rule::RuleClause::datalog); a body literal
+//! prefixed by `not` is negated). The loader is a *reader* of that typed AST —
+//! it no longer re-enters `dli_syntax` — and routes each clause through the
+//! evaluator's negation-aware intake
 //! ([`World::define_rule`](dli_eval::world::World::define_rule)), populating
 //! `world.rules`. Three load-time checks fire from there:
 //!
@@ -465,41 +466,46 @@ impl LoadCtx {
             return;
         }
 
-        // The Datalog `head :- body` may live in captured body clauses or inline
-        // on the rule line. Every captured clause must lower or surface a
-        // finding; a body-less or malformed inline declaration likewise fails
-        // closed instead of silently producing no rule.
-        if !rule.body.is_empty() {
-            for clause in &rule.body {
-                if let Some((head, body)) = dli_syntax::parse_rule_clause(clause) {
-                    self.lower_world_rule(&rule.name, head, body, clause.span);
-                } else {
-                    self.findings.push(LoadFinding::MalformedWorldRule {
-                        rule: rule.name.text.clone(),
-                        body: clause.text.clone(),
-                        span: clause.span,
-                    });
-                }
+        // The Datalog `head :- body` was structured by the front end (LS-9): it
+        // lives either in the typed block clauses or in the typed inline clause.
+        // This loader is a *reader* of that typed AST — it no longer re-enters
+        // `dli_syntax`. Every clause that did not structure into datalog surfaces
+        // a finding; a body-less rule likewise fails closed (koan 4).
+        if !rule.body.clauses.is_empty() {
+            for rc in &rule.body.clauses {
+                self.lower_or_flag_world_rule(&rule.name, rc, rc.clause.span);
             }
             return;
         }
 
-        if let Some(clause) = inline_rule_clause(rule) {
-            if let Some((head, body)) = dli_syntax::parse_rule_clause(&clause) {
-                self.lower_world_rule(&rule.name, head, body, rule.name.span);
-            } else {
-                self.findings.push(LoadFinding::MalformedWorldRule {
-                    rule: rule.name.text.clone(),
-                    body: clause.text,
-                    span: rule.name.span,
-                });
-            }
-        } else {
-            self.findings.push(LoadFinding::MalformedWorldRule {
+        match &rule.body.inline {
+            Some(rc) => self.lower_or_flag_world_rule(&rule.name, rc, rule.name.span),
+            None => self.findings.push(LoadFinding::MalformedWorldRule {
                 rule: rule.name.text.clone(),
                 body: String::new(),
                 span: rule.name.span,
-            });
+            }),
+        }
+    }
+
+    /// Route one typed rule clause: lower its pre-parsed [`Datalog`] if present,
+    /// or record a malformed-world-rule finding carrying the clause's normalized
+    /// text — the exact behaviour the loader had when it re-parsed the text.
+    fn lower_or_flag_world_rule(
+        &mut self,
+        name: &Ident,
+        rc: &dli_ast::rule::RuleClause,
+        span: Span,
+    ) {
+        match &rc.datalog {
+            Some(datalog) => {
+                self.lower_world_rule(name, datalog.head.clone(), datalog.body.clone(), span);
+            }
+            None => self.findings.push(LoadFinding::MalformedWorldRule {
+                rule: name.text.clone(),
+                body: rc.clause.text.clone(),
+                span,
+            }),
         }
     }
 
@@ -798,24 +804,6 @@ fn dedup_findings(findings: &mut Vec<LoadFinding>) {
         }
     }
     *findings = unique;
-}
-
-/// Reconstruct the inline datalog clause of a world rule from its name and the
-/// captured header tokens (`rule head(args) : body` — everything after the name
-/// lands in [`RuleDecl::head`]). Returns `None` unless the header actually
-/// carries a `:`/`:-` separator, so a header-only rule (`rule show-the-price`)
-/// is never mistaken for a datalog clause. The reconstructed text is re-lexed by
-/// [`parse_rule_clause`](dli_syntax::parse_rule_clause), so token spacing is
-/// irrelevant.
-fn inline_rule_clause(rule: &RuleDecl) -> Option<dli_ast::clause::Clause> {
-    if !rule.head.iter().any(|token| token == ":" || token == ":-") {
-        return None;
-    }
-    let text = format!("{} {}", rule.name.text, rule.head.join(" "));
-    Some(dli_ast::clause::Clause {
-        text,
-        span: rule.name.span,
-    })
 }
 
 /// Render a term to its ground string form (a variable renders as its name).

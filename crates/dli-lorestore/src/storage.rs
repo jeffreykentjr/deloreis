@@ -193,28 +193,37 @@ pub fn read_typed<T: DeserializeOwned + Serialize>(
 ) -> Result<Option<T>, StoreError> {
     match storage.read_object(hash)? {
         Some(bytes) => {
-            // Upcast-on-read, v1 stub (roadmap §LS-1): probe the stored
-            // schema_version FIRST and dispatch — today that means version 1
-            // maps to the identity upcast and anything else is a typed
-            // refusal, so the seam exists before the first v2 writer does.
-            let probe: serde_json::Value =
+            // Upcast-on-read (roadmap §LS-1, §LS-9): probe the stored
+            // schema_version FIRST and dispatch. A version this build knows but
+            // predates (< SCHEMA_VERSION) is lifted to the current shape at the
+            // load boundary; the current version is deserialized directly (pure,
+            // no parser); a future version (> SCHEMA_VERSION) is a typed refusal,
+            // never a silent misread.
+            let value: serde_json::Value =
                 serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
                     what: "object",
                     path: hash.0.clone(),
                     expected: "valid JSON".to_owned(),
                     actual: e.to_string(),
                 })?;
-            if let Some(version) = probe
+            let version = value
                 .get("schema_version")
                 .and_then(serde_json::Value::as_u64)
-                && version != 1
-            {
+                .unwrap_or_else(|| u64::from(crate::SCHEMA_VERSION));
+            if version > u64::from(crate::SCHEMA_VERSION) {
                 return Err(StoreError::UnknownSchemaVersion {
                     hash: hash.0.clone(),
                     found: version,
                 });
             }
-            let value: T = serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
+            let value =
+                crate::upcast::upcast_value(version, value).map_err(|e| StoreError::Corrupt {
+                    what: "object",
+                    path: hash.0.clone(),
+                    expected: "upcastable stored object".to_owned(),
+                    actual: e.to_string(),
+                })?;
+            let value: T = serde_json::from_value(value).map_err(|e| StoreError::Corrupt {
                 what: "object",
                 path: hash.0.clone(),
                 expected: "valid typed JSON".to_owned(),

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::annot::Annotation;
 use crate::clause::Clause;
 use crate::ident::Ident;
+use crate::rule::RuleBody;
 use crate::span::Span;
 use crate::term::{AtomExpr, Term};
 
@@ -264,7 +265,7 @@ pub struct KindDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `rule <name> [over <domain>] …` — header plus captured body clauses.
+/// `rule <name> [over <domain>] …` — header plus its typed body (LS-9).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RuleDecl {
     /// The rule name.
@@ -273,10 +274,13 @@ pub struct RuleDecl {
     /// an episode-ordering constraint, `over season` a season-ledger rule.
     pub domain: Option<RuleDomain>,
     /// Header tokens after the name (and any `over <domain>`), before the body
-    /// (e.g. `severity error`).
+    /// (e.g. `severity error`, or the inline `head : body` datalog tokens).
     pub head: Vec<String>,
-    /// The captured body clauses (`: … requires …` or `:- …`).
-    pub body: Vec<Clause>,
+    /// The typed body: world-rule datalog pre-parsed into
+    /// [`Datalog`](crate::rule::Datalog); order/season clauses retained as text
+    /// for their domain engines (LS-9, `docs/design-notes/lorestore-roadmap.md`).
+    #[serde(default, skip_serializing_if = "RuleBody::is_empty")]
+    pub body: RuleBody,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }

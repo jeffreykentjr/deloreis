@@ -13,6 +13,11 @@ dli-core.workspace = true
 dli-ast.workspace = true
 dli-eval.workspace = true
 dli-world.workspace = true
+# The v1 → v2 store upcast (LS-9) reuses the front-end lowering
+# (`structure_rule_body`) to deepen an old string-bodied rule carriage at the
+# load boundary — a load-boundary op, exactly like ingesting `.dli` text.
+# Default reads of v2 are pure deserialization and never touch the parser.
+dli-syntax.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_json_canonicalizer.workspace = true
@@ -22,7 +27,6 @@ thiserror.workspace = true
 fs2.workspace = true
 
 [dev-dependencies]
-dli-syntax.workspace = true
 serde_yaml_ng.workspace = true
 tempfile.workspace = true
 

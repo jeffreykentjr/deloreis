@@ -48,14 +48,16 @@ fn fact(pred: &str, arg: &str, provenance: Annotation) -> Decl {
 }
 
 fn rule(name: &str, domain: Option<RuleDomain>, body_text: &str) -> Decl {
+    let clause = Clause {
+        text: body_text.to_owned(),
+        span: Span::synthetic(),
+    };
     Decl::Rule(RuleDecl {
         name: id(name),
         domain,
         head: Vec::new(),
-        body: vec![Clause {
-            text: body_text.to_owned(),
-            span: Span::synthetic(),
-        }],
+        // Structure the captured clause exactly as the front end does (LS-9).
+        body: dli_syntax::structure_rule_body(std::slice::from_ref(&clause), &id(name), &[]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-1"])),
     })
 }

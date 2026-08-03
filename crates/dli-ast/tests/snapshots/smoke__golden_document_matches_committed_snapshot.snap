@@ -1,5 +1,6 @@
 ---
 source: crates/dli-ast/tests/smoke.rs
+assertion_line: 74
 expression: document
 ---
 {
@@ -598,16 +599,20 @@ expression: document
         },
         "domain": "order",
         "head": [],
-        "body": [
-          {
-            "text": ": listener-learns(during uthers-time _) requires act > 1",
-            "span": {
-              "file": 0,
-              "start": 775,
-              "end": 831
+        "body": {
+          "clauses": [
+            {
+              "clause": {
+                "text": ": listener-learns(during uthers-time _) requires act > 1",
+                "span": {
+                  "file": 0,
+                  "start": 775,
+                  "end": 831
+                }
+              }
             }
-          }
-        ],
+          ]
+        },
         "provenance": {
           "marker": "Decided",
           "citations": [
@@ -2630,7 +2635,6 @@ expression: document
         },
         "domain": "season",
         "head": [],
-        "body": [],
         "provenance": {
           "marker": "Proposed",
           "citations": [],

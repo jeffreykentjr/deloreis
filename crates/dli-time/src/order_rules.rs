@@ -62,7 +62,6 @@ use dli_ast::decl::{RuleDecl, RuleDomain};
 use dli_ast::span::Span;
 use dli_core::ann::{Ann, Status, Theory};
 use dli_core::valuation::Valuation;
-use dli_syntax::parse_clause_atom;
 
 use crate::chronology::{Chronology, TemporalVerdict, TimePoint};
 
@@ -237,10 +236,10 @@ impl OrderRule {
     ///
     /// The declaration must carry [`RuleDomain::Order`] and exactly one body
     /// clause (the `: guard requires requirement` line, whose leading `:` is
-    /// stripped). Atom-shaped fragments — `payoff($p)`, `reveal($p)` — are read
-    /// through the one shared [`parse_clause_atom`]; the guard interiors
-    /// (`configuration <label>`, `during <era> _`) and the numeric requirement
-    /// are this module's own forms.
+    /// stripped). The clause text is retained on the typed rule body (LS-9); the
+    /// order-rule micro-grammar — `payoff($p)`/`reveal($p)` shorthand, the guard
+    /// interiors (`configuration <label>`, `during <era> _`), and the numeric
+    /// requirement — is this module's own domain parser, no longer `dli_syntax`.
     ///
     /// ```
     /// use dli_syntax::parse_document;
@@ -269,12 +268,17 @@ impl OrderRule {
                 decl.name.span,
             ));
         }
-        let clause = decl.body.first().ok_or_else(|| {
-            OrderRuleError::new(
-                format!("order rule '{}' has no body clause", decl.name.text),
-                decl.name.span,
-            )
-        })?;
+        let clause = decl
+            .body
+            .clauses
+            .first()
+            .map(|rc| &rc.clause)
+            .ok_or_else(|| {
+                OrderRuleError::new(
+                    format!("order rule '{}' has no body clause", decl.name.text),
+                    decl.name.span,
+                )
+            })?;
         let body = parse_body(clause)?;
         Ok(Self {
             name: decl.name.text.clone(),
@@ -506,8 +510,8 @@ fn parse_body(clause: &Clause) -> Result<OrderRuleBody, OrderRuleError> {
 
     // The relational shorthand: a `payoff(...)` guard against a `reveal(...)`
     // requirement, both read as atoms through the shared parser.
-    let payoff = leading_atom_pred(guard_text, clause.span);
-    let reveal = leading_atom_pred(requirement_text, clause.span);
+    let payoff = leading_atom_pred(guard_text);
+    let reveal = leading_atom_pred(requirement_text);
     if payoff.as_deref() == Some("payoff") && reveal.as_deref() == Some("reveal") {
         return Ok(OrderRuleBody::PayoffAfterReveal);
     }
@@ -527,15 +531,16 @@ fn strip_clause_head(text: &str) -> &str {
     text.trim()
 }
 
-/// The predicate name of the leading `pred(args…)` atom in `text`, read through
-/// [`parse_clause_atom`]; `None` when `text` does not open with a parsed atom.
-fn leading_atom_pred(text: &str, span: Span) -> Option<String> {
+/// The predicate name of the leading `pred(args…)` atom in `text`; `None` when
+/// `text` does not open with a `pred(…)` group. This is the order-rule
+/// micro-grammar's own reader (LS-9): it extracts the predicate token that
+/// precedes the balanced argument group [`leading_atom_text`] already isolated,
+/// so the crate no longer re-enters `dli_syntax` to name an atom it will parse
+/// itself.
+fn leading_atom_pred(text: &str) -> Option<String> {
     let atom_text = leading_atom_text(text)?;
-    let clause = Clause {
-        text: atom_text.to_owned(),
-        span,
-    };
-    parse_clause_atom(&clause).map(|atom| atom.pred.text)
+    let pred = atom_text.split('(').next()?.trim();
+    (!pred.is_empty()).then(|| pred.to_owned())
 }
 
 /// The substring of `text` from its start through the first balanced `(…)`
