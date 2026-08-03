@@ -193,6 +193,17 @@ impl ConflictKind {
             ConflictKind::Certain => "certain-layer contradiction",
         }
     }
+
+    /// The stable dotted code a merge report carries for this conflict kind — the
+    /// single source of truth so no crate hard-codes the literal (`merge.*`).
+    #[must_use]
+    pub const fn merge_code(self) -> &'static str {
+        match self {
+            ConflictKind::Valuation => "merge.valuation",
+            ConflictKind::Exclusivity => "merge.exclusivity",
+            ConflictKind::Certain => "merge.functional-dependency",
+        }
+    }
 }
 
 /// A surfaced conflict: its kind, a blame pair (the two things that cannot both

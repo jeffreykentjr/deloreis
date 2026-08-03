@@ -439,15 +439,11 @@ fn standing_downgrades(
 // -- helpers -----------------------------------------------------------------
 
 /// A constraint conflict rendered as a graded, deterministic finding with its
-/// blame pair as citations (the repair data).
+/// blame pair as citations (the repair data). The code comes from
+/// [`ConflictKind::merge_code`] — the single source of truth.
 fn constraint_finding(conflict: &Conflict) -> WorldFinding {
-    let code = match conflict.kind {
-        ConflictKind::Exclusivity => "merge.exclusivity",
-        ConflictKind::Certain => "merge.functional-dependency",
-        ConflictKind::Valuation => "merge.valuation",
-    };
     WorldFinding {
-        code: code.to_owned(),
+        code: conflict.kind.merge_code().to_owned(),
         severity: Severity::Error,
         grade: dli_core::grade::Grade::Checked,
         message: conflict.rendered.clone(),

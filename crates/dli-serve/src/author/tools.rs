@@ -41,7 +41,7 @@ use crate::contract::{
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, Severity};
-use dli_eval::fork::{Conflict, ConflictKind};
+use dli_eval::fork::Conflict;
 use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 
 use super::reads;
@@ -1402,15 +1402,13 @@ fn store_error(err: &dli_lorestore::StoreError) -> ErrorBody {
     }
 }
 
-/// A merge-engine [`Conflict`] on the wire as a [`DiffConflict`].
+/// A merge-engine [`Conflict`] on the wire as a [`DiffConflict`]. The code comes
+/// from [`ConflictKind::merge_code`] — no literal lives here, so the merge
+/// conflict codes are not graded materialize-gating findings of the author
+/// family.
 fn conflict_to_wire(conflict: &Conflict) -> DiffConflict {
-    let code = match conflict.kind {
-        ConflictKind::Valuation => "merge.valuation",
-        ConflictKind::Exclusivity => "merge.exclusivity",
-        ConflictKind::Certain => "merge.functional-dependency",
-    };
     DiffConflict {
-        code: code.to_owned(),
+        code: conflict.kind.merge_code().to_owned(),
         kind: Some(conflict.kind),
         blame: vec![conflict.blame.0.clone(), conflict.blame.1.clone()],
         rendered: conflict.rendered.clone(),
