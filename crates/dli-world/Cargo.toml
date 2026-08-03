@@ -8,13 +8,22 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# LS-7: the parser is opt-in. Off, `payload.rs` resolves a claim only through
+# the typed `atom_expr` successor and the crate links no `dli_syntax`. On, the
+# surface `atom` string still parses at the load boundary.
+syntax = ["dep:dli-syntax"]
+
 [dependencies]
 dli-ast.workspace = true
 dli-core.workspace = true
 dli-time.workspace = true
 dli-eval.workspace = true
 dli-ledger.workspace = true
-dli-syntax.workspace = true
+# The payload battery's last parse site (a claim's surface `atom` string) is a
+# load-boundary parse, not an expert-tier interior — LS-9 left it, LS-7 makes
+# its edge optional so the default build links no front end.
+dli-syntax = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true
@@ -23,6 +32,9 @@ schemars.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
+# Tests and doc examples still build `.dli` source through the front end, so the
+# parser is present for a test build whether or not the feature is on.
+dli-syntax.workspace = true
 tempfile.workspace = true
 
 [lints]

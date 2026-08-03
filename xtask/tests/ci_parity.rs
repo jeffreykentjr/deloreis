@@ -68,9 +68,9 @@ fn ci_workflow_matches_the_canonical_gate() {
 fn canonical_gate_carries_the_doc_hygiene_steps() {
     let commands = xtask::gate::canonical_cargo_commands(true);
     for expected in [
-        "cargo doc --workspace --no-deps --locked",
-        "cargo test --doc --workspace --locked",
-        "cargo run -p xtask --locked -- docgen --check",
+        "cargo doc --workspace --no-deps --locked --features syntax",
+        "cargo test --doc --workspace --locked --features syntax",
+        "cargo run -p xtask --locked --features syntax -- docgen --check",
     ] {
         assert!(
             commands.iter().any(|command| command == expected),
@@ -82,6 +82,48 @@ fn canonical_gate_carries_the_doc_hygiene_steps() {
     assert!(
         xtask::gate::AUX_CARGO_COMMANDS.contains(&"cargo run -p xtask --locked -- book"),
         "the book build must be an allowed aux command for CI parity"
+    );
+}
+
+/// LS-7 made the build two builds, so the gate is two lanes. Losing either one
+/// silently would make the gate's verdict a half-truth: without the default
+/// lane, nothing stops `dli-syntax` creeping back into the shipped artifacts;
+/// without the syntax lane, nothing proves the legacy surface still replays.
+#[test]
+fn canonical_gate_runs_both_build_lanes() {
+    let commands = xtask::gate::canonical_cargo_commands(true);
+
+    // The default lane: no features anywhere, and the 1.0-native acceptance run.
+    for expected in [
+        "cargo clippy -p dli-serve -p deloreis --all-targets --locked -- -D warnings",
+        "cargo build -p dli-serve -p deloreis --locked",
+    ] {
+        assert!(
+            commands.iter().any(|command| command == expected),
+            "the canonical gate is missing the default-lane `{expected}` step"
+        );
+    }
+    assert!(
+        commands.iter().any(|command| command.starts_with(
+            "cargo nextest run -p dli-serve -p dli-lorestore --lib --test default_build --locked"
+        ) && !command.contains("--features")),
+        "the canonical gate must run the 1.0-native acceptance test with no features"
+    );
+
+    // The syntax lane: the whole workspace, parser linked.
+    assert!(
+        commands.iter().any(|command| command
+            .starts_with("cargo nextest run --workspace --locked")
+            && command.contains("--features syntax")),
+        "the canonical gate must run the full test suite with `--features syntax`"
+    );
+
+    // And the oracle that keeps the two honest.
+    assert!(
+        commands
+            .iter()
+            .any(|command| command.ends_with("-- syntax-free")),
+        "the canonical gate must run the no-parse oracle"
     );
 }
 

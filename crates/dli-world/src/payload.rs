@@ -30,15 +30,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-use dli_ast::clause::Clause;
 use dli_ast::decl::{Decl, Document, ProofDecl};
 use dli_ast::proof::{ProofClause, ProofOp};
-use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 use dli_core::grade::Grade;
 use dli_ledger::check_proof;
 use dli_ledger::practice::compile_practices;
-use dli_syntax::parse_clause_atom;
 
 use crate::check::factcheck::Verdict;
 use crate::check::{self, CompiledWorld, Severity, WorldFinding};
@@ -922,11 +919,50 @@ struct ParsedClaim<'a> {
     claim: &'a Claim,
 }
 
+/// Read a surface atom string into a typed [`AtomExpr`] through the front end.
+///
+/// This is the crate's only parser edge, and LS-7 makes it optional. Without the
+/// `syntax` feature there is no front end, so no surface string resolves and the
+/// typed successor is the only way in — the caller turns the `None` into a
+/// finding that says so.
+#[cfg(feature = "syntax")]
+fn atom_from_surface(text: &str) -> Option<AtomExpr> {
+    dli_syntax::parse_clause_atom(&dli_ast::clause::Clause {
+        text: text.to_owned(),
+        span: dli_ast::span::Span::synthetic(),
+    })
+}
+
+#[cfg(not(feature = "syntax"))]
+fn atom_from_surface(_text: &str) -> Option<AtomExpr> {
+    None
+}
+
+/// Why a surface atom string did not resolve, worded for the build that says
+/// it. With the front end linked the string is genuinely malformed; without it
+/// there is no parser to be malformed *to*, and the honest report names the
+/// typed successor rather than blaming the author's text.
+///
+/// One function rather than a `#[cfg]`-selected pair of constants: the
+/// finding-family oracle reads this file as plain Rust syntax, where a
+/// cfg-duplicated name is two constants with one name.
+fn unresolved_atom() -> &'static str {
+    if cfg!(feature = "syntax") {
+        "is not a well-formed atom"
+    } else {
+        "cannot be read: this build links no `.dli` front end, so a typed atom is required"
+    }
+}
+
 /// Resolve each claim to a typed [`AtomExpr`]: the 0.6.3 typed successor
 /// [`Claim::atom_expr`] is taken as-is when the caller carried it, and only the
-/// surface [`Claim::atom`] is parsed otherwise. An atom the parser cannot read
+/// surface [`Claim::atom`] is parsed otherwise. An atom that does not resolve
 /// is a `payload.unparseable-claim` defect (the fact-checker would otherwise
 /// silently skip it); a typed claim cannot raise it, having never been text.
+///
+/// Under a build without the `syntax` feature the surface string never resolves,
+/// so every untyped claim raises the same code with a message naming
+/// [`Claim::atom_expr`] as the way in.
 fn parse_claims(payload: &Payload) -> (Vec<ParsedClaim<'_>>, Vec<PayloadFinding>) {
     let mut parsed = Vec::new();
     let mut findings = Vec::new();
@@ -935,19 +971,16 @@ fn parse_claims(payload: &Payload) -> (Vec<ParsedClaim<'_>>, Vec<PayloadFinding>
             parsed.push(ParsedClaim { atom, claim });
             continue;
         }
-        let clause = Clause {
-            text: claim.atom.clone(),
-            span: Span::synthetic(),
-        };
-        if let Some(atom) = parse_clause_atom(&clause) {
+        if let Some(atom) = atom_from_surface(&claim.atom) {
             parsed.push(ParsedClaim { atom, claim });
         } else {
             findings.push(
                 PayloadFinding::error(
                     "payload.unparseable-claim",
                     format!(
-                        "claim atom '{}' is not a well-formed atom; the fact-checker cannot read it",
-                        claim.atom
+                        "claim atom '{}' {}; the fact-checker cannot read it",
+                        claim.atom,
+                        unresolved_atom()
                     ),
                 )
                 .at_line(claim.line)
@@ -1170,20 +1203,27 @@ fn runtime_promise_findings(continuity: &RuntimeContinuity) -> Vec<PayloadFindin
         .collect()
 }
 
+/// Read a runtime continuity fact as an atom. The wire carries it as three
+/// strings, and the front end classifies each into a term — so this too is a
+/// surface parse, and the runtime-continuity family has no typed successor yet:
+/// a build without the `syntax` feature resolves none of them and reports each
+/// as `payload.runtime-continuity-invalid`.
 fn parse_runtime_fact(fact: &RuntimeFact) -> Option<AtomExpr> {
-    let clause = Clause {
-        text: format!("{}({}, {})", fact.predicate, fact.subject, fact.value),
-        span: Span::synthetic(),
-    };
-    parse_clause_atom(&clause)
+    atom_from_surface(&format!(
+        "{}({}, {})",
+        fact.predicate, fact.subject, fact.value
+    ))
 }
 
 fn invalid_runtime_fact(kind: &str, fact: &RuntimeFact) -> PayloadFinding {
     PayloadFinding::error(
         "payload.runtime-continuity-invalid",
         format!(
-            "{kind} runtime fact '{}({}, {})' is not a well-formed atom",
-            fact.predicate, fact.subject, fact.value
+            "{kind} runtime fact '{}({}, {})' {}",
+            fact.predicate,
+            fact.subject,
+            fact.value,
+            unresolved_atom()
         ),
     )
 }
@@ -2348,6 +2388,9 @@ fn beat_promise_anchors(payload: &Payload) -> Vec<(String, (u32, String))> {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use std::borrow::Cow;
+
+    use dli_ast::clause::Clause;
+    use dli_ast::span::Span;
 
     use super::*;
 

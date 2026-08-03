@@ -8,6 +8,13 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# LS-7: the parser is opt-in. Off, the store is a v2-native reader — pure
+# deserialization, no `dli_syntax` in the dependency graph — and a v1 expert
+# carriage refuses instead of being lifted. On, `upcast.rs` can deepen a v1
+# carriage through the front end.
+syntax = ["dep:dli-syntax"]
+
 [dependencies]
 dli-core.workspace = true
 dli-ast.workspace = true
@@ -16,8 +23,9 @@ dli-world.workspace = true
 # The v1 → v2 store upcast (LS-9) reuses the front-end lowering
 # (`structure_rule_body`) to deepen an old string-bodied rule carriage at the
 # load boundary — a load-boundary op, exactly like ingesting `.dli` text.
-# Default reads of v2 are pure deserialization and never touch the parser.
-dli-syntax.workspace = true
+# Default reads of v2 are pure deserialization and never touch the parser, so
+# LS-7 makes the edge optional: it links only under the `syntax` feature.
+dli-syntax = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_json_canonicalizer.workspace = true
@@ -30,6 +38,9 @@ fs2.workspace = true
 # The LS-9 proof-interior oracle (`tests/ls9_proof.rs`) checks a v1-upcast proof
 # through the ledger checker — a test-only reach into the checker crate.
 dli-ledger.workspace = true
+# Tests build their v1 fixtures the honest way — parse `.dli` and lower — so the
+# front end is always present for a test build, feature or no feature.
+dli-syntax.workspace = true
 serde_yaml_ng.workspace = true
 tempfile.workspace = true
 
