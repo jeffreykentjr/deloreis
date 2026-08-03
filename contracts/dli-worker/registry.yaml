@@ -76,7 +76,7 @@ fixtures:
 - path: golden/author-list-workspaces-v1.json
   sha256: f13bc25a4ab9a2d9f9f6011dcd7bc7533a2714d01ba8f43b1a2010824b91a05c
 - path: golden/author-merge-v1.json
-  sha256: 47a7f9601b54577ef57d6488ef15d3362a3df8b1b0dfa584623c1cc8b43997f9
+  sha256: 9586bc2d7edf2df28c9f98c8064c9eb44659ba76a4357a3a6becb6fa18ca092a
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-v1.json
