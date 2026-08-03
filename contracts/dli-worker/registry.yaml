@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 0.6.3
+contract_version: 0.6.4
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -97,6 +97,8 @@ fixtures:
   sha256: fe87e9fc240aef2b9c76bb2dd2b586bf903f4d961deae00b9e5ad347228d4501
 - path: golden/check-basic-v1.json
   sha256: f5ccdcf13b315f7fd05a7cdcc64af57d4a4c52a5f6740faaad46616df3c5816b
+- path: golden/check-draft-typed-continuity-v1.json
+  sha256: a716732beb9bb90b40c43a89fb89b29ae0642f23c583a33850545d2b54336d62
 - path: golden/check-draft-v1.json
   sha256: 2a032c5b499b65969e76eb047c43c226734053545604b7afa98136247f6fe3d0
 - path: golden/check-proof-turning-v1.json
@@ -199,6 +201,8 @@ fixtures:
   sha256: b2f9c39c0bb28712e1582efec5f2d261029d8b49f9b36f9a21539e4457588040
 - path: negative/check-draft-schema-violation.json
   sha256: c0330fed4a2180977761c7fae93633bf53e80e88041862759fb6f47b8b62738b
+- path: negative/check-draft-typed-continuity-schema-violation.json
+  sha256: bbc93b673fa22efd92810b9ec3848936207784f444fbe88d6001f889e4366fdb
 - path: negative/check-proof-schema-violation.json
   sha256: 9dcb5273007cd4cc0ed04b66932108d1160fcb0bf0c2a4474a8c842ea2205fff
 - path: negative/cited-refused.json

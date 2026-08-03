@@ -267,6 +267,19 @@ pub struct RuntimeFact {
     pub subject: String,
     /// The normalized value stored in the slot.
     pub value: String,
+    /// The fact as a typed atom — the 0.6.4 typed successor to the three
+    /// strings above, carried structurally instead of re-assembled into
+    /// `predicate(subject, value)` and re-parsed at the load boundary. When
+    /// present the continuity checks use it and the strings are not parsed;
+    /// when absent the surface form is assembled and parsed exactly as before.
+    ///
+    /// Skipped when absent, so a context that does not carry it — every
+    /// `dli.check-draft` request written before 0.6.4 — serializes
+    /// byte-identically. The strings stay authoritative for the *slot* keying
+    /// the prior-value comparison below, which is a string compare and never a
+    /// parse.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub atom_expr: Option<AtomExpr>,
 }
 
 /// One explicit state transition in caller-owned runtime continuity context.
@@ -281,6 +294,16 @@ pub struct RuntimeChange {
     pub from_value: String,
     /// The value the episode changes to.
     pub to_value: String,
+    /// The atom the change *lands on* — `predicate(subject, to_value)` — as a
+    /// typed atom. The 0.6.4 typed successor, and the exact twin of
+    /// [`RuntimeFact::atom_expr`]: a change is checked against canon by its
+    /// target, so that is the one atom this row needs. The `from_value` is
+    /// only ever string-compared against the prior ledger and needs no atom.
+    ///
+    /// Skipped when absent, so a pre-0.6.4 change row serializes
+    /// byte-identically.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_atom_expr: Option<AtomExpr>,
 }
 
 /// Caller-owned state needed to check one episode against its predecessors.
@@ -943,14 +966,24 @@ fn atom_from_surface(_text: &str) -> Option<AtomExpr> {
 /// there is no parser to be malformed *to*, and the honest report names the
 /// typed successor rather than blaming the author's text.
 ///
+/// `successor` is the typed field the caller should have sent instead — the
+/// same "refuse by name, naming the successor" discipline the wire-level LS-7
+/// refusals follow. It differs per carrier ([`Claim::atom_expr`],
+/// [`RuntimeFact::atom_expr`], [`RuntimeChange::to_atom_expr`]), so it is a
+/// parameter rather than one baked-in name that would be wrong for two of the
+/// three.
+///
 /// One function rather than a `#[cfg]`-selected pair of constants: the
 /// finding-family oracle reads this file as plain Rust syntax, where a
 /// cfg-duplicated name is two constants with one name.
-fn unresolved_atom() -> &'static str {
+fn unresolved_atom(successor: &str) -> String {
     if cfg!(feature = "syntax") {
-        "is not a well-formed atom"
+        "is not a well-formed atom".to_owned()
     } else {
-        "cannot be read: this build links no `.dli` front end, so a typed atom is required"
+        format!(
+            "cannot be read: this build links no `.dli` front end; send the typed `{successor}` \
+             successor instead"
+        )
     }
 }
 
@@ -980,7 +1013,7 @@ fn parse_claims(payload: &Payload) -> (Vec<ParsedClaim<'_>>, Vec<PayloadFinding>
                     format!(
                         "claim atom '{}' {}; the fact-checker cannot read it",
                         claim.atom,
-                        unresolved_atom()
+                        unresolved_atom("atom_expr")
                     ),
                 )
                 .at_line(claim.line)
@@ -1055,7 +1088,7 @@ fn runtime_continuity_family(
     for fact in &continuity.established {
         match parse_runtime_fact(fact) {
             Some(atom) => current.push(atom),
-            None => out.push(invalid_runtime_fact("established", fact)),
+            None => out.push(invalid_runtime_fact("established", "atom_expr", fact)),
         }
     }
     for change in &continuity.changes {
@@ -1063,10 +1096,15 @@ fn runtime_continuity_family(
             predicate: change.predicate.clone(),
             subject: change.subject.clone(),
             value: change.to_value.clone(),
+            atom_expr: change.to_atom_expr.clone(),
         };
         match parse_runtime_fact(&target) {
             Some(atom) => current.push(atom),
-            None => out.push(invalid_runtime_fact("changed target", &target)),
+            None => out.push(invalid_runtime_fact(
+                "changed target",
+                "to_atom_expr",
+                &target,
+            )),
         }
     }
 
@@ -1203,19 +1241,27 @@ fn runtime_promise_findings(continuity: &RuntimeContinuity) -> Vec<PayloadFindin
         .collect()
 }
 
-/// Read a runtime continuity fact as an atom. The wire carries it as three
-/// strings, and the front end classifies each into a term — so this too is a
-/// surface parse, and the runtime-continuity family has no typed successor yet:
-/// a build without the `syntax` feature resolves none of them and reports each
-/// as `payload.runtime-continuity-invalid`.
+/// Read a runtime continuity fact as an atom: the 0.6.4 typed successor
+/// [`RuntimeFact::atom_expr`] is taken as-is when the caller carried it, and
+/// only the three strings are assembled into `predicate(subject, value)` and
+/// parsed otherwise.
+///
+/// The string form is a surface parse — the front end is what classifies each
+/// argument into a term — so under a build without the `syntax` feature it
+/// never resolves and every untyped row is reported as
+/// `payload.runtime-continuity-invalid` with a message naming the successor. A
+/// typed row needs no front end and is checked on either build.
 fn parse_runtime_fact(fact: &RuntimeFact) -> Option<AtomExpr> {
+    if let Some(atom) = fact.atom_expr.clone() {
+        return Some(atom);
+    }
     atom_from_surface(&format!(
         "{}({}, {})",
         fact.predicate, fact.subject, fact.value
     ))
 }
 
-fn invalid_runtime_fact(kind: &str, fact: &RuntimeFact) -> PayloadFinding {
+fn invalid_runtime_fact(kind: &str, successor: &str, fact: &RuntimeFact) -> PayloadFinding {
     PayloadFinding::error(
         "payload.runtime-continuity-invalid",
         format!(
@@ -1223,7 +1269,7 @@ fn invalid_runtime_fact(kind: &str, fact: &RuntimeFact) -> PayloadFinding {
             fact.predicate,
             fact.subject,
             fact.value,
-            unresolved_atom()
+            unresolved_atom(successor)
         ),
     )
 }
@@ -2653,26 +2699,31 @@ mod tests {
                     predicate: "adjacent".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "excalibur".to_owned(),
+                    atom_expr: None,
                 },
                 RuntimeFact {
                     predicate: "kept-at".to_owned(),
                     subject: "excalibur".to_owned(),
                     value: "camelot".to_owned(),
+                    atom_expr: None,
                 },
                 RuntimeFact {
                     predicate: "mood".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "grim".to_owned(),
+                    atom_expr: None,
                 },
                 RuntimeFact {
                     predicate: "temper".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "warm".to_owned(),
+                    atom_expr: None,
                 },
                 RuntimeFact {
                     predicate: "temper".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "cold".to_owned(),
+                    atom_expr: None,
                 },
             ],
             changes: vec![RuntimeChange {
@@ -2680,6 +2731,7 @@ mod tests {
                 subject: "camelot".to_owned(),
                 from_value: "sunny".to_owned(),
                 to_value: "rain".to_owned(),
+                to_atom_expr: None,
             }],
             references: vec!["ghost".to_owned()],
             prior_facts: vec![
@@ -2687,11 +2739,13 @@ mod tests {
                     predicate: "mood".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "weary".to_owned(),
+                    atom_expr: None,
                 },
                 RuntimeFact {
                     predicate: "weather".to_owned(),
                     subject: "camelot".to_owned(),
                     value: "cloudy".to_owned(),
+                    atom_expr: None,
                 },
             ],
             prior_open_promises: Vec::new(),

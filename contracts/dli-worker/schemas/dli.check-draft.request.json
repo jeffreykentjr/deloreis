@@ -659,6 +659,17 @@
           "description": "The entity whose slot changes.",
           "type": "string"
         },
+        "to_atom_expr": {
+          "description": "The atom the change *lands on* — `predicate(subject, to_value)` — as a\ntyped atom. The 0.6.4 typed successor, and the exact twin of\n[`RuntimeFact::atom_expr`]: a change is checked against canon by its\ntarget, so that is the one atom this row needs. The `from_value` is\nonly ever string-compared against the prior ledger and needs no atom.\n\nSkipped when absent, so a pre-0.6.4 change row serializes\nbyte-identically.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtomExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "to_value": {
           "description": "The value the episode changes to.",
           "type": "string"
@@ -731,6 +742,17 @@
       "description": "One normalized fact in caller-owned runtime continuity context.\n\nThis is deliberately not part of [`Payload`]: prior episode state is mutable\nruntime context, while `payload/v1` is durable evidence about one immutable\ndraft. `dli.check-draft` may supply these rows through [`BatteryContext`].",
       "type": "object",
       "properties": {
+        "atom_expr": {
+          "description": "The fact as a typed atom — the 0.6.4 typed successor to the three\nstrings above, carried structurally instead of re-assembled into\n`predicate(subject, value)` and re-parsed at the load boundary. When\npresent the continuity checks use it and the strings are not parsed;\nwhen absent the surface form is assembled and parsed exactly as before.\n\nSkipped when absent, so a context that does not carry it — every\n`dli.check-draft` request written before 0.6.4 — serializes\nbyte-identically. The strings stay authoritative for the *slot* keying\nthe prior-value comparison below, which is a string compare and never a\nparse.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtomExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "predicate": {
           "description": "The fact predicate / slot key.",
           "type": "string"

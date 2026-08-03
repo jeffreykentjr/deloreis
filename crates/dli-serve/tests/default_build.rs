@@ -19,8 +19,11 @@
 //! | `dli.query` with string `goal` | `schema-violation` naming `goal_atom` | answered |
 //! | `dli.fork.add` with `additions` | applied | applied |
 //! | `dli.fork.add` with `declarations` | `schema-violation` naming `additions` | applied |
+//! | `dli.check-draft` with a typed `continuity` row | checked | checked |
+//! | `dli.check-draft` with a string `continuity` row | `payload.runtime-continuity-invalid` | checked |
 //! | `author.*` mutation | staged; `rendered` empty | staged; `rendered` is the `.dli` line |
 //! | `author.diff` rows | present | present |
+//! | `author.materialize`, no lorestore | refused by name | the rendering IS the materialization |
 //! | `.dli` project load | refused, naming the two ways forward | loaded |
 //!
 //! The demo corpora reach this build from committed fact objects, so the whole
@@ -55,7 +58,7 @@ fn ident(text: &str) -> Value {
 
 fn request(id: &str, op: &str, params: &Value) -> Value {
     json!({
-        "dli": "0.6.3",
+        "dli": "0.6.4",
         "id": id,
         "op": op,
         "params": params,
@@ -144,6 +147,177 @@ fn a_string_goal_needs_the_front_end() {
         "the refusal must name the typed successor, got: {message}"
     );
     assert_eq!(error(&response)["code"], json!("schema-violation"));
+}
+
+// -- check-draft: the typed runtime-continuity row vs. the three strings ------
+
+/// The `payload/v1` envelope every `dli.check-draft` below shares: an empty
+/// payload over a one-word draft, so the only findings are the ones the
+/// `continuity` context produces.
+fn empty_payload() -> Value {
+    json!({
+        "meta": {
+            "episode": "episode-1",
+            "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1,
+            },
+            "extracted": "2026-07-25",
+            "extractors": { "schema": "payload/v1" },
+        },
+        "claims": [],
+        "deltas": [],
+        "scenes": [],
+        "beats": [],
+        "promises": { "opened": [], "closed": [] },
+        "proof_ledgers": [],
+        "names": { "introduced": [] },
+        "lexicon": { "banned_hits": [], "register_tokens": 0 },
+    })
+}
+
+/// The finding codes a `dli.check-draft` response carries, in response order.
+fn codes(response: &Value) -> Vec<String> {
+    result(response)["findings"]
+        .as_array()
+        .unwrap_or_else(|| panic!("check-draft answers with findings: {response}"))
+        .iter()
+        .map(|finding| finding["code"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+fn check_draft(id: &str, continuity: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {
+    drive(
+        &request(
+            id,
+            "dli.check-draft",
+            &json!({
+                "document": "camelot",
+                "source": "baseline",
+                "payload": empty_payload(),
+                "continuity": continuity,
+            }),
+        ),
+        sessions,
+        store,
+    )
+}
+
+/// `adjacent(camelot, excalibur)` as a typed atom. Canon ratifies
+/// `adjacent(camelot, the-lake)`, so this atom is *contradicted* — which is what
+/// makes it a proof rather than a smoke test: a build that ignored the typed
+/// field would report the row unreadable, not wrong.
+fn contradicting_atom() -> Value {
+    json!({
+        "pred": ident("adjacent"),
+        "args": [{ "Sym": ident("camelot") }, { "Sym": ident("excalibur") }],
+    })
+}
+
+#[test]
+fn a_typed_runtime_continuity_fact_is_checked() {
+    let (mut sessions, mut store) = demo();
+    let response = check_draft(
+        "cd-typed",
+        &json!({
+            "established": [{
+                "predicate": "adjacent",
+                "subject": "camelot",
+                "value": "excalibur",
+                "atom_expr": contradicting_atom(),
+            }],
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    let codes = codes(&response);
+    assert!(
+        !codes
+            .iter()
+            .any(|code| code == "payload.runtime-continuity-invalid"),
+        "the typed row needs no front end, so no build can call it unreadable: {response}"
+    );
+    assert!(
+        codes
+            .iter()
+            .any(|code| code == "continuity.world-contradiction"),
+        "the typed atom reached the fact-checker and lost to canon: {response}"
+    );
+}
+
+#[test]
+fn a_typed_runtime_continuity_change_is_checked() {
+    let (mut sessions, mut store) = demo();
+    let response = check_draft(
+        "cd-typed-change",
+        &json!({
+            "changes": [{
+                "predicate": "adjacent",
+                "subject": "camelot",
+                "from_value": "the-lake",
+                "to_value": "excalibur",
+                "to_atom_expr": contradicting_atom(),
+            }],
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    let codes = codes(&response);
+    assert!(
+        !codes
+            .iter()
+            .any(|code| code == "payload.runtime-continuity-invalid"),
+        "a change carries its target atom typed too: {response}"
+    );
+    assert!(
+        codes
+            .iter()
+            .any(|code| code == "continuity.world-contradiction"),
+        "the typed target atom reached the fact-checker: {response}"
+    );
+}
+
+#[test]
+fn a_string_runtime_continuity_fact_needs_the_front_end() {
+    let (mut sessions, mut store) = demo();
+    let response = check_draft(
+        "cd-string",
+        &json!({
+            "established": [{
+                "predicate": "adjacent",
+                "subject": "camelot",
+                "value": "excalibur",
+            }],
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    let codes = codes(&response);
+    if SYNTAX {
+        assert!(
+            codes
+                .iter()
+                .any(|code| code == "continuity.world-contradiction"),
+            "a syntax build still assembles and parses the three strings: {response}"
+        );
+        return;
+    }
+    // The whole point of the typed successor: without it, the row is text this
+    // build has no parser for, and it says so instead of checking nothing.
+    assert_eq!(
+        codes,
+        vec!["payload.runtime-continuity-invalid"],
+        "the untyped row is unreadable on a parser-free build: {response}"
+    );
+    let message = result(&response)["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        message.contains("atom_expr"),
+        "the finding must name the typed successor, got: {message}"
+    );
 }
 
 // -- forks: the typed additions vs. the text declarations ---------------------
@@ -341,6 +515,65 @@ fn per_declaration_discard_is_refused_without_a_renderer() {
         result(&status)["findings"].is_array(),
         "the workspace is still open after the refusal: {status}"
     );
+}
+
+/// A demo-mode workspace (no lorestore) with one staged entity, and the
+/// `author.materialize` response for it.
+fn materialize_a_demo_workspace(sessions: &mut Sessions, store: &mut Store) -> Value {
+    let opened = drive(
+        &request("ws-open", "author.open", &json!({ "scope": "camelot" })),
+        sessions,
+        store,
+    );
+    let workspace = result(&opened)["workspace"].as_str().unwrap().to_owned();
+    drive(
+        &request(
+            "ws-add",
+            "author.add_entity",
+            &json!({
+                "workspace": workspace,
+                "kind": "person",
+                "id": "elaine",
+                "name": "Elaine",
+                "provenance": { "kind": "proposed", "origin": "ls7-default-build" },
+            }),
+        ),
+        sessions,
+        store,
+    );
+    drive(
+        &request(
+            "ws-materialize",
+            "author.materialize",
+            &json!({ "workspace": workspace }),
+        ),
+        sessions,
+        store,
+    )
+}
+
+#[test]
+fn materialize_without_a_lorestore_is_refused_without_a_renderer() {
+    let (mut sessions, mut store) = demo();
+    let response = materialize_a_demo_workspace(&mut sessions, &mut store);
+    if SYNTAX {
+        // Demo mode: the rendering IS the materialization, and that is what the
+        // 0.5.1/0.6.x author fixtures replay byte-for-byte.
+        assert!(
+            !result(&response)["rendered"].as_array().unwrap().is_empty(),
+            "a syntax build renders the staged block: {response}"
+        );
+        return;
+    }
+    // A default build has neither half — nothing to commit to and nothing to
+    // render — so an `ok` with an empty `findings` list would read to the author
+    // as "materialized clean" when nothing was written anywhere.
+    let message = error(&response)["message"].as_str().unwrap().to_owned();
+    assert!(
+        message.contains("lorestore") && message.contains("syntax"),
+        "the refusal must name both ways forward, got: {message}"
+    );
+    assert_eq!(error(&response)["code"], json!("schema-violation"));
 }
 
 // -- projects -----------------------------------------------------------------

@@ -22,14 +22,20 @@ pub mod serve;
 pub mod session;
 mod simulation;
 
-/// The current worker contract and envelope protocol version. `0.6.3` is the
-/// LS-7 typed-successor bump: the three text-on-wire remnants each gain an
-/// optional typed field beside the string they replace — `goal_atom` beside
-/// `dli.query`/`author.query`'s `goal`, `additions` beside `dli.fork.add`'s
-/// `declarations`, and `atom_expr` beside a payload claim's `atom`. Every new
-/// field is `skip_serializing_if = "Option::is_none"`, so a request that omits
-/// it serializes byte-identically to `0.6.2` and the string path is untouched.
-/// The retirement of the string forms is registered in
+/// The current worker contract and envelope protocol version. `0.6.4` is the
+/// LS-7 runtime-continuity typed-successor bump: the fourth and last place the
+/// wire carried `.dli` text — `dli.check-draft`'s `continuity` rows, whose
+/// `predicate`/`subject`/`value` strings were assembled into
+/// `predicate(subject, value)` and parsed — gains the typed successors
+/// `atom_expr` (on an established or prior fact) and `to_atom_expr` (on a
+/// change, whose target atom is what canon is checked against). Both are
+/// `skip_serializing_if = "Option::is_none"`, so a `0.6.3` request serializes
+/// byte-identically and the string path is untouched.
+///
+/// `0.6.3` was the LS-7 typed-successor bump for the other three text-on-wire
+/// remnants: `goal_atom` beside `dli.query`/`author.query`'s `goal`,
+/// `additions` beside `dli.fork.add`'s `declarations`, and `atom_expr` beside a
+/// payload claim's `atom`. The retirement of the string forms is registered in
 /// `serve::KILLED_FIELDS` and gated on contract 1.0 — dormant here.
 /// `0.6.2` was the LS-9 typed-interior structuring bump: typing the `ratify`
 /// carriage (`RatifyDecl`) shifted the ratify serialization, which re-derives
@@ -39,9 +45,9 @@ mod simulation;
 /// (or legacy `0.5.1`) still receives byte-identical responses via dual-mode.
 /// `0.6.1` added the branch/merge ops (`author.branch`, `author.merge`) — the
 /// LS-6 merge engine on the tool surface (roadmap LS-6). `0.6.0` through
-/// `0.6.3` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
+/// `0.6.4` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
 /// shape.
-pub const CONTRACT_VERSION: &str = "0.6.3";
+pub const CONTRACT_VERSION: &str = "0.6.4";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -52,12 +58,13 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// Every contract version this build answers. Multi-version dual-mode
 /// negotiation (DL-0046, extended by LS-6, LS-9, and LS-7): `0.5.1` (legacy),
 /// `0.6.0` (JSON-first), `0.6.1` (JSON-first + branch/merge), `0.6.2`
-/// (JSON-first + LS-9 typed interiors), and `0.6.3` (JSON-first + LS-7 typed
-/// successors). Contract `1.0` — where the retired string forms in
-/// `serve::KILLED_FIELDS` start being refused — is deliberately absent: no
-/// version this build speaks reaches it, so the field-level killed forms are
-/// dormant.
-pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &["0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3"];
+/// (JSON-first + LS-9 typed interiors), `0.6.3` (JSON-first + LS-7 typed
+/// successors), and `0.6.4` (JSON-first + LS-7 typed runtime-continuity rows).
+/// Contract `1.0` — where the retired string forms in `serve::KILLED_FIELDS`
+/// start being refused — is deliberately absent: no version this build speaks
+/// reaches it, so the field-level killed forms are dormant.
+pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] =
+    &["0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4"];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
 /// 0.6.0 replay-context fields (`root_hash`, `valuation`) and the JSON-first
