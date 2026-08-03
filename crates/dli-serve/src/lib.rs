@@ -8,6 +8,7 @@
 
 pub mod author;
 pub mod contract;
+pub mod demo;
 pub mod envelope;
 pub mod evidence;
 pub mod finding;

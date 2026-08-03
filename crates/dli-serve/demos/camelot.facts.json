@@ -1,0 +1,227 @@
+{
+  "commit": {
+    "schema_version": 2,
+    "authority": null,
+    "parent": "sha256:be78d4f6522725ad26e08555610344a380a3ef586a6301aa80420fe58288dce2",
+    "facts": [
+      "sha256:737556a9284ddd54c5084079d3e3754bd75ad2b1d5b3fc632a797a0c842833a9",
+      "sha256:cf4e4b46d1bc36c0e7bd476713348375d3c9ad2190a23eeb815047604acb8f58",
+      "sha256:e0021ae7d3c41a4a065ef84853115dbce2e4eb430762309f8de04e4051ca0dd8",
+      "sha256:d0af634fed46f283a80a7b0d9980cedbc628f8b59c9d3e9895e26e533da5c80b",
+      "sha256:cf7d37666af02c35db1faf3e499f67ede9341262e9a8ffa3ac71c067dc056522",
+      "sha256:7c7422ff58612653e875a81b6bdd77229642e3f02dd0c62c84bbf99db7257a86",
+      "sha256:c59dda706edf0f7ddd25581809f08516b09e0b998a4ce4869ae6afda3d245949",
+      "sha256:b4df7fa3e46175e9cf542aac4435f30ddf74bdda09fbc9174fdeb08b0bf62e0d"
+    ],
+    "lineage": [],
+    "evidence": [],
+    "interner": [
+      "D-0001",
+      "D-0002",
+      "h.camelot#0"
+    ],
+    "decisions": [
+      "D-0001",
+      "D-0002"
+    ],
+    "pack_name": "camelot"
+  },
+  "facts": [
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:bd087a5f9f72d560f06ee32db609f498b5c7384d5a0764a68e93e8930991610c",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Ratify",
+          "D-0001"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "ratify",
+        "name": "D-0001",
+        "body": [
+          "{\"Ratify\":{\"decision\":{\"text\":\"D-0001\",\"span\":{\"file\":0,\"start\":0,\"end\":0}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:a26447c5fb670061352e0174a8e06fc7b1bdce88feb815f065c1bc6e223a5ced",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Ratify",
+          "D-0002"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "ratify",
+        "name": "D-0002",
+        "body": [
+          "{\"Ratify\":{\"decision\":{\"text\":\"D-0002\",\"span\":{\"file\":0,\"start\":0,\"end\":0}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:444c665de2de54eeafca7c74b73fe6203d28b050a8d53f4e633ddaf7b8af1996",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Kind",
+          "place"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "kind",
+        "name": "place",
+        "body": [
+          "{\"Kind\":{\"name\":{\"text\":\"place\",\"span\":{\"file\":0,\"start\":0,\"end\":0}},\"provenance\":{\"marker\":\"Ratified\",\"citations\":[{\"id\":{\"text\":\"D-0001\",\"span\":{\"file\":0,\"start\":0,\"end\":0}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":0,\"end\":0}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:13f94a335246f46cd5748628f95aa1c85d8aae7f9fb70281a5e877caad064202",
+      "atom": {
+        "pred": "place",
+        "args": [
+          "camelot"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:f53fd8bc1b2e5bdecaf0b007fb633931bf65e89d82fb15c6dc6fa52caede71f4",
+      "atom": {
+        "pred": "place",
+        "args": [
+          "the-lake"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:6ea94ac21e05aa91272114e08b8d86a53ab75c86b7c669e2ed1b8a578f91bd62",
+      "atom": {
+        "pred": "thing",
+        "args": [
+          "excalibur"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+1"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:9d9e29f77df8844ee871ec4f5fd9e81f0646419e4a0ca9d81ffbf66b3703e9b8",
+      "atom": {
+        "pred": "adjacent",
+        "args": [
+          "camelot",
+          "the-lake"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:039f5667c925b85b7350a5d3c8582f9a797b0b6c487bfcd777f5951d80672b78",
+      "atom": {
+        "pred": "kept-at",
+        "args": [
+          "excalibur",
+          "camelot"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+2"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    }
+  ]
+}

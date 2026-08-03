@@ -1,0 +1,30 @@
+scope warding-vows
+
+use chronology
+
+ratify d-1
+
+cycle tide(4) = ebb | slack | flood | high  decided d-1
+
+warded(arden)          decided d-1
+phase(tide, slack)     decided d-1
+
+practice warding-vows  proposed {
+  kind ground = door | field | ore
+  resource debt : linear conserved
+  rule ward-form(ground, fibre)
+  rule give-and-take
+  error fizzle  refines L2 premise-not-available where absent
+  error rebound refines L2 premise-not-available where contradicted
+  cost material
+  }
+
+proof e01-s04  speaker arden  in warding-vows {
+  premise p1  warded(arden)        cited d-1  cue "line 112"
+  premise p2  phase(tide, slack)   from-scene cue "line 118"
+  premise p3  debt(1)              drawn-against p1
+  step    s1  instantiate ward-form  with ground = door, fibre = withy
+  step    s2  chain from p1, s1 by give-and-take conclusion bound(ward, door)
+  spend   p3
+  close   bound(ward, door)  expect holds
+  }

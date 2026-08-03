@@ -20,13 +20,12 @@ use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
-use dli_syntax::parse_document;
 use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
 use dli_world::language::LanguageModel;
-use dli_world::loader::example_docs;
 use dli_world::{CompiledWorld, Pack, compile};
 
+use crate::demo;
 use crate::envelope::ErrorCode;
 use crate::project::Project;
 
@@ -42,55 +41,6 @@ const FRENCH_DECK_RULES: &str = include_str!("../../../examples/games/french-dec
 /// The `french-deck` export profile catalog (a `cards` and a `ludii-gdl` profile).
 const FRENCH_DECK_PROFILES: &str =
     include_str!("../../../examples/games/french-deck/profiles.json");
-
-/// The `round-table` teaching corpus: the neutral, wholly public-domain Matter of
-/// Britain world that ships with dli (`examples/camelot.dli`). It carries the one
-/// shape the `camelot` in-Rust builtin lacks — a full chronology (an era spine,
-/// events with a `before`-fact and a deliberately UNORDERED pair) plus a language
-/// dialect — so the `timeline.show`/`timeline.order` and dialect-scoped
-/// `name.check` reads have a resolvable, engine-owned world to run against. It is
-/// the neutral counterpart to any one production world; the worker embeds no
-/// production canon (the dli/TPtH separation invariant). Embedded as source (never
-/// a file read at runtime) so the worker stays offline and self-contained, exactly
-/// like the `french-deck` game rules above.
-const ROUND_TABLE_SRC: &str = include_str!("../../../examples/camelot.dli");
-
-/// The built-in `warding-vows` teaching corpus: a linear-conserved proof
-/// discipline with one worked casting that checks. It gives the `check-proof` and
-/// `simulate.*` ops a hermetic, resolvable document that carries both a practice
-/// and a proof — the neutral `camelot` demo world carries neither. Embedded as
-/// source (never a file read) so the worker stays offline and self-contained.
-const WARDING_VOWS_SRC: &str = r#"scope warding-vows
-
-use chronology
-
-ratify d-1
-
-cycle tide(4) = ebb | slack | flood | high  decided d-1
-
-warded(arden)          decided d-1
-phase(tide, slack)     decided d-1
-
-practice warding-vows  proposed {
-  kind ground = door | field | ore
-  resource debt : linear conserved
-  rule ward-form(ground, fibre)
-  rule give-and-take
-  error fizzle  refines L2 premise-not-available where absent
-  error rebound refines L2 premise-not-available where contradicted
-  cost material
-  }
-
-proof e01-s04  speaker arden  in warding-vows {
-  premise p1  warded(arden)        cited d-1  cue "line 112"
-  premise p2  phase(tide, slack)   from-scene cue "line 118"
-  premise p3  debt(1)              drawn-against p1
-  step    s1  instantiate ward-form  with ground = door, fibre = withy
-  step    s2  chain from p1, s1 by give-and-take conclusion bound(ward, door)
-  spend   p3
-  close   bound(ward, door)  expect holds
-  }
-"#;
 
 /// A loaded corpus scope: the compiled world every read op queries, and the fork
 /// store every fork op layers over its saturated base.
@@ -341,7 +291,7 @@ impl Sessions {
     #[must_use]
     pub fn export_registry(&self, document: &str) -> Option<Registry> {
         match &self.source {
-            CorpusSource::Demo => builtin_pack(document).map(|_| Registry::builtin()),
+            CorpusSource::Demo => demo::is_demo_document(document).then(Registry::builtin),
             CorpusSource::Project(project) => project
                 .document(document)
                 .map(|loaded| loaded.profiles.clone()),
@@ -393,49 +343,31 @@ impl Sessions {
     }
 }
 
+/// The deterministic source anchor an export manifest records as its `commit`.
+///
+/// It is taken over a demo's **committed source** — the bytes in the tree, not
+/// the stored facts it lowers to — so the anchor stays the frozen, wire-visible
+/// value the contract fixtures pin (see [`crate::demo::source_bytes`]).
 fn demo_source_fingerprint(document: &str) -> Option<String> {
-    let source = match document {
-        "round-table" => ROUND_TABLE_SRC.as_bytes(),
-        "warding-vows" => WARDING_VOWS_SRC.as_bytes(),
-        "french-deck" => FRENCH_DECK_RULES.as_bytes(),
-        "camelot" => {
-            let pack = builtin_pack(document)?;
-            let bytes = serde_json::to_vec(&pack).ok()?;
-            return Some(source_fingerprint([bytes.as_slice()]));
-        }
-        _ => return None,
-    };
-    Some(source_fingerprint([source]))
-}
-
-/// The built-in corpus pack for a doc-id, or `None` if the id is unknown. The v0
-/// resolver knows only `camelot` (the crate's neutral demo world); pointing it at
-/// a corpus directory generalizes exactly this one function. It is the single
-/// source both the read surface ([`Sessions::scope`]) and the Door T store
-/// (`serve`'s `with_pack` construction) resolve a corpus through.
-#[must_use]
-pub fn builtin_pack(document: &str) -> Option<Pack> {
+    if let Some(source) = demo::source_bytes(document) {
+        return Some(source_fingerprint([source.as_ref()]));
+    }
     match document {
-        "camelot" => Some(Pack {
-            name: document.to_owned(),
-            documents: example_docs(),
-        }),
-        "warding-vows" => {
-            let (doc, _diags) = parse_document(WARDING_VOWS_SRC);
-            Some(Pack {
-                name: document.to_owned(),
-                documents: vec![doc],
-            })
-        }
-        "round-table" => {
-            let (doc, _diags) = parse_document(ROUND_TABLE_SRC);
-            Some(Pack {
-                name: document.to_owned(),
-                documents: vec![doc],
-            })
-        }
+        "french-deck" => Some(source_fingerprint([FRENCH_DECK_RULES.as_bytes()])),
         _ => None,
     }
+}
+
+/// The built-in corpus pack for a doc-id, or `None` if the id is unknown.
+///
+/// The pack is reconstructed from the demo's **committed fact objects**
+/// ([`crate::demo`]) — the same read path any lorestore-backed corpus takes — so
+/// no `.dli` text is parsed to serve a demo (roadmap §LS-7). It is the single
+/// source both the read surface ([`Sessions::scope`]) and the Door T store
+/// (`serve`'s `with_pack` construction) resolve a demo corpus through.
+#[must_use]
+pub fn builtin_pack(document: &str) -> Option<Pack> {
+    demo::pack(document)
 }
 
 /// The built-in episode season for a doc-id, or `None` if the id names no season.
@@ -443,7 +375,7 @@ pub fn builtin_pack(document: &str) -> Option<Pack> {
 /// Episodes are serde payloads until their `.dli` surface lands (TIME-3), and the
 /// compiled world carries none — so the worker resolves a season the same way it
 /// resolves a corpus: by id, from an engine-owned neutral fixture. The
-/// `round-table` season is a three-episode fold over the `ROUND_TABLE_SRC`
+/// `round-table` season is a three-episode fold over the `round-table`
 /// world (production order, story anchors, cyclic phases, a knowledge ledger, and
 /// one open loop opened in the première and closed in the finale) — enough for the
 /// `timeline.knows`/`timeline.episodes`/`timeline.phases` reads to project real
@@ -457,14 +389,11 @@ pub fn builtin_episodes(document: &str) -> Option<Vec<Episode>> {
 }
 
 /// The worker's demo language model — the compiled language layer of the
-/// `ROUND_TABLE_SRC` world (its `old-speech` dialect and name-parts). The
-/// `name.check` op carries no corpus reference, so a dialect-scoped vet resolves
-/// its register here, against the one engine-owned neutral corpus that declares a
-/// dialect. An empty dialect keeps the register-free default behavior.
+/// `round-table` world, reconstructed from its committed fact objects. See
+/// [`crate::demo::language_model`].
 #[must_use]
 pub fn demo_language_model() -> LanguageModel {
-    let (doc, _diags) = parse_document(ROUND_TABLE_SRC);
-    LanguageModel::from_documents(&[doc]).model
+    demo::language_model()
 }
 
 /// A three-episode season over the `round-table` world, built in Rust (the

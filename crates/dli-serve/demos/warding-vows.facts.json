@@ -1,0 +1,212 @@
+{
+  "commit": {
+    "schema_version": 2,
+    "authority": null,
+    "parent": "sha256:be78d4f6522725ad26e08555610344a380a3ef586a6301aa80420fe58288dce2",
+    "facts": [
+      "sha256:904a96dcf156c68f9afdebb338ed465838087752567f98aa32c4058ead88d81b",
+      "sha256:d3fcc03fb0b1642ed41f9437fcff4127ad1f696f466aa1762f68ca3e7efe2fb1",
+      "sha256:649b6c7ded89256c2396e0ecb7862d830160dca3b09c832ad4ce88f93892806f",
+      "sha256:f4524034116462c8070580da2342ca56305685ef177dc150feb877aa85e0f87d",
+      "sha256:1ad5c4305c0e8a59871e5a91642bfea27cbf4a40c83da4837e067759dc4d1827",
+      "sha256:161b03d1e9a532cb5f05114a3da15001e584230c6d95134d7a5aa4bdf2c1b066",
+      "sha256:a7d0b5759a73349f0b53f959e8449f41c397537e5a25d2a81f5b6962c8f7aa20"
+    ],
+    "lineage": [],
+    "evidence": [],
+    "interner": [
+      "d-1"
+    ],
+    "decisions": [
+      "d-1"
+    ],
+    "pack_name": "warding-vows"
+  },
+  "facts": [
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:355d0d43023e38002a9dd33d0b73e1b4acc841c6705b1d63f741acf38844cf7b",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Use",
+          "chronology"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "use",
+        "name": "chronology",
+        "body": [
+          "{\"Use\":{\"target\":{\"text\":\"chronology\",\"span\":{\"file\":0,\"start\":24,\"end\":34}},\"span\":{\"file\":0,\"start\":20,\"end\":34}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:f3d4cdb7cb962ab991d9141f8ab07fd1b01ad6df66e3273dc736e9cdd54b3da5",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Ratify",
+          "d-1"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "ratify",
+        "name": "d-1",
+        "body": [
+          "{\"Ratify\":{\"decision\":{\"text\":\"d-1\",\"span\":{\"file\":0,\"start\":43,\"end\":46}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:534ac023094fcbb09617516eef987d1ef01eb64b2946abf26f04f7fe77ed939f",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Cycle",
+          "tide"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "cycle",
+        "name": "tide",
+        "body": [
+          "{\"Cycle\":{\"name\":{\"text\":\"tide\",\"span\":{\"file\":0,\"start\":54,\"end\":58}},\"modulus\":4,\"spokes\":[{\"text\":\"ebb\",\"span\":{\"file\":0,\"start\":64,\"end\":67}},{\"text\":\"slack\",\"span\":{\"file\":0,\"start\":70,\"end\":75}},{\"text\":\"flood\",\"span\":{\"file\":0,\"start\":78,\"end\":83}},{\"text\":\"high\",\"span\":{\"file\":0,\"start\":86,\"end\":90}}],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-1\",\"span\":{\"file\":0,\"start\":100,\"end\":103}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":92,\"end\":99}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:8cced3a7eb037e4be350eed70f06296a8cbffe0b23abd5507617c91f41a2b03a",
+      "atom": {
+        "pred": "warded",
+        "args": [
+          "arden"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:59404ba25add943fa128aa62c1c5961011aa1d2e1fe9d518381295c315b4a422",
+      "atom": {
+        "pred": "phase",
+        "args": [
+          "tide",
+          "slack"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted"
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:d6324ec11922e6ba5c13d91bb48f35629a2ff3e6e02c45d17270153d3ed9c729",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Practice",
+          "warding-vows"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "practice",
+        "name": "warding-vows",
+        "body": [
+          "{\"Practice\":{\"name\":{\"text\":\"warding-vows\",\"span\":{\"file\":0,\"start\":185,\"end\":197}},\"body\":{\"clauses\":[{\"text\":\"kind ground = door | field | ore\",\"span\":{\"file\":0,\"start\":212,\"end\":244}},{\"text\":\"resource debt : linear conserved\",\"span\":{\"file\":0,\"start\":247,\"end\":279}},{\"text\":\"rule ward-form(ground, fibre)\",\"span\":{\"file\":0,\"start\":282,\"end\":311}},{\"text\":\"rule give-and-take\",\"span\":{\"file\":0,\"start\":314,\"end\":332}},{\"text\":\"error fizzle refines L2 premise-not-available where absent\",\"span\":{\"file\":0,\"start\":335,\"end\":394}},{\"text\":\"error rebound refines L2 premise-not-available where contradicted\",\"span\":{\"file\":0,\"start\":397,\"end\":462}},{\"text\":\"cost material\",\"span\":{\"file\":0,\"start\":465,\"end\":478}}],\"def\":{\"name\":{\"text\":\"warding-vows\",\"span\":{\"file\":0,\"start\":185,\"end\":197}},\"marker\":\"Proposed\",\"uses\":[],\"sorts\":[{\"name\":{\"text\":\"ground\",\"span\":{\"file\":0,\"start\":212,\"end\":244}},\"variants\":[{\"text\":\"door\",\"span\":{\"file\":0,\"start\":212,\"end\":244}},{\"text\":\"field\",\"span\":{\"file\":0,\"start\":212,\"end\":244}},{\"text\":\"ore\",\"span\":{\"file\":0,\"start\":212,\"end\":244}}],\"source\":null,\"span\":{\"file\":0,\"start\":212,\"end\":244}}],\"roles\":[],\"resources\":[{\"name\":{\"text\":\"debt\",\"span\":{\"file\":0,\"start\":247,\"end\":279}},\"arg\":null,\"kind\":{\"Linear\":{\"conserved\":true}},\"cap\":null,\"order\":[],\"direction\":\"decays\",\"law_text\":\"linear conserved\",\"span\":{\"file\":0,\"start\":247,\"end\":279}}],\"rules\":[{\"form\":{\"text\":\"ward-form\",\"span\":{\"file\":0,\"start\":282,\"end\":311}},\"args\":[{\"text\":\"ground\",\"span\":{\"file\":0,\"start\":282,\"end\":311}},{\"text\":\"fibre\",\"span\":{\"file\":0,\"start\":282,\"end\":311}}],\"requires\":null,\"span\":{\"file\":0,\"start\":282,\"end\":311}},{\"form\":{\"text\":\"give-and-take\",\"span\":{\"file\":0,\"start\":314,\"end\":332}},\"args\":[],\"requires\":null,\"span\":{\"file\":0,\"start\":314,\"end\":332}}],\"conditions\":[],\"errors\":[{\"name\":{\"text\":\"fizzle\",\"span\":{\"file\":0,\"start\":335,\"end\":394}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"premise-not-available where absent\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":335,\"end\":394}},{\"name\":{\"text\":\"rebound\",\"span\":{\"file\":0,\"start\":397,\"end\":462}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"premise-not-available where contradicted\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":397,\"end\":462}}],\"effects\":[],\"costs\":[{\"text\":\"material\",\"span\":{\"file\":0,\"start\":465,\"end\":478}}],\"cycles_in_scope\":[],\"span\":{\"file\":0,\"start\":185,\"end\":197}}},\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":199,\"end\":207}}}}"
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "authority": null,
+      "claim_id": "sha256:6dbcfd17a642c3c08e44086f15f083ba6156cc507171a1c8272e092d9c583b99",
+      "atom": {
+        "pred": "__decl",
+        "args": [
+          "Proof",
+          "e01-s04"
+        ]
+      },
+      "support": {
+        "monomials": [
+          []
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "expert_body": {
+        "kind": "proof",
+        "name": "e01-s04",
+        "body": [
+          "{\"Proof\":{\"name\":{\"text\":\"e01-s04\",\"span\":{\"file\":0,\"start\":490,\"end\":497}},\"head\":[\"speaker\",\"arden\",\"in\",\"warding-vows\"],\"body\":{\"items\":[{\"clause\":{\"text\":\"premise p1 warded(arden) cited d-1 cue \\\"line 112\\\"\",\"span\":{\"file\":0,\"start\":534,\"end\":592}},\"op\":{\"premise\":{\"label\":\"p1\",\"atom\":\"warded(arden)\",\"mods\":[\"cited\",\"d-1\",\"cue\",\"line 112\"],\"atom_expr\":{\"pred\":{\"text\":\"warded\",\"span\":{\"file\":0,\"start\":0,\"end\":6}},\"args\":[{\"Sym\":{\"text\":\"arden\",\"span\":{\"file\":0,\"start\":7,\"end\":12}}}]}}}},{\"clause\":{\"text\":\"premise p2 phase(tide, slack) from-scene cue \\\"line 118\\\"\",\"span\":{\"file\":0,\"start\":595,\"end\":653}},\"op\":{\"premise\":{\"label\":\"p2\",\"atom\":\"phase(tide, slack)\",\"mods\":[\"from-scene\",\"cue\",\"line 118\"],\"atom_expr\":{\"pred\":{\"text\":\"phase\",\"span\":{\"file\":0,\"start\":0,\"end\":5}},\"args\":[{\"Sym\":{\"text\":\"tide\",\"span\":{\"file\":0,\"start\":6,\"end\":10}}},{\"Sym\":{\"text\":\"slack\",\"span\":{\"file\":0,\"start\":12,\"end\":17}}}]}}}},{\"clause\":{\"text\":\"premise p3 debt(1) drawn-against p1\",\"span\":{\"file\":0,\"start\":656,\"end\":705}},\"op\":{\"premise\":{\"label\":\"p3\",\"atom\":\"debt(1)\",\"mods\":[\"drawn-against\",\"p1\"],\"atom_expr\":{\"pred\":{\"text\":\"debt\",\"span\":{\"file\":0,\"start\":0,\"end\":4}},\"args\":[{\"Int\":1}]}}}},{\"clause\":{\"text\":\"step s1 instantiate ward-form with ground = door, fibre = withy\",\"span\":{\"file\":0,\"start\":708,\"end\":776}},\"op\":{\"step\":{\"instantiate\":{\"label\":\"s1\",\"form\":\"ward-form\",\"bindings\":[{\"name\":\"ground\",\"value\":\"door\"},{\"name\":\"fibre\",\"value\":\"withy\"}]}}}},{\"clause\":{\"text\":\"step s2 chain from p1, s1 by give-and-take conclusion bound(ward, door)\",\"span\":{\"file\":0,\"start\":779,\"end\":854}},\"op\":{\"step\":{\"chain\":{\"label\":\"s2\",\"joins\":[\"p1\",\"s1\"],\"law\":\"give-and-take\",\"conclusion\":\"bound(ward, door)\"}}}},{\"clause\":{\"text\":\"spend p3\",\"span\":{\"file\":0,\"start\":857,\"end\":867}},\"op\":{\"resource\":{\"keyword\":\"spend\",\"label\":\"p3\"}}},{\"clause\":{\"text\":\"close bound(ward, door) expect holds\",\"span\":{\"file\":0,\"start\":870,\"end\":909}},\"op\":{\"close\":{\"atom\":\"bound(ward, door)\",\"verdict\":\"holds\"}}}]}}}"
+        ]
+      }
+    }
+  ]
+}
