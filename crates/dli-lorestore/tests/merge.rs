@@ -536,15 +536,23 @@ fn fact_decl(pred: &str, arg: &str) -> Decl {
 }
 
 /// A `@ratified D-1` rule declaration from its clause text.
+///
+/// LS-9 replaced `RuleDecl.body: Vec<Clause>` with the typed `RuleBody`; the
+/// parser (`structure_rule_body`) is the single producer of the pre-parsed
+/// `Datalog`, so build the interior through it rather than by hand — otherwise
+/// `datalog` is `None` and the rule never executes on recompile.
 fn rule_decl(name: &str, body_text: &str) -> Decl {
+    let name_ident = Ident::synthetic(name);
+    let clauses = vec![Clause {
+        text: body_text.to_owned(),
+        span: Span::synthetic(),
+    }];
+    let body = dli_syntax::structure_rule_body(&clauses, &name_ident, &[]);
     Decl::Rule(RuleDecl {
-        name: Ident::synthetic(name),
+        name: name_ident,
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: body_text.to_owned(),
-            span: Span::synthetic(),
-        }],
+        body,
         provenance: Some(ratified()),
     })
 }
