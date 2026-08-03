@@ -37,8 +37,8 @@
         "id": "1",
         "ok": true,
         "result": {
-          "merge_commit": "sha256:c8031e40352888d0e3e0190d42a37e1a6e85a68170934fde0c094dd2c06e1c87",
-          "merge_base": "sha256:d6cec5eb943cadcdbcaa977a1bf8bfe541fb9759c9e3d1f506c3331ae952cef1",
+          "merge_commit": "sha256:807dc41e2f6e0a86849889e7beaa345c319815a382998fbd3e3bdc0b9c0a2fab",
+          "merge_base": "sha256:b66879fff2066de23b3d67b5a50187419ad72a2be218a937c456351301a21fc2",
           "conflicts": [],
           "findings": [],
           "stratifies": true,

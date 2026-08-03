@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 0.6.1
+contract_version: 0.6.2
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -76,7 +76,7 @@ fixtures:
 - path: golden/author-list-workspaces-v1.json
   sha256: f13bc25a4ab9a2d9f9f6011dcd7bc7533a2714d01ba8f43b1a2010824b91a05c
 - path: golden/author-merge-v1.json
-  sha256: 9586bc2d7edf2df28c9f98c8064c9eb44659ba76a4357a3a6becb6fa18ca092a
+  sha256: c175a13a24d8f10ad70bcced92a071666717261767a0b12fa59be65f714f8ff1
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-v1.json
@@ -98,7 +98,7 @@ fixtures:
 - path: golden/check-proof-turning-v1.json
   sha256: b906d311f3fbd04573d4ae9397fbd39ccf679cb6a1ce072f84b8282a846a759c
 - path: golden/export-ludii-v1.json
-  sha256: bff481036ec3269e05c85e289627484fdc49b10b2302604a0bd62e73861eb0d2
+  sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
 - path: golden/fork-add-v1.json
   sha256: ed7f069229f220d784bf1bc1a5423455f1089d16ccba91b9c88366f75e6f9617
 - path: golden/fork-diff-v1.json
