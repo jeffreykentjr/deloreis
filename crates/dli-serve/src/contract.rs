@@ -9,12 +9,14 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use dli_ast::term::AtomExpr;
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_eval::fork::{AtomChange, ConflictKind};
 use dli_eval::query::{Layer, QueryRow};
 use dli_eval::why::{Why, WhyNot};
+use dli_eval::world::GroundAtom;
 use dli_export::{
     ArticyExport, ContextPack, CsvExport, ExportManifest, ExportProfile, StaticWikiExport,
 };
@@ -390,8 +392,17 @@ pub enum AttestationAnswer {
 pub struct QueryParams {
     /// The document id to query.
     pub document: String,
-    /// The goal atom, rendered.
+    /// The goal atom, rendered. The 0.6.3 typed successor is [`Self::goal_atom`];
+    /// this string form is a registered field-level killed form, retired at
+    /// contract 1.0 and still accepted here.
     pub goal: String,
+    /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
+    /// carried structurally instead of re-parsed from text. When present it is
+    /// used and `goal` is ignored; when absent `goal` is parsed exactly as
+    /// before. A `Term::Var` argument is a query variable (the string form's
+    /// `?who`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub goal_atom: Option<AtomExpr>,
     /// The standing floor for the returned rows (`certain` | `possible` | `all`).
     /// Absent means `all` — no floor. (`--layer`.)
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -559,8 +570,21 @@ pub struct ForkSupposeParams {
 pub struct ForkAddParams {
     /// The fork handle.
     pub fork: String,
-    /// The rendered proposed declarations to add.
+    /// The rendered proposed declarations to add. The 0.6.3 typed successor is
+    /// [`Self::additions`]; this string form is a registered field-level killed
+    /// form, retired at contract 1.0 and still accepted here.
     pub declarations: Vec<String>,
+    /// The proposed facts as typed ground atoms — the 0.6.3 typed successor to
+    /// [`Self::declarations`]. When present it is used and `declarations` is
+    /// ignored; when absent the declaration lines are parsed and lowered
+    /// exactly as before.
+    ///
+    /// A ground atom is the whole of what the string path can express: both a
+    /// fact line and a slot line lower to a ground fact, and every lowered
+    /// addition is asserted by fiat with an unconditional annotation, so the
+    /// typed form reaches exactly the same additions the text form did.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub additions: Option<Vec<GroundAtom>>,
 }
 
 /// `dli.fork.add` result.
@@ -1536,8 +1560,17 @@ pub struct AuthorQueryParams {
     pub workspace: String,
     /// The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`
     /// is a query variable that enumerates matches (`serves(mara, ?who)`); a bare
-    /// symbol is a ground constant.
+    /// symbol is a ground constant. The 0.6.3 typed successor is
+    /// [`Self::goal_atom`]; this string form is a registered field-level killed
+    /// form, retired at contract 1.0 and still accepted here.
     pub goal: String,
+    /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
+    /// carried structurally instead of re-parsed from text. When present it is
+    /// used and `goal` is ignored; when absent `goal` is parsed exactly as
+    /// before. A `Term::Var` argument is a query variable (the string form's
+    /// `?who`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub goal_atom: Option<AtomExpr>,
     /// The standing floor for the returned rows (`certain` | `possible` | `all`).
     /// Absent means `all` — no floor.
     #[serde(skip_serializing_if = "Option::is_none", default)]

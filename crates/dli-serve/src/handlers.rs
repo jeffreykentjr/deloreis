@@ -255,7 +255,7 @@ fn check_finding_key(finding: &CheckFinding) -> (u8, &str, &str) {
 
 fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: QueryParams = params(request)?;
-    let goal = parse_atom(&p.goal)?;
+    let goal = goal_atom(p.goal_atom.as_ref(), &p.goal)?;
     // Resolve an optional fork handle to its valuation overlay first, so its
     // (owned) valuation outlives the query scope borrow (H9, `--fork`).
     let fork = match &p.fork {
@@ -518,10 +518,14 @@ fn handle_fork_promote(request: &Request, sessions: &mut Sessions) -> Result<Res
 
 fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkAddParams = params(request)?;
-    // Parse the declaration lines through the syntax layer and lower them to
-    // ground facts BEFORE touching session state, so a malformed decl is a schema
-    // error caught up front, never a half-applied fork.
-    let additions = additions_from_declarations(&p.declarations)?;
+    // Prefer the 0.6.3 typed successor; otherwise parse the declaration lines
+    // through the syntax layer and lower them to ground facts. Either way the
+    // additions are built BEFORE touching session state, so a malformed decl is a
+    // schema error caught up front, never a half-applied fork.
+    let additions = match &p.additions {
+        Some(atoms) => additions_from_atoms(atoms),
+        None => additions_from_declarations(&p.declarations)?,
+    };
     let (id, scope) = fork_scope(sessions, &p.fork)?;
     scope.forks.add(id, additions).map_err(fork_fault)?;
     // The consequence delta runs the fork's incremental fixpoint over the base.
@@ -533,6 +537,20 @@ fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Respons
             delta: diff_delta(&delta),
         },
     ))
+}
+
+/// Lift typed ground atoms to fork-local additions — the 0.6.3 typed successor
+/// to [`additions_from_declarations`], reaching the same additions without a
+/// parse. Each atom is asserted by fiat with an unconditional annotation,
+/// exactly as the lowered text path does, so the two forms are
+/// indistinguishable downstream. No lexical validation is imposed on a typed
+/// atom, matching the `author.add_relation` precedent for structured atoms on
+/// the wire.
+fn additions_from_atoms(atoms: &[GroundAtom]) -> Vec<Addition> {
+    atoms
+        .iter()
+        .map(|atom| Addition::asserted(atom.clone(), Ann::unconditional()))
+        .collect()
 }
 
 /// Parse a run of `.dli` declaration lines and lower them to fork-local
@@ -1722,6 +1740,18 @@ pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<S
 }
 
 /// Parse a rendered goal atom through the shared syntax-backed wire adapter.
+/// Resolve a query goal from the dual-mode pair `(goal_atom, goal)`: the 0.6.3
+/// typed successor wins when the caller sent it, and the rendered string is
+/// parsed only when it did not. The string form is a registered field-level
+/// killed form (`serve::KILLED_FIELDS`) whose retirement lands at
+/// contract 1.0; until then both are accepted and the text path is unchanged.
+fn goal_atom(typed: Option<&AtomExpr>, text: &str) -> Result<AtomExpr, Fault> {
+    match typed {
+        Some(atom) => Ok(atom.clone()),
+        None => parse_atom(text),
+    }
+}
+
 fn parse_atom(text: &str) -> Result<AtomExpr, Fault> {
     crate::query_goal::parse(text).ok_or_else(|| {
         (
@@ -1855,7 +1885,7 @@ fn capabilities(dli: &str) -> Vec<String> {
 }
 
 /// The op's wire identifier (its serde encoding).
-fn wire_name(op: Op) -> String {
+pub(crate) fn wire_name(op: Op) -> String {
     serde_json::to_value(op)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))

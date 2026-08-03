@@ -41,6 +41,95 @@ const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.check-ledger", "dli.check-proof"),
 ];
 
+/// The contract version at which the retired *field* forms in [`KILLED_FIELDS`]
+/// start being refused. No version in
+/// [`ACCEPTED_CONTRACT_VERSIONS`](crate::ACCEPTED_CONTRACT_VERSIONS) reaches it,
+/// so the field-level registry is **dormant**: every string form is still
+/// accepted on every wire this build speaks.
+const FIELD_RETIREMENT_MAJOR: u32 = 1;
+
+/// The killed wire forms at *field* granularity: `(op, retired field, successor
+/// field)`. Where [`KILLED_OPS`] retires a whole operation, this retires one
+/// text-carrying parameter in favour of its typed successor — the LS-7 surface
+/// retirement (`docs/design-notes/lorestore-roadmap.md` §LS-7). The path is
+/// dotted from `params`, with `[]` naming "every element of this array".
+///
+/// Registered, not yet enforced. A killed form is registered the moment its
+/// successor exists so the retirement is a matter of record before it is a
+/// matter of refusal; enforcement is gated on [`FIELD_RETIREMENT_MAJOR`], which
+/// no accepted version reaches. Under `0.5.1` and every `0.6.x` a request
+/// carrying the string form is accepted unchanged.
+const KILLED_FIELDS: &[(&str, &str, &str)] = &[
+    ("dli.query", "goal", "goal_atom"),
+    ("author.query", "goal", "goal_atom"),
+    ("dli.fork.add", "declarations", "additions"),
+    ("dli.payload-submit", "payload.claims[].atom", "atom_expr"),
+];
+
+/// Whether field-level killed forms are enforced on a negotiated wire version.
+/// True only from contract [`FIELD_RETIREMENT_MAJOR`].0 up — so false for every
+/// version this build accepts, which is what makes [`KILLED_FIELDS`] dormant.
+fn field_retirement_active(dli: &str) -> bool {
+    dli.split('.')
+        .next()
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= FIELD_RETIREMENT_MAJOR)
+}
+
+/// Whether a dotted `params` path is carried by a request's params. A `[]`
+/// segment matches any element of an array, so `payload.claims[].atom` is
+/// present when *some* claim carries `atom`.
+fn field_present(params: &Value, path: &str) -> bool {
+    let Some((head, rest)) = path.split_once('.') else {
+        return segment_present(params, path);
+    };
+    match descend(params, head) {
+        Some(inner) => inner.iter().any(|value| field_present(value, rest)),
+        None => false,
+    }
+}
+
+/// The leaf case of [`field_present`]: a single (possibly `[]`-suffixed) segment.
+fn segment_present(value: &Value, segment: &str) -> bool {
+    descend(value, segment).is_some_and(|found| !found.is_empty())
+}
+
+/// Resolve one path segment to the values it selects. A bare `name` selects the
+/// object member; `name[]` selects every element of that member's array.
+fn descend<'a>(value: &'a Value, segment: &str) -> Option<Vec<&'a Value>> {
+    let (key, spread) = match segment.strip_suffix("[]") {
+        Some(key) => (key, true),
+        None => (segment, false),
+    };
+    let member = value.get(key)?;
+    if spread {
+        Some(member.as_array()?.iter().collect())
+    } else {
+        Some(vec![member])
+    }
+}
+
+/// Refuse a request that carries a retired *field* form, naming the successor
+/// field. `None` — always, on every version this build speaks — while the
+/// retirement is dormant, or when the request carries no registered killed field.
+fn refuse_killed_field(request: &Request) -> Option<Response> {
+    if !field_retirement_active(&request.dli) {
+        return None;
+    }
+    let op = handlers::wire_name(request.op);
+    KILLED_FIELDS
+        .iter()
+        .find(|(killed_op, field, _)| *killed_op == op && field_present(&request.params, field))
+        .map(|(_, field, successor)| {
+            typed_error(
+                &request.dli,
+                &request.id,
+                ErrorCode::KilledForm,
+                format!("'{op}' field '{field}' is a killed form; its successor is '{successor}'"),
+            )
+        })
+}
+
 /// The outcome of decoding one input line.
 enum Frame {
     /// A blank or non-frame (log noise) line: skipped, never answered.
@@ -174,6 +263,13 @@ pub fn dispatch(
         if request.idempotency_key.is_some() {
             return fence_schema_violation(request, "idempotency_key");
         }
+    }
+    // Field-level killed forms (LS-7). Dormant: `field_retirement_active` is
+    // false for every accepted version, so this never fires on a wire this build
+    // speaks. It sits on the live path so the mechanism is exercised, not
+    // shelved, when contract 1.0 turns it on.
+    if let Some(refusal) = refuse_killed_field(request) {
+        return refusal;
     }
     if is_author_op(request.op) {
         return author::dispatch(request, author_store);
@@ -375,4 +471,148 @@ fn version_mismatch(request: &Request) -> Response {
             request.dli
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde_json::json;
+
+    fn request(dli: &str, op: Op, params: serde_json::Value) -> Request {
+        Request {
+            dli: dli.to_owned(),
+            id: "1".to_owned(),
+            op,
+            params,
+            expected_digest: None,
+            idempotency_key: None,
+        }
+    }
+
+    /// Every registered killed field names a real op and a successor distinct
+    /// from the form it retires — the registry cannot drift into naming a
+    /// successor that is the retired field itself.
+    #[test]
+    fn killed_fields_name_real_ops_and_distinct_successors() {
+        for (op, field, successor) in KILLED_FIELDS {
+            assert!(
+                Op::ALL
+                    .iter()
+                    .any(|known| handlers::wire_name(*known) == *op),
+                "killed field registry names an unknown op '{op}'"
+            );
+            assert_ne!(field, successor, "'{op}' retires a field to itself");
+        }
+    }
+
+    /// The dormancy proof: field retirement is off for every version this build
+    /// accepts, so no accepted wire can ever be refused for a killed field.
+    #[test]
+    fn field_retirement_is_dormant_on_every_accepted_version() {
+        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+            assert!(
+                !field_retirement_active(version),
+                "field retirement must be dormant on accepted version {version}"
+            );
+        }
+    }
+
+    /// (a) Dormant in practice: a `0.6.x` request carrying the retired string
+    /// form draws no refusal, for every registered killed field.
+    #[test]
+    fn string_forms_are_accepted_under_current_versions() {
+        let carriers = [
+            (
+                Op::Query,
+                json!({ "document": "d", "goal": "serves(mara, ?who)" }),
+            ),
+            (
+                Op::AuthorQuery,
+                json!({ "workspace": "w", "goal": "serves(mara, ?who)" }),
+            ),
+            (
+                Op::ForkAdd,
+                json!({ "fork": "fork-1", "declarations": ["note(\"x\") proposed"] }),
+            ),
+            (
+                Op::PayloadSubmit,
+                json!({ "payload": { "claims": [{ "atom": "warded(arden)", "quote": "q", "line": 1 }] } }),
+            ),
+        ];
+        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+            for (op, params) in &carriers {
+                let refusal = refuse_killed_field(&request(version, *op, params.clone()));
+                assert!(
+                    refusal.is_none(),
+                    "{} at {version} must still accept its string form",
+                    handlers::wire_name(*op)
+                );
+            }
+        }
+    }
+
+    /// (b) The mechanism is correct, shown against a synthetic `1.0.0` wire no
+    /// accepted-version path can reach: the refusal is `killed-form` and its
+    /// message names the successor FIELD.
+    #[test]
+    fn synthetic_1_0_would_refuse_the_retired_field() {
+        assert!(field_retirement_active("1.0.0"));
+        let refusal = refuse_killed_field(&request(
+            "1.0.0",
+            Op::Query,
+            json!({ "document": "d", "goal": "serves(mara, ?who)" }),
+        ))
+        .expect("a 1.0.0 request carrying `goal` is refused");
+        let error = refusal.error.expect("killed-form error body");
+        assert_eq!(error.code, ErrorCode::KilledForm);
+        assert!(
+            error.message.contains("'goal'") && error.message.contains("'goal_atom'"),
+            "the refusal names the retired field and its successor: {}",
+            error.message
+        );
+        assert_eq!(refusal.id, "1", "the refusal echoes the correlation id");
+    }
+
+    /// The typed successor is never itself a killed form: a `1.0.0` request that
+    /// carries only `goal_atom` passes the field gate.
+    #[test]
+    fn synthetic_1_0_accepts_the_typed_successor() {
+        let refusal = refuse_killed_field(&request(
+            "1.0.0",
+            Op::Query,
+            json!({
+                "document": "d",
+                "goal_atom": { "pred": { "text": "serves", "span": { "file": 0, "start": 0, "end": 0 } }, "args": [] }
+            }),
+        ));
+        assert!(
+            refusal.is_none(),
+            "the typed successor is not a killed form"
+        );
+    }
+
+    /// The `[]` path segment means "some element of this array": a claim list
+    /// where only one claim carries the retired `atom` is still a hit, and an
+    /// empty claim list is not.
+    #[test]
+    fn array_paths_match_any_element() {
+        let params = json!({
+            "payload": { "claims": [
+                { "atom_expr": null, "quote": "q", "line": 1 },
+                { "atom": "warded(arden)", "quote": "q", "line": 2 },
+            ] }
+        });
+        assert!(field_present(&params, "payload.claims[].atom"));
+        assert!(!field_present(
+            &json!({ "payload": { "claims": [] } }),
+            "payload.claims[].atom"
+        ));
+        assert!(!field_present(
+            &json!({ "payload": {} }),
+            "payload.claims[].atom"
+        ));
+        assert!(!field_present(&json!({}), "goal"));
+        assert!(field_present(&json!({ "goal": "serves(mara)" }), "goal"));
+    }
 }

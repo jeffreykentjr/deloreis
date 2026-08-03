@@ -72,7 +72,13 @@ pub(super) fn query(
     v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let goal = parse_goal(&params.goal)?;
+    // The 0.6.3 typed successor wins when the caller sent it; the rendered string
+    // is parsed only when it did not (`goal` is a registered field-level killed
+    // form whose retirement lands at contract 1.0 — dormant here).
+    let goal = match &params.goal_atom {
+        Some(atom) => atom.clone(),
+        None => parse_goal(&params.goal)?,
+    };
     let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
     let opts = QueryOpts {
         layer: params.layer.unwrap_or_default(),

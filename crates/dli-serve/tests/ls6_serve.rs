@@ -281,6 +281,7 @@ fn branch_merge_capabilities_are_gated_by_version() {
         ("0.6.0", false),
         ("0.6.1", true),
         ("0.6.2", true),
+        ("0.6.3", true),
     ] {
         let resp = drive(
             &json!({ "dli": version, "id": "v", "op": "dli.version", "params": {} }),

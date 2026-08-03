@@ -36,6 +36,28 @@
     "source"
   ],
   "$defs": {
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
     "BeatKind": {
       "description": "A beat's kind — a try, a fail, or an accomplishment (§7.1, §3).",
       "oneOf": [
@@ -128,8 +150,19 @@
       "type": "object",
       "properties": {
         "atom": {
-          "description": "The atom in surface form, e.g. `holds(enfys, consent(household, door))`.\n`PAY-2` parses this into a typed atom for the fact-checker.",
+          "description": "The atom in surface form, e.g. `holds(enfys, consent(household, door))`.\n`PAY-2` parses this into a typed atom for the fact-checker. The 0.6.3\ntyped successor is [`Self::atom_expr`]; this string form is a registered\nfield-level killed form, retired at contract 1.0 and still accepted here.",
           "type": "string"
+        },
+        "atom_expr": {
+          "description": "The claim as a typed atom — the 0.6.3 typed successor to [`Self::atom`],\ncarried structurally instead of re-parsed at the load boundary. When\npresent the fact-checker uses it and [`Self::atom`] is not parsed; when\nabsent the surface form is parsed exactly as before.\n\nSkipped when absent, so a payload that does not carry it — every stored\nand committed payload written before 0.6.3 — serializes byte-identically.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtomExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "line": {
           "description": "The draft line the quote sits on (1-based).",
@@ -247,6 +280,31 @@
       "required": [
         "model",
         "prompt"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier with its source span.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Where the identifier appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "text": {
+          "description": "The identifier text as written.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "span"
       ]
     },
     "Lexicon": {
@@ -762,6 +820,136 @@
         }
       },
       "additionalProperties": false
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
+        }
+      ]
     },
     "TryFailOutcome": {
       "description": "A try/fail outcome, typed on the yes/no × but/and grid.",

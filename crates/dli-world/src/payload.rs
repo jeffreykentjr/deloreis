@@ -237,8 +237,19 @@ pub struct ExtractorRef {
 #[serde(deny_unknown_fields)]
 pub struct Claim {
     /// The atom in surface form, e.g. `holds(enfys, consent(household, door))`.
-    /// `PAY-2` parses this into a typed atom for the fact-checker.
+    /// `PAY-2` parses this into a typed atom for the fact-checker. The 0.6.3
+    /// typed successor is [`Self::atom_expr`]; this string form is a registered
+    /// field-level killed form, retired at contract 1.0 and still accepted here.
     pub atom: String,
+    /// The claim as a typed atom — the 0.6.3 typed successor to [`Self::atom`],
+    /// carried structurally instead of re-parsed at the load boundary. When
+    /// present the fact-checker uses it and [`Self::atom`] is not parsed; when
+    /// absent the surface form is parsed exactly as before.
+    ///
+    /// Skipped when absent, so a payload that does not carry it — every stored
+    /// and committed payload written before 0.6.3 — serializes byte-identically.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub atom_expr: Option<AtomExpr>,
     /// The verbatim draft text this claim is drawn from.
     pub quote: String,
     /// The draft line the quote sits on (1-based).
@@ -542,6 +553,7 @@ pub fn source_hash(source: &str) -> String {
 /// payload.meta.source = SourceRef { sha256: source_hash(source), ..SourceRef::default() };
 /// payload.claims.push(Claim {
 ///     atom: "holds(enfys, consent(household, door))".to_owned(),
+///     atom_expr: None,
 ///     quote: "the house had said yes to her".to_owned(),
 ///     line: 1,
 /// });
@@ -910,13 +922,19 @@ struct ParsedClaim<'a> {
     claim: &'a Claim,
 }
 
-/// Parse each claim's surface atom into a typed [`AtomExpr`]; an atom the parser
-/// cannot read is a `payload.unparseable-claim` defect (the fact-checker would
-/// otherwise silently skip it).
+/// Resolve each claim to a typed [`AtomExpr`]: the 0.6.3 typed successor
+/// [`Claim::atom_expr`] is taken as-is when the caller carried it, and only the
+/// surface [`Claim::atom`] is parsed otherwise. An atom the parser cannot read
+/// is a `payload.unparseable-claim` defect (the fact-checker would otherwise
+/// silently skip it); a typed claim cannot raise it, having never been text.
 fn parse_claims(payload: &Payload) -> (Vec<ParsedClaim<'_>>, Vec<PayloadFinding>) {
     let mut parsed = Vec::new();
     let mut findings = Vec::new();
     for claim in &payload.claims {
+        if let Some(atom) = claim.atom_expr.clone() {
+            parsed.push(ParsedClaim { atom, claim });
+            continue;
+        }
         let clause = Clause {
             text: claim.atom.clone(),
             span: Span::synthetic(),
@@ -2366,6 +2384,7 @@ mod tests {
             },
             claims: vec![Claim {
                 atom: "holds(enfys, consent(household, door))".to_owned(),
+                atom_expr: None,
                 quote: "the house had said yes to her, in its way".to_owned(),
                 line: 1,
             }],
@@ -2515,11 +2534,13 @@ mod tests {
         payload.claims = vec![
             Claim {
                 atom: "adjacent(camelot, the-lake)".to_owned(),
+                atom_expr: None,
                 quote: "the king's hall looks out over the water".to_owned(),
                 line: 1,
             },
             Claim {
                 atom: "kept-at(excalibur, camelot)".to_owned(),
+                atom_expr: None,
                 quote: "Excalibur is kept at Camelot".to_owned(),
                 line: 2,
             },
