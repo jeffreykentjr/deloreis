@@ -577,7 +577,8 @@ impl Storage for FilesystemStorage {
             })
         };
 
-        let mut visited: std::collections::BTreeSet<ContentHash> = std::collections::BTreeSet::new();
+        let mut visited: std::collections::BTreeSet<ContentHash> =
+            std::collections::BTreeSet::new();
         let mut postorder: Vec<Commit> = Vec::new();
         // Stack frames: (hash, emit) — `emit == false` expands the node and
         // schedules its emit marker below its parents; `emit == true` emits it.

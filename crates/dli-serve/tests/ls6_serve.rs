@@ -28,14 +28,18 @@ const V: &str = "0.6.1";
 // ── a project store with a lorestore, mirroring serve.rs / the fixture harness ──
 
 fn fixture_project_store() -> (tempfile::TempDir, Sessions, Store) {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../contracts/dli-worker/fixture-project");
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/dli-worker/fixture-project");
     let temp = tempfile::tempdir().expect("temp project");
     copy_tree(&source, temp.path());
     let project = Arc::new(Project::load(temp.path()).expect("fixture project loads"));
-    let packs = project
-        .documents()
-        .map(|(id, document)| (id.to_owned(), document.pack.clone(), document.killed.clone()));
+    let packs = project.documents().map(|(id, document)| {
+        (
+            id.to_owned(),
+            document.pack.clone(),
+            document.killed.clone(),
+        )
+    });
     let mut store = Store::with_packs(packs).expect("fixture project compiles");
     store
         .attach_lorestore(temp.path().join(".dli-lorestore"))
@@ -168,8 +172,7 @@ fn merge_conflict_surfaces_through_the_wire() {
         let hash = lorestore.write_object(&rival_fact).expect("write");
         let (interner, decisions) = {
             let head = lorestore.branch_head("rival").unwrap().unwrap();
-            let commit: dli_lorestore::Commit =
-                lorestore.read_object(&head).unwrap().unwrap();
+            let commit: dli_lorestore::Commit = lorestore.read_object(&head).unwrap().unwrap();
             (commit.interner, commit.decisions)
         };
         lorestore
@@ -225,7 +228,10 @@ fn branch_merge_capabilities_are_gated_by_version() {
             has_branch, expect_present,
             "author.branch capability at {version}"
         );
-        assert_eq!(has_merge, expect_present, "author.merge capability at {version}");
+        assert_eq!(
+            has_merge, expect_present,
+            "author.merge capability at {version}"
+        );
         assert_eq!(resp["result"]["contract_version"], version);
     }
 }

@@ -1334,7 +1334,9 @@ pub(super) fn branch(store: &Store, params: &AuthorBranchParams) -> Result<Value
                 data: None,
             })?;
             let from = params.from.as_deref().unwrap_or("main");
-            lorestore.create_branch(name, from).map_err(|e| store_error(&e))?;
+            lorestore
+                .create_branch(name, from)
+                .map_err(|e| store_error(&e))?;
             Some(name.to_owned())
         }
     };
@@ -1349,7 +1351,9 @@ pub(super) fn merge(store: &Store, params: &AuthorMergeParams) -> Result<Value, 
         .workspace_lorestore(&params.workspace)
         .ok_or_else(no_lorestore)?;
     let target = params.target.as_deref().unwrap_or("main");
-    let report = lorestore.merge(target, &params.source).map_err(|e| store_error(&e))?;
+    let report = lorestore
+        .merge(target, &params.source)
+        .map_err(|e| store_error(&e))?;
     let result = AuthorMergeResult {
         merge_commit: report.merge_commit.to_string(),
         merge_base: report.merge_base.map(|h| h.to_string()),

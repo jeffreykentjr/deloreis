@@ -165,14 +165,32 @@ fn merge_is_commutative_up_to_root_hash() {
     for seed in [1_u64, 7, 42, 1999] {
         let mut rng = Lcg(seed);
         let a_facts: Vec<FactObject> = (0..2)
-            .map(|i| certain_fact(&format!("s{seed}/a/{i}"), "kept", &[&format!("a-{seed}-{i}")]))
+            .map(|i| {
+                certain_fact(
+                    &format!("s{seed}/a/{i}"),
+                    "kept",
+                    &[&format!("a-{seed}-{i}")],
+                )
+            })
             .collect();
         let b_facts: Vec<FactObject> = (0..2)
-            .map(|i| certain_fact(&format!("s{seed}/b/{i}"), "kept", &[&format!("b-{seed}-{i}")]))
+            .map(|i| {
+                certain_fact(
+                    &format!("s{seed}/b/{i}"),
+                    "kept",
+                    &[&format!("b-{seed}-{i}")],
+                )
+            })
             .collect();
         let base_count = 1 + (rng.next() % 2) as usize;
         let base: Vec<FactObject> = (0..base_count)
-            .map(|i| certain_fact(&format!("s{seed}/base/{i}"), "place", &[&format!("p-{seed}-{i}")]))
+            .map(|i| {
+                certain_fact(
+                    &format!("s{seed}/base/{i}"),
+                    "place",
+                    &[&format!("p-{seed}-{i}")],
+                )
+            })
             .collect();
 
         // Store 1: merge B into A.
@@ -183,7 +201,10 @@ fn merge_is_commutative_up_to_root_hash() {
         commit_facts(&s1, "a", &a_facts);
         commit_facts(&s1, "b", &b_facts);
         let r_ab = s1.merge("a", "b").expect("merge a<-b");
-        assert!(r_ab.conflicts.is_empty(), "conflict-free merge, seed {seed}");
+        assert!(
+            r_ab.conflicts.is_empty(),
+            "conflict-free merge, seed {seed}"
+        );
         let sig_ab = world_signature(&s1, &r_ab.merge_commit);
 
         // Store 2: merge A into B (opposite order, same contents).
@@ -210,9 +231,15 @@ fn merge_is_commutative_up_to_root_hash() {
 /// merge(merge(A, B), C) and merge(A, merge(B, C)) recompile equal.
 #[test]
 fn merge_is_associative_up_to_root_hash() {
-    let a = [certain_fact("a0", "kept", &["a-0"]), certain_fact("a1", "kept", &["a-1"])];
+    let a = [
+        certain_fact("a0", "kept", &["a-0"]),
+        certain_fact("a1", "kept", &["a-1"]),
+    ];
     let b = [certain_fact("b0", "kept", &["b-0"])];
-    let c = [certain_fact("c0", "kept", &["c-0"]), certain_fact("c1", "kept", &["c-1"])];
+    let c = [
+        certain_fact("c0", "kept", &["c-0"]),
+        certain_fact("c1", "kept", &["c-1"]),
+    ];
     let base = [certain_fact("base0", "place", &["camelot"])];
 
     // Left-associated: (A ← B) ← C.
@@ -269,7 +296,10 @@ fn conflict_free_merge_has_empty_report() {
         .read_object(&report.merge_commit)
         .expect("read")
         .expect("commit");
-    assert!(commit.merge_parent.is_some(), "merge commit has two parents");
+    assert!(
+        commit.merge_parent.is_some(),
+        "merge commit has two parents"
+    );
     let signature = world_signature(&store, &report.merge_commit);
     assert!(signature.iter().any(|r| r.contains("alpha")));
     assert!(signature.iter().any(|r| r.contains("beta")));
@@ -297,7 +327,12 @@ fn seed_valuation_disagreement() {
         .iter()
         .filter(|c| c.kind == ConflictKind::Valuation)
         .collect();
-    assert_eq!(valuation.len(), 1, "one valuation disagreement: {:?}", report.conflicts);
+    assert_eq!(
+        valuation.len(),
+        1,
+        "one valuation disagreement: {:?}",
+        report.conflicts
+    );
     let c = valuation[0];
     assert!(c.rendered.contains(DECISION), "names the variable");
     assert!(
@@ -313,10 +348,17 @@ fn seed_valuation_disagreement() {
 #[test]
 fn seed_functional_dependency_violation() {
     let (store, _dir) = open_store();
-    seed_main(&store, &[certain_fact("base-home", "home", &["mara", "shallows"])]);
+    seed_main(
+        &store,
+        &[certain_fact("base-home", "home", &["mara", "shallows"])],
+    );
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
-    commit_facts(&store, "b", &[certain_fact("b-home", "home", &["mara", "highlands"])]);
+    commit_facts(
+        &store,
+        "b",
+        &[certain_fact("b-home", "home", &["mara", "highlands"])],
+    );
 
     let report = store.merge("a", "b").expect("merge");
     let certain: Vec<_> = report
@@ -382,7 +424,10 @@ fn seed_exclusivity_violation() {
         c.blame
     );
     assert!(
-        report.findings.iter().any(|f| f.code == "merge.exclusivity"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "merge.exclusivity"),
         "exclusivity is a graded finding"
     );
 }
@@ -394,11 +439,17 @@ fn seed_exclusivity_violation() {
 #[test]
 fn seed_stratified_negation_flip() {
     let (store, _dir) = open_store();
-    store.import_pack(&ward_base_pack()).expect("import ward base");
+    store
+        .import_pack(&ward_base_pack())
+        .expect("import ward base");
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     // Branch B breaches the oak — the override the rule negates over.
-    commit_facts(&store, "b", &[certain_fact("breached", "breached", &["oak"])]);
+    commit_facts(
+        &store,
+        "b",
+        &[certain_fact("breached", "breached", &["oak"])],
+    );
 
     let report = store.merge("a", "b").expect("merge");
     let flip = report
@@ -479,7 +530,9 @@ fn merge_refuses_divergent_interners() {
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     // Each branch appends a *different* event variable at the same index.
-    let ha = store.write_object(&certain_fact("fa", "kept", &["x"])).expect("w");
+    let ha = store
+        .write_object(&certain_fact("fa", "kept", &["x"]))
+        .expect("w");
     store
         .commit_on_branch(
             "a",
@@ -491,7 +544,9 @@ fn merge_refuses_divergent_interners() {
             "canon".to_owned(),
         )
         .expect("commit a");
-    let hb = store.write_object(&certain_fact("fb", "kept", &["y"])).expect("w");
+    let hb = store
+        .write_object(&certain_fact("fb", "kept", &["y"]))
+        .expect("w");
     store
         .commit_on_branch(
             "b",
@@ -504,7 +559,9 @@ fn merge_refuses_divergent_interners() {
         )
         .expect("commit b");
 
-    let err = store.merge("a", "b").expect_err("divergent interners refused");
+    let err = store
+        .merge("a", "b")
+        .expect_err("divergent interners refused");
     assert!(
         matches!(err, dli_lorestore::StoreError::InternerRegression { .. }),
         "got {err:?}"

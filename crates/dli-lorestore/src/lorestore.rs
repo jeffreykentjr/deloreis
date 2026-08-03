@@ -251,7 +251,8 @@ impl Lorestore {
         new: &Ref,
     ) -> Result<bool, StoreError> {
         let _lock = self.storage.acquire_lock()?;
-        self.storage.cas_ref(&branch_ref_name(branch), expected, new)
+        self.storage
+            .cas_ref(&branch_ref_name(branch), expected, new)
     }
 
     /// Commit a new `Commit` to the `main` branch.
@@ -271,7 +272,13 @@ impl Lorestore {
         pack_name: String,
     ) -> Result<ContentHash, StoreError> {
         self.commit_on_branch(
-            MAIN_REF, interner, fact_hashes, lineage, evidence, decisions, pack_name,
+            MAIN_REF,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            decisions,
+            pack_name,
         )
     }
 
@@ -375,9 +382,7 @@ impl Lorestore {
         // Build the new ref with the commit as its target, preserving the
         // branch's valuation overlay.
         let new_ref = match &expected {
-            Some(_) => {
-                Ref::with_valuation(ref_name.clone(), commit_hash.clone(), branch_valuation)
-            }
+            Some(_) => Ref::with_valuation(ref_name.clone(), commit_hash.clone(), branch_valuation),
             None => Ref::new(ref_name.clone(), commit_hash.clone()),
         };
 
@@ -388,7 +393,10 @@ impl Lorestore {
             return Err(StoreError::CasConflict {
                 name: ref_name,
                 expected,
-                found: self.storage.load_ref(&branch_ref_name(branch))?.map(|r| r.commit.0),
+                found: self
+                    .storage
+                    .load_ref(&branch_ref_name(branch))?
+                    .map(|r| r.commit.0),
             });
         }
 
@@ -806,10 +814,11 @@ impl Lorestore {
             merged_valuation.clone(),
         );
         let expected_token = Some(target_ref.digest()?.0);
-        if !self
-            .storage
-            .cas_ref(&branch_ref_name(target), expected_token.as_deref(), &new_ref)?
-        {
+        if !self.storage.cas_ref(
+            &branch_ref_name(target),
+            expected_token.as_deref(),
+            &new_ref,
+        )? {
             return Err(StoreError::CasConflict {
                 name: branch_ref_name(target),
                 expected: Some(target_head.0.clone()),

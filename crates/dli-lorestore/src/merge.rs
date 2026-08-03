@@ -32,8 +32,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use dli_core::atom::Atom;
 use dli_core::ann::Status;
+use dli_core::atom::Atom;
 use dli_core::valuation::Valuation;
 use dli_eval::error::EvalError;
 use dli_eval::fork::{Conflict, ConflictKind};
@@ -251,15 +251,13 @@ pub(crate) fn scan(
         &merged_eff,
     );
     for change in &standing_changes {
-        findings.push(
-            WorldFinding::warn(
-                "merge.standing-change",
-                format!(
-                    "{}: {} → {} — a fact merged from the other branch changed its standing",
-                    change.atom, change.before, change.after
-                ),
+        findings.push(WorldFinding::warn(
+            "merge.standing-change",
+            format!(
+                "{}: {} → {} — a fact merged from the other branch changed its standing",
+                change.atom, change.before, change.after
             ),
-        );
+        ));
     }
 
     Ok(ConflictScan {
@@ -383,7 +381,11 @@ fn certain_slots(world: &CompiledWorld, eff: &Valuation) -> Vec<(String, String,
         }
         let atom = &derived.atom;
         if atom.args.len() == 2 {
-            out.push((atom.pred.clone(), atom.args[0].clone(), atom.args[1].clone()));
+            out.push((
+                atom.pred.clone(),
+                atom.args[0].clone(),
+                atom.args[1].clone(),
+            ));
         }
     }
     out

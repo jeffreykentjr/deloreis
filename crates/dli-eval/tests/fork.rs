@@ -411,7 +411,11 @@ fn merge_reports_certain_layer_functional_dependency() {
         .iter()
         .filter(|c| c.kind == ConflictKind::Certain)
         .collect();
-    assert_eq!(certain.len(), 1, "one certain-layer FD conflict: {conflicts:?}");
+    assert_eq!(
+        certain.len(),
+        1,
+        "one certain-layer FD conflict: {conflicts:?}"
+    );
     assert!(
         certain[0].rendered.contains("home") && certain[0].rendered.contains("mara"),
         "names the predicate and subject: {}",
