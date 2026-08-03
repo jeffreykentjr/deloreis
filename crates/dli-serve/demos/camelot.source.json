@@ -1,0 +1,303 @@
+{
+  "name": "camelot",
+  "documents": [
+    {
+      "scope": {
+        "name": {
+          "text": "camelot",
+          "span": {
+            "file": 0,
+            "start": 0,
+            "end": 0
+          }
+        },
+        "span": {
+          "file": 0,
+          "start": 0,
+          "end": 0
+        }
+      },
+      "decls": [
+        {
+          "Ratify": {
+            "decision": {
+              "text": "D-0001",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Ratify": {
+            "decision": {
+              "text": "D-0002",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Kind": {
+            "name": {
+              "text": "place",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "provenance": {
+              "marker": "Ratified",
+              "citations": [
+                {
+                  "id": {
+                    "text": "D-0001",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Entity": {
+            "kind": "Place",
+            "name": {
+              "text": "camelot",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "label": null,
+            "time": null,
+            "slots": [],
+            "provenance": {
+              "marker": "Ratified",
+              "citations": [
+                {
+                  "id": {
+                    "text": "D-0001",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Entity": {
+            "kind": "Place",
+            "name": {
+              "text": "the-lake",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "label": null,
+            "time": null,
+            "slots": [],
+            "provenance": {
+              "marker": "Ratified",
+              "citations": [
+                {
+                  "id": {
+                    "text": "D-0001",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Entity": {
+            "kind": "Thing",
+            "name": {
+              "text": "excalibur",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "label": null,
+            "time": null,
+            "slots": [],
+            "provenance": {
+              "marker": "Decided",
+              "citations": [
+                {
+                  "id": {
+                    "text": "D-0002",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Fact": {
+            "atom": {
+              "pred": {
+                "text": "adjacent",
+                "span": {
+                  "file": 0,
+                  "start": 0,
+                  "end": 0
+                }
+              },
+              "args": [
+                {
+                  "Sym": {
+                    "text": "camelot",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                },
+                {
+                  "Sym": {
+                    "text": "the-lake",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ]
+            },
+            "triple": false,
+            "provenance": {
+              "marker": "Ratified",
+              "citations": [
+                {
+                  "id": {
+                    "text": "D-0001",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        },
+        {
+          "Fact": {
+            "atom": {
+              "pred": {
+                "text": "kept-at",
+                "span": {
+                  "file": 0,
+                  "start": 0,
+                  "end": 0
+                }
+              },
+              "args": [
+                {
+                  "Sym": {
+                    "text": "excalibur",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                },
+                {
+                  "Sym": {
+                    "text": "camelot",
+                    "span": {
+                      "file": 0,
+                      "start": 0,
+                      "end": 0
+                    }
+                  }
+                }
+              ]
+            },
+            "triple": true,
+            "provenance": {
+              "marker": "Proposed",
+              "citations": [],
+              "condition": null,
+              "tags": [],
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
