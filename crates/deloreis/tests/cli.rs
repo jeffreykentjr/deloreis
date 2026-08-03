@@ -28,7 +28,7 @@ fn validate_repo_emits_stable_json_findings() {
     let root = tmp("validate-repo");
     fs::write(
         root.join("clean.md"),
-        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\n---\n\n## Clean\n> status: proposed\n",
+        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\n---\n\n## Clean\n> status: proposed\nSee [[missing-cli]].\n",
     )
     .unwrap();
     fs::write(root.join("broken.md"), "# missing frontmatter\n").unwrap();
@@ -48,6 +48,10 @@ fn validate_repo_emits_stable_json_findings() {
     assert!(
         rows.iter()
             .any(|finding| { finding["path"] == "bad-section.md" && finding["code"] == "V3" })
+    );
+    assert!(
+        rows.iter()
+            .any(|finding| { finding["path"] == "clean.md" && finding["code"] == "V5" })
     );
 }
 

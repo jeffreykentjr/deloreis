@@ -5,7 +5,7 @@
 //! keeping the interface independent of the CLI: callers receive stable,
 //! serializable findings and decide how to render or exit.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -78,6 +78,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     collect_markdown(root, root, &mut files);
     let mut findings = Vec::new();
     let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
+    let index = build_id_index(&files, root, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -97,6 +98,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
                     &question_status,
                     &mut findings,
                 );
+                check_links(&rel, &source, &index, &mut findings);
             }
             Err(error) => findings.push(RepositoryFinding::new(
                 &rel,
@@ -109,6 +111,123 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn build_id_index(
+    files: &[PathBuf],
+    root: &Path,
+    findings: &mut Vec<RepositoryFinding>,
+) -> BTreeSet<String> {
+    let mut index = BTreeSet::new();
+    let mut seen = BTreeMap::<String, String>::new();
+    for path in files {
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if is_exempt(&rel) {
+            continue;
+        }
+        let id = frontmatter_id(path).unwrap_or_else(|| {
+            path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or_default()
+                .to_owned()
+        });
+        if let Some(previous) = seen.insert(id.clone(), rel.clone()) {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V5",
+                format!("duplicate id {id:?} (also in {previous})"),
+            ));
+        } else {
+            index.insert(id);
+        }
+    }
+    index
+}
+
+fn frontmatter_id(path: &Path) -> Option<String> {
+    let source = fs::read_to_string(path).ok()?;
+    let mut lines = source.lines();
+    if lines.next()?.trim() != "---" {
+        return None;
+    }
+    let mut yaml = String::new();
+    for line in lines {
+        if line.trim() == "---" {
+            break;
+        }
+        yaml.push_str(line);
+        yaml.push('\n');
+    }
+    let value: Value = serde_yaml_ng::from_str(&yaml).ok()?;
+    value
+        .as_mapping()?
+        .get(Value::String("id".to_owned()))?
+        .as_str()
+        .map(ToOwned::to_owned)
+}
+
+fn check_links(
+    path: &str,
+    source: &str,
+    index: &BTreeSet<String>,
+    findings: &mut Vec<RepositoryFinding>,
+) {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut in_frontmatter = false;
+    let mut frontmatter_closed = false;
+    let mut in_fence = false;
+    for (line_no, line) in lines.iter().enumerate() {
+        if line_no == 0 && line.trim() == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if line.trim() == "---" {
+                in_frontmatter = false;
+                frontmatter_closed = true;
+            }
+            continue;
+        }
+        if !frontmatter_closed {
+            continue;
+        }
+        if line.trim_start().starts_with("```") || line.trim_start().starts_with("~~~") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        let mut cursor = 0;
+        while let Some(start_rel) = line[cursor..].find("[[") {
+            let start = cursor + start_rel + 2;
+            let Some(end_rel) = line[start..].find("]]") else {
+                break;
+            };
+            let end = start + end_rel;
+            let target = line[start..end]
+                .split('|')
+                .next()
+                .unwrap_or_default()
+                .trim();
+            if !target.is_empty() && !index.contains(target) {
+                findings.push(RepositoryFinding::at_line(
+                    path,
+                    line_no + 1,
+                    "V5",
+                    format!("[[{target}]] does not resolve in the id index"),
+                ));
+            }
+            cursor = end + 2;
+            if cursor >= line.len() {
+                break;
+            }
+        }
+    }
 }
 
 fn load_ledger_ids(
@@ -692,6 +811,32 @@ mod tests {
                 .iter()
                 .filter(|f| f.code == "V3")
                 .all(|f| f.line > 1)
+        );
+    }
+
+    #[test]
+    fn v5_resolves_links_and_rejects_duplicate_ids() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "one.md",
+            "---\nid: one\ntitle: One\ntype: place\nstatus: proposed\n---\n\n## One\n> status: proposed\nSee [[two]] and [[missing]].\n",
+        );
+        write(
+            dir.path(),
+            "two.md",
+            "---\nid: one\ntitle: Two\ntype: place\nstatus: proposed\n---\n\n## Two\n> status: proposed\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V5" && f.message.contains("duplicate id"))
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V5" && f.message.contains("missing"))
         );
     }
 
