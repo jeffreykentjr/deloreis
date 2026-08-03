@@ -1677,3 +1677,92 @@ pub struct AuthorListWorkspacesResult {
     /// The open workspaces, in id order.
     pub workspaces: Vec<WorkspaceDigest>,
 }
+
+// -- author.branch (LS-6, contract 0.6.1) ------------------------------------
+
+/// The branch action: create a new branch or list the existing ones.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum BranchAction {
+    /// Create a new branch at the source branch's head.
+    Create,
+    /// List every branch.
+    List,
+}
+
+/// `author.branch` params. `name`/`from` apply to `create`; `list` ignores them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorBranchParams {
+    /// The workspace whose lorestore the branch lives in.
+    pub workspace: String,
+    /// Create a branch or list branches.
+    pub action: BranchAction,
+    /// The branch name to create (required for `create`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub name: Option<String>,
+    /// The source branch to create from (default `main`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from: Option<String>,
+}
+
+/// `author.branch` result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorBranchResult {
+    /// Every branch name after the action, `main` first.
+    pub branches: Vec<String>,
+    /// The branch just created (`create` only).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub created: Option<String>,
+}
+
+// -- author.merge (LS-6, contract 0.6.1) -------------------------------------
+
+/// `author.merge` params: merge `source` into `target` (default `main`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorMergeParams {
+    /// The workspace whose lorestore the branches live in.
+    pub workspace: String,
+    /// The branch merged in.
+    pub source: String,
+    /// The branch merged into (default `main`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub target: Option<String>,
+}
+
+/// One atom whose standing changed downward in the merged world vs. a pre-merge
+/// branch — the stratified-negation effect surface.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct MergeStandingChange {
+    /// The affected atom, rendered `pred(a, b)`.
+    pub atom: String,
+    /// Which pre-merge branch the atom was stronger on.
+    pub branch: String,
+    /// Its standing on that branch.
+    pub before: String,
+    /// Its standing in the merged world.
+    pub after: String,
+}
+
+/// `author.merge` result: the merge commit hash and a structural conflict report
+/// across the three classes. The fact-set union is confluent, so the merge
+/// commit is always produced; a non-empty `conflicts`/`standing_changes` is the
+/// sovereign's to rule on (rendering is consumer-owned, DL-0043).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorMergeResult {
+    /// The lorestore commit hash of the merge commit.
+    pub merge_commit: String,
+    /// The merge base (lowest common ancestor), when the branches share history.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub merge_base: Option<String>,
+    /// The structural conflicts — valuation disagreement (`kind` = valuation),
+    /// exclusivity, and functional-dependency / certain-layer (`kind` = certain).
+    pub conflicts: Vec<DiffConflict>,
+    /// Graded findings over the recompiled merged world, with repair data.
+    pub findings: Vec<Finding>,
+    /// Whether the merged rule set stratifies (`false` = a negation cycle).
+    pub stratifies: bool,
+    /// Atoms whose standing changed downward vs. a pre-merge branch.
+    pub standing_changes: Vec<MergeStandingChange>,
+}

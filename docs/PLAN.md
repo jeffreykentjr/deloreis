@@ -711,7 +711,7 @@ author or consumer artifact that this repository does not own.
 | LS-3 | done | `compile()` read path, `tests/differential_parity.rs`, `all_fact_hashes()` dedup |
 | LS-4 | done | DL-0044 as amended by DL-0045 (per-add lowering via `stage_lorestore`); audit repairs `f39cf12`/`8f3b8db`/`80cfa7d`/`8d19b2f`; DL-0046: contract 0.6.0 dual-mode, JSON-first materialize with `.dli` opt-in, digest regimes split, every vendored 0.5.1 fixture replaying byte-identical |
 | LS-5 | done | DL-0046: `(root_hash, valuation)` context with the full ruled map, one meaning per root_hash field, unfiltered monomial-structured review standing, accept/reject via materialize/discard with staged-group drop; `tests/ls5_review.rs` proves byte-identical replay from the materialize commit |
-| LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
+| LS-6 | done | DL-0048; merge commits (additive `merge_parent`), two-parent DAG walk + merge-base, `refs/heads` branches, union+recompile 3-way merge, three-class conflict detection (valuation/constraint/stratified-negation), `author.branch`/`author.merge` at contract 0.6.1; oracles `tests/merge.rs` (confluence incl. the non-monotone stratum + seeded-conflict corpus) + `dli-serve/tests/ls6_serve.rs` |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
 | LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
 | LS-9 | open | partial (foundation, DL-0047) — `RuleDecl` typed interior end-to-end, v1→v2 upcast seam, no-parse ratchet gate (`xtask syntax-free`); `dli-time` syntax-free; `dli-world`/`dli-ledger` still coupled via the other ten types; evidence in `design-notes/dli-syntax-coupling-audit.md` |

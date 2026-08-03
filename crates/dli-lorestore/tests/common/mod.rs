@@ -18,7 +18,7 @@ use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_lorestore::ClaimId;
 use dli_lorestore::FactObject;
-use dli_lorestore::lower::render_polynomial;
+use dli_lorestore::lower::{render_monomial, render_polynomial};
 use dli_world::pack::Pack;
 
 // ── fact-object fixture ────────────────────────────────────────────────
@@ -233,15 +233,47 @@ pub fn load_corpus() -> FactsDoc {
 // ── comparison helpers ─────────────────────────────────────────────────
 
 /// Render a `World`'s derived relation as a sorted list of canonical strings.
+///
+/// The row spans **both** annotation channels — support `P⁺`, the atom-global
+/// defeater `P⁻`, the per-monomial defeater conditions, and the per-monomial
+/// grades — every part name-resolved through the interner, so the projection is
+/// interner-index-independent. Rendering the defeater channel is load-bearing
+/// for the merge confluence oracle: two merged worlds that differ *only* in
+/// defeaters (the negation channel) must produce different signatures, or a
+/// non-monotone divergence could false-green (red-team item 1).
 pub fn render_derived(world: &dli_eval::world::World) -> Vec<String> {
     let interner = &world.interner;
     let mut rows: Vec<String> = world
         .derived
         .iter()
         .map(|d| {
-            let support = render_polynomial(&d.support, interner);
             let atom = serde_json::to_string(&d.atom).expect("ground atom serializes");
-            format!("{atom}|{support}|{:?}", d.grade)
+            let support = render_polynomial(&d.support, interner);
+            let defeaters = render_polynomial(&d.defeaters, interner);
+            let mut conditions: Vec<String> = d
+                .conditions
+                .iter()
+                .map(|(m, poly)| {
+                    format!(
+                        "{}=>{}",
+                        render_monomial(m, interner),
+                        render_polynomial(poly, interner)
+                    )
+                })
+                .collect();
+            conditions.sort();
+            let mut mono_grades: Vec<String> = d
+                .monomial_grades
+                .iter()
+                .map(|(m, g)| format!("{}={g:?}", render_monomial(m, interner)))
+                .collect();
+            mono_grades.sort();
+            format!(
+                "{atom}|sup={support}|def={defeaters}|cond=[{}]|mg=[{}]|grade={:?}",
+                conditions.join("; "),
+                mono_grades.join("; "),
+                d.grade
+            )
         })
         .collect();
     rows.sort();

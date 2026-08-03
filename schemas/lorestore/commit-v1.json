@@ -43,6 +43,17 @@
         "$ref": "#/$defs/ContentHash"
       }
     },
+    "merge_parent": {
+      "description": "The second parent of a **merge commit** — the head of the branch that was\nmerged in (LS-6). `parent` names the target branch's head; `merge_parent`\nnames the merged-in branch's head. Absent (and omitted from the wire form)\nfor every non-merge commit, so a linear commit serializes byte-identical to\nthe pre-LS-6 `commit-v1` shape (additive, DL-0041 discipline). The DAG walk\nfollows both parents so the merged fact set is fully reachable.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentHash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "pack_name": {
       "description": "The scope/pack name from the original `.dli` source — used as the\n`ScopeHeader` name in `reconstruct_pack` so that interner variable\nnames (`h.<pack_name>#N`) are preserved across the round-trip.",
       "type": "string"

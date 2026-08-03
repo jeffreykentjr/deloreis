@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorMergeParams",
+  "description": "`author.merge` params: merge `source` into `target` (default `main`).",
+  "type": "object",
+  "properties": {
+    "source": {
+      "description": "The branch merged in.",
+      "type": "string"
+    },
+    "target": {
+      "description": "The branch merged into (default `main`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace": {
+      "description": "The workspace whose lorestore the branches live in.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "source"
+  ]
+}

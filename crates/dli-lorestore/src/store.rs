@@ -40,6 +40,14 @@ pub struct Commit {
     /// The parent commit hash — storage-level ancestry only. This field is
     /// NOT and NEVER will be part of any fact object's content hash.
     pub parent: Option<ContentHash>,
+    /// The second parent of a **merge commit** — the head of the branch that was
+    /// merged in (LS-6). `parent` names the target branch's head; `merge_parent`
+    /// names the merged-in branch's head. Absent (and omitted from the wire form)
+    /// for every non-merge commit, so a linear commit serializes byte-identical to
+    /// the pre-LS-6 `commit-v1` shape (additive, DL-0041 discipline). The DAG walk
+    /// follows both parents so the merged fact set is fully reachable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merge_parent: Option<ContentHash>,
     /// The fact objects introduced by this commit, as content hashes.
     pub facts: Vec<ContentHash>,
     /// The lineage edge objects introduced by this commit.
@@ -77,6 +85,7 @@ impl Commit {
             schema_version: SCHEMA_VERSION,
             authority: Authority::sovereign(),
             parent: None,
+            merge_parent: None,
             facts,
             lineage,
             evidence,
@@ -101,6 +110,38 @@ impl Commit {
             schema_version: SCHEMA_VERSION,
             authority: Authority::sovereign(),
             parent: Some(parent),
+            merge_parent: None,
+            facts,
+            lineage,
+            evidence,
+            interner,
+            decisions,
+            pack_name,
+        }
+    }
+
+    /// Construct a **merge commit** (LS-6): `parent` is the target branch head,
+    /// `merge_parent` is the merged-in branch head. `facts` names the union of the
+    /// two branches' reachable fact objects; `interner` is the order-preserving
+    /// union of the two parents' interners (verified prefix-preserving against
+    /// both). A merge commit is the only commit with two parents.
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn merge(
+        parent: ContentHash,
+        merge_parent: ContentHash,
+        interner: Vec<String>,
+        facts: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION,
+            authority: Authority::sovereign(),
+            parent: Some(parent),
+            merge_parent: Some(merge_parent),
             facts,
             lineage,
             evidence,

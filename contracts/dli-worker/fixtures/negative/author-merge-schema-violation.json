@@ -1,0 +1,16 @@
+{
+  "fixture": "negative/author-merge-schema-violation",
+  "version": 1,
+  "note": "author.merge params omit the required `source`, violating the op schema.",
+  "send": {
+    "dli": "0.6.1",
+    "id": "1",
+    "op": "author.merge",
+    "params": {
+      "workspace": "ws-1"
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

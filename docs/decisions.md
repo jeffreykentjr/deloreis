@@ -1289,3 +1289,68 @@ and the v1-store idempotency break) were fixed with fail-before-fix tests.
 **Revisit trigger.** LS-9 completion: when the ratchet reports `dli-world`
 and `dli-ledger` syntax-free (all eleven types converted), LS-9 flips to
 `done` and unblocks LS-7 (the parser can leave the default build).
+
+## DL-0048 — LS-6: the merge engine (commit DAG, 3-way merge, conflict detection)
+
+*Date: 2026-08-03*
+
+**Ruling.** The lorestore gains a **merge engine** (roadmap §LS-6), and LS-6
+flips to `done`:
+
+1. **Merge commits, additive.** `Commit` gains an optional `merge_parent`
+   (`skip_serializing_if`), so a non-merge commit's JCS bytes are unchanged
+   under the LS-9 v2 schema; a merge commit records `parent` = target head,
+   `merge_parent` = merged-in head. The two-parent DAG walk and a merge-base
+   (lowest-common-ancestor) generalize the single-parent chain; the linear
+   walk stays byte-identical (LS-3/LS-4 replay parity preserved).
+2. **Persistent branches** under `refs/heads/<name>` (`main` unqualified),
+   with create/list/head on the `Lorestore` facade.
+3. **3-way merge = union + recompile.** The union of both branches' fact
+   sets since the merge base is committed; the polynomial join is the
+   fixpoint's own `⊕` (`PosBool::or_`) on recompile. Interner reconciliation
+   requires each parent's interner be a prefix of the merged (union) table.
+4. **Conflict detection, three classes**, reusing `ConflictKind`: valuation
+   disagreement (the sovereign decides — never auto-resolved); constraint
+   violations (functional-dependency / exclusivity / certain-layer, detected
+   by recompiling the merged world through `check::run`); stratified-negation
+   effects (standing flips, and the unstratifiable-merge extreme). The
+   `fork.merge` functional-dependency gap is closed.
+5. **Tool surface** `author.branch` / `author.merge` at contract **0.6.1**
+   (additive; 0.5.1/0.6.0 requests keep byte-identical responses).
+
+**Oracles.** Merge is commutative and associative up to root-hash equality on
+conflict-free corpora — proven on the **non-monotone** case (a negation-rule
+base where each branch un-derives the other's conclusion) via a
+defeater-inclusive world signature; a seeded-conflict corpus catches every
+class with repair data; the unstratifiable path is seeded end to end.
+
+**Two honest limitations, recorded so they are not rediscovered as bugs:**
+- **Bare-`@proposed` facts are fold-order-sensitive at the byte level.** They
+  mint positional gates `h.<pack>#N` that are re-numbered per merge fold order,
+  so recompiled *bytes* can differ across merge order though the *observable
+  world* is confluent. Root-hash-equality confluence therefore holds for
+  ratified/cited facts; the oracles cite `D-1` to stay order-independent. The
+  interner reconciler carries a pointer comment.
+- **A merge conflict cannot be driven through pure wire ops.** Door T never
+  mints certain content (agents only propose — DL-0014/DL-0043) and no wire op
+  sets a branch valuation, and a contradiction is refused upstream by the
+  workspace continuity check before it can conflict. So the conflict-bearing
+  *golden fixture* asked for is not constructible in LS-6's scope: the
+  conflict-report **shape** is pinned in the digest-checked contract
+  (`author.merge.response.json`, `schema --check`), and a real conflict through
+  `respond()` is proven by seeding divergence via the lorestore handle. A
+  wire-driven conflict needs a future sovereign-ruling op or branch-scoped
+  writes — out of LS-6 scope, and for agent-minted certainty, against DL-0014.
+
+**Rationale.** This is the roadmap's genuinely new machinery, and the last
+core store-lane stage. It falls out of the algebra (§4): the monotone core is
+a grow-only join-semilattice, so union is confluent and the only conflicts are
+the three non-monotone judgments the merge report enumerates — merge is
+*simpler* than git's line-merge, not harder. The work was adversarially
+red-teamed twice; the confluence oracle's gaps (a defeater-blind signature, a
+positive-only commute corpus, an untested unstratifiable path) were closed,
+and no correctness defect survived verification.
+
+**Revisit trigger.** LS-8 (contract 1.0) and any wire-driven-merge surface —
+a sovereign-ruling op would let a conflict be exercised end to end through the
+wire.

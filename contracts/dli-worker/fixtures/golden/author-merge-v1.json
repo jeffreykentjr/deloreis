@@ -1,0 +1,51 @@
+{
+  "fixture": "golden/author-merge-v1",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "0.6.1",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "0.6.1",
+      "id": "pre-2",
+      "op": "author.branch",
+      "params": {
+        "workspace": "ws-1",
+        "action": "create",
+        "name": "feature"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "author.merge",
+        "params": {
+          "workspace": "ws-1",
+          "source": "feature"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "merge_commit": "sha256:c8031e40352888d0e3e0190d42a37e1a6e85a68170934fde0c094dd2c06e1c87",
+          "merge_base": "sha256:d6cec5eb943cadcdbcaa977a1bf8bfe541fb9759c9e3d1f506c3331ae952cef1",
+          "conflicts": [],
+          "findings": [],
+          "stratifies": true,
+          "standing_changes": []
+        }
+      }
+    }
+  ],
+  "version": 1
+}

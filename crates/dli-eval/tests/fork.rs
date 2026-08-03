@@ -374,6 +374,76 @@ fn merge_reports_exclusivity_and_valuation_conflicts() {
     assert!(store.merge(supposes, adds).unwrap().is_empty());
 }
 
+/// LS-6 closed gap: the `Certain`-kind (functional-dependency) conflict. Two
+/// forks each add a different certain value for one functional slot; joining
+/// them breaks the dependency.
+#[test]
+fn merge_reports_certain_layer_functional_dependency() {
+    // Base establishes `home` as functional (one subject carries one value).
+    let mut world = World::new();
+    world.assert_fact(ground("home", &["nan", "coast"]), Ann::unconditional());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("home", &["mara", "shallows"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let b = store.fork();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("home", &["mara", "highlands"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    let conflicts = store.merge(a, b).unwrap();
+    let certain: Vec<_> = conflicts
+        .iter()
+        .filter(|c| c.kind == ConflictKind::Certain)
+        .collect();
+    assert_eq!(
+        certain.len(),
+        1,
+        "one certain-layer FD conflict: {conflicts:?}"
+    );
+    assert!(
+        certain[0].rendered.contains("home") && certain[0].rendered.contains("mara"),
+        "names the predicate and subject: {}",
+        certain[0].rendered
+    );
+
+    // A single fork's addition against the compatible base does not conflict.
+    let lone = store.fork();
+    store
+        .add(
+            lone,
+            [Addition::asserted(
+                ground("home", &["nan", "coast"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let clean = store.fork();
+    assert!(
+        store
+            .merge(lone, clean)
+            .unwrap()
+            .iter()
+            .all(|c| c.kind != ConflictKind::Certain),
+        "a consistent value is not an FD conflict"
+    );
+}
+
 #[test]
 fn fork_from_inherits_overlay_and_records_lineage() {
     let mut store = ForkStore::new(base_world());

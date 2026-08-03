@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorBranchResult",
+  "description": "`author.branch` result.",
+  "type": "object",
+  "properties": {
+    "branches": {
+      "description": "Every branch name after the action, `main` first.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created": {
+      "description": "The branch just created (`create` only).",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "branches"
+  ]
+}

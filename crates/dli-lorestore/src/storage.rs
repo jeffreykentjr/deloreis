@@ -128,6 +128,13 @@ pub enum StoreError {
         /// The declared schema version.
         found: u64,
     },
+    /// A branch create named a branch that already exists (LS-6). A branch ref is
+    /// created once; re-creating it would silently rebase it.
+    #[error("branch `{name}` already exists")]
+    BranchExists {
+        /// The branch that was being created.
+        name: String,
+    },
 }
 
 /// The abstract storage interface.
@@ -160,12 +167,22 @@ pub trait Storage: Send + Sync + std::fmt::Debug {
     /// Load a ref by name. `Ok(None)` if the ref does not exist.
     fn load_ref(&self, name: &str) -> Result<Option<Ref>, StoreError>;
 
+    /// List every ref name present in the store (e.g. `main`, `refs/heads/foo`),
+    /// using `/` as the path separator — the branch machinery (LS-6) enumerates
+    /// them here. Temp files are skipped; order is unspecified.
+    fn list_refs(&self) -> Result<Vec<String>, StoreError>;
+
     /// Acquire the store-wide advisory lock. The lock is released when the
     /// returned `File` is dropped.
     fn acquire_lock(&self) -> Result<File, StoreError>;
 
-    /// Walk the commit DAG from `tip` back toward the root, returning each
-    /// `Commit` in order (tip first). Stops early if `base` is reached.
+    /// Walk the commit DAG from `tip` back toward the root, following BOTH the
+    /// linear `parent` and the merge commit's `merge_parent` (LS-6). Returns
+    /// every reachable `Commit` in **reverse-topological order** (tip first, each
+    /// child before its parents), so that *reversing* the result yields a valid
+    /// ROOT→HEAD fold order (each parent before its children). Descent stops at
+    /// `base` (inclusive) when supplied. For a linear chain this is byte-identical
+    /// to the pre-LS-6 single-parent walk.
     fn walk_dag(
         &self,
         tip: &ContentHash,
@@ -477,6 +494,47 @@ impl Storage for FilesystemStorage {
         Ok(Some(value))
     }
 
+    fn list_refs(&self) -> Result<Vec<String>, StoreError> {
+        let refs_dir = self.root.join("refs");
+        let mut out = Vec::new();
+        // Recursively walk `refs/`, yielding `/`-joined names relative to it, so
+        // `refs/heads/foo` on disk reports as the ref name `refs/heads/foo`.
+        let mut stack: Vec<(PathBuf, String)> = vec![(refs_dir, String::new())];
+        while let Some((dir, prefix)) = stack.pop() {
+            if !dir.exists() {
+                continue;
+            }
+            for entry in fs::read_dir(&dir).map_err(|e| StoreError::Io {
+                path: dir.display().to_string(),
+                source: e,
+            })? {
+                let entry = entry.map_err(|e| StoreError::Io {
+                    path: dir.display().to_string(),
+                    source: e,
+                })?;
+                let Some(name) = entry.file_name().to_str().map(ToOwned::to_owned) else {
+                    continue;
+                };
+                // Skip crash-leftover temp writes (they start with '.').
+                if name.starts_with('.') {
+                    continue;
+                }
+                let joined = if prefix.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{prefix}/{name}")
+                };
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push((path, joined));
+                } else if path.is_file() {
+                    out.push(joined);
+                }
+            }
+        }
+        Ok(out)
+    }
+
     fn acquire_lock(&self) -> Result<File, StoreError> {
         let path = self.lock_path();
         let file = OpenOptions::new()
@@ -499,32 +557,63 @@ impl Storage for FilesystemStorage {
         tip: &ContentHash,
         base: Option<&ContentHash>,
     ) -> Result<Vec<Commit>, StoreError> {
-        let mut chain = Vec::new();
-        let mut current: Option<ContentHash> = Some(tip.clone());
-
-        while let Some(hash) = &current {
+        // Iterative DFS post-order over the two-parent DAG. Post-order emits a
+        // commit only after all of its ancestors reachable through the walk, so
+        // the accumulated `postorder` is a valid ROOT→HEAD topological order; the
+        // returned chain is its reverse (tip first), preserving the historic
+        // single-parent contract exactly for a linear chain. An explicit stack
+        // (not recursion) keeps a deep chain from overflowing.
+        let read_commit = |hash: &ContentHash| -> Result<Commit, StoreError> {
             let Some(bytes) = self.read_object(hash)? else {
                 return Err(StoreError::NotFound(format!(
                     "commit object not found: {hash}"
                 )));
             };
-            let commit: Commit =
-                serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
-                    what: "commit",
-                    path: format!("object {hash}"),
-                    expected: "valid commit JSON".to_owned(),
-                    actual: e.to_string(),
-                })?;
+            serde_json::from_slice(&bytes).map_err(|e| StoreError::Corrupt {
+                what: "commit",
+                path: format!("object {hash}"),
+                expected: "valid commit JSON".to_owned(),
+                actual: e.to_string(),
+            })
+        };
 
-            chain.push(commit.clone());
-            let is_base = base.is_some_and(|b| hash == b);
-            current.clone_from(&commit.parent);
-            if is_base {
-                break;
+        let mut visited: std::collections::BTreeSet<ContentHash> =
+            std::collections::BTreeSet::new();
+        let mut postorder: Vec<Commit> = Vec::new();
+        // Stack frames: (hash, emit) — `emit == false` expands the node and
+        // schedules its emit marker below its parents; `emit == true` emits it.
+        let mut stack: Vec<(ContentHash, bool)> = vec![(tip.clone(), false)];
+
+        while let Some((hash, emit)) = stack.pop() {
+            if emit {
+                postorder.push(read_commit(&hash)?);
+                continue;
+            }
+            if !visited.insert(hash.clone()) {
+                continue;
+            }
+            let commit = read_commit(&hash)?;
+            // The emit marker sits below the parent frames, so the node is
+            // emitted only after both parents' subtrees complete.
+            stack.push((hash.clone(), true));
+            if base != Some(&hash) {
+                // Push `merge_parent` before `parent` so `parent` is expanded
+                // first — the linear spine keeps its historic order.
+                if let Some(mp) = &commit.merge_parent
+                    && !visited.contains(mp)
+                {
+                    stack.push((mp.clone(), false));
+                }
+                if let Some(p) = &commit.parent
+                    && !visited.contains(p)
+                {
+                    stack.push((p.clone(), false));
+                }
             }
         }
 
-        Ok(chain)
+        postorder.reverse();
+        Ok(postorder)
     }
 
     fn cleanup_orphans(&self) -> Result<usize, StoreError> {

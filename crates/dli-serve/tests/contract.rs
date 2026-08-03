@@ -52,6 +52,8 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorWhy, "author.why"),
     (Op::AuthorFindings, "author.findings"),
     (Op::AuthorListWorkspaces, "author.list_workspaces"),
+    (Op::AuthorBranch, "author.branch"),
+    (Op::AuthorMerge, "author.merge"),
 ];
 
 #[test]
