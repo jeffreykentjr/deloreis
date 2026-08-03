@@ -50,6 +50,9 @@ enum Command {
     Export(cmd::drafts::ExportArgs),
     /// Render the findings report.
     Report(cmd::report::ReportArgs),
+    /// Validate Markdown canon repository frontmatter.
+    #[command(name = "validate-repo")]
+    ValidateRepo(cmd::repository::RepositoryValidateArgs),
     /// Run JSON-over-stdio with `--project <path>` or explicit `--demo`.
     Serve(cmd::serve::ServeArgs),
     /// Run MCP over stdio with `--project <path>` or explicit `--demo`.
@@ -100,6 +103,7 @@ fn run(command: Command) -> cmd::CmdResult {
         Command::Name(args) => cmd::name::run(&args),
         Command::Export(args) => cmd::drafts::run_export(&args),
         Command::Report(args) => cmd::report::run(&args),
+        Command::ValidateRepo(args) => cmd::repository::run(&args),
         Command::Serve(args) => cmd::serve::run(&args),
         Command::Mcp(args) => cmd::serve::run_mcp(&args),
     }

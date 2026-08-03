@@ -39,6 +39,7 @@ pub(crate) mod fork;
 pub(crate) mod name;
 pub(crate) mod query;
 pub(crate) mod report;
+pub(crate) mod repository;
 pub(crate) mod serve;
 pub(crate) mod timeline;
 
