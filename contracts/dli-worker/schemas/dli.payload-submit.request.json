@@ -138,8 +138,9 @@
       "type": "object",
       "properties": {
         "atom": {
-          "description": "The atom in surface form, e.g. `holds(enfys, consent(household, door))`.\n`PAY-2` parses this into a typed atom for the fact-checker. The 0.6.3\ntyped successor is [`Self::atom_expr`]; this string form is a registered\nfield-level killed form, retired at contract 1.0 and still accepted here.",
-          "type": "string"
+          "description": "The atom in surface form, e.g. `holds(enfys, consent(household, door))`.\n`PAY-2` parses this into a typed atom for the fact-checker. The 0.6.3\ntyped successor is [`Self::atom_expr`]; this string form is a registered\nfield-level killed form, refused from contract 1.0 and still accepted —\nand still **required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::atom_expr`] alone: a\nretired field cannot also be a mandatory one. The pre-1.0 requirement is\nrestored verbatim on the wire by `dli_serve`'s\n`serve::required_retired_field`; a payload read from disk was never\nversion-negotiated and is unchanged either way.",
+          "type": "string",
+          "default": ""
         },
         "atom_expr": {
           "description": "The claim as a typed atom — the 0.6.3 typed successor to [`Self::atom`],\ncarried structurally instead of re-parsed at the load boundary. When\npresent the fact-checker uses it and [`Self::atom`] is not parsed; when\nabsent the surface form is parsed exactly as before.\n\nSkipped when absent, so a payload that does not carry it — every stored\nand committed payload written before 0.6.3 — serializes byte-identically.",
@@ -165,7 +166,6 @@
       },
       "additionalProperties": false,
       "required": [
-        "atom",
         "quote",
         "line"
       ]

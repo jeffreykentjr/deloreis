@@ -236,7 +236,15 @@ pub struct Claim {
     /// The atom in surface form, e.g. `holds(enfys, consent(household, door))`.
     /// `PAY-2` parses this into a typed atom for the fact-checker. The 0.6.3
     /// typed successor is [`Self::atom_expr`]; this string form is a registered
-    /// field-level killed form, retired at contract 1.0 and still accepted here.
+    /// field-level killed form, refused from contract 1.0 and still accepted —
+    /// and still **required** — before it.
+    ///
+    /// `default` is what lets a 1.0 caller send [`Self::atom_expr`] alone: a
+    /// retired field cannot also be a mandatory one. The pre-1.0 requirement is
+    /// restored verbatim on the wire by `dli_serve`'s
+    /// `serve::required_retired_field`; a payload read from disk was never
+    /// version-negotiated and is unchanged either way.
+    #[serde(default)]
     pub atom: String,
     /// The claim as a typed atom — the 0.6.3 typed successor to [`Self::atom`],
     /// carried structurally instead of re-parsed at the load boundary. When

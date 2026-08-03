@@ -109,7 +109,7 @@ in its params (except `author.list_workspaces`):
 |---|---|---|
 | `author.findings` | `{workspace}` | `{errors, warnings, materializable}` — your pre-flight: `errors` bar materialize, `warnings` pass, `materializable` is the go/no-go boolean. |
 | `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
-| `author.query` | `{workspace, goal, layer?, why?}` | `{rows}` — query the staged world; `goal` is a rendered atom, and an argument written `?` or `?who` is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). |
+| `author.query` | `{workspace, goal_atom, layer?, why?}` | `{rows}` — query the staged world; `goal_atom` is a **typed atom** (`{pred, args}`), and a `Var` argument is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). The rendered string `goal` is the retired predecessor: a registered killed form, refused from contract 1.0 naming `goal_atom`, and still answered on a `0.5.1`/`0.6.x` wire. |
 | `author.why` | `{workspace, atom}` | `{why_not, why?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. |
 | `author.list_workspaces` | `{}` | `{workspaces:[{workspace, base, mode, staged, workspace_digest}]}` — context recovery across your open workspaces. |
 

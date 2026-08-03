@@ -15,8 +15,9 @@
       }
     },
     "declarations": {
-      "description": "The rendered proposed declarations to add. The 0.6.3 typed successor is\n[`Self::additions`]; this string form is a registered field-level killed\nform, retired at contract 1.0 and still accepted here.",
+      "description": "The rendered proposed declarations to add. The 0.6.3 typed successor is\n[`Self::additions`]; this string form is a registered field-level killed\nform, refused from contract 1.0 and still accepted — and still\n**required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::additions`] alone; the\npre-1.0 requirement is restored verbatim by\n`serve::required_retired_field`.",
       "type": "array",
+      "default": [],
       "items": {
         "type": "string"
       }
@@ -28,8 +29,7 @@
   },
   "additionalProperties": false,
   "required": [
-    "fork",
-    "declarations"
+    "fork"
   ],
   "$defs": {
     "GroundAtom": {

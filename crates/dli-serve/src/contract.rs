@@ -393,8 +393,14 @@ pub struct QueryParams {
     /// The document id to query.
     pub document: String,
     /// The goal atom, rendered. The 0.6.3 typed successor is [`Self::goal_atom`];
-    /// this string form is a registered field-level killed form, retired at
-    /// contract 1.0 and still accepted here.
+    /// this string form is a registered field-level killed form, refused from
+    /// contract 1.0 and still accepted — and still **required** — before it.
+    ///
+    /// `default` is what lets a 1.0 caller send [`Self::goal_atom`] alone: a
+    /// retired field cannot also be a mandatory one. The pre-1.0 requirement is
+    /// not dropped, only moved — `serve::required_retired_field` restores it
+    /// verbatim on every `0.x` wire.
+    #[serde(default)]
     pub goal: String,
     /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
     /// carried structurally instead of re-parsed from text. When present it is
@@ -572,7 +578,13 @@ pub struct ForkAddParams {
     pub fork: String,
     /// The rendered proposed declarations to add. The 0.6.3 typed successor is
     /// [`Self::additions`]; this string form is a registered field-level killed
-    /// form, retired at contract 1.0 and still accepted here.
+    /// form, refused from contract 1.0 and still accepted — and still
+    /// **required** — before it.
+    ///
+    /// `default` is what lets a 1.0 caller send [`Self::additions`] alone; the
+    /// pre-1.0 requirement is restored verbatim by
+    /// `serve::required_retired_field`.
+    #[serde(default)]
     pub declarations: Vec<String>,
     /// The proposed facts as typed ground atoms — the 0.6.3 typed successor to
     /// [`Self::declarations`]. When present it is used and `declarations` is
@@ -1562,7 +1574,13 @@ pub struct AuthorQueryParams {
     /// is a query variable that enumerates matches (`serves(mara, ?who)`); a bare
     /// symbol is a ground constant. The 0.6.3 typed successor is
     /// [`Self::goal_atom`]; this string form is a registered field-level killed
-    /// form, retired at contract 1.0 and still accepted here.
+    /// form, refused from contract 1.0 and still accepted — and still
+    /// **required** — before it.
+    ///
+    /// `default` is what lets a 1.0 caller send [`Self::goal_atom`] alone; the
+    /// pre-1.0 requirement is restored verbatim by
+    /// `serve::required_retired_field`.
+    #[serde(default)]
     pub goal: String,
     /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
     /// carried structurally instead of re-parsed from text. When present it is

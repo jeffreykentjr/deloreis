@@ -283,6 +283,10 @@ fn branch_merge_capabilities_are_gated_by_version() {
         ("0.6.2", true),
         ("0.6.3", true),
         ("0.6.4", true),
+        // LS-8: the 1.0 handshake gets the whole surface. The capability list
+        // is gated on the negotiated version, never on "is this the newest
+        // build", so a new major inherits every op rather than resetting it.
+        ("1.0.0", true),
     ] {
         let resp = drive(
             &json!({ "dli": version, "id": "v", "op": "dli.version", "params": {} }),

@@ -17,9 +17,13 @@
 //!   protocol tag (and, for `0.5.1`, the replay-context fields that version has
 //!   always omitted).
 //!
-//! The field-level killed-form registry is dormant, which the `dli-serve` unit
-//! tests prove directly; what is proven here is its consequence on the wire —
-//! a string-form request is still answered, on every version.
+//! The field-level killed-form registry is dormant below contract `1.0`, which
+//! the `dli-serve` unit tests prove directly; what is proven here is its
+//! consequence on the wire — a string-form request is still answered, on every
+//! version that predates the retirement. LS-8 activated the registry at `1.0.0`
+//! (`tests/ls8_contract_1_0.rs`), so that version is excluded here by name: it
+//! is the one wire where a string form is refused, and the LS-7 claim was never
+//! about it.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::sync::Arc;
@@ -31,6 +35,16 @@ use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
 use dli_world::payload::{Claim, RuntimeChange, RuntimeFact};
 use serde_json::{Value, json};
+
+/// Every accepted version that predates the LS-8 field retirement — the wires
+/// on which a string form is still the string form.
+fn pre_1_0() -> Vec<&'static str> {
+    dli_serve::ACCEPTED_CONTRACT_VERSIONS
+        .iter()
+        .copied()
+        .filter(|version| !version.starts_with("1."))
+        .collect()
+}
 
 fn drive(frame: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {
     let line = serde_json::to_string(frame).unwrap();
@@ -174,7 +188,7 @@ fn pre_typed_successor_encodings_round_trip_unchanged() {
 fn a_string_form_request_answers_the_same_on_every_accepted_version() {
     let (_temp, mut sessions, mut store) = fixture_project();
     let mut v2_results: Vec<Value> = Vec::new();
-    for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
+    for version in pre_1_0() {
         let response = drive(
             &json!({
                 "dli": version,
@@ -185,7 +199,7 @@ fn a_string_form_request_answers_the_same_on_every_accepted_version() {
             &mut sessions,
             &mut store,
         );
-        assert_eq!(response["dli"], **version, "the tag is echoed: {response}");
+        assert_eq!(response["dli"], *version, "the tag is echoed: {response}");
         assert_eq!(response["ok"], Value::Bool(true), "{response}");
         assert_eq!(
             response["result"]["rows"][0]["atom"], "marker(baseline)",
@@ -214,7 +228,7 @@ fn a_string_form_request_answers_the_same_on_every_accepted_version() {
 /// refusal here would mean the registry had woken up early.
 #[test]
 fn retired_string_forms_are_still_accepted_on_every_version() {
-    for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
+    for version in pre_1_0() {
         let (_temp, mut sessions, mut store) = fixture_project();
         let query = drive(
             &json!({ "dli": version, "id": "q", "op": "dli.query",

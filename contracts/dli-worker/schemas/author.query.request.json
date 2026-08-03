@@ -5,8 +5,9 @@
   "type": "object",
   "properties": {
     "goal": {
-      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(mara, ?who)`); a bare\nsymbol is a ground constant. The 0.6.3 typed successor is\n[`Self::goal_atom`]; this string form is a registered field-level killed\nform, retired at contract 1.0 and still accepted here.",
-      "type": "string"
+      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(mara, ?who)`); a bare\nsymbol is a ground constant. The 0.6.3 typed successor is\n[`Self::goal_atom`]; this string form is a registered field-level killed\nform, refused from contract 1.0 and still accepted — and still\n**required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::goal_atom`] alone; the\npre-1.0 requirement is restored verbatim by\n`serve::required_retired_field`.",
+      "type": "string",
+      "default": ""
     },
     "goal_atom": {
       "description": "The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],\ncarried structurally instead of re-parsed from text. When present it is\nused and `goal` is ignored; when absent `goal` is parsed exactly as\nbefore. A `Term::Var` argument is a query variable (the string form's\n`?who`).",
@@ -42,8 +43,7 @@
   },
   "additionalProperties": false,
   "required": [
-    "workspace",
-    "goal"
+    "workspace"
   ],
   "$defs": {
     "AtomExpr": {

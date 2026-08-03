@@ -1711,8 +1711,10 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
         // A field this build no longer declares fails HERE, on `deny_unknown_fields`
         // — it never reaches `first_unknown_field` below. So the killed-field
         // registry is consulted on both decode failures, or a retired form would
-        // be refused anonymously (LS-7). Dormant: the retired fields are all still
-        // declared, and the registry is version-gated besides.
+        // be refused anonymously (LS-7). Belt to `dispatch`'s braces since LS-8:
+        // a retired field that IS still declared is refused before routing, so
+        // what survives to here is the shape 1.0 will have once the field is
+        // removed from the struct outright.
         killed_field_fault(request).unwrap_or((
             ErrorCode::SchemaViolation,
             format!("params do not satisfy the operation schema: {e}"),
@@ -1730,6 +1732,23 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
             format!("unknown field '{field}' is not defined by the operation schema"),
         )));
     }
+    // The pre-1.0 half of the field retirement (LS-8). Contract 1.0 makes the
+    // retired string forms optional so a caller can send the typed successor
+    // alone; on every earlier wire they are still required, and this restores
+    // the verbatim `missing field` verdict serde gave before they were. It runs
+    // last on purpose: serde has already had the first word on every other
+    // missing or mistyped field, so no `0.x` message moves.
+    if let Some(field) =
+        crate::serve::required_retired_field(&request.dli, request.op, &request.params)
+    {
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!(
+                "params do not satisfy the operation schema: missing field `{}`",
+                crate::serve::field_leaf(field)
+            ),
+        ));
+    }
     Ok(typed)
 }
 
@@ -1744,7 +1763,7 @@ fn killed_field_fault(request: &Request) -> Option<Fault> {
         |(field, successor)| {
             (
                 ErrorCode::KilledForm,
-                crate::serve::killed_field_message(field, successor),
+                crate::serve::killed_field_message(&request.dli, field, successor),
             )
         },
     )
