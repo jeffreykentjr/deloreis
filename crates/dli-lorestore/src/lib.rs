@@ -30,6 +30,7 @@ pub mod lower;
 pub mod object;
 pub mod storage;
 pub mod store;
+pub mod upcast;
 
 pub use canonical::{
     CanonicalError, canonical_bytes, content_hash, digest_bytes, validate_content_address,
@@ -42,8 +43,18 @@ pub use storage::{FilesystemStorage, Storage, StoreError};
 pub use store::{Commit, Ref};
 
 /// The schema version carried by every stored object. Bumped when the stored
-/// shape changes; old versions remain readable via typed upcast-on-read.
-pub const SCHEMA_VERSION: u32 = 1;
+/// shape changes; old versions remain readable via typed upcast-on-read
+/// ([`upcast`]).
+///
+/// - **v1** — the LS-1 fact-object model. Expert-tier declaration carriages
+///   embed the whole `Decl` as JSON with `Vec<Clause>` string bodies (named,
+///   versioned debt, roadmap §LS-1).
+/// - **v2** — LS-9 expert-tier structuring: the `rule` carriage embeds a `Decl`
+///   whose body is the typed `RuleBody`. A v1 rule carriage deepens to v2 on
+///   read via the front-end lowering ([`upcast::upcast_value`]); every other
+///   carriage is byte-identical across v1 and v2. No stored fact is rewritten —
+///   the deepening happens in memory, at the load boundary.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// All schemars-derived JSON schemas for this crate's stored objects, paired
 /// with their schema name. Used by `xtask schema` to emit and drift-check the

@@ -24,6 +24,7 @@ use dli_ast::decl::{
 };
 use dli_ast::ident::Ident;
 use dli_ast::literal::BodyLiteral;
+use dli_ast::rule::{Datalog, RuleBody, RuleClause};
 use dli_ast::span::{FileId, Span};
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 
@@ -424,6 +425,52 @@ pub fn parse_rule_clause(clause: &Clause) -> Option<(AtomExpr, Vec<BodyLiteral>)
     // Nothing may be silently dropped (koan 4): a trailing operator body or
     // `requires` clause means this is not a plain datalog rule.
     cur.at_end().then_some((head, body))
+}
+
+/// Structure a `rule` declaration's captured clauses into its typed
+/// [`RuleBody`] (LS-9, `docs/design-notes/lorestore-roadmap.md`).
+///
+/// Each block clause is pre-parsed into [`Datalog`] via [`parse_rule_clause`]
+/// when it is a clean `head :- body` derivation rule; an order/season clause (or
+/// any non-datalog clause) keeps its normalized text with a `None` datalog. When
+/// the block body is empty, an inline `head : body` datalog carried on the rule
+/// line itself is reconstructed from the header tokens and structured the same
+/// way — matching the old loader's `inline_rule_clause` reconstruction, but now
+/// at parse time so the loader never re-enters the front end.
+///
+/// This is the one **front-end lowering** LS-9's v1 → v2 store upcast reuses at
+/// the load boundary to deepen an old string-bodied rule carriage
+/// (`dli_lorestore::upcast`); the parser is the single producer of the typed
+/// interior.
+#[must_use]
+pub fn structure_rule_body(clauses: &[Clause], name: &Ident, head: &[String]) -> RuleBody {
+    let structured: Vec<RuleClause> = clauses
+        .iter()
+        .map(|clause| RuleClause {
+            clause: clause.clone(),
+            datalog: parse_rule_clause(clause).map(|(head, body)| Datalog { head, body }),
+        })
+        .collect();
+
+    let inline = if structured.is_empty() && head.iter().any(|t| t == ":" || t == ":-") {
+        // Reconstruct `<name> <head…>` exactly as the old loader did; the raw
+        // (un-normalized) text feeds the malformed-rule finding when it is not
+        // clean datalog, so token spacing is irrelevant — `parse_rule_clause`
+        // re-lexes it.
+        let clause = Clause {
+            text: format!("{} {}", name.text, head.join(" ")),
+            span: name.span,
+        };
+        let datalog = parse_rule_clause(&clause).map(|(head, body)| Datalog { head, body });
+        Some(RuleClause { clause, datalog })
+    } else {
+        None
+    };
+
+    RuleBody {
+        clauses: structured,
+        inline,
+    }
 }
 
 /// Parse a rule atom `pred` or `pred(args…)`. Unlike [`parse_atom`], a nullary
@@ -838,11 +885,12 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             Some(name) => {
                 let domain = parse_rule_domain(&mut cur);
                 let (head, provenance) = split_head_prov(&mut cur, diags);
+                let body = structure_rule_body(&record.body, &name, &head);
                 items.push(Item::Decl(Decl::Rule(RuleDecl {
                     name,
                     domain,
                     head,
-                    body: record.body.clone(),
+                    body,
                     provenance,
                 })));
             }

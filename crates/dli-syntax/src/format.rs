@@ -268,7 +268,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_head(&mut header, &r.head);
             append_provenance(&mut header, r.provenance.as_ref());
             let mut lines = vec![header.trim_end().to_owned()];
-            lines.extend(clause_lines(&r.body));
+            lines.extend(rule_body_lines(&r.body));
             lines
         }
         Decl::State(fl) => {
@@ -479,6 +479,16 @@ fn option_lines(options: &[OptionClause]) -> Vec<String> {
 fn clause_lines(body: &[Clause]) -> Vec<String> {
     body.iter()
         .map(|clause| format!("{INDENT}{}", clause.text))
+        .collect()
+}
+
+/// Render a typed [`RuleBody`](dli_ast::rule::RuleBody)'s block clauses. The
+/// inline `head : body` datalog is rendered from the header tokens, not here, so
+/// the surface round-trips byte-for-byte (charter koan 7).
+fn rule_body_lines(body: &dli_ast::rule::RuleBody) -> Vec<String> {
+    body.clauses
+        .iter()
+        .map(|rc| format!("{INDENT}{}", rc.clause.text))
         .collect()
 }
 

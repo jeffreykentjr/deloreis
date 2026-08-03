@@ -27,6 +27,20 @@ fn ident(text: &str) -> Ident {
     Ident::synthetic(text)
 }
 
+/// Build a typed rule body from block-clause texts, exactly as the front end
+/// structures a captured `rule` body (LS-9): each datalog clause is pre-parsed,
+/// non-datalog clauses keep their text with a `None` datalog.
+fn rule_body(texts: &[&str]) -> dli_ast::rule::RuleBody {
+    let clauses: Vec<Clause> = texts
+        .iter()
+        .map(|t| Clause {
+            text: (*t).to_owned(),
+            span: Span::synthetic(),
+        })
+        .collect();
+    dli_syntax::structure_rule_body(&clauses, &ident("rule"), &[])
+}
+
 fn ann(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
     ann_cond(marker, cites, None)
 }
@@ -327,10 +341,7 @@ fn a_well_formed_rule_loads_totally_and_clean() {
         name: ident("adjacency-symmetric"),
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: "adjacent(A, B) :- adjacent(B, A)".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["adjacent(A, B) :- adjacent(B, A)"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let docs = vec![doc("saltmarket", vec![rule])];
@@ -347,10 +358,7 @@ fn a_bare_world_rule_with_negation_lowers() {
         name: ident("ward-holds"),
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: "ward-holds($g) :- seated($g), not breached($g)".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["ward-holds($g) :- seated($g), not breached($g)"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let out = Loader::load(&[doc("wards", vec![rule])]);
@@ -372,10 +380,7 @@ fn a_negation_only_variable_is_a_range_restriction_finding() {
         name: ident("risky"),
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: "risky($x) :- not b($x)".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["risky($x) :- not b($x)"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let out = Loader::load(&[doc("wards", vec![rule])]);
@@ -396,10 +401,7 @@ fn an_over_domain_rule_is_not_lowered_as_a_world_rule() {
         name: ident("full-team-floor"),
         domain: Some(dli_ast::decl::RuleDomain::Order),
         head: Vec::new(),
-        body: vec![Clause {
-            text: "held($e) :- listener-has($e)".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["held($e) :- listener-has($e)"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let out = Loader::load(&[doc("order", vec![rule])]);
@@ -417,14 +419,7 @@ fn malformed_bare_world_rules_are_load_findings() {
             name: ident("checker"),
             domain: None,
             head: Vec::new(),
-            body: body
-                .map(|text| {
-                    vec![Clause {
-                        text: text.to_owned(),
-                        span: Span::synthetic(),
-                    }]
-                })
-                .unwrap_or_default(),
+            body: body.map(|text| rule_body(&[text])).unwrap_or_default(),
             provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
         });
         let out = Loader::load(&[doc("world", vec![rule])]);
@@ -442,20 +437,7 @@ fn each_malformed_world_rule_clause_is_reported() {
         name: ident("mixed"),
         domain: None,
         head: Vec::new(),
-        body: vec![
-            Clause {
-                text: "reachable($x) :- adjacent($x)".to_owned(),
-                span: Span::synthetic(),
-            },
-            Clause {
-                text: "free text".to_owned(),
-                span: Span {
-                    file: dli_ast::span::FileId(0),
-                    start: 10,
-                    end: 19,
-                },
-            },
-        ],
+        body: rule_body(&["reachable($x) :- adjacent($x)", "free text"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let out = Loader::load(&[doc("world", vec![rule])]);
@@ -475,7 +457,7 @@ fn a_rule_without_provenance_is_a_finding() {
         name: ident("adjacency-symmetric"),
         domain: None,
         head: Vec::new(),
-        body: Vec::new(),
+        body: dli_ast::rule::RuleBody::default(),
         provenance: None,
     });
     let docs = vec![doc("saltmarket", vec![rule])];
@@ -496,20 +478,14 @@ fn negative_dependency_cycle_is_a_load_finding() {
         name: ident("p-rule"),
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: "p :- not q".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["p :- not q"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let q_rule = Decl::Rule(RuleDecl {
         name: ident("q-rule"),
         domain: None,
         head: Vec::new(),
-        body: vec![Clause {
-            text: "q :- not p".to_owned(),
-            span: Span::synthetic(),
-        }],
+        body: rule_body(&["q :- not p"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
     let out = Loader::load(&[doc("cycle", vec![p_rule, q_rule])]);

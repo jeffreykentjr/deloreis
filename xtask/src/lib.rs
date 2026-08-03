@@ -18,4 +18,5 @@ pub mod gate;
 pub mod hooks;
 pub mod jsonval;
 pub mod schema;
+pub mod syntax_free;
 pub mod util;

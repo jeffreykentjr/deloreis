@@ -1244,3 +1244,48 @@ preserves declaration order and interner assignment.
 **Revisit trigger.** EXT-F4: when the consumer completes the v1 handshake
 and migrates, the 0.5.1 dual-mode paths retire through the killed-form
 registry (LS-8), never silently.
+
+## DL-0047 — LS-9 foundation: the typed-interior pattern, upcast seam, and no-parse gate
+
+*Date: 2026-08-03*
+
+**Ruling.** LS-9 (expert-tier structuring, roadmap §LS-9) begins with its
+reusable foundation, and `RuleDecl` is converted end-to-end as the reference:
+
+1. **Typed interior in the AST.** `RuleDecl` carries a typed `RuleClause`
+   (pre-parsed `Datalog` head/body) in `dli-ast`; the parser (`dli_syntax`,
+   the single producer) emits it, and `dli-world`'s loader and `dli-time`'s
+   order/season guards **read the typed structure** — no `parse_rule_clause`
+   on stored data. `dli-time` is now genuinely syntax-free: `dli-syntax` is a
+   dev-dependency only.
+2. **The v1→v2 upcast seam.** `SCHEMA_VERSION` is 2; `read_typed` probes the
+   stored version and upcasts a v1 string-bodied rule carriage to its typed v2
+   form at the load boundary (default reads of v2 are pure deserialization).
+   Idempotency (`ensure_pack_imported`) compares on the version-independent
+   identity projection (`FactObject::content_hash`), so a store persisted
+   under v1 is recognized as the same lineage rather than refused — old stores
+   remain usable, as the design requires.
+3. **The no-parse acceptance ratchet.** A gate lane (`xtask syntax-free`)
+   classifies each target crate's manifest and reports whether the parser is
+   on its default path. It is robust to the dotted `[dependencies.dli-syntax]`
+   form (a red-team-found false-negative, fixed).
+
+The acceptance bar — *no crate outside `dli_syntax` parses stored data* — is
+met **for `dli-time` only**. `dli-world` and `dli-ledger` remain coupled
+through the other ten declaration types (`Practice`, `Proof`, `Dialect`,
+`Name`, `Ratify`, and the five near-empty `Fork`/`Draft`/`Export`/`Variant`/
+`Principle`), which the ratchet honestly reports as `still-coupled`. **LS-9
+stays `open`**; this entry records the foundation, not completion.
+
+**Rationale.** LS-9 is the roadmap's predicted bulk (~23k lines across
+`dli-world`/`dli-ledger`/`dli-time`); the pattern proven here — typed interior
+in `dli-ast`, lowering owned by `dli_syntax`, downstream as typed readers,
+carriage upcast — is the unit each remaining type repeats. Landing the
+foundation and the ratchet first makes the remaining conversions incremental
+and keeps the acceptance bar honest at every step. The work was adversarially
+red-teamed; the two confirmed defects (the gate's dotted-table false-negative
+and the v1-store idempotency break) were fixed with fail-before-fix tests.
+
+**Revisit trigger.** LS-9 completion: when the ratchet reports `dli-world`
+and `dli-ledger` syntax-free (all eleven types converted), LS-9 flips to
+`done` and unblocks LS-7 (the parser can leave the default build).
