@@ -79,6 +79,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let mut findings = Vec::new();
     let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
     let index = build_id_index(&files, root, &mut findings);
+    check_structured_data(root, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -111,6 +112,213 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn check_structured_data(root: &Path, findings: &mut Vec<RepositoryFinding>) {
+    let data = root.join("data");
+    check_timeline(&data.join("timeline.yaml"), findings);
+    check_characters(&data.join("characters.yaml"), findings);
+}
+
+fn read_yaml(path: &Path, findings: &mut Vec<RepositoryFinding>) -> Option<Value> {
+    if !path.exists() {
+        return None;
+    }
+    let rel = path.to_string_lossy();
+    let source = match fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                format!("cannot read YAML: {error}"),
+            ));
+            return None;
+        }
+    };
+    match serde_yaml_ng::from_str(&source) {
+        Ok(value) => Some(value),
+        Err(error) => {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                format!("invalid YAML: {error}"),
+            ));
+            None
+        }
+    }
+}
+
+fn check_timeline(path: &Path, findings: &mut Vec<RepositoryFinding>) {
+    let Some(value) = read_yaml(path, findings) else {
+        return;
+    };
+    let rel = path.to_string_lossy();
+    let Some(map) = value.as_mapping() else {
+        findings.push(RepositoryFinding::new(
+            &rel,
+            "V6",
+            "timeline must be a mapping",
+        ));
+        return;
+    };
+    let eras = map.get(Value::String("eras".to_owned()));
+    let Some(eras) = eras.and_then(Value::as_sequence) else {
+        findings.push(RepositoryFinding::new(
+            &rel,
+            "V6",
+            "timeline eras must be a list",
+        ));
+        return;
+    };
+    let era_ids: BTreeSet<&str> = eras.iter().filter_map(Value::as_str).collect();
+    let Some(events) = map
+        .get(Value::String("events".to_owned()))
+        .and_then(Value::as_sequence)
+    else {
+        return;
+    };
+    let mut ids = BTreeSet::new();
+    for event in events {
+        let Some(event) = event.as_mapping() else {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                "timeline event must be a mapping",
+            ));
+            continue;
+        };
+        let id = event
+            .get(Value::String("id".to_owned()))
+            .and_then(Value::as_str);
+        if id.is_none() {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                "timeline event requires id",
+            ));
+        }
+        if let Some(id) = id
+            && !ids.insert(id)
+        {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                format!("duplicate timeline event id {id}"),
+            ));
+        }
+        let Some(era) = event
+            .get(Value::String("era".to_owned()))
+            .and_then(Value::as_str)
+        else {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                "timeline event requires era",
+            ));
+            continue;
+        };
+        if !era_ids.contains(era) {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                format!("timeline event cites unknown era {era}"),
+            ));
+        }
+        check_status(event, &rel, "timeline event", findings);
+    }
+}
+
+fn check_characters(path: &Path, findings: &mut Vec<RepositoryFinding>) {
+    let Some(value) = read_yaml(path, findings) else {
+        return;
+    };
+    let rel = path.to_string_lossy();
+    let Some(map) = value.as_mapping() else {
+        findings.push(RepositoryFinding::new(
+            &rel,
+            "V6",
+            "characters must be a mapping",
+        ));
+        return;
+    };
+    let Some(characters) = map
+        .get(Value::String("characters".to_owned()))
+        .and_then(Value::as_sequence)
+    else {
+        findings.push(RepositoryFinding::new(
+            &rel,
+            "V6",
+            "characters must contain a list",
+        ));
+        return;
+    };
+    let mut ids = BTreeSet::new();
+    for character in characters {
+        let Some(character) = character.as_mapping() else {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                "character entry must be a mapping",
+            ));
+            continue;
+        };
+        let id = character
+            .get(Value::String("id".to_owned()))
+            .and_then(Value::as_str);
+        if id.is_none() {
+            findings.push(RepositoryFinding::new(&rel, "V6", "character requires id"));
+        }
+        if let Some(id) = id
+            && !ids.insert(id)
+        {
+            findings.push(RepositoryFinding::new(
+                &rel,
+                "V6",
+                format!("duplicate character id {id}"),
+            ));
+        }
+        for field in ["name", "role"] {
+            if character
+                .get(Value::String(field.to_owned()))
+                .and_then(Value::as_str)
+                .is_none()
+            {
+                findings.push(RepositoryFinding::new(
+                    &rel,
+                    "V6",
+                    format!("character requires string {field}"),
+                ));
+            }
+        }
+        check_status(character, &rel, "character", findings);
+    }
+}
+
+fn check_status(
+    map: &serde_yaml_ng::Mapping,
+    path: &str,
+    label: &str,
+    findings: &mut Vec<RepositoryFinding>,
+) {
+    let Some(status) = map
+        .get(Value::String("status".to_owned()))
+        .and_then(Value::as_str)
+    else {
+        findings.push(RepositoryFinding::new(
+            path,
+            "V6",
+            format!("{label} requires status"),
+        ));
+        return;
+    };
+    if !STATUSES.contains(&status) {
+        findings.push(RepositoryFinding::new(
+            path,
+            "V6",
+            format!("{label} has invalid status {status:?}"),
+        ));
+    }
 }
 
 fn build_id_index(
@@ -837,6 +1045,38 @@ mod tests {
             findings
                 .iter()
                 .any(|f| f.code == "V5" && f.message.contains("missing"))
+        );
+    }
+
+    #[test]
+    fn v6_validates_structured_timeline_and_characters() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/timeline.yaml",
+            "eras: [before]\nevents:\n  - id: arrival\n    name: Arrival\n    era: absent\n    status: unknown\n",
+        );
+        write(
+            dir.path(),
+            "data/characters.yaml",
+            "characters:\n  - id: anchor\n    name: Anchor\n    role: person\n    status: proposed\n  - id: anchor\n    name: Duplicate\n    role: person\n    status: proposed\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V6" && f.message.contains("unknown era"))
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V6" && f.message.contains("invalid status"))
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V6" && f.message.contains("duplicate character"))
         );
     }
 
