@@ -41,6 +41,91 @@ const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.check-ledger", "dli.check-proof"),
 ];
 
+/// The contract version at which the retired *field* forms in [`KILLED_FIELDS`]
+/// start being refused. No version in
+/// [`ACCEPTED_CONTRACT_VERSIONS`](crate::ACCEPTED_CONTRACT_VERSIONS) reaches it,
+/// so the field-level registry is **dormant**: every string form is still
+/// accepted on every wire this build speaks.
+const FIELD_RETIREMENT_MAJOR: u32 = 1;
+
+/// The killed wire forms at *field* granularity: `(op, retired field, successor
+/// field)`. Where [`KILLED_OPS`] retires a whole operation, this retires one
+/// text-carrying parameter in favour of its typed successor — the LS-7 surface
+/// retirement (`docs/design-notes/lorestore-roadmap.md` §LS-7). The field is a
+/// dotted path from `params`, in the same shape
+/// [`handlers::first_unknown_field`] reports (an array is traversed silently,
+/// so `payload.claims.atom` names the `atom` of any claim).
+///
+/// Registered, not yet enforced — the exact discipline [`KILLED_OPS`] follows.
+/// A killed op is refused because [`Op`] does not admit it; a killed *field* is
+/// refused because the params struct no longer declares it. Neither registry
+/// creates the refusal — each turns an anonymous one ("no such op", "unknown
+/// field") into a refusal that names the successor. So this fires only once
+/// contract 1.0 removes the retired field from its params struct: today every
+/// string form is still declared and accepted, and [`killed_field_successor`]
+/// is additionally gated on [`FIELD_RETIREMENT_MAJOR`], which no accepted
+/// version reaches. Two locks, both closed.
+const KILLED_FIELDS: &[(&str, &str, &str)] = &[
+    ("dli.query", "goal", "goal_atom"),
+    ("author.query", "goal", "goal_atom"),
+    ("dli.fork.add", "declarations", "additions"),
+    ("dli.payload-submit", "payload.claims.atom", "atom_expr"),
+];
+
+/// Whether field-level killed forms are enforced on a negotiated wire version.
+/// True only from contract [`FIELD_RETIREMENT_MAJOR`].0 up — so false for every
+/// version this build accepts, which is what makes [`KILLED_FIELDS`] dormant.
+fn field_retirement_active(dli: &str) -> bool {
+    dli.split('.')
+        .next()
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= FIELD_RETIREMENT_MAJOR)
+}
+
+/// Whether a dotted path is carried by a params value. Arrays are traversed
+/// element-wise without appearing in the path, matching
+/// [`handlers::first_unknown_field`]'s convention: `payload.claims.atom` is
+/// present when *some* claim carries `atom`.
+fn field_present(value: &Value, path: &str) -> bool {
+    match value {
+        Value::Array(items) => items.iter().any(|item| field_present(item, path)),
+        Value::Object(map) => match path.split_once('.') {
+            Some((head, rest)) => map
+                .get(head)
+                .is_some_and(|inner| field_present(inner, rest)),
+            None => map.contains_key(path),
+        },
+        _ => false,
+    }
+}
+
+/// The successor field naming a retired form the request still carries, or
+/// `None` when the field is not registered or the retirement has not landed.
+///
+/// The caller reaches here only on a params decode that has **already failed**,
+/// so this can never turn an accepted request into a refusal — it only replaces
+/// an anonymous `schema-violation` with a `killed-form` that names the
+/// replacement. `None` on every version this build speaks.
+pub(crate) fn killed_field_successor(
+    dli: &str,
+    op: Op,
+    params: &Value,
+) -> Option<(&'static str, &'static str)> {
+    if !field_retirement_active(dli) {
+        return None;
+    }
+    let op = handlers::wire_name(op);
+    KILLED_FIELDS
+        .iter()
+        .find(|(killed_op, field, _)| *killed_op == op && field_present(params, field))
+        .map(|(_, field, successor)| (*field, *successor))
+}
+
+/// The `killed-form` message for a retired field, shaped like [`refuse_op`]'s.
+pub(crate) fn killed_field_message(field: &str, successor: &str) -> String {
+    format!("field '{field}' is a killed form; its successor is '{successor}'")
+}
+
 /// The outcome of decoding one input line.
 enum Frame {
     /// A blank or non-frame (log noise) line: skipped, never answered.
@@ -375,4 +460,172 @@ fn version_mismatch(request: &Request) -> Response {
             request.dli
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde_json::json;
+
+    /// Every registered killed field names a real op and a successor distinct
+    /// from the form it retires — the registry cannot drift into naming a
+    /// successor that is the retired field itself.
+    #[test]
+    fn killed_fields_name_real_ops_and_distinct_successors() {
+        for (op, field, successor) in KILLED_FIELDS {
+            assert!(
+                Op::ALL
+                    .iter()
+                    .any(|known| handlers::wire_name(*known) == *op),
+                "killed field registry names an unknown op '{op}'"
+            );
+            assert_ne!(field, successor, "'{op}' retires a field to itself");
+        }
+    }
+
+    /// The first lock: field retirement is off for every version this build
+    /// accepts, so no accepted wire can be refused for a killed field.
+    #[test]
+    fn field_retirement_is_dormant_on_every_accepted_version() {
+        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+            assert!(
+                !field_retirement_active(version),
+                "field retirement must be dormant on accepted version {version}"
+            );
+        }
+        assert!(field_retirement_active("1.0.0"));
+    }
+
+    /// The second lock, and the one that matters: every retired field is STILL
+    /// DECLARED by its params struct, so it decodes cleanly and never becomes
+    /// the "unknown field" the registry upgrades. Even with the version gate
+    /// forced open, a string-form request has nothing for the registry to catch.
+    #[test]
+    fn retired_fields_are_still_declared_so_nothing_is_unknown() {
+        let carriers = [
+            (
+                Op::Query,
+                json!({ "document": "d", "goal": "serves(mara, ?who)" }),
+            ),
+            (
+                Op::AuthorQuery,
+                json!({ "workspace": "w", "goal": "serves(mara, ?who)" }),
+            ),
+            (
+                Op::ForkAdd,
+                json!({ "fork": "fork-1", "declarations": ["note(\"x\") proposed"] }),
+            ),
+        ];
+        for (op, params) in &carriers {
+            // Forced to a synthetic 1.0.0, the registry DOES match the field —
+            // that is the mechanism working ...
+            assert!(
+                killed_field_successor("1.0.0", *op, params).is_some(),
+                "{} carries its registered retired field",
+                handlers::wire_name(*op)
+            );
+            // ... but nothing consults it, because the params still decode. The
+            // wire-level proof that these requests are answered is
+            // `tests/ls7_typed_successors.rs`.
+            for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+                assert!(
+                    killed_field_successor(version, *op, params).is_none(),
+                    "{} at {version} must not reach the killed-field registry",
+                    handlers::wire_name(*op)
+                );
+            }
+        }
+    }
+
+    /// What contract 1.0 will look like, synthesized: the retired field has been
+    /// removed from its params struct, so it arrives as an unknown field and the
+    /// decode fails. The registry turns that anonymous schema violation into a
+    /// `killed-form` naming the successor FIELD. Nothing here is reachable from
+    /// an accepted version — the version is fake and the removal is hypothetical.
+    #[test]
+    fn synthetic_1_0_names_the_successor_field() {
+        let (field, successor) = killed_field_successor(
+            "1.0.0",
+            Op::Query,
+            &json!({ "document": "d", "goal": "serves(mara, ?who)" }),
+        )
+        .expect("`goal` is registered as retired for dli.query");
+        assert_eq!((field, successor), ("goal", "goal_atom"));
+
+        let message = killed_field_message(field, successor);
+        assert!(
+            message.contains("'goal'") && message.contains("'goal_atom'"),
+            "the refusal names the retired field and its successor: {message}"
+        );
+        assert!(
+            message.contains("killed form"),
+            "the message is shaped like refuse_op's: {message}"
+        );
+    }
+
+    /// A typed successor is never itself a killed form, and an unregistered op
+    /// carrying a same-named field is not caught by another op's entry.
+    #[test]
+    fn only_the_registered_pair_matches() {
+        assert!(
+            killed_field_successor(
+                "1.0.0",
+                Op::Query,
+                &json!({ "document": "d", "goal_atom": { "pred": "x", "args": [] } }),
+            )
+            .is_none(),
+            "the typed successor is not a killed form"
+        );
+        assert!(
+            killed_field_successor("1.0.0", Op::Check, &json!({ "goal": "serves(mara)" }))
+                .is_none(),
+            "`goal` is retired for dli.query, not for every op that might carry it"
+        );
+    }
+
+    /// Registry paths are dotted exactly as `first_unknown_field` reports them:
+    /// arrays are traversed without appearing in the path, so
+    /// `payload.claims.atom` matches the `atom` of ANY claim.
+    #[test]
+    fn array_paths_match_any_element_without_an_index() {
+        let params = json!({
+            "payload": { "claims": [
+                { "atom_expr": null, "quote": "q", "line": 1 },
+                { "atom": "warded(arden)", "quote": "q", "line": 2 },
+            ] }
+        });
+        assert_eq!(
+            killed_field_successor("1.0.0", Op::PayloadSubmit, &params),
+            Some(("payload.claims.atom", "atom_expr"))
+        );
+        for empty in [
+            json!({ "payload": { "claims": [] } }),
+            json!({ "payload": {} }),
+            json!({}),
+        ] {
+            assert!(
+                killed_field_successor("1.0.0", Op::PayloadSubmit, &empty).is_none(),
+                "no claim carries the retired field: {empty}"
+            );
+        }
+    }
+
+    /// The path shape the registry uses is the one the decode seam actually
+    /// produces — pinned against `first_unknown_field` itself, so the two cannot
+    /// drift into disagreeing about how a nested field is named.
+    #[test]
+    fn registry_paths_match_the_unknown_field_reporter() {
+        let given = json!({
+            "payload": { "claims": [{ "atom": "warded(arden)", "quote": "q", "line": 1 }] }
+        });
+        let kept = json!({
+            "payload": { "claims": [{ "quote": "q", "line": 1 }] }
+        });
+        assert_eq!(
+            handlers::first_unknown_field(&given, &kept).as_deref(),
+            Some("payload.claims.atom"),
+            "the registry path is spelled the way the decode seam reports it"
+        );
+    }
 }

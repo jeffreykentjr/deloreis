@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 0.6.2
+contract_version: 0.6.3
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -51,6 +51,8 @@ fixtures:
   sha256: b75c36690d6fac59a8f034c6d9895c14d23034643389290bc8906a6dcb3be1e7
 - path: framing/paired-all-ops-v1.json
   sha256: 0f28e30c35cf7f613fa69d69193df15538de436462d4a5e1afabb811aa6ba367
+- path: framing/typed-successors-framing.json
+  sha256: 67117c94d4caf13374995ecaf7c5ed1ccb908173fd3a1d90da43162ea1af9e46
 - path: golden/attest-missing-v1.json
   sha256: 6bcd5b1c9bf18c3160167f8c820da467752e584aea184090dcdf2d8062527d42
 - path: golden/attestation-sweep-v1.json
@@ -79,6 +81,8 @@ fixtures:
   sha256: c175a13a24d8f10ad70bcced92a071666717261767a0b12fa59be65f714f8ff1
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
+- path: golden/author-query-typed-goal-v1.json
+  sha256: 3a26337c0abdf99e74cea922d2bab534c6214bdc1f90eed3e6c58c53b3516f0f
 - path: golden/author-query-v1.json
   sha256: eb871a1f3b8860bc33191ef88bdac9611140c2426ba32d02309f4bf82535ddbb
 - path: golden/author-session-v1.json
@@ -99,6 +103,8 @@ fixtures:
   sha256: b906d311f3fbd04573d4ae9397fbd39ccf679cb6a1ce072f84b8282a846a759c
 - path: golden/export-ludii-v1.json
   sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
+- path: golden/fork-add-typed-v1.json
+  sha256: 7a6e9482d07dc150518dc317f26c02fcace4ceefa099b85738f5fe6de2bd4935
 - path: golden/fork-add-v1.json
   sha256: ed7f069229f220d784bf1bc1a5423455f1089d16ccba91b9c88366f75e6f9617
 - path: golden/fork-diff-v1.json
@@ -119,12 +125,16 @@ fixtures:
   sha256: e02756a72c3d65dbed4a71f121415a856d41040b9790a62dd0b0500cde901bf4
 - path: golden/name-check-v1.json
   sha256: 613112e75d29f2486d0b60e4e1f20042c8d16802c1a9393269177c7e54e880f3
+- path: golden/payload-submit-typed-claim-v1.json
+  sha256: 0541f7ea73d3e22c461960e217bc43cf27f5e2cd51d4f421173bfc74587ef99f
 - path: golden/payload-submit-v1.json
   sha256: fbbebccef9430b8ce78d8970d52494342ff7484095ed689dcf6200dff186cb0a
 - path: golden/query-modifiers-v1.json
   sha256: 2610137862f7b8a90f073577b9f406715995d96ad9c414c1c298c875630f7c2a
 - path: golden/query-support-v1.json
   sha256: 21adc63ad0a01513e902c353574309fbb8e2b171f5333515c9ffdb8c7ed6bba6
+- path: golden/query-typed-goal-v1.json
+  sha256: 31647eca156978364dae2998f90119c0af4826bdd6f6704174324585b5c4a41a
 - path: golden/simulate-cancel-v1.json
   sha256: 3eef6de0681c7263d99123c3386362ac9c68cb07a360afaa83dc85a6110fd1a7
 - path: golden/simulate-status-v1.json
@@ -199,6 +209,8 @@ fixtures:
   sha256: 02a0423e166c642b7d055cdf5aed196d723aa02c9f9251cecedbc281cebc47f6
 - path: negative/fork-add-schema-violation.json
   sha256: c1f288564b55dffc6826482055247771adceddad4cb75f71a1940173eeacd734
+- path: negative/fork-add-typed-schema-violation.json
+  sha256: 2775f7176c4540e6252dde4bcbf5bd5df3a1aa1b3da8cd4bb4104a5c657b75e1
 - path: negative/fork-diff-schema-violation.json
   sha256: e42d815e95e0e44105e6e5a008250aa26337d20109a94f1c1b7596d66952bd09
 - path: negative/fork-list-schema-violation.json
@@ -229,8 +241,12 @@ fixtures:
   sha256: e05d0cc12339a56be3683d1a3135c296086c6b0b6563d125fb7a3810e7486e2f
 - path: negative/params-schema-violation.json
   sha256: 1995fd24e878fbe0a934ba1da854cf4ce981a117284a068fcd50329aaed78eb1
+- path: negative/payload-typed-claim-schema-violation.json
+  sha256: 4d73ace707830adf598ab6ca05390d35aac176c36aa7e61eb906e28cd5419211
 - path: negative/query-schema-violation.json
   sha256: 1df02d74d1f10e9a7b8b00eb2a62affc23a0cfe754fc8587731f3b5a571df096
+- path: negative/query-typed-goal-schema-violation.json
+  sha256: 1845ffa27a36875b84757e7586f91fbf6b6d15d5a89ae120d878f97dedab537a
 - path: negative/simulate-cancel-schema-violation.json
   sha256: 9f3871e036b2ab8a88ce162a38287d135ddc638d7d1d1bb9830d9864dc839b37
 - path: negative/simulate-start-schema-violation.json

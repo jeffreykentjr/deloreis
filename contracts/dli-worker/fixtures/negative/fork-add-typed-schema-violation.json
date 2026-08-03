@@ -1,0 +1,22 @@
+{
+  "fixture": "negative/fork-add-typed-schema-violation",
+  "version": 1,
+  "note": "A typed addition is a whole ground atom: omitting args is a schema violation, never a fallback to the declarations list beside it.",
+  "send": {
+    "dli": "0.6.3",
+    "id": "2",
+    "op": "dli.fork.add",
+    "params": {
+      "additions": [
+        {
+          "pred": "adjacent"
+        }
+      ],
+      "declarations": [],
+      "fork": "fork-1"
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

@@ -194,11 +194,13 @@ fn a_clean_payload_produces_no_findings() {
     payload.claims = vec![
         Claim {
             atom: "gender(anchor, male)".to_owned(),
+            atom_expr: None,
             quote: "the anchor is a man, and canon holds it so".to_owned(),
             line: 1,
         },
         Claim {
             atom: "nature(hound, moor-spirit)".to_owned(),
+            atom_expr: None,
             quote: "the hound is a spirit of the moor".to_owned(),
             line: 2,
         },
@@ -416,6 +418,7 @@ fn payload_metadata_and_delta_subjects_fail_closed() {
     payload.lexicon.register_tokens = 4;
     payload.claims.push(Claim {
         atom: "gender(anchor, male)".to_owned(),
+        atom_expr: None,
         quote: "one".to_owned(),
         line: 1,
     });
@@ -510,6 +513,7 @@ fn a_contradicted_claim_is_attributed_to_its_line_and_quote() {
     let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, female)".to_owned(),
+        atom_expr: None,
         quote: "the anchor was no man at all".to_owned(),
         line: 1,
     }];
@@ -539,6 +543,7 @@ fn an_unsupported_claim_surfaces_factcheck_unsupported() {
     let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "origin(anchor, gwern)".to_owned(),
+        atom_expr: None,
         quote: "some say the anchor hails from gwern".to_owned(),
         line: 1,
     }];
@@ -562,6 +567,7 @@ fn stating_shadow_lore_as_settled_flags_continuity() {
     let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "origin(anchor, swartby)".to_owned(),
+        atom_expr: None,
         quote: "the anchor was born in swartby, plainly".to_owned(),
         line: 1,
     }];
@@ -591,6 +597,7 @@ fn an_unparseable_claim_atom_is_a_defect() {
     payload.claims = vec![Claim {
         // A bare token has no `pred(args)` / triple / slot shape: not an atom.
         atom: "not-an-atom".to_owned(),
+        atom_expr: None,
         quote: "here is a line the extractor mis-shadowed".to_owned(),
         line: 1,
     }];
@@ -621,6 +628,7 @@ fn a_moved_source_flags_the_payload_stale() {
     let mut payload = complete_payload(&source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, male)".to_owned(),
+        atom_expr: None,
         quote: "the anchor is a man, and canon holds it so".to_owned(),
         line: 1,
     }];
@@ -661,6 +669,7 @@ fn a_forged_quote_anchor_is_a_hard_error() {
     let mut payload = complete_payload(source);
     payload.claims = vec![Claim {
         atom: "gender(anchor, male)".to_owned(),
+        atom_expr: None,
         quote: "the anchor rode a dragon over the fen".to_owned(), // absent from the draft
         line: 1,
     }];
@@ -995,11 +1004,13 @@ fn findings_are_returned_in_sorted_order() {
     payload.claims = vec![
         Claim {
             atom: "gender(anchor, female)".to_owned(),
+            atom_expr: None,
             quote: "the anchor was no man at all".to_owned(),
             line: 1,
         },
         Claim {
             atom: "not-an-atom".to_owned(),
+            atom_expr: None,
             quote: "and here the shadow broke".to_owned(),
             line: 2,
         },

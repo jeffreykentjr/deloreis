@@ -5,8 +5,19 @@
   "type": "object",
   "properties": {
     "goal": {
-      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(mara, ?who)`); a bare\nsymbol is a ground constant.",
+      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(mara, ?who)`); a bare\nsymbol is a ground constant. The 0.6.3 typed successor is\n[`Self::goal_atom`]; this string form is a registered field-level killed\nform, retired at contract 1.0 and still accepted here.",
       "type": "string"
+    },
+    "goal_atom": {
+      "description": "The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],\ncarried structurally instead of re-parsed from text. When present it is\nused and `goal` is ignored; when absent `goal` is parsed exactly as\nbefore. A `Term::Var` argument is a query variable (the string form's\n`?who`).",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AtomExpr"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "layer": {
       "description": "The standing floor for the returned rows (`certain` | `possible` | `all`).\nAbsent means `all` — no floor.",
@@ -35,6 +46,53 @@
     "goal"
   ],
   "$defs": {
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier with its source span.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Where the identifier appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "text": {
+          "description": "The identifier text as written.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "span"
+      ]
+    },
     "Layer": {
       "description": "The standing floor a query answer is filtered to.\n\nA `Layer` is a **minimum-standing floor** on the answer rows: a row is kept\nwhen its [`Status`] is at least the floor. Because `Status` orders\n`Dead < Possible < Certain`, the layers nest — `Certain ⊆ Possible ⊆ All`:\n\n- [`Layer::Certain`] keeps only assertable rows (`Status::Certain`).\n- [`Layer::Possible`] keeps the shadow **and** the certain layer\n  (`Status::Possible` and `Status::Certain`). Possibility does not exclude\n  certainty: a certain claim is a fortiori possible.\n- [`Layer::All`] applies no floor — the default.\n\n**Dead atoms never appear in any layer.** A claim whose every monomial is\n`Θ`-unsatisfiable is fail-closed-excluded from the evaluated surface\n(`02-semantics.md` §3: \"excluded from every layer except the error report\").\nSo `Possible` and `All` return the same rows on today's query surface and\ndiffer only in declared intent; surfacing dead atoms is the error report's\njob, not a query layer's.",
       "oneOf": [
@@ -52,6 +110,136 @@
           "description": "No standing floor.",
           "type": "string",
           "const": "all"
+        }
+      ]
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
         }
       ]
     }

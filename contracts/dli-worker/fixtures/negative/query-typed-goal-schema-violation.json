@@ -1,0 +1,20 @@
+{
+  "fixture": "negative/query-typed-goal-schema-violation",
+  "version": 1,
+  "note": "goal_atom is a typed AtomExpr, not a shorthand: a bare predicate string where an Ident belongs is a schema violation, not a silent fallback to the goal string beside it.",
+  "send": {
+    "dli": "0.6.3",
+    "id": "1",
+    "op": "dli.query",
+    "params": {
+      "document": "camelot",
+      "goal": "adjacent(camelot, the-lake)",
+      "goal_atom": {
+        "pred": "adjacent"
+      }
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

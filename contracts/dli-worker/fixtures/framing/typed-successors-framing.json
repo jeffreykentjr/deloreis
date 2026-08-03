@@ -1,0 +1,212 @@
+{
+  "fixture": "framing/typed-successors-framing",
+  "version": 1,
+  "marker": "__DLI_FRAME_ATTACK__",
+  "note": "Paired control/attack framing over the 0.6.3 TYPED successor fields (LS-7): the attack string rides inside the structured goal_atom / additions rather than inside a rendered line. Structure is not authority — a typed atom carrying instruction-shaped text is answered as data, and the taint stays confined to the rows or delta that quote it. dli.payload-submit's typed claim has no paired case here because no payload-submit response path echoes a claim atom, so the harness could not witness the changed parameter; its taint confinement is proven by the 0.5.1 case in framing/paired-all-ops-v1 and its typed field by golden/payload-submit-typed-claim-v1.",
+  "cases": [
+    {
+      "op": "dli.query",
+      "control": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": [
+              {
+                "Str": "control"
+              }
+            ]
+          }
+        }
+      },
+      "attack": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": [
+              {
+                "Str": "__DLI_FRAME_ATTACK__"
+              }
+            ]
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/goal_atom/args/0/Str"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/root_hash",
+        "/result/valuation"
+      ],
+      "allow_taint_paths": [
+        "/result/rows"
+      ]
+    },
+    {
+      "op": "author.query",
+      "precondition": [
+        {
+          "dli": "0.6.3",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": [
+              {
+                "Str": "control"
+              }
+            ]
+          }
+        }
+      },
+      "attack": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": [
+              {
+                "Str": "__DLI_FRAME_ATTACK__"
+              }
+            ]
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/goal_atom/args/0/Str"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/root_hash",
+        "/result/valuation"
+      ],
+      "allow_taint_paths": [
+        "/result/rows"
+      ]
+    },
+    {
+      "op": "dli.fork.add",
+      "precondition": [
+        {
+          "dli": "0.6.3",
+          "id": "pre",
+          "op": "dli.fork.new",
+          "params": {
+            "document": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "declarations": [],
+          "additions": [
+            {
+              "pred": "note",
+              "args": [
+                "control"
+              ]
+            }
+          ]
+        }
+      },
+      "attack": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "declarations": [],
+          "additions": [
+            {
+              "pred": "note",
+              "args": [
+                "__DLI_FRAME_ATTACK__"
+              ]
+            }
+          ]
+        }
+      },
+      "changed_paths": [
+        "/params/additions/0/args/0"
+      ],
+      "compare_paths": [
+        "/ok"
+      ],
+      "allow_taint_paths": [
+        "/result"
+      ],
+      "probe": {
+        "dli": "0.6.3",
+        "id": "probe",
+        "op": "dli.fork.list",
+        "params": {
+          "document": "saltmarket"
+        }
+      },
+      "probe_compare_paths": [
+        "/ok"
+      ],
+      "probe_expect": {
+        "/result/forks/0/local_atoms": 1
+      }
+    }
+  ]
+}

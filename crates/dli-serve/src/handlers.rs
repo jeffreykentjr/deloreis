@@ -255,7 +255,7 @@ fn check_finding_key(finding: &CheckFinding) -> (u8, &str, &str) {
 
 fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: QueryParams = params(request)?;
-    let goal = parse_atom(&p.goal)?;
+    let goal = goal_atom(p.goal_atom.as_ref(), &p.goal)?;
     // Resolve an optional fork handle to its valuation overlay first, so its
     // (owned) valuation outlives the query scope borrow (H9, `--fork`).
     let fork = match &p.fork {
@@ -518,10 +518,14 @@ fn handle_fork_promote(request: &Request, sessions: &mut Sessions) -> Result<Res
 
 fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: ForkAddParams = params(request)?;
-    // Parse the declaration lines through the syntax layer and lower them to
-    // ground facts BEFORE touching session state, so a malformed decl is a schema
-    // error caught up front, never a half-applied fork.
-    let additions = additions_from_declarations(&p.declarations)?;
+    // Prefer the 0.6.3 typed successor; otherwise parse the declaration lines
+    // through the syntax layer and lower them to ground facts. Either way the
+    // additions are built BEFORE touching session state, so a malformed decl is a
+    // schema error caught up front, never a half-applied fork.
+    let additions = match &p.additions {
+        Some(atoms) => additions_from_atoms(atoms),
+        None => additions_from_declarations(&p.declarations)?,
+    };
     let (id, scope) = fork_scope(sessions, &p.fork)?;
     scope.forks.add(id, additions).map_err(fork_fault)?;
     // The consequence delta runs the fork's incremental fixpoint over the base.
@@ -533,6 +537,20 @@ fn handle_fork_add(request: &Request, sessions: &mut Sessions) -> Result<Respons
             delta: diff_delta(&delta),
         },
     ))
+}
+
+/// Lift typed ground atoms to fork-local additions — the 0.6.3 typed successor
+/// to [`additions_from_declarations`], reaching the same additions without a
+/// parse. Each atom is asserted by fiat with an unconditional annotation,
+/// exactly as the lowered text path does, so the two forms are
+/// indistinguishable downstream. No lexical validation is imposed on a typed
+/// atom, matching the `author.add_relation` precedent for structured atoms on
+/// the wire.
+fn additions_from_atoms(atoms: &[GroundAtom]) -> Vec<Addition> {
+    atoms
+        .iter()
+        .map(|atom| Addition::asserted(atom.clone(), Ann::unconditional()))
+        .collect()
 }
 
 /// Parse a run of `.dli` declaration lines and lower them to fork-local
@@ -1674,10 +1692,15 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
         ));
     }
     let typed: T = serde_json::from_value(request.params.clone()).map_err(|e| {
-        (
+        // A field this build no longer declares fails HERE, on `deny_unknown_fields`
+        // — it never reaches `first_unknown_field` below. So the killed-field
+        // registry is consulted on both decode failures, or a retired form would
+        // be refused anonymously (LS-7). Dormant: the retired fields are all still
+        // declared, and the registry is version-gated besides.
+        killed_field_fault(request).unwrap_or((
             ErrorCode::SchemaViolation,
             format!("params do not satisfy the operation schema: {e}"),
-        )
+        ))
     })?;
     let normalized = serde_json::to_value(&typed).map_err(|e| {
         (
@@ -1686,12 +1709,29 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
         )
     })?;
     if let Some(field) = first_unknown_field(&request.params, &normalized) {
-        return Err((
+        return Err(killed_field_fault(request).unwrap_or((
             ErrorCode::SchemaViolation,
             format!("unknown field '{field}' is not defined by the operation schema"),
-        ));
+        )));
     }
     Ok(typed)
+}
+
+/// The `killed-form` fault for a retired params field the request still carries,
+/// or `None` when nothing registered applies. Consulted only after a params
+/// decode has already failed, so it can never refuse a request the contract
+/// would otherwise accept — it renames an anonymous schema violation into a
+/// refusal that names the successor field, exactly as `refuse_op` does for a
+/// retired op.
+fn killed_field_fault(request: &Request) -> Option<Fault> {
+    crate::serve::killed_field_successor(&request.dli, request.op, &request.params).map(
+        |(field, successor)| {
+            (
+                ErrorCode::KilledForm,
+                crate::serve::killed_field_message(field, successor),
+            )
+        },
+    )
 }
 
 /// The first input field (dotted path) absent from the normalized
@@ -1718,6 +1758,18 @@ pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<S
             .zip(kept)
             .find_map(|(a, b)| first_unknown_field(a, b)),
         _ => None,
+    }
+}
+
+/// Resolve a query goal from the dual-mode pair `(goal_atom, goal)`: the 0.6.3
+/// typed successor wins when the caller sent it, and the rendered string is
+/// parsed only when it did not. The string form is a registered field-level
+/// killed form (`serve::KILLED_FIELDS`) whose retirement lands at
+/// contract 1.0; until then both are accepted and the text path is unchanged.
+fn goal_atom(typed: Option<&AtomExpr>, text: &str) -> Result<AtomExpr, Fault> {
+    match typed {
+        Some(atom) => Ok(atom.clone()),
+        None => parse_atom(text),
     }
 }
 
@@ -1855,7 +1907,7 @@ fn capabilities(dli: &str) -> Vec<String> {
 }
 
 /// The op's wire identifier (its serde encoding).
-fn wire_name(op: Op) -> String {
+pub(crate) fn wire_name(op: Op) -> String {
     serde_json::to_value(op)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))

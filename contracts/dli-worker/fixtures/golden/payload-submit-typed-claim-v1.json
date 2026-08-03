@@ -1,0 +1,322 @@
+{
+  "fixture": "golden/payload-submit-typed-claim-v1",
+  "version": 1,
+  "note": "A payload claim's 0.6.3 typed successor atom_expr (LS-7). Step 1 sends the claim as surface text; step 2 adds the typed atom beside it and the findings are identical. Step 3 shows what an unreadable surface atom costs — payload.unparseable-claim — and step 4 sends that same unreadable text WITH atom_expr: the defect is gone and the findings match step 2, so the fact-checker read the typed atom and never parsed the string. No payload_digest is issued on any step because the extractor-provenance defect blocks acceptance throughout.",
+  "project": true,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom": "marker(\"control\")",
+                "line": 1,
+                "quote": "the marker holds"
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "accepted": false,
+          "findings": [
+            {
+              "code": "factcheck.unsupported",
+              "grade": "checked",
+              "line": 1,
+              "message": "no binary slot to resolve; canon bears no matching fact",
+              "quote": "the marker holds",
+              "severity": "error"
+            },
+            {
+              "code": "payload.extractor-missing",
+              "grade": "checked",
+              "message": "non-empty extracted field 'claims' has no extractor provenance",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.3",
+        "id": "2",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom": "marker(\"control\")",
+                "atom_expr": {
+                  "args": [
+                    {
+                      "Str": "control"
+                    }
+                  ],
+                  "pred": {
+                    "span": {
+                      "end": 0,
+                      "file": 0,
+                      "start": 0
+                    },
+                    "text": "marker"
+                  }
+                },
+                "line": 1,
+                "quote": "the marker holds"
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "accepted": false,
+          "findings": [
+            {
+              "code": "factcheck.unsupported",
+              "grade": "checked",
+              "line": 1,
+              "message": "no binary slot to resolve; canon bears no matching fact",
+              "quote": "the marker holds",
+              "severity": "error"
+            },
+            {
+              "code": "payload.extractor-missing",
+              "grade": "checked",
+              "message": "non-empty extracted field 'claims' has no extractor provenance",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.3",
+        "id": "3",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom": "not-an-atom",
+                "line": 1,
+                "quote": "the marker holds"
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "accepted": false,
+          "findings": [
+            {
+              "code": "payload.extractor-missing",
+              "grade": "checked",
+              "message": "non-empty extracted field 'claims' has no extractor provenance",
+              "severity": "error"
+            },
+            {
+              "code": "payload.unparseable-claim",
+              "grade": "checked",
+              "line": 1,
+              "message": "claim atom 'not-an-atom' is not a well-formed atom; the fact-checker cannot read it",
+              "quote": "the marker holds",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.3",
+        "id": "4",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom": "not-an-atom",
+                "atom_expr": {
+                  "args": [
+                    {
+                      "Str": "control"
+                    }
+                  ],
+                  "pred": {
+                    "span": {
+                      "end": 0,
+                      "file": 0,
+                      "start": 0
+                    },
+                    "text": "marker"
+                  }
+                },
+                "line": 1,
+                "quote": "the marker holds"
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "accepted": false,
+          "findings": [
+            {
+              "code": "factcheck.unsupported",
+              "grade": "checked",
+              "line": 1,
+              "message": "no binary slot to resolve; canon bears no matching fact",
+              "quote": "the marker holds",
+              "severity": "error"
+            },
+            {
+              "code": "payload.extractor-missing",
+              "grade": "checked",
+              "message": "non-empty extracted field 'claims' has no extractor provenance",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

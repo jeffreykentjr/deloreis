@@ -342,11 +342,27 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
         ));
     }
     serde_json::from_value(request.params.clone()).map_err(|err| {
+        // The Door T twin of the batch seam's check: a retired params field the
+        // struct no longer declares fails `deny_unknown_fields` here, and the
+        // killed-field registry renames the anonymous schema violation into a
+        // refusal that names its successor (LS-7). Dormant — every retired field
+        // is still declared, and the registry is version-gated besides.
+        let (code, message) =
+            crate::serve::killed_field_successor(&request.dli, request.op, &request.params)
+                .map_or_else(
+                    || (ErrorCode::SchemaViolation, err.to_string()),
+                    |(field, successor)| {
+                        (
+                            ErrorCode::KilledForm,
+                            crate::serve::killed_field_message(field, successor),
+                        )
+                    },
+                );
         error(
             request,
             ErrorBody {
-                code: ErrorCode::SchemaViolation,
-                message: err.to_string(),
+                code,
+                message,
                 data: None,
             },
         )
