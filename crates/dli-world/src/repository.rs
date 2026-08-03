@@ -36,6 +36,9 @@ const TYPES: &[&str] = &[
     "meta",
 ];
 
+type AffectsMap = BTreeMap<String, BTreeSet<(String, Option<String>)>>;
+type LedgerData = (BTreeSet<String>, BTreeMap<String, bool>, AffectsMap);
+
 /// Stable machine-facing repository finding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepositoryFinding {
@@ -77,7 +80,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let mut files = Vec::new();
     collect_markdown(root, root, &mut files);
     let mut findings = Vec::new();
-    let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
+    let (decision_ids, question_status, affects) = load_ledger_ids(root, &mut findings);
     let index = build_id_index(&files, root, &mut findings);
     check_structured_data(root, &mut findings);
     check_characters_sync(root, &files, &mut findings);
@@ -102,6 +105,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
                     &question_status,
                     &mut findings,
                 );
+                check_affects_provenance(&rel, &source, &decision_ids, &affects, &mut findings);
                 check_links(&rel, &source, &index, &mut findings);
             }
             Err(error) => findings.push(RepositoryFinding::new(
@@ -653,15 +657,14 @@ fn check_links(
     }
 }
 
-fn load_ledger_ids(
-    root: &Path,
-    findings: &mut Vec<RepositoryFinding>,
-) -> (std::collections::BTreeSet<String>, BTreeMap<String, bool>) {
+fn load_ledger_ids(root: &Path, findings: &mut Vec<RepositoryFinding>) -> LedgerData {
     let mut decisions = std::collections::BTreeSet::new();
     let mut questions = BTreeMap::new();
+    let mut affects = BTreeMap::new();
     let decision_path = root.join("decisions.md");
     if let Ok(source) = fs::read_to_string(&decision_path) {
-        for (line_no, line) in source.lines().enumerate() {
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
             if let Some(id) = heading_id(line, "D-") {
                 if !decisions.insert(id.clone()) {
                     findings.push(RepositoryFinding::new(
@@ -670,7 +673,16 @@ fn load_ledger_ids(
                         format!("duplicate ledger id {id}"),
                     ));
                 }
-                let _ = line_no;
+                let end = lines[index + 1..]
+                    .iter()
+                    .position(|candidate| candidate.starts_with("## "))
+                    .map_or(lines.len(), |offset| index + 1 + offset);
+                let targets = lines[index..end]
+                    .iter()
+                    .find_map(|candidate| candidate.strip_prefix("- affects: "))
+                    .map(parse_affects)
+                    .unwrap_or_default();
+                affects.insert(id, targets);
             }
         }
     }
@@ -694,7 +706,101 @@ fn load_ledger_ids(
             questions.insert(id, open);
         }
     }
-    (decisions, questions)
+    (decisions, questions, affects)
+}
+
+fn parse_affects(value: &str) -> BTreeSet<(String, Option<String>)> {
+    let mut targets = BTreeSet::new();
+    let mut rest = value;
+    while let Some(start) = rest.find("[[") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find("]]") else { break };
+        let target = after[..end].trim();
+        let (file, section) = target
+            .split_once('#')
+            .map(|(file, section)| (file.trim(), Some(normalize_heading(section))))
+            .unwrap_or((target, None));
+        targets.insert((file.to_owned(), section));
+        rest = &after[end + 2..];
+    }
+    targets
+}
+
+fn normalize_heading(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn check_affects_provenance(
+    path: &str,
+    source: &str,
+    decisions: &BTreeSet<String>,
+    affects: &AffectsMap,
+    findings: &mut Vec<RepositoryFinding>,
+) {
+    let document_id = frontmatter_value(source, "id")
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .unwrap_or_else(|| {
+            Path::new(path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        });
+    for (line, heading, status, refs) in asserted_sections(source) {
+        if !matches!(status, "ratified" | "provisional") {
+            continue;
+        }
+        let normalized = normalize_heading(&heading);
+        for reference in refs {
+            if !reference.starts_with("D-") || !decisions.contains(reference) {
+                continue;
+            }
+            let targets = affects.get(reference).cloned().unwrap_or_default();
+            if targets.contains(&(document_id.clone(), None))
+                || targets.contains(&(document_id.clone(), Some(normalized.clone())))
+            {
+                continue;
+            }
+            findings.push(RepositoryFinding::at_line(
+                path,
+                line,
+                "V11",
+                format!(
+                    "section '{heading}' cites {reference}, but {reference}'s affects does not name this section"
+                ),
+            ));
+        }
+    }
+}
+
+fn asserted_sections(source: &str) -> Vec<(usize, String, &str, Vec<&str>)> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut out = Vec::new();
+    for (index, line) in lines.iter().enumerate() {
+        if !line.starts_with("## ") && !line.starts_with("### ") {
+            continue;
+        }
+        let heading = line.trim_start_matches('#').trim().to_owned();
+        let mut cursor = index + 1;
+        while cursor < lines.len() {
+            let candidate = lines[cursor];
+            if candidate.starts_with("## ") || candidate.starts_with("### ") {
+                break;
+            }
+            if !candidate.trim().is_empty() {
+                if let Some((status, citations)) = parse_status_marker(candidate) {
+                    out.push((index + 1, heading, status, citations));
+                }
+                break;
+            }
+            cursor += 1;
+        }
+    }
+    out
 }
 
 fn heading_id(line: &str, prefix: &str) -> Option<String> {
@@ -1167,7 +1273,7 @@ mod tests {
         write(
             dir.path(),
             "decisions.md",
-            "## D-0001 — test\n- status: ratified\n",
+            "## D-0001 — test\n- status: ratified\n- affects: [[anchor#Anchor]]\n",
         );
         let findings = validate_repository(dir.path());
         assert!(findings.is_empty(), "{findings:?}");
@@ -1369,6 +1475,72 @@ mod tests {
         );
         let findings = validate_repository(dir.path());
         assert_eq!(findings.iter().filter(|f| f.code == "V10").count(), 2);
+    }
+
+    #[test]
+    fn v11_requires_section_granular_affects_for_asserted_citations() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — scoped\n- status: ratified\n- affects: [[other]]\n\n## D-0002 — whole file\n- status: ratified\n- affects: [[whole]]\n\n## D-0003 — subsection\n- status: ratified\n- affects: [[subsections#Inner]]\n",
+        );
+        write(
+            dir.path(),
+            "forged.md",
+            "---\nid: forged\ntitle: Forged\ntype: narrative\nstatus: proposed\n---\n\n## Forged\n> status: ratified (D-0001)\n",
+        );
+        write(
+            dir.path(),
+            "whole.md",
+            "---\nid: whole\ntitle: Whole\ntype: narrative\nstatus: proposed\n---\n\n## Any section\n> status: ratified (D-0002)\n",
+        );
+        write(
+            dir.path(),
+            "subsections.md",
+            "---\nid: subsections\ntitle: Subsections\ntype: narrative\nstatus: proposed\n---\n\n## Parent\n> status: proposed\n\n### Inner\n> status: ratified (D-0003)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(findings.iter().any(|finding| {
+            finding.path == "forged.md"
+                && finding.code == "V11"
+                && finding.message.contains("D-0001")
+        }));
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| { finding.path == "whole.md" && finding.code == "V11" })
+        );
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| { finding.path == "subsections.md" && finding.code == "V11" })
+        );
+    }
+
+    #[test]
+    fn v11_delegates_unknown_and_non_asserted_citations() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — real\n- status: ratified\n- affects: [[proposed]]\n",
+        );
+        write(
+            dir.path(),
+            "cases.md",
+            "---\nid: cases\ntitle: Cases\ntype: narrative\nstatus: proposed\n---\n\n## Proposed\n> status: proposed (D-0001)\n\n## Unknown\n> status: ratified (D-9999)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(findings.iter().any(|finding| {
+            finding.path == "cases.md"
+                && finding.code == "V3"
+                && finding.message.contains("proposed")
+        }));
+        assert!(findings.iter().any(|finding| {
+            finding.path == "cases.md" && finding.code == "V4" && finding.message.contains("D-9999")
+        }));
+        assert!(!findings.iter().any(|finding| finding.code == "V11"));
     }
 
     #[test]
