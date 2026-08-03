@@ -12,6 +12,7 @@ pub mod clause;
 pub mod decl;
 pub mod doc;
 pub mod ident;
+pub mod language;
 pub mod literal;
 pub mod rule;
 pub mod schema;
@@ -29,6 +30,10 @@ pub use decl::{
 };
 pub use doc::Doc;
 pub use ident::Ident;
+pub use language::{
+    Assignment, CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause,
+    NameItem, NameKindSpec, RatifyBody, RatifyClause,
+};
 pub use literal::BodyLiteral;
 pub use rule::{Datalog, RuleBody, RuleClause};
 pub use span::{FileId, Span};

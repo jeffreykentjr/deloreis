@@ -313,7 +313,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             r.label.as_deref(),
             &[],
             r.provenance.as_ref(),
-            &r.body,
+            &retained_clauses(r.body.clauses.iter().map(|c| &c.clause)),
         ),
         Decl::Draft(d) => braced(
             "draft",
@@ -339,7 +339,14 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             l.provenance.as_ref(),
             &l.body,
         ),
-        Decl::Ratify(r) => braced("ratify", &r.decision.text, None, &[], None, &r.body),
+        Decl::Ratify(r) => braced(
+            "ratify",
+            &r.decision.text,
+            None,
+            &[],
+            None,
+            &retained_clauses(r.body.clauses.iter().map(|c| &c.clause)),
+        ),
         Decl::Word(l) => {
             let mut line = format!("word {}", l.name.text);
             if let Some(label) = &l.label {
@@ -378,7 +385,9 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_head(&mut header, &n.head);
             append_provenance(&mut header, n.provenance.as_ref());
             let mut lines = vec![header.trim_end().to_owned()];
-            lines.extend(clause_lines(&n.body));
+            lines.extend(clause_lines(&retained_clauses(
+                n.body.clauses.iter().map(|c| &c.clause),
+            )));
             lines
         }
         Decl::Term(t) => {
@@ -480,6 +489,13 @@ fn clause_lines(body: &[Clause]) -> Vec<String> {
     body.iter()
         .map(|clause| format!("{INDENT}{}", clause.text))
         .collect()
+}
+
+/// Collect the retained normalized [`Clause`] text off a typed language-layer
+/// interior (`dialect`/`name`/`ratify`, LS-9) so the formatter renders it
+/// verbatim — the surface round-trips byte-for-byte (charter koan 7).
+fn retained_clauses<'a>(clauses: impl Iterator<Item = &'a Clause>) -> Vec<Clause> {
+    clauses.cloned().collect()
 }
 
 /// Render a typed [`RuleBody`](dli_ast::rule::RuleBody)'s block clauses. The

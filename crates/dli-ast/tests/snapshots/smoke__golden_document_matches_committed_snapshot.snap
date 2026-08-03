@@ -1,6 +1,5 @@
 ---
 source: crates/dli-ast/tests/smoke.rs
-assertion_line: 74
 expression: document
 ---
 {
@@ -63,8 +62,7 @@ expression: document
             "start": 50,
             "end": 56
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -76,8 +74,7 @@ expression: document
             "start": 64,
             "end": 70
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -89,8 +86,7 @@ expression: document
             "start": 78,
             "end": 84
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -102,8 +98,7 @@ expression: document
             "start": 92,
             "end": 98
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -115,8 +110,7 @@ expression: document
             "start": 106,
             "end": 112
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -128,8 +122,7 @@ expression: document
             "start": 120,
             "end": 126
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -141,8 +134,7 @@ expression: document
             "start": 134,
             "end": 140
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -154,8 +146,7 @@ expression: document
             "start": 148,
             "end": 154
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -167,8 +158,7 @@ expression: document
             "start": 162,
             "end": 168
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -180,8 +170,7 @@ expression: document
             "start": 176,
             "end": 182
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -193,8 +182,7 @@ expression: document
             "start": 190,
             "end": 196
           }
-        },
-        "body": []
+        }
       }
     },
     {
@@ -1927,72 +1915,186 @@ expression: document
           }
         },
         "label": "the old speech",
-        "body": [
-          {
-            "text": "basis attested \"Old Welsh / Brythonic\"",
-            "span": {
-              "file": 0,
-              "start": 2246,
-              "end": 2284
+        "body": {
+          "clauses": [
+            {
+              "clause": {
+                "text": "basis attested \"Old Welsh / Brythonic\"",
+                "span": {
+                  "file": 0,
+                  "start": 2246,
+                  "end": 2284
+                }
+              },
+              "item": {
+                "Basis": {
+                  "attested": true,
+                  "text": "Old Welsh / Brythonic"
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "vowels a e i o u y",
+                "span": {
+                  "file": 0,
+                  "start": 2287,
+                  "end": 2305
+                }
+              },
+              "item": {
+                "Vowels": [
+                  "a",
+                  "e",
+                  "i",
+                  "o",
+                  "u",
+                  "y"
+                ]
+              }
+            },
+            {
+              "clause": {
+                "text": "endings -a -oc -wen",
+                "span": {
+                  "file": 0,
+                  "start": 2308,
+                  "end": 2327
+                }
+              },
+              "item": {
+                "Endings": [
+                  "a",
+                  "oc",
+                  "wen"
+                ]
+              }
+            },
+            {
+              "clause": {
+                "text": "cluster-max 2",
+                "span": {
+                  "file": 0,
+                  "start": 2330,
+                  "end": 2343
+                }
+              },
+              "item": {
+                "ClusterMax": 2
+              }
+            },
+            {
+              "clause": {
+                "text": "stress penultimate",
+                "span": {
+                  "file": 0,
+                  "start": 2346,
+                  "end": 2364
+                }
+              },
+              "item": {
+                "Stress": "penultimate"
+              }
+            },
+            {
+              "clause": {
+                "text": "name-kind person.given = given-proto given-deutero",
+                "span": {
+                  "file": 0,
+                  "start": 2367,
+                  "end": 2417
+                }
+              },
+              "item": {
+                "NameKind": {
+                  "kind": "person.given",
+                  "patterns": [
+                    [
+                      "given-proto",
+                      "given-deutero"
+                    ]
+                  ]
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "name-part myr \"sea\" role given-proto proposed",
+                "span": {
+                  "file": 0,
+                  "start": 2420,
+                  "end": 2465
+                }
+              },
+              "item": {
+                "NamePart": {
+                  "name": {
+                    "text": "myr",
+                    "span": {
+                      "file": 0,
+                      "start": 10,
+                      "end": 13
+                    }
+                  },
+                  "gloss": "sea",
+                  "head": [
+                    "role",
+                    "given-proto"
+                  ],
+                  "provenance": {
+                    "marker": "Proposed",
+                    "citations": [],
+                    "condition": null,
+                    "tags": [],
+                    "span": {
+                      "file": 0,
+                      "start": 37,
+                      "end": 45
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "name-part din \"fastness\" role given-deutero proposed",
+                "span": {
+                  "file": 0,
+                  "start": 2468,
+                  "end": 2520
+                }
+              },
+              "item": {
+                "NamePart": {
+                  "name": {
+                    "text": "din",
+                    "span": {
+                      "file": 0,
+                      "start": 10,
+                      "end": 13
+                    }
+                  },
+                  "gloss": "fastness",
+                  "head": [
+                    "role",
+                    "given-deutero"
+                  ],
+                  "provenance": {
+                    "marker": "Proposed",
+                    "citations": [],
+                    "condition": null,
+                    "tags": [],
+                    "span": {
+                      "file": 0,
+                      "start": 44,
+                      "end": 52
+                    }
+                  }
+                }
+              }
             }
-          },
-          {
-            "text": "vowels a e i o u y",
-            "span": {
-              "file": 0,
-              "start": 2287,
-              "end": 2305
-            }
-          },
-          {
-            "text": "endings -a -oc -wen",
-            "span": {
-              "file": 0,
-              "start": 2308,
-              "end": 2327
-            }
-          },
-          {
-            "text": "cluster-max 2",
-            "span": {
-              "file": 0,
-              "start": 2330,
-              "end": 2343
-            }
-          },
-          {
-            "text": "stress penultimate",
-            "span": {
-              "file": 0,
-              "start": 2346,
-              "end": 2364
-            }
-          },
-          {
-            "text": "name-kind person.given = given-proto given-deutero",
-            "span": {
-              "file": 0,
-              "start": 2367,
-              "end": 2417
-            }
-          },
-          {
-            "text": "name-part myr \"sea\" role given-proto proposed",
-            "span": {
-              "file": 0,
-              "start": 2420,
-              "end": 2465
-            }
-          },
-          {
-            "text": "name-part din \"fastness\" role given-deutero proposed",
-            "span": {
-              "file": 0,
-              "start": 2468,
-              "end": 2520
-            }
-          }
-        ],
+          ]
+        },
         "provenance": {
           "marker": "Proposed",
           "citations": [],
@@ -2022,24 +2124,58 @@ expression: document
           "in",
           "old-speech"
         ],
-        "body": [
-          {
-            "text": "= given-proto myr + given-deutero din",
-            "span": {
-              "file": 0,
-              "start": 2573,
-              "end": 2610
+        "body": {
+          "clauses": [
+            {
+              "clause": {
+                "text": "= given-proto myr + given-deutero din",
+                "span": {
+                  "file": 0,
+                  "start": 2573,
+                  "end": 2610
+                }
+              },
+              "item": {
+                "Composition": [
+                  {
+                    "role": "given-proto",
+                    "morpheme": "myr"
+                  },
+                  {
+                    "role": "given-deutero",
+                    "morpheme": "din"
+                  }
+                ]
+              }
+            },
+            {
+              "clause": {
+                "text": "bearer the-enchanter proposed",
+                "span": {
+                  "file": 0,
+                  "start": 2613,
+                  "end": 2642
+                }
+              },
+              "item": {
+                "Bearer": {
+                  "entity": "the-enchanter",
+                  "provenance": {
+                    "marker": "Proposed",
+                    "citations": [],
+                    "condition": null,
+                    "tags": [],
+                    "span": {
+                      "file": 0,
+                      "start": 15,
+                      "end": 23
+                    }
+                  }
+                }
+              }
             }
-          },
-          {
-            "text": "bearer the-enchanter proposed",
-            "span": {
-              "file": 0,
-              "start": 2613,
-              "end": 2642
-            }
-          }
-        ],
+          ]
+        },
         "provenance": null
       }
     },
@@ -2181,24 +2317,66 @@ expression: document
           "in",
           "old-speech"
         ],
-        "body": [
-          {
-            "text": "= given-proto tal + given-deutero din",
-            "span": {
-              "file": 0,
-              "start": 3076,
-              "end": 3113
+        "body": {
+          "clauses": [
+            {
+              "clause": {
+                "text": "= given-proto tal + given-deutero din",
+                "span": {
+                  "file": 0,
+                  "start": 3076,
+                  "end": 3113
+                }
+              },
+              "item": {
+                "Composition": [
+                  {
+                    "role": "given-proto",
+                    "morpheme": "tal"
+                  },
+                  {
+                    "role": "given-deutero",
+                    "morpheme": "din"
+                  }
+                ]
+              }
+            },
+            {
+              "clause": {
+                "text": "proposed agent:factory/naming-run-0714 assumes h-old-loan",
+                "span": {
+                  "file": 0,
+                  "start": 3116,
+                  "end": 3173
+                }
+              },
+              "item": {
+                "Provenance": {
+                  "marker": "Proposed",
+                  "citations": [],
+                  "condition": {
+                    "Hyp": {
+                      "text": "h-old-loan",
+                      "span": {
+                        "file": 0,
+                        "start": 62,
+                        "end": 72
+                      }
+                    }
+                  },
+                  "tags": [
+                    "agent:factory/naming-run-0714"
+                  ],
+                  "span": {
+                    "file": 0,
+                    "start": 15,
+                    "end": 23
+                  }
+                }
+              }
             }
-          },
-          {
-            "text": "proposed agent:factory/naming-run-0714 assumes h-old-loan",
-            "span": {
-              "file": 0,
-              "start": 3116,
-              "end": 3173
-            }
-          }
-        ],
+          ]
+        },
         "provenance": null
       }
     },
@@ -2936,16 +3114,24 @@ expression: document
             "end": 5748
           }
         },
-        "body": [
-          {
-            "text": "h-merlin-foresaw := true",
-            "span": {
-              "file": 0,
-              "start": 5753,
-              "end": 5777
+        "body": {
+          "clauses": [
+            {
+              "clause": {
+                "text": "h-merlin-foresaw := true",
+                "span": {
+                  "file": 0,
+                  "start": 5753,
+                  "end": 5777
+                }
+              },
+              "assignment": {
+                "hyp": "h-merlin-foresaw",
+                "value": true
+              }
             }
-          }
-        ]
+          ]
+        }
       }
     }
   ]

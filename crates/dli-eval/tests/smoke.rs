@@ -71,7 +71,7 @@ fn decided_fact(pred: &str, args: Vec<Term>, decision: &str) -> Decl {
 fn ratify(decision: &str) -> Decl {
     Decl::Ratify(RatifyDecl {
         decision: Ident::synthetic(decision),
-        body: Vec::new(),
+        body: dli_ast::language::RatifyBody::default(),
     })
 }
 

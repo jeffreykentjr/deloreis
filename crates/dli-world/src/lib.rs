@@ -187,14 +187,16 @@ fn gate_language_citations(
                 );
             }
             Decl::Ratify(ratify) => {
-                let citations = harvest_clause_citations(&ratify.body);
+                // The parser (`dli_syntax::structure_ratify_body`) already
+                // harvested the body's cited decision ids into the typed interior
+                // (LS-9), so the gate reads them without re-scanning clause text.
                 gate_citations(
                     nu,
                     findings,
                     model,
                     known_decisions,
                     Provenance::Decided,
-                    &citations,
+                    &ratify.body.citations,
                 );
             }
             _ => {}
