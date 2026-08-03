@@ -258,7 +258,7 @@ before sending.
 
 The consumer lists forks, opens one, and requests the derived-consequence diff:
 
-```json
+```json transcript
 → {"op": "dli.fork.list", "params": {"document": "world"}}
 ← {"forks": [{"fork": "fork-7", "base": "fork-3",
     "assumes": {"rq-031-b": true, "p-214": true},
@@ -280,7 +280,7 @@ gloss, but the structured verdict is the only thing downstream logic reads. The
 consumer supposes an option, adds a proposed fact, and — when a conflict names
 the exact pair of sources — resolves or accepts, then proposes for ratification:
 
-```json
+```json transcript
 → {"op": "dli.fork.promote", "params": {"fork": "fork-7"}}
 ← {"rq_draft": {"slug": "fork-7",
     "ask": "Ratify fork `fork-7`?",
@@ -312,7 +312,7 @@ reinterpreted under a new storage format.
 A designer defines two candidate rule-deltas as data files; the consumer
 enqueues one job per candidate:
 
-```json
+```json transcript
 → {"op": "dli.simulate.start",
    "params": {"document": "game", "seed": 41, "trials": 100000,
               "checkpoint_every": 10000}}
@@ -331,7 +331,7 @@ is removed, so deleting a terminal record is corruption rather than rollback to
 terminal once committed. On completion the manifest and verdicts carry
 **honest grades**:
 
-```json
+```json transcript
 ← {"job_id": "sha256:…", "status": "complete",
    "trials_done": 100000, "trials_total": 100000,
    "manifest": {
@@ -358,7 +358,7 @@ the payload.
 An episode draft carries premise and conclusion cues in its production metadata.
 The consumer submits the formal encoding of the cues:
 
-```json
+```json transcript
 → {"dli": "0.5.1", "id": "proof-1", "op": "dli.check-proof",
    "params": {"document": "round-table", "proof": "lancelots-oath"}}
 ← {"dli": "0.5.1", "id": "proof-1", "ok": true,

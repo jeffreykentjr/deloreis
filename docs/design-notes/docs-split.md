@@ -40,7 +40,12 @@ The one hard constraint is the **docs oracle**
 Four consequences drive every step below:
 
 - **Only ` ```dli ` blocks are gated.** ` ```text `, ` ```json `, and ` ```yaml `
-  blocks are invisible to the oracle — free to rewrite.
+  blocks are invisible to the oracle — free to rewrite. *(Superseded after this
+  plan shipped: [roadmap LS-7](lorestore-roadmap.md) re-aimed the oracle, so
+  fenced ` ```json ` is checked too — schema-validated when the fence names an
+  LS-1 stored-object schema, well-formed-JSON otherwise, structurally checked
+  when tagged ` ```json transcript `. ` ```text ` and ` ```yaml ` remain
+  ungated. The example walk is recursive now, not a top-level `read_dir`.)*
 - **Moving a *parsing* dli block from a spec into a worldbook `.md` is
   parse-neutral** — both live under `docs/`, so the oracle re-parses it in its
   new home unchanged. Zero risk.
