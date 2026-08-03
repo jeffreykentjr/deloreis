@@ -146,43 +146,9 @@ fn a_v1_stored_pack_compiles_identically_after_upcast() {
 
     // Build a store on disk whose rule carriage is stored in the schema-v1
     // string-bodied shape, everything else v2 — a genuine mixed old/new store.
-    let tmp = TempDir::new().expect("tempdir");
-    let storage = FilesystemStorage::new(tmp.path());
-    let (objects, interner_names) = lower_pack(&pack);
-
-    let mut fact_hashes = Vec::with_capacity(objects.len());
-    for fo in &objects {
-        let hash = if is_rule_carriage(fo) {
-            let v1_bytes = serde_json::to_vec(&downgrade_to_v1(fo)).expect("v1 bytes");
-            storage.write_object(&v1_bytes).expect("write v1 carriage")
-        } else {
-            write_typed(&storage, fo).expect("write v2 object")
-        };
-        fact_hashes.push(hash);
-    }
-
-    let decisions: Vec<String> = declared_decisions(&pack).into_iter().collect();
-    let commit = Commit::root(
-        interner_names,
-        fact_hashes,
-        Vec::new(),
-        Vec::new(),
-        decisions,
-        pack.name.clone(),
-    );
-    let commit_hash = write_typed(&storage, &commit).expect("write commit");
-    let main = dli_lorestore::store::Ref::new(MAIN_REF, commit_hash);
-    assert!(
-        storage.cas_ref(MAIN_REF, None, &main).expect("cas ref"),
-        "fresh ref creation must succeed"
-    );
-
-    // Sanity: the stored carriage really is v1 on disk (the downgrade took).
-    let stored_rule = commit_carriage_is_v1(&storage, &main.commit);
-    assert!(stored_rule, "the rule carriage must be stored as schema v1");
+    let (_tmp, _head, store) = build_v1_store(&pack);
 
     // reference B: compile through the store, which upcasts the v1 carriage.
-    let store = Lorestore::from_storage(Box::new(storage));
     let compiled_b = store.compile().expect("store compile (with upcast)");
     let model_b = compiled_b.model();
 
@@ -206,6 +172,51 @@ fn a_v1_stored_pack_compiles_identically_after_upcast() {
         !render_derived(&model_a.world).is_empty(),
         "the world rule must derive a fact for the oracle to be meaningful"
     );
+}
+
+/// Build an on-disk store whose commit chain holds the pack's `rule` carriages in
+/// the schema-v1 string-bodied shape (everything else v2) — a store persisted
+/// before LS-9. Returns the temp dir (kept alive so the store's files survive),
+/// the head commit hash, and a `Lorestore` over it. Asserts the carriage really
+/// is v1 on disk.
+fn build_v1_store(pack: &Pack) -> (TempDir, dli_lorestore::ContentHash, Lorestore) {
+    let tmp = TempDir::new().expect("tempdir");
+    let storage = FilesystemStorage::new(tmp.path());
+    let (objects, interner_names) = lower_pack(pack);
+
+    let mut fact_hashes = Vec::with_capacity(objects.len());
+    for fo in &objects {
+        let hash = if is_rule_carriage(fo) {
+            let v1_bytes = serde_json::to_vec(&downgrade_to_v1(fo)).expect("v1 bytes");
+            storage.write_object(&v1_bytes).expect("write v1 carriage")
+        } else {
+            write_typed(&storage, fo).expect("write v2 object")
+        };
+        fact_hashes.push(hash);
+    }
+
+    let decisions: Vec<String> = declared_decisions(pack).into_iter().collect();
+    let commit = Commit::root(
+        interner_names,
+        fact_hashes,
+        Vec::new(),
+        Vec::new(),
+        decisions,
+        pack.name.clone(),
+    );
+    let commit_hash = write_typed(&storage, &commit).expect("write commit");
+    let main = dli_lorestore::store::Ref::new(MAIN_REF, commit_hash.clone());
+    assert!(
+        storage.cas_ref(MAIN_REF, None, &main).expect("cas ref"),
+        "fresh ref creation must succeed"
+    );
+    assert!(
+        commit_carriage_is_v1(&storage, &commit_hash),
+        "the rule carriage must be stored as schema v1"
+    );
+
+    let store = Lorestore::from_storage(Box::new(storage));
+    (tmp, commit_hash, store)
 }
 
 /// Read every fact object named by the commit at `commit_hash` (raw, no upcast)
@@ -254,5 +265,32 @@ fn read_typed_upcasts_a_v1_object_on_read() {
         read.content_hash().expect("hash"),
         v2_carriage.content_hash().expect("hash"),
         "read_typed must lift the v1 carriage to the v2 object"
+    );
+}
+
+/// LS-9 v1-store idempotency (the coordinator's Fix 2): a store persisted under
+/// schema v1 must be recognized by `ensure_pack_imported` as the SAME lineage as
+/// the freshly-lowered v2 pack — never refused as a `ForeignBase` at serve start.
+///
+/// The 1→2 schema bump changes every object's full-object STORAGE address
+/// (`schema_version` is inside the JCS bytes, `object.rs`), so the pre-fix
+/// comparison of freshly-lowered v2 storage addresses against the store's v1
+/// addresses mismatches and raises `ForeignBase`. Fails-before-fix: with the old
+/// storage-address comparison the `expect` below panics on `ForeignBase`. The fix
+/// compares the version-independent identity projection (`FactObject::content_hash`,
+/// which excludes `schema_version`), reading the stored side through the upcasting
+/// `read_object` so a v1 carriage lifts to its v2 identity before comparison.
+#[test]
+fn ensure_pack_imported_recognizes_a_v1_store_as_the_same_lineage() {
+    let pack = wards_pack();
+    let (_tmp, head, store) = build_v1_store(&pack);
+
+    // Re-attaching the same pack, freshly lowered to v2, must be idempotent.
+    let result = store
+        .ensure_pack_imported(&pack)
+        .expect("a v1 store is the same lineage, not a ForeignBase");
+    assert_eq!(
+        result, head,
+        "idempotent re-attach of a v1 store must return the existing head — no redundant commit"
     );
 }

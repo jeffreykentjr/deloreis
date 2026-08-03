@@ -404,12 +404,33 @@ impl Lorestore {
     /// lineage, and silently mixing two would desync the interner chain.
     pub fn ensure_pack_imported(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
         let (objects, interner) = Self::lower_pack_checked(pack)?;
-        // Storage addresses are the full-object JCS hash (the address domain),
-        // not `FactObject::content_hash`'s identity projection — compute the
-        // same hash `write_object` would, without writing.
+
+        // Two hash domains, kept apart (roadmap §LS-9, schema-versioning):
+        //
+        // - **Storage address** — the full-object JCS hash, which INCLUDES
+        //   `schema_version` (`object.rs`, no skip). This is what `write_object`
+        //   returns and what a commit's fact list holds.
+        // - **Identity projection** — `FactObject::content_hash`, which EXCLUDES
+        //   `schema_version` (and `claim_id`). This is the version-independent
+        //   fact identity.
+        //
+        // Idempotency must be judged on *identity*, not storage address: a store
+        // persisted under an older schema (e.g. v1 string-bodied `rule`
+        // carriages) has different storage addresses than the freshly-lowered v2
+        // objects, even though the facts are identical. Comparing storage
+        // addresses would refuse such a store as a `ForeignBase` at serve start —
+        // defeating the upcast machinery's promise that old stores stay usable.
+        // So we compare content hashes, reading the stored side through
+        // `read_object` (which upcasts an old carriage to the current shape, whose
+        // identity then equals the freshly-lowered one). The read cost is O(stored
+        // facts) at attach time — acceptable at the atelier tier, which already
+        // reads every object to compile.
         let mut pack_hashes: Vec<ContentHash> = Vec::with_capacity(objects.len());
+        let mut pack_identities: std::collections::BTreeSet<ContentHash> =
+            std::collections::BTreeSet::new();
         for obj in &objects {
             pack_hashes.push(crate::canonical::content_hash(obj)?);
+            pack_identities.insert(obj.content_hash()?);
         }
 
         let head = self
@@ -418,17 +439,28 @@ impl Lorestore {
         let chain = self.storage.walk_dag(&head, None)?;
         let head_commit = chain.first().expect("walk_dag returns at least one commit");
 
-        let existing: std::collections::BTreeSet<ContentHash> =
-            self.all_fact_hashes()?.into_iter().collect();
+        // The stored side, read through the upcasting read path and projected to
+        // its identity hash — a v1 carriage lifts to its v2 identity here.
+        let mut existing_identities: std::collections::BTreeSet<ContentHash> =
+            std::collections::BTreeSet::new();
+        for hash in self.all_fact_hashes()? {
+            if let Some(obj) = self.read_object::<crate::FactObject>(&hash)? {
+                existing_identities.insert(obj.content_hash()?);
+            }
+        }
         let interner_covered = head_commit.interner.len() >= interner.len()
             && head_commit.interner[..interner.len()] == interner[..];
-        if interner_covered && pack_hashes.iter().all(|h| existing.contains(h)) {
+        if interner_covered
+            && pack_identities
+                .iter()
+                .all(|h| existing_identities.contains(h))
+        {
             return Ok(head);
         }
 
         // Not covered: only a fresh store (empty genesis lineage) may accept a
         // base import.
-        if !existing.is_empty() || !head_commit.interner.is_empty() {
+        if !existing_identities.is_empty() || !head_commit.interner.is_empty() {
             return Err(StoreError::ForeignBase {
                 store_pack: head_commit.pack_name.clone(),
                 importing: pack.name.clone(),
