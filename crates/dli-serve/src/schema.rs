@@ -370,6 +370,22 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.list_workspaces.response".to_owned(),
             schema_for!(AuthorListWorkspacesResult),
         ),
+        (
+            "author.branch.request".to_owned(),
+            schema_for!(AuthorBranchParams),
+        ),
+        (
+            "author.branch.response".to_owned(),
+            schema_for!(AuthorBranchResult),
+        ),
+        (
+            "author.merge.request".to_owned(),
+            schema_for!(AuthorMergeParams),
+        ),
+        (
+            "author.merge.response".to_owned(),
+            schema_for!(AuthorMergeResult),
+        ),
     ];
     for (name, schema) in &mut schemas {
         if name.ends_with(".request") {

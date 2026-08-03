@@ -164,7 +164,7 @@ pub fn dispatch(
     sessions: &mut Sessions,
     author_store: &mut author::store::Store,
 ) -> Response {
-    if request.dli != CONTRACT_VERSION && request.dli != crate::COMPAT_CONTRACT_VERSION {
+    if !crate::ACCEPTED_CONTRACT_VERSIONS.contains(&request.dli.as_str()) {
         return version_mismatch(request);
     }
     if !request.op.accepts_author_fences() {
@@ -370,8 +370,8 @@ fn version_mismatch(request: &Request) -> Response {
         &request.id,
         ErrorCode::VersionMismatch,
         format!(
-            "this worker speaks contract '{CONTRACT_VERSION}' (and '{}' dual-mode), not '{}'; pin the vendored contract",
-            crate::COMPAT_CONTRACT_VERSION,
+            "this worker speaks contracts {:?}, not '{}'; pin the vendored contract",
+            crate::ACCEPTED_CONTRACT_VERSIONS,
             request.dli
         ),
     )

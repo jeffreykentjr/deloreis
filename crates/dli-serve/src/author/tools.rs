@@ -32,13 +32,17 @@ use dli_world::check::factcheck::{Verdict, factcheck};
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
-    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorDiffParams,
-    AuthorDiffResult, AuthorMaterializeParams, AuthorMutationResult, AuthorOpenParams,
+    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorBranchParams,
+    AuthorBranchResult, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
+    AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
     AuthorOpenQuestionParams, AuthorOpenResult, AuthorStatusParams, AuthorStatusResult,
-    AuthorSupposeParams, EntityKind as WireEntityKind,
+    AuthorSupposeParams, BranchAction, DiffConflict, EntityKind as WireEntityKind,
+    MergeStandingChange,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, Severity};
+use dli_eval::fork::{Conflict, ConflictKind};
+use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 
 use super::reads;
 use super::render::{render_decls, render_option, render_scoped};
@@ -1310,6 +1314,127 @@ fn unknown_decl(decl_id: &str) -> ErrorBody {
         message: format!("no staged declaration matching \"{decl_id}\" in this workspace"),
         data: None,
     }
+}
+
+// -- author.branch / author.merge (LS-6, contract 0.6.1) ---------------------
+
+/// `author.branch`: create a persistent branch, or list them. Operates on the
+/// lorestore backing the workspace's base — branches are durable divergent lines
+/// of writes, so a store without a lorestore refuses (demo mode).
+pub(super) fn branch(store: &Store, params: &AuthorBranchParams) -> Result<Value, ErrorBody> {
+    let lorestore = store
+        .workspace_lorestore(&params.workspace)
+        .ok_or_else(no_lorestore)?;
+    let created = match params.action {
+        BranchAction::List => None,
+        BranchAction::Create => {
+            let name = params.name.as_deref().ok_or_else(|| ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "author.branch `create` requires a `name`".to_owned(),
+                data: None,
+            })?;
+            let from = params.from.as_deref().unwrap_or("main");
+            lorestore.create_branch(name, from).map_err(|e| store_error(&e))?;
+            Some(name.to_owned())
+        }
+    };
+    let branches = lorestore.list_branches().map_err(|e| store_error(&e))?;
+    to_value(&AuthorBranchResult { branches, created })
+}
+
+/// `author.merge`: merge a named branch into the current one (default `main`),
+/// returning the merge commit hash and the structural conflict report.
+pub(super) fn merge(store: &Store, params: &AuthorMergeParams) -> Result<Value, ErrorBody> {
+    let lorestore = store
+        .workspace_lorestore(&params.workspace)
+        .ok_or_else(no_lorestore)?;
+    let target = params.target.as_deref().unwrap_or("main");
+    let report = lorestore.merge(target, &params.source).map_err(|e| store_error(&e))?;
+    let result = AuthorMergeResult {
+        merge_commit: report.merge_commit.to_string(),
+        merge_base: report.merge_base.map(|h| h.to_string()),
+        conflicts: report.conflicts.iter().map(conflict_to_wire).collect(),
+        findings: report.findings.iter().map(world_finding_to_wire).collect(),
+        stratifies: report.stratifies,
+        standing_changes: report
+            .standing_changes
+            .iter()
+            .map(|s| MergeStandingChange {
+                atom: s.atom.clone(),
+                branch: s.branch.clone(),
+                before: s.before.clone(),
+                after: s.after.clone(),
+            })
+            .collect(),
+    };
+    to_value(&result)
+}
+
+/// The refusal when branches/merge are called against a store with no durable
+/// lorestore (the demo store) — a durable operation in explicit demo mode.
+fn no_lorestore() -> ErrorBody {
+    ErrorBody {
+        code: ErrorCode::ProjectRequired,
+        message: "branches and merge need a durable lorestore; run against a project store"
+            .to_owned(),
+        data: None,
+    }
+}
+
+/// Map a lorestore error to a typed wire error.
+fn store_error(err: &dli_lorestore::StoreError) -> ErrorBody {
+    use dli_lorestore::StoreError as SE;
+    let code = match err {
+        SE::NotFound(_) => ErrorCode::UnknownDoc,
+        SE::BranchExists { .. } | SE::InternerRegression { .. } | SE::CasConflict { .. } => {
+            ErrorCode::Conflict
+        }
+        _ => ErrorCode::Internal,
+    };
+    ErrorBody {
+        code,
+        message: err.to_string(),
+        data: None,
+    }
+}
+
+/// A merge-engine [`Conflict`] on the wire as a [`DiffConflict`].
+fn conflict_to_wire(conflict: &Conflict) -> DiffConflict {
+    let code = match conflict.kind {
+        ConflictKind::Valuation => "merge.valuation",
+        ConflictKind::Exclusivity => "merge.exclusivity",
+        ConflictKind::Certain => "merge.functional-dependency",
+    };
+    DiffConflict {
+        code: code.to_owned(),
+        kind: Some(conflict.kind),
+        blame: vec![conflict.blame.0.clone(), conflict.blame.1.clone()],
+        rendered: conflict.rendered.clone(),
+    }
+}
+
+/// A `dli-world` [`WorldFinding`] on the wire as the contract [`Finding`].
+fn world_finding_to_wire(finding: &WorldFinding) -> Finding {
+    Finding {
+        severity: match finding.severity {
+            WorldSeverity::Error => Severity::Error,
+            WorldSeverity::Warn => Severity::Warn,
+        },
+        code: finding.code.clone(),
+        message: finding.message.clone(),
+        grade: finding.grade,
+        repair: None,
+        citations: finding.citations.clone(),
+    }
+}
+
+/// Serialize a tool result to a wire `Value`, or an internal error.
+fn to_value<T: serde::Serialize>(value: &T) -> Result<Value, ErrorBody> {
+    serde_json::to_value(value).map_err(|e| ErrorBody {
+        code: ErrorCode::Internal,
+        message: e.to_string(),
+        data: None,
+    })
 }
 
 #[cfg(test)]

@@ -1,0 +1,57 @@
+{
+  "fixture": "golden/author-branch-v1",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "0.6.1",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "author.branch",
+        "params": {
+          "workspace": "ws-1",
+          "action": "create",
+          "name": "feature"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "branches": ["main", "feature"],
+          "created": "feature"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.1",
+        "id": "2",
+        "op": "author.branch",
+        "params": {
+          "workspace": "ws-1",
+          "action": "list"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "branches": ["main", "feature"]
+        }
+      }
+    }
+  ],
+  "version": 1
+}

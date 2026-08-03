@@ -41,19 +41,20 @@ use serde_json::Value;
 
 use crate::contract::{
     AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
-    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorCheckParams,
-    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
-    AuthorMaterializeParams, AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams,
-    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorBranchParams,
+    AuthorCheckParams, AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams,
+    AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams,
+    AuthorOpenQuestionParams, AuthorQueryParams, AuthorStatusParams, AuthorSupposeParams,
+    AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
 
-/// Whether the request negotiated the 0.6.0 wire shape. A `0.5.1` request
-/// receives byte-identical 0.5.1-shaped responses (dual-mode, DL-0045
-/// ruling 4).
+/// Whether the request negotiated the JSON-first (0.6.0+) wire shape. A `0.5.1`
+/// request receives byte-identical 0.5.1-shaped responses (dual-mode, DL-0045
+/// ruling 4); `0.6.0` and `0.6.1` share the JSON-first shape.
 fn wire_v2(request: &Request) -> bool {
-    request.dli == crate::CONTRACT_VERSION
+    crate::speaks_v2(&request.dli)
 }
 
 /// The Door T dispatch seam (frozen verbatim in the wave-3 sockets): route an
@@ -183,6 +184,19 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
             let _params: AuthorListWorkspacesParams = parse(request)?;
             Ok((String::new(), Ok(reads::list_workspaces(store))))
+        }),
+        // Branch/merge operate on the workspace's durable lorestore (LS-6). They
+        // route through `read` (no workspace staging, no idempotency caching) but
+        // mutate the store's refs/commit DAG directly.
+        Op::AuthorBranch => read(request, store, |store, request| {
+            let params: AuthorBranchParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), tools::branch(store, &params)))
+        }),
+        Op::AuthorMerge => read(request, store, |store, request| {
+            let params: AuthorMergeParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), tools::merge(store, &params)))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
         // ever receives `author.*`, so anything else is an unknown op here.

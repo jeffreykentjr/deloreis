@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorBranchParams",
+  "description": "`author.branch` params. `name`/`from` apply to `create`; `list` ignores them.",
+  "type": "object",
+  "properties": {
+    "action": {
+      "description": "Create a branch or list branches.",
+      "$ref": "#/$defs/BranchAction"
+    },
+    "from": {
+      "description": "The source branch to create from (default `main`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "The branch name to create (required for `create`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace": {
+      "description": "The workspace whose lorestore the branch lives in.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "action"
+  ],
+  "$defs": {
+    "BranchAction": {
+      "description": "The branch action: create a new branch or list the existing ones.",
+      "oneOf": [
+        {
+          "description": "Create a new branch at the source branch's head.",
+          "type": "string",
+          "const": "create"
+        },
+        {
+          "description": "List every branch.",
+          "type": "string",
+          "const": "list"
+        }
+      ]
+    }
+  }
+}

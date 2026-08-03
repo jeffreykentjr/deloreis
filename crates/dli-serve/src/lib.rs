@@ -21,15 +21,32 @@ pub mod serve;
 pub mod session;
 mod simulation;
 
-/// The current worker contract and envelope protocol version (JSON-first,
-/// lorestore-backed — DL-0045 ruling 4, roadmap LS-4).
-pub const CONTRACT_VERSION: &str = "0.6.0";
+/// The current worker contract and envelope protocol version. `0.6.1` is
+/// additive over `0.6.0`: it adds the branch/merge ops (`author.branch`,
+/// `author.merge`) — the LS-6 merge engine on the tool surface — and nothing
+/// else changes (roadmap LS-6). `0.6.0` and `0.6.1` share the JSON-first wire
+/// shape; `0.5.1` is the legacy dual-mode shape.
+pub const CONTRACT_VERSION: &str = "0.6.1";
 
-/// The prior contract version, still answered dual-mode: a `0.5.1` request
-/// receives byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until
-/// the consumer completes EXT-F4 — nothing removed, nothing reshaped
-/// (DL-0010, DL-0031..DL-0037 discipline).
+/// The legacy dual-mode contract version: a `0.5.1` request receives
+/// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
+/// completes EXT-F4 — nothing removed, nothing reshaped (DL-0010,
+/// DL-0031..DL-0037 discipline).
 pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
+
+/// Every contract version this build answers. Multi-version dual-mode
+/// negotiation (DL-0046, extended by LS-6): `0.5.1` (legacy), `0.6.0`
+/// (JSON-first), and `0.6.1` (JSON-first + branch/merge).
+pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &["0.5.1", "0.6.0", "0.6.1"];
+
+/// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
+/// 0.6.0 replay-context fields (`root_hash`, `valuation`) and the JSON-first
+/// `materialize`. Only the legacy `0.5.1` wire omits them; `0.6.0` and `0.6.1`
+/// share the shape.
+#[must_use]
+pub fn speaks_v2(dli: &str) -> bool {
+    dli != COMPAT_CONTRACT_VERSION
+}
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
 pub use finding::{Finding, Provenance, Severity};

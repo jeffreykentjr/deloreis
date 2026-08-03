@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorMergeResult",
+  "description": "`author.merge` result: the merge commit hash and a structural conflict report\nacross the three classes. The fact-set union is confluent, so the merge\ncommit is always produced; a non-empty `conflicts`/`standing_changes` is the\nsovereign's to rule on (rendering is consumer-owned, DL-0043).",
+  "type": "object",
+  "properties": {
+    "conflicts": {
+      "description": "The structural conflicts — valuation disagreement (`kind` = valuation),\nexclusivity, and functional-dependency / certain-layer (`kind` = certain).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DiffConflict"
+      }
+    },
+    "findings": {
+      "description": "Graded findings over the recompiled merged world, with repair data.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Finding"
+      }
+    },
+    "merge_base": {
+      "description": "The merge base (lowest common ancestor), when the branches share history.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "merge_commit": {
+      "description": "The lorestore commit hash of the merge commit.",
+      "type": "string"
+    },
+    "standing_changes": {
+      "description": "Atoms whose standing changed downward vs. a pre-merge branch.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MergeStandingChange"
+      }
+    },
+    "stratifies": {
+      "description": "Whether the merged rule set stratifies (`false` = a negation cycle).",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "merge_commit",
+    "conflicts",
+    "findings",
+    "stratifies",
+    "standing_changes"
+  ],
+  "$defs": {
+    "ConflictKind": {
+      "description": "The kind of a conflict, naming the three ways forks (and a fork against the\nledger) can disagree (spec 02 §5, the merge constraint-join):",
+      "oneOf": [
+        {
+          "description": "Two sides valuate the same event variable differently.",
+          "type": "string",
+          "const": "valuation"
+        },
+        {
+          "description": "The joined valuation violates `Θ` — two options of one exclusivity\nfamily are ruled true together.",
+          "type": "string",
+          "const": "exclusivity"
+        },
+        {
+          "description": "The joined certain layers break a functional dependency or a\n`C`-constraint; the blame pair is the two monomials that cannot co-hold.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "DiffConflict": {
+      "description": "A conflict carried by either a fork diff or a Door-T staged-world diff.",
+      "type": "object",
+      "properties": {
+        "blame": {
+          "description": "The claims, assignments, or findings that cannot co-hold.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "Stable finding code for machine routing.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Fork conflict family, when the conflict comes from the fork engine.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConflictKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendered": {
+          "description": "Deterministic domain rendering.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "blame",
+        "rendered"
+      ]
+    },
+    "Finding": {
+      "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "A stable finding code.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The grade at which the finding is asserted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable message.",
+          "type": "string"
+        },
+        "repair": {
+          "description": "An optional structured repair suggestion."
+        },
+        "severity": {
+          "description": "The severity, which gates materialization.",
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "grade"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "MergeStandingChange": {
+      "description": "One atom whose standing changed downward in the merged world vs. a pre-merge\nbranch — the stratified-negation effect surface.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Its standing in the merged world.",
+          "type": "string"
+        },
+        "atom": {
+          "description": "The affected atom, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "before": {
+          "description": "Its standing on that branch.",
+          "type": "string"
+        },
+        "branch": {
+          "description": "Which pre-merge branch the atom was stronger on.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atom",
+        "branch",
+        "before",
+        "after"
+      ]
+    },
+    "Severity": {
+      "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
+      "oneOf": [
+        {
+          "description": "Blocks `author.materialize`.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "Advisory; does not block materialization.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    }
+  }
+}

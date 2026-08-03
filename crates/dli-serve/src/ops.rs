@@ -157,11 +157,17 @@ pub enum Op {
     /// The open authoring workspaces and their digests.
     #[serde(rename = "author.list_workspaces")]
     AuthorListWorkspaces,
+    /// Create or list persistent branches (LS-6, contract 0.6.1).
+    #[serde(rename = "author.branch")]
+    AuthorBranch,
+    /// Merge a named branch into the current branch (LS-6, contract 0.6.1).
+    #[serde(rename = "author.merge")]
+    AuthorMerge,
 }
 
 impl Op {
     /// Every operation, in wire order.
-    pub const ALL: [Op; 46] = [
+    pub const ALL: [Op; 48] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -208,7 +214,17 @@ impl Op {
         Op::AuthorWhy,
         Op::AuthorFindings,
         Op::AuthorListWorkspaces,
+        Op::AuthorBranch,
+        Op::AuthorMerge,
     ];
+
+    /// Whether this op was introduced in contract `0.6.1` (the LS-6 branch/merge
+    /// surface). Such ops are omitted from an older negotiation's capability list,
+    /// keeping prior-version handshakes byte-identical.
+    #[must_use]
+    pub const fn added_in_0_6_1(self) -> bool {
+        matches!(self, Op::AuthorBranch | Op::AuthorMerge)
+    }
 
     /// Whether this workspace mutation accepts digest/idempotency fences.
     #[must_use]
@@ -323,6 +339,12 @@ impl Op {
             }
             Op::AuthorListWorkspaces => {
                 "List your open authoring workspaces and their digests, to recover context."
+            }
+            Op::AuthorBranch => {
+                "Create a persistent branch, or list them — a divergent line of durable writes."
+            }
+            Op::AuthorMerge => {
+                "Merge a named branch into the current one; returns the merge commit and a structural conflict report."
             }
         }
     }

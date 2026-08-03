@@ -123,7 +123,9 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorCheck
         | Op::AuthorWhy
         | Op::AuthorFindings
-        | Op::AuthorListWorkspaces => Err((
+        | Op::AuthorListWorkspaces
+        | Op::AuthorBranch
+        | Op::AuthorMerge => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -147,7 +149,7 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
             contract: "dli-worker".to_owned(),
             contract_version: request.dli.clone(),
             server: concat!("deloreis ", env!("CARGO_PKG_VERSION")).to_owned(),
-            capabilities: capabilities(),
+            capabilities: capabilities(&request.dli),
         },
     ))
 }
@@ -280,7 +282,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     // domain-prefixed `world:sha256:` — a binding of compiled state, never a
     // loadable store address (audit B6). The wire valuation is the full
     // ruled map, explicit falses included (audit B7).
-    let context = if request.dli == crate::CONTRACT_VERSION {
+    let context = if crate::speaks_v2(&request.dli) {
         let mut effective = scope.world.model.world.valuation.clone();
         if let Some(overlay) = &opts.fork {
             for (atom, value) in &overlay.0 {
@@ -1836,9 +1838,18 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
     (code, error.to_string())
 }
 
-/// The wire op names this build currently implements.
-fn capabilities() -> Vec<String> {
-    Op::ALL.iter().copied().map(wire_name).collect()
+/// The wire op names this build implements at the negotiated contract version.
+/// Ops added in `0.6.1` (the branch/merge surface) are omitted for a `0.5.1` or
+/// `0.6.0` handshake, so an older negotiation's capability list — and the golden
+/// fixture recording it — stays byte-identical.
+fn capabilities(dli: &str) -> Vec<String> {
+    let is_0_6_1 = dli == crate::CONTRACT_VERSION;
+    Op::ALL
+        .iter()
+        .copied()
+        .filter(|op| is_0_6_1 || !op.added_in_0_6_1())
+        .map(wire_name)
+        .collect()
 }
 
 /// The op's wire identifier (its serde encoding).
