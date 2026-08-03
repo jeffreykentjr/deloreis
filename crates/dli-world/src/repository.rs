@@ -35,6 +35,25 @@ const TYPES: &[&str] = &[
     "narrative",
     "meta",
 ];
+const TEXT_KINDS: &[&str] = &[
+    "apocrypha",
+    "aphorisms",
+    "catechism",
+    "charm",
+    "chronicle",
+    "fable",
+    "koan",
+    "lament",
+    "lesson",
+    "note",
+    "parable",
+    "parish-tale",
+    "quota-law",
+    "riddle",
+    "testimony",
+    "work-song",
+];
+const MAX_PASSAGE_CHARS: usize = 1200;
 
 type AffectsMap = BTreeMap<String, BTreeSet<(String, Option<String>)>>;
 type LedgerData = (BTreeSet<String>, BTreeMap<String, bool>, AffectsMap);
@@ -86,6 +105,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     check_characters_sync(root, &files, &mut findings);
     check_lexicon(root, &files, &mut findings);
     check_question_placement(root, &mut findings);
+    check_texts_corpus(root, &files, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -156,6 +176,160 @@ fn check_question_placement(root: &Path, findings: &mut Vec<RepositoryFinding>) 
             }
         }
     }
+}
+
+fn check_texts_corpus(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
+    let mut seen = BTreeMap::new();
+    for file in files {
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if !rel.starts_with("texts/") {
+            continue;
+        }
+        let Ok(source) = fs::read_to_string(file) else {
+            continue;
+        };
+        for (line, title, body) in text_sections(&source) {
+            let id = text_slug(&title);
+            let nonblank: Vec<&str> = body
+                .lines()
+                .filter(|item| !item.trim().is_empty())
+                .collect();
+            let kind_line = nonblank.get(1).copied();
+            let kind = kind_line
+                .and_then(|item| item.strip_prefix("> kind: "))
+                .filter(|value| {
+                    !value.is_empty()
+                        && value
+                            .chars()
+                            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+                });
+            let kind_label = match kind {
+                None => {
+                    let found = kind_line
+                        .map(|item| format!(" (found {item:?})"))
+                        .unwrap_or_default();
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' has no well-formed '> kind: <register>' line{found}"),
+                    ));
+                    "unknown"
+                }
+                Some(declared) if !TEXT_KINDS.contains(&declared) => {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' declares unknown kind {declared:?}"),
+                    ));
+                    declared
+                }
+                Some(declared) => declared,
+            };
+            let passages = text_passages(&body);
+            if kind_label != "note" && passages.is_empty() {
+                findings.push(RepositoryFinding::at_line(
+                    &rel,
+                    line,
+                    "V12",
+                    format!(
+                        "in-world text '{title}' is a {kind_label} with no quotable passage (use *\"...\"*)"
+                    ),
+                ));
+            }
+            for (ordinal, text, empty) in &passages {
+                if *empty {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' passage {ordinal} is empty"),
+                    ));
+                } else if text.chars().count() > MAX_PASSAGE_CHARS {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' passage {ordinal} runs {} chars (max {MAX_PASSAGE_CHARS}) — check for an unclosed quotation", text.chars().count()),
+                    ));
+                }
+            }
+            if let Some(previous) = seen.insert(id.clone(), (rel.clone(), line)) {
+                findings.push(RepositoryFinding::at_line(
+                    &rel,
+                    line,
+                    "V12",
+                    format!(
+                        "in-world text '{title}' duplicate work id {id:?} (also {}:{})",
+                        previous.0, previous.1
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+fn text_sections(source: &str) -> Vec<(usize, String, String)> {
+    let mut out = Vec::new();
+    let mut current: Option<(usize, String, Vec<&str>)> = None;
+    for (index, line) in source.lines().enumerate() {
+        if line.starts_with("## ") && !line.starts_with("### ") {
+            if let Some((line_no, title, body)) = current.take() {
+                out.push((line_no, title, body.join("\n")));
+            }
+            current = Some((
+                index + 1,
+                line.trim_start_matches("## ").to_owned(),
+                Vec::new(),
+            ));
+        } else if let Some((_, _, body)) = current.as_mut() {
+            body.push(line);
+        }
+    }
+    if let Some((line_no, title, body)) = current {
+        out.push((line_no, title, body.join("\n")));
+    }
+    out
+}
+
+fn text_slug(value: &str) -> String {
+    let mut out = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let slug = out.trim_matches('-');
+    if slug.is_empty() {
+        "none".to_owned()
+    } else {
+        slug.to_owned()
+    }
+}
+
+fn text_passages(body: &str) -> Vec<(usize, String, bool)> {
+    let mut out = Vec::new();
+    let mut rest = body;
+    let mut ordinal = 1;
+    while let Some(start) = rest.find("*\"") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find("\"*") else { break };
+        let text = after[..end]
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        out.push((ordinal, text.clone(), text.is_empty()));
+        ordinal += 1;
+        rest = &after[end + 2..];
+    }
+    out
 }
 
 fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
@@ -1475,6 +1649,42 @@ mod tests {
         );
         let findings = validate_repository(dir.path());
         assert_eq!(findings.iter().filter(|f| f.code == "V10").count(), 2);
+    }
+
+    #[test]
+    fn v12_validates_in_world_text_register_passages_and_ids() {
+        let dir = tempdir().expect("tempdir");
+        let long = "a".repeat(1201);
+        write(
+            dir.path(),
+            "texts/one.md",
+            &format!(
+                "---\nid: one\ntitle: One\ntype: narrative\nstatus: proposed\n---\n\n## Broken Register\n> status: proposed\n> kind: pamphlet\n*\"fine\"*\n\n## Missing Passage\n> status: proposed\n> kind: fable\n\n## Empty Passage\n> status: proposed\n> kind: fable\n*\"\"*\n\n## Long Passage\n> status: proposed\n> kind: fable\n*\"{long}\"*\n"
+            ),
+        );
+        write(
+            dir.path(),
+            "texts/two.md",
+            "---\nid: two\ntitle: Two\ntype: narrative\nstatus: proposed\n---\n\n## Broken Register\n> status: proposed\n> kind: fable\n*\"fine\"*\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding.code == "V12" && finding.message.contains("unknown kind"))
+        );
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("no quotable passage")
+        }));
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("passage 1 is empty")
+        }));
+        assert!(findings
+            .iter()
+            .any(|finding| finding.code == "V12" && finding.message.contains("runs 1201 chars")));
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("duplicate work id")
+        }));
     }
 
     #[test]
