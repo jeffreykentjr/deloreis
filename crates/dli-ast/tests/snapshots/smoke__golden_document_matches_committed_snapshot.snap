@@ -2563,64 +2563,214 @@ expression: document
           "in",
           "oath-binding"
         ],
-        "body": [
-          {
-            "text": "premise p1 standing(lancelot) cited d-0012 cue \"Lancelot comes to court\"",
-            "span": {
-              "file": 0,
-              "start": 4767,
-              "end": 4839
+        "body": {
+          "items": [
+            {
+              "clause": {
+                "text": "premise p1 standing(lancelot) cited d-0012 cue \"Lancelot comes to court\"",
+                "span": {
+                  "file": 0,
+                  "start": 4767,
+                  "end": 4839
+                }
+              },
+              "op": {
+                "premise": {
+                  "label": "p1",
+                  "atom": "standing(lancelot)",
+                  "mods": [
+                    "cited",
+                    "d-0012",
+                    "cue",
+                    "Lancelot comes to court"
+                  ],
+                  "atom_expr": {
+                    "pred": {
+                      "text": "standing",
+                      "span": {
+                        "file": 0,
+                        "start": 0,
+                        "end": 8
+                      }
+                    },
+                    "args": [
+                      {
+                        "Sym": {
+                          "text": "lancelot",
+                          "span": {
+                            "file": 0,
+                            "start": 9,
+                            "end": 17
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "premise p2 consent(arthur) cited d-0012",
+                "span": {
+                  "file": 0,
+                  "start": 4842,
+                  "end": 4881
+                }
+              },
+              "op": {
+                "premise": {
+                  "label": "p2",
+                  "atom": "consent(arthur)",
+                  "mods": [
+                    "cited",
+                    "d-0012"
+                  ],
+                  "atom_expr": {
+                    "pred": {
+                      "text": "consent",
+                      "span": {
+                        "file": 0,
+                        "start": 0,
+                        "end": 7
+                      }
+                    },
+                    "args": [
+                      {
+                        "Sym": {
+                          "text": "arthur",
+                          "span": {
+                            "file": 0,
+                            "start": 8,
+                            "end": 14
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "premise p3 boon(1) drawn-against p1",
+                "span": {
+                  "file": 0,
+                  "start": 4884,
+                  "end": 4919
+                }
+              },
+              "op": {
+                "premise": {
+                  "label": "p3",
+                  "atom": "boon(1)",
+                  "mods": [
+                    "drawn-against",
+                    "p1"
+                  ],
+                  "atom_expr": {
+                    "pred": {
+                      "text": "boon",
+                      "span": {
+                        "file": 0,
+                        "start": 0,
+                        "end": 4
+                      }
+                    },
+                    "args": [
+                      {
+                        "Int": 1
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "step s1 instantiate pledge with bond = fealty, oathgiver = lancelot",
+                "span": {
+                  "file": 0,
+                  "start": 4922,
+                  "end": 4989
+                }
+              },
+              "op": {
+                "step": {
+                  "instantiate": {
+                    "label": "s1",
+                    "form": "pledge",
+                    "bindings": [
+                      {
+                        "name": "bond",
+                        "value": "fealty"
+                      },
+                      {
+                        "name": "oathgiver",
+                        "value": "lancelot"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)",
+                "span": {
+                  "file": 0,
+                  "start": 4992,
+                  "end": 5071
+                }
+              },
+              "op": {
+                "step": {
+                  "chain": {
+                    "label": "s2",
+                    "joins": [
+                      "p1",
+                      "s1"
+                    ],
+                    "law": "give-and-take",
+                    "conclusion": "pledged(lancelot, fealty)"
+                  }
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "spend p3",
+                "span": {
+                  "file": 0,
+                  "start": 5074,
+                  "end": 5082
+                }
+              },
+              "op": {
+                "resource": {
+                  "keyword": "spend",
+                  "label": "p3"
+                }
+              }
+            },
+            {
+              "clause": {
+                "text": "close pledged(lancelot, fealty) expect holds",
+                "span": {
+                  "file": 0,
+                  "start": 5085,
+                  "end": 5129
+                }
+              },
+              "op": {
+                "close": {
+                  "atom": "pledged(lancelot, fealty)",
+                  "verdict": "holds"
+                }
+              }
             }
-          },
-          {
-            "text": "premise p2 consent(arthur) cited d-0012",
-            "span": {
-              "file": 0,
-              "start": 4842,
-              "end": 4881
-            }
-          },
-          {
-            "text": "premise p3 boon(1) drawn-against p1",
-            "span": {
-              "file": 0,
-              "start": 4884,
-              "end": 4919
-            }
-          },
-          {
-            "text": "step s1 instantiate pledge with bond = fealty, oathgiver = lancelot",
-            "span": {
-              "file": 0,
-              "start": 4922,
-              "end": 4989
-            }
-          },
-          {
-            "text": "step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)",
-            "span": {
-              "file": 0,
-              "start": 4992,
-              "end": 5071
-            }
-          },
-          {
-            "text": "spend p3",
-            "span": {
-              "file": 0,
-              "start": 5074,
-              "end": 5082
-            }
-          },
-          {
-            "text": "close pledged(lancelot, fealty) expect holds",
-            "span": {
-              "file": 0,
-              "start": 5085,
-              "end": 5129
-            }
-          }
-        ]
+          ]
+        }
       }
     },
     {

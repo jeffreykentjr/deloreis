@@ -13,6 +13,7 @@ pub mod decl;
 pub mod doc;
 pub mod ident;
 pub mod literal;
+pub mod proof;
 pub mod rule;
 pub mod schema;
 pub mod span;
@@ -30,6 +31,10 @@ pub use decl::{
 pub use doc::Doc;
 pub use ident::Ident;
 pub use literal::BodyLiteral;
+pub use proof::{
+    Binding, MalformedOp, PhaseEq, ProofAssume, ProofBody, ProofClause, ProofClose, ProofOp,
+    ProofPremise, ProofResource, ProofStep, ResourceKeyword,
+};
 pub use rule::{Datalog, RuleBody, RuleClause};
 pub use span::{FileId, Span};
 pub use term::{AtomExpr, Term, TimeRef};

@@ -211,6 +211,24 @@
         "later"
       ]
     },
+    "Binding": {
+      "description": "One `<name> = <value>` instantiate binding.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The parameter name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The bound value (a proof term value).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
     "BodyLiteral": {
       "description": "One literal of a rule body: an atom on a polarity rail.\n\nA positive literal ([`negated`](BodyLiteral::negated) is `false`) joins over\nthe relation and binds its variables; a negated literal filters against the\ncertain layer and binds nothing (datalog safety: every variable in a negated\nliteral must also appear in a positive body atom).",
       "type": "object",
@@ -1079,6 +1097,19 @@
         "name"
       ]
     },
+    "MalformedOp": {
+      "description": "A recognized proof keyword whose arguments failed the strict per-line check.",
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "description": "The proof keyword the malformed line opened with.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keyword"
+      ]
+    },
     "NameDecl": {
       "description": "`name <name> [\"label\"] …` — a composed proper name.",
       "type": "object",
@@ -1223,6 +1254,24 @@
         "name"
       ]
     },
+    "PhaseEq": {
+      "description": "A `phase(<cycle>) = <spoke>` timing comparison decoded from a premise atom.",
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "description": "The cycle named.",
+          "type": "string"
+        },
+        "spoke": {
+          "description": "The spoke (phase) the casting requires.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cycle",
+        "spoke"
+      ]
+    },
     "PracticeDecl": {
       "description": "`practice <name> [\"label\"] { … }`.",
       "type": "object",
@@ -1302,16 +1351,88 @@
         "body"
       ]
     },
+    "ProofAssume": {
+      "description": "An `assume` line: a fork-local supposition. Its atom is authorial ground\n(never classified against the scene), so it carries only its label and atom.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The assumed atom, as written.",
+          "type": "string"
+        },
+        "label": {
+          "description": "The assumption label.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "atom"
+      ]
+    },
+    "ProofBody": {
+      "description": "The structured body of a [`ProofDecl`](crate::decl::ProofDecl): its interior\nlines, in source order, each pairing the retained clause text with its typed\noperation.",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "The interior lines, in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProofClause"
+          }
+        }
+      }
+    },
+    "ProofClause": {
+      "description": "One interior line of a proof body: its normalized text and, when the line\nopens with a recognized proof keyword, its typed operation.",
+      "type": "object",
+      "properties": {
+        "clause": {
+          "description": "The whitespace-normalized clause text and its span. Retained so the\nformatter round-trips exactly and text-shaped consumers read it directly.",
+          "$ref": "#/$defs/Clause"
+        },
+        "op": {
+          "description": "The typed operation, present when the line opens with a proof keyword\n(`premise`, `assume`, `step`, `spend`, `release`, `reveal`,\n`redistribute`, `close`). `None` for a line that opens with no proof\nkeyword — kept for round-trip, refused by the structural validator.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProofOp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "clause"
+      ]
+    },
+    "ProofClose": {
+      "description": "A `close <atom> [expect <verdict>]` operation.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The close claim atom, as written.",
+          "type": "string"
+        },
+        "verdict": {
+          "description": "The verdict token(s) after `expect`, if the close carried an expectation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "atom"
+      ]
+    },
     "ProofDecl": {
-      "description": "`proof <name> … { … }`.",
+      "description": "`proof <name> … { … }` — header plus its typed body (LS-9).",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses (`premise …`, `step …`, `spend …`, `close …`).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed body: each interior line pre-parsed into a\n[`ProofOp`](crate::proof::ProofOp) by the front end, with the normalized\nclause text retained for the formatter (LS-9,\n`docs/design-notes/lorestore-roadmap.md`). `dli-ledger` and `dli-world`\nread this typed interior without re-entering the parser.",
+          "$ref": "#/$defs/ProofBody"
         },
         "head": {
           "description": "Remaining header tokens (`speaker protagonist in spoken-proof`).",
@@ -1338,8 +1459,271 @@
       },
       "required": [
         "name",
-        "head",
-        "body"
+        "head"
+      ]
+    },
+    "ProofOp": {
+      "description": "A typed proof-block operation. Externally tagged (serde default): the\ndata-carrying variants wrap distinct structs, so external tagging keeps each\noperation a single-key object without the internal-tag merge constraints.",
+      "oneOf": [
+        {
+          "description": "`premise <label> <atom> [evidence…]` — an atom the casting rests on.",
+          "type": "object",
+          "properties": {
+            "premise": {
+              "$ref": "#/$defs/ProofPremise"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "premise"
+          ]
+        },
+        {
+          "description": "`assume <label> <atom>` — a fork-local supposition (always `asserted`).",
+          "type": "object",
+          "properties": {
+            "assume": {
+              "$ref": "#/$defs/ProofAssume"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "assume"
+          ]
+        },
+        {
+          "description": "`step <label> <operation> …` — an instantiate, chain, or custom step.",
+          "type": "object",
+          "properties": {
+            "step": {
+              "$ref": "#/$defs/ProofStep"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "step"
+          ]
+        },
+        {
+          "description": "`spend|release|reveal|redistribute <label>` — a resource-ledger operation.",
+          "type": "object",
+          "properties": {
+            "resource": {
+              "$ref": "#/$defs/ProofResource"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "resource"
+          ]
+        },
+        {
+          "description": "`close <atom> [expect <verdict>]` — the casting's conclusion.",
+          "type": "object",
+          "properties": {
+            "close": {
+              "$ref": "#/$defs/ProofClose"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "close"
+          ]
+        },
+        {
+          "description": "A recognized proof keyword whose arguments do not form a valid operation.\nThe parser's strict per-line check rejected it; it is kept so the ledger\nrun still sees the keyword and the structural validator can refuse it.",
+          "type": "object",
+          "properties": {
+            "malformed": {
+              "$ref": "#/$defs/MalformedOp"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "malformed"
+          ]
+        }
+      ]
+    },
+    "ProofPremise": {
+      "description": "A `premise` line: an atom, its provenance/grade modifiers, and the parse the\nchecker classifies it by (a resource draw, a timing claim, or a world fact).",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The premise atom, as written (before any provenance modifier).",
+          "type": "string"
+        },
+        "atom_expr": {
+          "description": "The atom pre-parsed into a single [`AtomExpr`], when it is atom-shaped.\n`None` for a bare nullary claim (`a-fact`) or a phase comparison — the\nchecker classifies off this and [`Self::phase_eq`], never re-parsing.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtomExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "description": "The premise label (`p1`).",
+          "type": "string"
+        },
+        "mods": {
+          "description": "The provenance/grade modifier tokens after the atom, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "phase_eq": {
+          "description": "The `phase(<cycle>) = <spoke>` comparison this atom decodes to, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhaseEq"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "atom"
+      ]
+    },
+    "ProofResource": {
+      "description": "A resource-ledger operation naming a resource premise label.",
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "description": "Which resource operation this is.",
+          "$ref": "#/$defs/ResourceKeyword"
+        },
+        "label": {
+          "description": "The resource premise label it operates on.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keyword",
+        "label"
+      ]
+    },
+    "ProofStep": {
+      "description": "A `step` operation.",
+      "oneOf": [
+        {
+          "description": "`step <label> instantiate <form> with <name> = <value>, …`.",
+          "type": "object",
+          "properties": {
+            "instantiate": {
+              "type": "object",
+              "properties": {
+                "bindings": {
+                  "description": "The parameter bindings.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Binding"
+                  }
+                },
+                "form": {
+                  "description": "The form being instantiated.",
+                  "type": "string"
+                },
+                "label": {
+                  "description": "The step label.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "form"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "instantiate"
+          ]
+        },
+        {
+          "description": "`step <label> chain from <labels> by <law> conclusion <atom>`.",
+          "type": "object",
+          "properties": {
+            "chain": {
+              "type": "object",
+              "properties": {
+                "conclusion": {
+                  "description": "The concluded atom (the text after `conclusion`).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "joins": {
+                  "description": "The prior labels joined by the chain.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "label": {
+                  "description": "The step label.",
+                  "type": "string"
+                },
+                "law": {
+                  "description": "The law applied (the word after `by`).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "label"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "chain"
+          ]
+        },
+        {
+          "description": "`step <label> <declared-rule> [<value>, …]` — a practice-declared custom step.",
+          "type": "object",
+          "properties": {
+            "custom": {
+              "type": "object",
+              "properties": {
+                "args": {
+                  "description": "The positional argument values.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "label": {
+                  "description": "The step label.",
+                  "type": "string"
+                },
+                "operation": {
+                  "description": "The custom operation (a practice-declared rule form).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "operation"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "custom"
+          ]
+        }
       ]
     },
     "ProvenanceMarker": {
@@ -1425,6 +1809,31 @@
       "required": [
         "decision",
         "body"
+      ]
+    },
+    "ResourceKeyword": {
+      "description": "The four resource-ledger operations.",
+      "oneOf": [
+        {
+          "description": "`spend <label>` — draw a resource unit against a premise.",
+          "type": "string",
+          "const": "spend"
+        },
+        {
+          "description": "`release <label>` — return a conserved unit to the multiset.",
+          "type": "string",
+          "const": "release"
+        },
+        {
+          "description": "`reveal <label>` — surface a conserved unit already implied.",
+          "type": "string",
+          "const": "reveal"
+        },
+        {
+          "description": "`redistribute <label>` — move a conserved unit between accounts.",
+          "type": "string",
+          "const": "redistribute"
+        }
       ]
     },
     "RuleBody": {

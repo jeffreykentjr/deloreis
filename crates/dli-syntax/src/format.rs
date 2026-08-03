@@ -331,14 +331,25 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             e.provenance.as_ref(),
             &e.body,
         ),
-        Decl::Proof(l) => braced(
-            "proof",
-            &l.name.text,
-            None,
-            &l.head,
-            l.provenance.as_ref(),
-            &l.body,
-        ),
+        Decl::Proof(l) => {
+            // Render from the typed body's retained clause texts, byte-for-byte
+            // as `braced` would from a `Vec<Clause>` (LS-9; charter koan 7).
+            let mut header = format!("proof {}", l.name.text);
+            append_head(&mut header, &l.head);
+            append_provenance(&mut header, l.provenance.as_ref());
+            if l.body.is_empty() {
+                vec![header.trim_end().to_owned()]
+            } else {
+                let mut lines = vec![format!("{} {{", header.trim_end())];
+                lines.extend(
+                    l.body
+                        .clauses()
+                        .map(|clause| format!("{INDENT}{}", clause.text)),
+                );
+                lines.push("}".to_owned());
+                lines
+            }
+        }
         Decl::Ratify(r) => braced("ratify", &r.decision.text, None, &[], None, &r.body),
         Decl::Word(l) => {
             let mut line = format!("word {}", l.name.text);

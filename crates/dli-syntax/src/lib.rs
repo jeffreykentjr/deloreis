@@ -25,21 +25,14 @@ pub use lexer::{Token, TokenKind, lex};
 pub use parser::{
     LINE_OPEN_KEYWORDS, line_open_keywords, parse_clause_atom, parse_document,
     parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts, parse_rule_clause,
-    structure_rule_body,
+    structure_proof_body, structure_rule_body,
 };
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};
 
-/// Revalidate a proof AST through the canonical surface and real parser.
-///
-/// Parser-backed callers already crossed this boundary. Direct AST callers use
-/// this replay to prove that captured proof clauses still form accepted syntax;
-/// no second proof grammar is maintained by downstream checker crates.
-#[must_use]
-pub fn validate_proof_decl(proof: &dli_ast::decl::ProofDecl) -> Vec<Diagnostic> {
-    let document = dli_ast::decl::Document {
-        scope: None,
-        decls: vec![dli_ast::decl::Decl::Proof(proof.clone())],
-    };
-    let surface = format_document(&document);
-    parse_document(&surface).1
-}
+// `validate_proof_decl` — the format-and-reparse round-trip that revalidated a
+// proof AST through the canonical surface — was retired by LS-9: the proof
+// interior is now typed at parse time ([`parser::structure_proof_body`]), and a
+// malformed operation is captured as `dli_ast::proof::ProofOp::Malformed`. The
+// checker refuses those structurally (`dli_ledger::ledger_check`), so no second
+// proof grammar and no reparse are maintained downstream (roadmap LS-9,
+// "a semantic check implemented as syntax — retire it").
