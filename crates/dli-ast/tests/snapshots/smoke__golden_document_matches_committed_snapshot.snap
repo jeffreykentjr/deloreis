@@ -2291,104 +2291,330 @@ expression: document
             "end": 3315
           }
         },
-        "body": [
-          {
-            "text": "use language.registers",
-            "span": {
-              "file": 0,
-              "start": 3329,
-              "end": 3351
+        "body": {
+          "clauses": [
+            {
+              "text": "use language.registers",
+              "span": {
+                "file": 0,
+                "start": 3329,
+                "end": 3351
+              }
+            },
+            {
+              "text": "resource breath(word) : graded monotone full > spent > silent",
+              "span": {
+                "file": 0,
+                "start": 3354,
+                "end": 3415
+              }
+            },
+            {
+              "text": "rule speak(bearer) requires",
+              "span": {
+                "file": 0,
+                "start": 3418,
+                "end": 3445
+              }
+            },
+            {
+              "text": "knows(caster, true-name(bearer)),",
+              "span": {
+                "file": 0,
+                "start": 3448,
+                "end": 3481
+              }
+            },
+            {
+              "text": "breath(true-name(bearer)) >= spent,",
+              "span": {
+                "file": 0,
+                "start": 3484,
+                "end": 3519
+              }
+            },
+            {
+              "text": "derivation(true-name(bearer)) checks in register-of(bearer)",
+              "span": {
+                "file": 0,
+                "start": 3522,
+                "end": 3581
+              }
+            },
+            {
+              "text": "effect speak degrades breath by 1",
+              "span": {
+                "file": 0,
+                "start": 3584,
+                "end": 3617
+              }
+            },
+            {
+              "text": "condition unheard requires no witness within earshot",
+              "span": {
+                "file": 0,
+                "start": 3620,
+                "end": 3672
+              }
+            },
+            {
+              "text": "error mis-spoken refines L4 bad-instantiation",
+              "span": {
+                "file": 0,
+                "start": 3675,
+                "end": 3720
+              }
+            },
+            {
+              "text": "error stale-name refines L2 where premise-outdated",
+              "span": {
+                "file": 0,
+                "start": 3723,
+                "end": 3773
+              }
+            },
+            {
+              "text": "error word-overheard refines L3 side-condition [unheard] signals degrade(+1)",
+              "span": {
+                "file": 0,
+                "start": 3776,
+                "end": 3852
+              }
+            },
+            {
+              "text": "cost vital | epistemic",
+              "span": {
+                "file": 0,
+                "start": 3855,
+                "end": 3877
+              }
             }
-          },
-          {
-            "text": "resource breath(word) : graded monotone full > spent > silent",
+          ],
+          "def": {
+            "name": {
+              "text": "merlins-craft",
+              "span": {
+                "file": 0,
+                "start": 3302,
+                "end": 3315
+              }
+            },
+            "marker": "Proposed",
+            "uses": [
+              "language.registers"
+            ],
+            "sorts": [],
+            "roles": [],
+            "resources": [
+              {
+                "name": {
+                  "text": "breath",
+                  "span": {
+                    "file": 0,
+                    "start": 3354,
+                    "end": 3415
+                  }
+                },
+                "arg": {
+                  "text": "word",
+                  "span": {
+                    "file": 0,
+                    "start": 3354,
+                    "end": 3415
+                  }
+                },
+                "kind": "GradedMonotone",
+                "cap": null,
+                "order": [
+                  {
+                    "text": "full",
+                    "span": {
+                      "file": 0,
+                      "start": 3354,
+                      "end": 3415
+                    }
+                  },
+                  {
+                    "text": "spent",
+                    "span": {
+                      "file": 0,
+                      "start": 3354,
+                      "end": 3415
+                    }
+                  },
+                  {
+                    "text": "silent",
+                    "span": {
+                      "file": 0,
+                      "start": 3354,
+                      "end": 3415
+                    }
+                  }
+                ],
+                "direction": "decays",
+                "law_text": "graded monotone full > spent > silent",
+                "span": {
+                  "file": 0,
+                  "start": 3354,
+                  "end": 3415
+                }
+              }
+            ],
+            "rules": [
+              {
+                "form": {
+                  "text": "speak",
+                  "span": {
+                    "file": 0,
+                    "start": 3418,
+                    "end": 3445
+                  }
+                },
+                "args": [
+                  {
+                    "text": "bearer",
+                    "span": {
+                      "file": 0,
+                      "start": 3418,
+                      "end": 3445
+                    }
+                  }
+                ],
+                "requires": "knows(caster, true-name(bearer)), breath(true-name(bearer)) >= spent, derivation(true-name(bearer)) checks in register-of(bearer)",
+                "span": {
+                  "file": 0,
+                  "start": 3418,
+                  "end": 3445
+                }
+              }
+            ],
+            "conditions": [
+              {
+                "name": {
+                  "text": "unheard",
+                  "span": {
+                    "file": 0,
+                    "start": 3620,
+                    "end": 3672
+                  }
+                },
+                "requires": "no witness within earshot",
+                "span": {
+                  "file": 0,
+                  "start": 3620,
+                  "end": 3672
+                }
+              }
+            ],
+            "errors": [
+              {
+                "name": {
+                  "text": "mis-spoken",
+                  "span": {
+                    "file": 0,
+                    "start": 3675,
+                    "end": 3720
+                  }
+                },
+                "refines_token": "L4",
+                "class": "L4",
+                "discriminant": "bad-instantiation",
+                "signal": null,
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 3675,
+                  "end": 3720
+                }
+              },
+              {
+                "name": {
+                  "text": "stale-name",
+                  "span": {
+                    "file": 0,
+                    "start": 3723,
+                    "end": 3773
+                  }
+                },
+                "refines_token": "L2",
+                "class": "L2",
+                "discriminant": "where premise-outdated",
+                "signal": null,
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 3723,
+                  "end": 3773
+                }
+              },
+              {
+                "name": {
+                  "text": "word-overheard",
+                  "span": {
+                    "file": 0,
+                    "start": 3776,
+                    "end": 3852
+                  }
+                },
+                "refines_token": "L3",
+                "class": "L3",
+                "discriminant": "side-condition [unheard]",
+                "signal": "degrade(+1)",
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 3776,
+                  "end": 3852
+                }
+              }
+            ],
+            "effects": [
+              {
+                "form": {
+                  "text": "speak",
+                  "span": {
+                    "file": 0,
+                    "start": 3584,
+                    "end": 3617
+                  }
+                },
+                "detail": "degrades breath by 1",
+                "span": {
+                  "file": 0,
+                  "start": 3584,
+                  "end": 3617
+                }
+              }
+            ],
+            "costs": [
+              {
+                "text": "vital",
+                "span": {
+                  "file": 0,
+                  "start": 3855,
+                  "end": 3877
+                }
+              },
+              {
+                "text": "epistemic",
+                "span": {
+                  "file": 0,
+                  "start": 3855,
+                  "end": 3877
+                }
+              }
+            ],
+            "cycles_in_scope": [],
             "span": {
               "file": 0,
-              "start": 3354,
-              "end": 3415
-            }
-          },
-          {
-            "text": "rule speak(bearer) requires",
-            "span": {
-              "file": 0,
-              "start": 3418,
-              "end": 3445
-            }
-          },
-          {
-            "text": "knows(caster, true-name(bearer)),",
-            "span": {
-              "file": 0,
-              "start": 3448,
-              "end": 3481
-            }
-          },
-          {
-            "text": "breath(true-name(bearer)) >= spent,",
-            "span": {
-              "file": 0,
-              "start": 3484,
-              "end": 3519
-            }
-          },
-          {
-            "text": "derivation(true-name(bearer)) checks in register-of(bearer)",
-            "span": {
-              "file": 0,
-              "start": 3522,
-              "end": 3581
-            }
-          },
-          {
-            "text": "effect speak degrades breath by 1",
-            "span": {
-              "file": 0,
-              "start": 3584,
-              "end": 3617
-            }
-          },
-          {
-            "text": "condition unheard requires no witness within earshot",
-            "span": {
-              "file": 0,
-              "start": 3620,
-              "end": 3672
-            }
-          },
-          {
-            "text": "error mis-spoken refines L4 bad-instantiation",
-            "span": {
-              "file": 0,
-              "start": 3675,
-              "end": 3720
-            }
-          },
-          {
-            "text": "error stale-name refines L2 where premise-outdated",
-            "span": {
-              "file": 0,
-              "start": 3723,
-              "end": 3773
-            }
-          },
-          {
-            "text": "error word-overheard refines L3 side-condition [unheard] signals degrade(+1)",
-            "span": {
-              "file": 0,
-              "start": 3776,
-              "end": 3852
-            }
-          },
-          {
-            "text": "cost vital | epistemic",
-            "span": {
-              "file": 0,
-              "start": 3855,
-              "end": 3877
+              "start": 3302,
+              "end": 3315
             }
           }
-        ],
+        },
         "provenance": {
           "marker": "Proposed",
           "citations": [],
@@ -2412,128 +2638,521 @@ expression: document
             "end": 3901
           }
         },
-        "body": [
-          {
-            "text": "use chronology.cycles",
-            "span": {
-              "file": 0,
-              "start": 3915,
-              "end": 3936
+        "body": {
+          "clauses": [
+            {
+              "text": "use chronology.cycles",
+              "span": {
+                "file": 0,
+                "start": 3915,
+                "end": 3936
+              }
+            },
+            {
+              "text": "kind bond = fealty | troth | ransom",
+              "span": {
+                "file": 0,
+                "start": 3939,
+                "end": 3974
+              }
+            },
+            {
+              "text": "role oathgiver : person requires standing(oathgiver)",
+              "span": {
+                "file": 0,
+                "start": 3977,
+                "end": 4029
+              }
+            },
+            {
+              "text": "role oathholder : person requires consent(oathholder)",
+              "span": {
+                "file": 0,
+                "start": 4032,
+                "end": 4085
+              }
+            },
+            {
+              "text": "resource boon : linear conserved",
+              "span": {
+                "file": 0,
+                "start": 4088,
+                "end": 4120
+              }
+            },
+            {
+              "text": "resource strain : affine bounded body-limit",
+              "span": {
+                "file": 0,
+                "start": 4123,
+                "end": 4166
+              }
+            },
+            {
+              "text": "rule pledge(bond, oathgiver)",
+              "span": {
+                "file": 0,
+                "start": 4169,
+                "end": 4197
+              }
+            },
+            {
+              "text": "rule give-and-take",
+              "span": {
+                "file": 0,
+                "start": 4200,
+                "end": 4218
+              }
+            },
+            {
+              "text": "condition witnessed requires witness within earshot",
+              "span": {
+                "file": 0,
+                "start": 4221,
+                "end": 4272
+              }
+            },
+            {
+              "text": "error unowed refines L2 premise-not-available where absent",
+              "span": {
+                "file": 0,
+                "start": 4275,
+                "end": 4333
+              }
+            },
+            {
+              "text": "error forsworn refines L2 premise-not-available where contradicted signals dishonour",
+              "span": {
+                "file": 0,
+                "start": 4336,
+                "end": 4420
+              }
+            },
+            {
+              "text": "error wrong-moon refines L3 side-condition [timing] over cycle moon",
+              "span": {
+                "file": 0,
+                "start": 4423,
+                "end": 4490
+              }
+            },
+            {
+              "text": "error overpledged refines L6 resource-violation on strain signals collapse",
+              "span": {
+                "file": 0,
+                "start": 4493,
+                "end": 4567
+              }
+            },
+            {
+              "text": "error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)",
+              "span": {
+                "file": 0,
+                "start": 4570,
+                "end": 4660
+              }
+            },
+            {
+              "text": "cost social | bodily | material | epistemic",
+              "span": {
+                "file": 0,
+                "start": 4663,
+                "end": 4706
+              }
             }
-          },
-          {
-            "text": "kind bond = fealty | troth | ransom",
+          ],
+          "def": {
+            "name": {
+              "text": "oath-binding",
+              "span": {
+                "file": 0,
+                "start": 3889,
+                "end": 3901
+              }
+            },
+            "marker": "Proposed",
+            "uses": [
+              "chronology.cycles"
+            ],
+            "sorts": [
+              {
+                "name": {
+                  "text": "bond",
+                  "span": {
+                    "file": 0,
+                    "start": 3939,
+                    "end": 3974
+                  }
+                },
+                "variants": [
+                  {
+                    "text": "fealty",
+                    "span": {
+                      "file": 0,
+                      "start": 3939,
+                      "end": 3974
+                    }
+                  },
+                  {
+                    "text": "troth",
+                    "span": {
+                      "file": 0,
+                      "start": 3939,
+                      "end": 3974
+                    }
+                  },
+                  {
+                    "text": "ransom",
+                    "span": {
+                      "file": 0,
+                      "start": 3939,
+                      "end": 3974
+                    }
+                  }
+                ],
+                "source": null,
+                "span": {
+                  "file": 0,
+                  "start": 3939,
+                  "end": 3974
+                }
+              }
+            ],
+            "roles": [
+              {
+                "name": {
+                  "text": "oathgiver",
+                  "span": {
+                    "file": 0,
+                    "start": 3977,
+                    "end": 4029
+                  }
+                },
+                "sort": {
+                  "text": "person",
+                  "span": {
+                    "file": 0,
+                    "start": 3977,
+                    "end": 4029
+                  }
+                },
+                "requires": "standing(oathgiver)",
+                "span": {
+                  "file": 0,
+                  "start": 3977,
+                  "end": 4029
+                }
+              },
+              {
+                "name": {
+                  "text": "oathholder",
+                  "span": {
+                    "file": 0,
+                    "start": 4032,
+                    "end": 4085
+                  }
+                },
+                "sort": {
+                  "text": "person",
+                  "span": {
+                    "file": 0,
+                    "start": 4032,
+                    "end": 4085
+                  }
+                },
+                "requires": "consent(oathholder)",
+                "span": {
+                  "file": 0,
+                  "start": 4032,
+                  "end": 4085
+                }
+              }
+            ],
+            "resources": [
+              {
+                "name": {
+                  "text": "boon",
+                  "span": {
+                    "file": 0,
+                    "start": 4088,
+                    "end": 4120
+                  }
+                },
+                "arg": null,
+                "kind": {
+                  "Linear": {
+                    "conserved": true
+                  }
+                },
+                "cap": null,
+                "order": [],
+                "direction": "decays",
+                "law_text": "linear conserved",
+                "span": {
+                  "file": 0,
+                  "start": 4088,
+                  "end": 4120
+                }
+              },
+              {
+                "name": {
+                  "text": "strain",
+                  "span": {
+                    "file": 0,
+                    "start": 4123,
+                    "end": 4166
+                  }
+                },
+                "arg": null,
+                "kind": "AffineBounded",
+                "cap": "body-limit",
+                "order": [],
+                "direction": "decays",
+                "law_text": "affine bounded body-limit",
+                "span": {
+                  "file": 0,
+                  "start": 4123,
+                  "end": 4166
+                }
+              }
+            ],
+            "rules": [
+              {
+                "form": {
+                  "text": "pledge",
+                  "span": {
+                    "file": 0,
+                    "start": 4169,
+                    "end": 4197
+                  }
+                },
+                "args": [
+                  {
+                    "text": "bond",
+                    "span": {
+                      "file": 0,
+                      "start": 4169,
+                      "end": 4197
+                    }
+                  },
+                  {
+                    "text": "oathgiver",
+                    "span": {
+                      "file": 0,
+                      "start": 4169,
+                      "end": 4197
+                    }
+                  }
+                ],
+                "requires": null,
+                "span": {
+                  "file": 0,
+                  "start": 4169,
+                  "end": 4197
+                }
+              },
+              {
+                "form": {
+                  "text": "give-and-take",
+                  "span": {
+                    "file": 0,
+                    "start": 4200,
+                    "end": 4218
+                  }
+                },
+                "args": [],
+                "requires": null,
+                "span": {
+                  "file": 0,
+                  "start": 4200,
+                  "end": 4218
+                }
+              }
+            ],
+            "conditions": [
+              {
+                "name": {
+                  "text": "witnessed",
+                  "span": {
+                    "file": 0,
+                    "start": 4221,
+                    "end": 4272
+                  }
+                },
+                "requires": "witness within earshot",
+                "span": {
+                  "file": 0,
+                  "start": 4221,
+                  "end": 4272
+                }
+              }
+            ],
+            "errors": [
+              {
+                "name": {
+                  "text": "unowed",
+                  "span": {
+                    "file": 0,
+                    "start": 4275,
+                    "end": 4333
+                  }
+                },
+                "refines_token": "L2",
+                "class": "L2",
+                "discriminant": "premise-not-available where absent",
+                "signal": null,
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 4275,
+                  "end": 4333
+                }
+              },
+              {
+                "name": {
+                  "text": "forsworn",
+                  "span": {
+                    "file": 0,
+                    "start": 4336,
+                    "end": 4420
+                  }
+                },
+                "refines_token": "L2",
+                "class": "L2",
+                "discriminant": "premise-not-available where contradicted",
+                "signal": "dishonour",
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 4336,
+                  "end": 4420
+                }
+              },
+              {
+                "name": {
+                  "text": "wrong-moon",
+                  "span": {
+                    "file": 0,
+                    "start": 4423,
+                    "end": 4490
+                  }
+                },
+                "refines_token": "L3",
+                "class": "L3",
+                "discriminant": "side-condition [timing] over cycle moon",
+                "signal": null,
+                "on_resource": null,
+                "over_cycles": [
+                  {
+                    "text": "moon",
+                    "span": {
+                      "file": 0,
+                      "start": 4423,
+                      "end": 4490
+                    }
+                  }
+                ],
+                "span": {
+                  "file": 0,
+                  "start": 4423,
+                  "end": 4490
+                }
+              },
+              {
+                "name": {
+                  "text": "overpledged",
+                  "span": {
+                    "file": 0,
+                    "start": 4493,
+                    "end": 4567
+                  }
+                },
+                "refines_token": "L6",
+                "class": "L6",
+                "discriminant": "resource-violation on strain",
+                "signal": "collapse",
+                "on_resource": {
+                  "text": "strain",
+                  "span": {
+                    "file": 0,
+                    "start": 4493,
+                    "end": 4567
+                  }
+                },
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 4493,
+                  "end": 4567
+                }
+              },
+              {
+                "name": {
+                  "text": "hollow-vow",
+                  "span": {
+                    "file": 0,
+                    "start": 4570,
+                    "end": 4660
+                  }
+                },
+                "refines_token": "L2",
+                "class": "L2",
+                "discriminant": "where available-in(licensed-pool) and contradicted-in(certain)",
+                "signal": null,
+                "on_resource": null,
+                "over_cycles": [],
+                "span": {
+                  "file": 0,
+                  "start": 4570,
+                  "end": 4660
+                }
+              }
+            ],
+            "effects": [],
+            "costs": [
+              {
+                "text": "social",
+                "span": {
+                  "file": 0,
+                  "start": 4663,
+                  "end": 4706
+                }
+              },
+              {
+                "text": "bodily",
+                "span": {
+                  "file": 0,
+                  "start": 4663,
+                  "end": 4706
+                }
+              },
+              {
+                "text": "material",
+                "span": {
+                  "file": 0,
+                  "start": 4663,
+                  "end": 4706
+                }
+              },
+              {
+                "text": "epistemic",
+                "span": {
+                  "file": 0,
+                  "start": 4663,
+                  "end": 4706
+                }
+              }
+            ],
+            "cycles_in_scope": [],
             "span": {
               "file": 0,
-              "start": 3939,
-              "end": 3974
-            }
-          },
-          {
-            "text": "role oathgiver : person requires standing(oathgiver)",
-            "span": {
-              "file": 0,
-              "start": 3977,
-              "end": 4029
-            }
-          },
-          {
-            "text": "role oathholder : person requires consent(oathholder)",
-            "span": {
-              "file": 0,
-              "start": 4032,
-              "end": 4085
-            }
-          },
-          {
-            "text": "resource boon : linear conserved",
-            "span": {
-              "file": 0,
-              "start": 4088,
-              "end": 4120
-            }
-          },
-          {
-            "text": "resource strain : affine bounded body-limit",
-            "span": {
-              "file": 0,
-              "start": 4123,
-              "end": 4166
-            }
-          },
-          {
-            "text": "rule pledge(bond, oathgiver)",
-            "span": {
-              "file": 0,
-              "start": 4169,
-              "end": 4197
-            }
-          },
-          {
-            "text": "rule give-and-take",
-            "span": {
-              "file": 0,
-              "start": 4200,
-              "end": 4218
-            }
-          },
-          {
-            "text": "condition witnessed requires witness within earshot",
-            "span": {
-              "file": 0,
-              "start": 4221,
-              "end": 4272
-            }
-          },
-          {
-            "text": "error unowed refines L2 premise-not-available where absent",
-            "span": {
-              "file": 0,
-              "start": 4275,
-              "end": 4333
-            }
-          },
-          {
-            "text": "error forsworn refines L2 premise-not-available where contradicted signals dishonour",
-            "span": {
-              "file": 0,
-              "start": 4336,
-              "end": 4420
-            }
-          },
-          {
-            "text": "error wrong-moon refines L3 side-condition [timing] over cycle moon",
-            "span": {
-              "file": 0,
-              "start": 4423,
-              "end": 4490
-            }
-          },
-          {
-            "text": "error overpledged refines L6 resource-violation on strain signals collapse",
-            "span": {
-              "file": 0,
-              "start": 4493,
-              "end": 4567
-            }
-          },
-          {
-            "text": "error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)",
-            "span": {
-              "file": 0,
-              "start": 4570,
-              "end": 4660
-            }
-          },
-          {
-            "text": "cost social | bodily | material | epistemic",
-            "span": {
-              "file": 0,
-              "start": 4663,
-              "end": 4706
+              "start": 3889,
+              "end": 3901
             }
           }
-        ],
+        },
         "provenance": {
           "marker": "Proposed",
           "citations": [],

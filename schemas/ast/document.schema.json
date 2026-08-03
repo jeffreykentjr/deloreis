@@ -323,6 +323,29 @@
         }
       ]
     },
+    "ConditionDef": {
+      "description": "A side condition: `condition seated-reading requires phase(turning-leaf) within declared-span`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The condition name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "requires": {
+          "description": "The predicate body after `requires`, verbatim.",
+          "type": "string"
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "name",
+        "requires",
+        "span"
+      ]
+    },
     "CycleDecl": {
       "description": "`cycle <name>(<modulus>) [= <spokes>]`.",
       "type": "object",
@@ -818,6 +841,29 @@
         "body"
       ]
     },
+    "EffectDef": {
+      "description": "What a casting does: `effect invoke degrades acquaintance by 1`.",
+      "type": "object",
+      "properties": {
+        "detail": {
+          "description": "The effect body, verbatim.",
+          "type": "string"
+        },
+        "form": {
+          "description": "The form whose casting carries the effect.",
+          "$ref": "#/$defs/Ident"
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "form",
+        "detail",
+        "span"
+      ]
+    },
     "EntityDecl": {
       "description": "`era|place|person|thing|event <name> [\"label\"] [time] [provenance]`.",
       "type": "object",
@@ -901,6 +947,71 @@
           "type": "string",
           "const": "Event"
         }
+      ]
+    },
+    "ErrorClassDef": {
+      "description": "A declared diegetic failure, refining a structural class:\n`error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf`.",
+      "type": "object",
+      "properties": {
+        "class": {
+          "description": "The structural class, or [`None`] if `refines_token` names none.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StructuralClass"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discriminant": {
+          "description": "The discriminant — the sub-case detail after the class token, verbatim.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The failure name (the drama the scene voices).",
+          "$ref": "#/$defs/Ident"
+        },
+        "on_resource": {
+          "description": "The resource an `L6` failure spends against (`… on <resource>`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Ident"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "over_cycles": {
+          "description": "The cycles a timing failure is seated on (`… over cycle <w1>, <w2>`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "refines_token": {
+          "description": "The token written after `refines` (`L3`, or whatever malformed thing).",
+          "type": "string"
+        },
+        "signal": {
+          "description": "The on-mic signal a performer voices when it fires (`signals <x>`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "name",
+        "refines_token",
+        "discriminant",
+        "over_cycles",
+        "span"
       ]
     },
     "ExportDecl": {
@@ -1015,6 +1126,21 @@
         "question",
         "options",
         "body"
+      ]
+    },
+    "GradeDirection": {
+      "description": "The single declared direction a [`ResourceKind::GradedMonotone`] grade moves.\n\nA graded order is written `whole > worn > husk`; the `>` reads as \"wears\ndown to\", so the default and the series-canonical direction is [`Decays`]\n(`docs/spec/04-practices.md` §4 — \"nothing is spent, knowing only *wears*\").\nThe opposite is admitted so the algebra is symmetric: a grade that may only\nclimb its order is [`Grows`].\n\n[`Decays`]: GradeDirection::Decays\n[`Grows`]: GradeDirection::Grows",
+      "oneOf": [
+        {
+          "description": "The grade only ever moves *down* its order (negative deltas): it wears.",
+          "type": "string",
+          "const": "decays"
+        },
+        {
+          "description": "The grade only ever moves *up* its order (positive deltas): it ripens.",
+          "type": "string",
+          "const": "grows"
+        }
       ]
     },
     "HypothesisDecl": {
@@ -1223,16 +1349,34 @@
         "name"
       ]
     },
+    "PracticeBody": {
+      "description": "The typed interior of a [`PracticeDecl`](crate::decl::PracticeDecl) body\n(LS-9): the retained raw clauses plus the structured [`PracticeDef`].\n\nThe parser is the single producer (via\n`dli_syntax::structure_practice_body`); `dli-ledger` reads\n[`def`](PracticeBody::def) without re-entering the front end. The raw\n[`clauses`](PracticeBody::clauses) are kept so the formatter round-trips the\nsurface byte-for-byte — the typed `def` is lossy against the written text.",
+      "type": "object",
+      "properties": {
+        "clauses": {
+          "description": "The whitespace-normalized interior clauses (one per physical line), in\nsource order. Retained verbatim so the formatter reproduces the surface.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Clause"
+          }
+        },
+        "def": {
+          "description": "The structured practice, produced by the front end from `clauses`.\n\nBoxed to keep the [`Decl`](crate::decl::Decl) enum small (the many-field\n`PracticeDef` would otherwise dominate every declaration's size); the box\nis transparent to serde and the JSON Schema, so the stored carriage bytes\nare unchanged.",
+          "$ref": "#/$defs/PracticeDef"
+        }
+      },
+      "required": [
+        "clauses",
+        "def"
+      ]
+    },
     "PracticeDecl": {
       "description": "`practice <name> [\"label\"] { … }`.",
       "type": "object",
       "properties": {
         "body": {
-          "description": "The captured body clauses.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Clause"
-          }
+          "description": "The typed body: the retained interior clauses plus the structured\n[`PracticeDef`](crate::practice::PracticeDef), pre-parsed by the front end\n(LS-9, `docs/design-notes/lorestore-roadmap.md`). `dli-ledger` reads the\ntyped structure without re-entering `dli_syntax`.",
+          "$ref": "#/$defs/PracticeBody"
         },
         "label": {
           "description": "The display label, if written.",
@@ -1260,6 +1404,116 @@
       "required": [
         "name",
         "body"
+      ]
+    },
+    "PracticeDef": {
+      "description": "A compiled practice: the workbench's typed view of one declared law-set.\n\nEverything that distinguishes one practice from another lives here as data\n(charter koan 10); the generic checker and evaluator read this and nothing\nelse. The cycles that were in scope at compile time are recorded on\n[`cycles_in_scope`](PracticeDef::cycles_in_scope) so reference resolution\nneeds no further environment; the front end produces the structure with an\nempty `cycles_in_scope`, and `dli-ledger` overlays the document's cycles when\nit compiles the practice.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "The side conditions.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConditionDef"
+          }
+        },
+        "costs": {
+          "description": "The currency vocabulary a casting may spend in.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "cycles_in_scope": {
+          "description": "The cycles in scope at compile time (those the document declares), against\nwhich cycle references are resolved. The engine seats no ambient cycles —\na world's cyclic vocabulary is declared, never baked in (DL-0017). The\nfront end leaves this empty; `dli-ledger` fills it at compile time.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "effects": {
+          "description": "The casting effects.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EffectDef"
+          }
+        },
+        "errors": {
+          "description": "The declared failures.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorClassDef"
+          }
+        },
+        "marker": {
+          "description": "The provenance marker the declaration carried, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProvenanceMarker"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "The practice name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "resources": {
+          "description": "The resources and their algebra laws.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceDecl"
+          }
+        },
+        "roles": {
+          "description": "The cast roles.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoleDef"
+          }
+        },
+        "rules": {
+          "description": "The laws of the practice.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RuleDef"
+          }
+        },
+        "sorts": {
+          "description": "The declared finite sorts.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SortDef"
+          }
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        },
+        "uses": {
+          "description": "The layers this practice consumes (`use language.registers`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "uses",
+        "sorts",
+        "roles",
+        "resources",
+        "rules",
+        "conditions",
+        "errors",
+        "effects",
+        "costs",
+        "cycles_in_scope",
+        "span"
       ]
     },
     "PrincipleDecl": {
@@ -1427,6 +1681,138 @@
         "body"
       ]
     },
+    "ResourceDecl": {
+      "description": "A declared resource and the closed-algebra law it obeys:\n`resource acquaintance(name) : graded monotone whole > worn > husk`.\n\nThe [`kind`](ResourceDecl::kind) is the closed-algebra tag; it is [`None`]\nexactly when the declared law is not a member of the algebra, which\nwell-formedness surfaces as a compile error. The law's parameters — an affine\n[`cap`](ResourceDecl::cap), a graded [`order`](ResourceDecl::order) and\n[`direction`](ResourceDecl::direction) — ride here alongside the tag.",
+      "type": "object",
+      "properties": {
+        "arg": {
+          "description": "The parameter sort, when written `name(arg)` (e.g. `acquaintance(name)`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Ident"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cap": {
+          "description": "The affine capacity expression, verbatim, for `affine bounded <cap>`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "description": "The direction a graded resource wears (`>` reads as decay).",
+          "$ref": "#/$defs/GradeDirection"
+        },
+        "kind": {
+          "description": "The closed-algebra law, or [`None`] if the declared law is outside it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "law_text": {
+          "description": "The law phrase as written, kept for the error message when `kind` is\n[`None`].",
+          "type": "string"
+        },
+        "name": {
+          "description": "The resource name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "order": {
+          "description": "The graded order, most-whole first, for `graded monotone <order>`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "name",
+        "order",
+        "direction",
+        "law_text",
+        "span"
+      ]
+    },
+    "ResourceKind": {
+      "description": "The conservation law a resource obeys — the closed algebra, as a tag.\n\nThis enum is closed on purpose (spec §6, second well-formedness obligation):\na resource whose kind is not one of these members is a compile error, because\nthere is no open resource vocabulary. The law's *parameters* — an affine\ncap, a graded order — are not stored here; they ride on the resource\ndeclaration and are passed to the semantics functions explicitly.",
+      "oneOf": [
+        {
+          "description": "`linear` (`conserved: false`) or `linear conserved` (`conserved: true`).",
+          "type": "object",
+          "properties": {
+            "Linear": {
+              "type": "object",
+              "properties": {
+                "conserved": {
+                  "description": "Whether the multiset must net to zero across the close (no mint, no\nburn), on top of the never-negative discipline every linear resource\nkeeps.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "conserved"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Linear"
+          ]
+        },
+        {
+          "description": "`affine bounded <cap>` — spent at most up to a declared capacity.",
+          "type": "string",
+          "const": "AffineBounded"
+        },
+        {
+          "description": "`graded monotone <order>` — an ordered grade that only ever wears in one\ndeclared direction.",
+          "type": "string",
+          "const": "GradedMonotone"
+        }
+      ]
+    },
+    "RoleDef": {
+      "description": "A cast role: `role reader : entity requires standing(reader)`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The role name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "requires": {
+          "description": "The standing conditions the role requires, verbatim.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sort": {
+          "description": "The sort a filler of this role must belong to.",
+          "$ref": "#/$defs/Ident"
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "name",
+        "sort",
+        "span"
+      ]
+    },
     "RuleBody": {
       "description": "The structured body of a [`RuleDecl`](crate::decl::RuleDecl).",
       "type": "object",
@@ -1522,6 +1908,39 @@
         "head"
       ]
     },
+    "RuleDef": {
+      "description": "A law of the practice: `rule lay(figure, leaf) requires phase(turning-leaf) = leaf`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The head argument sorts/variables, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        },
+        "form": {
+          "description": "The form the rule concludes (the head predicate).",
+          "$ref": "#/$defs/Ident"
+        },
+        "requires": {
+          "description": "The premise body after `requires`, verbatim.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "required": [
+        "form",
+        "args",
+        "span"
+      ]
+    },
     "RuleDomain": {
       "description": "The domain a `rule` is enforced over, routing it to the right checker engine.\n\nA rule with no domain is a world (derivation) rule; `over order` routes to the\nepisode-ordering engine, `over season` to the season-ledger engine. The three\nforms unify the surface under one `rule` keyword (the domain is stated, not\nkeyword-encoded).",
       "oneOf": [
@@ -1552,6 +1971,39 @@
       },
       "required": [
         "name",
+        "span"
+      ]
+    },
+    "SortDef": {
+      "description": "A declared finite sort: `sort figure = the-tide | the-weir | …`, or a sort\ndrawn wholesale from a consumed layer: `sort binder from lexicon.loan-words`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The sort name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "source": {
+          "description": "The layer the sort is drawn from, when written with `from <source>`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "span": {
+          "description": "Source span of the declaration.",
+          "$ref": "#/$defs/Span"
+        },
+        "variants": {
+          "description": "The enumerated members, when written with `= a | b | …`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ident"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "variants",
         "span"
       ]
     },
@@ -1626,6 +2078,46 @@
       },
       "required": [
         "name"
+      ]
+    },
+    "StructuralClass": {
+      "description": "The seven structural error classes the checker knows.\n\nEvery diegetic failure a practice declares is a *refinement* of one of these\n(`docs/spec/04-practices.md` §2). The classes are the closed target set that\nwell-formedness obligation 1 checks against: an `error` refining anything\nelse does not compile.",
+      "oneOf": [
+        {
+          "description": "L1 — unknown-form: the casting names a form the practice does not declare.",
+          "type": "string",
+          "const": "L1"
+        },
+        {
+          "description": "L2 — premise-not-available: a required premise is absent or contradicted.",
+          "type": "string",
+          "const": "L2"
+        },
+        {
+          "description": "L3 — side-condition: a declared condition fails (timing, consent, scope).",
+          "type": "string",
+          "const": "L3"
+        },
+        {
+          "description": "L4 — bad-instantiation: a form is instantiated against forbidden sorts.",
+          "type": "string",
+          "const": "L4"
+        },
+        {
+          "description": "L5 — invalid-chain: a step joins premises the law does not license.",
+          "type": "string",
+          "const": "L5"
+        },
+        {
+          "description": "L6 — resource-violation: a spend breaks the resource's algebra.",
+          "type": "string",
+          "const": "L6"
+        },
+        {
+          "description": "L7 — close-mismatch: the close does not follow from the accounted ledger.",
+          "type": "string",
+          "const": "L7"
+        }
       ]
     },
     "Term": {

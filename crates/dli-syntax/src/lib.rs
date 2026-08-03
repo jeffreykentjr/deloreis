@@ -17,6 +17,7 @@ pub mod format;
 pub mod ladder;
 pub mod lexer;
 pub mod parser;
+pub mod practice;
 pub mod probe;
 
 pub use diag::{DiagClass, Diagnostic, render};
@@ -27,6 +28,7 @@ pub use parser::{
     parse_proof_arguments, parse_proof_bindings, parse_proof_close_parts, parse_rule_clause,
     structure_rule_body,
 };
+pub use practice::structure_practice_body;
 pub use probe::{KEYWORDS, ProbeError, probe_line, probe_source};
 
 /// Revalidate a proof AST through the canonical surface and real parser.
