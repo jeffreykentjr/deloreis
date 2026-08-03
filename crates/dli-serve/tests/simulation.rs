@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use dli_serve::author::store::Store;
 use dli_serve::project::Project;
@@ -14,6 +14,23 @@ use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
+
+/// Deterministic poll budget for the async simulation workers. The gate is
+/// offline and clock-free (DL-0013), so convergence is bounded by poll COUNT,
+/// not wall-clock: under heavy machine load a starved worker simply spaces its
+/// polls further apart instead of tripping a real-time deadline and flaking the
+/// gate. The budget only runs out when a job genuinely fails to converge.
+const MAX_POLLS: u32 = 3000;
+
+/// Spend one unit of the poll budget, panicking (with the last response for
+/// context) only when the job has genuinely failed to converge. Replaces a
+/// load-sensitive `assert!(Instant::now() < deadline, …)`.
+#[track_caller]
+fn poll_budget(remaining: &mut u32, context: &Value) {
+    *remaining = remaining.checked_sub(1).unwrap_or_else(|| {
+        panic!("simulation did not converge within {MAX_POLLS} polls: {context}")
+    });
+}
 
 fn write_project(root: &Path) -> Arc<Project> {
     fs::write(
@@ -130,16 +147,13 @@ fn job_resumes_after_restart_and_reopens_idempotently() {
     assert_eq!(resumed["result"]["status"], "pending", "{resumed}");
 
     sessions.release_simulation_workers();
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut budget = MAX_POLLS;
     let completed = loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
             break response;
         }
-        assert!(
-            Instant::now() < deadline,
-            "simulation did not complete: {response}"
-        );
+        poll_budget(&mut budget, &response);
         sessions.release_simulation_workers();
         thread::sleep(Duration::from_millis(10));
     };
@@ -203,13 +217,13 @@ fn concurrent_runners_converge_on_one_checkpoint_chain() {
     left_sessions.release_simulation_workers();
     right_sessions.release_simulation_workers();
 
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut budget = MAX_POLLS;
     let response = loop {
         let response = drive(&status(&job_id), &mut left_sessions, &mut left_store);
         if response["result"]["status"] == "complete" {
             break response;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         thread::sleep(Duration::from_millis(10));
     };
     assert_eq!(response["result"]["trials_done"], 17, "{response}");
@@ -229,13 +243,13 @@ fn zero_trial_job_completes_without_a_checkpoint() {
     let started = drive(&start(48, 0, 1), &mut sessions, &mut store);
     let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
     sessions.release_simulation_workers();
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut budget = MAX_POLLS;
     let response = loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
             break response;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         thread::sleep(Duration::from_millis(10));
     };
     assert_eq!(response["result"]["trials_done"], 0, "{response}");
@@ -253,13 +267,13 @@ fn deleting_a_committed_completion_fails_closed() {
     let started = drive(&start(46, 1, 1), &mut sessions, &mut store);
     let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
     sessions.release_simulation_workers();
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut budget = MAX_POLLS;
     loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
             break;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         sessions.release_simulation_workers();
         thread::sleep(Duration::from_millis(10));
     }
@@ -350,7 +364,7 @@ fn manifest_declared_game_runs_through_the_durable_job_surface() {
     let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
     sessions.release_simulation_workers();
 
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut budget = MAX_POLLS;
     loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
@@ -366,7 +380,7 @@ fn manifest_declared_game_runs_through_the_durable_job_surface() {
             );
             break;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         sessions.release_simulation_workers();
         thread::sleep(Duration::from_millis(10));
     }
@@ -381,13 +395,13 @@ fn committed_checkpoint_corruption_fails_closed() {
     let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
     sessions.release_simulation_workers();
 
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut budget = MAX_POLLS;
     loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
             break;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         sessions.release_simulation_workers();
         thread::sleep(Duration::from_millis(10));
     }
@@ -444,13 +458,13 @@ fn malformed_predecessor_checkpoint_fails_closed() {
     let started = drive(&start(49, 3, 1), &mut sessions, &mut store);
     let job_id = started["result"]["job_id"].as_str().unwrap().to_owned();
     sessions.release_simulation_workers();
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut budget = MAX_POLLS;
     loop {
         let response = drive(&status(&job_id), &mut sessions, &mut store);
         if response["result"]["status"] == "complete" {
             break;
         }
-        assert!(Instant::now() < deadline, "{response}");
+        poll_budget(&mut budget, &response);
         thread::sleep(Duration::from_millis(10));
     }
 
