@@ -28,7 +28,7 @@ fn validate_repo_emits_stable_json_findings() {
     let root = tmp("validate-repo");
     fs::write(
         root.join("clean.md"),
-        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\n---\n\n## Clean\n> status: proposed\nSee [[missing-cli]].\n",
+        "---\nid: clean\ntitle: Clean\ntype: character\nstatus: proposed\ndiegetic: true\n---\n\n## Clean\n> status: proposed\nSee [[missing-cli]]. A machine.\n",
     )
     .unwrap();
     fs::write(root.join("broken.md"), "# missing frontmatter\n").unwrap();
@@ -36,6 +36,11 @@ fn validate_repo_emits_stable_json_findings() {
     fs::write(
         root.join("data/characters.yaml"),
         "characters:\n  - id: cli-missing\n    name: Missing\n    role: person\n    status: proposed\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("data/banned-vocabulary.yaml"),
+        "banned:\n  - word: machine\n    scope: diegetic\n    match: exact\n",
     )
     .unwrap();
     fs::write(
@@ -60,6 +65,7 @@ fn validate_repo_emits_stable_json_findings() {
             .any(|finding| { finding["path"] == "clean.md" && finding["code"] == "V5" })
     );
     assert!(rows.iter().any(|finding| finding["code"] == "V7"));
+    assert!(rows.iter().any(|finding| finding["code"] == "V8"));
 }
 
 /// The shared saltmarket corpus.
