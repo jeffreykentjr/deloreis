@@ -156,6 +156,49 @@ fn world_signature(store: &Lorestore, head: &ContentHash) -> Vec<String> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// 0 — THE SIGNATURE HAS TEETH IN THE DEFEATER CHANNEL
+// ════════════════════════════════════════════════════════════════════════════
+
+/// The confluence signature must distinguish two worlds that differ **only** in
+/// the defeater channel (`P⁻`) — otherwise a non-monotone (negation) divergence
+/// between `merge(A,B)` and `merge(B,A)` could false-green. Both worlds share the
+/// same atom, support, and grade; only the defeater variable differs (`d-y` vs
+/// `d-z`). The support+grade-only signature would render them identical; the
+/// defeater-inclusive signature (red-team item 1) must not.
+#[test]
+fn signature_distinguishes_a_defeater_only_difference() {
+    use dli_core::ann::Ann;
+    use dli_eval::world::{GroundAtom, World};
+
+    fn world_with_defeater(defeater_name: &str) -> World {
+        let mut w = World::new();
+        let support = w.interner.intern("d-x");
+        let defeater = w.interner.intern(defeater_name);
+        w.assert_fact(
+            GroundAtom {
+                pred: "keeps".to_owned(),
+                args: vec!["fen".to_owned()],
+            },
+            Ann::new(PosBool::pos(support), PosBool::pos(defeater)),
+        );
+        w.fixpoint().expect("stratifies")
+    }
+
+    let a = common::render_derived(&world_with_defeater("d-y"));
+    let b = common::render_derived(&world_with_defeater("d-z"));
+
+    // The support and grade are identical; a support-only signature would tie.
+    assert!(
+        a.iter().all(|row| row.contains("sup={+d-x}")),
+        "support is the shared part: {a:?}"
+    );
+    assert_ne!(
+        a, b,
+        "a defeater-only difference must change the signature (item 1 teeth)"
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 1 — CONFLUENCE & ASSOCIATIVITY
 // ════════════════════════════════════════════════════════════════════════════
 
