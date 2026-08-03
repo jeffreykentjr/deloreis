@@ -714,7 +714,7 @@ author or consumer artifact that this repository does not own.
 | LS-6 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-6 |
 | LS-7 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-7 |
 | LS-8 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-8; also awaits EXT-F4 (consumer-owned) |
-| LS-9 | open | tracked work — `design-notes/lorestore-roadmap.md` LS-9; evidence in `design-notes/dli-syntax-coupling-audit.md` |
+| LS-9 | open | partial (foundation, DL-0047) — `RuleDecl` typed interior end-to-end, v1→v2 upcast seam, no-parse ratchet gate (`xtask syntax-free`); `dli-time` syntax-free; `dli-world`/`dli-ledger` still coupled via the other ten types; evidence in `design-notes/dli-syntax-coupling-audit.md` |
 
 ## Milestones (node-sets, not dates)
 
