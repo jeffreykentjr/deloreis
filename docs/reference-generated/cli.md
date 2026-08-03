@@ -7,7 +7,7 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 
 # CLI commands
 
-`deloreis` exposes **16** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
+`deloreis` exposes **17** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
 
 | Command | Description |
 |---|---|
@@ -44,6 +44,7 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 | `deloreis name help` | Print this message or the help of the given subcommand(s) |
 | `deloreis export` | Export under a profile |
 | `deloreis report` | Render the findings report |
+| `deloreis validate-repo` | Validate Markdown canon repository frontmatter |
 | `deloreis serve` | Run JSON-over-stdio with `--project <path>` or explicit `--demo` |
 | `deloreis mcp` | Run MCP over stdio with `--project <path>` or explicit `--demo` |
 | `deloreis help` | Print this message or the help of the given subcommand(s) |
