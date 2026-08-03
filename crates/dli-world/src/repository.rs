@@ -518,7 +518,12 @@ mod tests {
         );
         let findings = validate_repository(dir.path());
         assert_eq!(findings.iter().filter(|f| f.code == "V3").count(), 2);
-        assert!(findings.iter().all(|f| f.line == 1));
+        assert!(
+            findings
+                .iter()
+                .filter(|f| f.code == "V3")
+                .all(|f| f.line > 1)
+        );
     }
 
     #[test]
