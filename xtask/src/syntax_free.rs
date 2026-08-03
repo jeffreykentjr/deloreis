@@ -96,22 +96,74 @@ pub fn run_syntax_free(root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Whether the `[dependencies]` table (and not `[dev-dependencies]`) of a
-/// manifest names `dli-syntax`.
+/// Whether the normal-dependencies table (and never `[dev-dependencies]`) of a
+/// manifest names `dli-syntax`, in either form TOML allows:
+///
+/// - flat table with a key row — `[dependencies]` … `dli-syntax.workspace = true`;
+/// - dotted sub-table header — `[dependencies.dli-syntax]` (`workspace = true`
+///   in its body), including target-scoped `[target.'cfg(…)'.dependencies…]`.
+///
+/// A table is "normal dependencies" when `dependencies` is one of its dotted
+/// header segments (so `dev-dependencies` / `build-dependencies` are excluded,
+/// being distinct single segments). The dotted sub-table form is caught by the
+/// header naming both `dependencies` and `dli-syntax`; the flat form is caught
+/// by scanning the body of a table whose final segment is `dependencies`.
 fn normal_deps_include_dli_syntax(manifest: &str) -> bool {
-    let mut in_normal_deps = false;
+    let mut scanning_normal_body = false;
     for line in manifest.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix('[') {
-            // A new table header ends the previous table's scope.
-            in_normal_deps = rest.starts_with("dependencies]");
+        if trimmed.starts_with('[') {
+            let Some(segments) = table_header_segments(trimmed) else {
+                scanning_normal_body = false;
+                continue;
+            };
+            let is_normal = segments.iter().any(|s| s == "dependencies");
+            // Dotted-sub-table form: the header itself names the dependency, e.g.
+            // `[dependencies.dli-syntax]` — this is the hole the flat scan missed.
+            if is_normal && segments.iter().any(|s| s == "dli-syntax") {
+                return true;
+            }
+            // Only a table whose final segment is `dependencies` carries ordinary
+            // `key = value` dependency rows worth scanning (a `[dependencies.foo]`
+            // body holds `foo`'s fields, not sibling dependencies).
+            scanning_normal_body =
+                is_normal && segments.last().map(String::as_str) == Some("dependencies");
             continue;
         }
-        if in_normal_deps && trimmed.starts_with("dli-syntax") {
+        if scanning_normal_body && line_declares_dli_syntax(trimmed) {
             return true;
         }
     }
     false
+}
+
+/// Split a TOML table header line (`[a.b.c]`) into its dotted segments, trimming
+/// whitespace and surrounding quotes from each. `None` if it is not a `[…]`
+/// header.
+fn table_header_segments(header: &str) -> Option<Vec<String>> {
+    let inner = header.trim().strip_prefix('[')?.strip_suffix(']')?;
+    Some(
+        inner
+            .split('.')
+            .map(|s| s.trim().trim_matches(|c| c == '"' || c == '\'').to_owned())
+            .collect(),
+    )
+}
+
+/// Whether a `key = value` body line declares `dli-syntax` (as `dli-syntax = …`
+/// or `dli-syntax.workspace = …`), ignoring comment lines.
+fn line_declares_dli_syntax(line: &str) -> bool {
+    if line.starts_with('#') {
+        return false;
+    }
+    // The dependency name is the token before the first `=` or `.`.
+    let key = line
+        .split(['=', '.'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_matches(|c| c == '"' || c == '\'');
+    key == "dli-syntax"
 }
 
 #[cfg(test)]
@@ -140,5 +192,41 @@ mod tests {
     fn absent_dependency_is_clear() {
         let manifest = "[dependencies]\ndli-core.workspace = true\n\n[lints]\nworkspace = true\n";
         assert!(!normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn dotted_normal_subtable_is_detected() {
+        // The dotted sub-table form the flat scan used to miss — a false
+        // negative in the acceptance gate itself.
+        let manifest = "[dependencies.dli-syntax]\nworkspace = true\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn dotted_normal_subtable_among_others_is_detected() {
+        let manifest = "[dependencies]\ndli-core.workspace = true\n\n\
+                        [dependencies.dli-syntax]\nworkspace = true\nfeatures = []\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn dotted_dev_subtable_is_ignored() {
+        // The dev-dependencies dotted form must still be ignored.
+        let manifest = "[dependencies]\ndli-ast.workspace = true\n\n\
+                        [dev-dependencies.dli-syntax]\nworkspace = true\n";
+        assert!(!normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn dotted_other_subtable_body_is_not_scanned() {
+        // A `[dependencies.serde]` body holds serde's fields, not sibling deps.
+        let manifest = "[dependencies.serde]\nversion = \"1\"\nfeatures = [\"derive\"]\n";
+        assert!(!normal_deps_include_dli_syntax(manifest));
+    }
+
+    #[test]
+    fn target_scoped_dotted_normal_subtable_is_detected() {
+        let manifest = "[target.'cfg(unix)'.dependencies.dli-syntax]\nworkspace = true\n";
+        assert!(normal_deps_include_dli_syntax(manifest));
     }
 }
