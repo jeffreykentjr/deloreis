@@ -1,0 +1,60 @@
+{
+  "fixture": "negative/check-draft-typed-continuity-schema-violation",
+  "version": 1,
+  "note": "atom_expr on a runtime-continuity row is a typed AtomExpr, not a shorthand: a bare predicate string where an Ident belongs is a schema violation, not a silent fallback to the predicate/subject/value strings beside it.",
+  "project": true,
+  "send": {
+    "dli": "0.6.4",
+    "id": "1",
+    "op": "dli.check-draft",
+    "params": {
+      "continuity": {
+        "established": [
+          {
+            "atom_expr": {
+              "pred": "marker"
+            },
+            "predicate": "marker",
+            "subject": "baseline",
+            "value": "control"
+          }
+        ]
+      },
+      "document": "saltmarket",
+      "payload": {
+        "beats": [],
+        "claims": [],
+        "deltas": [],
+        "lexicon": {
+          "banned_hits": [],
+          "register_tokens": 0
+        },
+        "meta": {
+          "episode": "episode-1",
+          "extracted": "2026-07-25",
+          "extractors": {
+            "schema": "payload/v1"
+          },
+          "source": {
+            "file": "draft.md",
+            "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+            "words": 1
+          }
+        },
+        "names": {
+          "introduced": []
+        },
+        "promises": {
+          "closed": [],
+          "opened": []
+        },
+        "proof_ledgers": [],
+        "scenes": []
+      },
+      "source": "baseline"
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

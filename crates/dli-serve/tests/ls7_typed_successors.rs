@@ -1,15 +1,18 @@
 //! LS-7 typed successors: the additive-only proofs.
 //!
-//! The three text-on-wire remnants each gained an optional typed field beside
-//! the string it replaces (`goal_atom`, `additions`, `atom_expr`). The
-//! acceptance bar for that slice is *nothing else moved*, and it has two halves:
+//! The four text-on-wire remnants each gained an optional typed field beside
+//! the string it replaces: `goal_atom`, `additions`, and a payload claim's
+//! `atom_expr` at contract `0.6.3`, and `dli.check-draft`'s runtime-continuity
+//! rows — `RuntimeFact::atom_expr`, `RuntimeChange::to_atom_expr` — at `0.6.4`.
+//! The acceptance bar for that slice is *nothing else moved*, and it has two
+//! halves:
 //!
 //! - **Byte-identity.** A value that does not carry the new field serializes to
 //!   exactly the bytes it serialized to before, so every stored payload, every
 //!   vendored fixture, and every prior-version response is untouched. Proven
 //!   here at the type level; the whole-corpus proof is `fixture_replay`, where
-//!   118 pre-0.6.3 fixtures replay byte-for-byte.
-//! - **Version transparency.** `0.6.3` changed no response shape: the same
+//!   the 126 fixtures predating each bump replay byte-for-byte.
+//! - **Version transparency.** Neither bump changed a response shape: the same
 //!   request answered on every accepted version differs only in the echoed
 //!   protocol tag (and, for `0.5.1`, the replay-context fields that version has
 //!   always omitted).
@@ -26,7 +29,7 @@ use dli_serve::contract::{ForkAddParams, QueryParams};
 use dli_serve::project::Project;
 use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
-use dli_world::payload::Claim;
+use dli_world::payload::{Claim, RuntimeChange, RuntimeFact};
 use serde_json::{Value, json};
 
 fn drive(frame: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {
@@ -105,13 +108,37 @@ fn omitted_typed_successors_leave_no_trace_in_the_bytes() {
         serde_json::to_string(&claim).unwrap(),
         r#"{"atom":"marker(\"control\")","quote":"the marker holds","line":1}"#
     );
+
+    // 0.6.4: the runtime-continuity pair.
+    let fact = RuntimeFact {
+        predicate: "marker".to_owned(),
+        subject: "baseline".to_owned(),
+        value: "control".to_owned(),
+        atom_expr: None,
+    };
+    assert_eq!(
+        serde_json::to_string(&fact).unwrap(),
+        r#"{"predicate":"marker","subject":"baseline","value":"control"}"#
+    );
+
+    let change = RuntimeChange {
+        predicate: "marker".to_owned(),
+        subject: "baseline".to_owned(),
+        from_value: "draft".to_owned(),
+        to_value: "control".to_owned(),
+        to_atom_expr: None,
+    };
+    assert_eq!(
+        serde_json::to_string(&change).unwrap(),
+        r#"{"predicate":"marker","subject":"baseline","from_value":"draft","to_value":"control"}"#
+    );
 }
 
-/// A pre-0.6.3 encoding still deserializes — the typed successor is optional in
+/// A pre-bump encoding still deserializes — the typed successor is optional in
 /// both directions, so a vendored fixture or a stored payload written before the
 /// field existed loads unchanged and round-trips to the same bytes.
 #[test]
-fn pre_0_6_3_encodings_round_trip_unchanged() {
+fn pre_typed_successor_encodings_round_trip_unchanged() {
     for encoded in [
         r#"{"document":"camelot","goal":"adjacent(camelot, the-lake)","why":false}"#,
         r#"{"document":"camelot","goal":"adjacent(camelot, ?where)","layer":"certain","why":true}"#,
@@ -125,13 +152,24 @@ fn pre_0_6_3_encodings_round_trip_unchanged() {
     let claim: Claim = serde_json::from_str(encoded).unwrap();
     assert!(claim.atom_expr.is_none());
     assert_eq!(serde_json::to_string(&claim).unwrap(), encoded);
+
+    let encoded = r#"{"predicate":"marker","subject":"baseline","value":"control"}"#;
+    let fact: RuntimeFact = serde_json::from_str(encoded).unwrap();
+    assert!(fact.atom_expr.is_none());
+    assert_eq!(serde_json::to_string(&fact).unwrap(), encoded);
+
+    let encoded =
+        r#"{"predicate":"marker","subject":"baseline","from_value":"draft","to_value":"control"}"#;
+    let change: RuntimeChange = serde_json::from_str(encoded).unwrap();
+    assert!(change.to_atom_expr.is_none());
+    assert_eq!(serde_json::to_string(&change).unwrap(), encoded);
 }
 
-/// `0.6.3` is a pure addition to the negotiation: the same string-form request
-/// answered on every accepted version yields the same response but for the
-/// echoed protocol tag. `0.5.1` is compared on its own terms — it has always
-/// omitted the 0.6.0 replay context — so the assertion there is that the rows
-/// themselves are unchanged.
+/// Each typed-successor bump is a pure addition to the negotiation: the same
+/// string-form request answered on every accepted version yields the same
+/// response but for the echoed protocol tag. `0.5.1` is compared on its own
+/// terms — it has always omitted the 0.6.0 replay context — so the assertion
+/// there is that the rows themselves are unchanged.
 #[test]
 fn a_string_form_request_answers_the_same_on_every_accepted_version() {
     let (_temp, mut sessions, mut store) = fixture_project();
@@ -164,7 +202,10 @@ fn a_string_form_request_answers_the_same_on_every_accepted_version() {
     }
     let first = v2_results.first().expect("a v2 version is accepted");
     for result in &v2_results {
-        assert_eq!(result, first, "0.6.3 reshapes no v2 response");
+        assert_eq!(
+            result, first,
+            "no typed-successor bump reshapes a v2 response"
+        );
     }
 }
 

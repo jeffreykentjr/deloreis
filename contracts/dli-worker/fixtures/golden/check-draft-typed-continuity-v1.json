@@ -1,0 +1,496 @@
+{
+  "fixture": "golden/check-draft-typed-continuity-v1",
+  "version": 1,
+  "note": "The 0.6.4 typed successors on dli.check-draft's runtime-continuity rows (LS-7): atom_expr on an established fact, to_atom_expr on a change. Step 1 sends the fact as the three strings the wire has always carried; step 2 adds the typed atom beside them and the findings are identical. Step 3 shows what an unreadable assembled atom costs — payload.runtime-continuity-invalid, because 'the ghost' is not one term — and step 4 sends that same unreadable subject WITH atom_expr: the defect is gone and the finding matches step 2, so the checker read the typed atom and never assembled the strings. Steps 5 and 6 are the same pair for a change row, whose target atom is what canon is checked against. The payload itself is empty throughout, so every finding here comes from the continuity context.",
+  "project": true,
+  "steps": [
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "ghost",
+                "value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "continuity.unknown-entity",
+              "grade": "checked",
+              "message": "claim references entity 'ghost', which canon does not define",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "2",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "established": [
+              {
+                "atom_expr": {
+                  "args": [
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "ghost"
+                      }
+                    },
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "control"
+                      }
+                    }
+                  ],
+                  "pred": {
+                    "span": {
+                      "end": 0,
+                      "file": 0,
+                      "start": 0
+                    },
+                    "text": "marker"
+                  }
+                },
+                "predicate": "marker",
+                "subject": "ghost",
+                "value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "continuity.unknown-entity",
+              "grade": "checked",
+              "message": "claim references entity 'ghost', which canon does not define",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "3",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "the ghost",
+                "value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "payload.runtime-continuity-invalid",
+              "grade": "checked",
+              "message": "established runtime fact 'marker(the ghost, control)' is not a well-formed atom",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "4",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "established": [
+              {
+                "atom_expr": {
+                  "args": [
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "ghost"
+                      }
+                    },
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "control"
+                      }
+                    }
+                  ],
+                  "pred": {
+                    "span": {
+                      "end": 0,
+                      "file": 0,
+                      "start": 0
+                    },
+                    "text": "marker"
+                  }
+                },
+                "predicate": "marker",
+                "subject": "the ghost",
+                "value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "continuity.unknown-entity",
+              "grade": "checked",
+              "message": "claim references entity 'ghost', which canon does not define",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "5",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "changes": [
+              {
+                "from_value": "baseline",
+                "predicate": "marker",
+                "subject": "the ghost",
+                "to_value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "payload.runtime-continuity-invalid",
+              "grade": "checked",
+              "message": "changed target runtime fact 'marker(the ghost, control)' is not a well-formed atom",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "0.6.4",
+        "id": "6",
+        "op": "dli.check-draft",
+        "params": {
+          "continuity": {
+            "changes": [
+              {
+                "from_value": "baseline",
+                "predicate": "marker",
+                "subject": "the ghost",
+                "to_atom_expr": {
+                  "args": [
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "ghost"
+                      }
+                    },
+                    {
+                      "Sym": {
+                        "span": {
+                          "end": 0,
+                          "file": 0,
+                          "start": 0
+                        },
+                        "text": "control"
+                      }
+                    }
+                  ],
+                  "pred": {
+                    "span": {
+                      "end": 0,
+                      "file": 0,
+                      "start": 0
+                    },
+                    "text": "marker"
+                  }
+                },
+                "to_value": "control"
+              }
+            ]
+          },
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
+                "words": 1
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "baseline"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "id": "6",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "code": "continuity.unknown-entity",
+              "grade": "checked",
+              "message": "claim references entity 'ghost', which canon does not define",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

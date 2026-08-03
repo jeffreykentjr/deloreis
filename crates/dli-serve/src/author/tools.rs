@@ -187,6 +187,12 @@ pub(super) fn discard(
 ///
 /// Re-materializing with nothing newly staged is an idempotent no-op: no new
 /// commit is written (audit B9) and the pinned commit is returned.
+///
+/// A workspace with **no lorestore** (demo/test contexts) materializes as the
+/// rendering alone — and a build that renders no `.dli` (LS-7) therefore has
+/// nothing to return, so it refuses by name rather than answering an empty
+/// success. That refusal is the default build's only divergence here; the
+/// durable, lorestore-backed path is identical on both builds.
 #[allow(clippy::too_many_lines)]
 pub(super) fn materialize(
     store: &mut Store,
@@ -218,6 +224,24 @@ pub(super) fn materialize(
     // Without a lorestore the rendering IS the materialization (demo/test
     // contexts): version-independent legacy shape.
     if store.workspace_lorestore(&params.workspace).is_none() {
+        // …and a build that renders no `.dli` has neither half: nothing to
+        // commit and nothing to render. Answering `{findings: [], rendered:
+        // []}` would be a success with no content — the author would read an
+        // empty `findings` list as "materialized clean" when in truth nothing
+        // was durably written anywhere. Refuse by name instead, exactly as
+        // per-declaration `author.discard` does above (LS-7): the build says
+        // what it cannot do and names the two ways forward.
+        if !super::render::renders_dli() {
+            return Err(ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "this workspace has no lorestore attached, so `materialize` has nothing \
+                          to commit to, and this build links no formatter, so it has no `.dli` \
+                          rendering to return in place of one; attach a lorestore, or use a \
+                          `syntax`-enabled build"
+                    .to_owned(),
+                data: None,
+            });
+        }
         let ws = store.get(&params.workspace).ok_or_else(gone)?;
         return Ok(value(&AuthorMutationResult {
             findings: Vec::new(),
