@@ -81,6 +81,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let index = build_id_index(&files, root, &mut findings);
     check_structured_data(root, &mut findings);
     check_characters_sync(root, &files, &mut findings);
+    check_lexicon(root, &files, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -113,6 +114,125 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
+    let path = root.join("data/banned-vocabulary.yaml");
+    let Ok(source) = fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(value) = serde_yaml_ng::from_str::<Value>(&source) else {
+        return;
+    };
+    let Some(entries) = value.get("banned").and_then(Value::as_sequence) else {
+        return;
+    };
+    for file in files {
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if is_exempt(&rel) {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(file) else {
+            continue;
+        };
+        let diegetic = frontmatter_bool(&text, "diegetic").unwrap_or(false);
+        let exceptions = frontmatter_strings(&text, "lexicon_exceptions");
+        let body = body_after_frontmatter(&text);
+        for (line_no, line) in body.lines().enumerate() {
+            let lower = line.to_lowercase();
+            for entry in entries {
+                let Some(map) = entry.as_mapping() else {
+                    continue;
+                };
+                let Some(word) = map.get("word").and_then(Value::as_str) else {
+                    continue;
+                };
+                let scope = map
+                    .get("scope")
+                    .and_then(Value::as_str)
+                    .unwrap_or("diegetic");
+                if scope == "diegetic" && !diegetic {
+                    continue;
+                }
+                if exceptions
+                    .iter()
+                    .any(|value| value.eq_ignore_ascii_case(word))
+                {
+                    continue;
+                }
+                let mode = map.get("match").and_then(Value::as_str).unwrap_or("stem");
+                let hit = if mode == "exact" {
+                    contains_word(&lower, &word.to_lowercase())
+                } else {
+                    lower.contains(&word.to_lowercase())
+                };
+                if hit {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line_no + 1,
+                        "V8",
+                        format!("banned word {word:?} in canon text"),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+fn body_after_frontmatter(source: &str) -> &str {
+    let mut lines = source.lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return source;
+    }
+    let mut offset = 0;
+    for line in lines {
+        offset += line.len() + 1;
+        if line.trim() == "---" {
+            break;
+        }
+    }
+    source.get(offset..).unwrap_or("")
+}
+
+fn frontmatter_bool(source: &str, field: &str) -> Option<bool> {
+    frontmatter_value(source, field).and_then(|value| value.as_bool())
+}
+
+fn frontmatter_strings(source: &str, field: &str) -> Vec<String> {
+    frontmatter_value(source, field)
+        .and_then(|value| value.as_sequence().cloned())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+        .collect()
+}
+
+fn frontmatter_value(source: &str, field: &str) -> Option<Value> {
+    let mut lines = source.lines();
+    if lines.next()?.trim() != "---" {
+        return None;
+    }
+    let mut yaml = String::new();
+    for line in lines {
+        if line.trim() == "---" {
+            break;
+        }
+        yaml.push_str(line);
+        yaml.push('\n');
+    }
+    serde_yaml_ng::from_str::<Value>(&yaml)
+        .ok()?
+        .get(field)
+        .cloned()
+}
+
+fn contains_word(text: &str, word: &str) -> bool {
+    text.split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+        .any(|token| token == word)
 }
 
 fn check_structured_data(root: &Path, findings: &mut Vec<RepositoryFinding>) {
@@ -1166,6 +1286,33 @@ mod tests {
             findings
                 .iter()
                 .any(|f| f.code == "V7" && f.message.contains("orphan"))
+        );
+    }
+
+    #[test]
+    fn v8_scans_diegetic_text_against_banned_vocabulary() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/banned-vocabulary.yaml",
+            "banned:\n  - word: machine\n    scope: diegetic\n    match: exact\n  - word: algorithm\n    scope: all\n    match: stem\n",
+        );
+        write(
+            dir.path(),
+            "diegetic.md",
+            "---\nid: diegetic\ntitle: Diegetic\ntype: narrative\nstatus: proposed\ndiegetic: true\n---\n\n## Text\n> status: proposed\nA machine and algorithm stand here.\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V8" && f.message.contains("machine"))
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.code == "V8" && f.message.contains("algorithm"))
         );
     }
 
