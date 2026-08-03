@@ -1354,3 +1354,70 @@ and no correctness defect survived verification.
 **Revisit trigger.** LS-8 (contract 1.0) and any wire-driven-merge surface —
 a sovereign-ruling op would let a conflict be exercised end to end through the
 wire.
+
+## DL-0049 — LS-9 completion: all eleven declaration interiors typed; the residual is LS-7's
+
+*Date: 2026-08-03*
+
+**Ruling.** LS-9 (expert-tier structuring, roadmap §LS-9) is **complete** and
+flips to `done`. The DL-0047 foundation extends to all eleven string-bodied
+declaration types:
+
+1. **Ten remaining interiors typed.** Beyond `RuleDecl` (DL-0047), the parser
+   (`dli_syntax`, the single producer) now structures `Practice`, `Proof`,
+   `Dialect`, `NamePart`, `Name`, `Ratify`, and the five near-empty
+   `Fork`/`Draft`/`Export`/`Variant`/`Principle` bodies via
+   `structure_<type>_body`, emitting typed interiors defined in `dli-ast`.
+   `dli-world` (dialect/name/ratify) and `dli-ledger` (practice, proof) read the
+   typed structure — no `parse_*` on a stored declaration body. The proof
+   validator's former format-and-reparse round-trip (`validate_proof_decl`) is
+   replaced by a **structural** check over the typed `ProofClause`/`ProofOp`
+   interior. Each type keeps its normalized `Clause` text beside the typed
+   payload, so the formatter round-trips byte-identically.
+2. **`dli-ledger` and `dli-time` are syntax-free.** Both carry `dli-syntax` as a
+   dev-dependency only; the ratchet (`xtask syntax-free`) reports **2/3** target
+   crates clear.
+3. **The residual is not a declaration body.** `dli-world` retains one
+   `dli_syntax` coupling — `payload.rs`'s `parse_clause_atom` over payload-**claim**
+   and runtime-**fact** surface atoms at the fact-checker boundary (`parse_claims`,
+   `parse_runtime_fact`). This is a load/check-boundary surface parse, not one of
+   the eleven declaration interiors; retiring it is LS-7's feature-gate-the-load-
+   boundary work. DL-0047's revisit trigger phrased the bar as "`dli-world` **and**
+   `dli-ledger` syntax-free," assuming the eleven types were `dli-world`'s only
+   coupling; the completion audit found this twelfth, non-declaration coupling and
+   assigns it to LS-7. The ratchet honestly reports `dli-world` as `still-coupled`
+   for that one site.
+4. **v1→v2 upcast covers all eleven.** `deepen_<type>_carriage`
+   (`dli-lorestore/src/upcast.rs`) upcasts every v1 string-bodied carriage to its
+   typed v2 form; `read_typed`'s schema-version probe routes below-current reads
+   through it. A store persisted under v1 remains usable.
+
+**Contract.** The v2 `SCHEMA_VERSION` participates in commit/object bytes, so two
+commit-hash-bearing goldens re-hash: `author-merge-v1` (`merge_commit`/`merge_base`)
+and `export-ludii-v1` (`manifest.commit`). Per the C4 guard the digest change rides
+a `contract_version` bump **0.6.1 → 0.6.2**, and 0.6.1 joins
+`ACCEPTED_CONTRACT_VERSIONS`. **No 0.5.1 or 0.6.0 golden shifts** — the only external
+commitment (0.5.1) stays byte-identical, and 0.6.x has no external consumer yet (the
+consumer is on 0.5.1 pending EXT-F4). The `author.branch`/`author.merge` capabilities
+are re-gated on `version >= 0.6.1` (not `== current build`), so a 0.6.1 handshake
+keeps them after the 0.6.2 bump.
+
+**Oracles.** Per-type differential parity — a corpus compiled through each typed
+interior yields byte-identical facts / fixpoint / findings / digests to the
+string-bodied original across the vendored pack; the proof structural validator
+replaces the format-and-reparse round-trip; the no-parse ratchet is a compiled gate
+lane (2/3, with `dli-world`'s one residual tracked).
+
+**Rationale.** LS-9 was the roadmap's predicted bulk; with the DL-0047 pattern
+proven, the ten remaining conversions were mechanical repeats. Completing them makes
+`dli_syntax` a pure front end for every declaration body — the precondition LS-7 needs
+to feature-gate the parser out of the default build. The remaining load-boundary claim
+parse is genuinely LS-7's, not a hidden LS-9 miss; recording it here keeps the
+acceptance bar honest rather than declaring a clean sweep the ratchet contradicts.
+Adversarially red-teamed: structural-parse equivalence and upcast fidelity confirmed
+clean, proof faithfulness confirmed; the one low finding (`dli-ledger` clearable to a
+dev-dependency, a stale ratchet comment) is applied in this change.
+
+**Revisit trigger.** LS-7: when `payload.rs`'s claim/fact parse moves behind the
+`syntax` feature, the ratchet reports `dli-world` clear (3/3) and the default build
+links no `dli_syntax`.

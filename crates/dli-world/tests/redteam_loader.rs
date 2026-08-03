@@ -32,7 +32,7 @@ fn ann(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
 fn ratify(d: &str) -> Decl {
     Decl::Ratify(RatifyDecl {
         decision: id(d),
-        body: Vec::new(),
+        body: dli_ast::language::RatifyBody::default(),
     })
 }
 

@@ -82,7 +82,7 @@ fn base_world() -> World {
             // certain (defense-in-depth against forged citations, B1).
             Decl::Ratify(RatifyDecl {
                 decision: Ident::synthetic("d-weather"),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             }),
             decided_fact("weathered", vec![sym("gate")], "d-weather"),
             Decl::Question(QuestionDecl {

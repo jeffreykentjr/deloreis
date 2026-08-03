@@ -32,12 +32,13 @@ use sha2::{Digest as _, Sha256};
 
 use dli_ast::clause::Clause;
 use dli_ast::decl::{Decl, Document, ProofDecl};
+use dli_ast::proof::{ProofClause, ProofOp};
 use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 use dli_core::grade::Grade;
 use dli_ledger::check_proof;
 use dli_ledger::practice::compile_practices;
-use dli_syntax::{parse_clause_atom, parse_proof_close_parts};
+use dli_syntax::parse_clause_atom;
 
 use crate::check::factcheck::Verdict;
 use crate::check::{self, CompiledWorld, Severity, WorldFinding};
@@ -1499,14 +1500,16 @@ fn select_declared_proof<'a>(
 fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
     let premises = declared
         .body
+        .items
         .iter()
-        .filter(|clause| clause.text.starts_with("premise "))
-        .map(|clause| clause.text.clone())
+        .filter(|item| item.clause.text.starts_with("premise "))
+        .map(|item| item.clause.text.clone())
         .collect::<Vec<_>>();
     let steps = declared
         .body
+        .items
         .iter()
-        .filter(|clause| {
+        .filter(|item| {
             [
                 "step ",
                 "spend ",
@@ -1516,19 +1519,21 @@ fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
                 "assume ",
             ]
             .iter()
-            .any(|prefix| clause.text.starts_with(prefix))
+            .any(|prefix| item.clause.text.starts_with(prefix))
         })
-        .map(|clause| clause.text.clone())
+        .map(|item| item.clause.text.clone())
         .collect::<Vec<_>>();
     let closes = declared
         .body
+        .items
         .iter()
-        .filter_map(|clause| parse_declared_close(&clause.text))
+        .filter_map(declared_close)
         .collect::<Vec<_>>();
     let close_is_final = declared
         .body
+        .items
         .last()
-        .and_then(|clause| parse_declared_close(&clause.text))
+        .and_then(declared_close)
         .is_some();
     premises == shadow.premises
         && steps == shadow.steps
@@ -1538,10 +1543,17 @@ fn proof_shadow_matches(shadow: &ProofLedger, declared: &ProofDecl) -> bool {
         })
 }
 
-fn parse_declared_close(text: &str) -> Option<(String, String)> {
-    let body = text.strip_prefix("close ")?;
-    let (atom, expect) = parse_proof_close_parts(body)?;
-    Some((atom, expect?))
+/// The `(atom, expect)` of a declared proof close, read from the typed interior.
+/// A close carrying no `expect` verdict yields `None` — matching the retired
+/// `parse_declared_close`, which required an explicit expectation.
+fn declared_close(item: &ProofClause) -> Option<(String, String)> {
+    match &item.op {
+        Some(ProofOp::Close(close)) => close
+            .verdict
+            .clone()
+            .map(|verdict| (close.atom.clone(), verdict)),
+        _ => None,
+    }
 }
 
 fn payload_structure_family(
@@ -2996,10 +3008,15 @@ proof p speaker a in practice {
             !proof_shadow_matches(&shadow, declared),
             "removing string quotes must change atom identity"
         );
+        // The close claim/verdict split lives in the typed interior now
+        // (`structure_proof_body`); a quoted `expect` inside the atom must not be
+        // read as the separator.
+        let structured = dli_syntax::structure_proof_body(&[Clause {
+            text: r#"close says(witness, "we said \"expect\" victory") expect blocked"#.to_owned(),
+            span: Span::synthetic(),
+        }]);
         assert_eq!(
-            parse_declared_close(
-                r#"close says(witness, "we said \"expect\" victory") expect blocked"#
-            ),
+            declared_close(&structured.items[0]),
             Some((
                 r#"says(witness, "we said \"expect\" victory")"#.to_owned(),
                 "blocked".to_owned(),

@@ -273,7 +273,7 @@ fn corpus_pack(facts: &FactsDoc) -> Pack {
     for decision in &decisions {
         decls.push(Decl::Ratify(RatifyDecl {
             decision: id(decision),
-            body: Vec::new(),
+            body: dli_ast::language::RatifyBody::default(),
         }));
     }
     let mut seen = BTreeSet::new();

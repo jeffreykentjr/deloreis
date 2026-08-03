@@ -33,7 +33,7 @@
             "profile": "context-pack"
           },
           "manifest": {
-            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
             "layer": "certain",
             "profile_hash": "sha256:e2aa6d155d0d0f69d8010e220d7b26ed21f51f3077d52830f75987b328b56fcd",
             "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
@@ -660,7 +660,7 @@
             "profile": "articy"
           },
           "manifest": {
-            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
             "layer": "certain",
             "profile_hash": "sha256:d83643695117f205c62911252edf31f4d8646a2780f1c24fe56de1adfc66af7b",
             "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
@@ -694,7 +694,7 @@
             "profile": "csv"
           },
           "manifest": {
-            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
             "layer": "certain",
             "profile_hash": "sha256:c765c6128f73e25caea80eabadea649af97a99f6a90111e54133a922088f04e2",
             "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
@@ -747,7 +747,7 @@
             "profile": "static-wiki"
           },
           "manifest": {
-            "commit": "content-sha256:143bdc0347bb76676aaecfbb461f3a4ef315975ef1dbe3f343f8d33ccc0f406d",
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
             "layer": "certain",
             "profile_hash": "sha256:108a7697d8e0934a29430e72e90a931c3301b0da8dfd3ede5c9af6a56215de5d",
             "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"

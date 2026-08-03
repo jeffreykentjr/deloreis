@@ -176,7 +176,7 @@ fn gate_language_citations(
     for decl in pack.documents.iter().flat_map(|doc| &doc.decls) {
         match decl {
             Decl::Proof(proof) => {
-                let citations = harvest_clause_citations(&proof.body);
+                let citations = harvest_clause_citations(proof.body.clauses());
                 gate_citations(
                     nu,
                     findings,
@@ -187,14 +187,16 @@ fn gate_language_citations(
                 );
             }
             Decl::Ratify(ratify) => {
-                let citations = harvest_clause_citations(&ratify.body);
+                // The parser (`dli_syntax::structure_ratify_body`) already
+                // harvested the body's cited decision ids into the typed interior
+                // (LS-9), so the gate reads them without re-scanning clause text.
                 gate_citations(
                     nu,
                     findings,
                     model,
                     known_decisions,
                     Provenance::Decided,
-                    &citations,
+                    &ratify.body.citations,
                 );
             }
             _ => {}
@@ -209,7 +211,9 @@ fn gate_language_citations(
 /// `"…"` cue/label is inert). Without the string guard a cue like `"the king decided
 /// to grant it"` would mint a spurious citation, and an unbalanced `(` inside a cue
 /// string would hide a real forged `cited` after it.
-fn harvest_clause_citations(clauses: &[dli_ast::clause::Clause]) -> Vec<String> {
+fn harvest_clause_citations<'a>(
+    clauses: impl IntoIterator<Item = &'a dli_ast::clause::Clause>,
+) -> Vec<String> {
     const CITE_KEYWORDS: &[&str] = &["cited", "decided", "ratified", "provisional"];
     let mut out = Vec::new();
     for clause in clauses {

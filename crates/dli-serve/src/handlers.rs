@@ -1841,13 +1841,15 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
 /// The wire op names this build implements at the negotiated contract version.
 /// Ops added in `0.6.1` (the branch/merge surface) are omitted for a `0.5.1` or
 /// `0.6.0` handshake, so an older negotiation's capability list — and the golden
-/// fixture recording it — stays byte-identical.
+/// fixture recording it — stays byte-identical. Every version at or beyond
+/// `0.6.1` (including the current `0.6.2` LS-9 bump) advertises them, so the
+/// capability is gated on the version, not on being the newest build.
 fn capabilities(dli: &str) -> Vec<String> {
-    let is_0_6_1 = dli == crate::CONTRACT_VERSION;
+    let has_branch_merge = !matches!(dli, "0.5.1" | "0.6.0");
     Op::ALL
         .iter()
         .copied()
-        .filter(|op| is_0_6_1 || !op.added_in_0_6_1())
+        .filter(|op| has_branch_merge || !op.added_in_0_6_1())
         .map(wire_name)
         .collect()
 }

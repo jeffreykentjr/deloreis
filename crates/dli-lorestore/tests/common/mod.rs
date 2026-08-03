@@ -111,7 +111,7 @@ fn an_marker(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
 fn ratify_decl(decision: &str) -> Decl {
     Decl::Ratify(RatifyDecl {
         decision: id(decision),
-        body: Vec::new(),
+        body: dli_ast::language::RatifyBody::default(),
     })
 }
 

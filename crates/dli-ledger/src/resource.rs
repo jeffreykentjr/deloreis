@@ -29,61 +29,12 @@ use serde::{Deserialize, Serialize};
 
 use dli_ast::ident::Ident;
 
-/// The conservation law a resource obeys — the closed algebra, as a tag.
-///
-/// This enum is closed on purpose (spec §6, second well-formedness obligation):
-/// a resource whose kind is not one of these members is a compile error, because
-/// there is no open resource vocabulary. The law's *parameters* — an affine
-/// cap, a graded order — are not stored here; they ride on the resource
-/// declaration and are passed to the semantics functions explicitly.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub enum ResourceKind {
-    /// `linear` (`conserved: false`) or `linear conserved` (`conserved: true`).
-    Linear {
-        /// Whether the multiset must net to zero across the close (no mint, no
-        /// burn), on top of the never-negative discipline every linear resource
-        /// keeps.
-        conserved: bool,
-    },
-    /// `affine bounded <cap>` — spent at most up to a declared capacity.
-    AffineBounded,
-    /// `graded monotone <order>` — an ordered grade that only ever wears in one
-    /// declared direction.
-    GradedMonotone,
-}
-
-impl ResourceKind {
-    /// The surface phrase this kind renders as (without the affine cap or the
-    /// graded order, which live on the declaration).
-    #[must_use]
-    pub const fn phrase(&self) -> &'static str {
-        match self {
-            Self::Linear { conserved: false } => "linear",
-            Self::Linear { conserved: true } => "linear conserved",
-            Self::AffineBounded => "affine bounded",
-            Self::GradedMonotone => "graded monotone",
-        }
-    }
-}
-
-/// The single declared direction a [`ResourceKind::GradedMonotone`] grade moves.
-///
-/// A graded order is written `whole > worn > husk`; the `>` reads as "wears
-/// down to", so the default and the series-canonical direction is [`Decays`]
-/// (`docs/spec/04-practices.md` §4 — "nothing is spent, knowing only *wears*").
-/// The opposite is admitted so the algebra is symmetric: a grade that may only
-/// climb its order is [`Grows`].
-///
-/// [`Decays`]: GradeDirection::Decays
-/// [`Grows`]: GradeDirection::Grows
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum GradeDirection {
-    /// The grade only ever moves *down* its order (negative deltas): it wears.
-    Decays,
-    /// The grade only ever moves *up* its order (positive deltas): it ripens.
-    Grows,
-}
+// The closed-algebra tag `ResourceKind` and its `GradeDirection` moved to
+// `dli-ast` (LS-9) so the front-end producer (`dli_syntax::structure_practice_body`)
+// and this ledger reader share them without a dependency cycle. The *semantics*
+// that give the tags meaning — the folds below — stay here. Re-exported so
+// `dli_ledger::resource::{ResourceKind, GradeDirection}` paths keep resolving.
+pub use dli_ast::practice::{GradeDirection, ResourceKind};
 
 /// A single resource change.
 //

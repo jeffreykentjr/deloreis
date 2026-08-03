@@ -136,6 +136,128 @@ fn v1_rule_carriage_upcasts_to_the_exact_v2_object() {
     assert_eq!(datalog.body[0].atom.pred.text, "seated");
 }
 
+/// A tiny pack whose only expert carriage is a `practice` block — the shape LS-9
+/// structured into a typed `PracticeBody`.
+fn practice_pack() -> Pack {
+    let src = "scope magic\n\
+               cycle tide(4) proposed\n\
+               practice spoken-proof proposed {\n\
+               \x20 kind ground = door | field\n\
+               \x20 resource debt : linear conserved\n\
+               \x20 error fizzle refines L2 premise-not-available where absent\n\
+               \x20 cost bodily | material\n\
+               }\n";
+    let (document, diagnostics) = dli_syntax::parse_document(src);
+    assert!(
+        diagnostics.is_empty(),
+        "pack must parse clean: {diagnostics:?}"
+    );
+    Pack {
+        name: "magic".to_owned(),
+        documents: vec![document],
+    }
+}
+
+/// Is `fo` a `practice` expert carriage?
+fn is_practice_carriage(fo: &FactObject) -> bool {
+    fo.expert_body
+        .as_ref()
+        .is_some_and(|b| b.kind == ExpertDeclKind::Practice)
+}
+
+/// Rewrite a v2 practice-carriage fact object into the schema-v1 JSON a pre-LS-9
+/// store held: `schema_version` 1, and the embedded declaration's body reverted
+/// from the typed `PracticeBody` to the old `Vec<Clause>` string body (exactly the
+/// retained `clauses` array).
+fn downgrade_practice_to_v1(fo: &FactObject) -> Value {
+    let mut value = serde_json::to_value(fo).expect("fact object serializes");
+    value["schema_version"] = Value::from(1);
+
+    let embedded = value["expert_body"]["body"][0]
+        .as_str()
+        .expect("carriage body is a JSON string")
+        .to_owned();
+    let decl_v2: Value = serde_json::from_str(&embedded).expect("embedded decl is JSON");
+    let practice = decl_v2
+        .get("Practice")
+        .expect("carriage is a practice decl");
+
+    // The v1 body is the retained normalized clause texts — the pre-LS-9
+    // `Vec<Clause>`, which is exactly `PracticeBody::clauses`.
+    let v1_body = practice
+        .get("body")
+        .and_then(|b| b.get("clauses"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+
+    let mut practice_v1 = practice.clone();
+    practice_v1["body"] = v1_body;
+    let decl_v1 = serde_json::json!({ "Practice": practice_v1 });
+    value["expert_body"]["body"][0] =
+        Value::from(serde_json::to_string(&decl_v1).expect("v1 decl serializes"));
+    value
+}
+
+/// The practice analogue of `v1_rule_carriage_upcasts_to_the_exact_v2_object`: a
+/// v1 string-bodied `practice` carriage must, on upcast, be byte-identical (by
+/// content hash) to the v2 carriage the front end now produces, and its embedded
+/// declaration must deepen to the typed `PracticeBody`. Fails-before-fix: pre-LS-9
+/// the practice body was `Vec<Clause>` with no typed interior, so nothing upcasts
+/// and `body.def` does not exist.
+#[test]
+fn v1_practice_carriage_upcasts_to_the_exact_v2_object() {
+    let pack = practice_pack();
+    let (objects, _names) = lower_pack(&pack);
+    let v2_carriage = objects
+        .iter()
+        .find(|fo| is_practice_carriage(fo))
+        .expect("the pack carries a practice");
+
+    let v1_value = downgrade_practice_to_v1(v2_carriage);
+
+    // The v1 embedded declaration must NOT decode as a current `Decl` — the
+    // string body (a JSON array) is not the typed `PracticeBody` (a struct).
+    let v1_embedded = v1_value["expert_body"]["body"][0].as_str().unwrap();
+    assert!(
+        serde_json::from_str::<Decl>(v1_embedded).is_err(),
+        "a v1 string-bodied practice decl must not decode as a typed v2 Decl without upcast"
+    );
+
+    // Upcast v1 → current, then decode: byte-identical to the v2 carriage, and the
+    // interior deepened to the typed `PracticeBody`.
+    let lifted = upcast_value(1, v1_value).expect("v1 carriage upcasts");
+    let lifted_fo: FactObject = serde_json::from_value(lifted).expect("lifted carriage decodes");
+
+    assert_eq!(
+        lifted_fo.content_hash().expect("hash"),
+        v2_carriage.content_hash().expect("hash"),
+        "the upcast v1 practice carriage must be byte-identical to the v2 carriage"
+    );
+    assert_eq!(lifted_fo.schema_version, dli_lorestore::SCHEMA_VERSION);
+
+    let embedded = &lifted_fo.expert_body.as_ref().unwrap().body[0];
+    let Decl::Practice(p) = serde_json::from_str(embedded).expect("lifted decl decodes") else {
+        panic!("carriage is a practice");
+    };
+    // The typed interior is present and correctly structured after upcast.
+    let def = &p.body.def;
+    assert_eq!(def.sorts.len(), 1);
+    assert_eq!(def.sorts[0].name.text, "ground");
+    assert_eq!(def.resources.len(), 1);
+    assert_eq!(
+        def.resources[0].kind,
+        Some(dli_ast::practice::ResourceKind::Linear { conserved: true })
+    );
+    assert_eq!(def.errors.len(), 1);
+    assert_eq!(
+        def.errors[0].class,
+        Some(dli_ast::practice::StructuralClass::L2)
+    );
+    assert_eq!(def.costs.len(), 2);
+    // The raw clauses are retained so the surface still round-trips.
+    assert_eq!(p.body.clauses.len(), 4);
+}
+
 #[test]
 fn a_v1_stored_pack_compiles_identically_after_upcast() {
     let pack = wards_pack();

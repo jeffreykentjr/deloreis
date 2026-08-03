@@ -23,7 +23,15 @@ use dli_ast::decl::{
     UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
+use dli_ast::language::{
+    Assignment, CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause,
+    NameItem, NameKindSpec, RatifyBody, RatifyClause,
+};
 use dli_ast::literal::BodyLiteral;
+use dli_ast::proof::{
+    Binding, MalformedOp, PhaseEq, ProofAssume, ProofBody, ProofClause, ProofClose, ProofOp,
+    ProofPremise, ProofResource, ProofStep, ResourceKeyword,
+};
 use dli_ast::rule::{Datalog, RuleBody, RuleClause};
 use dli_ast::span::{FileId, Span};
 use dli_ast::term::{AtomExpr, Term, TimeRef};
@@ -473,6 +481,553 @@ pub fn structure_rule_body(clauses: &[Clause], name: &Ident, head: &[String]) ->
     }
 }
 
+// ---------------------------------------------------------------------------
+// LS-9 language-layer structuring: `dialect`, `name`, `ratify` bodies.
+//
+// These three functions are the single producers of the typed interiors the
+// `dli-world` language compiler reads. Each relocates, verbatim, the token-level
+// processing that compiler used to run at semantic-analysis time, so the typed
+// payload equals the old string-body result byte-for-byte. The normalized clause
+// text is retained on every structured clause, so the formatter round-trips
+// exactly. Like `structure_rule_body`, they are the one front-end lowering the
+// v1 → v2 store upcast reuses at the load boundary (`dli_lorestore::upcast`).
+// ---------------------------------------------------------------------------
+
+/// Structure a `dialect` declaration's captured clauses into its typed
+/// [`DialectBody`] (LS-9). Each interior clause is pre-classified into a
+/// [`DialectItem`] by its head keyword.
+#[must_use]
+pub fn structure_dialect_body(clauses: &[Clause]) -> DialectBody {
+    let clauses = clauses
+        .iter()
+        .map(|clause| DialectClause {
+            item: structure_dialect_item(clause),
+            clause: clause.clone(),
+        })
+        .collect();
+    DialectBody { clauses }
+}
+
+/// Classify one dialect interior clause exactly as the language compiler's
+/// `register_clause` dispatch did (grammar in `dli-world`'s `dialect.rs`).
+fn structure_dialect_item(clause: &Clause) -> DialectItem {
+    let toks = lex_clause_tokens(&clause.text, clause.span.file);
+    let Some(head) = toks.first() else {
+        return DialectItem::Other;
+    };
+    let rest = &toks[1..];
+    match head.text.as_str() {
+        "basis" => DialectItem::Basis {
+            attested: rest.first().is_some_and(|t| t.text == "attested"),
+            text: rest
+                .iter()
+                .find(|t| t.kind == TokenKind::Str)
+                .map(|t| t.text.clone()),
+        },
+        "vowels" => DialectItem::Vowels(word_list(rest, false)),
+        "endings" => DialectItem::Endings(word_list(rest, true)),
+        "foreign" => DialectItem::Foreign(word_list(rest, false)),
+        "cluster-max" => {
+            DialectItem::ClusterMax(rest.iter().find_map(|t| t.text.parse::<usize>().ok()))
+        }
+        "sayability-max" => {
+            DialectItem::SayabilityMax(rest.iter().find_map(|t| t.text.parse::<usize>().ok()))
+        }
+        "stress" => DialectItem::Stress(rest.first().map(|t| t.text.clone())),
+        "name-kind" => DialectItem::NameKind(parse_name_kind(rest)),
+        "name-part" => match reparse_name_part(&clause.text) {
+            Some(part) => DialectItem::NamePart(Box::new(part)),
+            None => DialectItem::Other,
+        },
+        _ => DialectItem::Other,
+    }
+}
+
+/// Structure a `name` declaration's captured clauses into its typed
+/// [`NameBody`] (LS-9). Each interior clause is classified by its first token,
+/// exactly as the name compiler classified it.
+#[must_use]
+pub fn structure_name_body(clauses: &[Clause]) -> NameBody {
+    let clauses = clauses
+        .iter()
+        .map(|clause| NameClause {
+            item: structure_name_item(clause),
+            clause: clause.clone(),
+        })
+        .collect();
+    NameBody { clauses }
+}
+
+/// Classify one name interior clause exactly as the language compiler's
+/// `compile_name` body loop did (grammar in `dli-world`'s `name.rs`). The
+/// header-first precedence (a header composition/bearer wins; the first body
+/// provenance wins) is applied by the compiler when it reads these items.
+fn structure_name_item(clause: &Clause) -> NameItem {
+    let toks = lex_clause_tokens(&clause.text, clause.span.file);
+    let Some(first) = toks.first() else {
+        return NameItem::Other;
+    };
+    if first.kind == TokenKind::Equals {
+        NameItem::Composition(parse_composition(&toks).unwrap_or_default())
+    } else if first.text == "bearer" {
+        NameItem::Bearer {
+            entity: toks.get(1).map(|t| t.text.clone()),
+            provenance: provenance_tail(&clause.text).and_then(|t| reparse_provenance(&t)),
+        }
+    } else if is_marker(&first.text) {
+        match reparse_provenance(&clause.text) {
+            Some(ann) => NameItem::Provenance(ann),
+            None => NameItem::Other,
+        }
+    } else {
+        NameItem::Other
+    }
+}
+
+/// Structure a `ratify` declaration's captured clauses into its typed
+/// [`RatifyBody`] (LS-9): the `hyp := true|false` valuation lines plus the
+/// decision ids the body cites, both derived exactly as the language compiler
+/// and the citation gate derived them.
+#[must_use]
+pub fn structure_ratify_body(clauses: &[Clause]) -> RatifyBody {
+    let ratify_clauses = clauses
+        .iter()
+        .map(|clause| {
+            let toks = lex_clause_tokens(&clause.text, clause.span.file);
+            // The hypothesis is the first word that is not an assignment operator;
+            // the value is the last `true`/`false` word — the compiler's own reads.
+            let hyp = toks
+                .iter()
+                .find(|t| t.kind == TokenKind::Word && !is_assign_op(&t.text))
+                .map(|t| t.text.clone());
+            let value = toks.iter().rev().find_map(|t| match t.text.as_str() {
+                "true" => Some(true),
+                "false" => Some(false),
+                _ => None,
+            });
+            let assignment = match (hyp, value) {
+                (Some(hyp), Some(value)) => Some(Assignment { hyp, value }),
+                _ => None,
+            };
+            RatifyClause {
+                clause: clause.clone(),
+                assignment,
+            }
+        })
+        .collect();
+    RatifyBody {
+        clauses: ratify_clauses,
+        citations: harvest_ratify_citations(clauses),
+    }
+}
+
+/// Lex a clause's normalized text into its non-newline tokens (the language
+/// compiler's `clause_tokens`, relocated to the front end).
+fn lex_clause_tokens(text: &str, file: FileId) -> Vec<Token> {
+    crate::lexer::lex(text, file)
+        .into_iter()
+        .filter(|t| t.kind != TokenKind::Newline)
+        .collect()
+}
+
+/// Collect bareword/string tokens as lowercased strings; when `strip_dash`, a
+/// leading `-` is removed (endings are written `-ys`, matched as `ys`).
+fn word_list(toks: &[Token], strip_dash: bool) -> Vec<String> {
+    toks.iter()
+        .filter(|t| matches!(t.kind, TokenKind::Word | TokenKind::Str))
+        .map(|t| {
+            let text = t.text.to_lowercase();
+            if strip_dash {
+                text.trim_start_matches('-').to_owned()
+            } else {
+                text
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Whether a token is an assignment operator in a `ratify` body (`:=`, `=`, `:`).
+fn is_assign_op(text: &str) -> bool {
+    matches!(text, ":=" | "=" | ":")
+}
+
+/// Parse a `name-kind <kind> = <role>… [ | <role>… ]` clause tail (the tokens
+/// after the `name-kind` keyword) into its typed [`NameKindSpec`].
+fn parse_name_kind(rest: &[Token]) -> Option<NameKindSpec> {
+    let kind = rest.first().filter(|t| t.kind == TokenKind::Word)?;
+    let eq = rest.iter().position(|t| t.kind == TokenKind::Equals)?;
+    let mut patterns = Vec::new();
+    let mut current = Vec::new();
+    for tok in &rest[eq + 1..] {
+        if tok.text == "|" {
+            if !current.is_empty() {
+                patterns.push(std::mem::take(&mut current));
+            }
+        } else if tok.kind == TokenKind::Word {
+            current.push(tok.text.clone());
+        }
+    }
+    if !current.is_empty() {
+        patterns.push(current);
+    }
+    (!patterns.is_empty()).then(|| NameKindSpec {
+        kind: kind.text.clone(),
+        patterns,
+    })
+}
+
+/// Parse a composition clause `= <role> <morpheme> [ + <role> <morpheme> … ]`
+/// from its lexed tokens (leading `=` included) into typed [`CompositionStep`]s.
+fn parse_composition(toks: &[Token]) -> Option<Vec<CompositionStep>> {
+    let start = usize::from(toks.first()?.kind == TokenKind::Equals);
+    let words: Vec<&str> = toks[start..]
+        .iter()
+        .filter(|t| t.kind == TokenKind::Word || t.text == "+")
+        .map(|t| t.text.as_str())
+        .collect();
+    compose_words(&words)
+}
+
+/// Split a flat word list `[role morpheme (+ role morpheme)*]` into steps.
+fn compose_words(words: &[&str]) -> Option<Vec<CompositionStep>> {
+    let mut steps = Vec::new();
+    for group in words.split(|w| *w == "+") {
+        if let [role, morpheme] = group {
+            steps.push(CompositionStep {
+                role: (*role).to_owned(),
+                morpheme: (*morpheme).to_owned(),
+            });
+        }
+    }
+    (!steps.is_empty()).then_some(steps)
+}
+
+/// The provenance tail of a normalized clause: everything from the first marker
+/// word onward, or `None` if the clause carries no provenance.
+fn provenance_tail(text: &str) -> Option<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let idx = words.iter().position(|w| is_marker(w))?;
+    Some(words[idx..].join(" "))
+}
+
+/// Re-lift a `name-part …` interior clause through the parser, so its gloss,
+/// role/gender header, and provenance are typed exactly as a top-level
+/// `name-part` line. This front-end self-call is what LS-9 removed from
+/// `dli-world`.
+fn reparse_name_part(text: &str) -> Option<NamePartDecl> {
+    let (doc, _diags) = parse_document(text);
+    doc.decls.into_iter().find_map(|d| match d {
+        Decl::NamePart(m) => Some(m),
+        _ => None,
+    })
+}
+
+/// Re-lift a provenance tail through the parser by probing it onto a `term`
+/// declaration, so annotations captured inside a name body are typed exactly as
+/// a top-level provenance tail. This front-end self-call is what LS-9 removed
+/// from `dli-world`.
+fn reparse_provenance(tail: &str) -> Option<Annotation> {
+    let (doc, _diags) = parse_document(&format!("term __probe__ {tail}"));
+    doc.decls.into_iter().find_map(|d| match d {
+        Decl::Term(t) => t.provenance,
+        _ => None,
+    })
+}
+
+/// Harvest the decision ids a `ratify` body cites: the token after each
+/// `cited`/`decided`/`ratified`/`provisional` keyword read at top level and
+/// outside a string literal. Mirrors the citation gate's `harvest_clause_citations`
+/// (`dli-world`'s `lib.rs`) exactly — paren depth and string state guard it so a
+/// keyword inside a nested atom or a cue string mints no spurious citation.
+fn harvest_ratify_citations(clauses: &[Clause]) -> Vec<String> {
+    const CITE_KEYWORDS: &[&str] = &["cited", "decided", "ratified", "provisional"];
+    let mut out = Vec::new();
+    for clause in clauses {
+        let tokens: Vec<&str> = clause.text.split_whitespace().collect();
+        let mut depth: i32 = 0;
+        let mut in_str = false;
+        let mut index = 0;
+        while index < tokens.len() {
+            let token = tokens[index];
+            if depth == 0
+                && !in_str
+                && CITE_KEYWORDS.contains(&token)
+                && let Some(id) = tokens.get(index + 1)
+            {
+                out.push((*id).to_owned());
+                index += 2;
+                continue;
+            }
+            for ch in token.chars() {
+                match ch {
+                    '"' => in_str = !in_str,
+                    '(' if !in_str => depth += 1,
+                    ')' if !in_str => depth = (depth - 1).max(0),
+                    _ => {}
+                }
+            }
+            index += 1;
+        }
+    }
+    out
+}
+
+/// The provenance/grade tokens a premise may carry after its atom. A clause word
+/// in this set at paren-depth zero opens the modifier tail (the atom is
+/// everything before it). Mirrors the checker's reading of the same tail.
+const PREMISE_MODIFIERS: &[&str] = &[
+    "cited",
+    "cue",
+    "from-scene",
+    "observed",
+    "drawn-against",
+    "asserted",
+    "attested",
+    "tested",
+    "checked",
+];
+
+/// Structure a `proof` declaration's captured clauses into its typed
+/// [`ProofBody`] (LS-9, `docs/design-notes/lorestore-roadmap.md`).
+///
+/// Each interior line is parsed into a typed [`ProofOp`]: the parse-dependent
+/// pieces the checker used to recompute at check time — the premise atom split
+/// from its modifiers, the atom pre-parsed into an [`AtomExpr`], the
+/// phase-comparison, the instantiate bindings, the custom-step arguments, and
+/// the close claim/verdict — are computed here, once. A line opening with a
+/// recognized keyword whose arguments fail the strict per-line check
+/// (`validate_proof_clause`) becomes [`ProofOp::Malformed`]; a line opening
+/// with no proof keyword gets no op (`None`). Both are kept for round-trip and
+/// refused by the checker's structural validator, retiring the old
+/// format-and-reparse guard.
+///
+/// This is a **front-end lowering** the v1 → v2 store upcast reuses at the load
+/// boundary (`dli_lorestore::upcast`); the parser is the single producer.
+#[must_use]
+pub fn structure_proof_body(clauses: &[Clause]) -> ProofBody {
+    ProofBody {
+        items: clauses
+            .iter()
+            .map(|clause| ProofClause {
+                clause: clause.clone(),
+                op: structure_proof_op(clause),
+            })
+            .collect(),
+    }
+}
+
+/// Structure one proof body line into its typed [`ProofOp`], or `None` when the
+/// line does not open with a recognized proof keyword.
+fn structure_proof_op(clause: &Clause) -> Option<ProofOp> {
+    let tokens: Vec<Token> = crate::lexer::lex(&clause.text, clause.span.file)
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect();
+    let first = tokens.first()?;
+    if first.kind != TokenKind::Word {
+        return None;
+    }
+    let keyword = first.text.clone();
+    if !PROOF_CHILD_KEYWORDS.contains(&keyword.as_str()) {
+        return None;
+    }
+    // Refuse exactly what the surface grammar refuses; a malformed operation is
+    // kept as `Malformed` rather than silently coerced to a valid shape.
+    let mut diags: Vec<Diagnostic> = Vec::new();
+    validate_proof_clause(&keyword, &tokens, clause.span, &mut diags);
+    if diags.iter().any(|diagnostic| diagnostic.class.is_error()) {
+        return Some(ProofOp::Malformed(MalformedOp { keyword }));
+    }
+    Some(build_proof_op(&keyword, &clause.text, clause.span))
+}
+
+/// Build the typed op for a proof line already known to be a strictly valid
+/// operation of `keyword`. `text` is the whole clause; `span` seeds the
+/// pre-parsed atom's file id.
+fn build_proof_op(keyword: &str, text: &str, span: Span) -> ProofOp {
+    let body = text.get(keyword.len()..).unwrap_or_default().trim();
+    match keyword {
+        "premise" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (atom, mods) = split_atom_and_mods(rest);
+            let atom_expr = parse_clause_atom(&Clause {
+                text: atom.clone(),
+                span,
+            });
+            let phase_eq =
+                phase_comparison(&atom, span).map(|(cycle, spoke)| PhaseEq { cycle, spoke });
+            ProofOp::Premise(ProofPremise {
+                label: label.to_owned(),
+                atom,
+                mods,
+                atom_expr,
+                phase_eq,
+            })
+        }
+        "assume" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (atom, _mods) = split_atom_and_mods(rest);
+            ProofOp::Assume(ProofAssume {
+                label: label.to_owned(),
+                atom,
+            })
+        }
+        "step" => {
+            let (label, rest) = proof_split_first_word(body);
+            let (verb, tail) = proof_split_first_word(rest);
+            match verb {
+                "instantiate" => {
+                    let (form, binding_text) = proof_split_first_word(tail);
+                    let bindings = parse_proof_bindings(binding_text)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(name, value)| Binding { name, value })
+                        .collect();
+                    ProofOp::Step(ProofStep::Instantiate {
+                        label: label.to_owned(),
+                        form: form.to_owned(),
+                        bindings,
+                    })
+                }
+                "chain" => ProofOp::Step(ProofStep::Chain {
+                    label: label.to_owned(),
+                    joins: chain_joins(tail),
+                    law: chain_law(tail),
+                    conclusion: chain_conclusion(tail),
+                }),
+                other => ProofOp::Step(ProofStep::Custom {
+                    label: label.to_owned(),
+                    operation: other.to_owned(),
+                    args: parse_proof_arguments(tail).unwrap_or_default(),
+                }),
+            }
+        }
+        "spend" | "release" | "reveal" | "redistribute" => {
+            let keyword = match keyword {
+                "spend" => ResourceKeyword::Spend,
+                "release" => ResourceKeyword::Release,
+                "reveal" => ResourceKeyword::Reveal,
+                _ => ResourceKeyword::Redistribute,
+            };
+            ProofOp::Resource(ProofResource {
+                keyword,
+                label: proof_first_word(body).to_owned(),
+            })
+        }
+        "close" => {
+            let (atom, verdict) =
+                parse_proof_close_parts(body).unwrap_or_else(|| (body.trim().to_owned(), None));
+            ProofOp::Close(ProofClose { atom, verdict })
+        }
+        // Unreachable: `keyword` is one of `PROOF_CHILD_KEYWORDS` and the line
+        // passed `validate_proof_clause`. Kept total rather than panicking.
+        _ => ProofOp::Malformed(MalformedOp {
+            keyword: keyword.to_owned(),
+        }),
+    }
+}
+
+/// Split a premise/assume body into its atom (up to the first top-level modifier)
+/// and its modifier tokens. Parenthesized arguments are skipped so a modifier
+/// word nested inside an atom is not mistaken for the provenance keyword. Byte
+/// offsets index the passed `rest`, so this must be given the same
+/// whitespace-normalized text the checker would have read.
+fn split_atom_and_mods(rest: &str) -> (String, Vec<String>) {
+    let tokens = crate::lexer::lex(rest, FileId(0))
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Newline)
+        .collect::<Vec<_>>();
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => depth = depth.saturating_sub(1),
+            TokenKind::Word if depth == 0 && PREMISE_MODIFIERS.contains(&token.text.as_str()) => {
+                let start = usize::try_from(token.span.start).unwrap_or(rest.len());
+                return (
+                    rest.get(..start).unwrap_or(rest).trim().to_owned(),
+                    tokens[index..]
+                        .iter()
+                        .map(|modifier| modifier.text.clone())
+                        .collect(),
+                );
+            }
+            _ => {}
+        }
+    }
+    (rest.trim().to_owned(), Vec::new())
+}
+
+/// Decode a `phase(<cycle>) = <spoke>` premise comparison, when the atom takes
+/// that shape. The cycle-in-scope guard is the checker's; this only recognizes
+/// the surface form.
+fn phase_comparison(atom: &str, span: Span) -> Option<(String, String)> {
+    let (left, right) = atom.split_once('=')?;
+    let expr = parse_clause_atom(&Clause {
+        text: left.trim().to_owned(),
+        span,
+    })?;
+    if expr.pred.text != "phase" || expr.args.len() != 1 {
+        return None;
+    }
+    let cycle = proof_term_sym(&expr.args[0])?;
+    let spoke = right.trim();
+    if spoke.is_empty()
+        || !spoke
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return None;
+    }
+    Some((cycle, spoke.to_owned()))
+}
+
+fn proof_term_sym(term: &Term) -> Option<String> {
+    match term {
+        Term::Sym(id) | Term::Var(id) => Some(id.text.clone()),
+        _ => None,
+    }
+}
+
+/// The labels a chain joins: the words between `from` and `by`.
+fn chain_joins(tail: &str) -> Vec<String> {
+    let Some(after_from) = tail.split_once("from ").map(|(_, rest)| rest) else {
+        return Vec::new();
+    };
+    let span = after_from.split_once(" by ").map_or(after_from, |(s, _)| s);
+    span.split(',')
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// The law a chain applies: the word after `by`.
+fn chain_law(tail: &str) -> Option<String> {
+    tail.split_once(" by ")
+        .map(|(_, rest)| proof_first_word(rest).to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+/// The atom a chain concludes: the text after `conclusion`.
+fn chain_conclusion(tail: &str) -> Option<String> {
+    tail.split_once(" conclusion ")
+        .map(|(_, rest)| rest.trim().to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+fn proof_split_first_word(text: &str) -> (&str, &str) {
+    let text = text.trim_start();
+    match text.split_once(char::is_whitespace) {
+        Some((first, rest)) => (first, rest.trim_start()),
+        None => (text, ""),
+    }
+}
+
+fn proof_first_word(text: &str) -> &str {
+    text.split_whitespace().next().unwrap_or_default()
+}
+
 /// Parse a rule atom `pred` or `pred(args…)`. Unlike [`parse_atom`], a nullary
 /// atom (a bare predicate with no argument list) is accepted, so a propositional
 /// rule (`p :- not q`) parses.
@@ -910,6 +1465,8 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             if let Some((name, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "practice")
             {
+                let body =
+                    crate::practice::structure_practice_body(&body, &name, provenance.as_ref());
                 items.push(Item::Decl(Decl::Practice(PracticeDecl {
                     name,
                     label,
@@ -925,7 +1482,7 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 items.push(Item::Decl(Decl::Dialect(DialectDecl {
                     name,
                     label,
-                    body,
+                    body: structure_dialect_body(&body),
                     provenance,
                 })));
             }
@@ -1022,7 +1579,7 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                     name,
                     label,
                     head,
-                    body: record.body.clone(),
+                    body: structure_name_body(&record.body),
                     provenance,
                 })));
             }
@@ -1068,7 +1625,7 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 expect_consumed(&cur, diags, "a `ratify` reads `ratify <d-id> { … }`.");
                 items.push(Item::Decl(Decl::Ratify(RatifyDecl {
                     decision,
-                    body: record.body.clone(),
+                    body: structure_ratify_body(&record.body),
                 })));
             }
             None => missing_name(diags, "ratify", span),
@@ -1093,7 +1650,7 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
                 items.push(Item::Decl(Decl::Proof(ProofDecl {
                     name,
                     head,
-                    body: record.body.clone(),
+                    body: structure_proof_body(&record.body),
                     provenance,
                 })));
             }
@@ -1236,24 +1793,38 @@ fn validate_proof_body(record: &Record, diags: &mut Vec<Diagnostic>) {
             continue;
         }
 
-        match keyword {
-            "spend" | "release" | "redistribute" | "reveal" => {
-                if tokens.len() != 2 || tokens[1].kind != TokenKind::Word {
-                    let span = tokens.get(2).map_or(clause.span, |token| token.span);
-                    diags.push(Diagnostic::new(
-                        DiagClass::Malformed,
-                        format!("unexpected proof text — `{keyword}` reads `{keyword} <label>`."),
-                        span,
-                    ));
-                }
+        validate_proof_clause(keyword, tokens, clause.span, diags);
+    }
+}
+
+/// Strict per-line validation for a proof body line whose first token is a
+/// recognized proof keyword. Shared by the parser's diagnostic pass
+/// ([`validate_proof_body`]) and the interior producer
+/// ([`structure_proof_body`]), so the typed interior refuses exactly what the
+/// surface grammar refuses.
+fn validate_proof_clause(
+    keyword: &str,
+    tokens: &[Token],
+    clause_span: Span,
+    diags: &mut Vec<Diagnostic>,
+) {
+    match keyword {
+        "spend" | "release" | "redistribute" | "reveal" => {
+            if tokens.len() != 2 || tokens[1].kind != TokenKind::Word {
+                let span = tokens.get(2).map_or(clause_span, |token| token.span);
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    format!("unexpected proof text — `{keyword}` reads `{keyword} <label>`."),
+                    span,
+                ));
             }
-            "close" => validate_proof_close(tokens, clause.span, diags),
-            "premise" | "assume" => {
-                validate_proof_premise(keyword, tokens, clause.span, diags);
-            }
-            "step" => validate_proof_step(tokens, clause.span, diags),
-            _ => {}
         }
+        "close" => validate_proof_close(tokens, clause_span, diags),
+        "premise" | "assume" => {
+            validate_proof_premise(keyword, tokens, clause_span, diags);
+        }
+        "step" => validate_proof_step(tokens, clause_span, diags),
+        _ => {}
     }
 }
 

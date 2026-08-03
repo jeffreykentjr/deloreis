@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::annot::Annotation;
 use crate::clause::Clause;
 use crate::ident::Ident;
+use crate::language::{DialectBody, NameBody, RatifyBody};
+use crate::practice::PracticeBody;
+use crate::proof::ProofBody;
 use crate::rule::RuleBody;
 use crate::span::Span;
 use crate::term::{AtomExpr, Term};
@@ -332,8 +335,11 @@ pub struct PracticeDecl {
     /// The display label, if written.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// The captured body clauses.
-    pub body: Vec<Clause>,
+    /// The typed body: the retained interior clauses plus the structured
+    /// [`PracticeDef`](crate::practice::PracticeDef), pre-parsed by the front end
+    /// (LS-9, `docs/design-notes/lorestore-roadmap.md`). `dli-ledger` reads the
+    /// typed structure without re-entering `dli_syntax`.
+    pub body: PracticeBody,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
@@ -345,8 +351,11 @@ pub struct DialectDecl {
     pub name: Ident,
     /// The display label, if written.
     pub label: Option<String>,
-    /// The captured body clauses.
-    pub body: Vec<Clause>,
+    /// The typed interior: each interior clause pre-classified into a
+    /// [`DialectItem`](crate::language::DialectItem) at parse time (LS-9), so the
+    /// language compiler reads typed AST instead of re-lexing clause text.
+    #[serde(default, skip_serializing_if = "DialectBody::is_empty")]
+    pub body: DialectBody,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
@@ -424,8 +433,12 @@ pub struct NameDecl {
     pub label: Option<String>,
     /// Remaining header tokens (`person.given in cymric-fringe`).
     pub head: Vec<String>,
-    /// The captured body clauses (composition, bearer).
-    pub body: Vec<Clause>,
+    /// The typed interior: each interior clause (composition, bearer, provenance)
+    /// pre-classified into a [`NameItem`](crate::language::NameItem) at parse
+    /// time (LS-9), so the name compiler reads typed AST instead of re-lexing
+    /// clause text.
+    #[serde(default, skip_serializing_if = "NameBody::is_empty")]
+    pub body: NameBody,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }
@@ -477,8 +490,12 @@ pub struct VariantDecl {
 pub struct RatifyDecl {
     /// The ratifying decision id.
     pub decision: Ident,
-    /// The captured body clauses (`h-cymric := true`).
-    pub body: Vec<Clause>,
+    /// The typed interior: the `h-cymric := true` valuation lines and the
+    /// decision ids the body cites, structured at parse time (LS-9), so the
+    /// language compiler and the citation gate read typed AST instead of
+    /// re-lexing clause text.
+    #[serde(default, skip_serializing_if = "RatifyBody::is_empty")]
+    pub body: RatifyBody,
 }
 
 /// `principle <name> …`.
@@ -494,15 +511,20 @@ pub struct PrincipleDecl {
     pub provenance: Option<Annotation>,
 }
 
-/// `proof <name> … { … }`.
+/// `proof <name> … { … }` — header plus its typed body (LS-9).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ProofDecl {
     /// The proof name.
     pub name: Ident,
     /// Remaining header tokens (`speaker protagonist in spoken-proof`).
     pub head: Vec<String>,
-    /// The captured body clauses (`premise …`, `step …`, `spend …`, `close …`).
-    pub body: Vec<Clause>,
+    /// The typed body: each interior line pre-parsed into a
+    /// [`ProofOp`](crate::proof::ProofOp) by the front end, with the normalized
+    /// clause text retained for the formatter (LS-9,
+    /// `docs/design-notes/lorestore-roadmap.md`). `dli-ledger` and `dli-world`
+    /// read this typed interior without re-entering the parser.
+    #[serde(default, skip_serializing_if = "ProofBody::is_empty")]
+    pub body: ProofBody,
     /// Provenance annotation, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Annotation>,

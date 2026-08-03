@@ -17,7 +17,9 @@ use serde_json::Value;
 
 use dli_ast::annot::Annotation;
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, RuleDecl, RuleDomain};
+use dli_ast::decl::{
+    Decl, DialectDecl, NameDecl, PracticeDecl, ProofDecl, RatifyDecl, RuleDecl, RuleDomain,
+};
 use dli_ast::ident::Ident;
 
 use crate::SCHEMA_VERSION;
@@ -45,22 +47,58 @@ struct RuleDeclV1 {
     provenance: Option<Annotation>,
 }
 
+/// The v1 shape of a [`ProofDecl`]: the body is the old `Vec<Clause>` of
+/// whitespace-normalized text, before LS-9 structured it into a `ProofBody`.
+#[derive(serde::Deserialize)]
+struct ProofDeclV1 {
+    name: Ident,
+    #[serde(default)]
+    head: Vec<String>,
+    #[serde(default)]
+    body: Vec<Clause>,
+    #[serde(default)]
+    provenance: Option<Annotation>,
+}
+
+/// The v1 shape of a [`PracticeDecl`]: the body is the old `Vec<Clause>` of
+/// whitespace-normalized interior text, before LS-9 structured it into a
+/// `PracticeBody`. Field order and names mirror the v1 serialization exactly so
+/// serde reads an old practice carriage verbatim.
+#[derive(serde::Deserialize)]
+struct PracticeDeclV1 {
+    name: Ident,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    body: Vec<Clause>,
+    provenance: Option<Annotation>,
+}
+
 /// Lift a stored object's JSON `value` from `from_version` to the current
 /// [`SCHEMA_VERSION`].
 ///
-/// v1 → v2 deepens an expert-tier **rule** carriage's embedded declaration from
-/// a `Vec<Clause>` string body to the typed `RuleBody`, via the front-end
-/// lowering. Every other v1 object (gentle facts, non-rule carriages, commits,
-/// refs, edges, evidence) is byte-identical to its v2 form, so the lift is just
-/// the version stamp. A `from_version` already at (or above) the current schema
-/// is returned unchanged.
+/// v1 → v2 deepens each expert-tier carriage whose interior LS-9 structured —
+/// **rule**, **dialect**, **name**, **ratify**, **proof**, and **practice** — from a
+/// `Vec<Clause>` string body to its typed interior, via the front-end lowering.
+/// Every other v1 object (gentle facts, other carriages, commits, refs, edges,
+/// evidence) is byte-identical to its v2 form, so the lift is just the version
+/// stamp. Each deepen is a no-op on a carriage of the wrong kind, so applying
+/// every one to every object is safe. A `from_version` already at (or above)
+/// the current schema is returned unchanged.
 pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, UpcastError> {
     if from_version >= u64::from(SCHEMA_VERSION) {
         return Ok(value);
     }
 
-    // v1 → v2: the only stored shape that changed is the `rule` carriage.
+    // v1 → v2: deepen every expert carriage whose interior LS-9 structured. Each
+    // is a no-op unless the carriage is that kind, so at most one fires per
+    // object.
     deepen_rule_carriage(&mut value)?;
+    deepen_dialect_carriage(&mut value)?;
+    deepen_name_carriage(&mut value)?;
+    deepen_ratify_carriage(&mut value)?;
+    deepen_proof_carriage(&mut value)?;
+    deepen_practice_carriage(&mut value)?;
 
     // Stamp the lifted object with the schema it now conforms to.
     if let Some(obj) = value.as_object_mut() {
@@ -105,6 +143,219 @@ fn deepen_rule_carriage(value: &mut Value) -> Result<(), UpcastError> {
         name: v1.name,
         domain: v1.domain,
         head: v1.head,
+        body,
+        provenance: v1.provenance,
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
+}
+
+/// The v1 shape of a [`DialectDecl`]: the body is the old `Vec<Clause>` string
+/// body, before LS-9 structured it into a `DialectBody`.
+#[derive(serde::Deserialize)]
+struct DialectDeclV1 {
+    name: Ident,
+    label: Option<String>,
+    #[serde(default)]
+    body: Vec<Clause>,
+    provenance: Option<Annotation>,
+}
+
+/// If `value` is a v1 `dialect` carriage, deepen its embedded declaration's
+/// string body to the typed `DialectBody` via the front-end lowering.
+fn deepen_dialect_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(first) = carriage_decl_json(value, "dialect") else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let Some(dialect_v) = decl_value.get("Dialect").cloned() else {
+        return Ok(());
+    };
+    let v1: DialectDeclV1 =
+        serde_json::from_value(dialect_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let v2 = Decl::Dialect(DialectDecl {
+        name: v1.name,
+        label: v1.label,
+        body: dli_syntax::structure_dialect_body(&v1.body),
+        provenance: v1.provenance,
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
+}
+
+/// The v1 shape of a [`NameDecl`]: the body is the old `Vec<Clause>` string body,
+/// before LS-9 structured it into a `NameBody`.
+#[derive(serde::Deserialize)]
+struct NameDeclV1 {
+    name: Ident,
+    label: Option<String>,
+    #[serde(default)]
+    head: Vec<String>,
+    #[serde(default)]
+    body: Vec<Clause>,
+    provenance: Option<Annotation>,
+}
+
+/// If `value` is a v1 `name` carriage, deepen its embedded declaration's string
+/// body to the typed `NameBody` via the front-end lowering.
+fn deepen_name_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(first) = carriage_decl_json(value, "name") else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let Some(name_v) = decl_value.get("Name").cloned() else {
+        return Ok(());
+    };
+    let v1: NameDeclV1 =
+        serde_json::from_value(name_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let v2 = Decl::Name(NameDecl {
+        name: v1.name,
+        label: v1.label,
+        head: v1.head,
+        body: dli_syntax::structure_name_body(&v1.body),
+        provenance: v1.provenance,
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
+}
+
+/// The v1 shape of a [`RatifyDecl`]: the body is the old `Vec<Clause>` string
+/// body, before LS-9 structured it into a `RatifyBody`.
+#[derive(serde::Deserialize)]
+struct RatifyDeclV1 {
+    decision: Ident,
+    #[serde(default)]
+    body: Vec<Clause>,
+}
+
+/// If `value` is a v1 `ratify` carriage, deepen its embedded declaration's string
+/// body to the typed `RatifyBody` via the front-end lowering.
+fn deepen_ratify_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(first) = carriage_decl_json(value, "ratify") else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let Some(ratify_v) = decl_value.get("Ratify").cloned() else {
+        return Ok(());
+    };
+    let v1: RatifyDeclV1 =
+        serde_json::from_value(ratify_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    let v2 = Decl::Ratify(RatifyDecl {
+        decision: v1.decision,
+        body: dli_syntax::structure_ratify_body(&v1.body),
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
+}
+
+/// Return a mutable handle to the first embedded-declaration JSON string of a
+/// fact object's expert carriage, iff the carriage is of `kind`. Shared by the
+/// LS-9 deepen functions so each is just its own V1 → V2 mapping.
+fn carriage_decl_json<'a>(value: &'a mut Value, kind: &str) -> Option<&'a mut Value> {
+    let expert = value.get_mut("expert_body")?;
+    if expert.get("kind").and_then(Value::as_str) != Some(kind) {
+        return None;
+    }
+    expert
+        .get_mut("body")
+        .and_then(Value::as_array_mut)
+        .and_then(|arr| arr.first_mut())
+}
+
+/// If `value` is a fact object carrying a v1 `proof` expert body, rewrite the
+/// embedded declaration JSON in place so its body is the typed `ProofBody`. A
+/// value that is not a proof carriage is left untouched.
+fn deepen_proof_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(expert) = value.get_mut("expert_body") else {
+        return Ok(());
+    };
+    if expert.get("kind").and_then(Value::as_str) != Some("proof") {
+        return Ok(());
+    }
+    let Some(first) = expert
+        .get_mut("body")
+        .and_then(Value::as_array_mut)
+        .and_then(|arr| arr.first_mut())
+    else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    // The embedded declaration is an externally-tagged `Decl`; only the `Proof`
+    // variant needs deepening.
+    let Some(proof_v) = decl_value.get("Proof").cloned() else {
+        return Ok(());
+    };
+    let v1: ProofDeclV1 =
+        serde_json::from_value(proof_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+
+    let body = dli_syntax::structure_proof_body(&v1.body);
+    let v2 = Decl::Proof(ProofDecl {
+        name: v1.name,
+        head: v1.head,
+        body,
+        provenance: v1.provenance,
+    });
+    let deepened = serde_json::to_string(&v2).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    *first = Value::String(deepened);
+    Ok(())
+}
+
+/// If `value` is a fact object carrying a v1 `practice` expert body, rewrite the
+/// embedded declaration JSON in place so its body is the typed `PracticeBody`. A
+/// value that is not a practice carriage is left untouched.
+fn deepen_practice_carriage(value: &mut Value) -> Result<(), UpcastError> {
+    let Some(expert) = value.get_mut("expert_body") else {
+        return Ok(());
+    };
+    if expert.get("kind").and_then(Value::as_str) != Some("practice") {
+        return Ok(());
+    }
+    let Some(first) = expert
+        .get_mut("body")
+        .and_then(Value::as_array_mut)
+        .and_then(|arr| arr.first_mut())
+    else {
+        return Ok(());
+    };
+    let Some(decl_json) = first.as_str() else {
+        return Ok(());
+    };
+
+    let decl_value: Value =
+        serde_json::from_str(decl_json).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+    // The embedded declaration is an externally-tagged `Decl`; only the `Practice`
+    // variant needs deepening.
+    let Some(practice_v) = decl_value.get("Practice").cloned() else {
+        return Ok(());
+    };
+    let v1: PracticeDeclV1 =
+        serde_json::from_value(practice_v).map_err(|e| UpcastError::Carriage(e.to_string()))?;
+
+    let body = dli_syntax::structure_practice_body(&v1.body, &v1.name, v1.provenance.as_ref());
+    let v2 = Decl::Practice(PracticeDecl {
+        name: v1.name,
+        label: v1.label,
         body,
         provenance: v1.provenance,
     });

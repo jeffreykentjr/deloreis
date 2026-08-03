@@ -25,15 +25,15 @@
 
 use dli_ast::annot::Annotation;
 use dli_ast::decl::{NameDecl, WordDecl};
+use dli_ast::language::NameItem;
 use dli_ast::span::Span;
 use dli_core::ann::Ann;
-use dli_syntax::{Token, TokenKind};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::model::Provenance;
 
-use super::dialect::{Compiler, clause_tokens, reparse_provenance};
+use super::dialect::Compiler;
 
 /// One composition step: a slot role filled by a named morpheme (05 §2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -175,23 +175,36 @@ pub(crate) fn compile_name(
     let mut bearer = value_after(&decl.head, "bearer");
     let mut body_provenance: Option<Annotation> = None;
 
-    for clause in &decl.body {
-        let toks = clause_tokens(&clause.text, clause.span.file);
-        let Some(first) = toks.first() else { continue };
-        if first.kind == TokenKind::Equals && composition.is_empty() {
-            if let Some(comp) = parse_composition(&toks) {
-                composition = comp;
+    // The parser (`dli_syntax::structure_name_body`) already classified each
+    // body clause; apply the same header-first precedence (a header composition
+    // or bearer wins; the first body provenance wins).
+    for clause in &decl.body.clauses {
+        match &clause.item {
+            NameItem::Composition(steps) => {
+                if composition.is_empty() && !steps.is_empty() {
+                    composition = steps
+                        .iter()
+                        .map(|step| Composition {
+                            role: step.role.clone(),
+                            morpheme: step.morpheme.clone(),
+                        })
+                        .collect();
+                }
             }
-        } else if first.text == "bearer" {
-            if bearer.is_none() {
-                bearer = toks.get(1).map(|t| t.text.clone());
+            NameItem::Bearer { entity, provenance } => {
+                if bearer.is_none() {
+                    bearer.clone_from(entity);
+                }
+                if body_provenance.is_none() {
+                    body_provenance.clone_from(provenance);
+                }
             }
-            if body_provenance.is_none() {
-                body_provenance =
-                    provenance_tail(&clause.text).and_then(|t| reparse_provenance(&t));
+            NameItem::Provenance(ann) => {
+                if body_provenance.is_none() {
+                    body_provenance = Some(ann.clone());
+                }
             }
-        } else if is_marker(&first.text) && body_provenance.is_none() {
-            body_provenance = reparse_provenance(&clause.text);
+            NameItem::Other => {}
         }
     }
 
@@ -256,20 +269,11 @@ fn head_composition(head: &[String]) -> Option<Vec<Composition>> {
     compose_words(&words)
 }
 
-/// Parse a composition clause `= <role> <morpheme> [ + <role> <morpheme> … ]`
-/// from its lexed tokens (the leading `=` included). Returns `None` if no
-/// well-formed `role morpheme` step is present.
-pub(crate) fn parse_composition(toks: &[Token]) -> Option<Vec<Composition>> {
-    let start = usize::from(toks.first()?.kind == TokenKind::Equals);
-    let words: Vec<&str> = toks[start..]
-        .iter()
-        .filter(|t| t.kind == TokenKind::Word || t.text == "+")
-        .map(|t| t.text.as_str())
-        .collect();
-    compose_words(&words)
-}
-
 /// Split a flat word list `[role morpheme (+ role morpheme)*]` into steps.
+///
+/// Reads a name declaration's typed `head` tokens (via [`head_composition`]) —
+/// not clause text — so it needs no lexer (LS-9). The body composition is
+/// pre-parsed by the front end into [`NameItem::Composition`].
 fn compose_words(words: &[&str]) -> Option<Vec<Composition>> {
     let mut steps = Vec::new();
     for group in words.split(|w| *w == "+") {
@@ -281,17 +285,4 @@ fn compose_words(words: &[&str]) -> Option<Vec<Composition>> {
         }
     }
     (!steps.is_empty()).then_some(steps)
-}
-
-/// Whether a bareword is a provenance marker keyword.
-fn is_marker(text: &str) -> bool {
-    matches!(text, "proposed" | "decided" | "ratified" | "provisional")
-}
-
-/// The provenance tail of a normalized clause: everything from the first marker
-/// word onward, or `None` if the clause carries no provenance.
-fn provenance_tail(text: &str) -> Option<String> {
-    let words: Vec<&str> = text.split_whitespace().collect();
-    let idx = words.iter().position(|w| is_marker(w))?;
-    Some(words[idx..].join(" "))
 }

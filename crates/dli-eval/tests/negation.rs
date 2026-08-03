@@ -63,7 +63,7 @@ fn fact(pred: &str, args: Vec<Term>, provenance: Annotation) -> Decl {
 fn ratify(decision: &str) -> Decl {
     Decl::Ratify(RatifyDecl {
         decision: Ident::synthetic(decision),
-        body: Vec::new(),
+        body: dli_ast::language::RatifyBody::default(),
     })
 }
 

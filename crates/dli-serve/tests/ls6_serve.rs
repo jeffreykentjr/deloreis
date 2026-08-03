@@ -271,12 +271,17 @@ fn wire_added_contradiction_is_blocked_before_it_can_conflict() {
     );
 }
 
-// ── version negotiation: branch/merge are 0.6.1-only capabilities ───────────
+// ── version negotiation: branch/merge are 0.6.1+ capabilities ───────────────
 
 #[test]
 fn branch_merge_capabilities_are_gated_by_version() {
     let (_t, mut sessions, mut store) = fixture_project_store();
-    for (version, expect_present) in [("0.5.1", false), ("0.6.0", false), ("0.6.1", true)] {
+    for (version, expect_present) in [
+        ("0.5.1", false),
+        ("0.6.0", false),
+        ("0.6.1", true),
+        ("0.6.2", true),
+    ] {
         let resp = drive(
             &json!({ "dli": version, "id": "v", "op": "dli.version", "params": {} }),
             &mut sessions,

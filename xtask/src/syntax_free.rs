@@ -32,14 +32,15 @@ const TARGET_CRATES: &[&str] = &["dli-world", "dli-ledger", "dli-time"];
 /// entry — tracked LS-9 debt, retired as each crate's expert-tier declaration
 /// interiors are structured. The acceptance bar is met when this is empty.
 ///
-/// - `dli-world`: `language/dialect.rs`, `language/name.rs`, `payload.rs` (proof)
-///   still re-parse stored clause text.
-/// - `dli-ledger`: `practice.rs`, `ledger_check.rs` still re-parse stored text.
+/// - `dli-world`: `payload.rs` still parses non-declaration payload-claim /
+///   runtime-fact atoms via `dli_syntax::parse_clause_atom` — a load-boundary
+///   parse that LS-7 feature-gates, not an expert-tier declaration body
+///   (every eleven-decl-type parser was retired by LS-9).
 ///
 /// `dli-time` is **not** here: its only parse site (`order_rules.rs`) was
 /// retired by the `RuleDecl` structuring, and `dli-syntax` moved to its
 /// `[dev-dependencies]`.
-const STILL_COUPLED: &[&str] = &["dli-world", "dli-ledger"];
+const STILL_COUPLED: &[&str] = &["dli-world"];
 
 /// Run the LS-9 no-parse gate over the workspace at `root`.
 pub fn run_syntax_free(root: &Path) -> Result<()> {

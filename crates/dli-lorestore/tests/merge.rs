@@ -576,7 +576,7 @@ fn ward_base_pack() -> dli_world::Pack {
     pack_of(vec![
         Decl::Ratify(RatifyDecl {
             decision: Ident::synthetic(DECISION),
-            body: Vec::new(),
+            body: dli_ast::language::RatifyBody::default(),
         }),
         fact_decl("seated", "oak"),
         rule_decl("ward", "ward-holds(oak) :- seated(oak), not breached(oak)"),
@@ -591,7 +591,7 @@ fn ward_multi_pack() -> dli_world::Pack {
     pack_of(vec![
         Decl::Ratify(RatifyDecl {
             decision: Ident::synthetic(DECISION),
-            body: Vec::new(),
+            body: dli_ast::language::RatifyBody::default(),
         }),
         fact_decl("seated", "oak"),
         fact_decl("seated", "elm"),

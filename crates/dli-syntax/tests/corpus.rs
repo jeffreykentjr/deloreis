@@ -148,7 +148,60 @@ fn practice_block_captures_its_body() {
     };
     assert_eq!(practice.name.text, "spoken-proof");
     // Every non-blank interior line is captured as a clause.
-    assert_eq!(practice.body.len(), 7);
+    assert_eq!(practice.body.clauses.len(), 7);
+}
+
+#[test]
+fn practice_body_is_structured_by_the_front_end() {
+    // LS-9: the parser is the single producer of the typed practice interior.
+    // Fails-before-fix — pre-LS-9 `PracticeDecl.body` was `Vec<Clause>` with no
+    // typed `def`, so `body.def` did not exist.
+    let source = "\
+scope magic
+cycle tide(4) proposed
+practice spoken-proof proposed {
+  kind ground = door | field | ore
+  resource debt : linear conserved
+  resource strain : affine bounded body-limit
+  rule ward-form(ground, fibre)
+  error fizzle refines L2 premise-not-available where absent
+  error overload refines L6 resource-violation on strain signals collapse
+  cost bodily | material
+}
+";
+    let (doc, diags) = parse_document(source);
+    let errs: Vec<_> = diags.iter().filter(|d| d.class.is_error()).collect();
+    assert!(errs.is_empty(), "{errs:?}");
+    let dli_ast::decl::Decl::Practice(practice) = &doc.decls[1] else {
+        panic!("expected a practice");
+    };
+
+    let def = &practice.body.def;
+    assert_eq!(def.name.text, "spoken-proof");
+    assert_eq!(def.marker, Some(dli_ast::annot::ProvenanceMarker::Proposed));
+    assert_eq!(def.sorts.len(), 1);
+    assert_eq!(def.sorts[0].variants.len(), 3);
+    assert_eq!(def.resources.len(), 2);
+    assert_eq!(def.rules.len(), 1);
+    assert_eq!(def.rules[0].form.text, "ward-form");
+    assert_eq!(def.rules[0].args.len(), 2);
+    assert_eq!(def.errors.len(), 2);
+    assert_eq!(
+        def.errors[1].on_resource.as_ref().map(|r| r.text.as_str()),
+        Some("strain")
+    );
+    assert_eq!(def.costs.len(), 2);
+    // The front end leaves cycle scope for the ledger to overlay at compile time.
+    assert!(def.cycles_in_scope.is_empty());
+
+    // Store fidelity: the typed interior survives a JSON round-trip byte-for-byte
+    // (this is the shape the lorestore carriage stores and reconstructs).
+    let json = serde_json::to_string(practice).expect("serialize");
+    let back: dli_ast::decl::PracticeDecl = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(
+        &back, practice,
+        "the typed practice interior must round-trip through JSON"
+    );
 }
 
 #[test]
@@ -163,7 +216,7 @@ fn practice_label_round_trips() {
     };
     assert_eq!(practice.name.text, "p");
     assert_eq!(practice.label.as_deref(), Some("The Rite"));
-    assert_eq!(practice.body.len(), 1);
+    assert_eq!(practice.body.clauses.len(), 1);
 
     // Round-trip: format → re-parse → same label.
     let formatted = dli_syntax::format::format_document(&doc);

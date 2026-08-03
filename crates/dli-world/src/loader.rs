@@ -911,11 +911,11 @@ pub fn example_docs() -> Vec<Document> {
             // fact reads certain (a forged citation still fails closed — B1).
             Decl::Ratify(dli_ast::decl::RatifyDecl {
                 decision: Ident::synthetic("D-0001"),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             }),
             Decl::Ratify(dli_ast::decl::RatifyDecl {
                 decision: Ident::synthetic("D-0002"),
-                body: Vec::new(),
+                body: dli_ast::language::RatifyBody::default(),
             }),
             Decl::Kind(KindDecl {
                 name: Ident::synthetic("place"),
