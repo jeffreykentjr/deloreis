@@ -5,6 +5,7 @@
 //! keeping the interface independent of the CLI: callers receive stable,
 //! serializable findings and decide how to render or exit.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -76,6 +77,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let mut files = Vec::new();
     collect_markdown(root, root, &mut files);
     let mut findings = Vec::new();
+    let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -86,7 +88,16 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
             continue;
         }
         match fs::read_to_string(&path) {
-            Ok(source) => check_frontmatter(&rel, &source, &mut findings),
+            Ok(source) => {
+                check_frontmatter(&rel, &source, &mut findings);
+                check_citations(
+                    &rel,
+                    &source,
+                    &decision_ids,
+                    &question_status,
+                    &mut findings,
+                );
+            }
             Err(error) => findings.push(RepositoryFinding::new(
                 &rel,
                 "V1",
@@ -98,6 +109,121 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn load_ledger_ids(
+    root: &Path,
+    findings: &mut Vec<RepositoryFinding>,
+) -> (std::collections::BTreeSet<String>, BTreeMap<String, bool>) {
+    let mut decisions = std::collections::BTreeSet::new();
+    let mut questions = BTreeMap::new();
+    let decision_path = root.join("decisions.md");
+    if let Ok(source) = fs::read_to_string(&decision_path) {
+        for (line_no, line) in source.lines().enumerate() {
+            if let Some(id) = heading_id(line, "D-") {
+                if !decisions.insert(id.clone()) {
+                    findings.push(RepositoryFinding::new(
+                        "decisions.md",
+                        "V4",
+                        format!("duplicate ledger id {id}"),
+                    ));
+                }
+                let _ = line_no;
+            }
+        }
+    }
+    for name in ["open-questions.md", "resolved-questions.md"] {
+        let path = root.join(name);
+        let Ok(source) = fs::read_to_string(path) else {
+            continue;
+        };
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let Some(id) = heading_id(line, "Q-") else {
+                continue;
+            };
+            let end = lines[index + 1..]
+                .iter()
+                .position(|candidate| candidate.starts_with("## "))
+                .map_or(lines.len(), |offset| index + 1 + offset);
+            let open = lines[index..end]
+                .iter()
+                .any(|candidate| candidate.trim() == "- status: open");
+            questions.insert(id, open);
+        }
+    }
+    (decisions, questions)
+}
+
+fn heading_id(line: &str, prefix: &str) -> Option<String> {
+    let rest = line.strip_prefix("## ")?;
+    let id = rest.split_whitespace().next()?;
+    if id.starts_with(prefix) && valid_ref(id) {
+        Some(id.to_owned())
+    } else {
+        None
+    }
+}
+
+fn check_citations(
+    path: &str,
+    source: &str,
+    decisions: &std::collections::BTreeSet<String>,
+    questions: &BTreeMap<String, bool>,
+    findings: &mut Vec<RepositoryFinding>,
+) {
+    for (line, heading, refs) in section_citations(source) {
+        for reference in refs {
+            if reference.starts_with("D-") && !decisions.contains(reference) {
+                findings.push(RepositoryFinding::at_line(
+                    path,
+                    line,
+                    "V4",
+                    format!("section '{heading}' cites unknown {reference}"),
+                ));
+            }
+            if reference.starts_with("Q-") {
+                match questions.get(reference) {
+                    None => findings.push(RepositoryFinding::at_line(
+                        path,
+                        line,
+                        "V4",
+                        format!("section '{heading}' cites unknown {reference}"),
+                    )),
+                    Some(true) => {}
+                    Some(false) => findings.push(RepositoryFinding::at_line(
+                        path,
+                        line,
+                        "V4",
+                        format!("section '{heading}' cites {reference} which is not open"),
+                    )),
+                }
+            }
+        }
+    }
+}
+
+fn section_citations(source: &str) -> Vec<(usize, String, Vec<&str>)> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut out = Vec::new();
+    for (index, line) in lines.iter().enumerate() {
+        if !line.starts_with("## ") || line.starts_with("### ") {
+            continue;
+        }
+        let heading = line.trim_start_matches("## ").to_owned();
+        let mut cursor = index + 1;
+        while cursor < lines.len() && lines[cursor].trim().is_empty() {
+            cursor += 1;
+        }
+        if cursor < lines.len()
+            && let Some((_, refs)) = lines[cursor].split_once("status: ")
+            && let Some(refs) = refs.split_once(' ').map(|(_, value)| value)
+            && let Some(refs) = refs.strip_prefix('(').and_then(|v| v.strip_suffix(')'))
+        {
+            out.push((index + 1, heading, refs.split(", ").collect()));
+        }
+    }
+    out
 }
 
 fn collect_markdown(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
@@ -311,36 +437,74 @@ fn check_sections(path: &str, source: &str, out: &mut Vec<RepositoryFinding>) {
                 format!("section '{heading}' has no well-formed status marker"),
             )),
             Some(((status, citations), _marker_line)) => {
-                let d_refs = citations
-                    .iter()
-                    .filter(|ref_id| ref_id.starts_with("D-"))
-                    .count();
-                let q_refs = citations
-                    .iter()
-                    .filter(|ref_id| ref_id.starts_with("Q-"))
-                    .count();
-                let valid = match status {
-                    "ratified" | "provisional" | "rejected" => d_refs > 0 && q_refs == 0,
-                    "open-question" => d_refs == 0 && q_refs == 1,
-                    "proposed" => citations.is_empty(),
-                    _ => false,
-                };
-                if !valid {
-                    let requirement = match status {
-                        "open-question" => "open-question needs one Q-ref",
-                        "proposed" => "proposed must cite nothing",
-                        _ => "status needs >=1 D-ref",
-                    };
-                    out.push(RepositoryFinding::at_line(
-                        path,
-                        index + 1,
-                        "V3",
-                        format!("section '{heading}' {requirement}"),
-                    ));
-                }
+                check_marker_shape(path, index + 1, heading, status, &citations, out);
             }
         }
         index += 1;
+    }
+    for (index, line) in lines.iter().enumerate() {
+        if !line.starts_with("### ") {
+            continue;
+        }
+        let heading = line.trim_start_matches("### ");
+        let mut cursor = index + 1;
+        while cursor < lines.len() && lines[cursor].trim().is_empty() {
+            cursor += 1;
+        }
+        let Some(candidate) = lines.get(cursor).copied() else {
+            continue;
+        };
+        if !candidate.trim_start().starts_with("> status:") {
+            continue;
+        }
+        match parse_status_marker(candidate) {
+            Some((status, citations)) => {
+                check_marker_shape(path, index + 1, heading, status, &citations, out);
+            }
+            None => out.push(RepositoryFinding::at_line(
+                path,
+                index + 1,
+                "V3",
+                format!("subsection '{heading}' has a malformed status override"),
+            )),
+        }
+    }
+}
+
+fn check_marker_shape(
+    path: &str,
+    line: usize,
+    heading: &str,
+    status: &str,
+    citations: &[&str],
+    out: &mut Vec<RepositoryFinding>,
+) {
+    let d_refs = citations
+        .iter()
+        .filter(|ref_id| ref_id.starts_with("D-"))
+        .count();
+    let q_refs = citations
+        .iter()
+        .filter(|ref_id| ref_id.starts_with("Q-"))
+        .count();
+    let valid = match status {
+        "ratified" | "provisional" | "rejected" => d_refs > 0 && q_refs == 0,
+        "open-question" => d_refs == 0 && q_refs == 1,
+        "proposed" => citations.is_empty(),
+        _ => false,
+    };
+    if !valid {
+        let requirement = match status {
+            "open-question" => "open-question needs one Q-ref",
+            "proposed" => "proposed must cite nothing",
+            _ => "status needs >=1 D-ref",
+        };
+        out.push(RepositoryFinding::at_line(
+            path,
+            line,
+            "V3",
+            format!("section '{heading}' {requirement}"),
+        ));
     }
 }
 
@@ -458,6 +622,11 @@ mod tests {
             "anchor.md",
             "---\nid: anchor\ntitle: Anchor\ntype: character\nstatus: ratified\ntags: []\n---\n\n## Anchor\n> status: ratified (D-0001)\n",
         );
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — test\n- status: ratified\n",
+        );
         let findings = validate_repository(dir.path());
         assert!(findings.is_empty(), "{findings:?}");
         assert_eq!(
@@ -514,10 +683,10 @@ mod tests {
         write(
             dir.path(),
             "markers.md",
-            "---\nid: markers\ntitle: Markers\ntype: narrative\nstatus: proposed\n---\n\n## Ratified\n> status: ratified (Q-0001)\n\n## Question\n> status: open-question (D-0001)\n",
+            "---\nid: markers\ntitle: Markers\ntype: narrative\nstatus: proposed\n---\n\n## Ratified\n> status: ratified (Q-0001)\n\n### Override\n> status: ratified (Q-0001)\n\n## Question\n> status: open-question (D-0001)\n\n### Broken override\n> status: propsed\n",
         );
         let findings = validate_repository(dir.path());
-        assert_eq!(findings.iter().filter(|f| f.code == "V3").count(), 2);
+        assert_eq!(findings.iter().filter(|f| f.code == "V3").count(), 4);
         assert!(
             findings
                 .iter()
