@@ -1,4 +1,4 @@
-//! deloreis validate-repo <canon-root> — native V1/V2 repository checks.
+//! `deloreis validate-repo <canon-root>` — native V1/V2 repository checks.
 
 use std::fs;
 use std::path::PathBuf;
