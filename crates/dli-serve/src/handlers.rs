@@ -1692,10 +1692,15 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
         ));
     }
     let typed: T = serde_json::from_value(request.params.clone()).map_err(|e| {
-        (
+        // A field this build no longer declares fails HERE, on `deny_unknown_fields`
+        // — it never reaches `first_unknown_field` below. So the killed-field
+        // registry is consulted on both decode failures, or a retired form would
+        // be refused anonymously (LS-7). Dormant: the retired fields are all still
+        // declared, and the registry is version-gated besides.
+        killed_field_fault(request).unwrap_or((
             ErrorCode::SchemaViolation,
             format!("params do not satisfy the operation schema: {e}"),
-        )
+        ))
     })?;
     let normalized = serde_json::to_value(&typed).map_err(|e| {
         (
@@ -1704,12 +1709,29 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
         )
     })?;
     if let Some(field) = first_unknown_field(&request.params, &normalized) {
-        return Err((
+        return Err(killed_field_fault(request).unwrap_or((
             ErrorCode::SchemaViolation,
             format!("unknown field '{field}' is not defined by the operation schema"),
-        ));
+        )));
     }
     Ok(typed)
+}
+
+/// The `killed-form` fault for a retired params field the request still carries,
+/// or `None` when nothing registered applies. Consulted only after a params
+/// decode has already failed, so it can never refuse a request the contract
+/// would otherwise accept — it renames an anonymous schema violation into a
+/// refusal that names the successor field, exactly as `refuse_op` does for a
+/// retired op.
+fn killed_field_fault(request: &Request) -> Option<Fault> {
+    crate::serve::killed_field_successor(&request.dli, request.op, &request.params).map(
+        |(field, successor)| {
+            (
+                ErrorCode::KilledForm,
+                crate::serve::killed_field_message(field, successor),
+            )
+        },
+    )
 }
 
 /// The first input field (dotted path) absent from the normalized
@@ -1739,7 +1761,6 @@ pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<S
     }
 }
 
-/// Parse a rendered goal atom through the shared syntax-backed wire adapter.
 /// Resolve a query goal from the dual-mode pair `(goal_atom, goal)`: the 0.6.3
 /// typed successor wins when the caller sent it, and the rendered string is
 /// parsed only when it did not. The string form is a registered field-level
@@ -1752,6 +1773,7 @@ fn goal_atom(typed: Option<&AtomExpr>, text: &str) -> Result<AtomExpr, Fault> {
     }
 }
 
+/// Parse a rendered goal atom through the shared syntax-backed wire adapter.
 fn parse_atom(text: &str) -> Result<AtomExpr, Fault> {
     crate::query_goal::parse(text).ok_or_else(|| {
         (
