@@ -102,6 +102,130 @@ lowers to fact objects, and lowering the whole vendored corpus then compiling
 reproduces the identical fixpoint, findings, and digests (shadow-read parity,
 the MIG/PROOF idiom re-aimed).
 
+**The stored shapes, as they serialize.** Each block below is validated in CI
+against the schema its fence names — the docs-oracle's `json` path (LS-7,
+`xtask/src/docs_oracle.rs`) runs `dli_lorestore::schemas()` over it — so a
+worked example here cannot drift from the type it documents. The objects are
+a real import of three gentle-subset declarations into the `camelot` teaching
+pack.
+
+A fact object. `support` names interner index `0` on the positive rail; the
+commit's `interner` resolves it to the ruling variable `h.session-7c9`.
+`defeaters` is the empty polynomial — this atom is positive-only, so
+`conditions` is absent too:
+
+```json fact-object-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "claim_id": "sha256:ea0c222b30c84ca5d23509d461c8e77dfb66ff8d63a488a7bd25f1bf97ce7b92",
+  "atom": {
+    "pred": "serves",
+    "args": ["bedivere", "the-steward"]
+  },
+  "support": { "monomials": [["+0"]] },
+  "defeaters": { "monomials": [] },
+  "grade": "asserted"
+}
+```
+
+The same atom once a later ruling can defeat it. `defeaters` is the
+atom-global `P⁻`; `conditions` pins the poison to the one support monomial it
+travels with, which is what keeps the per-path reading exact when a fact is
+derived along several routes:
+
+```json fact-object-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "claim_id": "sha256:ea0c222b30c84ca5d23509d461c8e77dfb66ff8d63a488a7bd25f1bf97ce7b92",
+  "atom": {
+    "pred": "serves",
+    "args": ["bedivere", "the-steward"]
+  },
+  "support": { "monomials": [["+0"]] },
+  "defeaters": { "monomials": [["+1"]] },
+  "conditions": [
+    {
+      "path": { "monomials": [["+0"]] },
+      "poison": { "monomials": [["+1"]] }
+    }
+  ],
+  "grade": "asserted"
+}
+```
+
+The commit that introduced them. `parent` is *commit* ancestry — the field
+that is deliberately absent from every fact object's content hash — and
+`interner` is the flat name table that makes `"+0"` resolvable:
+
+```json commit-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "parent": "sha256:be78d4f6522725ad26e08555610344a380a3ef586a6301aa80420fe58288dce2",
+  "facts": [
+    "sha256:c683f5a192155f254faee16a4a307e808f18c0115c61ce200a21cae7e38e6c82",
+    "sha256:056a2db800878f58335d4468fdcfe0147caa1e1ac52f92c997170d5c9c1fef91",
+    "sha256:38451bf53df17159d2c4e2a97ae8d5bae7cf6794427297050d7c03417b0384b6",
+    "sha256:4c13431ad3453808339ddd0fd1d1299f5b7b2c581fcb06f9555bbeee9b3ce1cd"
+  ],
+  "lineage": [],
+  "evidence": [],
+  "interner": ["h.session-7c9"],
+  "pack_name": "camelot"
+}
+```
+
+A ref: a named pointer plus a valuation overlay. `main` carries the empty
+overlay; a fork ref is the same object with event variables ruled in it,
+which is why creating a fork is O(1):
+
+```json ref-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "name": "main",
+  "commit": "sha256:abc5b8afc2d11d19d46925752e08b200dd6840636de212451fa1b1895eee6821",
+  "valuation": {}
+}
+```
+
+A lineage edge — supersession as a first-class object carrying its own
+`(P⁺, P⁻)`, so *whether* the retcon holds is itself valuation-dependent:
+
+```json lineage-edge-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "claim_id": "sha256:ea0c222b30c84ca5d23509d461c8e77dfb66ff8d63a488a7bd25f1bf97ce7b92",
+  "from": "sha256:4c13431ad3453808339ddd0fd1d1299f5b7b2c581fcb06f9555bbeee9b3ce1cd",
+  "to": "sha256:38451bf53df17159d2c4e2a97ae8d5bae7cf6794427297050d7c03417b0384b6",
+  "support": { "monomials": [["+1"]] },
+  "defeaters": { "monomials": [] }
+}
+```
+
+An evidence envelope. The payload is opaque to the store — the envelope is
+the integrity layer, and `payload_digest` is a second, independent check that
+the payload has not drifted inside it. No floats anywhere, per the storage
+rule below:
+
+```json evidence-envelope-v1
+{
+  "schema_version": 2,
+  "authority": null,
+  "subject": "camelot",
+  "kind": "attestation",
+  "payload": {
+    "question": "is the steward served?",
+    "verdict": "holds",
+    "trials": 1
+  },
+  "payload_digest": "sha256:1f77b0d1e5f7d2c3b4a59687e0c1d2a3b4c5d6e7f80912a3b4c5d6e7f8091a2b"
+}
+```
+
 Design rules, each load-bearing (see §4 for the theory):
 
 - **Three identities, kept apart.** The vision note's object sketch embeds a
@@ -352,6 +476,17 @@ is consumer-owned), LS-9 (the parser has no remaining semantic caller).
 *Oracle:* the default build does not link `dli_syntax`; the docs-oracle law —
 **every fenced example in the docs is machine-checked** — holds continuously
 through the swap; killed-form entries exist for every retired surface form.
+
+*Landed so far:* the docs-oracle's `json` path. Every fenced `json` block now
+carries its check class in the fence itself, so none is silently unchecked:
+` ```json <schema-name> ` parses and validates against that LS-1 stored-object
+schema (the shapes worked above); a bare ` ```json ` must be well-formed JSON;
+` ```json transcript ` marks the elided `→`/`←` wire sketches, whose markers
+and bracket balance are themselves checked so the tag cannot become a blanket
+escape hatch. An unrecognized tag is a hard failure, never a silent downgrade,
+and the oracle refuses to run with fewer than three schema-validated blocks —
+the path cannot rot into a no-op. Fenced `.dli` is untouched and still checked
+wherever the docs deliberately teach the rendering.
 
 Full removal (the deprecation note's phase 4) is deliberately unscheduled:
 an optional pretty-printer crate is cheap to keep and expensive for early

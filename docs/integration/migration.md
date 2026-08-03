@@ -186,7 +186,7 @@ schemas.
 
 **Open a workspace.**
 
-```json
+```json transcript
 → {"tool": "author.open", "args": {"fork": "ep9-cast"}}
 ← {"workspace": "ep9-cast", "workspace_digest": "jcs:sha256:0a2c…"}
 ```
@@ -194,7 +194,7 @@ schemas.
 **Add the character (proposed).** The tool returns a graded finding with repair
 data — the name is not yet vetted — and the rendered canonical line.
 
-```json
+```json transcript
 → {"tool": "author.add_entity",
    "args": {"kind": "person", "id": "tegwen", "name": "Tegwen",
             "provenance": {"kind": "proposed", "origin": "agent:factory/ep9-cast"}}}
@@ -209,7 +209,7 @@ data — the name is not yet vetted — and the rendered canonical line.
 
 **Vet the name (kernel half).**
 
-```json
+```json transcript
 → {"op": "dli.name.check", "params": {"name": "tegwen", "register": "cymric-fringe"}}
 ← {"ok": true, "findings": []}
 ```
@@ -221,7 +221,7 @@ homophones — is a separate, factory-side gate.
 **Add a fact and a relation.** Each returns its own findings, rendered line, and
 digest; the location is a real TPtH place (`gwern`).
 
-```json
+```json transcript
 → {"tool": "author.add_fact",
    "args": {"entity": "tegwen", "key": "trade", "value": "net-mender",
             "provenance": {"kind": "proposed", "origin": "agent:factory/ep9-cast"}}}
@@ -238,7 +238,7 @@ digest; the location is a real TPtH place (`gwern`).
 **Review the diff.** `author.diff` renders the whole canonical block and the full
 findings, including the merely-possible status of everything proposed.
 
-```json
+```json transcript
 → {"tool": "author.diff", "args": {"workspace": "ep9-cast"}}
 ← {"rendered": [
      "person tegwen \"Tegwen\"  proposed  agent:factory/ep9-cast",
@@ -255,7 +255,7 @@ findings, including the merely-possible status of everything proposed.
 (here `lore/staging/ep9-cast.dli`), writes the lines, and commits through
 fantasy review.
 
-```json
+```json transcript
 → {"tool": "author.materialize", "args": {"workspace": "ep9-cast"}}
 ← {"findings": [],
    "rendered": [

@@ -28,7 +28,7 @@ shown here; the envelope's constant fields are elided for brevity.
 `author.open` stages over a scope. It returns the workspace id and the first
 digest.
 
-```json
+```json transcript
 → { "op": "author.open", "params": { "scope": "camelot" } }
 ← { "ok": true, "result": {
       "workspace": "ws-1",
@@ -41,7 +41,7 @@ Every later call names `"workspace": "ws-1"`. The digest is your fence: pass it 
 
 ## 2. Add a person — and read the finding
 
-```json
+```json transcript
 → { "op": "author.add_entity", "params": {
       "workspace": "ws-1", "kind": "person", "id": "bedivere",
       "name": "Bedivere",
@@ -59,14 +59,14 @@ Every later call names `"workspace": "ws-1"`. The digest is your fence: pass it 
 advisory that the name never passed the oracle. To clear it, run the repair's
 `dli.name.check` (add your scope's `dialect` — the oracle requires it):
 
-```json
+```json transcript
 → { "op": "dli.name.check", "params": { "name": "bedivere", "dialect": "old-speech" } }
 ← { "ok": true, "result": { "ok": true, "findings": [] } }
 ```
 
 ## 3. Set a trait
 
-```json
+```json transcript
 → { "op": "author.add_fact", "params": {
       "workspace": "ws-1", "entity": "bedivere", "key": "trade", "value": "knight",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
@@ -81,7 +81,7 @@ advisory that the name never passed the oracle. To clear it, run the repair's
 scope is an **`error`** finding: staged, yet it will bar materialize until the
 reference resolves.
 
-```json
+```json transcript
 → { "op": "author.add_relation", "params": {
       "workspace": "ws-1", "relation": "serves", "from": "bedivere", "to": "the-steward",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
@@ -99,7 +99,7 @@ existing id, `candidates` lists the ids you most plausibly meant.)
 
 ## 5. Resolve it — add the missing person
 
-```json
+```json transcript
 → { "op": "author.add_entity", "params": {
       "workspace": "ws-1", "kind": "person", "id": "the-steward", "name": "The Steward",
       "provenance": { "kind": "proposed", "origin": "session-7c9" } } }
@@ -118,7 +118,7 @@ The five read tools interrogate the staged world without mutating it. Start with
 `author.findings` — your go/no-go pre-flight. Back at step 4, with the relation's
 `entity.unknown` still open, it reported the gate closed:
 
-```json
+```json transcript
 → { "op": "author.findings", "params": { "workspace": "ws-1" } }
 ← { "ok": true, "result": {
       "errors":   [ { "code": "entity.unknown", "severity": "error", "repair": {…} } ],
@@ -130,7 +130,7 @@ The five read tools interrogate the staged world without mutating it. Start with
 did. You can prove a consequence with `author.query` (an argument written `?who`
 enumerates; a proposed claim reads `status:"possible"`, never `certain`):
 
-```json
+```json transcript
 → { "op": "author.query", "params": { "workspace": "ws-1", "goal": "serves(bedivere, ?who)", "why": true } }
 ← { "ok": true, "result": { "rows": [ {
       "atom": "serves(bedivere, the-steward)",
@@ -142,7 +142,7 @@ enumerates; a proposed claim reads `status:"possible"`, never `certain`):
 and ask `author.why` why it is not yet certain — `why_not` names the blocking
 rulings; `known:false` would mean the world derives no such atom at all:
 
-```json
+```json transcript
 → { "op": "author.why", "params": { "workspace": "ws-1", "atom": "serves(bedivere, the-steward)" } }
 ← { "ok": true, "result": { "why_not": {
       "atom": "serves(bedivere, the-steward)", "known": true, "status": "possible",
@@ -152,7 +152,7 @@ rulings; `known:false` would mean the world derives no such atom at all:
 With `the-steward` added, `author.check` runs the full battery clean and
 `author.findings` flips the gate open:
 
-```json
+```json transcript
 → { "op": "author.check", "params": { "workspace": "ws-1" } }
 ← { "ok": true, "result": { "ok": true, "findings": [ { "code": "name.unvetted", "severity": "warn" }, … ] } }
 
@@ -167,7 +167,7 @@ closes through `author.*` alone — no raw `.dli`, no `dli.*` op.)
 
 ## 7. Materialize — get the file bytes as data
 
-```json
+```json transcript
 → { "op": "author.materialize", "params": { "workspace": "ws-1" } }
 ← { "ok": true, "result": {
       "findings": [],
@@ -200,7 +200,7 @@ person the-steward "The Steward" proposed session-7c9
 **Drop a bad declaration** — name it by its rendered line (its first line, for a
 multi-line declaration):
 
-```json
+```json transcript
 → { "op": "author.discard", "params": {
       "workspace": "ws-1", "decl": "place lyonesse \"Lyonesse\" proposed sess" } }
 ← { "ok": true, "result": { "discarded": true, "workspace_digest": "jcs:sha256:5988a2fe…" } }
@@ -211,7 +211,7 @@ Omit `decl` to discard the whole workspace. A `decl` that matches nothing is an
 
 **Open a question as tracked debt** — it asserts nothing, takes no provenance:
 
-```json
+```json transcript
 → { "op": "author.open_question", "params": {
       "workspace": "ws-1", "id": "who-holds-excalibur", "prompt": "Who holds Excalibur after Camlann?" } }
 ← { "ok": true, "result": { "rendered": ["question who-holds-excalibur \"Who holds Excalibur after Camlann?\""] } }
