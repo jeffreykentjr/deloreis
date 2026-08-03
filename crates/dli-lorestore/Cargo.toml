@@ -27,6 +27,9 @@ thiserror.workspace = true
 fs2.workspace = true
 
 [dev-dependencies]
+# The LS-9 proof-interior oracle (`tests/ls9_proof.rs`) checks a v1-upcast proof
+# through the ledger checker — a test-only reach into the checker crate.
+dli-ledger.workspace = true
 serde_yaml_ng.workspace = true
 tempfile.workspace = true
 
