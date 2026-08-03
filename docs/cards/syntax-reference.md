@@ -1,16 +1,31 @@
 ---
 status: live
-title: "Syntax reference — the complete v0 surface"
-verdict: "Every keyword and line form the parser accepts today, in one sheet; compiled from the parser for the author's surface review; superseded by the generated grammar page when docgen grows it."
+title: "Syntax reference — the complete .dli rendering grammar"
+verdict: "Every keyword and line form the .dli rendering uses, in one sheet: what the renderer emits and what the optional parser accepts. It is a reading surface, not an authoring one — lore is authored through the author.* tools."
 ---
 
-# Syntax reference — the complete v0 surface
+# Syntax reference — the complete `.dli` rendering grammar
 
-Hand-compiled from `crates/dli-syntax/src/parser.rs` (the implementation) for
-the author's surface review. The AST schema
-(`schemas/ast/document.schema.json`) is normative; the grammar is **v0,
-unfrozen** — every word on this sheet is changeable until the freeze (SURF-4),
-and renames are cheap now, expensive after.
+This sheet documents **the rendering**. `.dli` is one way of printing a world
+for human eyes; it is not how lore is authored and not what the system stores.
+Authoring happens through the `author.*` tool surface (`authoring-loop.md`), the
+canonical form is the stored fact objects and their JCS byte serialization
+(DL-0041), and a `.dli` rendering is an explicit opt-in on the way out
+(`rendered: true`, DL-0046). Reach for this sheet when you are *reading* a
+rendered diff or a bundled example and want to know exactly what a line means.
+
+Hand-compiled from `crates/dli-syntax/src/parser.rs`, which is the round trip's
+other half — the reader for the same grammar the renderer writes. That crate is
+**feature-gated out of the default build** (roadmap LS-7): a default `deloreis`
+binary links no parser and no formatter, serves fact objects, and returns an
+empty `rendered` array. Everything on this sheet describes what a
+`syntax`-enabled build prints and reads.
+
+The grammar is **v0 and will not be frozen** — the freeze milestone (SURF-4) is
+retired, not deferred (DL-0041), because a rendering has no surface contract to
+freeze. What replaced the freeze is the killed-form discipline: a retired
+keyword or line form is registered with its successor and refused by name, never
+silently dropped (DL-0029 as relocated by DL-0041).
 
 ## 1. The frame
 
@@ -118,28 +133,37 @@ holds|fails-at <error>`.
 | `ratify` | `ratify <id> { … }` (ruling record block) |
 | `variant` | `variant <id> …` (ruleset delta) |
 
-## 4. Typed vs captured
+## 4. Everything here is typed
 
-Top-level line shapes, entity slots, facts (all three forms), provenance,
-time clauses, cycles, states, question/option/implies, before, and era
-chains are **fully typed** in the AST. The **interiors** of `rule` bodies,
-`practice`/`proof`/`dialect`/`ratify` blocks are **captured clause text**
-(normalized, lossless, round-tripping); each owning subsystem structures its
-own interior, and `dli_syntax::parse_clause_atom` is the single bridge from
-clause text to typed atoms.
+Top-level line shapes, entity slots, facts (all three forms), provenance, time
+clauses, cycles, states, question/option/implies, before, and era chains have
+always been fully typed. Since LS-9 (DL-0047, DL-0049) **the interiors are too**:
+every string-bodied declaration type — `rule`, `practice`, `proof`, `dialect`,
+`name-part`, `name`, `ratify`, and the near-empty `fork` / `draft` / `export` /
+`variant` / `principle` bodies — carries typed structure into the stored fact
+object's `expert_body`, with its normalized clause text kept beside it so the
+rendering round-trips byte-identically.
 
-## 5. Not surface yet
+The practical consequence: no subsystem re-parses a stored declaration body to
+check it. A proof is validated structurally, not by formatting and re-reading.
+One surface-parse coupling remains at the load/check boundary
+(`parse_clause_atom` over payload-claim and runtime-fact atoms in `dli-world`),
+and retiring it is LS-7 work.
 
-**Episodes** (production order, scenes, knowledge deltas) ride as data
-payloads (a world's episodes YAML, kept beside its `.dli`) until their surface
-form lands with the `rule … over order` work (TIME-3).
+## 5. Not rendered yet
+
+**Episodes** (production order, scenes, knowledge deltas) ride as data payloads
+(a world's episodes YAML) and have no line form on this sheet until their
+rendering lands with the `rule … over order` work (TIME-3).
 
 ## 6. Where to look deeper
 
+- `docs/cards/authoring-loop.md` — how lore is actually added: the tool calls, the fact objects, the commit.
 - `docs/cards/gentle-card.md` — the teaching subset (what a writer meets first).
-- `docs/cards/expert-card.md` — the expert tier with parsing examples.
+- `docs/cards/expert-card.md` — the expert tier, its tool calls and its stored form.
 - `docs/spec/01-syntax.md` — normativity, the record shape, the interface, drift discipline.
-- `schemas/ast/document.schema.json` — the normative AST.
+- `schemas/lorestore/fact-object-v1.json` — the canonical stored form this grammar renders.
+- `schemas/ast/document.schema.json` — the AST the parser produces from a rendering.
 - `examples/*.dli` — the living corpus (all gate-parsed).
 
 ## 7. Surface-review items — resolved by the surface-v1 pass (DL-0016)
