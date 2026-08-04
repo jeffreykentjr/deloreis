@@ -44,6 +44,11 @@ fn validate_repo_emits_stable_json_findings() {
     )
     .unwrap();
     fs::write(
+        root.join("open-questions.md"),
+        "## Q-0001 — moved\n- status: resolved\n",
+    )
+    .unwrap();
+    fs::write(
         root.join("bad-section.md"),
         "---\nid: bad-section\ntitle: Bad\ntype: narrative\nstatus: proposed\n---\n\n## Bad\n> status: ratified (Q-0001)\n",
     )
@@ -66,6 +71,29 @@ fn validate_repo_emits_stable_json_findings() {
     );
     assert!(rows.iter().any(|finding| finding["code"] == "V7"));
     assert!(rows.iter().any(|finding| finding["code"] == "V8"));
+    assert!(rows.iter().any(|finding| finding["code"] == "V10"));
+}
+
+#[test]
+fn validate_repo_reports_v12_text_corpus_defects() {
+    let root = tmp("validate-repo-v12");
+    fs::create_dir_all(root.join("texts")).unwrap();
+    fs::write(
+        root.join("texts/bad.md"),
+        "---\nid: bad\ntitle: Bad\ntype: narrative\nstatus: proposed\n---\n\n## Bad Work\n> status: proposed\n> kind: pamphlet\n*\"passage\"*\n",
+    )
+    .unwrap();
+    let output = bin().arg("validate-repo").arg(&root).output().unwrap();
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let findings: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    assert!(findings.as_array().unwrap().iter().any(|finding| {
+        finding["path"] == "texts/bad.md"
+            && finding["code"] == "V12"
+            && finding["message"]
+                .as_str()
+                .unwrap()
+                .contains("unknown kind")
+    }));
 }
 
 /// The shared saltmarket corpus.

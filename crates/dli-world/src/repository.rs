@@ -35,6 +35,28 @@ const TYPES: &[&str] = &[
     "narrative",
     "meta",
 ];
+const TEXT_KINDS: &[&str] = &[
+    "apocrypha",
+    "aphorisms",
+    "catechism",
+    "charm",
+    "chronicle",
+    "fable",
+    "koan",
+    "lament",
+    "lesson",
+    "note",
+    "parable",
+    "parish-tale",
+    "quota-law",
+    "riddle",
+    "testimony",
+    "work-song",
+];
+const MAX_PASSAGE_CHARS: usize = 1200;
+
+type AffectsMap = BTreeMap<String, BTreeSet<(String, Option<String>)>>;
+type LedgerData = (BTreeSet<String>, BTreeMap<String, bool>, AffectsMap);
 
 /// Stable machine-facing repository finding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,11 +99,13 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let mut files = Vec::new();
     collect_markdown(root, root, &mut files);
     let mut findings = Vec::new();
-    let (decision_ids, question_status) = load_ledger_ids(root, &mut findings);
+    let (decision_ids, question_status, affects) = load_ledger_ids(root, &mut findings);
     let index = build_id_index(&files, root, &mut findings);
     check_structured_data(root, &mut findings);
     check_characters_sync(root, &files, &mut findings);
     check_lexicon(root, &files, &mut findings);
+    check_question_placement(root, &mut findings);
+    check_texts_corpus(root, &files, &mut findings);
     for path in files {
         let rel = path
             .strip_prefix(root)
@@ -101,6 +125,7 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
                     &question_status,
                     &mut findings,
                 );
+                check_affects_provenance(&rel, &source, &decision_ids, &affects, &mut findings);
                 check_links(&rel, &source, &index, &mut findings);
             }
             Err(error) => findings.push(RepositoryFinding::new(
@@ -114,6 +139,197 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
         (&a.path, a.line, &a.code, &a.message).cmp(&(&b.path, b.line, &b.code, &b.message))
     });
     findings
+}
+
+fn check_question_placement(root: &Path, findings: &mut Vec<RepositoryFinding>) {
+    for (name, expected) in [
+        ("open-questions.md", "open"),
+        ("resolved-questions.md", "resolved"),
+    ] {
+        let path = root.join(name);
+        let Ok(source) = fs::read_to_string(path) else {
+            continue;
+        };
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            if !line.starts_with("## Q-") {
+                continue;
+            }
+            let end = lines[index + 1..]
+                .iter()
+                .position(|candidate| candidate.starts_with("## "))
+                .map_or(lines.len(), |offset| index + 1 + offset);
+            let status = lines[index..end]
+                .iter()
+                .find_map(|candidate| candidate.strip_prefix("- status: "));
+            if status != Some(expected) {
+                let found = status.unwrap_or("missing");
+                findings.push(RepositoryFinding::at_line(
+                    name,
+                    index + 1,
+                    "V10",
+                    format!(
+                        "question {} has status {found:?}; expected {expected:?}",
+                        line.trim_start_matches("## ")
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+fn check_texts_corpus(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
+    let mut seen = BTreeMap::new();
+    for file in files {
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if !rel.starts_with("texts/") {
+            continue;
+        }
+        let Ok(source) = fs::read_to_string(file) else {
+            continue;
+        };
+        for (line, title, body) in text_sections(&source) {
+            let id = text_slug(&title);
+            let nonblank: Vec<&str> = body
+                .lines()
+                .filter(|item| !item.trim().is_empty())
+                .collect();
+            let kind_line = nonblank.get(1).copied();
+            let kind = kind_line
+                .and_then(|item| item.strip_prefix("> kind: "))
+                .filter(|value| {
+                    !value.is_empty()
+                        && value
+                            .chars()
+                            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+                });
+            let kind_label = match kind {
+                None => {
+                    let found = kind_line
+                        .map(|item| format!(" (found {item:?})"))
+                        .unwrap_or_default();
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' has no well-formed '> kind: <register>' line{found}"),
+                    ));
+                    "unknown"
+                }
+                Some(declared) if !TEXT_KINDS.contains(&declared) => {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' declares unknown kind {declared:?}"),
+                    ));
+                    declared
+                }
+                Some(declared) => declared,
+            };
+            let passages = text_passages(&body);
+            if kind_label != "note" && passages.is_empty() {
+                findings.push(RepositoryFinding::at_line(
+                    &rel,
+                    line,
+                    "V12",
+                    format!(
+                        "in-world text '{title}' is a {kind_label} with no quotable passage (use *\"...\"*)"
+                    ),
+                ));
+            }
+            for (ordinal, text, empty) in &passages {
+                if *empty {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' passage {ordinal} is empty"),
+                    ));
+                } else if text.chars().count() > MAX_PASSAGE_CHARS {
+                    findings.push(RepositoryFinding::at_line(
+                        &rel,
+                        line,
+                        "V12",
+                        format!("in-world text '{title}' passage {ordinal} runs {} chars (max {MAX_PASSAGE_CHARS}) — check for an unclosed quotation", text.chars().count()),
+                    ));
+                }
+            }
+            if let Some(previous) = seen.insert(id.clone(), (rel.clone(), line)) {
+                findings.push(RepositoryFinding::at_line(
+                    &rel,
+                    line,
+                    "V12",
+                    format!(
+                        "in-world text '{title}' duplicate work id {id:?} (also {}:{})",
+                        previous.0, previous.1
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+fn text_sections(source: &str) -> Vec<(usize, String, String)> {
+    let mut out = Vec::new();
+    let mut current: Option<(usize, String, Vec<&str>)> = None;
+    for (index, line) in source.lines().enumerate() {
+        if line.starts_with("## ") && !line.starts_with("### ") {
+            if let Some((line_no, title, body)) = current.take() {
+                out.push((line_no, title, body.join("\n")));
+            }
+            current = Some((
+                index + 1,
+                line.trim_start_matches("## ").to_owned(),
+                Vec::new(),
+            ));
+        } else if let Some((_, _, body)) = current.as_mut() {
+            body.push(line);
+        }
+    }
+    if let Some((line_no, title, body)) = current {
+        out.push((line_no, title, body.join("\n")));
+    }
+    out
+}
+
+fn text_slug(value: &str) -> String {
+    let mut out = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let slug = out.trim_matches('-');
+    if slug.is_empty() {
+        "none".to_owned()
+    } else {
+        slug.to_owned()
+    }
+}
+
+fn text_passages(body: &str) -> Vec<(usize, String, bool)> {
+    let mut out = Vec::new();
+    let mut rest = body;
+    let mut ordinal = 1;
+    while let Some(start) = rest.find("*\"") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find("\"*") else { break };
+        let text = after[..end]
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        out.push((ordinal, text.clone(), text.is_empty()));
+        ordinal += 1;
+        rest = &after[end + 2..];
+    }
+    out
 }
 
 fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFinding>) {
@@ -615,15 +831,14 @@ fn check_links(
     }
 }
 
-fn load_ledger_ids(
-    root: &Path,
-    findings: &mut Vec<RepositoryFinding>,
-) -> (std::collections::BTreeSet<String>, BTreeMap<String, bool>) {
+fn load_ledger_ids(root: &Path, findings: &mut Vec<RepositoryFinding>) -> LedgerData {
     let mut decisions = std::collections::BTreeSet::new();
     let mut questions = BTreeMap::new();
+    let mut affects = BTreeMap::new();
     let decision_path = root.join("decisions.md");
     if let Ok(source) = fs::read_to_string(&decision_path) {
-        for (line_no, line) in source.lines().enumerate() {
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
             if let Some(id) = heading_id(line, "D-") {
                 if !decisions.insert(id.clone()) {
                     findings.push(RepositoryFinding::new(
@@ -632,7 +847,16 @@ fn load_ledger_ids(
                         format!("duplicate ledger id {id}"),
                     ));
                 }
-                let _ = line_no;
+                let end = lines[index + 1..]
+                    .iter()
+                    .position(|candidate| candidate.starts_with("## "))
+                    .map_or(lines.len(), |offset| index + 1 + offset);
+                let targets = lines[index..end]
+                    .iter()
+                    .find_map(|candidate| candidate.strip_prefix("- affects: "))
+                    .map(parse_affects)
+                    .unwrap_or_default();
+                affects.insert(id, targets);
             }
         }
     }
@@ -656,7 +880,101 @@ fn load_ledger_ids(
             questions.insert(id, open);
         }
     }
-    (decisions, questions)
+    (decisions, questions, affects)
+}
+
+fn parse_affects(value: &str) -> BTreeSet<(String, Option<String>)> {
+    let mut targets = BTreeSet::new();
+    let mut rest = value;
+    while let Some(start) = rest.find("[[") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find("]]") else { break };
+        let target = after[..end].trim();
+        let (file, section) = target
+            .split_once('#')
+            .map(|(file, section)| (file.trim(), Some(normalize_heading(section))))
+            .unwrap_or((target, None));
+        targets.insert((file.to_owned(), section));
+        rest = &after[end + 2..];
+    }
+    targets
+}
+
+fn normalize_heading(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn check_affects_provenance(
+    path: &str,
+    source: &str,
+    decisions: &BTreeSet<String>,
+    affects: &AffectsMap,
+    findings: &mut Vec<RepositoryFinding>,
+) {
+    let document_id = frontmatter_value(source, "id")
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .unwrap_or_else(|| {
+            Path::new(path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        });
+    for (line, heading, status, refs) in asserted_sections(source) {
+        if !matches!(status, "ratified" | "provisional") {
+            continue;
+        }
+        let normalized = normalize_heading(&heading);
+        for reference in refs {
+            if !reference.starts_with("D-") || !decisions.contains(reference) {
+                continue;
+            }
+            let targets = affects.get(reference).cloned().unwrap_or_default();
+            if targets.contains(&(document_id.clone(), None))
+                || targets.contains(&(document_id.clone(), Some(normalized.clone())))
+            {
+                continue;
+            }
+            findings.push(RepositoryFinding::at_line(
+                path,
+                line,
+                "V11",
+                format!(
+                    "section '{heading}' cites {reference}, but {reference}'s affects does not name this section"
+                ),
+            ));
+        }
+    }
+}
+
+fn asserted_sections(source: &str) -> Vec<(usize, String, &str, Vec<&str>)> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut out = Vec::new();
+    for (index, line) in lines.iter().enumerate() {
+        if !line.starts_with("## ") && !line.starts_with("### ") {
+            continue;
+        }
+        let heading = line.trim_start_matches('#').trim().to_owned();
+        let mut cursor = index + 1;
+        while cursor < lines.len() {
+            let candidate = lines[cursor];
+            if candidate.starts_with("## ") || candidate.starts_with("### ") {
+                break;
+            }
+            if !candidate.trim().is_empty() {
+                if let Some((status, citations)) = parse_status_marker(candidate) {
+                    out.push((index + 1, heading, status, citations));
+                }
+                break;
+            }
+            cursor += 1;
+        }
+    }
+    out
 }
 
 fn heading_id(line: &str, prefix: &str) -> Option<String> {
@@ -1129,7 +1447,7 @@ mod tests {
         write(
             dir.path(),
             "decisions.md",
-            "## D-0001 — test\n- status: ratified\n",
+            "## D-0001 — test\n- status: ratified\n- affects: [[anchor#Anchor]]\n",
         );
         let findings = validate_repository(dir.path());
         assert!(findings.is_empty(), "{findings:?}");
@@ -1314,6 +1632,125 @@ mod tests {
                 .iter()
                 .any(|f| f.code == "V8" && f.message.contains("algorithm"))
         );
+    }
+
+    #[test]
+    fn v10_enforces_live_and_resolved_question_placement() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "open-questions.md",
+            "## Q-0001 — moved\n- status: resolved\n",
+        );
+        write(
+            dir.path(),
+            "resolved-questions.md",
+            "## Q-0002 — live\n- status: open\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert_eq!(findings.iter().filter(|f| f.code == "V10").count(), 2);
+    }
+
+    #[test]
+    fn v12_validates_in_world_text_register_passages_and_ids() {
+        let dir = tempdir().expect("tempdir");
+        let long = "a".repeat(1201);
+        write(
+            dir.path(),
+            "texts/one.md",
+            &format!(
+                "---\nid: one\ntitle: One\ntype: narrative\nstatus: proposed\n---\n\n## Broken Register\n> status: proposed\n> kind: pamphlet\n*\"fine\"*\n\n## Missing Passage\n> status: proposed\n> kind: fable\n\n## Empty Passage\n> status: proposed\n> kind: fable\n*\"\"*\n\n## Long Passage\n> status: proposed\n> kind: fable\n*\"{long}\"*\n"
+            ),
+        );
+        write(
+            dir.path(),
+            "texts/two.md",
+            "---\nid: two\ntitle: Two\ntype: narrative\nstatus: proposed\n---\n\n## Broken Register\n> status: proposed\n> kind: fable\n*\"fine\"*\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding.code == "V12" && finding.message.contains("unknown kind"))
+        );
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("no quotable passage")
+        }));
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("passage 1 is empty")
+        }));
+        assert!(findings
+            .iter()
+            .any(|finding| finding.code == "V12" && finding.message.contains("runs 1201 chars")));
+        assert!(findings.iter().any(|finding| {
+            finding.code == "V12" && finding.message.contains("duplicate work id")
+        }));
+    }
+
+    #[test]
+    fn v11_requires_section_granular_affects_for_asserted_citations() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — scoped\n- status: ratified\n- affects: [[other]]\n\n## D-0002 — whole file\n- status: ratified\n- affects: [[whole]]\n\n## D-0003 — subsection\n- status: ratified\n- affects: [[subsections#Inner]]\n",
+        );
+        write(
+            dir.path(),
+            "forged.md",
+            "---\nid: forged\ntitle: Forged\ntype: narrative\nstatus: proposed\n---\n\n## Forged\n> status: ratified (D-0001)\n",
+        );
+        write(
+            dir.path(),
+            "whole.md",
+            "---\nid: whole\ntitle: Whole\ntype: narrative\nstatus: proposed\n---\n\n## Any section\n> status: ratified (D-0002)\n",
+        );
+        write(
+            dir.path(),
+            "subsections.md",
+            "---\nid: subsections\ntitle: Subsections\ntype: narrative\nstatus: proposed\n---\n\n## Parent\n> status: proposed\n\n### Inner\n> status: ratified (D-0003)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(findings.iter().any(|finding| {
+            finding.path == "forged.md"
+                && finding.code == "V11"
+                && finding.message.contains("D-0001")
+        }));
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| { finding.path == "whole.md" && finding.code == "V11" })
+        );
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| { finding.path == "subsections.md" && finding.code == "V11" })
+        );
+    }
+
+    #[test]
+    fn v11_delegates_unknown_and_non_asserted_citations() {
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — real\n- status: ratified\n- affects: [[proposed]]\n",
+        );
+        write(
+            dir.path(),
+            "cases.md",
+            "---\nid: cases\ntitle: Cases\ntype: narrative\nstatus: proposed\n---\n\n## Proposed\n> status: proposed (D-0001)\n\n## Unknown\n> status: ratified (D-9999)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(findings.iter().any(|finding| {
+            finding.path == "cases.md"
+                && finding.code == "V3"
+                && finding.message.contains("proposed")
+        }));
+        assert!(findings.iter().any(|finding| {
+            finding.path == "cases.md" && finding.code == "V4" && finding.message.contains("D-9999")
+        }));
+        assert!(!findings.iter().any(|finding| finding.code == "V11"));
     }
 
     #[test]
