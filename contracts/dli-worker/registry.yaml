@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.1.0
+contract_version: 1.2.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -24,6 +24,8 @@ replay_project:
   sha256: de85e42bac853bdfb6344bb01938c7d335c78f89fed97c3690ea958b54566f71
 - path: fixture-project/simulation.dli
   sha256: 45559af98e4515152cbb3c1ef2d1aea8e32d205e49112c23c57254465650a1a4
+- path: fixture-project/corpus.dli
+  sha256: 4c11192c42774add4d9aeb1c39439a9fde147e82ff3b4374cfcd5b19cc48aaa3
 fixtures:
 - path: framing/author-add-event-framing.json
   sha256: c4bf74b2b4f5a776888504f523839a6c2c0b8d1a75a58fade73bfb5b16aafc9e
@@ -47,6 +49,8 @@ fixtures:
   sha256: 4d7ecd950fe274e3d51c516cfed0a06d9245c1618b37ec956249b22b9a4b060e
 - path: framing/contract-1-0-framing.json
   sha256: 76595e2e9aae0239e98aa949b8f8b6affdca0fd1d912a00f0e192b4c6f7076b9
+- path: framing/corpus-framing.json
+  sha256: 32e45b3585965152f559eac3ce46d0b4fea078ae7fd38686a01236fb3f482756
 - path: framing/fork-add-framing.json
   sha256: 9fde791f6d0af22ee63b4a8d41f7b3be9d1c870b7786062f55c3318389a03ae0
 - path: framing/name-check-framing.json
@@ -109,6 +113,10 @@ fixtures:
   sha256: 9754f57d9ef614d13aa9b717f84b95d5e00e2c62cab67bc4d7f812598b9d1e97
 - path: golden/contract-1-0-terse-atom-v1.json
   sha256: acc168f2874c1e60b3bba502f76136c2a06fb929dd1e7f27c4eea9d81aa863a1
+- path: golden/corpus-export-v1.json
+  sha256: d3cb7810d4813a02a0a5981fe637cac58c898ca0db2f2d7387b3e2345473e5a4
+- path: golden/corpus-import-v1.json
+  sha256: 103b5e4edb18d0b2afd07f3c4d4fe69bee4f212c1ed59cb2e7c4cd48395d22aa
 - path: golden/export-ludii-v1.json
   sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
 - path: golden/fork-add-typed-v1.json
@@ -221,6 +229,18 @@ fixtures:
   sha256: 96cf14658adca2027c165c96fec21e59c408b1e0b70fe7fcecd328199a01f5be
 - path: negative/contract-1-0-killed-query-goal.json
   sha256: 04856f20ff0391bb3a80e46ef7a3583eeed403b29aaed14c21a373b070f9575d
+- path: negative/corpus-export-bad-at.json
+  sha256: 626b80300a74f30ba98c667c9feffbd136dacf794bcba7c75ce6a1784d1662a2
+- path: negative/corpus-export-dli-sourced.json
+  sha256: 4bda6af545eb7a7c2c9a413ec63a69376570c0e77f60681665b16d19ac2fd812
+- path: negative/corpus-import-drops-decisions.json
+  sha256: 80746aa9e4c7459a8f14c19285259b73bffec82b8775cb125ed5cb950e2b2ed7
+- path: negative/corpus-import-init-into-populated.json
+  sha256: 6f8c2e3320dd8c5d4b6c364f2099f65ee901273348df621129a02273e3b6dd13
+- path: negative/corpus-import-interner-regression.json
+  sha256: ba0bbe3d61e54f1e46d3556f0f6a558eba28c5349f6c25b1d699df7e4aebee85
+- path: negative/corpus-import-missing-interner.json
+  sha256: 03092b6e7d7c4a88b595440349f22a66fb33c2775dcc18fcdbfc1dfe05acb6e4
 - path: negative/export-run-schema-violation.json
   sha256: 068eca78abb35b2db3f026596bf3651933bcea59b8fc4247ec2f35a023f46773
 - path: negative/forged-digest.json

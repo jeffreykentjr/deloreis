@@ -83,6 +83,8 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::ForkPromote => handle_fork_promote(request, sessions),
         Op::CheckDraft => handle_check_draft(request, sessions),
         Op::PayloadSubmit => handle_payload_submit(request, sessions),
+        Op::CorpusImport => handle_corpus_import(request, sessions),
+        Op::CorpusExport => handle_corpus_export(request, sessions),
         Op::NameCheck => handle_name_check(request, sessions),
         Op::AttestMissing => handle_attest_missing(request, sessions),
         Op::AttestationSweep => handle_attestation_sweep(request, sessions),
@@ -1946,10 +1948,15 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
 /// gated on the version, not on being the newest build.
 fn capabilities(dli: &str) -> Vec<String> {
     let has_branch_merge = !matches!(dli, "0.5.1" | "0.6.0");
+    // The corpus ops arrived at `1.2.0`. Gating on the negotiated version — not
+    // on being the newest build — is what keeps an older caller's capability
+    // list, and the golden fixture recording it, byte-identical (audit C4).
+    let has_corpus = matches!(dli, "1.2.0");
     Op::ALL
         .iter()
         .copied()
         .filter(|op| has_branch_merge || !op.added_in_0_6_1())
+        .filter(|op| has_corpus || !op.added_in_1_2_0())
         .map(wire_name)
         .collect()
 }
@@ -1995,6 +2002,375 @@ fn error_response(request: &Request, code: ErrorCode, message: impl Into<String>
             data: None,
         }),
     }
+}
+
+// -- dli.corpus.* (DM-3, contract 1.2.0) -------------------------------------
+
+/// The lorestore a corpus op acts on: the document's **origin** store.
+///
+/// Only a store-backed document has one. A `.dli`-sourced document is refused
+/// by name rather than given an empty store to import into — the manifest is
+/// where a document's source form is chosen, and a corpus op is not a way to
+/// change it behind the manifest's back.
+fn document_store(sessions: &Sessions, document: &str) -> Result<dli_lorestore::Lorestore, Fault> {
+    let project = require_project(sessions)?;
+    let entry = project
+        .documents()
+        .find(|(id, _)| *id == document)
+        .map(|(_, doc)| doc)
+        .ok_or((
+            ErrorCode::UnknownDoc,
+            format!("unknown document `{document}`"),
+        ))?;
+    let origin = entry.store_origin.as_ref().ok_or((
+        ErrorCode::SchemaViolation,
+        format!(
+            "document `{document}` is `.dli`-sourced, so it has no store to exchange a corpus \
+             through; give it a `store` in the manifest (DL-0055)"
+        ),
+    ))?;
+    dli_lorestore::Lorestore::open(origin.clone())
+        .map_err(|error| (ErrorCode::Internal, error.to_string()))
+}
+
+fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: CorpusImportParams = params(request)?;
+    let store = document_store(sessions, &p.document)?;
+
+    let head = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    if matches!(p.mode, CorpusImportMode::Init) && head.is_some() {
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!(
+                "document `{}` already holds a corpus; `init` seeds an empty store — use \
+                 `append` to extend this one",
+                p.document
+            ),
+        ));
+    }
+
+    let root = match (&p.objects, &p.dli_documents) {
+        (Some(_), Some(_)) => {
+            return Err((
+                ErrorCode::SchemaViolation,
+                "an import carries `objects` or `dli_documents`, never both".to_owned(),
+            ));
+        }
+        (None, None) => {
+            return Err((
+                ErrorCode::SchemaViolation,
+                "an import needs `objects` (any build) or `dli_documents` (syntax builds)"
+                    .to_owned(),
+            ));
+        }
+        (Some(objects), None) => {
+            let interner = p.interner.as_ref().ok_or((
+                ErrorCode::SchemaViolation,
+                "an `objects` import needs the exporting store's `interner`; a stored fact \
+                 records its support as `±<index>` into that table, so importing the objects \
+                 without it would resolve them against a different table and rewrite their \
+                 provenance (DL-0056)"
+                    .to_owned(),
+            ))?;
+            import_objects(&store, objects, interner, &p.decisions, &p.document)?
+        }
+        (None, Some(documents)) => import_dli_documents(&store, documents, &p.document)?,
+    };
+
+    let count = store
+        .fact_hashes_from(&root)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .len();
+    Ok(ok_response(
+        request,
+        &CorpusImportResult {
+            root_hash: root.as_str().to_owned(),
+            imported_count: count,
+            findings: Vec::new(),
+        },
+    ))
+}
+
+/// Import the build-independent form: write each object, then commit them
+/// against the **caller's** interner.
+///
+/// The interner is the caller's, not one reconstructed here, and that is the
+/// whole point: a stored fact's support polynomial is `±<index>` into the
+/// exporting store's name table. Rebuilding a table from the objects' own atom
+/// names produces a different index space, so every support literal silently
+/// resolves to the wrong variable — a `decided d-1` fact reads back as
+/// `proposed assumes __decl`. Carrying the table keeps the exchange lossless
+/// (DL-0056).
+fn import_objects(
+    store: &dli_lorestore::Lorestore,
+    objects: &[serde_json::Value],
+    interner: &[String],
+    decisions: &[String],
+    document: &str,
+) -> Result<dli_lorestore::ContentHash, Fault> {
+    // Appending into a populated store may only extend the table it already
+    // resolves against. The store enforces this too, but as an `internal`
+    // error; caught here it is a caller-facing refusal that names the cause.
+    let head_interner = store
+        .head_interner()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    if !interner.starts_with(&head_interner) {
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!(
+                "the supplied `interner` is not an extension of the one this store already \
+                 resolves against ({} name(s)); every earlier fact's support indexes into that \
+                 table, so replacing it would rewrite their provenance — export the store, \
+                 extend that interner, and import the whole corpus",
+                head_interner.len()
+            ),
+        ));
+    }
+
+    // The decision set is guarded at the commit seam, not here — see
+    // `commit_on_branch`. A drop (including the omission `decisions` defaults
+    // to) comes back as `DecisionRegression` and is mapped below.
+
+    let mut hashes = Vec::with_capacity(objects.len());
+    for (index, value) in objects.iter().enumerate() {
+        let object: dli_lorestore::FactObject =
+            serde_json::from_value(value.clone()).map_err(|error| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("object {index} is not a stored fact object: {error}"),
+                )
+            })?;
+        hashes.push(
+            store
+                .write_object(&object)
+                .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+        );
+    }
+    // `document` is a wire identifier, deliberately decoupled from lore scope —
+    // a store committed as `alpha` may legitimately be served as document
+    // `beta`. So an append carries the committed name forward; only a seeding
+    // commit takes its name from the caller.
+    let pack_name = store
+        .head_pack_name()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .unwrap_or_else(|| document.to_owned());
+
+    store
+        .commit(
+            interner.to_vec(),
+            hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions.to_vec(),
+            pack_name,
+        )
+        .map_err(corpus_commit_fault)
+}
+
+/// Map a store write failure onto the wire.
+///
+/// The two structural refusals — a name table or a decision set that does not
+/// extend what the store already holds — are caller mistakes, and must read as
+/// caller mistakes on every arm. The store raises them as its own error type,
+/// which would otherwise surface as `internal`: a server-defect code for a
+/// caller-supplied payload (DL-0056 rulings 3 and 5). Everything else genuinely
+/// is ours.
+fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
+    match error {
+        dli_lorestore::StoreError::InternerRegression { parent_len, .. } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "the corpus does not extend the name table this store already resolves against \
+                 ({parent_len} name(s)); every earlier fact's support indexes into that table, so \
+                 committing would rewrite its provenance — export the store, extend what it \
+                 returns, and send the whole corpus"
+            ),
+        ),
+        dli_lorestore::StoreError::DecisionRegression { dropped, .. } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "the corpus drops decision `{dropped}`, which this store already knows; standing \
+                 is read against the newest commit's decision set, so committing without it would \
+                 demote every fact resting on that decision from `decided` to `proposed` — send \
+                 the store's decisions plus any new ones"
+            ),
+        ),
+        dli_lorestore::StoreError::PackRename { parent, candidate } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "this corpus is committed as `{parent}` and the import would rename it to \
+                 `{candidate}`; the scope is read off the newest commit, so every committed \
+                 fact's provenance would re-render under a name it was never written in"
+            ),
+        ),
+        other => (ErrorCode::Internal, other.to_string()),
+    }
+}
+
+/// Import `.dli` text. The front end is the one thing a default build does not
+/// have, so this arm refuses by name there rather than pretending.
+#[cfg(feature = "syntax")]
+fn import_dli_documents(
+    store: &dli_lorestore::Lorestore,
+    documents: &[CorpusDocument],
+    document: &str,
+) -> Result<dli_lorestore::ContentHash, Fault> {
+    let mut parsed = Vec::with_capacity(documents.len());
+    for entry in documents {
+        let (ast, diagnostics) = dli_syntax::parse_document(&entry.text);
+        if let Some(diagnostic) = diagnostics.iter().find(|d| d.class.is_error()) {
+            return Err((
+                ErrorCode::SchemaViolation,
+                format!("`{}` does not parse: {}", entry.id, diagnostic.message),
+            ));
+        }
+        parsed.push(ast);
+    }
+    // On an append the chain's committed name wins, exactly as in the `objects`
+    // arm. But this arm carries a scope of its own, so a mismatch is a caller
+    // error worth naming rather than quietly overriding: appending a document
+    // that declares a different scope to an existing corpus is a mistake, where
+    // a differing *document id* is a supported configuration.
+    let committed = store
+        .head_pack_name()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let name = match &committed {
+        Some(committed) => {
+            if let Some(scope) = parsed
+                .iter()
+                .filter_map(|document| document.scope.as_ref())
+                .find(|scope| scope.name.text != *committed)
+            {
+                return Err((
+                    ErrorCode::SchemaViolation,
+                    format!(
+                        "this store holds the `{committed}` corpus and these documents declare \
+                         `scope {}`; an append extends the corpus it is given, so a differing \
+                         scope is a mistake rather than a rename",
+                        scope.name.text
+                    ),
+                ));
+            }
+            committed.clone()
+        }
+        None => document.to_owned(),
+    };
+
+    let pack = dli_world::Pack {
+        name,
+        documents: parsed,
+    };
+    store.import_pack(&pack).map_err(corpus_commit_fault)
+}
+
+#[cfg(not(feature = "syntax"))]
+fn import_dli_documents(
+    _store: &dli_lorestore::Lorestore,
+    _documents: &[CorpusDocument],
+    _document: &str,
+) -> Result<dli_lorestore::ContentHash, Fault> {
+    Err((
+        ErrorCode::NotWired,
+        "this build links no `.dli` front end, so it cannot import `dli_documents`; send the \
+         corpus as `objects`, or run the one-shot import on a `syntax`-enabled build"
+            .to_owned(),
+    ))
+}
+
+fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
+    let p: CorpusExportParams = params(request)?;
+    let store = document_store(sessions, &p.document)?;
+
+    let head = match &p.at {
+        Some(at) => dli_lorestore::ContentHash::parse(at).ok_or((
+            ErrorCode::SchemaViolation,
+            format!("`at` is `{at}`, which is not a `sha256:<hex>` store commit hash"),
+        ))?,
+        None => store
+            .branch_head(dli_lorestore::MAIN_REF)
+            .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+            .ok_or((
+                ErrorCode::UnknownDoc,
+                format!("document `{}` has no commit to export", p.document),
+            ))?,
+    };
+
+    // The folded live facts at that commit — the state, not the commit log.
+    let hashes = store
+        .fact_hashes_from(&head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let mut objects = Vec::with_capacity(hashes.len());
+    for hash in &hashes {
+        // A hash the commit references but the store cannot produce is
+        // corruption, not an empty result — say so rather than skipping it.
+        let object: dli_lorestore::FactObject = store
+            .read_object(hash)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
+            .ok_or((
+                ErrorCode::EvidenceCorrupt,
+                format!("commit references object {hash}, which the store does not hold"),
+            ))?;
+        objects
+            .push(serde_json::to_value(&object).map_err(|e| (ErrorCode::Internal, e.to_string()))?);
+    }
+
+    let rendered = match p.format {
+        CorpusExportFormat::Objects => Vec::new(),
+        CorpusExportFormat::Rendered => render_export(&store, &head)?,
+    };
+
+    // The name table those objects' support polynomials index into. Exported
+    // beside them because the objects alone are not the corpus (DL-0056).
+    let interner = store
+        .interner_at(&head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let decisions = store
+        .decisions_at(&head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+
+    Ok(ok_response(
+        request,
+        &CorpusExportResult {
+            root_hash: head.as_str().to_owned(),
+            objects,
+            interner,
+            decisions,
+            rendered,
+        },
+    ))
+}
+
+/// Render an export as `.dli`. Asking for a rendering from a build that links no
+/// renderer is a **loud refusal** naming the ways forward — never a silent empty
+/// array, which would read as "this corpus is empty" (DL-0056).
+#[cfg(feature = "syntax")]
+fn render_export(
+    store: &dli_lorestore::Lorestore,
+    head: &dli_lorestore::ContentHash,
+) -> Result<Vec<String>, Fault> {
+    let pack = store
+        .reconstruct_at(head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    Ok(pack
+        .documents
+        .iter()
+        .map(dli_syntax::format_document)
+        .collect())
+}
+
+#[cfg(not(feature = "syntax"))]
+fn render_export(
+    _store: &dli_lorestore::Lorestore,
+    _head: &dli_lorestore::ContentHash,
+) -> Result<Vec<String>, Fault> {
+    Err((
+        ErrorCode::NotWired,
+        "`format: rendered` needs a linked renderer and this build has none; export `objects` \
+         (the canonical form), or run the export on a `syntax`-enabled build"
+            .to_owned(),
+    ))
 }
 
 #[cfg(test)]

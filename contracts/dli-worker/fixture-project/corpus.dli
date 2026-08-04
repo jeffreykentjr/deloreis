@@ -1,0 +1,8 @@
+scope corpus
+
+ratify d-1
+
+person wren decided d-1
+person alder decided d-1
+
+sworn(wren, alder) decided d-1

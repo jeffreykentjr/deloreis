@@ -153,3 +153,84 @@ fn ensure_pack_imported_is_idempotent_and_single_lineage() {
         "store-compiled atom count matches the direct compile"
     );
 }
+
+/// The decision set obeys the same append-only discipline as the interner, and
+/// for the same reason: `reconstruct` reads standing against the head commit's
+/// decisions, so a child that drops one demotes every fact resting on it from
+/// `decided` to `proposed`. Held at the commit seam so every write path
+/// inherits it — three separate callers grew the same hole while the check
+/// lived above this layer (DL-0056).
+///
+/// Containment, not prefix: the merge path unions decisions as a set, so order
+/// carries no meaning here.
+#[test]
+fn commit_refuses_decision_regression() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let ls = Lorestore::open(temp.path().to_path_buf()).expect("open");
+
+    let decisions = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    let commit = |decisions: Vec<String>| {
+        ls.commit(
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            "t".to_owned(),
+        )
+    };
+
+    commit(decisions(&["d-1"])).expect("a decision over genesis");
+    commit(decisions(&["d-1", "d-2"])).expect("append-only extension");
+    // Reordering is not a regression — the set is what matters.
+    commit(decisions(&["d-2", "d-1"])).expect("reorder keeps every decision");
+    // Dropping one the parent held: refused.
+    match commit(decisions(&["d-1"])) {
+        Err(StoreError::DecisionRegression {
+            dropped,
+            parent_len,
+        }) => {
+            assert_eq!(dropped, "d-2");
+            assert_eq!(parent_len, 2);
+        }
+        other => panic!("dropping a known decision must be refused, got {other:?}"),
+    }
+    // And the empty set — what an omitted wire field decodes to.
+    match commit(Vec::new()) {
+        Err(StoreError::DecisionRegression { .. }) => {}
+        other => panic!("an empty decision set must be refused, got {other:?}"),
+    }
+}
+
+/// The pack name is the third head-replaced field, and it is held to equality.
+/// `reconstruct` reads the scope — and the positional-proposal bundle prefix
+/// `h.<pack_name>#N` — off the head commit, so a child under a different name
+/// re-renders every committed fact's provenance under a scope it was never
+/// written in. The genesis commit is unnamed, so the first real commit names
+/// the chain rather than renaming it (DL-0056).
+#[test]
+fn commit_refuses_a_pack_rename() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let ls = Lorestore::open(temp.path().to_path_buf()).expect("open");
+
+    let commit = |pack_name: &str| {
+        ls.commit(
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            pack_name.to_owned(),
+        )
+    };
+
+    commit("alpha").expect("naming an unnamed chain");
+    commit("alpha").expect("the same name again");
+    match commit("beta") {
+        Err(StoreError::PackRename { parent, candidate }) => {
+            assert_eq!(parent, "alpha");
+            assert_eq!(candidate, "beta");
+        }
+        other => panic!("a rename must be refused, got {other:?}"),
+    }
+}

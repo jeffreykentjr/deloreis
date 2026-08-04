@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CorpusExportResult",
+  "description": "`dli.corpus.export` result.",
+  "type": "object",
+  "properties": {
+    "decisions": {
+      "description": "The decision ids known at that commit — what makes a fact read `decided`\nrather than `proposed assumes`. Round-trips with `objects` and\n`interner`; the three together are the exported state.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interner": {
+      "description": "The interner those objects' support polynomials index into. Feed it back\nto `dli.corpus.import` alongside `objects`; the pair is the corpus, and\nthe objects alone are not (DL-0056).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "objects": {
+      "description": "The folded **live** fact objects at that commit — the state, not the\ncommit log. The log stays a library concern.",
+      "type": "array",
+      "items": true
+    },
+    "rendered": {
+      "description": "The `.dli` rendering, when `format: rendered` was asked for.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "root_hash": {
+      "description": "The commit these facts were folded at.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "root_hash",
+    "objects",
+    "interner",
+    "decisions"
+  ]
+}

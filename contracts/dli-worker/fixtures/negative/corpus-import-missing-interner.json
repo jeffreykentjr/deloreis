@@ -1,0 +1,19 @@
+{
+  "fixture": "negative/corpus-import-missing-interner",
+  "version": 1,
+  "note": "An `objects` import without the exporting store's `interner` is refused. A stored fact records its support as an index into that table, so importing without it would resolve the indices against whatever table the receiving store holds and silently rewrite provenance \u2014 `decided d-1` reads back as `proposed assumes __decl` (DL-0056).",
+  "project": true,
+  "send": {
+    "dli": "1.2.0",
+    "id": "1",
+    "op": "dli.corpus.import",
+    "params": {
+      "document": "corpus",
+      "mode": "append",
+      "objects": []
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

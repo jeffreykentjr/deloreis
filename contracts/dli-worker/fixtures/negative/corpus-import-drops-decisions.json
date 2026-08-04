@@ -1,0 +1,22 @@
+{
+  "fixture": "negative/corpus-import-drops-decisions",
+  "version": 1,
+  "note": "An append that carries a valid interner but drops the store's decision set is refused. Standing is read against the newest commit's decisions, so committing without a decision the store already knew demotes every fact resting on it from `decided` to `proposed` \u2014 the same silent-demotion class the interner guard closes, on the other carried table. `decisions` defaults to empty on the wire, so an omitted field and a deliberate drop arrive identically and neither may proceed (DL-0056).",
+  "project": true,
+  "send": {
+    "dli": "1.2.0",
+    "id": "1",
+    "op": "dli.corpus.import",
+    "params": {
+      "document": "corpus",
+      "mode": "append",
+      "objects": [],
+      "interner": [
+        "d-1"
+      ]
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

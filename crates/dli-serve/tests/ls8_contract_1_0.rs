@@ -806,41 +806,67 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 
 // -- negotiation --------------------------------------------------------------
 
-/// A 1.0 handshake gets the whole surface, and an older one is unchanged. The
-/// capability list is gated on the *negotiated version*, never on "is this the
-/// newest build", so a new major inherits every op instead of resetting the
-/// list to what the build happens to be.
+/// The capability list is gated on the *negotiated version*, never on "is this
+/// the newest build", so an older conversation keeps the surface it was promised
+/// while a newer one inherits every op. Three tiers, each an exact set:
+///
+/// - `0.5.1`/`0.6.0` — no `author.branch`/`author.merge`, no corpus ops.
+/// - `0.6.1`..=`1.1.0` — the branch/merge surface, still no corpus ops.
+/// - `1.2.0` — that surface plus `dli.corpus.import`/`dli.corpus.export`.
+///
+/// Asserting the *differences* rather than a frozen list keeps this honest as
+/// ops are added: a new op must land in a tier deliberately, and an op leaking
+/// into an older tier — the C4 violation this guards — fails here.
 #[test]
 fn a_1_0_handshake_gets_the_full_capability_surface() {
     let (_temp, mut sessions, mut store) = fixture_project();
-    let mut newest: Option<Value> = None;
-    for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
+    let branch_merge = ["author.branch", "author.merge"];
+    let corpus = ["dli.corpus.import", "dli.corpus.export"];
+
+    let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {
         let response = drive(
             &json!({ "dli": version, "id": "v", "op": "dli.version", "params": {} }),
-            &mut sessions,
-            &mut store,
+            sessions,
+            store,
         );
         assert_eq!(
-            response["result"]["contract_version"], **version,
+            response["result"]["contract_version"], *version,
             "the handshake reports the version this conversation speaks: {response}"
         );
-        let caps = response["result"]["capabilities"].clone();
+        let caps: Vec<String> = response["result"]["capabilities"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{version} advertises capabilities: {response}"))
+            .iter()
+            .map(|value| value.as_str().unwrap_or_default().to_owned())
+            .collect();
+        assert!(!caps.is_empty(), "{version} advertises capabilities");
+        caps
+    };
+
+    // The 1.2.0 surface is the reference; every older tier is it minus what that
+    // tier predates.
+    let full = surface("1.2.0", &mut sessions, &mut store);
+    for op in branch_merge.iter().chain(corpus.iter()) {
         assert!(
-            caps.as_array().is_some_and(|caps| !caps.is_empty()),
-            "{version} advertises capabilities: {response}"
+            full.contains(&(*op).to_owned()),
+            "1.2.0 advertises `{op}`: {full:?}"
         );
-        if matches!(*version, "0.5.1" | "0.6.0") {
-            continue;
-        }
-        match &newest {
-            None => newest = Some(caps),
-            Some(expected) => assert_eq!(
-                &caps, expected,
-                "{version} must advertise the same surface as every 0.6.1+ version"
-            ),
-        }
     }
-    assert!(newest.is_some(), "a 0.6.1+ version was negotiated");
+
+    for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
+        let caps = surface(version, &mut sessions, &mut store);
+        let mut expected = full.clone();
+        if *version != "1.2.0" {
+            expected.retain(|op| !corpus.contains(&op.as_str()));
+        }
+        if matches!(*version, "0.5.1" | "0.6.0") {
+            expected.retain(|op| !branch_merge.contains(&op.as_str()));
+        }
+        assert_eq!(
+            caps, expected,
+            "{version} advertises exactly its tier's surface"
+        );
+    }
 }
 
 /// `1.0.0` is accepted, and an unspoken version is still refused with

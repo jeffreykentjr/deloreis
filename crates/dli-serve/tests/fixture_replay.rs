@@ -273,6 +273,7 @@ fn fixture_stores() -> (tempfile::TempDir, Sessions, Store) {
         .join("fixture-project");
     let temp = tempfile::tempdir().expect("create isolated fixture project");
     copy_tree(&source, temp.path());
+    seed_corpus_store(temp.path());
     let project = Arc::new(Project::load(temp.path()).expect("the copied fixture project loads"));
     let packs = project.documents().map(|(id, document)| {
         (
@@ -291,6 +292,39 @@ fn fixture_stores() -> (tempfile::TempDir, Sessions, Store) {
         .expect("attach fixture lorestores");
     let runtime = (Sessions::from_project(Arc::clone(&project)), store);
     (temp, runtime.0, runtime.1)
+}
+
+/// Add the store-backed `corpus` document to the copied project and seed it.
+///
+/// Both halves live here rather than in the committed manifest. A store-backed
+/// document refuses to load from a store with no commit (DL-0055), and a
+/// lorestore is never committed to this tree — so a committed manifest entry
+/// would make the fixture project unloadable in place, which
+/// `default_build::a_dli_project_load_names_its_two_ways_forward` loads it to
+/// assert. Re-deriving the store from the committed, digest-pinned `corpus.dli`
+/// costs one import and, because the store is content-addressed, produces the
+/// same hashes every run — so the goldens may pin them.
+fn seed_corpus_store(root: &Path) {
+    let manifest = root.join("deloreis.toml");
+    let mut text = fs::read_to_string(&manifest).expect("read the copied manifest");
+    text.push_str("\n[documents.corpus]\nstore = \"corpus-store\"\n");
+    fs::write(&manifest, text).expect("declare the store-backed corpus document");
+
+    let source = fs::read_to_string(root.join("corpus.dli")).expect("read the corpus seed source");
+    let (document, diagnostics) = dli_syntax::parse_document(&source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "the corpus seed parses: {diagnostics:?}"
+    );
+    dli_lorestore::Lorestore::open(root.join("corpus-store"))
+        .expect("open the corpus store")
+        .import_pack(&Pack {
+            name: "corpus".to_owned(),
+            documents: vec![document],
+        })
+        .expect("seed the corpus store");
 }
 
 fn copy_tree(source: &Path, destination: &Path) {

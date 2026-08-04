@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CorpusExportParams",
+  "description": "`dli.corpus.export` params.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "The store commit to export at. Defaults to the served head.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "document": {
+      "description": "The logical document to export.",
+      "type": "string"
+    },
+    "format": {
+      "description": "The emission form.",
+      "$ref": "#/$defs/CorpusExportFormat",
+      "default": "objects"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "document"
+  ],
+  "$defs": {
+    "CorpusExportFormat": {
+      "description": "The form an export emits.",
+      "oneOf": [
+        {
+          "description": "The folded fact objects — the default, and build-independent.",
+          "type": "string",
+          "const": "objects"
+        },
+        {
+          "description": "The `.dli` rendering. Syntax builds only; elsewhere a loud refusal.",
+          "type": "string",
+          "const": "rendered"
+        }
+      ]
+    }
+  }
+}

@@ -1817,3 +1817,118 @@ pub struct AuthorMergeResult {
     /// Atoms whose standing changed downward vs. a pre-merge branch.
     pub standing_changes: Vec<MergeStandingChange>,
 }
+
+// -- dli.corpus.import / dli.corpus.export (DM-3, contract 1.2.0) ------------
+
+/// `dli.corpus.import` params: seed or extend a document's lorestore.
+///
+/// Exactly one source form, mirroring the manifest's own rule (DL-0055):
+/// `objects` is the fact-object array and works on **any** build, `dli_documents`
+/// is `.dli` text and needs a build with the front end linked. Both, or neither,
+/// is refused — there is no rule for which would win.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CorpusImportParams {
+    /// The logical document whose store receives the corpus.
+    pub document: String,
+    /// The corpus as stored fact objects — the build-independent form.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub objects: Option<Vec<serde_json::Value>>,
+    /// The exporting store's interner: the name table those objects' support
+    /// polynomials index into. Required with `objects`, because a stored fact
+    /// records its support as `±<index>` — without the table the indices
+    /// resolve against whatever the receiving store happens to hold, which
+    /// silently rewrites provenance rather than failing (DL-0056).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interner: Option<Vec<String>>,
+    /// The decision ids the exporting store holds as known. Standing is read
+    /// against this set: the same fact reads `decided d-1` where `d-1` is known
+    /// and `proposed assumes d-1` where it is not, so an import that dropped it
+    /// would demote every ratified fact it carried.
+    #[serde(default)]
+    pub decisions: Vec<String>,
+    /// The corpus as `.dli` documents. Syntax builds only; elsewhere this is a
+    /// loud refusal naming the one-shot syntax-build path, never a silent skip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dli_documents: Option<Vec<CorpusDocument>>,
+    /// Whether this seeds an empty store or extends a populated one.
+    pub mode: CorpusImportMode,
+}
+
+/// One `.dli` document in an import.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CorpusDocument {
+    /// The document's logical id.
+    pub id: String,
+    /// Its `.dli` source text.
+    pub text: String,
+}
+
+/// Whether an import seeds or extends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum CorpusImportMode {
+    /// Seed an empty store. Refused into a store that already has a head — an
+    /// init that silently extended would make "init" mean two things.
+    Init,
+    /// Extend a store that already holds a corpus.
+    Append,
+}
+
+/// `dli.corpus.import` result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct CorpusImportResult {
+    /// The store commit this import advanced the document to.
+    pub root_hash: String,
+    /// How many fact objects the store holds at that commit.
+    pub imported_count: usize,
+    /// Graded findings raised by the import.
+    pub findings: Vec<Finding>,
+}
+
+/// `dli.corpus.export` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CorpusExportParams {
+    /// The logical document to export.
+    pub document: String,
+    /// The store commit to export at. Defaults to the served head.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<String>,
+    /// The emission form.
+    #[serde(default)]
+    pub format: CorpusExportFormat,
+}
+
+/// The form an export emits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum CorpusExportFormat {
+    /// The folded fact objects — the default, and build-independent.
+    #[default]
+    Objects,
+    /// The `.dli` rendering. Syntax builds only; elsewhere a loud refusal.
+    Rendered,
+}
+
+/// `dli.corpus.export` result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct CorpusExportResult {
+    /// The commit these facts were folded at.
+    pub root_hash: String,
+    /// The folded **live** fact objects at that commit — the state, not the
+    /// commit log. The log stays a library concern.
+    pub objects: Vec<serde_json::Value>,
+    /// The interner those objects' support polynomials index into. Feed it back
+    /// to `dli.corpus.import` alongside `objects`; the pair is the corpus, and
+    /// the objects alone are not (DL-0056).
+    pub interner: Vec<String>,
+    /// The decision ids known at that commit — what makes a fact read `decided`
+    /// rather than `proposed assumes`. Round-trips with `objects` and
+    /// `interner`; the three together are the exported state.
+    pub decisions: Vec<String>,
+    /// The `.dli` rendering, when `format: rendered` was asked for.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rendered: Vec<String>,
+}

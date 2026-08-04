@@ -1,0 +1,62 @@
+{
+  "fixture": "golden/corpus-import-v1",
+  "version": 1,
+  "note": "dli.corpus.import in append mode extends a populated store. The supplied interner extends the one the store already resolves against, so every earlier fact keeps its meaning; the reply reports the new head and the folded fact count.",
+  "project": true,
+  "steps": [
+    {
+      "send": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.import",
+        "params": {
+          "decisions": [
+            "d-1"
+          ],
+          "document": "corpus",
+          "interner": [
+            "d-1"
+          ],
+          "mode": "append",
+          "objects": [
+            {
+              "atom": {
+                "args": [
+                  "rowan"
+                ],
+                "pred": "person"
+              },
+              "authority": null,
+              "claim_id": "sha256:e64d705bc4ddb6c196bc1beef383cb66c07df4edf1078e9e464b5b41664c53d4",
+              "defeaters": {
+                "monomials": []
+              },
+              "grade": "asserted",
+              "provenance": {
+                "marker": "Decided"
+              },
+              "schema_version": 3,
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "1.2.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "imported_count": 5,
+          "root_hash": "sha256:62086986e6d5e95e30537cb5b8721501c92817f35d02579565c657180de3a789"
+        }
+      }
+    }
+  ]
+}

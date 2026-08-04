@@ -1,0 +1,20 @@
+{
+  "fixture": "negative/corpus-import-init-into-populated",
+  "version": 1,
+  "note": "`init` seeds an empty store. Into a populated one it is refused rather than quietly appending, because an init that sometimes extended would make the mode mean two things.",
+  "project": true,
+  "send": {
+    "dli": "1.2.0",
+    "id": "1",
+    "op": "dli.corpus.import",
+    "params": {
+      "document": "corpus",
+      "interner": [],
+      "mode": "init",
+      "objects": []
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

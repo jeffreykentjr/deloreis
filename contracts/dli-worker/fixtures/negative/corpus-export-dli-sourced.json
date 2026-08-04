@@ -1,0 +1,17 @@
+{
+  "fixture": "negative/corpus-export-dli-sourced",
+  "version": 1,
+  "note": "A `.dli`-sourced document has no store to exchange a corpus through, and is refused by name rather than handed an empty store. The manifest is where a document's source form is chosen; a corpus op is not a way to change it behind the manifest's back.",
+  "project": true,
+  "send": {
+    "dli": "1.2.0",
+    "id": "1",
+    "op": "dli.corpus.export",
+    "params": {
+      "document": "saltmarket"
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

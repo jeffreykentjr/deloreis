@@ -219,6 +219,22 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             schema_for!(PayloadSubmitResult),
         ),
         (
+            "dli.corpus.import.request".to_owned(),
+            schema_for!(CorpusImportParams),
+        ),
+        (
+            "dli.corpus.import.response".to_owned(),
+            schema_for!(CorpusImportResult),
+        ),
+        (
+            "dli.corpus.export.request".to_owned(),
+            schema_for!(CorpusExportParams),
+        ),
+        (
+            "dli.corpus.export.response".to_owned(),
+            schema_for!(CorpusExportResult),
+        ),
+        (
             "author.open.request".to_owned(),
             schema_for!(AuthorOpenParams),
         ),

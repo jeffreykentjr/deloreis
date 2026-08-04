@@ -46,7 +46,9 @@ jobs:
       - run: cargo run -p xtask --locked -- syntax-free
       - run: >-
           cargo nextest run -p dli-serve -p dli-lorestore
-          --lib --test default_build --locked --profile ci
+          --lib --test default_build
+          --test store_backed_project --test span_identity
+          --locked --profile ci
 
   docs-oracle:
     runs-on: ubuntu-latest

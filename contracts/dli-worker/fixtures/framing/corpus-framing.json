@@ -1,0 +1,72 @@
+{
+  "fixture": "framing/corpus-framing",
+  "version": 1,
+  "note": "Paired control/attack framing for the corpus ops (contract 1.2.0). The attack moves the frame marker into `document`; the refusal must be the same class for both, with the marker confined to the human-readable message. Their own file rather than cases appended to paired-all-ops-v1: those bytes are released and frozen (audit C4).",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "dli.corpus.import",
+      "control": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.import",
+        "params": {
+          "document": "missing-control",
+          "mode": "append",
+          "objects": [],
+          "interner": []
+        }
+      },
+      "attack": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.import",
+        "params": {
+          "document": "__DLI_FRAME_ATTACK__",
+          "mode": "append",
+          "objects": [],
+          "interner": []
+        }
+      },
+      "changed_paths": [
+        "/params/document"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    },
+    {
+      "op": "dli.corpus.export",
+      "control": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.export",
+        "params": {
+          "document": "missing-control"
+        }
+      },
+      "attack": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.export",
+        "params": {
+          "document": "__DLI_FRAME_ATTACK__"
+        }
+      },
+      "changed_paths": [
+        "/params/document"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    }
+  ]
+}

@@ -1840,3 +1840,71 @@ bare lorestore commit hash should key its freeze on `SCHEMA_VERSION` rather than
 set was empty) instead of absolute hashes. Both trade some replay strength for a ladder
 that is not forced; neither should be adopted without saying which guarantee is being
 given up.
+
+## DL-0056 — DM-3: the corpus exchange carries interner and decisions, and the rendered refusal is loud
+
+*Date: 2026-08-04*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Contract `1.2.0` adds the two corpus operations the consumer's pivot walks
+through, and rules what a corpus *is* on the wire.
+
+1. **`dli.corpus.import` and `dli.corpus.export` land at `1.2.0`**, gated on the
+   negotiated version: only a `1.2.0` handshake advertises them, so every earlier
+   version's capability list — and the golden fixture recording it — stays byte-identical
+   (audit C4). Nothing is retired; the accepted window only grows.
+
+2. **A corpus is objects *plus* interner *plus* decisions.** This is the ruling, and it
+   was found by building the round trip and watching it lie. A stored fact records its
+   support polynomial as `±<index>` into the commit's interner, and its standing is read
+   against the commit's known-decision set. Exporting the fact objects alone and
+   re-importing them is not lossless and does not fail — it silently rewrites provenance.
+   Measured, on a corpus whose facts read `person wren decided d-1`: re-importing the
+   objects alone reconstructed `person wren proposed assumes __decl`, because the receiving
+   store rebuilt an interner from the objects' own atom names, a different index space
+   entirely. Both tables therefore travel with the objects: `dli.corpus.export` returns
+   `interner` and `decisions` beside `objects`, and `dli.corpus.import` requires
+   `interner` with an `objects` payload. Carrying all three reproduces the source commit
+   hash exactly, which is the property the pivot rehearsal asserts.
+
+3. **Absence is refused, never guessed.** An `objects` import with no `interner` is a
+   `schema-violation` naming the consequence, not a best-effort reconstruction: a wrong
+   index space is indistinguishable from a right one at import time and shows up only as
+   changed lore. An append whose `interner` is not an extension of the one the store
+   already resolves against is refused the same way — the store enforces this a layer
+   down, but as an `internal` error, and a caller mistake must read as a caller-facing
+   refusal.
+
+4. **`format: rendered` from a build with no renderer is a loud refusal** (`not-wired`)
+   naming both ways forward — export `objects`, or use a `syntax` build. Never a silent
+   empty array, which reads as "this corpus is empty". The JSON-first default is
+   unchanged: `format` absent or `objects` answers with fact objects on either build, and
+   only an explicit request for a rendering can refuse.
+
+5. **Error-code discipline, restating what DM-3 implemented.** Build-capability refusals
+   are `not-wired` (a `.dli` import, a rendered export, on a build that links no front
+   end); call-precondition violations are `schema-violation` (`init` into a populated
+   store, both or neither source form, a corpus op on a `.dli`-sourced document, a missing
+   or regressing interner). A corpus op requires a store-backed document and refuses a
+   `.dli`-sourced one by name rather than handing it an empty store — the manifest is
+   where a document's source form is chosen. A commit referencing an object the store
+   cannot produce is `evidence-corrupt`, never a silent skip.
+
+6. **The default lane runs the store-backed and span-identity tests.** DM-2 landed both
+   as default-build properties and neither was in the lane that proves it; the canonical
+   gate now runs them, and `.github/workflows/ci.yml` runs the same argv — the CI-parity
+   oracle caught the workflow lagging the gate. That oracle's own assertion is now
+   component-wise rather than a frozen argv, so adding a default-lane test reads as the
+   strengthening it is instead of a regression.
+
+**Not done, and named rather than half-built.** Per-declaration `author.discard` still
+refuses on a build that links no formatter. Re-keying it on the structural key is only
+half the change: the key exists and is stable, but nothing surfaces it, so a default-build
+caller has no way to *name* the declaration it wants dropped. Choosing that surface — a
+staged-key field on `author.diff`, the staged fact-group hash, or something else — is a
+wire decision, and inventing one inside this change would be guessing at the consumer's
+review flow. It is deferred to DM-4, where the authoring tools and `SKILL.md` are rewritten
+together. The current refusal is honest and names its way forward, so nothing is broken
+meanwhile; what is missing is a capability, not a correction.
