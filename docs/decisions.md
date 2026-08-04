@@ -1498,3 +1498,64 @@ addition; nothing the 0.5.1 consumer sends changes shape.
 killed-forms fire under 1.0; the expert-declaration tools and the lorestore project
 loader are its natural close; and the 0.5.1 dual-mode paths retire through the
 killed-form registry after EXT-F4 — never silently.
+
+## DL-0051 — LS-8: contract 1.0, local prep — killed-forms activated; external-blocked on EXT-F4
+
+*Date: 2026-08-04*
+
+**Ruling.** LS-8 (contract 1.0, roadmap §LS-8) lands its **local half** and is marked
+**`external-blocked`** on EXT-F4. `CONTRACT_VERSION` is `1.0.0`; `0.5.1` and
+`0.6.0`–`0.6.4` stay accepted (multi-version dual-mode). Four moves:
+
+1. **The field-level killed-forms fire under 1.0.** The dormant `KILLED_FIELDS`
+   registry (DL-0050) is wired into `serve::dispatch` above the op fork and gated on
+   contract major ≥ 1. A 1.0 request carrying a retired string field — `goal`
+   (dli.query/author.query), `declarations` (fork.add), a payload claim's `atom`
+   (payload-submit *and* check-draft) — is refused `killed-form` naming its typed
+   successor (`goal_atom`/`additions`/`atom_expr`); the typed successor sent alone
+   answers.
+2. **Two-sided retirement off one registry.** A retired field cannot also be
+   serde-`required` (a 1.0 typed request omits it), so the four fields became
+   optional; the requirement is re-imposed **below 1.0** by `required_retired_field`,
+   byte-exact with serde's own `missing field` verdict and its declaration-order
+   precedence (`preceded_by`/`followed_by`). Below 1.0 the string form stays required;
+   at 1.0 it is refused. No 0.x wire moved.
+3. **The agent surface adopts 1.0, ergonomically** (operator's call). The MCP door
+   frames at 1.0, so authoring agents send the typed `goal_atom`; a hand-written
+   `Ident` codec accepts the terse spelling (`"serves"` for `{"text":"serves"}`) so a
+   typed atom is not verbose. `SKILL.md` and the reference cards teach the terse form.
+4. **A differential parity oracle guards 0.x, permanently.** `ls8_zero_x_parity`
+   replays a 394-frame corpus captured from the pre-LS-8 build against the new one, in
+   the gate; every pre-1.0 frame matches byte-for-byte except a handful of
+   individually-recorded, mutation-verified deviations (framing version-echoes; a
+   positional-array `Ident` derive-quirk the published schema never allowed).
+
+**Rationale.** LS-8 is the roadmap's contract major: JSON-first, lorestore-backed,
+`.dli` rendering opt-in. The local half proves 1.0 end to end — the killed-forms fire,
+the typed surface is complete and ergonomic, and the whole 0.5.1..0.6.4 window replays
+byte-identical — without touching the consumer. Two adversarial rounds found real 0.x
+byte-identity breaks the fixture suite could not see (check-draft's shared-struct
+`atom`, a nested-error mis-attribution, an `Ident` wording drift); each was fixed and
+the parity oracle built so the class cannot recur.
+
+**External-blocked.** The consumer cutover — the fantasy repo migrating from vendored
+0.5.1 to 1.0 — is **EXT-F4**, consumer-owned; deloreis does not write the fantasy tree
+(DL-0010). The 0.5.1/0.6.x dual-mode paths are **not deleted**; they retire through the
+killed-form registry only after EXT-F4, never silently.
+
+**Deferred, recorded so they are not rediscovered as bugs.** The runtime-continuity
+`predicate`/`subject`/`value` string form is not yet a registered killed-form (a
+multi-field retirement), so it survives into 1.0; `KILLED_FIELDS.followed_by` is
+name-matched (the five registrations are audited disjoint from nested field names and
+corpus-backstopped, but a future params field named `pred`/`args` would need a look);
+and DL-0050's open items — the expert-declaration `author.*` tools and the
+lorestore-backed project loader — remain.
+
+**The back half.** With LS-8 `external-blocked`, the store-lane back half is locally
+complete: LS-6 (DL-0048), LS-9 (DL-0049), LS-7 (DL-0050), LS-8 (this entry). Only
+EXT-F4, consumer-owned, remains.
+
+**Revisit trigger.** EXT-F4: when the consumer speaks 1.0 against the vendored,
+digest-checked contract, the 0.5.1 dual-mode paths retire through the killed-form
+registry, and the deferred runtime-continuity / expert-tool / project-loader items
+close.
