@@ -100,6 +100,12 @@ pub enum Op {
     /// Submit a draft payload.
     #[serde(rename = "dli.payload-submit")]
     PayloadSubmit,
+    /// Import a corpus into a document's lorestore (DM-3, contract 1.2.0).
+    #[serde(rename = "dli.corpus.import")]
+    CorpusImport,
+    /// Export a document's folded fact objects at a head (DM-3, contract 1.2.0).
+    #[serde(rename = "dli.corpus.export")]
+    CorpusExport,
     /// Open an authoring workspace.
     #[serde(rename = "author.open")]
     AuthorOpen,
@@ -167,7 +173,7 @@ pub enum Op {
 
 impl Op {
     /// Every operation, in wire order.
-    pub const ALL: [Op; 48] = [
+    pub const ALL: [Op; 50] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -195,6 +201,8 @@ impl Op {
         Op::AttestMissing,
         Op::AttestationSweep,
         Op::PayloadSubmit,
+        Op::CorpusImport,
+        Op::CorpusExport,
         Op::AuthorOpen,
         Op::AuthorStatus,
         Op::AuthorDiff,
@@ -217,6 +225,15 @@ impl Op {
         Op::AuthorBranch,
         Op::AuthorMerge,
     ];
+
+    /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
+    /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
+    /// negotiation's capability list — and the golden fixture recording it —
+    /// stays byte-identical and needs no re-pin (audit C4).
+    #[must_use]
+    pub const fn added_in_1_2_0(self) -> bool {
+        matches!(self, Op::CorpusImport | Op::CorpusExport)
+    }
 
     /// Whether this op was introduced in contract `0.6.1` (the LS-6 branch/merge
     /// surface). Such ops are omitted from an older negotiation's capability list,
@@ -293,6 +310,12 @@ impl Op {
             Op::AttestMissing => "List questions that lack a current attestation.",
             Op::AttestationSweep => "Validate and append an immutable attestation batch.",
             Op::PayloadSubmit => "Check and persist an accepted fat draft payload.",
+            Op::CorpusImport => {
+                "Import a corpus into a document's store — fact objects on any build, .dli documents on a syntax build."
+            }
+            Op::CorpusExport => {
+                "Export a document's folded fact objects at a head — the live state, not the commit log."
+            }
             Op::AuthorOpen => {
                 "Open an authoring workspace over a scope or fork; returns its id and digest."
             }

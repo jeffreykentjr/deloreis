@@ -54,6 +54,8 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorListWorkspaces, "author.list_workspaces"),
     (Op::AuthorBranch, "author.branch"),
     (Op::AuthorMerge, "author.merge"),
+    (Op::CorpusImport, "dli.corpus.import"),
+    (Op::CorpusExport, "dli.corpus.export"),
 ];
 
 #[test]

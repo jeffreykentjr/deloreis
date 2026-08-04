@@ -111,6 +111,16 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
         "--lib",
         "--test",
         "default_build",
+        // The store-backed loader and the span-identity guard are default-lane
+        // properties too (DL-0055, DL-0056): a store-backed project must load
+        // and serve with no parser linked, and source position must stay out of
+        // the identity projection. Both passed syntax-free when they landed, but
+        // only by hand — the lane did not run them, so nothing would have caught
+        // a later change that made either reach for `dli_syntax`.
+        "--test",
+        "store_backed_project",
+        "--test",
+        "span_identity",
         "--locked",
     ];
     if ci {

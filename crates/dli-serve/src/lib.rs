@@ -61,7 +61,7 @@ mod simulation;
 /// LS-6 merge engine on the tool surface (roadmap LS-6). `0.6.0` through
 /// `0.6.4` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
 /// shape.
-pub const CONTRACT_VERSION: &str = "1.1.0";
+pub const CONTRACT_VERSION: &str = "1.2.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -76,7 +76,10 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// successors), `0.6.4` (JSON-first + LS-7 typed runtime-continuity rows), and
 /// `1.0.0` (LS-8: the typed successors are the only form), and `1.1.0` (DM-2:
 /// `SCHEMA_VERSION` 3 — the stored fact-object canonical bytes changed, which
-/// is a contract change under schema-first, DL-0003/DL-0041/DL-0055).
+/// is a contract change under schema-first, DL-0003/DL-0041/DL-0055), and
+/// `1.2.0` (DM-3: the corpus-exchange ops `dli.corpus.import` and
+/// `dli.corpus.export`, DL-0056 — additive, and advertised only at `1.2.0` and
+/// above so an older negotiation's capability list is unmoved).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -84,7 +87,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// The `serve::KILLED_FIELDS` retirement is keyed on the major, so it is live
 /// on exactly one member of this list and dormant on the other six.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
-    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0",
+    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CorpusExportResult",
+  "description": "`dli.corpus.export` result.",
+  "type": "object",
+  "properties": {
+    "objects": {
+      "description": "The folded **live** fact objects at that commit — the state, not the\ncommit log. The log stays a library concern.",
+      "type": "array",
+      "items": true
+    },
+    "rendered": {
+      "description": "The `.dli` rendering, when `format: rendered` was asked for.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "root_hash": {
+      "description": "The commit these facts were folded at.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "root_hash",
+    "objects"
+  ]
+}
