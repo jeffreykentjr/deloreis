@@ -68,7 +68,7 @@ enum Command {
     /// Render the findings report.
     #[cfg(feature = "syntax")]
     Report(cmd::report::ReportArgs),
-    /// Validate Markdown canon repository frontmatter.
+    /// Validate a Markdown canon repository against the eleven contract checks.
     #[command(name = "validate-repo")]
     ValidateRepo(cmd::repository::RepositoryValidateArgs),
     /// Run JSON-over-stdio with `--project <path>` or explicit `--demo`.

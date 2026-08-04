@@ -400,6 +400,19 @@ they touch; they are not a lane of their own.
   *Needs:* MIG-3, TIME-3. *Produces:* the ratified intra-era order and the
   narrative-layer split. *Oracle:* the acts leave the chronology spine; the batch
   RQ ratifies the intra-era order the author has not previously ruled.
+- **VAL-1** — The native repository validator (`deloreis validate-repo`) and its
+  detection corpus: eleven codes — V1–V8, V10–V12 — a governance home, and a
+  finding-shape promise the consuming project's shadow-validate harness compares
+  against. There is no V9 (DL-0057): it closed by absorption, its status-leak
+  half a theorem in `dli-core` derivation support and its row-discipline half the
+  MIG-1 replay legs.
+  *Needs:* INFRA-1. *Produces:* the deloreis half of the shadow-validate
+  handshake — the detection corpus, the legacy↔native mapping table, and the
+  stable finding shape. *Oracle:* a committed baseline canon repository
+  validates to the empty finding list, and every emitted code has at least one
+  seeded-divergence operator whose **exact** finding set (path, line, code,
+  message fragment) replays offline; the emitted code set is read out of the
+  validator's own source, so a new code with no operator fails the gate.
 - **EXT-F1** — *(external — fantasy.)* The pinned legacy oracles (`fantasy
   validate`, factcheck, continuity at a pinned SHA).
   *Needs:* none. *Produces:* the reference oracles for shadow-read. *Oracle:* the
@@ -591,6 +604,7 @@ graph LR
   EXT-A1 --> MIG-3
   MIG-3 --> MIG-4
   TIME-3 --> MIG-4
+  INFRA-1 --> VAL-1
 
   LS-0 --> LS-1
   LS-1 --> LS-2
@@ -705,6 +719,7 @@ author or consumer artifact that this repository does not own.
 | PROOF-2 | done | pinned differential harness and detection tests |
 | MIG-1 | done | world loader replay suites |
 | MIG-2 | done | vendored snapshots and mutation detection corpus |
+| VAL-1 | done | DL-0057; `design-notes/native-repository-validator.md`; `cargo test -p dli-world --test repository_detection` — a clean baseline canon tree plus 26 operators covering all eleven emitted codes (V1–V8, V10–V12) with exact finding sets, no `xfail`. The consumer-side DP-008 X6/X8 items are consumer-owned and claimed by no node here |
 | MIG-3 | external-blocked | Consumer source deletion and cutover are consumer-owned |
 | MIG-4 | external-blocked | Consumer batch ruling and chronology cutover are not in this release |
 | EXT-F1 | done | `worlds/tpth/vendor/fantasy-099e04cd/MANIFEST.txt` |

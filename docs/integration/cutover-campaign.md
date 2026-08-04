@@ -216,7 +216,9 @@ Exit: gate green; version echo `1.2.0`; three fixtures per new tool replay
 cold; a scenario test stages dialect + name-part + name + banned via tools,
 materializes, reloads, and the language model sees them; 0.x parity green.
 Tag `contract/1.2.0`.
-Ledger: DL-0057 (wave-1/tier-2 tools + scrub implementation + tier re-scoping).
+Ledger: the next free id at landing time (wave-1/tier-2 tools + scrub
+implementation + tier re-scoping). DL-0057 went to DM-5, which reached the
+ledger first.
 
 ### DM-5 — Validator governance, detection corpus, parity support (concurrent)
 
@@ -236,17 +238,23 @@ consumer's ruled source flip and their boundary guard forbids its return).
   (`{path, line, code, message, severity}`, deterministic sort) — the stable
   surface the consumer's shadow harness compares against.
 - **Detection corpus, deloreis-owned**: seeded single-defect trees or mutation
-  operators with ≥ 1 operator per V-code — all twelve (the consumer's RR-014
-  records zero operators today for V1/V2/V6/V10) — each with its expected
-  finding recorded; honest misses xfail-strict; walked by a gate-legal test
-  (offline, deterministic, committed inputs).
+  operators with ≥ 1 operator per V-code — **eleven**, not twelve, since V9 is
+  absorbed (the consumer's RR-014 records zero operators today for
+  V1/V2/V6/V10) — each with its expected finding recorded; honest misses
+  xfail-strict; walked by a gate-legal test (offline, deterministic, committed
+  inputs).
 - Stale-text sweep: the four "first slice V1/V2" comments and the CLI
   reference line; regenerate.
 
-Exit: gate green with the detection-corpus test asserting twelve-code
+Exit: gate green with the detection-corpus test asserting eleven-code
 coverage; authority + docs-oracle green with the new note; no "first slice"
 text remains. No wire surface, no contract bump. Fully parallel with DM-1..4.
-Ledger: DL-0058 (validator governance + scope + corpus ownership).
+
+**Landed as DL-0057** (not the DL-0058 this section originally provisioned):
+ledger ids are minted in landing order, and DM-5 reached the ledger first.
+DM-4's entry takes the next free id when it lands, whatever that is — the
+numbers above DM-3 in this document are provisional, and the ledger is the
+authority.
 
 ### DM-6 — Post-EXT-F4 retirement and closeout (contract 2.0.0; strictly last)
 

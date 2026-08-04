@@ -44,7 +44,7 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 | `deloreis name help` | Print this message or the help of the given subcommand(s) |
 | `deloreis export` | Export under a profile |
 | `deloreis report` | Render the findings report |
-| `deloreis validate-repo` | Validate Markdown canon repository frontmatter |
+| `deloreis validate-repo` | Validate a Markdown canon repository against the eleven contract checks |
 | `deloreis serve` | Run JSON-over-stdio with `--project <path>` or explicit `--demo` |
 | `deloreis mcp` | Run MCP over stdio with `--project <path>` or explicit `--demo` |
 | `deloreis help` | Print this message or the help of the given subcommand(s) |
