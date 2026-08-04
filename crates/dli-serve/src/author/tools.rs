@@ -311,6 +311,23 @@ pub(super) fn materialize(
     let ls = store
         .workspace_lorestore_mut(&params.workspace)
         .expect("checked above");
+
+    // The workspace's `base_name` is the document id the session opened under,
+    // and a document id is a wire identifier decoupled from lore scope — a store
+    // committed as `tpth` may be served as document `beta`. Committing under the
+    // session's name would rename the chain and re-render every committed fact's
+    // provenance under a scope it was never written in, so an existing named
+    // store keeps its name and only a seeding commit takes the session's. Same
+    // rule the corpus arm follows (DL-0056).
+    let pack_name = ls
+        .head_pack_name()
+        .map_err(|error| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("reading the store's pack name: {error}"),
+            data: None,
+        })?
+        .unwrap_or(base_name);
+
     let commit_hash = ls
         .commit(
             ws_interner,
@@ -318,12 +335,23 @@ pub(super) fn materialize(
             Vec::new(),
             Vec::new(),
             decisions,
-            base_name,
+            pack_name,
         )
-        .map_err(|e| ErrorBody {
-            code: ErrorCode::Internal,
-            message: format!("committing to lorestore: {e}"),
-            data: None,
+        .map_err(|error| {
+            // A structural refusal is a caller-facing verdict, not a server
+            // defect — the same discipline `corpus_commit_fault` applies on the
+            // corpus arm (DL-0056 rulings 3 and 5).
+            let code = match &error {
+                dli_lorestore::StoreError::InternerRegression { .. }
+                | dli_lorestore::StoreError::DecisionRegression { .. }
+                | dli_lorestore::StoreError::PackRename { .. } => ErrorCode::SchemaViolation,
+                _ => ErrorCode::Internal,
+            };
+            ErrorBody {
+                code,
+                message: format!("committing to lorestore: {error}"),
+                data: None,
+            }
         })?;
 
     // The JSON-first return: the committed fact objects, read back from the

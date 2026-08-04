@@ -1003,3 +1003,93 @@ fn a_dli_append_declaring_a_different_scope_is_refused() {
         "the refusal names both scopes, got: {message}"
     );
 }
+
+/// The authoring analog of the corpus test above: `author.materialize` on a
+/// store-backed document served under a different id must succeed and preserve
+/// the committed scope.
+///
+/// The workspace's base name is the document id the session opened under, and a
+/// document id is decoupled from lore scope. Committing under the session's
+/// name would rename the chain; refusing would make the one taught authoring
+/// interface unusable for a configuration `Project::load` accepts. So it
+/// preserves, exactly as `dli.corpus.import` does.
+#[test]
+fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
+    let root = temp("materialize-preserves-scope");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let store = Lorestore::open(dir.clone()).expect("open store");
+    let head = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("seeded head");
+
+    // Served under `beta`, committed as `tpth`.
+    write_manifest(&root, "[documents.beta]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a renamed document loads");
+
+    let mut author =
+        dli_serve::author::store::Store::with_packs(project.documents().map(|(id, document)| {
+            (
+                id.to_owned(),
+                document.pack.clone(),
+                document.killed.clone(),
+            )
+        }))
+        .expect("the project compiles");
+    for (id, document) in project.documents() {
+        if let Some(origin) = document.store_origin.as_ref() {
+            author.register_store_origin(id.to_owned(), origin.clone(), document.store_pinned);
+        }
+    }
+    author
+        .attach_lorestore(root.join(".dli-lorestore"))
+        .expect("attach");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+
+    let opened = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"author.open",
+                            "params":{"scope":"beta"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .unwrap_or_else(|| panic!("author.open answered with a workspace: {opened}"))
+        .to_owned();
+
+    let staged = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"author.add_entity",
+            "params":{"workspace":workspace,"kind":"person","id":"kes",
+                      "name":"Kes","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(staged["ok"], true, "the entity stages: {staged}");
+
+    let materialized = send(
+        &serde_json::json!({"dli":"1.2.0","id":"3","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["ok"], true,
+        "materialize under a differing document id succeeds: {materialized}"
+    );
+
+    let after = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("head present");
+    assert_ne!(after, head, "materialize advanced the store it loaded from");
+    assert_eq!(
+        store.head_pack_name().expect("read pack name"),
+        Some("tpth".to_owned()),
+        "the commit kept the committed scope rather than the session's document id"
+    );
+    let world = store.reconstruct_at(&after).expect("reconstruct");
+    assert_eq!(
+        world.name, "tpth",
+        "the reconstructed pack carries the committed scope"
+    );
+}

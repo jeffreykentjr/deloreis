@@ -885,12 +885,21 @@ impl Lorestore {
 /// - **decisions** — containment. Standing is read against the set, so dropping
 ///   one demotes every fact resting on it; order is meaningless (the merge path
 ///   unions them).
-/// - **pack name** — equality. The scope and the positional-proposal bundle
-///   prefix `h.<pack_name>#N` come from it, so a rename re-renders committed
-///   provenance under a name it was never written in.
+/// - **pack name** — equality, once the chain has a name. The scope and the
+///   positional-proposal bundle prefix `h.<pack_name>#N` come from it, so a
+///   rename re-renders committed provenance under a name it was never written
+///   in. Genesis is deliberately unnamed, so the first commit names a chain
+///   rather than renaming it.
 ///
 /// Everything else a commit carries is additive (facts, lineage, evidence) or
 /// structural (parents), and cannot rewrite an ancestor.
+///
+/// Both write paths above this seam preserve the name rather than relying on
+/// the refusal: `dli.corpus.import` and `author.materialize` each take their
+/// scope from the store's head when it has one, and pass their caller's name
+/// only when seeding. The refusal is the backstop, not the mechanism — a
+/// document id is a wire identifier decoupled from lore scope, so a differing
+/// one is a supported configuration and must not fail.
 fn check_chain_invariants(
     parent: &Commit,
     interner: &[String],
