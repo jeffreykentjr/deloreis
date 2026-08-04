@@ -125,20 +125,24 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.0.0** (DL-0051, DL-0053), served multi-version dual-mode:
-`0.5.1` and `0.6.0`–`0.6.4` stay accepted and answer byte-identically — a
-`0.5.1` caller keeps the rendered-lines return — until EXT-F4 completes, after
-which those versions retire through the killed-form registry, never silently.
+The contract is **1.2.0** (DL-0051, DL-0053, DL-0055, DL-0056), served
+multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0` and `1.1.0` stay
+accepted and answer byte-identically — a `0.5.1` caller keeps the rendered-lines
+return — until EXT-F4 completes, after which the `0.x` versions retire through
+the killed-form registry, never silently.
 `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
 editing is a measured fallback with no reliability claim, not the taught
 path.
 
-DL-0054 amends the authority half of that law, direction ruled and code
-scheduled for contract 1.2.0: the engine stops gating on *who may rule*. It
-keeps referential integrity — a cited decision id must resolve — and records
-caller-supplied attribution and decision state as data; review and approval
-workflow belong to the consuming application. Until 1.2.0 ships, the
-`provenance.cited-refused` refusal is still the served behavior on every
-version, and every 0.x wire keeps it byte-exact permanently.
+DL-0054 amends the authority half of that law — direction ruled, code not yet
+landed: the engine stops gating on *who may rule*. It keeps referential
+integrity — a cited decision id must resolve — and records caller-supplied
+attribution and decision state as data; review and approval workflow belong to
+the consuming application. DL-0054 named contract 1.2.0 when it was written, but
+the minor ladder moved after it (1.1.0 took the storage schema, 1.2.0 the corpus
+exchange), so the scrub lands at the next minor and its entry states the
+version. Until then `provenance.cited-refused` is still the served behavior on
+every accepted version, 1.2.0 included, and every 0.x wire keeps it byte-exact
+permanently.

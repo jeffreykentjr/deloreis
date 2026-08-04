@@ -689,7 +689,7 @@ author or consumer artifact that this repository does not own.
 | SURF-4 | deferred | retired by DL-0041 — no grammar freeze will occur; the text surface closes |
 | BENCH-1 | deferred | retired by DL-0041 — the two-route question is answered by events |
 | BENCH-2 | deferred | retired by DL-0041; see BENCH-1 |
-| CON-1 | done | `cargo xtask fixtures` and `cargo test -p dli-serve --test fixture_replay` cover all 48 ops with typed schemas and paired framing (46 at CON-1's close; `author.branch`/`author.merge` joined at contract 0.6.1 with their three fixtures each) |
+| CON-1 | done | `cargo xtask fixtures` and `cargo test -p dli-serve --test fixture_replay` cover all 50 ops with typed schemas and paired framing (46 at CON-1's close; `author.branch`/`author.merge` joined at contract 0.6.1 and `dli.corpus.import`/`dli.corpus.export` at 1.2.0, each with their three fixtures) |
 | SERVE-1 | done | `cargo test -p dli-serve --test simulation --test fixture_replay` covers practice/game jobs, durable start/status/cancel, restart, terminal rollback refusal, checkpoint-chain corruption, and capability replay |
 | CLI-1 | done | The built Clap graph generates the command reference; `cargo test -p deloreis --test cli --test serve_project` covers every command/help path, positive and negative workflows, and project-backed transport |
 | AUTH-1 | done | `cargo test -p dli-serve --test author --test author_read --test fixture_replay` |

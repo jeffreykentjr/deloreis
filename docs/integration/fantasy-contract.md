@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.0.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, and complete paired framing replay are implemented; the server speaks 1.0.0 alongside the whole accepted 0.5.1-0.6.4 window, and the consumer cutover (EXT-F4) is the one open item."
+verdict: "The generic worker contract at 1.2.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, the corpus exchange, and complete paired framing replay are implemented; the server speaks 1.2.0 alongside the whole accepted 0.5.1-0.6.4, 1.0.0 and 1.1.0 window, and the consumer cutover (EXT-F4) is the one open item."
 ---
 
 # The dli-worker contract
@@ -18,16 +18,16 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.0.0` (`decisions.md` DL-0051,
-> DL-0053). It carries typed responses for all 48 operations, strict caller
-> projects, complete golden/negative/paired-framing coverage, and a replayable
-> tool surface. Durable fat-payload, attestation, and restart-resumable
-> simulation evidence is implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are
-> closed. The server runs **multi-version dual-mode**: it accepts `0.5.1`,
-> `0.6.0`–`0.6.4`, and `1.0.0`, and answers in the version the caller declared
-> (§6), so a vendored `0.5.1` consumer keeps byte-identical responses. The
-> consumer cutover onto `1.0.0` — `EXT-F4`, consumer-owned — is the one open
-> item.
+> **Implementation status:** the contract is at `1.2.0` (`decisions.md` DL-0051,
+> DL-0053, DL-0055, DL-0056). It carries typed responses for all 50 operations,
+> strict caller projects, complete golden/negative/paired-framing coverage, and
+> a replayable tool surface. Durable fat-payload, attestation, and
+> restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
+> `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
+> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, and `1.2.0`, and answers in the
+> version the caller declared (§6), so a vendored `0.5.1` consumer keeps
+> byte-identical responses. The consumer cutover onto `1.0.0` — `EXT-F4`,
+> consumer-owned — is the one open item.
 
 ## 1. Parties
 
@@ -106,6 +106,8 @@ The table states the semantics every advertised operation satisfies.
 | `dli.attest.missing` | List the open attestation questions checks demand. | question records |
 | `dli.attestation-sweep` | Validate and append an attestation sweep's results to the store. | accepted count + immutable batch digest |
 | `dli.payload-submit` | Submit a `payload/v1` document: validate, quote-anchor-check, store. | findings + payload digest |
+| `dli.corpus.import` | **≥ `1.2.0`.** Seed or extend a store-backed document's corpus. `document`; `mode` `init`/`append`; exactly one of `objects` (fact objects, any build) or `dli_documents` (syntax builds only). An `objects` payload also carries `interner`, and `decisions` unless the store has none. | `{root_hash, imported_count, findings}` |
+| `dli.corpus.export` | **≥ `1.2.0`.** The folded live facts of a store-backed document — state, not the commit log. `document`; optional `at` (a store commit hash, default the served head); `format` `objects` (default) or `rendered` (syntax builds only). | `{root_hash, objects, interner, decisions, rendered?}` |
 
 `dli.fork.suppose` **supersedes** `dli.suppose`, which is a **killed form** — it
 is registered as such and the server refuses it with a `refused` error naming
@@ -114,7 +116,19 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-All 48 operation names have request/response schemas, dispatch arms, and golden
+**A corpus is `objects` *and* `interner` *and* `decisions`** (DL-0056). A stored
+fact records its support polynomial as `±<index>` into the commit's interner,
+and its standing is read against the commit's known-decision set — so the three
+travel together or the exchange is lossy in a way that does not announce itself:
+re-importing the objects alone reconstructs a different world, `decided d-1`
+coming back as `proposed`. `dli.corpus.export` emits all three; an `objects`
+import without its `interner` is refused rather than reconstructed, and an
+append may only extend what the store already holds. Feed back what the export
+returned and the round trip reproduces the source commit hash. An append also
+preserves the store's committed scope: `document` is a wire identifier, so
+serving a store under a different id is supported and never renames it.
+
+All 50 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
@@ -169,15 +183,21 @@ cannot mint a citation — a ruling lives in the ledger, not a tool call — so 
 tool is refused with the `provenance.cited-refused` finding. This is the
 behavior on every version the server speaks today, `1.0.0` included.
 
-> **Ruled, not yet implemented.** DL-0054 scrubs the engine's role gating: from
-> contract `1.2.0`, a mutating call may carry citation-bearing provenance
-> together with machine-supplied attribution and decision state, all recorded as
-> data. The engine keeps **referential integrity** — a cited decision id must
-> resolve, and a forged one is refused (`citation.unknown-decision`) — but it
-> stops deciding who is allowed to cite; review and approval workflow belongs to
-> the consuming application. Every `0.x` wire keeps the `provenance.cited-refused`
-> refusal byte-exact until version retirement. Callers should not build against
-> the new shape before `1.2.0` is tagged.
+> **Ruled, not yet implemented.** DL-0054 scrubs the engine's role gating: a
+> mutating call will be able to carry citation-bearing provenance together with
+> machine-supplied attribution and decision state, all recorded as data. The
+> engine keeps **referential integrity** — a cited decision id must resolve, and
+> a forged one is refused (`citation.unknown-decision`) — but it stops deciding
+> who is allowed to cite; review and approval workflow belongs to the consuming
+> application. Every `0.x` wire keeps the `provenance.cited-refused` refusal
+> byte-exact until version retirement.
+>
+> **`1.2.0` does not carry it.** DL-0054 named `1.2.0` when it was written, but
+> the minor ladder moved after it: `1.1.0` went to the storage schema (DL-0055)
+> and `1.2.0` to the corpus exchange (DL-0056), so the scrub lands at the next
+> minor instead. Its landing entry states the version; until then the refusal
+> above is the served behavior on **every** accepted version, `1.2.0` included,
+> and callers should not build against the new shape.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
@@ -225,7 +245,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.0.0` enforces it for all 48 operations.
+today: contract `1.2.0` enforces it for all 50 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -290,8 +310,8 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0`. A frame declaring anything else is
-  refused `version-mismatch` (§9), never reinterpreted.
+  `0.6.2`, `0.6.3`, `0.6.4`, `1.0.0`, `1.1.0`, and `1.2.0`. A frame declaring
+  anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
   sees `0.5.1` bytes from a `1.0.0` build — the `ls8_zero_x_parity` oracle
@@ -306,12 +326,19 @@ decoupled, and the compatibility window carries the consumer across.
 - **What `1.1.0` changes.** Storage `SCHEMA_VERSION` 3 (DL-0055): stored fact
   objects carry provenance metadata, their identity projection no longer
   includes source position, and the `decided`/`ratified`/`provisional` status
-  distinction now survives a store round trip. **No new wire operations** — the
-  inventory is still the 48 of §3, and the only wire-visible change is that
-  `1.1.0` joins the accepted list. The version moves because the stored
-  canonical bytes did: under schema-first the fact-object schema *is* part of
-  this contract, so a change to its bytes is a contract change even when no
-  operation moves.
+  distinction now survives a store round trip. **No new wire operations** —
+  `1.1.0` added none, and the only wire-visible change is that it joins the
+  accepted list. The version moves because the stored canonical bytes did: under
+  schema-first the fact-object schema *is* part of this contract, so a change to
+  its bytes is a contract change even when no operation moves.
+- **What `1.2.0` changes.** The corpus exchange (DL-0056): `dli.corpus.import`
+  and `dli.corpus.export` join the inventory, taking it from 48 operations to
+  50. They are gated on the **negotiated version**, not on the build — only a
+  `1.2.0` handshake lists them in `dli.version`, so every earlier version's
+  capability list, and the golden fixture recording it, stays byte-identical.
+  Nothing is retired; the accepted window only widens. A build that links no
+  renderer answers `format: rendered` with a loud `not-wired` refusal naming the
+  ways forward, never a silent empty array.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

@@ -159,8 +159,9 @@ Two envelope properties are load-bearing:
 The version handshake rides `dli.version`, not the envelope: a consumer calls
 `dli.version` and reads the `contract`, `contract_version`, `server`, and
 `capabilities` the running build reports (the consumer pins the contract vendored
-and digest-checked, DL-0010). This build speaks `0.5.1`, `0.6.0`–`0.6.4`, and
-`1.0.0`, and answers every call in the version that call declared, so a
+and digest-checked, DL-0010). This build speaks `0.5.1`, `0.6.0`–`0.6.4`,
+`1.0.0`, `1.1.0`, and `1.2.0`, and answers every call in the version that call
+declared, so a
 consumer vendored at an older version sees byte-identical responses until it
 chooses to move (`integration/fantasy-contract.md` §6). A frame that declares a
 contract version the build does not speak is refused with a typed
