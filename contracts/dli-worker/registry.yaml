@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.0.0
+contract_version: 1.1.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -80,7 +80,7 @@ fixtures:
 - path: golden/author-list-workspaces-v1.json
   sha256: f13bc25a4ab9a2d9f9f6011dcd7bc7533a2714d01ba8f43b1a2010824b91a05c
 - path: golden/author-merge-v1.json
-  sha256: c175a13a24d8f10ad70bcced92a071666717261767a0b12fa59be65f714f8ff1
+  sha256: e50b0db470f7e775be72c4b0f497abbab1371fdb06e38ac87a4e904300b2598c
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-typed-goal-v1.json

@@ -303,6 +303,15 @@ decoupled, and the compatibility window carries the consumer across.
   `declarations`, a payload claim's `atom`) is refused `killed-form` naming its
   typed successor (`goal_atom`, `additions`, `atom_expr`). Below `1.0.0` those
   fields stay required and the string form still answers.
+- **What `1.1.0` changes.** Storage `SCHEMA_VERSION` 3 (DL-0055): stored fact
+  objects carry provenance metadata, their identity projection no longer
+  includes source position, and the `decided`/`ratified`/`provisional` status
+  distinction now survives a store round trip. **No new wire operations** — the
+  inventory is still the 48 of §3, and the only wire-visible change is that
+  `1.1.0` joins the accepted list. The version moves because the stored
+  canonical bytes did: under schema-first the fact-object schema *is* part of
+  this contract, so a change to its bytes is a contract change even when no
+  operation moves.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

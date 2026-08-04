@@ -536,6 +536,13 @@ pub(crate) fn project_author_store(project: &Project) -> io::Result<author::stor
         )
     });
     let mut store = author::store::Store::with_packs(packs).map_err(io::Error::other)?;
+    // A store-backed document authors against the store it was loaded from, not
+    // a copy of it (DL-0055), so its origin is registered before the attach.
+    for (id, document) in project.documents() {
+        if let Some(origin) = document.store_origin.as_ref() {
+            store.register_store_origin(id.to_owned(), origin.clone(), document.store_pinned);
+        }
+    }
     let lorestore_path = project.root().join(".dli-lorestore");
     if let Err(e) = store.attach_lorestore(lorestore_path.clone()) {
         eprintln!(

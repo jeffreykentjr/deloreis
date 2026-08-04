@@ -1732,3 +1732,111 @@ DL-0052, which made the same correction for the ledger's own procedure.
 
 **Revisit trigger.** Contract 1.2.0 (campaign DM-4): the implementing entry records the
 finding-code and provenance-shape changes, and the `0.x` parity evidence.
+
+## DL-0055 — DM-2: store-backed projects, SCHEMA_VERSION 3, and the schema/contract coupling
+
+*Date: 2026-08-04*
+
+**Attribution:** machine — an engineering decision by the orchestrating agents, live and
+binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** DM-2 lands in four parts.
+
+1. **A document's source form may be a lorestore.** `documents.<id>` gains `store` (a
+   project-root-relative store directory) and `head` (a store commit hash), and `sources`
+   becomes optional. Exactly one source form is legal: both is refused by name, and
+   neither is refused by name, because either would leave "what is this document" without
+   an answer the loader may pick on its own. `head` without `store` is refused for the
+   same reason. The store path is resolved with the discipline every other asset path
+   gets — beneath the manifest directory, symlink escape checked. Additive: every existing
+   `sources` manifest parses unchanged under `deny_unknown_fields`.
+
+2. **Two modes, and the fingerprint regime.** `head` present is **pinned mode**: the
+   document is that commit, so the project replays, and advancing canon is an explicit
+   manifest edit. `head` absent is **branch mode**: the document follows the store's
+   `main` tip, which is what an authoring server wants. The document's fingerprint is the
+   resolved head — the store's **content-hash** regime (`sha256:`), never the JCS
+   `workspace_digest` regime (`jcs:`). The two digest domains do not meet in a field or in
+   a meaning (DL-0046 audit repair 1).
+
+3. **A store-backed document attaches its origin store, not a copy.** The serve layer
+   opens the store the project loaded from, so `author.materialize` advances the very
+   store the next load reads — the durable authoring loop closes. It is deliberately *not*
+   re-imported on attach: the pack was reconstructed from that store, so there is nothing
+   to import, and importing a pinned document's older commit would write a new one, which
+   would make serving a read path with a side effect. A pinned document does not follow
+   the branch; nothing may advance it implicitly.
+
+4. **`SCHEMA_VERSION` is 3**, and the stored shape changes twice over.
+
+   **Source position leaves the identity projection.** A carriage embedded the whole
+   span-bearing `Decl` as JSON, and `expert_body` is inside `content_hash`, so the same
+   declaration at two source offsets was **two objects** — verified with a reproduction
+   before any fix: `use harbour` at offset 0 and at 4096 hashed to `sha256:a4bd51d7…` and
+   `sha256:87425712…`. That defeated dedup and broke the invariant `identity.rs` states
+   for itself, that the same assertion reached on two forks is the same object so merge
+   can be a union. The hashed body is now span-normalized. The located original is
+   recorded in `provenance.located_body`, outside the hash, and reconstruction reads it —
+   position is kept, not dropped (koan 4), it simply stops deciding identity.
+
+   **The authored ledger marker is recorded.** `decided D-2`, `ratified D-2`, and
+   `provisional D-2` all lower to the identical citation conjunction, so reverse lowering
+   had to answer `Ratified` for all three and the distinction died on every round trip.
+   The marker is now recorded in `provenance.marker` — **outside** the hash, because the
+   three share one valuation and the loader treats them identically at the fixpoint;
+   hashing it would make an existing store foreign. A v2 object records `None`, which
+   reads as *not recorded* and never as `proposed`; the upcast invents nothing.
+
+   A v2 store is the **same lineage**, by the mechanism already in place: `read_object`
+   upcasts, the upcast normalizes the carriage body, and the lifted object's identity
+   equals a freshly lowered v3 object's, which is what `ensure_pack_imported` compares.
+
+5. **A `SCHEMA_VERSION` bump is a contract change.** `schema_version` is inside the stored
+   bytes by design, so bumping it moves every lorestore commit hash — including two pinned
+   in `golden/author-merge-v1.json`. Audit C4 (DL-0046 ruling 6) refuses a re-pinned
+   fixture digest that does not ride a `contract_version` change, and it is right to: a
+   vendored consumer must never see different bytes under one version label. DM-2 was
+   specified as "no contract bump"; that was wrong, and the ruling is that **the contract
+   version bumps to `1.1.0` here**. Schema-first (DL-0003 as amended by DL-0041) already
+   says the stored fact-object schema *is* the language definition, so a change to its
+   canonical bytes is a contract change whatever else moves. `1.1.0` joins the accepted
+   list; no version is retired; no tag is cut in this change.
+
+   **The minor ladder shifts with it**, recorded here so the next agents inherit it
+   rather than rediscover it: DM-2 is `1.1.0` (this entry, no tag); DM-3's corpus
+   exchange is `1.2.0`, tagged `contract/1.2.0` as the pivot deliverable; DM-4's
+   wave-1 tools and the authority scrub are `1.3.0`, tagged; DM-5's validator
+   governance carries **no bump** (it has no wire surface); DM-6's retirement is
+   `2.0.0`, tagged. DL-0054's "contract ≥ 1.2.0" for the scrub therefore reads as
+   1.3.0 under this ladder — the scrub still lands with the tools, in DM-4.
+
+**Rationale.** The span defect is the kind that hides: nothing fails loudly, dedup simply
+stops deduplicating and a merge that should be a union starts producing conflicts, in
+proportion to how much unrelated editing has shifted offsets. Fixing it needed the
+identity projection to say what a fact *is* rather than where it was typed, which is what
+the projection discipline already said for `claim_id` and `schema_version`. Recording the
+marker is the same shape of correction, from the other side: the store was deriving a
+fact's ruling status from a polynomial that cannot carry it, so it guessed, and the guess
+was wrong two times in three.
+
+The version coupling is the honest surprise. Ordering the schema bump before any consumer
+store exists was right, and the campaign plan's "no contract bump" was simply incompatible
+with the freeze rule it also relies on. Bumping is the resolution that keeps both guards
+intact rather than carving an exception into C4, which exists precisely to stop bytes
+moving quietly under a vendored label.
+
+**Recorded, so it is not rediscovered.** The `SCHEMA_VERSION`/`contract_version` coupling
+is **structural**: every future schema bump moves every commit hash, so any released
+fixture that pins one forces a contract bump with it. That is a real constraint on the
+minor ladder, not a DM-2 accident. The alternative — keeping content-addressed values out
+of released fixtures — is not free either, since pinning them is what makes the fixture
+prove anything about the store.
+
+**Revisit trigger.** The next `SCHEMA_VERSION` bump. If the forced contract bump proves
+costly on the minor ladder, the cleanup to weigh then is whether a fixture that pins a
+bare lorestore commit hash should key its freeze on `SCHEMA_VERSION` rather than
+`contract_version` — the schema is what actually moves those bytes — or should assert
+**structural properties** (the merge produced one commit, the base resolved, the conflict
+set was empty) instead of absolute hashes. Both trade some replay strength for a ladder
+that is not forced; neither should be adopted without saying which guarantee is being
+given up.
