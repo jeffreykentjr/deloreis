@@ -35,13 +35,14 @@ The coordination points and what each side owes are defined in `migration.md`
 | **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | proposed | — |
 | **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | proposed | — |
 
-The source tree currently implements contract `0.6.0`, served **dual-mode**:
-a `0.5.1` request receives byte-identical `0.5.1`-shaped responses, and every
-vendored v1 fixture remains in the registry as the standing compatibility
-suite (DL-0046) — the v1 handshake completes on v1 terms. All six export
-emission branches are implemented. That is engineering readiness, not delivery: CP-1,
-CP-9, and CP-10 remain `proposed` until a tagged build and the corresponding
-consumer-owned evidence exist.
+The source tree currently implements contract `1.0.0`, served **multi-version
+dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`, answering each
+caller in the version it declared, so a `0.5.1` request still receives
+byte-identical `0.5.1`-shaped responses and every vendored v1 fixture remains
+in the registry as the standing compatibility suite (DL-0046, DL-0051,
+DL-0053). All six export emission branches are implemented. That is engineering
+readiness, not delivery: CP-1, CP-9, and CP-10 remain `proposed` until a tagged
+build and the corresponding consumer-owned evidence exist.
 
 When a point advances, deloreis updates its **State** and fills **Evidence** with
 a link (a fixture path, a tagged build, a transcript). A point never advances

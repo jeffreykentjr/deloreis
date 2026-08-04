@@ -184,6 +184,23 @@ the `workspace` arg and the worker frame fields (`dli`, `id`) elided for
 brevity; the normative wire shape is the contract §2 and the generated
 schemas.
 
+> **This scenario is recorded at contract `0.5.1`, and stays there.** Its frames
+> are the bytes the frozen AUTH-2 fixture replays
+> (`worlds/tpth/auth2/author-tegwen-v1.json`), so they are historically exact
+> and deliberately untouched — a `0.5.1` caller still gets precisely these
+> responses from a `1.0.0` build (contract §6).
+>
+> **From contract `0.6.0` up, `author.materialize` means something different**
+> (`decisions.md` DL-0046). It is a **mutation and the accept decision**: it
+> commits the staged delta to the lorestore and advances the workspace's pinned
+> commit, and it answers **JSON-first** — the committed fact objects in `facts`
+> plus a `root_hash`, with the `.dli` lines in `rendered` only when the call
+> asks (`rendered: true`). `author.discard` is the matching reject decision.
+> The "returns the lines as data; the kernel writes nothing, the agent commits
+> the file" flow below is the `0.5.1` reading of that step, not the `1.0` one.
+> For the current path see `SKILL.md` and the reference cards under
+> `docs/cards/`; for the wire, contract §3.2.
+
 **Open a workspace.**
 
 ```json transcript

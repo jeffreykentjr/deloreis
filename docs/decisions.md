@@ -1616,3 +1616,119 @@ is superseded, never erased, and the correction costs no more than the mistake.
 the wire — attribution and decision state as machine-supplied data, no role gating
 inside deloreis — is a separate author ruling, recorded in
 `docs/integration/cutover-campaign.md` §1 and minted under its own entry.
+
+## DL-0053 — Handshake delivery: the contract doc to 1.0, the tag, retirement through the registry
+
+*Date: 2026-08-04*
+
+**Attribution:** machine — an engineering decision by the orchestrating agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The integration handshake ships as four decisions.
+
+1. **The contract doc is brought to `1.0.0` truth.**
+   `docs/integration/fantasy-contract.md` was a full major stale: it described
+   `0.5.1`, 46 operations, and a non-mutating `author.materialize`. It now states the
+   served reality — contract `1.0.0`; **48** operations (27 `dli.*` + 21 `author.*`,
+   counted against `crates/dli-serve/src/ops.rs`), with `author.branch` and
+   `author.merge` (added at `0.6.1`) present in the §3.2 inventory; and
+   `author.materialize` as **a mutation and the accept decision** per DL-0046 — it
+   commits the staged delta to the lorestore, advances the workspace's pinned commit,
+   and answers JSON-first (`facts` plus `root_hash`) with `.dli` rendering behind
+   `rendered: true`, while `author.discard` is the reject decision. The vendored
+   contract is the consumer's map of this engine; a stale map is worse than none,
+   because it is trusted.
+
+2. **The accepted window, and who chooses within it.** The server accepts `0.5.1`,
+   `0.6.0`–`0.6.4`, and `1.0.0`, and answers every call in the version that call
+   declared. `1.0.0` was minted **before** the consumer cutover rather than at it: the
+   engine's own pivot to fact objects (DL-0041, LS-8/DL-0051) is what earned the
+   major, and withholding the number until the consumer moved would have shipped the
+   pivot under a `0.x` label. The `0.x` window is consequently wider than an ordinary
+   compatibility promise and closes at EXT-F4. **N / N-1 major support applies from
+   `2.0.0` onward** — that is what contract §6 now states, in place of its superseded
+   "the version bumps to v1 at the first cutover" plan.
+
+3. **Retired versions answer through the killed-form registry.** After EXT-F4 each
+   retired `0.x` version is registered with its successor and the ruling that retired
+   it, and a frame declaring one receives a deterministic refusal naming both. A
+   version is never dropped silently and never merely stops working. This is the
+   killed-form law applied to the version axis, and as with every other killed form
+   the registry entry outlives the code path behind it.
+
+4. **The tag is the deliverable.** deloreis cuts an **annotated `contract/1.0.0` tag
+   on the merge commit of this change**, so the tagged tree is self-consistent — the
+   contract doc and the `contracts/` fixture-registry digests agree at one commit —
+   and the tag message cites this entry. That tag is the deloreis side of CP-1, CP-9,
+   and CP-10 (campaign SP-1). The STATUS rows advance to `provided`, carrying the tag
+   name and SHA as evidence, only once the tag exists; this change does not advance
+   them, because the ladder does not admit a rung whose evidence is a promise.
+
+**Rationale.** The consumer's critical path runs through a document, not through
+code: it vendors the contract, digest-checks it, and implements against it. Every
+sentence that lags the engine is a defect the consumer discovers as a wire surprise,
+so the doc rewrite precedes the tag rather than following it (contract §5 step 1).
+Deciding the versioning story here, rather than leaving §6's obsolete plan standing,
+matters because the plan it described did not happen: pretending otherwise would make
+the first thing the consumer reads about compatibility a fiction. Retirement through
+the registry is chosen over deletion for the same reason it always is — a refusal that
+names its successor teaches, and a silence does not.
+
+**Revisit trigger.** EXT-F4: when the consumer completes the handshake on `1.0.0`, the
+`0.x` versions retire through the registry (campaign DM-6) and the accepted list
+shrinks; the retirement lands its own entry.
+
+## DL-0054 — Authority scrub: the engine records attribution and decision state as data; role enforcement is a consumer concern
+
+*Date: 2026-08-04*
+
+**Attribution:** human — this entry encodes the author's explicit ruling, quoted below.
+
+**Ruling.** Deloreis stops enforcing **who may rule**. The engine verifies and records;
+it does not police roles.
+
+1. **Scrubbed, on the 1.x wire.** The Door-T refusal of citation-bearing provenance
+   from a caller (`provenance.cited-refused`), `SKILL.md` §0's "you cannot cite" law,
+   and DL-0043's framing of authority boundaries — "who may propose, who may rule" —
+   as something the engine enforces are removed. Whether a caller is entitled to cite a
+   ruling is not a question this engine can answer, and answering it anyway made the
+   engine wrong about its own callers.
+
+2. **Kept: referential integrity.** A supplied citation must resolve against the known
+   decision set. `citation.unknown-decision` stands and stays fail-closed, on every
+   wire: a forged or unknown decision id is refused. The engine verifies that a cited
+   thing exists; it never invents one, and it no longer asks who is citing it.
+
+3. **New: attribution and decision state are data.** A mutating call carries
+   caller-supplied attribution and decision state, recorded in provenance as supplied.
+   Review and approval workflow — proposing, ruling, cascading an approval downward —
+   is the consuming application's pipeline. A human ruling reaches the engine the same
+   way everything else does: a machine cites the consumer-ledger id that recorded it.
+
+4. **Wire discipline.** The behavior change rides **contract ≥ 1.2.0** only. Every
+   `0.x` wire keeps the `provenance.cited-refused` refusal **byte-exact** until version
+   retirement, enforced by the `ls8_zero_x_parity` oracle. This entry rules the
+   **direction**; the code lands in campaign phase DM-4 under this ruling, and until it
+   ships the refusal remains the served behavior on every version, `1.0.0` included.
+
+**Rationale.** The author ruled it on 2026-08-04, in these words:
+
+> this is a misunderstanding that got threaded pretty deep in deloreis and needs get
+> scrubbed out. basically all callers of deloreis are machines, typically agents or
+> upstream agentically mediated. those agents are responsible for providing clear
+> attribution and decision state... really can't have all this role stuff living at the
+> deloreis level. i think it's all a higher level application (e.g. fantasy) concern. so
+> this needs to be evolved to match that sanely.
+
+The engine had encoded a social fact — that a human author, and only a human author,
+mints citations — as a wire-level refusal. Every caller of deloreis is a machine, so the
+refusal never distinguished a human's decision from an agent's; it only distinguished
+which field the machine filled in, and taught agents to route human rulings around the
+provenance system rather than through it. Attribution is something the caller knows and
+the engine cannot derive. Recording what the caller states, and verifying the one thing
+the engine genuinely can check — that the cited decision exists — keeps the engine
+honest about the boundary of its own knowledge. This is the wire-level counterpart to
+DL-0052, which made the same correction for the ledger's own procedure.
+
+**Revisit trigger.** Contract 1.2.0 (campaign DM-4): the implementing entry records the
+finding-code and provenance-shape changes, and the `0.x` parity evidence.

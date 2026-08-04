@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The pre-v1 generic worker contract at 0.5.1. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, and complete paired framing replay are implemented; consumer integration remains blocked."
+verdict: "The generic worker contract at 1.0.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, and complete paired framing replay are implemented; the server speaks 1.0.0 alongside the whole accepted 0.5.1-0.6.4 window, and the consumer cutover (EXT-F4) is the one open item."
 ---
 
 # The dli-worker contract
@@ -18,12 +18,16 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** this is still a pre-release contract. Version
-> `0.5.1` has typed responses for all 46 operations, strict caller projects,
-> complete golden/negative/paired-framing coverage, and a replayable the tool surface.
-> Durable fat-payload, attestation, and restart-resumable simulation evidence is
-> implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are closed.
-> Consumer cutover is excluded from this source-release round.
+> **Implementation status:** the contract is at `1.0.0` (`decisions.md` DL-0051,
+> DL-0053). It carries typed responses for all 48 operations, strict caller
+> projects, complete golden/negative/paired-framing coverage, and a replayable
+> tool surface. Durable fat-payload, attestation, and restart-resumable
+> simulation evidence is implemented. `CON-1`, `AUTH-1`, and `SERVE-1` are
+> closed. The server runs **multi-version dual-mode**: it accepts `0.5.1`,
+> `0.6.0`–`0.6.4`, and `1.0.0`, and answers in the version the caller declared
+> (§6), so a vendored `0.5.1` consumer keeps byte-identical responses. The
+> consumer cutover onto `1.0.0` — `EXT-F4`, consumer-owned — is the one open
+> item.
 
 ## 1. Parties
 
@@ -51,16 +55,21 @@ model utterance is one of four declared classes, or it does not enter.*
   may carry `expected_digest` — the caller's last-seen workspace digest, for
   optimistic concurrency: a mismatch is a `stale-fence` error (§9), so a stale
   caller never clobbers a moved fence — and `idempotency_key` — a retry-safe key,
-  so a re-sent mutation is applied at most once. Read tools, `author.open`, and
-  batch `dli.*` operations do not accept either field. Both are **declared**
+  so a re-sent mutation is applied at most once. Read tools, `author.open`,
+  `author.materialize`, `author.branch`, `author.merge`, and batch `dli.*`
+  operations do not accept either field — `materialize` is a mutation (§3.2)
+  whose fence is the workspace's own pinned commit, and a re-materialize with
+  nothing newly staged is an idempotent no-op without a key. Both are **declared**
   fields; "unknown fields are errors" still stands. Native stdio carries them in
   the request envelope. MCP exposes them as reserved arguments on those ten
   author mutation tools and lifts them into that same envelope before shared
   dispatch.
 - **Every tool-surface mutation returns immediately.** No mutating `author.*`
-  operation defers its verdict; graded findings, rendered canonical lines, and
-  the workspace digest come back on the same call. Stateful `dli.fork.*`
-  operations return their typed consequence delta or ruling-request draft.
+  operation defers its verdict; graded findings, the structured result, and the
+  workspace digest come back on the same call. The `.dli` rendering rides along
+  as an opt-in view of that result, never as the result itself (§3.2). Stateful
+  `dli.fork.*` operations return their typed consequence delta or
+  ruling-request draft.
 
 ## 3. Operation inventory
 
@@ -105,13 +114,13 @@ renamed by `decisions.md` DL-0016 (the surface-v1 pass that renamed the
 in-practice proof block keyword `ledger`→`proof`); the old op name is a killed
 form the server refuses, naming its successor.
 
-All 46 operation names have request/response schemas, dispatch arms, and golden
+All 48 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
 (`SERVE-1`).
 
-At `0.5.1`, `dli.export.run.profile` is the closed target selector:
+At `1.0.0`, `dli.export.run.profile` is the closed target selector:
 `context-pack`, `cards`, `ludii-gdl`, `articy`, `csv`, or `static-wiki`.
 Optional `profile_name` selects a qualified entry from the caller project's
 validated catalog. Lore-document catalogs are declared by
@@ -125,13 +134,24 @@ artifact-shaping options.
 ### 3.2 Authoring tools — `author.*` (the tool surface)
 
 These are the curated semantic tools agents author through (`decisions.md`
-DL-0014). Every **mutating** tool returns the same immediate-feedback shape:
+DL-0014). Every tool that **stages or commits a declaration** returns the same
+immediate-feedback shape (`author.branch` and `author.merge` act on branches
+rather than declarations and return their own typed shapes, below):
 
 ```
 { findings:  [ { severity: error|warn, code, message, grade, repair, citations } ],
-  rendered:  [ canonical .dli lines the call produced ],
-  workspace_digest: "<RFC 8785 JCS digest of the workspace>" }
+  workspace_digest: "<RFC 8785 JCS digest of the workspace>",
+  rendered:  [ .dli lines — the opt-in view; empty when no formatter is linked ],
+  root_hash: "<lorestore commit hash — author.materialize only>",
+  facts:     [ the committed fact objects — author.materialize only ] }
 ```
+
+`findings` and `workspace_digest` are always present. `root_hash` and `facts`
+appear from `0.6.0` up and only where the table says so; a `0.5.1` caller sees
+neither, and its `rendered` array keeps the pre-`0.6.0` bytes exactly (§6). The
+two digest regimes never share a field: `workspace_digest` is always the
+fence-valid `jcs:sha256:` workspace digest, and a lorestore commit hash always
+travels in `root_hash` (DL-0046).
 
 A finding's `severity` (`error` | `warn`) is first-class and **gates
 materialize**: an `error`-class finding blocks `author.materialize`;
@@ -146,16 +166,26 @@ lands; `repair` carries the fix data; `citations` the support.
 **Provenance over the tool surface is `proposed` or `hypothesis` only** (B1). An agent
 cannot mint a citation — a ruling lives in the ledger, not a tool call — so a
 `cited` provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*`
-tool is refused with the `provenance.cited-refused` finding. Human authors cite
-through human review; the agent proposes and the human confirms the citation.
+tool is refused with the `provenance.cited-refused` finding. This is the
+behavior on every version the server speaks today, `1.0.0` included.
+
+> **Ruled, not yet implemented.** DL-0054 scrubs the engine's role gating: from
+> contract `1.2.0`, a mutating call may carry citation-bearing provenance
+> together with machine-supplied attribution and decision state, all recorded as
+> data. The engine keeps **referential integrity** — a cited decision id must
+> resolve, and a forged one is refused (`citation.unknown-decision`) — but it
+> stops deciding who is allowed to cite; review and approval workflow belongs to
+> the consuming application. Every `0.x` wire keeps the `provenance.cited-refused`
+> refusal byte-exact until version retirement. Callers should not build against
+> the new shape before `1.2.0` is tagged.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
 | `author.open` | Open a workspace (a staging fork) over the world. | yes (creates) |
 | `author.status` | The workspace's staged declarations and open findings. | no |
-| `author.diff` | The rendered canonical block + the full findings, including merely-possible status. | no |
-| `author.discard` | Discard the workspace, or one staged declaration. | yes |
-| `author.materialize` | Render the workspace to `.dli` file contents **as data**; the caller commits through its own review. | no (returns contents) |
+| `author.diff` | The structured review diff — per-fact `rows` with before/after standing, from `0.6.0` — with the full findings and derived consequences, including merely-possible status; the `.dli` rendering is a view of it. | no |
+| `author.discard` | Discard the workspace, or one staged declaration — the **reject** decision. | yes |
+| `author.materialize` | Commit the workspace's staged delta to the lorestore — the **accept** decision; returns the committed fact objects and the new `root_hash`. | yes (commits) |
 | `author.add_entity` | Add a proposed entity (kind: person/place/thing/era). Events are not entities — chronology points go through `author.add_event`. | yes |
 | `author.add_fact` | Add a proposed fact on an entity. | yes |
 | `author.add_relation` | Add a proposed relation between entities. | yes |
@@ -170,17 +200,32 @@ through human review; the agent proposes and the human confirms the citation.
 | `author.why` | Explain why a fact holds: provenance chain + grade derivation. | read |
 | `author.findings` | Return all outstanding findings for the workspace. | read |
 | `author.list_workspaces` | List open workspaces and their summary status. | read |
+| `author.branch` | Create a persistent lorestore branch, or list them (added at `0.6.1`). | yes (`create`) |
+| `author.merge` | Merge a named branch into the target branch (default `main`); returns the merge commit, the merge base, structural conflicts, and findings (added at `0.6.1`). | yes |
 
-`author.materialize` returns the `.dli` contents as data; the kernel does not
-write the fantasy repo. The agent writes the contents to a fantasy-side staging
-path and commits through fantasy review.
+**`author.materialize` is a mutation, and it is the accept decision**
+(DL-0046). It commits the workspace's staged delta to the lorestore and
+advances the workspace's pinned commit, answering with the committed fact
+objects (`facts`) and the commit hash (`root_hash`); the `.dli` rendering is
+the `rendered: true` opt-in, not the return. `author.discard` — whole-workspace
+or per-declaration — is the matching **reject** decision, and a rejected
+declaration's durably staged objects are dropped from the pending commit.
+Re-materializing with nothing newly staged writes no new commit and returns the
+pinned one.
+
+The kernel still never writes the fantasy repo: the commit lands in the
+lorestore the workspace was opened over, which is deloreis-side storage. What
+crosses the boundary is JSON. The commit is version-independent, but the
+**return** is not: a `0.5.1` caller receives the pre-`0.6.0` shape — the
+rendered `.dli` lines, byte-identical, with no `facts` and no `root_hash` — and
+so keeps its file-writing flow until `EXT-F4` (§6).
 
 ## 4. The fixture registry
 
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `0.5.1` enforces it for all 46 operations before v1.
+today: contract `1.0.0` enforces it for all 48 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -237,23 +282,49 @@ code, is the authority.
 
 ## 6. Versioning
 
-- **v0** — the pre-cutover contract. Breaking changes are allowed; no
-  compatibility is promised. This is the state through the build up to the first
-  cutover.
-- **v0 → v1** — the version bumps to v1 at the **first cutover** (the first
-  per-check flip that deletes a legacy source, `migration.md` §5).
-- **From v1** — **N / N-1 compatibility**: the server supports the current and
-  the immediately previous major contract, so a re-vendor is never a flag day.
-  Because the envelope carries no timestamp, the version is always explicit in
-  `dli.version` and in the fixture manifest.
+The major arrived **before** the consumer cutover, not at it (DL-0051,
+DL-0053). The earlier plan — bump to v1 at the first per-check flip — was
+overtaken: the engine's own pivot to fact objects (DL-0041) is what earned the
+major, and holding `1.0.0` back until the consumer moved would have meant
+shipping the pivot under a `0.x` label. So the version and the cutover were
+decoupled, and the compatibility window carries the consumer across.
+
+- **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
+  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0`. A frame declaring anything else is
+  refused `version-mismatch` (§9), never reinterpreted.
+- **The caller picks; the server echoes.** Every response is shaped for, and
+  labelled with, the version the caller declared. A vendored `0.5.1` consumer
+  sees `0.5.1` bytes from a `1.0.0` build — the `ls8_zero_x_parity` oracle
+  replays a captured pre-`1.0` frame corpus in the gate and holds every `0.x`
+  response byte-identical. `1.0.0` is opt-in by negotiation, exactly like every
+  version before it.
+- **What `1.0.0` changes.** The field-level killed-form registry activates at
+  major ≥ 1: a `1.0.0` request carrying a retired string field (`goal`,
+  `declarations`, a payload claim's `atom`) is refused `killed-form` naming its
+  typed successor (`goal_atom`, `additions`, `atom_expr`). Below `1.0.0` those
+  fields stay required and the string form still answers.
+- **Retirement runs through the registry.** After `EXT-F4` — the consumer's
+  move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
+  each retired version is registered with its successor and the ruling that
+  retired it, and a frame declaring one gets a deterministic refusal naming
+  both. A version is never dropped silently, and the registry entry outlives
+  the code path behind it.
+- **N / N-1 compatibility applies from `2.0.0` onward** — the server supports
+  the current and the immediately previous major, so a re-vendor is never a
+  flag day. It does not describe the `0.x → 1.0.0` window above, which is
+  wider by design and closes at `EXT-F4`.
+
+Because the envelope carries no timestamp, the version is always explicit in
+the frame, in `dli.version`, and in the fixture manifest — never inferred.
 
 ## 7. What deloreis guarantees
 
 - **Deterministic and offline.** Every verdict replays from committed inputs;
   the kernel never calls a model, opens a socket, or reads a clock.
 - **Immediate graded feedback.** Every mutating `author.*` call returns findings
-  (graded, with repair data), rendered canonical lines, and the workspace
-  digest, as required by DL-0014.
+  (graded, with repair data), the structured result, and the workspace digest on
+  the same call, as required by DL-0014; the `.dli` rendering is the opt-in view
+  of that result (§3.2).
 - **Fail-closed exports.** An export reads the certain layer and never emits
   proposed lore by accident.
 - **Provenance in, provenance out.** Nothing enters without an origin; every
