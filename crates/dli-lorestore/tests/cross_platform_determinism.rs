@@ -27,10 +27,13 @@ use dli_lorestore::{FactObject, Lorestore};
 /// This value is computed from the content alone — if it ever changes, a
 /// serialization invariant was broken (floats, unsorted keys, platform path
 /// separators in content).
-// Pinned under schema v2 (LS-9): the schema_version field participates in the
-// commit/object bytes, so the LS-9 bump from v1 to v2 re-pinned this golden.
+// Pinned under schema v3 (DM-2, DL-0055). The schema_version field participates
+// in the commit/object bytes, so every schema bump re-pins this golden: v1→v2
+// (LS-9) did, and v3 does again. v3 moves it for a second reason — carriage
+// bodies are now hashed span-normalized — but this store's declarations carry
+// synthetic spans, so the version stamp is the whole of the change here.
 const EXPECTED_ROOT_HASH: &str =
-    "sha256:5e160542a1de285a7a730537d051a18dac04c2ed4a21e9e498f5bbe1d3e3f432";
+    "sha256:1ea73d0c7a2815dcb44e8d9fcdca789d021b6d7da044ee6f79e7baea32c05a13";
 
 /// Build the deterministic sequence of fact objects used by this test.
 fn deterministic_facts() -> Vec<FactObject> {

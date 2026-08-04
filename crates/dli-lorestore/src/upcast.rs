@@ -159,11 +159,78 @@ pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, Upcast
         });
     }
 
+    // v2 → v3: take source position out of the identity bytes (DL-0055).
+    // Pure serde on both build lanes — no parser edge.
+    if from_version < 3 {
+        normalize_carriage_spans(&mut value);
+    }
+
     // Stamp the lifted object with the schema it now conforms to.
     if let Some(obj) = value.as_object_mut() {
         obj.insert("schema_version".to_owned(), Value::from(SCHEMA_VERSION));
     }
     Ok(value)
+}
+
+/// Lift a pre-v3 carriage into the v3 span discipline: the hashed body becomes
+/// span-normalized and the located original moves into `provenance`.
+///
+/// This is what makes an existing store the **same lineage** rather than a
+/// foreign one. A v2 object hashed its located body, so its identity carried
+/// source offsets; normalizing here lands it on exactly the identity a freshly
+/// lowered v3 object has, which is what `ensure_pack_imported` compares
+/// (`lorestore.rs`). No marker is invented — v2 never recorded one, and an
+/// absent marker is honest where a guessed one would not be.
+fn normalize_carriage_spans(value: &mut Value) {
+    let Some(first) = value
+        .get_mut("expert_body")
+        .and_then(|expert| expert.get_mut("body"))
+        .and_then(Value::as_array_mut)
+        .and_then(|body| body.first_mut())
+    else {
+        return;
+    };
+    let Some(decl_json) = first.as_str() else {
+        return;
+    };
+    let Ok(mut decl_value) = serde_json::from_str::<Value>(decl_json) else {
+        // Not a JSON body (a v1 clause-text carriage this build left alone):
+        // there is nothing span-shaped to normalize.
+        return;
+    };
+    // Re-serialize the parsed value for the located side too, so the comparison
+    // below turns on spans alone and not on how the two strings were produced.
+    let Ok(located) = serde_json::to_string(&decl_value) else {
+        return;
+    };
+    crate::lower::normalize_spans(&mut decl_value);
+    let Ok(normalized) = serde_json::to_string(&decl_value) else {
+        return;
+    };
+    // Always rewrite the hashed body from the re-serialized value, even when no
+    // span moved. The deepening above emits its result straight from the `Decl`
+    // struct, and a freshly lowered v3 carriage emits from a `Value`; the two
+    // routes can order keys differently, and the body is inside the content
+    // hash, so an upcast object would otherwise fail to match the fresh object
+    // it is supposed to be identical to. One route for both.
+    *first = Value::from(normalized.clone());
+    if normalized == located {
+        return; // already position-free; no located copy worth carrying
+    }
+    if let Some(obj) = value.as_object_mut() {
+        let provenance = obj
+            .entry("provenance")
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if let Some(map) = provenance.as_object_mut() {
+            // Fill in only. An object that already carries a located body was
+            // recorded with one at authoring time, and that original outranks
+            // anything reconstructed here — deepening a v1 interior re-derives
+            // the body, so overwriting would replace real source positions with
+            // the re-parse's own.
+            map.entry("located_body".to_owned())
+                .or_insert_with(|| Value::from(located));
+        }
+    }
 }
 
 /// If `value` is a fact object carrying a v1 `rule` expert body, rewrite the

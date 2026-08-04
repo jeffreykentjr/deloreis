@@ -5,7 +5,7 @@
 //! that ownership for every subsequent read and mutation. The fallback base
 //! exists only for focused unit tests and explicit demo fixtures.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
 use dli_eval::error::EvalError;
@@ -45,6 +45,12 @@ pub struct Store {
     /// The root path the lorestores were opened under (one subdirectory per
     /// base), so new packs can be imported on-demand.
     lorestore_root: Option<std::path::PathBuf>,
+    /// Origin lorestore directories for store-backed documents, keyed by base.
+    /// These are attached in place of an import copy (DL-0055).
+    origins: BTreeMap<String, std::path::PathBuf>,
+    /// Bases the manifest pinned to an explicit commit, which the served world
+    /// must not follow off.
+    pinned_bases: BTreeSet<String>,
 }
 
 const MAX_DISCARD_REPLAYS: usize = 1024;
@@ -97,6 +103,8 @@ impl Default for Store {
             next_id: 0,
             lorestores: BTreeMap::new(),
             lorestore_root: None,
+            origins: BTreeMap::new(),
+            pinned_bases: BTreeSet::new(),
         }
     }
 }
@@ -124,6 +132,8 @@ impl Store {
             next_id: 0,
             lorestores: BTreeMap::new(),
             lorestore_root: None,
+            origins: BTreeMap::new(),
+            pinned_bases: BTreeSet::new(),
         }
     }
 
@@ -162,6 +172,8 @@ impl Store {
             next_id: 0,
             lorestores: BTreeMap::new(),
             lorestore_root: None,
+            origins: BTreeMap::new(),
+            pinned_bases: BTreeSet::new(),
         })
     }
 
@@ -209,6 +221,8 @@ impl Store {
             next_id: 0,
             lorestores: BTreeMap::new(),
             lorestore_root: None,
+            origins: BTreeMap::new(),
+            pinned_bases: BTreeSet::new(),
         })
     }
 
@@ -345,6 +359,18 @@ impl Store {
             if self.lorestores.contains_key(key) {
                 continue;
             }
+            // A store-backed document attaches its **origin** store, not an
+            // import copy under the server root, so a materialize advances the
+            // very store the project loads from — that is what closes the
+            // durable authoring loop (DL-0055). It is also not re-imported:
+            // the pack was reconstructed *from* this store, so there is
+            // nothing to import, and importing a pinned document's older
+            // commit would write a new one — a read path with a side effect.
+            if let Some(origin) = self.origins.get(key) {
+                let ls = dli_lorestore::Lorestore::open(origin.clone())?;
+                self.lorestores.insert(key.clone(), ls);
+                continue;
+            }
             let ls = dli_lorestore::Lorestore::open(root.join(key))?;
             let pack = Pack {
                 name: base.pack_name.clone(),
@@ -355,6 +381,27 @@ impl Store {
         }
         self.lorestore_root = Some(root);
         Ok(())
+    }
+
+    /// Register the origin lorestore of a store-backed document, before
+    /// [`attach_lorestore`](Self::attach_lorestore) runs.
+    ///
+    /// `pinned` records that the manifest fixed the document at an explicit
+    /// commit. A pinned document still authors — the branch advances as
+    /// materialize writes — but the *served* world stays the pinned commit
+    /// until the manifest says otherwise, which is what makes a pinned project
+    /// replayable.
+    pub fn register_store_origin(&mut self, key: String, origin: std::path::PathBuf, pinned: bool) {
+        self.origins.insert(key.clone(), origin);
+        if pinned {
+            self.pinned_bases.insert(key);
+        }
+    }
+
+    /// Whether this base is served at a manifest-pinned commit.
+    #[must_use]
+    pub fn is_pinned(&self, key: &str) -> bool {
+        self.pinned_bases.contains(key)
     }
 
     /// LS-4b: lower a staged decl to `FactObject`s and write them to the

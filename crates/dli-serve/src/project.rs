@@ -64,10 +64,23 @@ pub struct ProjectDocument {
     pub attestation_questions: Vec<Question>,
     /// Built-in neutral profiles plus project-owned lore export profiles.
     pub profiles: Registry,
-    /// Content fingerprint of the caller-owned source files.
+    /// Content fingerprint of the caller-owned source files. For a
+    /// store-backed document this is the resolved store head — the store's
+    /// content-hash regime, never the JCS workspace-digest regime (DL-0055).
     pub source_digest: String,
     /// Canonical source paths, retained to enforce one logical owner per file.
     source_paths: Vec<PathBuf>,
+    /// The lorestore this document was loaded from, when it is store-backed.
+    ///
+    /// The serve layer attaches **this** directory rather than an import copy,
+    /// so `author.materialize` advances the very store the project reads from
+    /// and the durable authoring loop closes (DL-0055).
+    pub store_origin: Option<PathBuf>,
+    /// Whether the manifest pinned the store to an explicit `head`.
+    ///
+    /// A pinned document is a replay: it must not follow the branch as writes
+    /// land, so nothing here may advance it implicitly.
+    pub store_pinned: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -180,7 +193,20 @@ struct Manifest {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DocumentEntry {
+    /// `.dli` source files. Mutually exclusive with [`store`](Self::store):
+    /// a document has exactly one source form (DL-0055).
+    #[serde(default)]
     sources: Vec<PathBuf>,
+    /// A project-root-relative lorestore directory to load this document from.
+    /// The syntax-free source form — nothing on this path parses.
+    store: Option<PathBuf>,
+    /// A lorestore commit hash to pin the store at.
+    ///
+    /// Present: **pinned mode** — the document is exactly that commit, so the
+    /// project replays, and advancing canon is an explicit manifest edit.
+    /// Absent: **branch mode** — the document follows the store's `main` tip,
+    /// which is what an authoring server wants. Only meaningful with `store`.
+    head: Option<String>,
     episodes: Option<PathBuf>,
     outlines: Option<PathBuf>,
     craft_ledger: Option<PathBuf>,
@@ -536,7 +562,7 @@ fn load_document(
     id: &str,
     entry: &DocumentEntry,
 ) -> Result<ProjectDocument, ProjectError> {
-    let (pack, source_paths, source_digest) = load_pack(root, id, &entry.sources)?;
+    let (pack, source_paths, source_digest, store_origin) = load_source(root, id, entry)?;
     compile(&pack).map_err(|error| ProjectError::Compile {
         document: id.to_owned(),
         message: error.to_string(),
@@ -599,6 +625,8 @@ fn load_document(
         profiles,
         source_digest,
         source_paths,
+        store_origin: store_origin.clone(),
+        store_pinned: store_origin.is_some() && entry.head.is_some(),
     })
 }
 
@@ -659,6 +687,113 @@ fn load_craft_config(
     let thresholds = config.season_thresholds;
     let policy = build_episode_policy(&config);
     Ok((apply(&config, &packs), thresholds, policy))
+}
+
+/// Load a document from whichever source form its manifest entry declares.
+///
+/// A document has exactly one source form: `.dli` `sources`, or a lorestore
+/// `store` (DL-0055). Both is ambiguous — two answers to "what is this
+/// document" with no rule for which wins — and neither leaves nothing to
+/// compile, so both are refused by name rather than by a later confusing
+/// failure.
+#[allow(clippy::type_complexity)]
+fn load_source(
+    root: &Path,
+    id: &str,
+    entry: &DocumentEntry,
+) -> Result<(Pack, Vec<PathBuf>, String, Option<PathBuf>), ProjectError> {
+    match (entry.sources.is_empty(), entry.store.as_deref()) {
+        (false, Some(_)) => Err(ProjectError::Invalid(format!(
+            "document `{id}` declares both `sources` and `store`; a document has one source form \
+             — remove whichever is not the document's origin"
+        ))),
+        (true, None) => Err(ProjectError::Invalid(format!(
+            "document `{id}` declares neither `sources` nor `store`; it has nothing to compile"
+        ))),
+        (true, Some(store)) => {
+            let (pack, paths, digest) =
+                load_pack_from_store(root, id, store, entry.head.as_deref())?;
+            let origin = paths.first().cloned();
+            Ok((pack, paths, digest, origin))
+        }
+        (false, None) => {
+            if entry.head.is_some() {
+                return Err(ProjectError::Invalid(format!(
+                    "document `{id}` sets `head` without `store`; a commit pin only means \
+                     something for a store-backed document"
+                )));
+            }
+            let (pack, paths, digest) = load_pack(root, id, &entry.sources)?;
+            Ok((pack, paths, digest, None))
+        }
+    }
+}
+
+/// Load a document from a lorestore directory — the syntax-free source form.
+///
+/// Nothing here parses: the store's fact objects are read and reconstructed
+/// into the same [`Pack`] the `.dli` arm produces, and then handed to the
+/// existing compile path, so a store-backed document and a `.dli`-backed
+/// document reach identical machinery from the first compile onward.
+///
+/// The fingerprint is the resolved head's **content hash** — the store's own
+/// addressing regime. It is deliberately not the JCS `workspace_digest`
+/// regime: the two never share a field or a meaning (DL-0046 audit repair 1).
+fn load_pack_from_store(
+    root: &Path,
+    id: &str,
+    store: &Path,
+    head: Option<&str>,
+) -> Result<(Pack, Vec<PathBuf>, String), ProjectError> {
+    let field = format!("documents.{id}.store");
+    let dir = resolve_existing(root, &field, store)?;
+    let lorestore =
+        dli_lorestore::Lorestore::open(dir.clone()).map_err(|error| ProjectError::AssetPath {
+            field: field.clone(),
+            path: store.display().to_string(),
+            message: error.to_string(),
+        })?;
+
+    let resolved = match head {
+        // Pinned: the manifest names the commit, and that is the document.
+        Some(pin) => dli_lorestore::ContentHash::parse(pin).ok_or_else(|| {
+            ProjectError::Invalid(format!(
+                "document `{id}` pins `head` to `{pin}`, which is not a `sha256:<hex>` store \
+                 commit hash"
+            ))
+        })?,
+        // Branch mode: follow the store's main tip.
+        None => lorestore
+            .branch_head(dli_lorestore::MAIN_REF)
+            .map_err(|error| ProjectError::AssetPath {
+                field: field.clone(),
+                path: store.display().to_string(),
+                message: error.to_string(),
+            })?
+            .ok_or_else(|| {
+                ProjectError::Invalid(format!(
+                    "document `{id}` follows the store's `{}` branch, which has no commit yet; \
+                     import a corpus into the store, or pin `head` to an existing commit",
+                    dli_lorestore::MAIN_REF
+                ))
+            })?,
+    };
+
+    let pack = lorestore
+        .reconstruct_at(&resolved)
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store head `{resolved}` does not reconstruct: {error}"),
+        })?;
+
+    Ok((
+        Pack {
+            name: id.to_owned(),
+            documents: pack.documents,
+        },
+        vec![dir],
+        resolved.as_str().to_owned(),
+    ))
 }
 
 fn load_pack(

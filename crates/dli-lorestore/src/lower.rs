@@ -151,25 +151,94 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
     }
 }
 
+/// Replace every source span in a serialized AST value with the synthetic
+/// span, in place.
+///
+/// A [`Span`] serializes as exactly three unsigned-integer fields — `file`,
+/// `start`, `end` — so that shape, and only that shape, is normalized: an
+/// object with those three keys, no others, all non-negative integers. The
+/// match is structural rather than typed because the walk has to reach spans
+/// nested anywhere inside any of the carried declaration types (and inside the
+/// typed interiors LS-9 introduced) without a hand-written visitor per variant
+/// that would silently rot as the AST grows.
+///
+/// Over-matching cannot lose information: the located original is retained
+/// verbatim in [`FactProvenance::located_body`] and is what reconstruction
+/// reads. Normalization decides *identity* only.
+pub(crate) fn normalize_spans(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            let is_span = map.len() == 3
+                && ["file", "start", "end"]
+                    .iter()
+                    .all(|key| map.get(*key).is_some_and(|v| v.as_u64().is_some()));
+            if is_span {
+                map.insert("file".to_owned(), serde_json::json!(0));
+                map.insert("start".to_owned(), serde_json::json!(0));
+                map.insert("end".to_owned(), serde_json::json!(0));
+                return;
+            }
+            for (_, child) in map.iter_mut() {
+                normalize_spans(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items.iter_mut() {
+                normalize_spans(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The located and span-normalized JSON encodings of a declaration.
+///
+/// Both are serialized from a [`serde_json::Value`], never one from the `Decl`
+/// and the other from a `Value`: those two routes can order keys differently,
+/// and then the pair differs even when no span moved. Comparing like with like
+/// is what lets the caller read "these differ" as "this declaration carries a
+/// real source position" (DL-0055).
+pub(crate) fn decl_json_pair(decl: &Decl) -> (String, String) {
+    let value = serde_json::to_value(decl).expect("the AST serializes to JSON");
+    let located = serde_json::to_string(&value).expect("a JSON value re-serializes");
+    let mut normalized_value = value;
+    normalize_spans(&mut normalized_value);
+    let normalized = serde_json::to_string(&normalized_value).expect("a JSON value re-serializes");
+    (located, normalized)
+}
+
 /// Build the carriage object for a declaration: the whole `Decl` as canonical
 /// JSON inside an [`ExpertBody`], under a synthetic `__decl` atom. Support is
 /// truth and defeaters false — the declaration's *compiled* provenance is
 /// re-derived on recompile; the carriage binds the source form only.
+///
+/// The hashed body is **span-normalized**: source position is not part of what
+/// a declaration asserts, so two identical declarations at different offsets
+/// must be one object, or dedup and cross-branch merge convergence break
+/// (DL-0055). The located original rides along in `provenance.located_body`,
+/// outside the hash, so positions survive the round trip.
 fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject {
-    let body = serde_json::to_string(decl).expect("the AST serializes to JSON");
+    let (located, body) = decl_json_pair(decl);
     let ground = dli_eval::world::GroundAtom {
         pred: "__decl".to_owned(),
         args: vec![format!("{kind:?}"), name.to_owned()],
     };
-    FactObject::with_expert_body(
+    let object = FactObject::with_expert_body(
         claim_for_decl(kind, name),
         ground,
         PosBool::truth(),
         PosBool::FALSE,
         Vec::new(),
         Grade::Asserted,
-        ExpertBody::new(kind, name, Vec::new(), vec![body]),
-    )
+        ExpertBody::new(kind, name, Vec::new(), vec![body.clone()]),
+    );
+    // Only record the located body when normalization actually moved
+    // something: a declaration with synthetic spans throughout would otherwise
+    // carry a byte-identical duplicate for nothing.
+    object.with_provenance(crate::object::FactProvenance {
+        marker: None,
+        located_body: (located != body).then_some(located),
+    })
 }
 
 /// The rendered ground atoms a carried declaration regenerates on recompile —
@@ -296,14 +365,24 @@ pub fn lower_decl(
     let ground = atom_expr_to_ground(&atom_expr);
     let conditions = cond_pairs(&ann);
 
-    objects.push(FactObject::new(
-        claim_for(&ground),
-        ground,
-        ann.support,
-        ann.defeaters,
-        conditions,
-        Grade::Asserted,
-    ));
+    // The authored marker is recorded beside the fact, not inside its hash
+    // (DL-0055): `decided`, `ratified`, and `provisional` lower to the same
+    // citation conjunction, so without this the round trip cannot tell them
+    // apart and reverse lowering has to guess.
+    objects.push(
+        FactObject::new(
+            claim_for(&ground),
+            ground,
+            ann.support,
+            ann.defeaters,
+            conditions,
+            Grade::Asserted,
+        )
+        .with_provenance(crate::object::FactProvenance {
+            marker: provenance.map(|p| p.marker),
+            located_body: None,
+        }),
+    );
 
     // Entity slots — the loader lowers each slot as an attr atom with
     // provenance inherited from the entity when the slot carries none
@@ -320,14 +399,20 @@ pub fn lower_decl(
             };
             let ground = atom_expr_to_ground(&atom);
             let conditions = cond_pairs(&slot_ann);
-            objects.push(FactObject::new(
-                claim_for(&ground),
-                ground,
-                slot_ann.support,
-                slot_ann.defeaters,
-                conditions,
-                Grade::Asserted,
-            ));
+            objects.push(
+                FactObject::new(
+                    claim_for(&ground),
+                    ground,
+                    slot_ann.support,
+                    slot_ann.defeaters,
+                    conditions,
+                    Grade::Asserted,
+                )
+                .with_provenance(crate::object::FactProvenance {
+                    marker: provenance.map(|p| p.marker),
+                    located_body: None,
+                }),
+            );
         }
     }
     objects
@@ -945,9 +1030,10 @@ pub fn reconstruct_pack(
         let fo = &fact_objects[index];
 
         if let Some(body) = &fo.expert_body {
-            let json = body
-                .body
-                .first()
+            // The located body when there is one, else the normalized body —
+            // reconstruction is a fidelity path (DL-0055).
+            let json = fo
+                .carriage_json()
                 .ok_or_else(|| ReconstructError::Carriage {
                     name: body.name.clone(),
                     reason: "carriage body is empty".to_owned(),
@@ -984,6 +1070,21 @@ pub fn reconstruct_pack(
                 atom: fo.atom.render(),
                 reason,
             })?;
+        // The polynomial cannot distinguish `decided` / `ratified` /
+        // `provisional` — all three are the same citation conjunction — so
+        // `derive_annotation` answers `Ratified` for any cited claim. When the
+        // object recorded what it was actually authored as, that wins
+        // (DL-0055). A v2 object records nothing and keeps the derived answer.
+        let annotation = match (annotation, fo.provenance.as_ref().and_then(|p| p.marker)) {
+            (Some(mut annotation), Some(marker))
+                if marker != ProvenanceMarker::Proposed
+                    && annotation.marker != ProvenanceMarker::Proposed =>
+            {
+                annotation.marker = marker;
+                Some(annotation)
+            }
+            (annotation, _) => annotation,
+        };
 
         if is_entity_kind(&fo.atom.pred) && fo.atom.args.len() == 1 {
             // Reconstruct as Decl::Entity — entity facts always have exactly one

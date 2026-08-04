@@ -158,6 +158,52 @@ impl ExpertBody {
     }
 }
 
+/// Provenance metadata carried beside a fact — **recorded, never hashed**.
+///
+/// Everything here is deliberately outside the identity projection
+/// ([`FactObject::content_hash`]), for the same reason `claim_id` is: it does
+/// not change the proposition or the provenance polynomial that decides its
+/// standing. Two facts that differ only in this block are the same fact, and
+/// content addressing must say so — otherwise dedup and cross-branch merge
+/// convergence break (see the module docs on the three-way identity split).
+///
+/// Introduced at schema v3 (DL-0055). A v2 object carries none of it, and the
+/// upcast leaves both fields absent rather than inventing them.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FactProvenance {
+    /// The ledger marker this fact was authored under.
+    ///
+    /// The support polynomial cannot carry this: `decided D-2`, `ratified D-2`,
+    /// and `provisional D-2` all lower to the identical conjunction of cited
+    /// decision variables, so reverse lowering had to guess `Ratified` for all
+    /// three and the distinction died on the round trip. Recording the marker
+    /// is what makes the round trip status-faithful (DL-0055). It stays out of
+    /// the hash because the three markers share one valuation — the loader
+    /// treats them identically at the fixpoint.
+    ///
+    /// `None` means *not recorded* (a v2 store), never "proposed".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub marker: Option<dli_ast::annot::ProvenanceMarker>,
+    /// The carriage body exactly as authored, source spans intact.
+    ///
+    /// [`ExpertBody::body`] holds the span-normalized form, which is what the
+    /// content hash sees; this holds the located original so a round trip
+    /// through the store does not silently lose source positions (koan 4).
+    /// Reconstruction prefers this when present and falls back to the
+    /// normalized body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub located_body: Option<String>,
+}
+
+impl FactProvenance {
+    /// Whether this block carries nothing worth storing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.marker.is_none() && self.located_body.is_none()
+    }
+}
+
 /// The stored fact object: a ground atom with its two-channel annotation.
 ///
 /// This is the normative stored form of a fact (the schema that `schema_for!`
@@ -209,6 +255,11 @@ pub struct FactObject {
     /// LS-9 via the upcast machinery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expert_body: Option<ExpertBody>,
+    /// Provenance metadata: the authored ledger marker and the located
+    /// carriage body. Recorded from schema v3 (DL-0055) and **excluded from
+    /// the content hash** — see [`FactProvenance`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<FactProvenance>,
 }
 
 impl FactObject {
@@ -236,7 +287,17 @@ impl FactObject {
             conditions,
             grade,
             expert_body: None,
+            provenance: None,
         }
+    }
+
+    /// Attach provenance metadata (the authored marker, the located carriage
+    /// body). Never changes [`content_hash`](Self::content_hash) — that is the
+    /// point of the block.
+    #[must_use]
+    pub fn with_provenance(mut self, provenance: FactProvenance) -> Self {
+        self.provenance = (!provenance.is_empty()).then_some(provenance);
+        self
     }
 
     /// Construct a fact object carrying an expert-tier clause body.
@@ -256,6 +317,28 @@ impl FactObject {
         }
     }
 
+    /// The carriage declaration JSON to reconstruct this fact from.
+    ///
+    /// From schema v3 a carriage has two bodies: `expert_body.body[0]` is
+    /// span-normalized and is what the content hash sees, while
+    /// `provenance.located_body` keeps the authored original with its source
+    /// positions (DL-0055). Anything rebuilding a declaration wants the located
+    /// one — reconstruction is a fidelity path, not an identity path — falling
+    /// back to the normalized body for a pre-v3 object or a declaration that
+    /// never carried real spans. Reading `expert_body.body` directly is how a
+    /// caller silently loses positions, so prefer this.
+    #[must_use]
+    pub fn carriage_json(&self) -> Option<&str> {
+        self.provenance
+            .as_ref()
+            .and_then(|p| p.located_body.as_deref())
+            .or_else(|| {
+                self.expert_body
+                    .as_ref()
+                    .and_then(|body| body.body.first().map(String::as_str))
+            })
+    }
+
     /// Whether this fact is fail-closed: its support is identically false, so
     /// no valuation can ever make it hold (spec 02 §3).
     #[must_use]
@@ -267,9 +350,15 @@ impl FactObject {
     /// `authority` (so two authorities asserting the same proposition produce
     /// distinct objects), `atom`, `support`, `defeaters`, `conditions`, `grade`,
     /// and `expert_body`.  Excluded: `schema_version` (versioning tag, not
-    /// content) and `claim_id` (a stable continuity handle that must survive
-    /// revision without staling the digest).  Computed via JCS
-    /// canonicalization + SHA-256 (DL-0041, roadmap §LS-1).
+    /// content), `claim_id` (a stable continuity handle that must survive
+    /// revision without staling the digest), and `provenance` (recorded
+    /// metadata — the authored marker and the located body — which changes
+    /// neither the proposition nor its support polynomial, DL-0055).
+    /// Computed via JCS canonicalization + SHA-256 (DL-0041, roadmap §LS-1).
+    ///
+    /// Because `expert_body.body` is span-normalized (DL-0055), the same
+    /// declaration authored at a different source offset hashes identically —
+    /// position never destabilizes content addressing.
     ///
     /// This is the field that participates in `Commit`/content addressing — a
     /// parent pointer is deliberately *not* embedded in the hash; storage
@@ -278,9 +367,10 @@ impl FactObject {
         &self,
     ) -> Result<crate::identity::ContentHash, crate::canonical::CanonicalError> {
         /// The subset of `FactObject` fields whose canonical bytes define
-        /// content addressability.  `claim_id` and `schema_version` are excluded:
-        /// the former is a continuity handle, the latter a version tag — neither
-        /// changes the proposition or its provenance.
+        /// content addressability.  `claim_id`, `schema_version`, and
+        /// `provenance` are excluded: a continuity handle, a version tag, and
+        /// recorded metadata — none of which changes the proposition or its
+        /// provenance polynomial.
         #[derive(serde::Serialize)]
         struct HashableContent<'a> {
             authority: &'a crate::identity::Authority,
