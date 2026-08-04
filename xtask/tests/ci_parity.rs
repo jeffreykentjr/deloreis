@@ -103,10 +103,17 @@ fn canonical_gate_runs_both_build_lanes() {
             "the canonical gate is missing the default-lane `{expected}` step"
         );
     }
+    // Asserted component-wise, not as one frozen argv: the lane is allowed to
+    // grow more default-lane tests (DL-0055, DL-0056 added two), and a guard that
+    // pins the flag order would read that strengthening as a regression.
     assert!(
-        commands.iter().any(|command| command.starts_with(
-            "cargo nextest run -p dli-serve -p dli-lorestore --lib --test default_build --locked"
-        ) && !command.contains("--features")),
+        commands.iter().any(|command| {
+            command.starts_with("cargo nextest run -p dli-serve -p dli-lorestore")
+                && command.contains("--lib")
+                && command.contains("--test default_build")
+                && command.contains("--locked")
+                && !command.contains("--features")
+        }),
         "the canonical gate must run the 1.0-native acceptance test with no features"
     );
 

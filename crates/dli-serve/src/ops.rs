@@ -267,6 +267,7 @@ impl Op {
     /// *how* to call it, this says *why*). Kept here, next to the wire names, so
     /// the description cannot drift from the op it names.
     #[must_use]
+    #[expect(clippy::too_many_lines)]
     pub const fn summary(self) -> &'static str {
         match self {
             Op::Version => {

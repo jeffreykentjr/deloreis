@@ -431,3 +431,303 @@ fn a_store_backed_project_answers_the_five_consumer_read_ops() {
     );
     assert!(drafted.ok, "dli.check-draft answered: {:?}", drafted.error);
 }
+
+// ── the corpus exchange, in both lanes (DM-3, DL-0056) ──────────────────────
+
+/// Whether this build links the `.dli` front end.
+const SYNTAX: bool = cfg!(feature = "syntax");
+
+/// A store-backed project serving one seeded document, plus the wire driver.
+fn corpus_server(
+    name: &str,
+) -> (
+    std::path::PathBuf,
+    dli_serve::session::Sessions,
+    dli_serve::author::store::Store,
+) {
+    use std::sync::Arc;
+
+    let root = temp(name);
+    seed_store(&root, "tpth", "bedivere");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+    (
+        root,
+        dli_serve::session::Sessions::from_project(Arc::new(project)),
+        dli_serve::author::store::Store::default(),
+    )
+}
+
+fn send(
+    frame: &serde_json::Value,
+    sessions: &mut dli_serve::session::Sessions,
+    store: &mut dli_serve::author::store::Store,
+) -> serde_json::Value {
+    let line = serde_json::to_string(frame).unwrap();
+    let response =
+        dli_serve::serve::respond(&line, sessions, store).expect("a well-formed frame is answered");
+    serde_json::to_value(&response).unwrap()
+}
+
+/// Asking for a `.dli` rendering from a build that links no renderer is a **loud
+/// refusal naming the ways forward** — never a silent empty array, which would
+/// read to the caller as "this corpus is empty" (DL-0056).
+///
+/// The JSON-first default is deliberately untouched: `format` absent or
+/// `objects` returns the fact objects on either build, and only an *explicit*
+/// request for a rendering can refuse.
+#[test]
+fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
+    let (_root, mut sessions, mut store) = corpus_server("corpus-rendered-export");
+
+    let rendered = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+                            "params":{"document":"tpth","format":"rendered"}}),
+        &mut sessions,
+        &mut store,
+    );
+    if SYNTAX {
+        let lines = rendered["result"]["rendered"].as_array().unwrap();
+        assert!(
+            !lines.is_empty(),
+            "a syntax build renders the export: {rendered}"
+        );
+    } else {
+        assert_eq!(
+            rendered["error"]["code"], "not-wired",
+            "a rendering from a renderer-free build refuses: {rendered}"
+        );
+        let message = rendered["error"]["message"].as_str().unwrap();
+        assert!(
+            message.contains("objects") && message.contains("syntax"),
+            "the refusal names both ways forward, got: {message}"
+        );
+    }
+
+    // The default is JSON-first on both builds, and stays a success.
+    let objects = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+                            "params":{"document":"tpth"}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        objects["ok"], true,
+        "the objects default answers: {objects}"
+    );
+    assert!(
+        !objects["result"]["objects"].as_array().unwrap().is_empty(),
+        "the export carries fact objects: {objects}"
+    );
+    assert!(
+        objects["result"]["rendered"].is_null(),
+        "no rendering is emitted unless it was asked for: {objects}"
+    );
+}
+
+/// The corpus round-trip is lossless, and that is a stronger claim than
+/// "the objects match": a stored fact records its support as `±<index>` into the
+/// commit's interner, and its standing is read against the commit's decision
+/// set. Carry only the objects and the same bytes re-import as a different
+/// world — `decided d-1` becomes `proposed assumes __decl`. So the export emits
+/// objects **and** interner **and** decisions, and importing the three
+/// reproduces the commit hash itself.
+#[test]
+fn an_exported_corpus_reimports_to_the_same_commit() {
+    let (_root, mut sessions, mut store) = corpus_server("corpus-roundtrip-source");
+    let exported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+                            "params":{"document":"tpth"}}),
+        &mut sessions,
+        &mut store,
+    );
+    let result = &exported["result"];
+    assert!(
+        !result["interner"].as_array().unwrap().is_empty(),
+        "the export carries the interner: {exported}"
+    );
+
+    // A second project whose store is seeded with the same pack, so the import
+    // is an append onto an identical head rather than into a vacuum.
+    let (_root2, mut sessions2, mut store2) = corpus_server("corpus-roundtrip-target");
+    let imported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+                            "params":{"document":"tpth","mode":"append",
+                                      "objects":result["objects"],
+                                      "interner":result["interner"],
+                                      "decisions":result["decisions"]}}),
+        &mut sessions2,
+        &mut store2,
+    );
+    assert_eq!(imported["ok"], true, "the import answers: {imported}");
+
+    let reexported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+                            "params":{"document":"tpth"}}),
+        &mut sessions2,
+        &mut store2,
+    );
+    assert_eq!(
+        reexported["result"]["objects"], result["objects"],
+        "the round trip is object-identical"
+    );
+    assert_eq!(
+        reexported["result"]["interner"], result["interner"],
+        "the round trip preserves the interner"
+    );
+    assert_eq!(
+        reexported["result"]["decisions"], result["decisions"],
+        "the round trip preserves the decision set"
+    );
+    // Not the commit hash: an append onto a populated store chains a child
+    // commit, so its hash differs from the root commit it carries the same state
+    // as. Commit-level identity is asserted where the target store can be
+    // genuinely empty — `dli_lorestore::corpus_exchange`.
+}
+
+/// An `objects` import without the interner is refused rather than guessed at.
+/// This is the seeded-divergence case for the round trip above: the refusal is
+/// what stands between a caller and silently rewritten provenance.
+#[test]
+fn an_objects_import_without_its_interner_is_refused() {
+    let (_root, mut sessions, mut store) = corpus_server("corpus-import-no-interner");
+    let exported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+                            "params":{"document":"tpth"}}),
+        &mut sessions,
+        &mut store,
+    );
+    let refused = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.import",
+                            "params":{"document":"tpth","mode":"append",
+                                      "objects":exported["result"]["objects"]}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        refused["error"]["code"], "schema-violation",
+        "an objects import without its interner refuses: {refused}"
+    );
+}
+
+/// The consumer's corpus pivot, rehearsed end to end.
+///
+/// A pack carrying both walls the consumer's read ops hit — a nameable relation
+/// predicate for `dli.query`, an explicit dialect for `dli.name.check` — goes
+/// into a store, is served from that store, and is exported. The exported
+/// triple is then imported into a **genuinely empty** store, which is where the
+/// commit hash itself can be compared: same objects, same interner, same
+/// decisions, therefore the same commit. Anything dropped from the exchange
+/// shows up here as a different hash.
+#[test]
+fn the_corpus_pivot_round_trips_to_the_same_commit() {
+    use dli_ast::language::DialectBody;
+
+    let root = temp("corpus-pivot-rehearsal");
+    let mut pack = pack_with("tpth", &["bedivere"]);
+    let decls = &mut pack.documents[0].decls;
+    // A ratified decision, so the commit carries a decision set and an
+    // interner entry — the two tables the exchange has to carry.
+    decls.insert(
+        0,
+        Decl::Ratify(dli_ast::decl::RatifyDecl {
+            decision: id("d-1"),
+            body: dli_ast::language::RatifyBody::default(),
+        }),
+    );
+    decls.push(Decl::Dialect(dli_ast::decl::DialectDecl {
+        name: id("hedgeway"),
+        label: None,
+        body: DialectBody::default(),
+        provenance: Some(proposed()),
+    }));
+    // One fact grounded in that decision: standing is what the decision set
+    // decides, so dropping it changes what this fact means.
+    decls.push(Decl::Fact(FactDecl {
+        atom: AtomExpr {
+            pred: id("keeps"),
+            args: vec![Term::Sym(id("bedivere")), Term::Sym(id("hedgeway"))],
+        },
+        triple: false,
+        provenance: Some(Annotation {
+            marker: ProvenanceMarker::Decided,
+            citations: vec![dli_ast::annot::CitationRef { id: id("d-1") }],
+            condition: None,
+            tags: Vec::new(),
+            span: Span::synthetic(),
+        }),
+    }));
+
+    let source_dir = root.join("source-store");
+    fs::create_dir_all(&source_dir).unwrap();
+    let source = Lorestore::open(source_dir.clone()).expect("open the source store");
+    let head = source
+        .ensure_pack_imported(&pack)
+        .expect("seed the source store");
+
+    // What `dli.corpus.export` emits: the three parts of the corpus.
+    let hashes = source.fact_hashes_from(&head).expect("fold the facts");
+    let objects: Vec<dli_lorestore::FactObject> = hashes
+        .iter()
+        .map(|hash| source.read_object(hash).unwrap().expect("object present"))
+        .collect();
+    let interner = source.interner_at(&head).expect("read the interner");
+    let decisions = source.decisions_at(&head).expect("read the decisions");
+    assert!(
+        !interner.is_empty() && !decisions.is_empty(),
+        "the seeded corpus exercises both carried tables"
+    );
+
+    // What `dli.corpus.import` does with them, into an empty store.
+    let target_dir = root.join("target-store");
+    fs::create_dir_all(&target_dir).unwrap();
+    let target = Lorestore::open(target_dir).expect("open the target store");
+    let written: Vec<dli_lorestore::ContentHash> = objects
+        .iter()
+        .map(|object| target.write_object(object).expect("write object"))
+        .collect();
+    let landed = target
+        .commit(
+            interner.clone(),
+            written,
+            Vec::new(),
+            Vec::new(),
+            decisions.clone(),
+            "tpth".to_owned(),
+        )
+        .expect("import the corpus");
+
+    assert_eq!(
+        landed, head,
+        "the exported corpus re-imports to the same commit"
+    );
+    assert_eq!(
+        target.reconstruct_at(&landed).expect("reconstruct"),
+        source.reconstruct_at(&head).expect("reconstruct"),
+        "and reconstructs the same world"
+    );
+
+    // Dropping either carried table is the seeded divergence: the same objects
+    // must NOT land on the same commit without them.
+    let bare_dir = root.join("bare-store");
+    fs::create_dir_all(&bare_dir).unwrap();
+    let bare = Lorestore::open(bare_dir).expect("open the bare store");
+    let bare_written: Vec<dli_lorestore::ContentHash> = objects
+        .iter()
+        .map(|object| bare.write_object(object).expect("write object"))
+        .collect();
+    let bare_landed = bare
+        .commit(
+            interner,
+            bare_written,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            "tpth".to_owned(),
+        )
+        .expect("commit without the decisions");
+    assert_ne!(
+        bare_landed, head,
+        "an import that drops the decision set must not claim the same commit"
+    );
+}

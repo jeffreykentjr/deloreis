@@ -4,6 +4,14 @@
   "description": "`dli.corpus.import` params: seed or extend a document's lorestore.\n\nExactly one source form, mirroring the manifest's own rule (DL-0055):\n`objects` is the fact-object array and works on **any** build, `dli_documents`\nis `.dli` text and needs a build with the front end linked. Both, or neither,\nis refused — there is no rule for which would win.",
   "type": "object",
   "properties": {
+    "decisions": {
+      "description": "The decision ids the exporting store holds as known. Standing is read\nagainst this set: the same fact reads `decided d-1` where `d-1` is known\nand `proposed assumes d-1` where it is not, so an import that dropped it\nwould demote every ratified fact it carried.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
     "dli_documents": {
       "description": "The corpus as `.dli` documents. Syntax builds only; elsewhere this is a\nloud refusal naming the one-shot syntax-build path, never a silent skip.",
       "type": [
@@ -17,6 +25,16 @@
     "document": {
       "description": "The logical document whose store receives the corpus.",
       "type": "string"
+    },
+    "interner": {
+      "description": "The exporting store's interner: the name table those objects' support\npolynomials index into. Required with `objects`, because a stored fact\nrecords its support as `±<index>` — without the table the indices\nresolve against whatever the receiving store happens to hold, which\nsilently rewrites provenance rather than failing (DL-0056).",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
     },
     "mode": {
       "description": "Whether this seeds an empty store or extends a populated one.",

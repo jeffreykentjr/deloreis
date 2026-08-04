@@ -159,9 +159,28 @@ impl Lorestore {
         let Some(head) = self.root_hash()? else {
             return Ok(Vec::new());
         };
-        let commit: Commit = storage::read_typed(&*self.storage, &head)?
-            .ok_or_else(|| StoreError::NotFound(format!("head commit missing: {head}")))?;
-        Ok(commit.interner)
+        self.interner_at(&head)
+    }
+
+    /// The interner name table recorded on a given commit — the table the facts
+    /// folded at that commit resolve their support polynomials against. An
+    /// export at `at` must carry this alongside the objects; the indices are
+    /// meaningless without it.
+    pub fn interner_at(&self, at: &ContentHash) -> Result<Vec<String>, StoreError> {
+        Ok(self.commit_at(at)?.interner)
+    }
+
+    /// The decision ids known at a given commit. Standing is read against this
+    /// set — the same fact reads `decided d-1` where `d-1` is known and
+    /// `proposed assumes d-1` where it is not — so an export carries it beside
+    /// the objects and the interner.
+    pub fn decisions_at(&self, at: &ContentHash) -> Result<Vec<String>, StoreError> {
+        Ok(self.commit_at(at)?.decisions)
+    }
+
+    fn commit_at(&self, at: &ContentHash) -> Result<Commit, StoreError> {
+        storage::read_typed(&*self.storage, at)?
+            .ok_or_else(|| StoreError::NotFound(format!("commit missing: {at}")))
     }
 
     /// Atomically update the `main` ref from `expected` to `new`.

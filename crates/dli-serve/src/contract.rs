@@ -1834,6 +1834,19 @@ pub struct CorpusImportParams {
     /// The corpus as stored fact objects — the build-independent form.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub objects: Option<Vec<serde_json::Value>>,
+    /// The exporting store's interner: the name table those objects' support
+    /// polynomials index into. Required with `objects`, because a stored fact
+    /// records its support as `±<index>` — without the table the indices
+    /// resolve against whatever the receiving store happens to hold, which
+    /// silently rewrites provenance rather than failing (DL-0056).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interner: Option<Vec<String>>,
+    /// The decision ids the exporting store holds as known. Standing is read
+    /// against this set: the same fact reads `decided d-1` where `d-1` is known
+    /// and `proposed assumes d-1` where it is not, so an import that dropped it
+    /// would demote every ratified fact it carried.
+    #[serde(default)]
+    pub decisions: Vec<String>,
     /// The corpus as `.dli` documents. Syntax builds only; elsewhere this is a
     /// loud refusal naming the one-shot syntax-build path, never a silent skip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1907,6 +1920,14 @@ pub struct CorpusExportResult {
     /// The folded **live** fact objects at that commit — the state, not the
     /// commit log. The log stays a library concern.
     pub objects: Vec<serde_json::Value>,
+    /// The interner those objects' support polynomials index into. Feed it back
+    /// to `dli.corpus.import` alongside `objects`; the pair is the corpus, and
+    /// the objects alone are not (DL-0056).
+    pub interner: Vec<String>,
+    /// The decision ids known at that commit — what makes a fact read `decided`
+    /// rather than `proposed assumes`. Round-trips with `objects` and
+    /// `interner`; the three together are the exported state.
+    pub decisions: Vec<String>,
     /// The `.dli` rendering, when `format: rendered` was asked for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rendered: Vec<String>,

@@ -101,6 +101,14 @@ fn negative_fixtures_yield_their_error_code() {
         if op.starts_with("author.") {
             continue; // door-t's Door T seam
         }
+        // This oracle drives a projectless session, so it can only reach
+        // refusals that fire above the project seam. A fixture that declares
+        // `project: true` needs the loaded fixture project to reach its verdict
+        // at all; `fixture_replay::every_fixture_replays_cold` is where those
+        // are driven, project-backed and cold.
+        if fixture.get("project").and_then(serde_json::Value::as_bool) == Some(true) {
+            continue;
+        }
         let expected = expect_error["code"].as_str().unwrap();
         let mut sessions = Sessions::new();
         let mut store = Store::default();

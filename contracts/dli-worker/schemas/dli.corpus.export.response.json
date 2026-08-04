@@ -4,6 +4,20 @@
   "description": "`dli.corpus.export` result.",
   "type": "object",
   "properties": {
+    "decisions": {
+      "description": "The decision ids known at that commit — what makes a fact read `decided`\nrather than `proposed assumes`. Round-trips with `objects` and\n`interner`; the three together are the exported state.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interner": {
+      "description": "The interner those objects' support polynomials index into. Feed it back\nto `dli.corpus.import` alongside `objects`; the pair is the corpus, and\nthe objects alone are not (DL-0056).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "objects": {
       "description": "The folded **live** fact objects at that commit — the state, not the\ncommit log. The log stays a library concern.",
       "type": "array",
@@ -23,6 +37,8 @@
   },
   "required": [
     "root_hash",
-    "objects"
+    "objects",
+    "interner",
+    "decisions"
   ]
 }

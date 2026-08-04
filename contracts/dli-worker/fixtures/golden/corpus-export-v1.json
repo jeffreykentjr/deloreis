@@ -1,0 +1,141 @@
+{
+  "fixture": "golden/corpus-export-v1",
+  "version": 1,
+  "note": "dli.corpus.export returns the folded live fact objects at the served head, together with the interner their support polynomials index into and the decision ids standing is read against. The three travel as one corpus: objects alone re-import as a different world (DL-0056).",
+  "project": true,
+  "steps": [
+    {
+      "send": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.export",
+        "params": {
+          "document": "corpus"
+        }
+      },
+      "expect": {
+        "dli": "1.2.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "decisions": [
+            "d-1"
+          ],
+          "interner": [
+            "d-1"
+          ],
+          "objects": [
+            {
+              "atom": {
+                "args": [
+                  "Ratify",
+                  "d-1"
+                ],
+                "pred": "__decl"
+              },
+              "authority": null,
+              "claim_id": "sha256:f3d4cdb7cb962ab991d9141f8ab07fd1b01ad6df66e3273dc736e9cdd54b3da5",
+              "defeaters": {
+                "monomials": []
+              },
+              "expert_body": {
+                "body": [
+                  "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-1\"}}}"
+                ],
+                "kind": "ratify",
+                "name": "d-1"
+              },
+              "grade": "asserted",
+              "provenance": {
+                "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":24,\"file\":0,\"start\":21},\"text\":\"d-1\"}}}"
+              },
+              "schema_version": 3,
+              "support": {
+                "monomials": [
+                  []
+                ]
+              }
+            },
+            {
+              "atom": {
+                "args": [
+                  "wren"
+                ],
+                "pred": "person"
+              },
+              "authority": null,
+              "claim_id": "sha256:e64d705bc4ddb6c196bc1beef383cb66c07df4edf1078e9e464b5b41664c53d4",
+              "defeaters": {
+                "monomials": []
+              },
+              "grade": "asserted",
+              "provenance": {
+                "marker": "Decided"
+              },
+              "schema_version": 3,
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              }
+            },
+            {
+              "atom": {
+                "args": [
+                  "alder"
+                ],
+                "pred": "person"
+              },
+              "authority": null,
+              "claim_id": "sha256:49e7a243f26b026cf18243a465498605d1d5489eaa281e42d246ae47b5a3cec2",
+              "defeaters": {
+                "monomials": []
+              },
+              "grade": "asserted",
+              "provenance": {
+                "marker": "Decided"
+              },
+              "schema_version": 3,
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              }
+            },
+            {
+              "atom": {
+                "args": [
+                  "wren",
+                  "alder"
+                ],
+                "pred": "sworn"
+              },
+              "authority": null,
+              "claim_id": "sha256:1b8e91e82367bb9967d17c90c35dfb724fd7aca66d83840beb26b57824eb7b22",
+              "defeaters": {
+                "monomials": []
+              },
+              "grade": "asserted",
+              "provenance": {
+                "marker": "Decided"
+              },
+              "schema_version": 3,
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              }
+            }
+          ],
+          "root_hash": "sha256:f88924e64bd348838175e56b057328ba721edef8d8c90ee7f37b6f5482a8e466"
+        }
+      }
+    }
+  ]
+}
