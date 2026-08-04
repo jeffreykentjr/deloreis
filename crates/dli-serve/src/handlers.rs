@@ -1721,13 +1721,12 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
     // unknown key. The two guards keep it in its place: `preceded_by` yields to
     // a missing field serde would have named sooner, and `is_missing_field_error`
     // yields to every error serde raised while the map was still being visited.
-    if let Some(field) =
-        crate::serve::required_retired_field(&request.dli, request.op, &request.params)
-        && decoded
-            .as_ref()
-            .err()
-            .is_none_or(crate::serve::is_missing_field_error)
-    {
+    if let Some(field) = crate::serve::required_retired_field(
+        &request.dli,
+        request.op,
+        &request.params,
+        decoded.as_ref().err(),
+    ) {
         return Err((
             ErrorCode::SchemaViolation,
             format!(

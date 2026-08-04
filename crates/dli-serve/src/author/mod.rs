@@ -347,13 +347,12 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
     // keeps the precedence it had when the struct declared it required —
     // out-ranking a missing field named after it, yielding to every error serde
     // raised while the map was still being visited.
-    if let Some(field) =
-        crate::serve::required_retired_field(&request.dli, request.op, &request.params)
-        && decoded
-            .as_ref()
-            .err()
-            .is_none_or(crate::serve::is_missing_field_error)
-    {
+    if let Some(field) = crate::serve::required_retired_field(
+        &request.dli,
+        request.op,
+        &request.params,
+        decoded.as_ref().err(),
+    ) {
         return Err(error(
             request,
             ErrorBody {

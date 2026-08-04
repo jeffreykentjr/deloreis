@@ -68,8 +68,13 @@ struct IdentVisitor;
 impl<'de> Visitor<'de> for IdentVisitor {
     type Value = Ident;
 
+    /// The DERIVE's wording, deliberately: `expecting` is only ever read back
+    /// as the tail of an `invalid type` message, so writing anything else would
+    /// change what a `0.x` caller is told about a wrong-typed identifier
+    /// (`{"pred": 7}`) without changing what is accepted. The widening lives in
+    /// [`IdentVisitor::visit_str`]; the error surface stays exactly where it was.
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an identifier: its text, or an object with `text` and optional `span`")
+        formatter.write_str("struct Ident")
     }
 
     fn visit_str<E: de::Error>(self, text: &str) -> Result<Ident, E> {
@@ -190,10 +195,14 @@ mod tests {
         .expect_err("`text` is required in the object form");
         assert_eq!(error.to_string(), "missing field `text`");
 
-        let error = serde_json::from_str::<Ident>("7").expect_err("a number is not an identifier");
-        assert!(
-            error.to_string().contains("an identifier"),
-            "the expectation names what an identifier is: {error}"
+        // The widening moved what is ACCEPTED, not what a rejection says: a
+        // wrong-typed identifier still reports the derive's own wording, which
+        // is what keeps a `0.x` refusal byte-identical.
+        let error = serde_json::from_value::<Ident>(serde_json::json!(7))
+            .expect_err("a number is not an identifier");
+        assert_eq!(
+            error.to_string(),
+            "invalid type: integer `7`, expected struct Ident"
         );
     }
 }

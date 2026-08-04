@@ -181,21 +181,44 @@ fn the_corpus_covers_every_retired_field_and_every_pre_1_0_version() {
         );
     }
 
-    // Every op carrying a retired field, and — the miss that started this —
-    // BOTH ops that carry the shared `Claim`.
+    // Every shape that has caught a real break. Each of these was, at some
+    // point, a live `0.x` regression that the rest of the gate did not see.
     for probe in [
+        // The retired field itself, on every op that carries one.
         "query/document-only@0.6.4",
         "author-query/workspace-only@0.6.4",
         "fork-add/fork-only@0.6.4",
+        // The shared `Claim`, on BOTH ops — the miss that started this.
         "submit/claim-missing-atom@0.6.4",
-        "submit/claim-missing-atom-and-quote@0.6.4",
         "draft/claim-missing-atom@0.6.4",
+        // Declaration precedence: the retired field vs. a later sibling.
+        "submit/claim-missing-atom-and-quote@0.6.4",
         "draft/claim-missing-atom-and-quote@0.6.4",
+        // ... and vs. the enclosing struct, which a nested decode out-ranks.
+        "submit/claim-missing-atom-no-document@0.6.4",
+        // The retirement must yield to an unknown key, however nested.
         "query/unknown-key-inside-typed@0.6.4",
+        // ... and to a decode that failed DEEPER, on the typed successor
+        // itself: `pred` and `args` are not the retired field's to out-rank.
+        "query/typed-missing-pred@0.6.4",
+        "query/typed-missing-args@0.6.4",
+        "author-query/typed-missing-pred@0.6.4",
+        "fork-add/typed-missing-pred@0.6.4",
+        "submit/typed-claim-missing-pred@0.6.4",
+        "draft/typed-claim-missing-pred@0.6.4",
+        // The `Ident` codec's own error surface, which the widening must not
+        // have moved: a wrong type, a missing `text`, a null.
+        "query/ident-wrong-type@0.6.4",
+        "query/ident-missing-text@0.6.4",
+        "query/ident-null@0.6.4",
+        "submit/typed-claim-ident-wrong-type@0.6.4",
+        "draft/continuity-ident-wrong-type@0.6.4",
+        // The one shape the widening deliberately narrowed.
+        "query/ident-positional-array@0.6.4",
     ] {
         assert!(
             labels.contains(&probe),
-            "the corpus no longer exercises {probe} — the case that caught a real break"
+            "the corpus no longer exercises {probe} — a case that caught a real break"
         );
     }
 }

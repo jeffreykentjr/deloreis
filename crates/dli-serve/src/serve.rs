@@ -72,6 +72,28 @@ struct KilledField {
     /// nested decode fails while the outer map is still being visited, so it
     /// beats the outer struct's end-of-map missing-field check outright.
     preceded_by: &'static [&'static str],
+    /// The fields whose missing-field error the retired field **out-ranks** —
+    /// everything serde would only have reached *after* naming the retired one.
+    ///
+    /// `preceded_by` alone is not enough, because "the decode failed with some
+    /// missing field" does not say which struct that field belongs to. A
+    /// malformed typed successor fails **deeper** — `goal_atom: {"args": []}` is
+    /// a missing `pred` on `AtomExpr` — and that error was raised while this
+    /// struct's map was still being visited, so it beat the retired field to the
+    /// answer when the field was required and must still beat it now. Matching
+    /// the named field against this list tells "what I out-rank" from "what
+    /// out-ranks me": `pred` and `args` are on no list here, so they always win.
+    ///
+    /// Two kinds of name belong on the list, and a **nested** registration
+    /// carries both:
+    ///
+    /// - The retired field's own later siblings — a `Claim`'s `quote` and
+    ///   `line`, which serde reaches only once `atom` is satisfied.
+    /// - For a nested field, every field of the **enclosing** struct. A nested
+    ///   decode runs while the outer map is still being visited, so it fires
+    ///   before the outer struct's end-of-map check: a submission missing
+    ///   `document` AND a claim's `atom` named `atom`, not `document`.
+    followed_by: &'static [&'static str],
 }
 
 /// The killed wire forms at *field* granularity. Where [`KILLED_OPS`] retires a
@@ -102,30 +124,53 @@ const KILLED_FIELDS: &[KilledField] = &[
         field: "goal",
         successor: "goal_atom",
         preceded_by: &["document"],
+        followed_by: &["goal_atom", "layer", "as_of", "fork", "why"],
     },
     KilledField {
         op: "author.query",
         field: "goal",
         successor: "goal_atom",
         preceded_by: &["workspace"],
+        followed_by: &["goal_atom", "layer", "why"],
     },
     KilledField {
         op: "dli.fork.add",
         field: "declarations",
         successor: "additions",
         preceded_by: &["fork"],
+        followed_by: &["additions"],
     },
     KilledField {
         op: "dli.payload-submit",
         field: "payload.claims.atom",
         successor: "atom_expr",
         preceded_by: &[],
+        // `Claim`'s later siblings, then `PayloadSubmitParams`'s own fields:
+        // the claim fails while the outer map is still being visited.
+        followed_by: &[
+            "atom_expr",
+            "quote",
+            "line",
+            "document",
+            "payload",
+            "source",
+        ],
     },
     KilledField {
         op: "dli.check-draft",
         field: "payload.claims.atom",
         successor: "atom_expr",
         preceded_by: &[],
+        // As above, over `CheckDraftParams`'s fields.
+        followed_by: &[
+            "atom_expr",
+            "quote",
+            "line",
+            "document",
+            "payload",
+            "source",
+            "continuity",
+        ],
     },
 ];
 
@@ -203,14 +248,30 @@ pub(crate) fn killed_field_successor(
 /// params struct produced before it was. `None` from 1.0 up, where the field is
 /// refused rather than required.
 ///
-/// The [`KilledField::preceded_by`] guard is what keeps this from stealing
-/// serde's first word: when a required field serde would have named *earlier*
-/// is itself absent, this stays silent and lets serde answer, exactly as it did
-/// when the retired field was declared required.
-pub(crate) fn required_retired_field(dli: &str, op: Op, params: &Value) -> Option<&'static str> {
+/// Three guards decide it, and each answers a different question about what
+/// serde would have said when the field was still declared required:
+///
+/// - **Is the field absent?** [`field_carried`], element-wise across arrays.
+/// - **Would serde have named an EARLIER field?** [`KilledField::preceded_by`].
+///   `dli.query` with empty params must still report `document`.
+/// - **Did the decode fail for something this field out-ranks?**
+///   [`KilledField::followed_by`]. A decode that succeeded needs no answer here;
+///   a decode that failed for a *sibling declared later* (a `Claim`'s `quote`)
+///   is the retired field's to pre-empt; a decode that failed for anything else
+///   — an unknown key, a type error, or a missing field on a **nested** type
+///   like `AtomExpr`'s `pred` — was raised while this struct's map was still
+///   being visited, so it beat the retired field to the answer then and keeps
+///   it now.
+pub(crate) fn required_retired_field(
+    dli: &str,
+    op: Op,
+    params: &Value,
+    decode_error: Option<&serde_json::Error>,
+) -> Option<&'static str> {
     if field_retirement_active(dli) {
         return None;
     }
+    let missing = decode_error.and_then(missing_field_name);
     let op = handlers::wire_name(op);
     KILLED_FIELDS
         .iter()
@@ -221,26 +282,38 @@ pub(crate) fn required_retired_field(dli: &str, op: Op, params: &Value) -> Optio
                     .preceded_by
                     .iter()
                     .all(|earlier| field_carried(params, earlier))
+                && match (decode_error, missing.as_deref()) {
+                    // The decode stands; nothing raced the retired field.
+                    (None, _) => true,
+                    // A sibling declared after it — its to answer instead.
+                    (Some(_), Some(named)) => killed.followed_by.contains(&named),
+                    // Anything else serde raised first, including a missing
+                    // field belonging to some nested type.
+                    (Some(_), None) => false,
+                }
         })
         .map(|killed| killed.field)
 }
 
-/// Whether a params decode failed for a **missing field** — the one error class
-/// the pre-1.0 requirement may pre-empt.
+/// The field named by a serde **missing field** error, or `None` for any other
+/// error class.
 ///
-/// It may pre-empt that one because [`KilledField::preceded_by`] has already
-/// established the retired field is declared first among what is absent. It may
-/// pre-empt nothing else: an unknown key, a duplicate key, or a type error is
-/// raised while the map is still being visited, so it beat the retired field to
-/// the answer when that field was required, and it must still beat it now.
-///
-/// Sniffing the message is the coupling it looks like, and it is the same
-/// coupling [`required_retired_field`]'s caller already carries by reproducing
-/// serde's wording verbatim. `params_missing_field_prefix_is_serdes` pins both
-/// halves against the live serde, so a wording change fails loudly here rather
-/// than silently widening what may be pre-empted.
-pub(crate) fn is_missing_field_error(error: &serde_json::Error) -> bool {
-    error.to_string().starts_with("missing field `")
+/// Reading the message is the coupling it looks like, and it is the same
+/// coupling [`required_retired_field`]'s callers already carry by reproducing
+/// serde's wording verbatim. `the_missing_field_wording_is_serdes_own` pins it
+/// against the live serde, so a wording change fails loudly rather than
+/// silently widening what may be pre-empted — this returning `None` can only
+/// ever make the retirement yield.
+fn missing_field_name(error: &serde_json::Error) -> Option<String> {
+    // `from_value` renders exactly ``missing field `x` ``; `from_str` appends a
+    // line and column, so the name is read up to the closing backtick rather
+    // than to the end.
+    error
+        .to_string()
+        .strip_prefix("missing field `")?
+        .split('`')
+        .next()
+        .map(str::to_owned)
 }
 
 /// The leaf name of a registry path, as serde names a missing field. Serde
@@ -784,7 +857,7 @@ mod tests {
     fn the_retired_field_is_required_below_1_0_and_refused_at_it() {
         let missing = json!({ "document": "d", "goal_atom": { "pred": "x", "args": [] } });
         for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-            let required = required_retired_field(version, Op::Query, &missing);
+            let required = required_retired_field(version, Op::Query, &missing, None);
             if version.starts_with("1.") {
                 assert_eq!(required, None, "1.0 does not require a retired field");
             } else {
@@ -797,17 +870,20 @@ mod tests {
         }
         // Carried: nothing to require, on either side of the hinge.
         let carried = json!({ "document": "d", "goal": "serves(mara)" });
-        assert_eq!(required_retired_field("0.6.4", Op::Query, &carried), None);
+        assert_eq!(
+            required_retired_field("0.6.4", Op::Query, &carried, None),
+            None
+        );
         assert_eq!(field_leaf("payload.claims.atom"), "atom");
         assert_eq!(field_leaf("goal"), "goal");
     }
 
-    /// Both halves of the pre-1.0 requirement are coupled to serde's exact
-    /// wording — the message we reproduce, and the prefix
-    /// [`is_missing_field_error`] sniffs to decide what may be pre-empted — so
-    /// the wording is pinned against the live serde rather than assumed. A
-    /// serde that renamed this error would fail here, loudly, instead of
-    /// silently widening what the retirement is allowed to out-rank.
+    /// Every guard is coupled to serde's exact wording — the message the
+    /// callers reproduce, and the name [`missing_field_name`] reads back out of
+    /// the error to decide what may be pre-empted — so the wording is pinned
+    /// against the live serde rather than assumed. A serde that renamed this
+    /// error would fail here, loudly, instead of silently changing which field
+    /// a malformed request is told about.
     #[test]
     fn the_missing_field_wording_is_serdes_own() {
         #[derive(Debug, serde::Deserialize)]
@@ -824,21 +900,61 @@ mod tests {
             "missing field `first`",
             "the message `required_retired_field`'s callers reproduce verbatim"
         );
-        assert!(is_missing_field_error(&error));
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
 
         // Serde names the FIRST missing field in declaration order — the whole
         // premise of `KilledField::preceded_by`.
         let error =
             serde_json::from_value::<Probe>(json!({})).expect_err("both fields are missing");
-        assert_eq!(error.to_string(), "missing field `first`");
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
 
-        // And an error raised while the map is still being visited is not a
-        // missing-field error, so the retirement may not pre-empt it.
+        // An error raised while the map was still being visited is not a
+        // missing-field error at all, so nothing may pre-empt it.
         let error = serde_json::from_value::<Probe>(json!({ "first": 7, "second": "x" }))
             .expect_err("`first` is not a string");
-        assert!(
-            !is_missing_field_error(&error),
-            "a type error out-ranks the retired field: {error}"
+        assert_eq!(
+            missing_field_name(&error),
+            None,
+            "a type error is nobody's to out-rank: {error}"
+        );
+
+        // `from_str` appends a line and column; the name is still read cleanly.
+        let error = serde_json::from_str::<Probe>(r#"{"second":"x"}"#).expect_err("`first`");
+        assert!(error.to_string().contains("at line"), "{error}");
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
+    }
+
+    /// The blocking case the second red team found: a decode that failed
+    /// **deeper** is not the retired field's to answer. `goal_atom: {"args":[]}`
+    /// is a missing `pred` on `AtomExpr`, raised while `QueryParams`'s own map
+    /// was still being visited — so it out-ranked the retired `goal` when
+    /// `goal` was required, and it must still out-rank it.
+    ///
+    /// The distinction is `followed_by`: `pred` and `args` are not siblings of
+    /// `goal`, so they are never pre-empted, while a `Claim`'s `quote` is and is.
+    #[test]
+    fn a_nested_decode_failure_is_never_pre_empted() {
+        let malformed = json!({ "document": "d", "goal_atom": { "args": [] } });
+        let nested = serde_json::from_value::<crate::contract::QueryParams>(malformed.clone())
+            .expect_err("`pred` is missing from the typed successor");
+        assert_eq!(missing_field_name(&nested).as_deref(), Some("pred"));
+        assert_eq!(
+            required_retired_field("0.6.4", Op::Query, &malformed, Some(&nested)),
+            None,
+            "the nested `pred` answers, not the retired `goal`"
+        );
+
+        // A sibling declared after the retired field IS pre-empted: this is the
+        // `Claim` case, where serde named `quote` only because `atom` stopped
+        // being required.
+        let claim = json!({ "payload": { "claims": [{ "line": 1 }] } });
+        let sibling = serde_json::from_value::<dli_world::payload::Claim>(json!({ "line": 1 }))
+            .expect_err("`quote` is missing");
+        assert_eq!(missing_field_name(&sibling).as_deref(), Some("quote"));
+        assert_eq!(
+            required_retired_field("0.6.4", Op::PayloadSubmit, &claim, Some(&sibling)),
+            Some("payload.claims.atom"),
+            "`quote` is a sibling declared after `atom`, so `atom` answers"
         );
     }
 
@@ -853,7 +969,7 @@ mod tests {
             { "atom_expr": null, "quote": "q", "line": 2 },
         ] } });
         assert_eq!(
-            required_retired_field("0.6.4", Op::PayloadSubmit, &mixed),
+            required_retired_field("0.6.4", Op::PayloadSubmit, &mixed, None),
             Some("payload.claims.atom"),
             "every claim must carry the string form before 1.0"
         );
@@ -862,7 +978,7 @@ mod tests {
             { "atom": "warded(brac)", "quote": "q", "line": 2 },
         ] } });
         assert_eq!(
-            required_retired_field("0.6.4", Op::PayloadSubmit, &all),
+            required_retired_field("0.6.4", Op::PayloadSubmit, &all, None),
             None
         );
         // An empty array requires nothing, and neither does an absent parent:
@@ -873,7 +989,7 @@ mod tests {
             json!({}),
         ] {
             assert_eq!(
-                required_retired_field("0.6.4", Op::PayloadSubmit, &vacuous),
+                required_retired_field("0.6.4", Op::PayloadSubmit, &vacuous, None),
                 None,
                 "nothing to require: {vacuous}"
             );

@@ -1904,6 +1904,603 @@
       }
     },
     {
+      "label": "query/typed-missing-pred@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.5.1",
+      "frame": {
+        "dli": "0.5.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.5.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
       "label": "check/ok@0.5.1",
       "frame": {
         "dli": "0.5.1",
@@ -4022,6 +4619,603 @@
       }
     },
     {
+      "label": "query/typed-missing-pred@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.6.0",
+      "frame": {
+        "dli": "0.6.0",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.0",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
       "label": "check/ok@0.6.0",
       "frame": {
         "dli": "0.6.0",
@@ -6134,6 +7328,603 @@
         "error": {
           "code": "schema-violation",
           "message": "params do not satisfy the operation schema: missing field `value`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.6.1",
+      "frame": {
+        "dli": "0.6.1",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.1",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
         },
         "id": "1",
         "ok": false
@@ -8260,6 +10051,603 @@
       }
     },
     {
+      "label": "query/typed-missing-pred@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.6.2",
+      "frame": {
+        "dli": "0.6.2",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.2",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
       "label": "check/ok@0.6.2",
       "frame": {
         "dli": "0.6.2",
@@ -10380,6 +12768,603 @@
       }
     },
     {
+      "label": "query/typed-missing-pred@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.6.3",
+      "frame": {
+        "dli": "0.6.3",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.3",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
       "label": "check/ok@0.6.3",
       "frame": {
         "dli": "0.6.3",
@@ -12494,6 +15479,603 @@
         "error": {
           "code": "schema-violation",
           "message": "params do not satisfy the operation schema: missing field `value`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-args@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "text": "marker",
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/typed-missing-pred-with-goal@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal": "marker(baseline)",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-wrong-type@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-missing-text@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": {
+              "span": {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `text`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "query/ident-positional-array@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": [
+              "marker",
+              {
+                "file": 0,
+                "start": 0,
+                "end": 0
+              }
+            ],
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `goal`"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "deviates_to": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: sequence, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      },
+      "why": "A positional-array `Ident` (`[\"marker\", {span}]`) used to deserialize: serde's derive accepts a struct from a sequence, so the identifier decoded and the request went on to fail for its missing `goal`. It is rejected now. The array form was never valid under the PUBLISHED schema \u2014 that was `type: object`, and the widened `oneOf: [string, object]` excludes an array just as firmly \u2014 so this is the codec and the schema coming into agreement, where the derive had them disagreeing. Kept rejected deliberately."
+    },
+    {
+      "label": "query/ident-null@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "pred": null,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: null, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/typed-missing-pred@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "author-query/ident-wrong-type@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "author.query",
+        "params": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": 7,
+            "args": []
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-args@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "pred": "note"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `args`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "fork-add/typed-missing-pred@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.fork.add",
+        "params": {
+          "fork": "fork-1",
+          "additions": [
+            {
+              "args": [
+                "x"
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-missing-pred@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "submit/typed-claim-ident-wrong-type@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.payload-submit",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-missing-pred@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: missing field `pred`"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/typed-claim-ident-wrong-type@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [
+              {
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                },
+                "quote": "q",
+                "line": 1
+              }
+            ],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n"
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
+        },
+        "id": "1",
+        "ok": false
+      }
+    },
+    {
+      "label": "draft/continuity-ident-wrong-type@0.6.4",
+      "frame": {
+        "dli": "0.6.4",
+        "id": "1",
+        "op": "dli.check-draft",
+        "params": {
+          "document": "saltmarket",
+          "payload": {
+            "beats": [],
+            "claims": [],
+            "deltas": [],
+            "lexicon": {
+              "banned_hits": [],
+              "register_tokens": 0
+            },
+            "meta": {
+              "episode": "episode-1",
+              "extracted": "2026-07-25",
+              "extractors": {
+                "schema": "payload/v1"
+              },
+              "source": {
+                "file": "draft.md",
+                "sha256": "056d80e18f378bfb3d48d8533338ba9e6e997ceb8c11e8fd5c5f58cbb5c981b0",
+                "words": 3
+              }
+            },
+            "names": {
+              "introduced": []
+            },
+            "promises": {
+              "closed": [],
+              "opened": []
+            },
+            "proof_ledgers": [],
+            "scenes": []
+          },
+          "source": "the marker holds\n",
+          "continuity": {
+            "established": [
+              {
+                "predicate": "marker",
+                "subject": "baseline",
+                "value": "control",
+                "atom_expr": {
+                  "pred": 7,
+                  "args": []
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "dli": "0.6.4",
+        "error": {
+          "code": "schema-violation",
+          "message": "params do not satisfy the operation schema: invalid type: integer `7`, expected struct Ident"
         },
         "id": "1",
         "ok": false

@@ -710,6 +710,100 @@ fn an_unknown_key_still_out_ranks_the_retired_field_below_1_0() {
     );
 }
 
+/// A decode that failed **deeper** is never the retired field's to answer. A
+/// malformed typed successor fails on the successor's own required fields —
+/// `AtomExpr` wants `pred` and `args`, a `GroundAtom` the same — and that error
+/// is raised while the params struct's map is still being visited, so it
+/// out-ranked the retired field when the field was required and still does.
+///
+/// This is the distinction `followed_by` draws that `preceded_by` could not:
+/// "the decode failed with SOME missing field" says nothing about which struct
+/// the field belongs to.
+#[test]
+fn a_malformed_typed_successor_answers_for_itself_below_1_0() {
+    let missing = |response: &Value| {
+        message(response)
+            .strip_prefix("params do not satisfy the operation schema: ")
+            .unwrap_or_else(|| message(response))
+            .to_owned()
+    };
+    for version in pre_1_0() {
+        // `goal` is absent AND the typed successor is malformed. The nested
+        // `pred` answers, not the retired `goal`.
+        let response = send(
+            version,
+            "dli.query",
+            &json!({ "document": "saltmarket", "goal_atom": { "args": [] } }),
+            &[],
+        );
+        assert_eq!(
+            missing(&response),
+            "missing field `pred`",
+            "{version}: the nested failure answers for itself"
+        );
+
+        let response = send(
+            version,
+            "dli.query",
+            &json!({ "document": "saltmarket", "goal_atom": { "pred": "marker" } }),
+            &[],
+        );
+        assert_eq!(missing(&response), "missing field `args`", "{version}");
+
+        // The same for a fork addition's typed ground atom ...
+        let response = send(
+            version,
+            "dli.fork.add",
+            &json!({ "fork": "fork-1", "additions": [{ "args": ["x"] }] }),
+            &[("dli.fork.new", json!({ "document": "saltmarket" }))],
+        );
+        assert_eq!(missing(&response), "missing field `pred`", "{version}");
+
+        // ... and for a claim's, on both ops that carry `Claim`.
+        for op in ["dli.payload-submit", "dli.check-draft"] {
+            let response = send(
+                version,
+                op,
+                &json!({
+                    "document": "saltmarket",
+                    "source": "the marker holds\n",
+                    "payload": payload(&json!([
+                        { "atom_expr": { "args": [] }, "quote": "q", "line": 1 }
+                    ])),
+                }),
+                &[],
+            );
+            assert_eq!(
+                missing(&response),
+                "missing field `pred`",
+                "{op} at {version}"
+            );
+        }
+    }
+}
+
+/// The `Ident` widening moved what is ACCEPTED, not what a rejection says. A
+/// wrong-typed identifier reports the derive's own wording, because the
+/// visitor's `expecting` is the derive's own wording — the widening lives in
+/// `visit_str` alone.
+#[test]
+fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
+    for version in pre_1_0() {
+        let response = send(
+            version,
+            "dli.query",
+            &json!({ "document": "saltmarket", "goal_atom": { "pred": 7, "args": [] } }),
+            &[],
+        );
+        assert_eq!(
+            message(&response),
+            "params do not satisfy the operation schema: invalid type: integer `7`, \
+             expected struct Ident",
+            "{version}: the rejection is the one the derive gave"
+        );
+    }
+}
+
 // -- negotiation --------------------------------------------------------------
 
 /// A 1.0 handshake gets the whole surface, and an older one is unchanged. The
