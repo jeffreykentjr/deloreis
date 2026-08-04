@@ -731,3 +731,118 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
         "an import that drops the decision set must not claim the same commit"
     );
 }
+
+/// An append that drops the decision set must be refused, not committed.
+///
+/// Standing is read against the **tip** commit's decision set, so a commit that
+/// lands with `decisions: []` demotes every fact already in the store — a
+/// `decided d-1` fact reconstructs as `proposed`. Nothing the caller sent said
+/// so; the omission alone did it. This is the same silent-demotion class the
+/// interner guard closes, on the other carried table (DL-0056).
+#[test]
+fn an_append_that_drops_the_decision_set_is_refused() {
+    let root = temp("corpus-append-drops-decisions");
+    let mut pack = pack_with("tpth", &["bedivere"]);
+    pack.documents[0].decls.insert(
+        0,
+        Decl::Ratify(dli_ast::decl::RatifyDecl {
+            decision: id("d-1"),
+            body: dli_ast::language::RatifyBody::default(),
+        }),
+    );
+    pack.documents[0].decls.push(Decl::Fact(FactDecl {
+        atom: AtomExpr {
+            pred: id("keeps"),
+            args: vec![Term::Sym(id("bedivere"))],
+        },
+        triple: false,
+        provenance: Some(Annotation {
+            marker: ProvenanceMarker::Decided,
+            citations: vec![dli_ast::annot::CitationRef { id: id("d-1") }],
+            condition: None,
+            tags: Vec::new(),
+            span: Span::synthetic(),
+        }),
+    }));
+
+    let dir = root.join("store");
+    fs::create_dir_all(&dir).unwrap();
+    let store = Lorestore::open(dir.clone()).expect("open store");
+    let head = store.ensure_pack_imported(&pack).expect("seed the store");
+    let interner = store.interner_at(&head).expect("read interner");
+    assert_eq!(
+        store.decisions_at(&head).expect("read decisions"),
+        vec!["d-1".to_owned()],
+        "the seeded tip knows the decision"
+    );
+    let before = store.reconstruct_at(&head).expect("reconstruct");
+
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+
+    // An empty append that carries the interner but omits `decisions`.
+    let response = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+                            "params":{"document":"tpth","mode":"append",
+                                      "objects":[],"interner":interner}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        response["error"]["code"], "schema-violation",
+        "an append that drops the decision set refuses: {response}"
+    );
+
+    // And the store is untouched: the refusal happened before any commit.
+    let after_head = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("head present");
+    assert_eq!(after_head, head, "a refused import commits nothing");
+    assert_eq!(
+        store.reconstruct_at(&after_head).expect("reconstruct"),
+        before,
+        "the committed lore keeps its standing"
+    );
+}
+
+/// A `.dli` append that does not extend the store's name table is a caller's
+/// mistake and must read as one.
+///
+/// The `objects` arm catches this by hand; this arm reaches it through the
+/// store, which raises `InternerRegression` as an `internal` error — a
+/// server-defect code for a caller-supplied payload. DL-0056 ruling 3 says a
+/// caller mistake reads as a caller-facing refusal on both arms, so the
+/// mapping is asserted here rather than left to the store's phrasing.
+#[cfg(feature = "syntax")]
+#[test]
+fn a_dli_append_that_regresses_the_name_table_is_a_schema_violation() {
+    let root = temp("corpus-dli-append-regression");
+    seed_store(&root, "tpth", "bedivere");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+
+    // Only the new document, not the whole corpus: its compiled name table
+    // starts from empty and so cannot extend the store's.
+    let response = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+            "params":{"document":"tpth","mode":"append","interner":[],
+                      "dli_documents":[{"id":"extra",
+                          "text":"scope tpth\nratify d-2\nperson kes decided d-2\n"}]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        response["error"]["code"], "schema-violation",
+        "a regressing `.dli` append is a caller-facing refusal, not `internal`: {response}"
+    );
+    let message = response["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("whole corpus"),
+        "the refusal names the way forward, got: {message}"
+    );
+}

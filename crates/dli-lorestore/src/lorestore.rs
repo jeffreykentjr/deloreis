@@ -178,6 +178,16 @@ impl Lorestore {
         Ok(self.commit_at(at)?.decisions)
     }
 
+    /// The head commit's decision set — the seed any commit must carry forward,
+    /// since standing is read against the newest commit's set and dropping a
+    /// known decision demotes every fact resting on it.
+    pub fn head_decisions(&self) -> Result<Vec<String>, StoreError> {
+        let Some(head) = self.root_hash()? else {
+            return Ok(Vec::new());
+        };
+        self.decisions_at(&head)
+    }
+
     fn commit_at(&self, at: &ContentHash) -> Result<Commit, StoreError> {
         storage::read_typed(&*self.storage, at)?
             .ok_or_else(|| StoreError::NotFound(format!("commit missing: {at}")))

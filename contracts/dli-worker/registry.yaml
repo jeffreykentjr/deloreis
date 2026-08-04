@@ -233,6 +233,8 @@ fixtures:
   sha256: 626b80300a74f30ba98c667c9feffbd136dacf794bcba7c75ce6a1784d1662a2
 - path: negative/corpus-export-dli-sourced.json
   sha256: 4bda6af545eb7a7c2c9a413ec63a69376570c0e77f60681665b16d19ac2fd812
+- path: negative/corpus-import-drops-decisions.json
+  sha256: 80746aa9e4c7459a8f14c19285259b73bffec82b8775cb125ed5cb950e2b2ed7
 - path: negative/corpus-import-init-into-populated.json
   sha256: 6f8c2e3320dd8c5d4b6c364f2099f65ee901273348df621129a02273e3b6dd13
 - path: negative/corpus-import-interner-regression.json
