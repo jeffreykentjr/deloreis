@@ -24,7 +24,7 @@ The coordination points and what each side owes are defined in `migration.md`
 
 | CP | What deloreis provides | What fantasy provides | State | Evidence |
 |---|---|---|---|---|
-| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | proposed | — |
+| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | provided | tag `contract/1.0.0` at `76888052`; `docs/integration/fantasy-contract.md` at 1.0.0 truth on that commit |
 | **CP-2** — pinned oracles | the shadow-read harness slot | the pinned legacy gates (EXT-F1) | proposed | — |
 | **CP-3** — vendored corpus | the dual-run consumer | canon snapshots at a pinned commit (EXT-F2) | proposed | — |
 | **CP-4** — detection corpus | detection proven separately | the seeded divergence corpus (EXT-F5) | proposed | — |
@@ -32,17 +32,23 @@ The coordination points and what each side owes are defined in `migration.md`
 | **CP-6** — naming shadow-read | the LANG-2 kernel-half view | the legacy `name vet` + external screens | proposed | — |
 | **CP-7** — the batch RQ | the offset→before compiler + the draft RQ | the author's ruling | proposed | — |
 | **CP-8** — source deletion | the conversion + the reviewed diff | the review + the deletion commit | proposed | — |
-| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | proposed | — |
-| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | proposed | — |
+| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | provided | tag `contract/1.0.0` at `76888052` |
+| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | provided | tag `contract/1.0.0` at `76888052`; the AUTH-2 worked-scenario fixture under `worlds/tpth/auth2/`, replayed by `cargo test -p dli-serve --test auth2` |
 
 The source tree currently implements contract `1.0.0`, served **multi-version
 dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`, answering each
 caller in the version it declared, so a `0.5.1` request still receives
 byte-identical `0.5.1`-shaped responses and every vendored v1 fixture remains
 in the registry as the standing compatibility suite (DL-0046, DL-0051,
-DL-0053). All six export emission branches are implemented. That is engineering
-readiness, not delivery: CP-1, CP-9, and CP-10 remain `proposed` until a tagged
-build and the corresponding consumer-owned evidence exist.
+DL-0053). All six export emission branches are implemented.
+
+Engineering readiness became delivery when the annotated tag `contract/1.0.0`
+was cut on merge commit `76888052`, the commit whose tree carries the contract
+doc at 1.0.0 truth. That tag is the deloreis deliverable named by CP-1, CP-9,
+and CP-10, so those three rows now stand at `provided`. They advance no further
+on deloreis evidence alone: `acknowledged` needs the consumer's vendored SHA
+and digest-check output, and `verified` needs their replay artifact — for CP-10,
+the EXT-F4 transcript run against the tagged build.
 
 When a point advances, deloreis updates its **State** and fills **Evidence** with
 a link (a fixture path, a tagged build, a transcript). A point never advances
