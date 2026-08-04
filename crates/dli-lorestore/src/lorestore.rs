@@ -178,6 +178,18 @@ impl Lorestore {
         Ok(self.commit_at(at)?.decisions)
     }
 
+    /// The pack name the chain is committed under, if it has a head. This is the
+    /// lore scope, not the caller's document id: an append must carry it
+    /// forward rather than rename the chain out from under its facts.
+    pub fn head_pack_name(&self) -> Result<Option<String>, StoreError> {
+        let Some(head) = self.root_hash()? else {
+            return Ok(None);
+        };
+        // The genesis commit every store opens with is deliberately unnamed;
+        // report that as "no name yet" rather than as an empty one.
+        Ok(Some(self.commit_at(&head)?.pack_name).filter(|name| !name.is_empty()))
+    }
+
     fn commit_at(&self, at: &ContentHash) -> Result<Commit, StoreError> {
         storage::read_typed(&*self.storage, at)?
             .ok_or_else(|| StoreError::NotFound(format!("commit missing: {at}")))
@@ -352,47 +364,18 @@ impl Lorestore {
         };
         let branch_valuation = head_ref.map(|r| r.valuation).unwrap_or_default();
 
-        // The interner is append-only across the chain: `compile()` resolves
-        // every commit's facts against the *head* interner, so a child whose
-        // interner drops or reorders a parent name would silently misresolve
-        // earlier facts' support polynomials. Refuse loudly instead.
+        // Three fields on a commit replace, rather than add to, what the head
+        // holds — and `reconstruct` reads all three off the head. A child that
+        // changes any of them silently rewrites what earlier commits mean, so
+        // they are checked together, here, at the one seam every write path
+        // funnels through.
         if let Some(parent_hash) = &expected {
             let parent: Commit =
                 storage::read_typed(&*self.storage, &ContentHash(parent_hash.clone()))?
                     .ok_or_else(|| {
                         StoreError::NotFound(format!("parent commit missing: {parent_hash}"))
                     })?;
-            let diverges_at = parent
-                .interner
-                .iter()
-                .zip(interner.iter())
-                .take_while(|(a, b)| a == b)
-                .count();
-            if diverges_at < parent.interner.len() {
-                return Err(StoreError::InternerRegression {
-                    parent_len: parent.interner.len(),
-                    diverges_at,
-                });
-            }
-
-            // The decision set is append-only across the chain for the same
-            // reason, on the other table: `reconstruct` reads standing against
-            // the *head* commit's decisions, so a child that drops one demotes
-            // every fact resting on it from `decided` to `proposed`. Held here
-            // rather than in each caller because every write path funnels
-            // through this seam — three separate arms grew the same hole when
-            // the check lived above it. Order is not meaningful (the merge path
-            // unions these as a set), so this is containment, not prefix.
-            if let Some(dropped) = parent
-                .decisions
-                .iter()
-                .find(|known| !decisions.contains(*known))
-            {
-                return Err(StoreError::DecisionRegression {
-                    parent_len: parent.decisions.len(),
-                    dropped: dropped.clone(),
-                });
-            }
+            check_chain_invariants(&parent, &interner, &decisions, &pack_name)?;
         }
 
         let commit = match &expected {
@@ -889,4 +872,61 @@ impl Lorestore {
             standing_changes: scan.standing_changes,
         })
     }
+}
+
+/// The head-replaced fields, checked against the parent commit.
+///
+/// `compile()`/`reconstruct` resolve the whole chain against the **head**
+/// commit's interner, decision set, and pack name — so these three are the ones
+/// a child can change to alter what its ancestors mean. Each has its own shape:
+///
+/// - **interner** — prefix-preserving. Support polynomials are `±<index>` into
+///   it, so dropping or reordering a name misresolves earlier facts.
+/// - **decisions** — containment. Standing is read against the set, so dropping
+///   one demotes every fact resting on it; order is meaningless (the merge path
+///   unions them).
+/// - **pack name** — equality. The scope and the positional-proposal bundle
+///   prefix `h.<pack_name>#N` come from it, so a rename re-renders committed
+///   provenance under a name it was never written in.
+///
+/// Everything else a commit carries is additive (facts, lineage, evidence) or
+/// structural (parents), and cannot rewrite an ancestor.
+fn check_chain_invariants(
+    parent: &Commit,
+    interner: &[String],
+    decisions: &[String],
+    pack_name: &str,
+) -> Result<(), StoreError> {
+    let diverges_at = parent
+        .interner
+        .iter()
+        .zip(interner.iter())
+        .take_while(|(a, b)| a == b)
+        .count();
+    if diverges_at < parent.interner.len() {
+        return Err(StoreError::InternerRegression {
+            parent_len: parent.interner.len(),
+            diverges_at,
+        });
+    }
+    if let Some(dropped) = parent
+        .decisions
+        .iter()
+        .find(|known| !decisions.contains(*known))
+    {
+        return Err(StoreError::DecisionRegression {
+            parent_len: parent.decisions.len(),
+            dropped: dropped.clone(),
+        });
+    }
+    // An unnamed parent is the genesis commit, which every store opens with:
+    // the chain has no name yet, so the first real commit names it rather than
+    // renaming it.
+    if !parent.pack_name.is_empty() && pack_name != parent.pack_name {
+        return Err(StoreError::PackRename {
+            parent: parent.pack_name.clone(),
+            candidate: pack_name.to_owned(),
+        });
+    }
+    Ok(())
 }

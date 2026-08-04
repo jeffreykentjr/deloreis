@@ -2148,6 +2148,15 @@ fn import_objects(
                 .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
         );
     }
+    // `document` is a wire identifier, deliberately decoupled from lore scope —
+    // a store committed as `alpha` may legitimately be served as document
+    // `beta`. So an append carries the committed name forward; only a seeding
+    // commit takes its name from the caller.
+    let pack_name = store
+        .head_pack_name()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .unwrap_or_else(|| document.to_owned());
+
     store
         .commit(
             interner.to_vec(),
@@ -2155,7 +2164,7 @@ fn import_objects(
             Vec::new(),
             Vec::new(),
             decisions.to_vec(),
-            document.to_owned(),
+            pack_name,
         )
         .map_err(corpus_commit_fault)
 }
@@ -2188,6 +2197,14 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
                  the store's decisions plus any new ones"
             ),
         ),
+        dli_lorestore::StoreError::PackRename { parent, candidate } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "this corpus is committed as `{parent}` and the import would rename it to \
+                 `{candidate}`; the scope is read off the newest commit, so every committed \
+                 fact's provenance would re-render under a name it was never written in"
+            ),
+        ),
         other => (ErrorCode::Internal, other.to_string()),
     }
 }
@@ -2211,8 +2228,38 @@ fn import_dli_documents(
         }
         parsed.push(ast);
     }
+    // On an append the chain's committed name wins, exactly as in the `objects`
+    // arm. But this arm carries a scope of its own, so a mismatch is a caller
+    // error worth naming rather than quietly overriding: appending a document
+    // that declares a different scope to an existing corpus is a mistake, where
+    // a differing *document id* is a supported configuration.
+    let committed = store
+        .head_pack_name()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let name = match &committed {
+        Some(committed) => {
+            if let Some(scope) = parsed
+                .iter()
+                .filter_map(|document| document.scope.as_ref())
+                .find(|scope| scope.name.text != *committed)
+            {
+                return Err((
+                    ErrorCode::SchemaViolation,
+                    format!(
+                        "this store holds the `{committed}` corpus and these documents declare \
+                         `scope {}`; an append extends the corpus it is given, so a differing \
+                         scope is a mistake rather than a rename",
+                        scope.name.text
+                    ),
+                ));
+            }
+            committed.clone()
+        }
+        None => document.to_owned(),
+    };
+
     let pack = dli_world::Pack {
-        name: document.to_owned(),
+        name,
         documents: parsed,
     };
     store.import_pack(&pack).map_err(corpus_commit_fault)

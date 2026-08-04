@@ -908,3 +908,98 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
         "the committed lore keeps its standing"
     );
 }
+
+/// A document id is a wire identifier, deliberately decoupled from lore scope —
+/// a store committed as `tpth` may legitimately be served as document `beta`.
+/// So an append under a differing document id must PRESERVE the committed
+/// scope, not rewrite the chain to match the wire.
+///
+/// Rewriting it would not change standing or the compiled world, but
+/// `reconstruct` takes the scope and the positional-proposal bundle prefix
+/// `h.<pack_name>#N` off the head commit, so every committed fact's *rendered*
+/// provenance would come back under a name it was never written in — visible in
+/// a rendered export and in structured-diff review.
+#[test]
+fn an_append_under_a_different_document_id_preserves_the_committed_scope() {
+    let root = temp("corpus-append-preserves-scope");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let store = Lorestore::open(dir.clone()).expect("open store");
+    let head = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("seeded head");
+    let before = store.reconstruct_at(&head).expect("reconstruct");
+
+    // The manifest serves that store under a *different* document id.
+    write_manifest(&root, "[documents.beta]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a renamed document loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+
+    let exported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+                            "params":{"document":"beta"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let imported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.import",
+                            "params":{"document":"beta","mode":"append",
+                                      "objects":exported["result"]["objects"],
+                                      "interner":exported["result"]["interner"],
+                                      "decisions":exported["result"]["decisions"]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        imported["ok"], true,
+        "a differing document id is a supported configuration, not an error: {imported}"
+    );
+
+    let after = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("head present");
+    assert_ne!(after, head, "the append did commit");
+    assert_eq!(
+        store.head_pack_name().expect("read pack name"),
+        Some("tpth".to_owned()),
+        "the append kept the committed scope rather than taking the wire id"
+    );
+    assert_eq!(
+        store.reconstruct_at(&after).expect("reconstruct"),
+        before,
+        "every committed fact renders exactly as it did before the append"
+    );
+}
+
+/// The `.dli` arm's half of the same invariant. A differing *document id* is
+/// supported, but a document declaring a different `scope` is a caller error
+/// worth naming — silently overriding it would hide a real mistake.
+#[cfg(feature = "syntax")]
+#[test]
+fn a_dli_append_declaring_a_different_scope_is_refused() {
+    let root = temp("corpus-dli-append-foreign-scope");
+    seed_store(&root, "tpth", "bedivere");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+
+    let response = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+            "params":{"document":"tpth","mode":"append",
+                      "dli_documents":[{"id":"other","text":"scope beta\nperson kes\n"}]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        response["error"]["code"], "schema-violation",
+        "a foreign scope on append refuses: {response}"
+    );
+    let message = response["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("tpth") && message.contains("beta"),
+        "the refusal names both scopes, got: {message}"
+    );
+}

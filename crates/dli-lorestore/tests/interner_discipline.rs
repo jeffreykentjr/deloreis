@@ -201,3 +201,36 @@ fn commit_refuses_decision_regression() {
         other => panic!("an empty decision set must be refused, got {other:?}"),
     }
 }
+
+/// The pack name is the third head-replaced field, and it is held to equality.
+/// `reconstruct` reads the scope — and the positional-proposal bundle prefix
+/// `h.<pack_name>#N` — off the head commit, so a child under a different name
+/// re-renders every committed fact's provenance under a scope it was never
+/// written in. The genesis commit is unnamed, so the first real commit names
+/// the chain rather than renaming it (DL-0056).
+#[test]
+fn commit_refuses_a_pack_rename() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let ls = Lorestore::open(temp.path().to_path_buf()).expect("open");
+
+    let commit = |pack_name: &str| {
+        ls.commit(
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            pack_name.to_owned(),
+        )
+    };
+
+    commit("alpha").expect("naming an unnamed chain");
+    commit("alpha").expect("the same name again");
+    match commit("beta") {
+        Err(StoreError::PackRename { parent, candidate }) => {
+            assert_eq!(parent, "alpha");
+            assert_eq!(candidate, "beta");
+        }
+        other => panic!("a rename must be refused, got {other:?}"),
+    }
+}

@@ -103,6 +103,18 @@ pub enum StoreError {
         /// The first parent decision the candidate does not carry.
         dropped: String,
     },
+    /// A commit renames the chain's pack. `reconstruct` reads the scope, and the
+    /// positional-proposal bundle prefix (`h.<pack_name>#N`), off the *head*
+    /// commit, so a child carrying a different name re-renders every committed
+    /// fact's provenance under a scope it was never written in. The third and
+    /// last of the head-replaced fields.
+    #[error("commit renames the pack from `{parent}` to `{candidate}`")]
+    PackRename {
+        /// The name the chain was committed under.
+        parent: String,
+        /// The name the candidate commit carries.
+        candidate: String,
+    },
     /// The store already holds a different base lineage than the pack being
     /// imported — a single-branch store carries exactly one pack lineage.
     #[error("store at head pack `{store_pack}` cannot import base pack `{importing}`")]
