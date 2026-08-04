@@ -1,102 +1,102 @@
 {
   "commit": {
-    "schema_version": 2,
+    "schema_version": 3,
     "authority": null,
-    "parent": "sha256:be78d4f6522725ad26e08555610344a380a3ef586a6301aa80420fe58288dce2",
+    "parent": "sha256:b49f78457e3458b6da61609008d9873bbd89a35bc21fff12d2170c3226f6535e",
     "facts": [
-      "sha256:6ce5bc5b240179eee053c7bca91513dca3625f8e2b94a672d335e3a10ab40ad7",
-      "sha256:fea9e8e862609f67c61507c245b039e0ff4980e9fcb7cd5e8951efa65b90a109",
-      "sha256:551730ce1285f16404f54cdde36a56101c3314d052741d5ad7df3a42ae0a3ed5",
-      "sha256:592818ef99253e78fd039b7188c0c2af74dca7d5f0270f1d1c218adb208289b2",
-      "sha256:ed87c43f3424f0028c85d62a1672e55c0cefb2f75d6f48b23374c744c577bd69",
-      "sha256:17d4a92abde916bbd94d89ddaef4e8de9840a3d0d3b5a0d50670876e2509fad1",
-      "sha256:deca6e22c4e5a91ea43ee1903ef74e33acb82fa74b5ea814aa9ac8b759e4b687",
-      "sha256:ac6caee5ad08b859518b0d6682c2fbd3a4188ed0d1557bd5ae4ffb975a29ff27",
-      "sha256:82fa3e4ccdb4c2a9403ae61f99f6c373bdd16f805a7363c172346ca31757c7d7",
-      "sha256:cfbf215196ba247f1e69703173d6385ca0b16c30b0c9020216886796d2984b05",
-      "sha256:0223780f5551dde0f281f3861fc23e3ba7f2e5b52f8ec92d607f9885809fac71",
-      "sha256:7cf9b0991d912200040a53477190b849388250dfaa25a8542d180dbd0adb8073",
-      "sha256:b441d4165351f138edd942d467439286ee2533d98e747a48064730563a6bdc7c",
-      "sha256:3145ff378a22c91f6f333e43bfe5571a8b6a10a93e711ea007a70f76f81d6fe9",
-      "sha256:d10f602b3a2344c92e95f2b1fe82aaa76a43957e99daa4c5ab9bf90584f7c2d7",
-      "sha256:b80e47525541b8548f90a6aa4b844070fcfac1565d7cb0ab077f0ba888ecacf1",
-      "sha256:6d0c7d77491bd486640796040bfa34d9893b4f687ff24f7a3fef3ef3fc2f1867",
-      "sha256:6e12469cf75a2f58645b0457c71e29050b8a418a86b6beb244ad300f55f6d7a2",
-      "sha256:b25fa9a0d1d31b3226c45b4289ae0113edb2487052f3379bbfa6cfd37dd24277",
-      "sha256:96ad7804ecd9e09881fd826dffe8c69832c46855e71a9bd0c19230e825897afe",
-      "sha256:be19269e1f4ad12a625b1523b4a77907668ab70cf6043ebfdd576aa44117af6c",
-      "sha256:ac06b189d7aa007ffd1bf23d2a3292f30fcd52c05f7b5a778dd1d513b1e8fbb7",
-      "sha256:66dec7f9177b33523b55a133d354c48d7ab45fc2d80563f62e23dc2d9f497205",
-      "sha256:14c5a325c11b534e1066f29fb858a1aae5cbeaa29b462f2cbeef423e805de999",
-      "sha256:3f48faab31109294bf5c8fa93cac6be1360769ae081abaf566574441f840ca1c",
-      "sha256:02e33275605e5bfa4e71cd1461e8aa4ab24b30fdcd68969ddec41c9e476a5514",
-      "sha256:955decf5ea67e717a35aeaaadf7d4c7e2172051431d942f361c9293db9e1a168",
-      "sha256:528c9fe5cf7b13a2a1526e095c583f7d540bc3c8032ae4aa8c92c4f793f34bcf",
-      "sha256:24cef56e2712250b07097163d694531d826424b715d8d121074dae1b6e0b0274",
-      "sha256:65319dced478ba30dee84af3daccacad164f9fe8c8e5cbc7890259c756b1fbcd",
-      "sha256:3b5592d703bd7faa1ab689b1c55e83ef70121c6ed6d7ab7c61f5a463bd42583d",
-      "sha256:a7a4bd817cd895adaf8c9b4c35e77fe46e95bf1269cef7846bb20500df8e130c",
-      "sha256:edb92a7c059ecf02295cb07c2fb7ccebf9ac5c2d9a7c93a23378eea7b5b8ddd6",
-      "sha256:2eb67860e2ce9967b657ed4f12583bb9e0de821bd7d730b6bc5e3f8f51ec5dae",
-      "sha256:d29e5b4f8400345bb5462fd005289e3f6e11070f923a5d7a8d6825f4295d5ebd",
-      "sha256:0f97f3969b504ce6b7f16343ab5ad7c536edc9b5b806fe24ea120ba3e996e846",
-      "sha256:7360e7900f0d184d539c7f4f134bf1658dec90697c4778e4a2b345d3ed6357ff",
-      "sha256:a4e3c3b496f57d254e0a6bd436ecdcfe93c7d0d787c7f9ee8227e206153cbec7",
-      "sha256:069fb4f86ebc0213cf6732af72775437301c5a7dd5ccace34724033eb4c836d0",
-      "sha256:edf01704425f1c3708cf1054a485bc5294d1aa00fb2127a656c1c3df4b7c7802",
-      "sha256:b1f058df2fd8de85b84c70c7283d1dcf57396950ae978ae95945c3ca35e435b5",
-      "sha256:dbd336e554e1a67962ae8bb9c6fb4f660c412fe84771a45b70a27df905653fbb",
-      "sha256:df5dd86e65b77a63ecf11bcb2453e3a97e4a3867395fe954c910bde78f670dfc",
-      "sha256:4be09f15472da060ec83ba24354e576f38ee24c8bcee268f0e57bd30cf3c822f",
-      "sha256:d808e661e6d19df4a393a00604c9e761dcbc611efa3bc020f99512d618ff8c29",
-      "sha256:86df614082cc5b364037476081e7eb03f109741b6b0132b3cd60f4155074616a",
-      "sha256:dd10d1f79c12a94820c759dcbfbe799e0140b77feba58c4d8f392c6c854e0b7b",
-      "sha256:318f216bf26ea5ddc28051c672aad041a9c2bbc50f985ad0ea30dab654dd9e19",
-      "sha256:2833860de25343548571b0ffc69193f951bfda15392850830ca73a7c8c979ced",
-      "sha256:acd5cd3637edda3f74ffec6f9d7688ebb1245e9e292e737ea91065c0caf7228e",
-      "sha256:84c7f9c30b0ddb1cb81ec44172b3612ae18a9a649c77a816478ba61a331a768e",
-      "sha256:73a9a5defc3fe47f91aee0d0032d80a75d4a0c861781b3166b8d0d14240e000f",
-      "sha256:35751a452f2163406af4a5a9854d3361d64bf454050a876894fa227c2999d721",
-      "sha256:7d4a22dd9e5ef1b8a9778bb3c5a720a4e7810042224c7fe4ede7944b43237f71",
-      "sha256:9c8d02c003a59a2959ef6165a1390803cebb82a1dcc57c2ab30e776737ea1270",
-      "sha256:08d6521527d204b6c06e47a467f8b36b611ea128b157db871f92506ac1c2ded0",
-      "sha256:043b1802c51784bf24556e123d635c99011217e548ed6cebb5cc01c73fa1f1b9",
-      "sha256:8edd94c49dfc8c2a4ff834263df226a5e2da13e5e35752569f25ec9a15e37de5",
-      "sha256:c531353d06c50effcffa7976be9517d7e3d022bc83e8e25ae4cfc656b5bff9cf",
-      "sha256:d43559ec01af77f71fed4466c873bd203db0fe4cd8841fc15d26afc85498256b",
-      "sha256:9f12572792e63ad833477bd5347bedc7daa97499fdd45fa9aca2d658a205be83",
-      "sha256:b4609774e8de2a43fa0daf2f702ffbcf67eec8fabb53b3ebe658d8a2c6fc3551",
-      "sha256:058c9c5ee6b6610a68a7c91117176e10318c2d1242742cd1e4e1fb5cdfe0425a",
-      "sha256:4847e5da774b811afe7fe08478ac7a092bc77796838f485cd93b19e8b0c41ac0",
-      "sha256:f6c3d3f5863a056501a529b6e1233566e57d537af2500eaa46fe1173cedf5c3e",
-      "sha256:597cb4268c79a6e573c85f4cb1fa5d2400aaeab8c7a04b110fe21acb2d43701b",
-      "sha256:50c6eb0617c3ce3c2c4208cdd8ea407774db5ddf750820484303881672323132",
-      "sha256:267118159b5cb536736e276ba8ece1a3b01a0a4eb162ab8262b2481cf3d6ffab",
-      "sha256:91b48b4b54becaead0f60d438714ac430e425577bedb414c355aa26cda20f543",
-      "sha256:38e89d3fbea57914397f6ca3b2baa52ece2c1b5d104122abb15e5014678a0eaa",
-      "sha256:91aaefdac6e3a4eb16f322aa28e92110426fc1f455367823cc083f66f7cc830e",
-      "sha256:0696c1441268311a380565e809967ef8a0e02c4d198fef2c54f7d319049439dd",
-      "sha256:e812b63f73564e6931e7a0bcc3e6e6d6e9384f77930b874fed75499b418662c4",
-      "sha256:33c01610eacf24b5f7be880dffebaf13897c5109bb3aec95db11841b6c756047",
-      "sha256:6264106f1f5899bcf76e25252d81542c167082a3f7ea61e670ea885e2f1877c0",
-      "sha256:c3131c7ce71b2ac3d8c2e130b1fe9748e387d37e13ccb88fafd6122fe7869cef",
-      "sha256:e2e58e0d7b111b4f141aa347607cdd81937bc30f32e01175379680e7a3c4f27c",
-      "sha256:1588797a4f799e8492c910e8a5532d8fa596360ede109cf977169a3496b4586b",
-      "sha256:8ebe30dd09f26004a141a68666ebfcff593a1c5cc343bdd7264c203915ec33e4",
-      "sha256:1229a77e494e0a805ab05ad34b6089cde1bc3b150e84fddaff35187b701666d8",
-      "sha256:55e6fdb4254284c80f6751c5f0ba8e738507bb69011bcf0f0bf46f5efd5f0917",
-      "sha256:1f7ca222f7f2311407145ba39b7c0d1942066b684f0834f92241527f8cc5ff25",
-      "sha256:2de48c912fc521e5e946396c41c5bc894700e8431a807a95a6a9d7636689166f",
-      "sha256:a4ab90b5348e06a1436ad16cde7bafcc21102a660d8f34540a6fa00bc71036aa",
-      "sha256:0546894e42dc10b31d87dab4e524b6e90bfba8e599a9f427643e546f60fdee9e",
-      "sha256:ae524e34e16931663751b23581902a01b5a5d02de26868cf7c660c8caf25d6be",
-      "sha256:c934191e65869ca8c2e39f457b0e28ce589287cac890a9a6f9a25edda562bf45",
-      "sha256:0ee34e29b8d712bbacf1216f8bb2126bef5d46da8a41f2ffe80e2e6b719d1005",
-      "sha256:069072a1649353bcb88f285f5aec794c98c831ee3f36a62057f7cd9af95cb838",
-      "sha256:bbfc73f18805dafebdafc5ce9f1951b81b8fa9a4c2848440bcb168909c867ff1",
-      "sha256:e9e8edbc4bd63306b078a5b7cdc06a6297eb5d8b1799936304123278f9551c52",
-      "sha256:7c2991d687d83533b9727ce8365a196c7534296bc69332fff01d73fa31aa7ff0",
-      "sha256:e309c342259347eeab38d3f13f2abc463dc541c7f7357b92bf5dca3fead52076"
+      "sha256:576e6ab80f2d4d9e6850ac2b65bed66e96f10c33d47819613f516edaffb6f467",
+      "sha256:3561fac93ac75f5f242d71b01c68e8fc1decc7f6391d4d3f13349e6f685ecbc8",
+      "sha256:7ba5e77a79fbd41386dbdaf7d6cf9b243f86bf6e031af4b60f2e0d888c6bc9c8",
+      "sha256:b1db4ee7cac001d6989ec1a27279cdef727b7f6a6dc3833ddc33f469647cb4b4",
+      "sha256:fdc26002af9a5d21027c9528f07c9ff1feebb94dd28f4ddd257d3446b59700ad",
+      "sha256:be16d6aada674fe7fe4d560fa6ae5265e556dc39f534963bd6c0aa00ec53319c",
+      "sha256:c231c7d783213574b10718427043022a23594fe63f5fcfb0ff38d506e624babe",
+      "sha256:eb9330ab9f450be0b531d2f23dda082b11f308ea6a14766dd8e0d23458be19dc",
+      "sha256:27e9aac674fe8a71b85d096394e48bc0c0f816a142daa4728f7033d8b55f615c",
+      "sha256:1842a82939395c2e7bafee1f15fc6ff88c1236778a964a43b760b7dac359fb12",
+      "sha256:ccc7d9dba8091a9e3f9afbc29e0a050e7e760b42b1cc57e7b0c74402cd91ba36",
+      "sha256:ae73d41f79d43e927836b83ed166ced15f4ffce94017e06daa575b9689f615db",
+      "sha256:3f0a1b6fd8953b9c43ab473c029c92fc141c8422ffec06fb2b8c930e9e9f58a9",
+      "sha256:9eef69147e7acfbd4dd2a525ce62dff47cea1e4357e8db9cc543450c337cd35a",
+      "sha256:9f35fb6f997b8598e31b581eaca8050521769b23f5ad3cbc42a1825732879da0",
+      "sha256:1d868938cf53a1d05008e2a5e788c68ed2a1297e9d7083950f7339a8b3654b19",
+      "sha256:830d8c0e820f7a05b3e38287ae783b7df520f01aa670d6952f5fe8d460663688",
+      "sha256:23949cc8a45a60786fe3434b4514ce5129b1889e47c253dd26e608af0149f784",
+      "sha256:e2c09b649f1b723d257fe248dfd42ae1003863f34d5efc03e7b5e98a66cf3baf",
+      "sha256:1b36ac47081d77bba158e527e78990c423af1636fa1cc9b52c048448fb5e842d",
+      "sha256:b3f3d1f0339a7f67659c21e76dae24ca6a242fb756c1a2fc9c490fed2303460a",
+      "sha256:d7c6b214363ec43f786dc2424f36f32f567758aab6e53e5d07b532d18456ae75",
+      "sha256:aded3858750945b28af18cad82c83163a46c3b0d2b079a75378f46e0a9bb502f",
+      "sha256:ff2cc257fe82de3bd1771cf90b7e49656662e2353e818fc952fc3d17f5ff2e63",
+      "sha256:71b8d302a1b23d3feb262ae53e2c2f4ac7be278279499e670f0a5de0244a02ad",
+      "sha256:21f6316372b1700c9bca10a9d5c9f1538002cb8ec80fad1f10a277d9b75030dc",
+      "sha256:f200b4ad61bab6a9773935b972b5dd3fa6b71d34d712086d70c24c5ca91643bf",
+      "sha256:ca70be6b93fc0b83c2a32cfcbff21d051aa9ac5dbd9703432e9b8bd2a06a79af",
+      "sha256:adafff6df3135e765d298cdf8710c52881ece1eaf00a6f6a57a1b4b03c84cc9d",
+      "sha256:c40a692d962976bbc4ea31dbfe6169304ccb78cdcc8126edcf2af100ec94d427",
+      "sha256:bbe67f51163bfebfa47bb323b3a3e36f45713796beccee2f6e36c1ddbef1f0fb",
+      "sha256:9fa3afe3a66728e0c16bf0895bc13b66d1b85bb38c77ab53bcd6e8bba769326e",
+      "sha256:ca4d783ee674960ecbd7414f28b824b4e9604c9a141c1fc1e09822e38817fbea",
+      "sha256:21ec66174051a0d1fc2507c444760bbd69ba957e127226cbebb9ab7fbdd69d0f",
+      "sha256:03b51f1312e893c1ce9da4781d9556b9129e877e47ad9297765f619a57e17211",
+      "sha256:e0e2234efd5869b4d2f64fa8936f4efab63cfb465288683ed96574a4eedb1823",
+      "sha256:2bfe0d7df0208849cf6bb5551a31a37af02cb6bb7fb16717188b768c8d27d21c",
+      "sha256:7923caac402b3d775a0491436cf275d6a9a79419790e65c63a5b39a8ac524918",
+      "sha256:95a95f456c547009e73d1c967d65420c088e7126e29feaf435ff7c74e7063110",
+      "sha256:ffd55e53f82a5cba088bb97df06838733e739fdf46b9589f59fc4e19d8ff9134",
+      "sha256:6ebc3899ce2f861ecbff5cd2476d036748b6aedb3e5249aa3a232019506191ac",
+      "sha256:88c52980a813ef5f7a1a8b756c6cccfe90345c0f98a9c20cb74ff7ea5f1348da",
+      "sha256:320661c71e96c8bed5b253d4b077185de5806884f98a6f8029caac0838f45053",
+      "sha256:15aa170970084a46feb3e2ad9bbd57626b9cf40af3a7cab84bbecb7dd88a4af0",
+      "sha256:f853f0e18552598644d082a2bafa9ece0f0d85580edd62d03499c54a45728305",
+      "sha256:732f4501f903786f5ccd16625615e82202e6af137f2d2bd175dd0155a7b60916",
+      "sha256:fc6e28c0c49e19ed373dd7c48d7136e8448d0d71fdb0c079106e183b49ee48e4",
+      "sha256:31ea7cdaa50499fd765b090793ce087ba08fe76e958a6aa28e29ecbaf7e7ddf3",
+      "sha256:7569b7518424ece80e1840d647f82fa9ea867c8908f03d4084a0cb9df8cfd5ef",
+      "sha256:d434200a8f42293e438eff2d8dfb2635a4bc3bc195f8fc037a6edcd74a5bcec3",
+      "sha256:bb51bc930e74a58ac1dc086eb6a2b9be40470d02c47b7ea0e987b3a6a6fdbbfc",
+      "sha256:d6f47a64e1a4fc2e5c51dcb44eccd489054b509ec730b9e196f3c9b1388b5363",
+      "sha256:6380ba79a3e8ac2b5017a1bc42aedb61e92d92b4ed95543b33d5f376f191bf26",
+      "sha256:ac1fe097e02a6969b84608f73ac351012c9854e656f1cc64794b15662f0ca63b",
+      "sha256:971cd4662986b98d5aa18cf6143c15a8d5c74fc187ca8ff5679088327e75175e",
+      "sha256:cd20bc956a9592e71984a7989998ebfd8460a5678a243e617e4df597bcc708f2",
+      "sha256:4d3049f34bab09bd8ca7c242452c425e90142e1aa820016622602044cd8307fa",
+      "sha256:bcbff85c35e350f1e576d9b1971b72a35802821c615962567c743ab680cab16a",
+      "sha256:9d3d7f41c13b7558f42f7c8d0c5e6b0d8121ec50db9467f951bb3134ed8eb4e8",
+      "sha256:4d22cd7e68a5f7a559b7fdaed553c715a005642790e921d7cef6c250717b4361",
+      "sha256:bd6dd7c391feed5d368233eafcd2ee68fb3fa4ea63270c938c886311cb3a8e50",
+      "sha256:48c2088ee024a7355a9b9b4bdfa39f0bae2a375b5bd3438dd15399ee10b559bf",
+      "sha256:221483ec058be3df16c050799714365b76bbe16e5773e33f6ec7ea890e0a9119",
+      "sha256:cc65cbb617808f72961613fabd1e74bd7588bffd3a0a90536b9c082b2937aa69",
+      "sha256:cfdaacfc149697ec2bd3281b757828bfe323f2a44dda397b31a66bd25ae010de",
+      "sha256:f521b182273aa25a6da5b29e2ee74b1f63ee4f3742c9648fd6a54e8cde4c808f",
+      "sha256:b01f0d5ea7924af8121a292321c8e5acbc3bb3dd2b1ee8dea11fabb3cb5dc4cd",
+      "sha256:a06b313d1fef0b92bbea6806750ecdc319afb61c90e5329c56da2f45179f8f89",
+      "sha256:70983d69d1e16785a20fc2c12eaca490d4452b3229759e9b6cf555375fa6139a",
+      "sha256:dd50c8eba6d4aeb3967997507aaa09eeea6901dcff4212f109df8bc18736ab44",
+      "sha256:ae10e8ea94426c000ac80eb8301e1842ea6b3cc26b8aae8ff756a6284c5a4973",
+      "sha256:400dd432c742f5d8c898a45ceabffd24b1dcf118608931c6699632dc522814c2",
+      "sha256:fc89ab32c4ac7c4b7d4e9f3f738ebad3bab6132e4df6f659b4b8727ab5a85d44",
+      "sha256:58cfb5139ba9539b092c70f41c9f9798d89dacff455af53fbd5974db9f63c9f2",
+      "sha256:65043e34a3b6e285e23ff5ca5ad05b6d80b3b3f609f73347c491a05ad42e357d",
+      "sha256:bd1ce807dc80dd8fb455c0bedbce043619ca2989dcee2a51f7937a441a4d56d3",
+      "sha256:df37b45289823501634cc2119bd20820793a01b0a9594dcf79e0328943592138",
+      "sha256:924d255475d618c9295955596aec096a59994f253e79e5b8fa2c515c11b1a340",
+      "sha256:e00dd6062149f82ffa6f2e11583ddd8e62725b972cbbeee061ff3f78bc6ea3b4",
+      "sha256:193cfffd28f8b24a627dc32d2984b6aac758bb84a6d18612217db044e86f18b8",
+      "sha256:8b9dd048223aa3cbdfdcb16205db60aec07b925f72cb007918eecb0db697bfcd",
+      "sha256:c14d36dbc4aeb46fc8f6295d889b4d419bc98f1eacbf2ee08f9e847f54e7a5f3",
+      "sha256:e052632891f7ab4238c4e0f77d58bd885c68e0fb539b48bb3a00b8bab6a67d33",
+      "sha256:98fd31619af0f85ad340ae86efd06d819b7776158a065896501f9281795c32e2",
+      "sha256:d794b8775233c1911f7a31938f1319b61666f36360a52021665a64dfc07a4811",
+      "sha256:5471f0d01a8ed2779aff44ea87c3b9fe4e03e63f40ddf95841f6126162f4fc1f",
+      "sha256:2d06989656632fd8cbd2338310d2f146c151a9c26ae88d45ab3e6e7ad115248e",
+      "sha256:75cafdeebe7bea240e9a307fee184042785cbd78564d3346866a8e0f86abac74",
+      "sha256:cfbe08feb6896f41c12499fc112e7af2f58d7a76f76c6a49d21e015eab6313c9",
+      "sha256:d83d9ae41961a37ada29d72fa71b7ac13a6034b995139cfd5ebdabd1e636127a",
+      "sha256:069f58c1d3982159c9f3584224eb214d69da2f10b63d3b9075b4e8d775e04eb1",
+      "sha256:8b920918bc234feab3c7959afe0c3590ba0283c3a420b237d6ffd0356075d052",
+      "sha256:432a32477fae19194894057cd8c34654e4ba6cccdfdc5b7336608c0a6211ad45"
     ],
     "lineage": [],
     "evidence": [],
@@ -141,7 +141,7 @@
   },
   "facts": [
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:62a7d6dd9684a73dff498ee367cbb95a16764306b6eba34fffbf7fcb5f80b17d",
       "atom": {
@@ -164,12 +164,15 @@
         "kind": "use",
         "name": "language",
         "body": [
-          "{\"Use\":{\"target\":{\"text\":\"language\",\"span\":{\"file\":0,\"start\":19,\"end\":27}},\"span\":{\"file\":0,\"start\":15,\"end\":27}}}"
+          "{\"Use\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"target\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"language\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Use\":{\"span\":{\"end\":27,\"file\":0,\"start\":15},\"target\":{\"span\":{\"end\":27,\"file\":0,\"start\":19},\"text\":\"language\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:355d0d43023e38002a9dd33d0b73e1b4acc841c6705b1d63f741acf38844cf7b",
       "atom": {
@@ -192,12 +195,15 @@
         "kind": "use",
         "name": "chronology",
         "body": [
-          "{\"Use\":{\"target\":{\"text\":\"chronology\",\"span\":{\"file\":0,\"start\":32,\"end\":42}},\"span\":{\"file\":0,\"start\":28,\"end\":42}}}"
+          "{\"Use\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"target\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"chronology\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Use\":{\"span\":{\"end\":42,\"file\":0,\"start\":28},\"target\":{\"span\":{\"end\":42,\"file\":0,\"start\":32},\"text\":\"chronology\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:9bdf5aa05b5e706234fa0bb8aa11a4e73e33a239af6e5132b54ba96f9bf623c7",
       "atom": {
@@ -220,12 +226,15 @@
         "kind": "ratify",
         "name": "d-0001",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0001\",\"span\":{\"file\":0,\"start\":50,\"end\":56}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0001\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":56,\"file\":0,\"start\":50},\"text\":\"d-0001\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:2e287c8d31061d7e75e55d0753161333a900d0945bfdaa80cfcee44a61c9c401",
       "atom": {
@@ -248,12 +257,15 @@
         "kind": "ratify",
         "name": "d-0002",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0002\",\"span\":{\"file\":0,\"start\":64,\"end\":70}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0002\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":70,\"file\":0,\"start\":64},\"text\":\"d-0002\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:b2e5f1d91c0c341498457d47be28fb43ffe45c939be3ba043bd4e65238516929",
       "atom": {
@@ -276,12 +288,15 @@
         "kind": "ratify",
         "name": "d-0003",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0003\",\"span\":{\"file\":0,\"start\":78,\"end\":84}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0003\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":84,\"file\":0,\"start\":78},\"text\":\"d-0003\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:7f89546e7fa223a09c586f6ea4614dc9d5471f520ef4ca30893435db595be672",
       "atom": {
@@ -304,12 +319,15 @@
         "kind": "ratify",
         "name": "d-0004",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0004\",\"span\":{\"file\":0,\"start\":92,\"end\":98}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0004\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":98,\"file\":0,\"start\":92},\"text\":\"d-0004\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:0a46a01a0efc51008d31d67e1da5a9ec8b71355445d358841fc9db50747286d7",
       "atom": {
@@ -332,12 +350,15 @@
         "kind": "ratify",
         "name": "d-0005",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0005\",\"span\":{\"file\":0,\"start\":106,\"end\":112}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0005\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":112,\"file\":0,\"start\":106},\"text\":\"d-0005\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:7e5484623e8a3b1f42da03df4b958924907c88f1290d6d2bf5b27dfebcaa1922",
       "atom": {
@@ -360,12 +381,15 @@
         "kind": "ratify",
         "name": "d-0006",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0006\",\"span\":{\"file\":0,\"start\":120,\"end\":126}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0006\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":126,\"file\":0,\"start\":120},\"text\":\"d-0006\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ad8618b562036f77a4af3f901c3ddf756f2b62559120803b5f49b35c7a1379bb",
       "atom": {
@@ -388,12 +412,15 @@
         "kind": "ratify",
         "name": "d-0007",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0007\",\"span\":{\"file\":0,\"start\":134,\"end\":140}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0007\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":140,\"file\":0,\"start\":134},\"text\":\"d-0007\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:4e17471cd73fdb1e758300f92b0a622f198932a680771ead5258db07f51a5cf5",
       "atom": {
@@ -416,12 +443,15 @@
         "kind": "ratify",
         "name": "d-0008",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0008\",\"span\":{\"file\":0,\"start\":148,\"end\":154}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0008\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":154,\"file\":0,\"start\":148},\"text\":\"d-0008\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:a131fb6293cb2e36221a136d14b0eaefc85e667c028399f1b5e51eaa509b0832",
       "atom": {
@@ -444,12 +474,15 @@
         "kind": "ratify",
         "name": "d-0009",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0009\",\"span\":{\"file\":0,\"start\":162,\"end\":168}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0009\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":168,\"file\":0,\"start\":162},\"text\":\"d-0009\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:b6cf89952d2f17b241c463bbd75063fec8dbfedc31f79fb1e1ea1570ed74893e",
       "atom": {
@@ -472,12 +505,15 @@
         "kind": "ratify",
         "name": "d-0010",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0010\",\"span\":{\"file\":0,\"start\":176,\"end\":182}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0010\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":182,\"file\":0,\"start\":176},\"text\":\"d-0010\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:8b5dbaeaf0618a570a556e60e25ae624f135ebf22e7fdcd35cefc3c8f5b97aa6",
       "atom": {
@@ -500,12 +536,15 @@
         "kind": "ratify",
         "name": "d-0012",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0012\",\"span\":{\"file\":0,\"start\":190,\"end\":196}}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0012\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":196,\"file\":0,\"start\":190},\"text\":\"d-0012\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:5c259758700c38404406b64158cd8f2d473acec77fa19141a555b18ef7fe4634",
       "atom": {
@@ -528,12 +567,15 @@
         "kind": "entity",
         "name": "uthers-time",
         "body": [
-          "{\"Entity\":{\"kind\":\"Era\",\"name\":{\"text\":\"uthers-time\",\"span\":{\"file\":0,\"start\":201,\"end\":212}},\"label\":null,\"time\":{\"Order\":[{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":215,\"end\":228}},{\"text\":\"after-camlann\",\"span\":{\"file\":0,\"start\":231,\"end\":244}}]},\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0001\",\"span\":{\"file\":0,\"start\":253,\"end\":259}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":245,\"end\":252}}}}"
+          "{\"Entity\":{\"kind\":\"Era\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"uthers-time\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0001\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"Order\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"after-camlann\"}]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Era\",\"label\":null,\"name\":{\"span\":{\"end\":212,\"file\":0,\"start\":201},\"text\":\"uthers-time\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":259,\"file\":0,\"start\":253},\"text\":\"d-0001\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":252,\"file\":0,\"start\":245},\"tags\":[]},\"slots\":[],\"time\":{\"Order\":[{\"span\":{\"end\":228,\"file\":0,\"start\":215},\"text\":\"arthurs-reign\"},{\"span\":{\"end\":244,\"file\":0,\"start\":231},\"text\":\"after-camlann\"}]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:4169b6b7c5e7b3fee137c5b738e4d2f85aac937126f29a920586aa518caa2552",
       "atom": {
@@ -552,10 +594,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:d278a0898c400b542139cc7bebbff450f5444d2fc883d6110e13b47fce134bd0",
       "atom": {
@@ -578,12 +623,15 @@
         "kind": "entity",
         "name": "the-sword-drawn",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-sword-drawn\",\"span\":{\"file\":0,\"start\":266,\"end\":281}},\"label\":null,\"time\":{\"During\":{\"text\":\"uthers-time\",\"span\":{\"file\":0,\"start\":298,\"end\":309}}},\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0002\",\"span\":{\"file\":0,\"start\":318,\"end\":324}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":310,\"end\":317}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-sword-drawn\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0002\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"uthers-time\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":281,\"file\":0,\"start\":266},\"text\":\"the-sword-drawn\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":324,\"file\":0,\"start\":318},\"text\":\"d-0002\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":317,\"file\":0,\"start\":310},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":309,\"file\":0,\"start\":298},\"text\":\"uthers-time\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:e0dea786e8e667f64cb9da72a01c4bb40389a5de0bc14adeef2dcd14bc2096c8",
       "atom": {
@@ -602,10 +650,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:b29cd2c7dc6d393b66b8096d860132b9143901bad448355dc18c5cb65cbf49be",
       "atom": {
@@ -628,12 +679,15 @@
         "kind": "entity",
         "name": "the-round-table-founded",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-round-table-founded\",\"span\":{\"file\":0,\"start\":331,\"end\":354}},\"label\":null,\"time\":{\"During\":{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":363,\"end\":376}}},\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0002\",\"span\":{\"file\":0,\"start\":385,\"end\":391}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":377,\"end\":384}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-round-table-founded\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0002\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":354,\"file\":0,\"start\":331},\"text\":\"the-round-table-founded\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":391,\"file\":0,\"start\":385},\"text\":\"d-0002\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":384,\"file\":0,\"start\":377},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":376,\"file\":0,\"start\":363},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:6ade116d9c74de17752364f4ba5243ac9845d6ad79b7700f4681db298e07ea41",
       "atom": {
@@ -652,10 +706,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:6031cd94c80a4d4821289f69064463b77fd1c405a490f24a43cc6d62c6784300",
       "atom": {
@@ -678,12 +735,15 @@
         "kind": "entity",
         "name": "the-grail-quest",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-grail-quest\",\"span\":{\"file\":0,\"start\":398,\"end\":413}},\"label\":null,\"time\":{\"During\":{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":430,\"end\":443}}},\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0003\",\"span\":{\"file\":0,\"start\":452,\"end\":458}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":444,\"end\":451}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-grail-quest\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0003\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":413,\"file\":0,\"start\":398},\"text\":\"the-grail-quest\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":458,\"file\":0,\"start\":452},\"text\":\"d-0003\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":451,\"file\":0,\"start\":444},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":443,\"file\":0,\"start\":430},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:17a2d261aba7d672a195962b8a5f9cba6fc40d90d0c9adcd3bc5902348713c4b",
       "atom": {
@@ -702,10 +762,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ef5ab3892c9a539510f8efaf69aa28a0e11bdd7d37cc2b6281e9d4ce8a063fbf",
       "atom": {
@@ -728,12 +791,15 @@
         "kind": "entity",
         "name": "the-battle-of-camlann",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-battle-of-camlann\",\"span\":{\"file\":0,\"start\":465,\"end\":486}},\"label\":null,\"time\":{\"During\":{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":497,\"end\":510}}},\"slots\":[],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":511,\"end\":519}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":486,\"file\":0,\"start\":465},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":519,\"file\":0,\"start\":511},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":510,\"file\":0,\"start\":497},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:47d7dd006a74430cfcb01b430745fa5904c93a1164f3b24782d8b6886a017a37",
       "atom": {
@@ -752,10 +818,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:180f1acd8d79ba1c76929c2be80633046614a1ada00a5ad95c8a8dfb8b8e2d1c",
       "atom": {
@@ -778,12 +847,15 @@
         "kind": "before",
         "name": "the-round-table-founded->the-battle-of-camlann",
         "body": [
-          "{\"Before\":{\"earlier\":{\"text\":\"the-round-table-founded\",\"span\":{\"file\":0,\"start\":527,\"end\":550}},\"later\":{\"text\":\"the-battle-of-camlann\",\"span\":{\"file\":0,\"start\":554,\"end\":575}},\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0003\",\"span\":{\"file\":0,\"start\":584,\"end\":590}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":576,\"end\":583}}}}"
+          "{\"Before\":{\"earlier\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-round-table-founded\"},\"later\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0003\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Before\":{\"earlier\":{\"span\":{\"end\":550,\"file\":0,\"start\":527},\"text\":\"the-round-table-founded\"},\"later\":{\"span\":{\"end\":575,\"file\":0,\"start\":554},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":590,\"file\":0,\"start\":584},\"text\":\"d-0003\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":583,\"file\":0,\"start\":576},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ab227fad8907bcf4067029127feb86cbe8f60f9b912739b7b448c19eff0a515f",
       "atom": {
@@ -803,10 +875,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:93715950cf4b6f7212f11e7d8b80e0f35d00ed1a1848241fc6c2c3c32ed18608",
       "atom": {
@@ -834,7 +909,7 @@
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:9adea7b9c03365dba1e97827ebab6cb47b2ab75d13787cef0a707fce0ed06333",
       "atom": {
@@ -857,12 +932,15 @@
         "kind": "cycle",
         "name": "moon",
         "body": [
-          "{\"Cycle\":{\"name\":{\"text\":\"moon\",\"span\":{\"file\":0,\"start\":629,\"end\":633}},\"modulus\":29,\"spokes\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0009\",\"span\":{\"file\":0,\"start\":646,\"end\":652}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":638,\"end\":645}}}}"
+          "{\"Cycle\":{\"modulus\":29,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"moon\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"spokes\":[]}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Cycle\":{\"modulus\":29,\"name\":{\"span\":{\"end\":633,\"file\":0,\"start\":629},\"text\":\"moon\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":652,\"file\":0,\"start\":646},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":645,\"file\":0,\"start\":638},\"tags\":[]},\"spokes\":[]}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ae1573f7002d3d6a2f8df98d9aa465441c01c8804efaf6e6accfdbd1d851cb2d",
       "atom": {
@@ -885,12 +963,15 @@
         "kind": "cycle",
         "name": "season",
         "body": [
-          "{\"Cycle\":{\"name\":{\"text\":\"season\",\"span\":{\"file\":0,\"start\":659,\"end\":665}},\"modulus\":4,\"spokes\":[{\"text\":\"spring\",\"span\":{\"file\":0,\"start\":671,\"end\":677}},{\"text\":\"summer\",\"span\":{\"file\":0,\"start\":680,\"end\":686}},{\"text\":\"autumn\",\"span\":{\"file\":0,\"start\":689,\"end\":695}},{\"text\":\"winter\",\"span\":{\"file\":0,\"start\":698,\"end\":704}}],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0009\",\"span\":{\"file\":0,\"start\":713,\"end\":719}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":705,\"end\":712}}}}"
+          "{\"Cycle\":{\"modulus\":4,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"season\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"spokes\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"spring\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"summer\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"autumn\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"winter\"}]}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Cycle\":{\"modulus\":4,\"name\":{\"span\":{\"end\":665,\"file\":0,\"start\":659},\"text\":\"season\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":719,\"file\":0,\"start\":713},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":712,\"file\":0,\"start\":705},\"tags\":[]},\"spokes\":[{\"span\":{\"end\":677,\"file\":0,\"start\":671},\"text\":\"spring\"},{\"span\":{\"end\":686,\"file\":0,\"start\":680},\"text\":\"summer\"},{\"span\":{\"end\":695,\"file\":0,\"start\":689},\"text\":\"autumn\"},{\"span\":{\"end\":704,\"file\":0,\"start\":698},\"text\":\"winter\"}]}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:3870d45bc0e164241b1f672afe1ab92d282c08ece263a60d96a96b57ff732a96",
       "atom": {
@@ -913,12 +994,15 @@
         "kind": "rule",
         "name": "uthers-time-held-back",
         "body": [
-          "{\"Rule\":{\"name\":{\"text\":\"uthers-time-held-back\",\"span\":{\"file\":0,\"start\":725,\"end\":746}},\"domain\":\"order\",\"head\":[],\"body\":{\"clauses\":[{\"clause\":{\"text\":\": listener-learns(during uthers-time _) requires act > 1\",\"span\":{\"file\":0,\"start\":775,\"end\":831}}}]},\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0009\",\"span\":{\"file\":0,\"start\":766,\"end\":772}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":758,\"end\":765}}}}"
+          "{\"Rule\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\": listener-learns(during uthers-time _) requires act > 1\"}}]},\"domain\":\"order\",\"head\":[],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"uthers-time-held-back\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Rule\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":831,\"file\":0,\"start\":775},\"text\":\": listener-learns(during uthers-time _) requires act > 1\"}}]},\"domain\":\"order\",\"head\":[],\"name\":{\"span\":{\"end\":746,\"file\":0,\"start\":725},\"text\":\"uthers-time-held-back\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":772,\"file\":0,\"start\":766},\"text\":\"d-0009\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":765,\"file\":0,\"start\":758},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:f67ef72d4d59bb4aaa34d4d39b7cc6a2795896b0620c03f0c73e669c17e43d59",
       "atom": {
@@ -941,12 +1025,15 @@
         "kind": "entity",
         "name": "camelot",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"camelot\",\"span\":{\"file\":0,\"start\":838,\"end\":845}},\"label\":\"Camelot\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0004\",\"span\":{\"file\":0,\"start\":878,\"end\":884}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":870,\"end\":877}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Camelot\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"camelot\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Camelot\",\"name\":{\"span\":{\"end\":845,\"file\":0,\"start\":838},\"text\":\"camelot\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":884,\"file\":0,\"start\":878},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":877,\"file\":0,\"start\":870},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:13f94a335246f46cd5748628f95aa1c85d8aae7f9fb70281a5e877caad064202",
       "atom": {
@@ -965,10 +1052,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:f24c7bf09572522bd60a48bf82df7c25923fcda79e833d6403ef5f0a3f9346e8",
       "atom": {
@@ -991,12 +1081,15 @@
         "kind": "entity",
         "name": "the-lake",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"the-lake\",\"span\":{\"file\":0,\"start\":891,\"end\":899}},\"label\":\"The Lake\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0004\",\"span\":{\"file\":0,\"start\":931,\"end\":937}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":923,\"end\":930}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"The Lake\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-lake\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"The Lake\",\"name\":{\"span\":{\"end\":899,\"file\":0,\"start\":891},\"text\":\"the-lake\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":937,\"file\":0,\"start\":931},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":930,\"file\":0,\"start\":923},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:f53fd8bc1b2e5bdecaf0b007fb633931bf65e89d82fb15c6dc6fa52caede71f4",
       "atom": {
@@ -1015,10 +1108,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:30a98b248aeb7a42bb55fdb1d24fa6972849ce461339bfdbecbb01f74283fed8",
       "atom": {
@@ -1041,12 +1137,15 @@
         "kind": "entity",
         "name": "avalon",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"avalon\",\"span\":{\"file\":0,\"start\":944,\"end\":950}},\"label\":\"Avalon\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0004\",\"span\":{\"file\":0,\"start\":984,\"end\":990}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":976,\"end\":983}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Avalon\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"avalon\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Avalon\",\"name\":{\"span\":{\"end\":950,\"file\":0,\"start\":944},\"text\":\"avalon\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":990,\"file\":0,\"start\":984},\"text\":\"d-0004\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":983,\"file\":0,\"start\":976},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:73f9a3f8ee30453962a315b2d3975f805c18b7bfec1ebe3ffdb73f574d23463d",
       "atom": {
@@ -1065,10 +1164,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:5863011d5047fd685e66094d05b2dc96a5f8f996cd39fb34fd9b98e17c8de4d8",
       "atom": {
@@ -1091,12 +1193,15 @@
         "kind": "entity",
         "name": "camlann",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"camlann\",\"span\":{\"file\":0,\"start\":997,\"end\":1004}},\"label\":\"Camlann\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0005\",\"span\":{\"file\":0,\"start\":1037,\"end\":1043}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1029,\"end\":1036}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Camlann\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"camlann\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Camlann\",\"name\":{\"span\":{\"end\":1004,\"file\":0,\"start\":997},\"text\":\"camlann\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1043,\"file\":0,\"start\":1037},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1036,\"file\":0,\"start\":1029},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:8f022adb885d55cf56db1e548a5043c5d83a80370e147cd53d9d0142a65e1d74",
       "atom": {
@@ -1115,10 +1220,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:1d75783f82544996e54a429c5d5fb28fad10fc21b6cc937021127417e095353a",
       "atom": {
@@ -1141,12 +1249,15 @@
         "kind": "entity",
         "name": "tintagel",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"tintagel\",\"span\":{\"file\":0,\"start\":1050,\"end\":1058}},\"label\":\"Tintagel\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0005\",\"span\":{\"file\":0,\"start\":1090,\"end\":1096}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1082,\"end\":1089}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Tintagel\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"tintagel\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"Tintagel\",\"name\":{\"span\":{\"end\":1058,\"file\":0,\"start\":1050},\"text\":\"tintagel\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1096,\"file\":0,\"start\":1090},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1089,\"file\":0,\"start\":1082},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:419cdc09470c3f4243ffa52ec73e0ce059f5ef8d6dcb9da2d14d694c43f8ec34",
       "atom": {
@@ -1165,10 +1276,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:8036b857549f307962ad1b84397f77150d70d643dab7be07ee935ce4232738da",
       "atom": {
@@ -1191,12 +1305,15 @@
         "kind": "entity",
         "name": "the-waste-land",
         "body": [
-          "{\"Entity\":{\"kind\":\"Place\",\"name\":{\"text\":\"the-waste-land\",\"span\":{\"file\":0,\"start\":1103,\"end\":1117}},\"label\":\"The Waste Land\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0005\",\"span\":{\"file\":0,\"start\":1143,\"end\":1149}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1135,\"end\":1142}}}}"
+          "{\"Entity\":{\"kind\":\"Place\",\"label\":\"The Waste Land\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-waste-land\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Place\",\"label\":\"The Waste Land\",\"name\":{\"span\":{\"end\":1117,\"file\":0,\"start\":1103},\"text\":\"the-waste-land\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1149,\"file\":0,\"start\":1143},\"text\":\"d-0005\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1142,\"file\":0,\"start\":1135},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:5109f9f4bf1ac1c8cb0505e5df1be0d8664b12f40936f44f6e962c44d5d68301",
       "atom": {
@@ -1215,10 +1332,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:9d9e29f77df8844ee871ec4f5fd9e81f0646419e4a0ca9d81ffbf66b3703e9b8",
       "atom": {
@@ -1238,10 +1358,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:d973e8e87fcdf889740c0cc9e782cd636f77da546d2a3679ed3acd6204598389",
       "atom": {
@@ -1261,10 +1384,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:b1375065b90e4e5e8a0395353cf7588101bc003823d9e2e6756a8e3944b01059",
       "atom": {
@@ -1284,10 +1410,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:e7d26fe7d1a76ee20ee8ce52851118185008e49214605d4bfd9d6d76cf277dfc",
       "atom": {
@@ -1307,10 +1436,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:1fd40658a2476d8194ce6aceea421fe4bc6ed91cfee5ef4a5d2fc6f2008f6a03",
       "atom": {
@@ -1330,10 +1462,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:1a20a0ec0a1f4d7a39d549bad77f70f5a66583e953d6d97b9135148b97ba6adf",
       "atom": {
@@ -1353,10 +1488,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:498106bdd4357bdad15a84e95c9a17dd82b66b775c4a09291a0ba9ff275f0069",
       "atom": {
@@ -1376,10 +1514,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:fef37b2863584a49e9576588d937466b800bdf2ae0d2d8b6d5be9a4560ef2a7d",
       "atom": {
@@ -1402,12 +1543,15 @@
         "kind": "entity",
         "name": "arthur",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"arthur\",\"span\":{\"file\":0,\"start\":1494,\"end\":1500}},\"label\":\"Arthur, the King\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0006\",\"span\":{\"file\":0,\"start\":1531,\"end\":1537}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1523,\"end\":1530}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Arthur, the King\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthur\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Arthur, the King\",\"name\":{\"span\":{\"end\":1500,\"file\":0,\"start\":1494},\"text\":\"arthur\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1537,\"file\":0,\"start\":1531},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1530,\"file\":0,\"start\":1523},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:2c4876b769d739a8c9f0a6a61ad0b9108916c98c3d7eed6223ffb0ef00c08ff5",
       "atom": {
@@ -1426,10 +1570,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:1cda78f7875fc8a4116531114476c0716d24241fb57909f464542be288a95db4",
       "atom": {
@@ -1452,12 +1599,15 @@
         "kind": "entity",
         "name": "merlin",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"merlin\",\"span\":{\"file\":0,\"start\":1545,\"end\":1551}},\"label\":\"Merlin\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0006\",\"span\":{\"file\":0,\"start\":1582,\"end\":1588}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1574,\"end\":1581}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Merlin\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"merlin\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Merlin\",\"name\":{\"span\":{\"end\":1551,\"file\":0,\"start\":1545},\"text\":\"merlin\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1588,\"file\":0,\"start\":1582},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1581,\"file\":0,\"start\":1574},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:c6873f7eb5dfb0f4b1a648cddd67972797e053dc78db5bef82b4a988ddd51bdb",
       "atom": {
@@ -1476,10 +1626,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:0ad71d9084f6a2cf467c850ddd442350e17c4a4bcef20ce9d2ed35a7377cff31",
       "atom": {
@@ -1502,12 +1655,15 @@
         "kind": "entity",
         "name": "guinevere",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"guinevere\",\"span\":{\"file\":0,\"start\":1596,\"end\":1605}},\"label\":\"Guinevere\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0006\",\"span\":{\"file\":0,\"start\":1633,\"end\":1639}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1625,\"end\":1632}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Guinevere\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"guinevere\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Guinevere\",\"name\":{\"span\":{\"end\":1605,\"file\":0,\"start\":1596},\"text\":\"guinevere\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1639,\"file\":0,\"start\":1633},\"text\":\"d-0006\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1632,\"file\":0,\"start\":1625},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:a46134778262db8bd315b3694b1d771bee5ecd26af921b6b66c7a10083f43691",
       "atom": {
@@ -1526,10 +1682,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:bc63bbc29f0b45488c79ce4a37897aa7f1010be1e8b87183ab9cdccefe0f21b8",
       "atom": {
@@ -1552,12 +1711,15 @@
         "kind": "entity",
         "name": "lancelot",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"lancelot\",\"span\":{\"file\":0,\"start\":1647,\"end\":1655}},\"label\":\"Lancelot\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0007\",\"span\":{\"file\":0,\"start\":1684,\"end\":1690}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1676,\"end\":1683}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Lancelot\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"lancelot\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Lancelot\",\"name\":{\"span\":{\"end\":1655,\"file\":0,\"start\":1647},\"text\":\"lancelot\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1690,\"file\":0,\"start\":1684},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1683,\"file\":0,\"start\":1676},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:45eeb85d47bb6ed221588ba16bd2a8ff7eb477bf1f2b0d24d259c5c16852a3c6",
       "atom": {
@@ -1576,10 +1738,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:43825ed49ce4200d258bf857f045c5aba75c4a644f7ad38e9613848aa95db1da",
       "atom": {
@@ -1602,12 +1767,15 @@
         "kind": "entity",
         "name": "mordred",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"mordred\",\"span\":{\"file\":0,\"start\":1698,\"end\":1705}},\"label\":\"Mordred\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0007\",\"span\":{\"file\":0,\"start\":1735,\"end\":1741}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1727,\"end\":1734}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Mordred\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"mordred\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Mordred\",\"name\":{\"span\":{\"end\":1705,\"file\":0,\"start\":1698},\"text\":\"mordred\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1741,\"file\":0,\"start\":1735},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1734,\"file\":0,\"start\":1727},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:c7319d4c6e1599264ba8a455b0a2c985086807d4a98d386f774b314d92d71aef",
       "atom": {
@@ -1626,10 +1794,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:77e7ec48090b83694f34c2770e15010b9e628e17ace61bbf9208b0637df4d87a",
       "atom": {
@@ -1652,12 +1823,15 @@
         "kind": "entity",
         "name": "morgan",
         "body": [
-          "{\"Entity\":{\"kind\":\"Person\",\"name\":{\"text\":\"morgan\",\"span\":{\"file\":0,\"start\":1749,\"end\":1755}},\"label\":\"Morgan\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0007\",\"span\":{\"file\":0,\"start\":1786,\"end\":1792}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1778,\"end\":1785}}}}"
+          "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Morgan\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"morgan\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Person\",\"label\":\"Morgan\",\"name\":{\"span\":{\"end\":1755,\"file\":0,\"start\":1749},\"text\":\"morgan\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1792,\"file\":0,\"start\":1786},\"text\":\"d-0007\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1785,\"file\":0,\"start\":1778},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:471682bd537d9c33229cfebb3f46f14c21e347ffc1148a36b32cfe19283a5f9e",
       "atom": {
@@ -1676,10 +1850,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:86938dace72d2dc30d60a54ba0cb94d0626d9e0fcabcea463cc70760bb88f5ba",
       "atom": {
@@ -1702,12 +1879,15 @@
         "kind": "entity",
         "name": "excalibur",
         "body": [
-          "{\"Entity\":{\"kind\":\"Thing\",\"name\":{\"text\":\"excalibur\",\"span\":{\"file\":0,\"start\":1799,\"end\":1808}},\"label\":\"Excalibur\",\"time\":null,\"slots\":[],\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0008\",\"span\":{\"file\":0,\"start\":1829,\"end\":1835}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":1821,\"end\":1828}}}}"
+          "{\"Entity\":{\"kind\":\"Thing\",\"label\":\"Excalibur\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"excalibur\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Thing\",\"label\":\"Excalibur\",\"name\":{\"span\":{\"end\":1808,\"file\":0,\"start\":1799},\"text\":\"excalibur\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":1835,\"file\":0,\"start\":1829},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":1828,\"file\":0,\"start\":1821},\"tags\":[]},\"slots\":[],\"time\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:6ea94ac21e05aa91272114e08b8d86a53ab75c86b7c669e2ed1b8a578f91bd62",
       "atom": {
@@ -1726,10 +1906,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:c6e5d2f0f2f2d25b01dda67ddd295efcd04de2913807493f411015646e547e10",
       "atom": {
@@ -1749,10 +1932,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:4ff1725ff668ad9d46102b0b866e333a83712934efb51d4bdde0b3b0c2573eea",
       "atom": {
@@ -1772,10 +1958,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:0e86a32481a1a193a04c3cd916d59b941d32e4048b19ae6418f6c7fd7fa279a2",
       "atom": {
@@ -1795,10 +1984,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:e239349152f906e3dc6b6a29b425f0c627022f30fe6671d6e448dd9b7bfdb6ce",
       "atom": {
@@ -1817,10 +2009,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:e517994082812d8a206d6e0142cacb2f0b72470ffe9435e4bc0c0955bb727864",
       "atom": {
@@ -1839,10 +2034,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:9e42e7d1a01125d01aa59a5fbd2addd5218d331bc5d19bff56de6d561ea006df",
       "atom": {
@@ -1865,12 +2063,15 @@
         "kind": "state",
         "name": "excalibur.keeper",
         "body": [
-          "{\"State\":{\"name\":{\"text\":\"excalibur.keeper\",\"span\":{\"file\":0,\"start\":2057,\"end\":2073}},\"value\":{\"Sym\":{\"text\":\"in-the-stone\",\"span\":{\"file\":0,\"start\":2076,\"end\":2088}}},\"time\":{\"Until\":{\"text\":\"the-sword-drawn\",\"span\":{\"file\":0,\"start\":2095,\"end\":2110}}},\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0008\",\"span\":{\"file\":0,\"start\":2119,\"end\":2125}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":2111,\"end\":2118}}}}"
+          "{\"State\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"excalibur.keeper\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"time\":{\"Until\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-sword-drawn\"}},\"value\":{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"in-the-stone\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":2073,\"file\":0,\"start\":2057},\"text\":\"excalibur.keeper\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":2125,\"file\":0,\"start\":2119},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":2118,\"file\":0,\"start\":2111},\"tags\":[]},\"time\":{\"Until\":{\"span\":{\"end\":2110,\"file\":0,\"start\":2095},\"text\":\"the-sword-drawn\"}},\"value\":{\"Sym\":{\"span\":{\"end\":2088,\"file\":0,\"start\":2076},\"text\":\"in-the-stone\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:9e42e7d1a01125d01aa59a5fbd2addd5218d331bc5d19bff56de6d561ea006df",
       "atom": {
@@ -1893,12 +2094,15 @@
         "kind": "state",
         "name": "excalibur.keeper",
         "body": [
-          "{\"State\":{\"name\":{\"text\":\"excalibur.keeper\",\"span\":{\"file\":0,\"start\":2132,\"end\":2148}},\"value\":{\"Sym\":{\"text\":\"the-king\",\"span\":{\"file\":0,\"start\":2151,\"end\":2159}}},\"time\":{\"Since\":{\"text\":\"the-sword-drawn\",\"span\":{\"file\":0,\"start\":2166,\"end\":2181}}},\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0008\",\"span\":{\"file\":0,\"start\":2190,\"end\":2196}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":2182,\"end\":2189}}}}"
+          "{\"State\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"excalibur.keeper\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-sword-drawn\"}},\"value\":{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-king\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":2148,\"file\":0,\"start\":2132},\"text\":\"excalibur.keeper\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":2196,\"file\":0,\"start\":2190},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":2189,\"file\":0,\"start\":2182},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":2181,\"file\":0,\"start\":2166},\"text\":\"the-sword-drawn\"}},\"value\":{\"Sym\":{\"span\":{\"end\":2159,\"file\":0,\"start\":2151},\"text\":\"the-king\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:6b22016abecc06e01fe2270608124ea8253844fc8310b134d4c1a617fd757bfb",
       "atom": {
@@ -1921,12 +2125,15 @@
         "kind": "dialect",
         "name": "old-speech",
         "body": [
-          "{\"Dialect\":{\"name\":{\"text\":\"old-speech\",\"span\":{\"file\":0,\"start\":2205,\"end\":2215}},\"label\":\"the old speech\",\"body\":{\"clauses\":[{\"clause\":{\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\",\"span\":{\"file\":0,\"start\":2246,\"end\":2284}},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"text\":\"vowels a e i o u y\",\"span\":{\"file\":0,\"start\":2287,\"end\":2305}},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"text\":\"endings -a -oc -wen\",\"span\":{\"file\":0,\"start\":2308,\"end\":2327}},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"text\":\"cluster-max 2\",\"span\":{\"file\":0,\"start\":2330,\"end\":2343}},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"text\":\"stress penultimate\",\"span\":{\"file\":0,\"start\":2346,\"end\":2364}},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"text\":\"name-kind person.given = given-proto given-deutero\",\"span\":{\"file\":0,\"start\":2367,\"end\":2417}},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed\",\"span\":{\"file\":0,\"start\":2420,\"end\":2465}},\"item\":{\"NamePart\":{\"name\":{\"text\":\"myr\",\"span\":{\"file\":0,\"start\":10,\"end\":13}},\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":37,\"end\":45}}}}},{\"clause\":{\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed\",\"span\":{\"file\":0,\"start\":2468,\"end\":2520}},\"item\":{\"NamePart\":{\"name\":{\"text\":\"din\",\"span\":{\"file\":0,\"start\":10,\"end\":13}},\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":44,\"end\":52}}}}}]},\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":2233,\"end\":2241}}}}"
+          "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myr\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"din\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"old-speech\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2284,\"file\":0,\"start\":2246},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":2305,\"file\":0,\"start\":2287},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":2327,\"file\":0,\"start\":2308},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":2343,\"file\":0,\"start\":2330},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":2364,\"file\":0,\"start\":2346},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":2417,\"file\":0,\"start\":2367},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":2465,\"file\":0,\"start\":2420},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"myr\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":45,\"file\":0,\"start\":37},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":2520,\"file\":0,\"start\":2468},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"din\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":52,\"file\":0,\"start\":44},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":2215,\"file\":0,\"start\":2205},\"text\":\"old-speech\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":2241,\"file\":0,\"start\":2233},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ce2173a969ea52942e95eaff44fddbcc120926f0470742cbcfdcc741e60c3d89",
       "atom": {
@@ -1949,12 +2156,15 @@
         "kind": "name",
         "name": "myrdin",
         "body": [
-          "{\"Name\":{\"name\":{\"text\":\"myrdin\",\"span\":{\"file\":0,\"start\":2528,\"end\":2534}},\"label\":\"Myrdin\",\"head\":[\"person.given\",\"in\",\"old-speech\"],\"body\":{\"clauses\":[{\"clause\":{\"text\":\"= given-proto myr + given-deutero din\",\"span\":{\"file\":0,\"start\":2573,\"end\":2610}},\"item\":{\"Composition\":[{\"role\":\"given-proto\",\"morpheme\":\"myr\"},{\"role\":\"given-deutero\",\"morpheme\":\"din\"}]}},{\"clause\":{\"text\":\"bearer the-enchanter proposed\",\"span\":{\"file\":0,\"start\":2613,\"end\":2642}},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":15,\"end\":23}}}}}]},\"provenance\":null}}"
+          "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bearer the-enchanter proposed\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myrdin\"},\"provenance\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2610,\"file\":0,\"start\":2573},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":2642,\"file\":0,\"start\":2613},\"text\":\"bearer the-enchanter proposed\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":23,\"file\":0,\"start\":15},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":2534,\"file\":0,\"start\":2528},\"text\":\"myrdin\"},\"provenance\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:644a85950915c8b8ddb121667102be1985f78e056a9ecc0f6144e6624f4c45e5",
       "atom": {
@@ -1977,12 +2187,15 @@
         "kind": "banned",
         "name": "cannon",
         "body": [
-          "{\"Banned\":{\"word\":{\"text\":\"cannon\",\"span\":{\"file\":0,\"start\":2650,\"end\":2656}},\"reason\":\"the Matter of Britain keeps to sword and spear — no gunpowder anachronism\",\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0010\",\"span\":{\"file\":0,\"start\":2657,\"end\":2663}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":2643,\"end\":2741}}}}"
+          "{\"Banned\":{\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0010\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"reason\":\"the Matter of Britain keeps to sword and spear — no gunpowder anachronism\",\"word\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cannon\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Banned\":{\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":2663,\"file\":0,\"start\":2657},\"text\":\"d-0010\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":2741,\"file\":0,\"start\":2643},\"tags\":[]},\"reason\":\"the Matter of Britain keeps to sword and spear — no gunpowder anachronism\",\"word\":{\"span\":{\"end\":2656,\"file\":0,\"start\":2650},\"text\":\"cannon\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:78734654e6b8da569f46f8dd67bee781f72e863b55132dc2e8c0d78fc98618a3",
       "atom": {
@@ -2005,12 +2218,15 @@
         "kind": "term",
         "name": "the-drawing",
         "body": [
-          "{\"Term\":{\"name\":{\"text\":\"the-drawing\",\"span\":{\"file\":0,\"start\":2747,\"end\":2758}},\"label\":\"the freeing of Excalibur from the stone by the rightful king\",\"provenance\":{\"marker\":\"Decided\",\"citations\":[{\"id\":{\"text\":\"d-0008\",\"span\":{\"file\":0,\"start\":2830,\"end\":2836}}}],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":2822,\"end\":2829}}}}"
+          "{\"Term\":{\"label\":\"the freeing of Excalibur from the stone by the rightful king\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-drawing\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Term\":{\"label\":\"the freeing of Excalibur from the stone by the rightful king\",\"name\":{\"span\":{\"end\":2758,\"file\":0,\"start\":2747},\"text\":\"the-drawing\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":2836,\"file\":0,\"start\":2830},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":2829,\"file\":0,\"start\":2822},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:d06a09d274c8306177a6f846554fa8a2d6acf5ddab6a8f90c9826bd3f58bef1b",
       "atom": {
@@ -2033,12 +2249,15 @@
         "kind": "hypothesis",
         "name": "h-old-loan",
         "body": [
-          "{\"Hypothesis\":{\"name\":{\"text\":\"h-old-loan\",\"span\":{\"file\":0,\"start\":2848,\"end\":2858}},\"statement\":\"the old speech took a hero-name from the tongue over the water\"}}"
+          "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-old-loan\"},\"statement\":\"the old speech took a hero-name from the tongue over the water\"}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":2858,\"file\":0,\"start\":2848},\"text\":\"h-old-loan\"},\"statement\":\"the old speech took a hero-name from the tongue over the water\"}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:531afd8eacf22d56de29377f3269a266cfdc06d42f9b0d5cadcd8d7f0f109259",
       "atom": {
@@ -2061,12 +2280,15 @@
         "kind": "namepart",
         "name": "tal",
         "body": [
-          "{\"NamePart\":{\"name\":{\"text\":\"tal\",\"span\":{\"file\":0,\"start\":2934,\"end\":2937}},\"gloss\":\"brow, high\",\"head\":[\"role\",\"given-proto\"],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":{\"Hyp\":{\"text\":\"h-old-loan\",\"span\":{\"file\":0,\"start\":3015,\"end\":3025}}},\"tags\":[\"agent:factory/naming-run-0714\"],\"span\":{\"file\":0,\"start\":2968,\"end\":2976}}}}"
+          "{\"NamePart\":{\"gloss\":\"brow, high\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"tal\"},\"provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-old-loan\"}},\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[\"agent:factory/naming-run-0714\"]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"NamePart\":{\"gloss\":\"brow, high\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":2937,\"file\":0,\"start\":2934},\"text\":\"tal\"},\"provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":3025,\"file\":0,\"start\":3015},\"text\":\"h-old-loan\"}},\"marker\":\"Proposed\",\"span\":{\"end\":2976,\"file\":0,\"start\":2968},\"tags\":[\"agent:factory/naming-run-0714\"]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:a0307a6993808cc69c8d67f4aeb747814c3582568919466a46d90291e65b4bab",
       "atom": {
@@ -2089,12 +2311,15 @@
         "kind": "name",
         "name": "taldin",
         "body": [
-          "{\"Name\":{\"name\":{\"text\":\"taldin\",\"span\":{\"file\":0,\"start\":3031,\"end\":3037}},\"label\":\"Taldin\",\"head\":[\"person.given\",\"in\",\"old-speech\"],\"body\":{\"clauses\":[{\"clause\":{\"text\":\"= given-proto tal + given-deutero din\",\"span\":{\"file\":0,\"start\":3076,\"end\":3113}},\"item\":{\"Composition\":[{\"role\":\"given-proto\",\"morpheme\":\"tal\"},{\"role\":\"given-deutero\",\"morpheme\":\"din\"}]}},{\"clause\":{\"text\":\"proposed agent:factory/naming-run-0714 assumes h-old-loan\",\"span\":{\"file\":0,\"start\":3116,\"end\":3173}},\"item\":{\"Provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":{\"Hyp\":{\"text\":\"h-old-loan\",\"span\":{\"file\":0,\"start\":62,\"end\":72}}},\"tags\":[\"agent:factory/naming-run-0714\"],\"span\":{\"file\":0,\"start\":15,\"end\":23}}}}]},\"provenance\":null}}"
+          "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"= given-proto tal + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"tal\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"proposed agent:factory/naming-run-0714 assumes h-old-loan\"},\"item\":{\"Provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-old-loan\"}},\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[\"agent:factory/naming-run-0714\"]}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Taldin\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"taldin\"},\"provenance\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":3113,\"file\":0,\"start\":3076},\"text\":\"= given-proto tal + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"tal\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":3173,\"file\":0,\"start\":3116},\"text\":\"proposed agent:factory/naming-run-0714 assumes h-old-loan\"},\"item\":{\"Provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":72,\"file\":0,\"start\":62},\"text\":\"h-old-loan\"}},\"marker\":\"Proposed\",\"span\":{\"end\":23,\"file\":0,\"start\":15},\"tags\":[\"agent:factory/naming-run-0714\"]}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Taldin\",\"name\":{\"span\":{\"end\":3037,\"file\":0,\"start\":3031},\"text\":\"taldin\"},\"provenance\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:832b5e9154d9c567311e3587eef01341be7e479b87463383bca28d2a0c955d30",
       "atom": {
@@ -2117,12 +2342,15 @@
         "kind": "entity",
         "name": "the-speaking-day",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-speaking-day\",\"span\":{\"file\":0,\"start\":3180,\"end\":3196}},\"label\":null,\"time\":{\"During\":{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":3205,\"end\":3218}}},\"slots\":[],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":3219,\"end\":3227}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":3196,\"file\":0,\"start\":3180},\"text\":\"the-speaking-day\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3227,\"file\":0,\"start\":3219},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":3218,\"file\":0,\"start\":3205},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:c74eadf84ca588ca23655c260f607e38a4817770ec800109c186b1eb0a7f80b1",
       "atom": {
@@ -2141,10 +2369,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:0fb575816c643c2c7d89c44b6762e9b1bf05a83dfd0dff701b350d68963e5490",
       "atom": {
@@ -2167,12 +2398,15 @@
         "kind": "state",
         "name": "knows.caster.myrdin",
         "body": [
-          "{\"State\":{\"name\":{\"text\":\"knows.caster.myrdin\",\"span\":{\"file\":0,\"start\":3234,\"end\":3253}},\"value\":{\"Sym\":{\"text\":\"true\",\"span\":{\"file\":0,\"start\":3256,\"end\":3260}}},\"time\":{\"Since\":{\"text\":\"the-speaking-day\",\"span\":{\"file\":0,\"start\":3267,\"end\":3283}}},\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":3284,\"end\":3292}}}}"
+          "{\"State\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"true\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":3253,\"file\":0,\"start\":3234},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3292,\"file\":0,\"start\":3284},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":3283,\"file\":0,\"start\":3267},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":3260,\"file\":0,\"start\":3256},\"text\":\"true\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:41828a8da29d4215178f9993dabac80ebd8474978eca2bffc502627f780d288e",
       "atom": {
@@ -2195,12 +2429,15 @@
         "kind": "practice",
         "name": "merlins-craft",
         "body": [
-          "{\"Practice\":{\"name\":{\"text\":\"merlins-craft\",\"span\":{\"file\":0,\"start\":3302,\"end\":3315}},\"body\":{\"clauses\":[{\"text\":\"use language.registers\",\"span\":{\"file\":0,\"start\":3329,\"end\":3351}},{\"text\":\"resource breath(word) : graded monotone full > spent > silent\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}},{\"text\":\"rule speak(bearer) requires\",\"span\":{\"file\":0,\"start\":3418,\"end\":3445}},{\"text\":\"knows(caster, true-name(bearer)),\",\"span\":{\"file\":0,\"start\":3448,\"end\":3481}},{\"text\":\"breath(true-name(bearer)) >= spent,\",\"span\":{\"file\":0,\"start\":3484,\"end\":3519}},{\"text\":\"derivation(true-name(bearer)) checks in register-of(bearer)\",\"span\":{\"file\":0,\"start\":3522,\"end\":3581}},{\"text\":\"effect speak degrades breath by 1\",\"span\":{\"file\":0,\"start\":3584,\"end\":3617}},{\"text\":\"condition unheard requires no witness within earshot\",\"span\":{\"file\":0,\"start\":3620,\"end\":3672}},{\"text\":\"error mis-spoken refines L4 bad-instantiation\",\"span\":{\"file\":0,\"start\":3675,\"end\":3720}},{\"text\":\"error stale-name refines L2 where premise-outdated\",\"span\":{\"file\":0,\"start\":3723,\"end\":3773}},{\"text\":\"error word-overheard refines L3 side-condition [unheard] signals degrade(+1)\",\"span\":{\"file\":0,\"start\":3776,\"end\":3852}},{\"text\":\"cost vital | epistemic\",\"span\":{\"file\":0,\"start\":3855,\"end\":3877}}],\"def\":{\"name\":{\"text\":\"merlins-craft\",\"span\":{\"file\":0,\"start\":3302,\"end\":3315}},\"marker\":\"Proposed\",\"uses\":[\"language.registers\"],\"sorts\":[],\"roles\":[],\"resources\":[{\"name\":{\"text\":\"breath\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}},\"arg\":{\"text\":\"word\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}},\"kind\":\"GradedMonotone\",\"cap\":null,\"order\":[{\"text\":\"full\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}},{\"text\":\"spent\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}},{\"text\":\"silent\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}}],\"direction\":\"decays\",\"law_text\":\"graded monotone full > spent > silent\",\"span\":{\"file\":0,\"start\":3354,\"end\":3415}}],\"rules\":[{\"form\":{\"text\":\"speak\",\"span\":{\"file\":0,\"start\":3418,\"end\":3445}},\"args\":[{\"text\":\"bearer\",\"span\":{\"file\":0,\"start\":3418,\"end\":3445}}],\"requires\":\"knows(caster, true-name(bearer)), breath(true-name(bearer)) >= spent, derivation(true-name(bearer)) checks in register-of(bearer)\",\"span\":{\"file\":0,\"start\":3418,\"end\":3445}}],\"conditions\":[{\"name\":{\"text\":\"unheard\",\"span\":{\"file\":0,\"start\":3620,\"end\":3672}},\"requires\":\"no witness within earshot\",\"span\":{\"file\":0,\"start\":3620,\"end\":3672}}],\"errors\":[{\"name\":{\"text\":\"mis-spoken\",\"span\":{\"file\":0,\"start\":3675,\"end\":3720}},\"refines_token\":\"L4\",\"class\":\"L4\",\"discriminant\":\"bad-instantiation\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":3675,\"end\":3720}},{\"name\":{\"text\":\"stale-name\",\"span\":{\"file\":0,\"start\":3723,\"end\":3773}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"where premise-outdated\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":3723,\"end\":3773}},{\"name\":{\"text\":\"word-overheard\",\"span\":{\"file\":0,\"start\":3776,\"end\":3852}},\"refines_token\":\"L3\",\"class\":\"L3\",\"discriminant\":\"side-condition [unheard]\",\"signal\":\"degrade(+1)\",\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":3776,\"end\":3852}}],\"effects\":[{\"form\":{\"text\":\"speak\",\"span\":{\"file\":0,\"start\":3584,\"end\":3617}},\"detail\":\"degrades breath by 1\",\"span\":{\"file\":0,\"start\":3584,\"end\":3617}}],\"costs\":[{\"text\":\"vital\",\"span\":{\"file\":0,\"start\":3855,\"end\":3877}},{\"text\":\"epistemic\",\"span\":{\"file\":0,\"start\":3855,\"end\":3877}}],\"cycles_in_scope\":[],\"span\":{\"file\":0,\"start\":3302,\"end\":3315}}},\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":3316,\"end\":3324}}}}"
+          "{\"Practice\":{\"body\":{\"clauses\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"use language.registers\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"resource breath(word) : graded monotone full > spent > silent\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"rule speak(bearer) requires\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"knows(caster, true-name(bearer)),\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"breath(true-name(bearer)) >= spent,\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"derivation(true-name(bearer)) checks in register-of(bearer)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"effect speak degrades breath by 1\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"condition unheard requires no witness within earshot\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error mis-spoken refines L4 bad-instantiation\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error stale-name refines L2 where premise-outdated\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error word-overheard refines L3 side-condition [unheard] signals degrade(+1)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cost vital | epistemic\"}],\"def\":{\"conditions\":[{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"unheard\"},\"requires\":\"no witness within earshot\",\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"costs\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"vital\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"epistemic\"}],\"cycles_in_scope\":[],\"effects\":[{\"detail\":\"degrades breath by 1\",\"form\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"speak\"},\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"errors\":[{\"class\":\"L4\",\"discriminant\":\"bad-instantiation\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"mis-spoken\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L4\",\"signal\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L2\",\"discriminant\":\"where premise-outdated\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"stale-name\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L3\",\"discriminant\":\"side-condition [unheard]\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"word-overheard\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L3\",\"signal\":\"degrade(+1)\",\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"marker\":\"Proposed\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"merlins-craft\"},\"resources\":[{\"arg\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"word\"},\"cap\":null,\"direction\":\"decays\",\"kind\":\"GradedMonotone\",\"law_text\":\"graded monotone full > spent > silent\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"breath\"},\"order\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"full\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"spent\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"silent\"}],\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"roles\":[],\"rules\":[{\"args\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bearer\"}],\"form\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"speak\"},\"requires\":\"knows(caster, true-name(bearer)), breath(true-name(bearer)) >= spent, derivation(true-name(bearer)) checks in register-of(bearer)\",\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"sorts\":[],\"span\":{\"end\":0,\"file\":0,\"start\":0},\"uses\":[\"language.registers\"]}},\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"merlins-craft\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Practice\":{\"body\":{\"clauses\":[{\"span\":{\"end\":3351,\"file\":0,\"start\":3329},\"text\":\"use language.registers\"},{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"resource breath(word) : graded monotone full > spent > silent\"},{\"span\":{\"end\":3445,\"file\":0,\"start\":3418},\"text\":\"rule speak(bearer) requires\"},{\"span\":{\"end\":3481,\"file\":0,\"start\":3448},\"text\":\"knows(caster, true-name(bearer)),\"},{\"span\":{\"end\":3519,\"file\":0,\"start\":3484},\"text\":\"breath(true-name(bearer)) >= spent,\"},{\"span\":{\"end\":3581,\"file\":0,\"start\":3522},\"text\":\"derivation(true-name(bearer)) checks in register-of(bearer)\"},{\"span\":{\"end\":3617,\"file\":0,\"start\":3584},\"text\":\"effect speak degrades breath by 1\"},{\"span\":{\"end\":3672,\"file\":0,\"start\":3620},\"text\":\"condition unheard requires no witness within earshot\"},{\"span\":{\"end\":3720,\"file\":0,\"start\":3675},\"text\":\"error mis-spoken refines L4 bad-instantiation\"},{\"span\":{\"end\":3773,\"file\":0,\"start\":3723},\"text\":\"error stale-name refines L2 where premise-outdated\"},{\"span\":{\"end\":3852,\"file\":0,\"start\":3776},\"text\":\"error word-overheard refines L3 side-condition [unheard] signals degrade(+1)\"},{\"span\":{\"end\":3877,\"file\":0,\"start\":3855},\"text\":\"cost vital | epistemic\"}],\"def\":{\"conditions\":[{\"name\":{\"span\":{\"end\":3672,\"file\":0,\"start\":3620},\"text\":\"unheard\"},\"requires\":\"no witness within earshot\",\"span\":{\"end\":3672,\"file\":0,\"start\":3620}}],\"costs\":[{\"span\":{\"end\":3877,\"file\":0,\"start\":3855},\"text\":\"vital\"},{\"span\":{\"end\":3877,\"file\":0,\"start\":3855},\"text\":\"epistemic\"}],\"cycles_in_scope\":[],\"effects\":[{\"detail\":\"degrades breath by 1\",\"form\":{\"span\":{\"end\":3617,\"file\":0,\"start\":3584},\"text\":\"speak\"},\"span\":{\"end\":3617,\"file\":0,\"start\":3584}}],\"errors\":[{\"class\":\"L4\",\"discriminant\":\"bad-instantiation\",\"name\":{\"span\":{\"end\":3720,\"file\":0,\"start\":3675},\"text\":\"mis-spoken\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L4\",\"signal\":null,\"span\":{\"end\":3720,\"file\":0,\"start\":3675}},{\"class\":\"L2\",\"discriminant\":\"where premise-outdated\",\"name\":{\"span\":{\"end\":3773,\"file\":0,\"start\":3723},\"text\":\"stale-name\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":3773,\"file\":0,\"start\":3723}},{\"class\":\"L3\",\"discriminant\":\"side-condition [unheard]\",\"name\":{\"span\":{\"end\":3852,\"file\":0,\"start\":3776},\"text\":\"word-overheard\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L3\",\"signal\":\"degrade(+1)\",\"span\":{\"end\":3852,\"file\":0,\"start\":3776}}],\"marker\":\"Proposed\",\"name\":{\"span\":{\"end\":3315,\"file\":0,\"start\":3302},\"text\":\"merlins-craft\"},\"resources\":[{\"arg\":{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"word\"},\"cap\":null,\"direction\":\"decays\",\"kind\":\"GradedMonotone\",\"law_text\":\"graded monotone full > spent > silent\",\"name\":{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"breath\"},\"order\":[{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"full\"},{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"spent\"},{\"span\":{\"end\":3415,\"file\":0,\"start\":3354},\"text\":\"silent\"}],\"span\":{\"end\":3415,\"file\":0,\"start\":3354}}],\"roles\":[],\"rules\":[{\"args\":[{\"span\":{\"end\":3445,\"file\":0,\"start\":3418},\"text\":\"bearer\"}],\"form\":{\"span\":{\"end\":3445,\"file\":0,\"start\":3418},\"text\":\"speak\"},\"requires\":\"knows(caster, true-name(bearer)), breath(true-name(bearer)) >= spent, derivation(true-name(bearer)) checks in register-of(bearer)\",\"span\":{\"end\":3445,\"file\":0,\"start\":3418}}],\"sorts\":[],\"span\":{\"end\":3315,\"file\":0,\"start\":3302},\"uses\":[\"language.registers\"]}},\"name\":{\"span\":{\"end\":3315,\"file\":0,\"start\":3302},\"text\":\"merlins-craft\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3324,\"file\":0,\"start\":3316},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:89ef08026a1e045bab02707e0fedc1bfb0d169ed8f46a4061cc9586873139588",
       "atom": {
@@ -2223,12 +2460,15 @@
         "kind": "practice",
         "name": "oath-binding",
         "body": [
-          "{\"Practice\":{\"name\":{\"text\":\"oath-binding\",\"span\":{\"file\":0,\"start\":3889,\"end\":3901}},\"body\":{\"clauses\":[{\"text\":\"use chronology.cycles\",\"span\":{\"file\":0,\"start\":3915,\"end\":3936}},{\"text\":\"kind bond = fealty | troth | ransom\",\"span\":{\"file\":0,\"start\":3939,\"end\":3974}},{\"text\":\"role oathgiver : person requires standing(oathgiver)\",\"span\":{\"file\":0,\"start\":3977,\"end\":4029}},{\"text\":\"role oathholder : person requires consent(oathholder)\",\"span\":{\"file\":0,\"start\":4032,\"end\":4085}},{\"text\":\"resource boon : linear conserved\",\"span\":{\"file\":0,\"start\":4088,\"end\":4120}},{\"text\":\"resource strain : affine bounded body-limit\",\"span\":{\"file\":0,\"start\":4123,\"end\":4166}},{\"text\":\"rule pledge(bond, oathgiver)\",\"span\":{\"file\":0,\"start\":4169,\"end\":4197}},{\"text\":\"rule give-and-take\",\"span\":{\"file\":0,\"start\":4200,\"end\":4218}},{\"text\":\"condition witnessed requires witness within earshot\",\"span\":{\"file\":0,\"start\":4221,\"end\":4272}},{\"text\":\"error unowed refines L2 premise-not-available where absent\",\"span\":{\"file\":0,\"start\":4275,\"end\":4333}},{\"text\":\"error forsworn refines L2 premise-not-available where contradicted signals dishonour\",\"span\":{\"file\":0,\"start\":4336,\"end\":4420}},{\"text\":\"error wrong-moon refines L3 side-condition [timing] over cycle moon\",\"span\":{\"file\":0,\"start\":4423,\"end\":4490}},{\"text\":\"error overpledged refines L6 resource-violation on strain signals collapse\",\"span\":{\"file\":0,\"start\":4493,\"end\":4567}},{\"text\":\"error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)\",\"span\":{\"file\":0,\"start\":4570,\"end\":4660}},{\"text\":\"cost social | bodily | material | epistemic\",\"span\":{\"file\":0,\"start\":4663,\"end\":4706}}],\"def\":{\"name\":{\"text\":\"oath-binding\",\"span\":{\"file\":0,\"start\":3889,\"end\":3901}},\"marker\":\"Proposed\",\"uses\":[\"chronology.cycles\"],\"sorts\":[{\"name\":{\"text\":\"bond\",\"span\":{\"file\":0,\"start\":3939,\"end\":3974}},\"variants\":[{\"text\":\"fealty\",\"span\":{\"file\":0,\"start\":3939,\"end\":3974}},{\"text\":\"troth\",\"span\":{\"file\":0,\"start\":3939,\"end\":3974}},{\"text\":\"ransom\",\"span\":{\"file\":0,\"start\":3939,\"end\":3974}}],\"source\":null,\"span\":{\"file\":0,\"start\":3939,\"end\":3974}}],\"roles\":[{\"name\":{\"text\":\"oathgiver\",\"span\":{\"file\":0,\"start\":3977,\"end\":4029}},\"sort\":{\"text\":\"person\",\"span\":{\"file\":0,\"start\":3977,\"end\":4029}},\"requires\":\"standing(oathgiver)\",\"span\":{\"file\":0,\"start\":3977,\"end\":4029}},{\"name\":{\"text\":\"oathholder\",\"span\":{\"file\":0,\"start\":4032,\"end\":4085}},\"sort\":{\"text\":\"person\",\"span\":{\"file\":0,\"start\":4032,\"end\":4085}},\"requires\":\"consent(oathholder)\",\"span\":{\"file\":0,\"start\":4032,\"end\":4085}}],\"resources\":[{\"name\":{\"text\":\"boon\",\"span\":{\"file\":0,\"start\":4088,\"end\":4120}},\"arg\":null,\"kind\":{\"Linear\":{\"conserved\":true}},\"cap\":null,\"order\":[],\"direction\":\"decays\",\"law_text\":\"linear conserved\",\"span\":{\"file\":0,\"start\":4088,\"end\":4120}},{\"name\":{\"text\":\"strain\",\"span\":{\"file\":0,\"start\":4123,\"end\":4166}},\"arg\":null,\"kind\":\"AffineBounded\",\"cap\":\"body-limit\",\"order\":[],\"direction\":\"decays\",\"law_text\":\"affine bounded body-limit\",\"span\":{\"file\":0,\"start\":4123,\"end\":4166}}],\"rules\":[{\"form\":{\"text\":\"pledge\",\"span\":{\"file\":0,\"start\":4169,\"end\":4197}},\"args\":[{\"text\":\"bond\",\"span\":{\"file\":0,\"start\":4169,\"end\":4197}},{\"text\":\"oathgiver\",\"span\":{\"file\":0,\"start\":4169,\"end\":4197}}],\"requires\":null,\"span\":{\"file\":0,\"start\":4169,\"end\":4197}},{\"form\":{\"text\":\"give-and-take\",\"span\":{\"file\":0,\"start\":4200,\"end\":4218}},\"args\":[],\"requires\":null,\"span\":{\"file\":0,\"start\":4200,\"end\":4218}}],\"conditions\":[{\"name\":{\"text\":\"witnessed\",\"span\":{\"file\":0,\"start\":4221,\"end\":4272}},\"requires\":\"witness within earshot\",\"span\":{\"file\":0,\"start\":4221,\"end\":4272}}],\"errors\":[{\"name\":{\"text\":\"unowed\",\"span\":{\"file\":0,\"start\":4275,\"end\":4333}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"premise-not-available where absent\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":4275,\"end\":4333}},{\"name\":{\"text\":\"forsworn\",\"span\":{\"file\":0,\"start\":4336,\"end\":4420}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"premise-not-available where contradicted\",\"signal\":\"dishonour\",\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":4336,\"end\":4420}},{\"name\":{\"text\":\"wrong-moon\",\"span\":{\"file\":0,\"start\":4423,\"end\":4490}},\"refines_token\":\"L3\",\"class\":\"L3\",\"discriminant\":\"side-condition [timing] over cycle moon\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[{\"text\":\"moon\",\"span\":{\"file\":0,\"start\":4423,\"end\":4490}}],\"span\":{\"file\":0,\"start\":4423,\"end\":4490}},{\"name\":{\"text\":\"overpledged\",\"span\":{\"file\":0,\"start\":4493,\"end\":4567}},\"refines_token\":\"L6\",\"class\":\"L6\",\"discriminant\":\"resource-violation on strain\",\"signal\":\"collapse\",\"on_resource\":{\"text\":\"strain\",\"span\":{\"file\":0,\"start\":4493,\"end\":4567}},\"over_cycles\":[],\"span\":{\"file\":0,\"start\":4493,\"end\":4567}},{\"name\":{\"text\":\"hollow-vow\",\"span\":{\"file\":0,\"start\":4570,\"end\":4660}},\"refines_token\":\"L2\",\"class\":\"L2\",\"discriminant\":\"where available-in(licensed-pool) and contradicted-in(certain)\",\"signal\":null,\"on_resource\":null,\"over_cycles\":[],\"span\":{\"file\":0,\"start\":4570,\"end\":4660}}],\"effects\":[],\"costs\":[{\"text\":\"social\",\"span\":{\"file\":0,\"start\":4663,\"end\":4706}},{\"text\":\"bodily\",\"span\":{\"file\":0,\"start\":4663,\"end\":4706}},{\"text\":\"material\",\"span\":{\"file\":0,\"start\":4663,\"end\":4706}},{\"text\":\"epistemic\",\"span\":{\"file\":0,\"start\":4663,\"end\":4706}}],\"cycles_in_scope\":[],\"span\":{\"file\":0,\"start\":3889,\"end\":3901}}},\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":3902,\"end\":3910}}}}"
+          "{\"Practice\":{\"body\":{\"clauses\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"use chronology.cycles\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"kind bond = fealty | troth | ransom\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"role oathgiver : person requires standing(oathgiver)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"role oathholder : person requires consent(oathholder)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"resource boon : linear conserved\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"resource strain : affine bounded body-limit\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"rule pledge(bond, oathgiver)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"rule give-and-take\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"condition witnessed requires witness within earshot\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error unowed refines L2 premise-not-available where absent\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error forsworn refines L2 premise-not-available where contradicted signals dishonour\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error wrong-moon refines L3 side-condition [timing] over cycle moon\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error overpledged refines L6 resource-violation on strain signals collapse\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cost social | bodily | material | epistemic\"}],\"def\":{\"conditions\":[{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"witnessed\"},\"requires\":\"witness within earshot\",\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"costs\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"social\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bodily\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"material\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"epistemic\"}],\"cycles_in_scope\":[],\"effects\":[],\"errors\":[{\"class\":\"L2\",\"discriminant\":\"premise-not-available where absent\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"unowed\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L2\",\"discriminant\":\"premise-not-available where contradicted\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"forsworn\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":\"dishonour\",\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L3\",\"discriminant\":\"side-condition [timing] over cycle moon\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"wrong-moon\"},\"on_resource\":null,\"over_cycles\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"moon\"}],\"refines_token\":\"L3\",\"signal\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L6\",\"discriminant\":\"resource-violation on strain\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"overpledged\"},\"on_resource\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"strain\"},\"over_cycles\":[],\"refines_token\":\"L6\",\"signal\":\"collapse\",\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"class\":\"L2\",\"discriminant\":\"where available-in(licensed-pool) and contradicted-in(certain)\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"hollow-vow\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"marker\":\"Proposed\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"oath-binding\"},\"resources\":[{\"arg\":null,\"cap\":null,\"direction\":\"decays\",\"kind\":{\"Linear\":{\"conserved\":true}},\"law_text\":\"linear conserved\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"boon\"},\"order\":[],\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"arg\":null,\"cap\":\"body-limit\",\"direction\":\"decays\",\"kind\":\"AffineBounded\",\"law_text\":\"affine bounded body-limit\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"strain\"},\"order\":[],\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"roles\":[{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"oathgiver\"},\"requires\":\"standing(oathgiver)\",\"sort\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"person\"},\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"oathholder\"},\"requires\":\"consent(oathholder)\",\"sort\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"person\"},\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"rules\":[{\"args\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bond\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"oathgiver\"}],\"form\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"pledge\"},\"requires\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}},{\"args\":[],\"form\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"give-and-take\"},\"requires\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0}}],\"sorts\":[{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bond\"},\"source\":null,\"span\":{\"end\":0,\"file\":0,\"start\":0},\"variants\":[{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"fealty\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"troth\"},{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"ransom\"}]}],\"span\":{\"end\":0,\"file\":0,\"start\":0},\"uses\":[\"chronology.cycles\"]}},\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"oath-binding\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Practice\":{\"body\":{\"clauses\":[{\"span\":{\"end\":3936,\"file\":0,\"start\":3915},\"text\":\"use chronology.cycles\"},{\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"text\":\"kind bond = fealty | troth | ransom\"},{\"span\":{\"end\":4029,\"file\":0,\"start\":3977},\"text\":\"role oathgiver : person requires standing(oathgiver)\"},{\"span\":{\"end\":4085,\"file\":0,\"start\":4032},\"text\":\"role oathholder : person requires consent(oathholder)\"},{\"span\":{\"end\":4120,\"file\":0,\"start\":4088},\"text\":\"resource boon : linear conserved\"},{\"span\":{\"end\":4166,\"file\":0,\"start\":4123},\"text\":\"resource strain : affine bounded body-limit\"},{\"span\":{\"end\":4197,\"file\":0,\"start\":4169},\"text\":\"rule pledge(bond, oathgiver)\"},{\"span\":{\"end\":4218,\"file\":0,\"start\":4200},\"text\":\"rule give-and-take\"},{\"span\":{\"end\":4272,\"file\":0,\"start\":4221},\"text\":\"condition witnessed requires witness within earshot\"},{\"span\":{\"end\":4333,\"file\":0,\"start\":4275},\"text\":\"error unowed refines L2 premise-not-available where absent\"},{\"span\":{\"end\":4420,\"file\":0,\"start\":4336},\"text\":\"error forsworn refines L2 premise-not-available where contradicted signals dishonour\"},{\"span\":{\"end\":4490,\"file\":0,\"start\":4423},\"text\":\"error wrong-moon refines L3 side-condition [timing] over cycle moon\"},{\"span\":{\"end\":4567,\"file\":0,\"start\":4493},\"text\":\"error overpledged refines L6 resource-violation on strain signals collapse\"},{\"span\":{\"end\":4660,\"file\":0,\"start\":4570},\"text\":\"error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)\"},{\"span\":{\"end\":4706,\"file\":0,\"start\":4663},\"text\":\"cost social | bodily | material | epistemic\"}],\"def\":{\"conditions\":[{\"name\":{\"span\":{\"end\":4272,\"file\":0,\"start\":4221},\"text\":\"witnessed\"},\"requires\":\"witness within earshot\",\"span\":{\"end\":4272,\"file\":0,\"start\":4221}}],\"costs\":[{\"span\":{\"end\":4706,\"file\":0,\"start\":4663},\"text\":\"social\"},{\"span\":{\"end\":4706,\"file\":0,\"start\":4663},\"text\":\"bodily\"},{\"span\":{\"end\":4706,\"file\":0,\"start\":4663},\"text\":\"material\"},{\"span\":{\"end\":4706,\"file\":0,\"start\":4663},\"text\":\"epistemic\"}],\"cycles_in_scope\":[],\"effects\":[],\"errors\":[{\"class\":\"L2\",\"discriminant\":\"premise-not-available where absent\",\"name\":{\"span\":{\"end\":4333,\"file\":0,\"start\":4275},\"text\":\"unowed\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":4333,\"file\":0,\"start\":4275}},{\"class\":\"L2\",\"discriminant\":\"premise-not-available where contradicted\",\"name\":{\"span\":{\"end\":4420,\"file\":0,\"start\":4336},\"text\":\"forsworn\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":\"dishonour\",\"span\":{\"end\":4420,\"file\":0,\"start\":4336}},{\"class\":\"L3\",\"discriminant\":\"side-condition [timing] over cycle moon\",\"name\":{\"span\":{\"end\":4490,\"file\":0,\"start\":4423},\"text\":\"wrong-moon\"},\"on_resource\":null,\"over_cycles\":[{\"span\":{\"end\":4490,\"file\":0,\"start\":4423},\"text\":\"moon\"}],\"refines_token\":\"L3\",\"signal\":null,\"span\":{\"end\":4490,\"file\":0,\"start\":4423}},{\"class\":\"L6\",\"discriminant\":\"resource-violation on strain\",\"name\":{\"span\":{\"end\":4567,\"file\":0,\"start\":4493},\"text\":\"overpledged\"},\"on_resource\":{\"span\":{\"end\":4567,\"file\":0,\"start\":4493},\"text\":\"strain\"},\"over_cycles\":[],\"refines_token\":\"L6\",\"signal\":\"collapse\",\"span\":{\"end\":4567,\"file\":0,\"start\":4493}},{\"class\":\"L2\",\"discriminant\":\"where available-in(licensed-pool) and contradicted-in(certain)\",\"name\":{\"span\":{\"end\":4660,\"file\":0,\"start\":4570},\"text\":\"hollow-vow\"},\"on_resource\":null,\"over_cycles\":[],\"refines_token\":\"L2\",\"signal\":null,\"span\":{\"end\":4660,\"file\":0,\"start\":4570}}],\"marker\":\"Proposed\",\"name\":{\"span\":{\"end\":3901,\"file\":0,\"start\":3889},\"text\":\"oath-binding\"},\"resources\":[{\"arg\":null,\"cap\":null,\"direction\":\"decays\",\"kind\":{\"Linear\":{\"conserved\":true}},\"law_text\":\"linear conserved\",\"name\":{\"span\":{\"end\":4120,\"file\":0,\"start\":4088},\"text\":\"boon\"},\"order\":[],\"span\":{\"end\":4120,\"file\":0,\"start\":4088}},{\"arg\":null,\"cap\":\"body-limit\",\"direction\":\"decays\",\"kind\":\"AffineBounded\",\"law_text\":\"affine bounded body-limit\",\"name\":{\"span\":{\"end\":4166,\"file\":0,\"start\":4123},\"text\":\"strain\"},\"order\":[],\"span\":{\"end\":4166,\"file\":0,\"start\":4123}}],\"roles\":[{\"name\":{\"span\":{\"end\":4029,\"file\":0,\"start\":3977},\"text\":\"oathgiver\"},\"requires\":\"standing(oathgiver)\",\"sort\":{\"span\":{\"end\":4029,\"file\":0,\"start\":3977},\"text\":\"person\"},\"span\":{\"end\":4029,\"file\":0,\"start\":3977}},{\"name\":{\"span\":{\"end\":4085,\"file\":0,\"start\":4032},\"text\":\"oathholder\"},\"requires\":\"consent(oathholder)\",\"sort\":{\"span\":{\"end\":4085,\"file\":0,\"start\":4032},\"text\":\"person\"},\"span\":{\"end\":4085,\"file\":0,\"start\":4032}}],\"rules\":[{\"args\":[{\"span\":{\"end\":4197,\"file\":0,\"start\":4169},\"text\":\"bond\"},{\"span\":{\"end\":4197,\"file\":0,\"start\":4169},\"text\":\"oathgiver\"}],\"form\":{\"span\":{\"end\":4197,\"file\":0,\"start\":4169},\"text\":\"pledge\"},\"requires\":null,\"span\":{\"end\":4197,\"file\":0,\"start\":4169}},{\"args\":[],\"form\":{\"span\":{\"end\":4218,\"file\":0,\"start\":4200},\"text\":\"give-and-take\"},\"requires\":null,\"span\":{\"end\":4218,\"file\":0,\"start\":4200}}],\"sorts\":[{\"name\":{\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"text\":\"bond\"},\"source\":null,\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"variants\":[{\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"text\":\"fealty\"},{\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"text\":\"troth\"},{\"span\":{\"end\":3974,\"file\":0,\"start\":3939},\"text\":\"ransom\"}]}],\"span\":{\"end\":3901,\"file\":0,\"start\":3889},\"uses\":[\"chronology.cycles\"]}},\"name\":{\"span\":{\"end\":3901,\"file\":0,\"start\":3889},\"text\":\"oath-binding\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3910,\"file\":0,\"start\":3902},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:be7d4f6c629241d1b73d51a9dca3b9525f7571eaad62a71754a538aaf21d190a",
       "atom": {
@@ -2251,12 +2491,15 @@
         "kind": "proof",
         "name": "lancelots-oath",
         "body": [
-          "{\"Proof\":{\"name\":{\"text\":\"lancelots-oath\",\"span\":{\"file\":0,\"start\":4715,\"end\":4729}},\"head\":[\"speaker\",\"lancelot\",\"in\",\"oath-binding\"],\"body\":{\"items\":[{\"clause\":{\"text\":\"premise p1 standing(lancelot) cited d-0012 cue \\\"Lancelot comes to court\\\"\",\"span\":{\"file\":0,\"start\":4767,\"end\":4839}},\"op\":{\"premise\":{\"label\":\"p1\",\"atom\":\"standing(lancelot)\",\"mods\":[\"cited\",\"d-0012\",\"cue\",\"Lancelot comes to court\"],\"atom_expr\":{\"pred\":{\"text\":\"standing\",\"span\":{\"file\":0,\"start\":0,\"end\":8}},\"args\":[{\"Sym\":{\"text\":\"lancelot\",\"span\":{\"file\":0,\"start\":9,\"end\":17}}}]}}}},{\"clause\":{\"text\":\"premise p2 consent(arthur) cited d-0012\",\"span\":{\"file\":0,\"start\":4842,\"end\":4881}},\"op\":{\"premise\":{\"label\":\"p2\",\"atom\":\"consent(arthur)\",\"mods\":[\"cited\",\"d-0012\"],\"atom_expr\":{\"pred\":{\"text\":\"consent\",\"span\":{\"file\":0,\"start\":0,\"end\":7}},\"args\":[{\"Sym\":{\"text\":\"arthur\",\"span\":{\"file\":0,\"start\":8,\"end\":14}}}]}}}},{\"clause\":{\"text\":\"premise p3 boon(1) drawn-against p1\",\"span\":{\"file\":0,\"start\":4884,\"end\":4919}},\"op\":{\"premise\":{\"label\":\"p3\",\"atom\":\"boon(1)\",\"mods\":[\"drawn-against\",\"p1\"],\"atom_expr\":{\"pred\":{\"text\":\"boon\",\"span\":{\"file\":0,\"start\":0,\"end\":4}},\"args\":[{\"Int\":1}]}}}},{\"clause\":{\"text\":\"step s1 instantiate pledge with bond = fealty, oathgiver = lancelot\",\"span\":{\"file\":0,\"start\":4922,\"end\":4989}},\"op\":{\"step\":{\"instantiate\":{\"label\":\"s1\",\"form\":\"pledge\",\"bindings\":[{\"name\":\"bond\",\"value\":\"fealty\"},{\"name\":\"oathgiver\",\"value\":\"lancelot\"}]}}}},{\"clause\":{\"text\":\"step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)\",\"span\":{\"file\":0,\"start\":4992,\"end\":5071}},\"op\":{\"step\":{\"chain\":{\"label\":\"s2\",\"joins\":[\"p1\",\"s1\"],\"law\":\"give-and-take\",\"conclusion\":\"pledged(lancelot, fealty)\"}}}},{\"clause\":{\"text\":\"spend p3\",\"span\":{\"file\":0,\"start\":5074,\"end\":5082}},\"op\":{\"resource\":{\"keyword\":\"spend\",\"label\":\"p3\"}}},{\"clause\":{\"text\":\"close pledged(lancelot, fealty) expect holds\",\"span\":{\"file\":0,\"start\":5085,\"end\":5129}},\"op\":{\"close\":{\"atom\":\"pledged(lancelot, fealty)\",\"verdict\":\"holds\"}}}]}}}"
+          "{\"Proof\":{\"body\":{\"items\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"premise p1 standing(lancelot) cited d-0012 cue \\\"Lancelot comes to court\\\"\"},\"op\":{\"premise\":{\"atom\":\"standing(lancelot)\",\"atom_expr\":{\"args\":[{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"lancelot\"}}],\"pred\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"standing\"}},\"label\":\"p1\",\"mods\":[\"cited\",\"d-0012\",\"cue\",\"Lancelot comes to court\"]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"premise p2 consent(arthur) cited d-0012\"},\"op\":{\"premise\":{\"atom\":\"consent(arthur)\",\"atom_expr\":{\"args\":[{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthur\"}}],\"pred\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"consent\"}},\"label\":\"p2\",\"mods\":[\"cited\",\"d-0012\"]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"premise p3 boon(1) drawn-against p1\"},\"op\":{\"premise\":{\"atom\":\"boon(1)\",\"atom_expr\":{\"args\":[{\"Int\":1}],\"pred\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"boon\"}},\"label\":\"p3\",\"mods\":[\"drawn-against\",\"p1\"]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"step s1 instantiate pledge with bond = fealty, oathgiver = lancelot\"},\"op\":{\"step\":{\"instantiate\":{\"bindings\":[{\"name\":\"bond\",\"value\":\"fealty\"},{\"name\":\"oathgiver\",\"value\":\"lancelot\"}],\"form\":\"pledge\",\"label\":\"s1\"}}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)\"},\"op\":{\"step\":{\"chain\":{\"conclusion\":\"pledged(lancelot, fealty)\",\"joins\":[\"p1\",\"s1\"],\"label\":\"s2\",\"law\":\"give-and-take\"}}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"spend p3\"},\"op\":{\"resource\":{\"keyword\":\"spend\",\"label\":\"p3\"}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"close pledged(lancelot, fealty) expect holds\"},\"op\":{\"close\":{\"atom\":\"pledged(lancelot, fealty)\",\"verdict\":\"holds\"}}}]},\"head\":[\"speaker\",\"lancelot\",\"in\",\"oath-binding\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"lancelots-oath\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Proof\":{\"body\":{\"items\":[{\"clause\":{\"span\":{\"end\":4839,\"file\":0,\"start\":4767},\"text\":\"premise p1 standing(lancelot) cited d-0012 cue \\\"Lancelot comes to court\\\"\"},\"op\":{\"premise\":{\"atom\":\"standing(lancelot)\",\"atom_expr\":{\"args\":[{\"Sym\":{\"span\":{\"end\":17,\"file\":0,\"start\":9},\"text\":\"lancelot\"}}],\"pred\":{\"span\":{\"end\":8,\"file\":0,\"start\":0},\"text\":\"standing\"}},\"label\":\"p1\",\"mods\":[\"cited\",\"d-0012\",\"cue\",\"Lancelot comes to court\"]}}},{\"clause\":{\"span\":{\"end\":4881,\"file\":0,\"start\":4842},\"text\":\"premise p2 consent(arthur) cited d-0012\"},\"op\":{\"premise\":{\"atom\":\"consent(arthur)\",\"atom_expr\":{\"args\":[{\"Sym\":{\"span\":{\"end\":14,\"file\":0,\"start\":8},\"text\":\"arthur\"}}],\"pred\":{\"span\":{\"end\":7,\"file\":0,\"start\":0},\"text\":\"consent\"}},\"label\":\"p2\",\"mods\":[\"cited\",\"d-0012\"]}}},{\"clause\":{\"span\":{\"end\":4919,\"file\":0,\"start\":4884},\"text\":\"premise p3 boon(1) drawn-against p1\"},\"op\":{\"premise\":{\"atom\":\"boon(1)\",\"atom_expr\":{\"args\":[{\"Int\":1}],\"pred\":{\"span\":{\"end\":4,\"file\":0,\"start\":0},\"text\":\"boon\"}},\"label\":\"p3\",\"mods\":[\"drawn-against\",\"p1\"]}}},{\"clause\":{\"span\":{\"end\":4989,\"file\":0,\"start\":4922},\"text\":\"step s1 instantiate pledge with bond = fealty, oathgiver = lancelot\"},\"op\":{\"step\":{\"instantiate\":{\"bindings\":[{\"name\":\"bond\",\"value\":\"fealty\"},{\"name\":\"oathgiver\",\"value\":\"lancelot\"}],\"form\":\"pledge\",\"label\":\"s1\"}}}},{\"clause\":{\"span\":{\"end\":5071,\"file\":0,\"start\":4992},\"text\":\"step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)\"},\"op\":{\"step\":{\"chain\":{\"conclusion\":\"pledged(lancelot, fealty)\",\"joins\":[\"p1\",\"s1\"],\"label\":\"s2\",\"law\":\"give-and-take\"}}}},{\"clause\":{\"span\":{\"end\":5082,\"file\":0,\"start\":5074},\"text\":\"spend p3\"},\"op\":{\"resource\":{\"keyword\":\"spend\",\"label\":\"p3\"}}},{\"clause\":{\"span\":{\"end\":5129,\"file\":0,\"start\":5085},\"text\":\"close pledged(lancelot, fealty) expect holds\"},\"op\":{\"close\":{\"atom\":\"pledged(lancelot, fealty)\",\"verdict\":\"holds\"}}}]},\"head\":[\"speaker\",\"lancelot\",\"in\",\"oath-binding\"],\"name\":{\"span\":{\"end\":4729,\"file\":0,\"start\":4715},\"text\":\"lancelots-oath\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:cacf303383187e48f23c19ebbaa66b54c56ac9f8057a503d50614c6187fa787c",
       "atom": {
@@ -2279,12 +2522,15 @@
         "kind": "rule",
         "name": "show-the-price",
         "body": [
-          "{\"Rule\":{\"name\":{\"text\":\"show-the-price\",\"span\":{\"file\":0,\"start\":5137,\"end\":5151}},\"domain\":\"season\",\"head\":[],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":5164,\"end\":5172}}}}"
+          "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"show-the-price\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":5151,\"file\":0,\"start\":5137},\"text\":\"show-the-price\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":5172,\"file\":0,\"start\":5164},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:f485fa7f440dc0c5c60947f7ef8d529b737885a58b04fc6150d7829c97fcbb8c",
       "atom": {
@@ -2307,12 +2553,15 @@
         "kind": "principle",
         "name": "a-name-spends-breath",
         "body": [
-          "{\"Principle\":{\"name\":{\"text\":\"a-name-spends-breath\",\"span\":{\"file\":0,\"start\":5183,\"end\":5203}},\"head\":[],\"body\":[],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":null,\"tags\":[],\"span\":{\"file\":0,\"start\":5204,\"end\":5212}}}}"
+          "{\"Principle\":{\"body\":[],\"head\":[],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"a-name-spends-breath\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Principle\":{\"body\":[],\"head\":[],\"name\":{\"span\":{\"end\":5203,\"file\":0,\"start\":5183},\"text\":\"a-name-spends-breath\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":5212,\"file\":0,\"start\":5204},\"tags\":[]}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:7f6d08d093c1fa16eb67f1d1c0cdcee4dad3b355fed270c1f815891e32463494",
       "atom": {
@@ -2335,12 +2584,15 @@
         "kind": "fork",
         "name": "what-does-the-word-cost",
         "body": [
-          "{\"Fork\":{\"question\":{\"text\":\"what-does-the-word-cost\",\"span\":{\"file\":0,\"start\":5218,\"end\":5241}},\"options\":[{\"name\":{\"text\":\"a-year-of-life\",\"span\":{\"file\":0,\"start\":5251,\"end\":5265}},\"label\":null,\"implies\":null},{\"name\":{\"text\":\"a-truth-told\",\"span\":{\"file\":0,\"start\":5275,\"end\":5287}},\"label\":null,\"implies\":null}],\"body\":[],\"provenance\":null}}"
+          "{\"Fork\":{\"body\":[],\"options\":[{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"a-year-of-life\"}},{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"a-truth-told\"}}],\"provenance\":null,\"question\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"what-does-the-word-cost\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Fork\":{\"body\":[],\"options\":[{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":5265,\"file\":0,\"start\":5251},\"text\":\"a-year-of-life\"}},{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":5287,\"file\":0,\"start\":5275},\"text\":\"a-truth-told\"}}],\"provenance\":null,\"question\":{\"span\":{\"end\":5241,\"file\":0,\"start\":5218},\"text\":\"what-does-the-word-cost\"}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ab05e37eea32e724fc758f77ccc9829dc274eb3172ef0d4316284818298bac9e",
       "atom": {
@@ -2363,12 +2615,15 @@
         "kind": "hypothesis",
         "name": "h-return",
         "body": [
-          "{\"Hypothesis\":{\"name\":{\"text\":\"h-return\",\"span\":{\"file\":0,\"start\":5299,\"end\":5307}},\"statement\":\"Excalibur was always the Lake's to reclaim, never the king's to keep\"}}"
+          "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-return\"},\"statement\":\"Excalibur was always the Lake's to reclaim, never the king's to keep\"}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":5307,\"file\":0,\"start\":5299},\"text\":\"h-return\"},\"statement\":\"Excalibur was always the Lake's to reclaim, never the king's to keep\"}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:8dbd4690df83444d7801c185a31f65cdd4bf5a1ad129968a638dfd3b8c7606dd",
       "atom": {
@@ -2391,12 +2646,15 @@
         "kind": "question",
         "name": "who-holds-excalibur",
         "body": [
-          "{\"Question\":{\"name\":{\"text\":\"who-holds-excalibur\",\"span\":{\"file\":0,\"start\":5388,\"end\":5407}},\"prompt\":\"Who holds Excalibur after Camlann?\",\"options\":[{\"name\":{\"text\":\"arthur\",\"span\":{\"file\":0,\"start\":5454,\"end\":5460}},\"label\":null,\"implies\":{\"pred\":{\"text\":\"keeps\",\"span\":{\"file\":0,\"start\":5472,\"end\":5477}},\"args\":[{\"Sym\":{\"text\":\"arthur\",\"span\":{\"file\":0,\"start\":5478,\"end\":5484}}},{\"Sym\":{\"text\":\"excalibur\",\"span\":{\"file\":0,\"start\":5486,\"end\":5495}}}]}},{\"name\":{\"text\":\"the-lake\",\"span\":{\"file\":0,\"start\":5506,\"end\":5514}},\"label\":null,\"implies\":null}],\"provenance\":null}}"
+          "{\"Question\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"who-holds-excalibur\"},\"options\":[{\"implies\":{\"args\":[{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthur\"}},{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"excalibur\"}}],\"pred\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"keeps\"}},\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthur\"}},{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-lake\"}}],\"prompt\":\"Who holds Excalibur after Camlann?\",\"provenance\":null}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Question\":{\"name\":{\"span\":{\"end\":5407,\"file\":0,\"start\":5388},\"text\":\"who-holds-excalibur\"},\"options\":[{\"implies\":{\"args\":[{\"Sym\":{\"span\":{\"end\":5484,\"file\":0,\"start\":5478},\"text\":\"arthur\"}},{\"Sym\":{\"span\":{\"end\":5495,\"file\":0,\"start\":5486},\"text\":\"excalibur\"}}],\"pred\":{\"span\":{\"end\":5477,\"file\":0,\"start\":5472},\"text\":\"keeps\"}},\"label\":null,\"name\":{\"span\":{\"end\":5460,\"file\":0,\"start\":5454},\"text\":\"arthur\"}},{\"implies\":null,\"label\":null,\"name\":{\"span\":{\"end\":5514,\"file\":0,\"start\":5506},\"text\":\"the-lake\"}}],\"prompt\":\"Who holds Excalibur after Camlann?\",\"provenance\":null}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:ed32d65603cd846611bb5e4f0bf54968d8701411ec06fa7c97ecfa2fe83c395c",
       "atom": {
@@ -2419,7 +2677,7 @@
       "grade": "asserted"
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:1e79c4e40d3a672db3973f050c5800431e42c5157fa33c100a061371da3f3534",
       "atom": {
@@ -2440,10 +2698,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:13980c73dd697fc4f465df69e10a40f96831ce965fbe617d79d0f85426d60ab0",
       "atom": {
@@ -2466,12 +2727,15 @@
         "kind": "hypothesis",
         "name": "h-merlin-foresaw",
         "body": [
-          "{\"Hypothesis\":{\"name\":{\"text\":\"h-merlin-foresaw\",\"span\":{\"file\":0,\"start\":5592,\"end\":5608}},\"statement\":\"Merlin foresaw the fall at Camlann from the first\"}}"
+          "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-merlin-foresaw\"},\"statement\":\"Merlin foresaw the fall at Camlann from the first\"}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Hypothesis\":{\"name\":{\"span\":{\"end\":5608,\"file\":0,\"start\":5592},\"text\":\"h-merlin-foresaw\"},\"statement\":\"Merlin foresaw the fall at Camlann from the first\"}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:96476d5fa7e36633ee1dc3e5991145375a8b8b35bf131702b918224b475be91d",
       "atom": {
@@ -2494,12 +2758,15 @@
         "kind": "entity",
         "name": "the-warning",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"name\":{\"text\":\"the-warning\",\"span\":{\"file\":0,\"start\":5667,\"end\":5678}},\"label\":null,\"time\":{\"During\":{\"text\":\"arthurs-reign\",\"span\":{\"file\":0,\"start\":5687,\"end\":5700}}},\"slots\":[],\"provenance\":{\"marker\":\"Proposed\",\"citations\":[],\"condition\":{\"Hyp\":{\"text\":\"h-merlin-foresaw\",\"span\":{\"file\":0,\"start\":5718,\"end\":5734}}},\"tags\":[],\"span\":{\"file\":0,\"start\":5701,\"end\":5709}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-warning\"},\"provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-merlin-foresaw\"}},\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":5678,\"file\":0,\"start\":5667},\"text\":\"the-warning\"},\"provenance\":{\"citations\":[],\"condition\":{\"Hyp\":{\"span\":{\"end\":5734,\"file\":0,\"start\":5718},\"text\":\"h-merlin-foresaw\"}},\"marker\":\"Proposed\",\"span\":{\"end\":5709,\"file\":0,\"start\":5701},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":5700,\"file\":0,\"start\":5687},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:d1230dd01b11a9e8ac4ff610a8f372537fce4f85fcc73af86075a85ee3c553d2",
       "atom": {
@@ -2518,10 +2785,13 @@
       "defeaters": {
         "monomials": []
       },
-      "grade": "asserted"
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
     },
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "authority": null,
       "claim_id": "sha256:a6fa427114cf447563d1ba240c756746245e471585bcf3f279ce1f103b4566e1",
       "atom": {
@@ -2544,8 +2814,11 @@
         "kind": "ratify",
         "name": "d-0011",
         "body": [
-          "{\"Ratify\":{\"decision\":{\"text\":\"d-0011\",\"span\":{\"file\":0,\"start\":5742,\"end\":5748}},\"body\":{\"clauses\":[{\"clause\":{\"text\":\"h-merlin-foresaw := true\",\"span\":{\"file\":0,\"start\":5753,\"end\":5777}},\"assignment\":{\"hyp\":\"h-merlin-foresaw\",\"value\":true}}]}}}"
+          "{\"Ratify\":{\"body\":{\"clauses\":[{\"assignment\":{\"hyp\":\"h-merlin-foresaw\",\"value\":true},\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-merlin-foresaw := true\"}}]},\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0011\"}}}"
         ]
+      },
+      "provenance": {
+        "located_body": "{\"Ratify\":{\"body\":{\"clauses\":[{\"assignment\":{\"hyp\":\"h-merlin-foresaw\",\"value\":true},\"clause\":{\"span\":{\"end\":5777,\"file\":0,\"start\":5753},\"text\":\"h-merlin-foresaw := true\"}}]},\"decision\":{\"span\":{\"end\":5748,\"file\":0,\"start\":5742},\"text\":\"d-0011\"}}}"
       }
     }
   ]

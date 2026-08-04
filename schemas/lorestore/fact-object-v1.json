@@ -42,6 +42,17 @@
       "description": "The grade at which this fact is known: `checked > tested > attested >\nasserted` (DL-0006).",
       "$ref": "#/$defs/Grade"
     },
+    "provenance": {
+      "description": "Provenance metadata: the authored ledger marker and the located\ncarriage body. Recorded from schema v3 (DL-0055) and **excluded from\nthe content hash** — see [`FactProvenance`].",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FactProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "schema_version": {
       "description": "Schema version; bumped when the stored shape changes.",
       "type": "integer",
@@ -257,6 +268,31 @@
         }
       ]
     },
+    "FactProvenance": {
+      "description": "Provenance metadata carried beside a fact — **recorded, never hashed**.\n\nEverything here is deliberately outside the identity projection\n([`FactObject::content_hash`]), for the same reason `claim_id` is: it does\nnot change the proposition or the provenance polynomial that decides its\nstanding. Two facts that differ only in this block are the same fact, and\ncontent addressing must say so — otherwise dedup and cross-branch merge\nconvergence break (see the module docs on the three-way identity split).\n\nIntroduced at schema v3 (DL-0055). A v2 object carries none of it, and the\nupcast leaves both fields absent rather than inventing them.",
+      "type": "object",
+      "properties": {
+        "located_body": {
+          "description": "The carriage body exactly as authored, source spans intact.\n\n[`ExpertBody::body`] holds the span-normalized form, which is what the\ncontent hash sees; this holds the located original so a round trip\nthrough the store does not silently lose source positions (koan 4).\nReconstruction prefers this when present and falls back to the\nnormalized body.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "marker": {
+          "description": "The ledger marker this fact was authored under.\n\nThe support polynomial cannot carry this: `decided D-2`, `ratified D-2`,\nand `provisional D-2` all lower to the identical conjunction of cited\ndecision variables, so reverse lowering had to guess `Ratified` for all\nthree and the distinction died on the round trip. Recording the marker\nis what makes the round trip status-faithful (DL-0055). It stays out of\nthe hash because the three markers share one valuation — the loader\ntreats them identically at the fixpoint.\n\n`None` means *not recorded* (a v2 store), never \"proposed\".",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProvenanceMarker"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "Grade": {
       "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
       "oneOf": [
@@ -318,6 +354,31 @@
       },
       "required": [
         "monomials"
+      ]
+    },
+    "ProvenanceMarker": {
+      "description": "The leading provenance word a claim carries.\n\nA claim's *standing* is not stored (DL-0003: there is no status slot); it is\nderived from this marker together with the citations behind it. The marker\nrecords only where the claim came from — an agent's proposal or a ledger\nruling — and which register of ruling it was.",
+      "oneOf": [
+        {
+          "description": "`proposed` — an agent's claim, awaiting a ruling. Carries no citation.",
+          "type": "string",
+          "const": "Proposed"
+        },
+        {
+          "description": "`decided <d-id>` — grounded in a recorded decision.",
+          "type": "string",
+          "const": "Decided"
+        },
+        {
+          "description": "`ratified <d-id>` — a ratified ruling.",
+          "type": "string",
+          "const": "Ratified"
+        },
+        {
+          "description": "`provisional <d-id>` — a provisional ruling, open to revision.",
+          "type": "string",
+          "const": "Provisional"
+        }
       ]
     }
   }

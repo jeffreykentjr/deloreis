@@ -57,7 +57,22 @@ pub use store::{Commit, Ref};
 ///   deepens to v2 on read via the front-end lowering ([`upcast::upcast_value`]);
 ///   every other carriage is byte-identical across v1 and v2. No stored fact is
 ///   rewritten — the deepening happens in memory, at the load boundary.
-pub const SCHEMA_VERSION: u32 = 2;
+/// - **v3** — DM-2 (DL-0055): source position leaves the identity projection,
+///   and provenance metadata is recorded beside the fact. A carriage body is
+///   hashed span-normalized, so the same declaration at a different offset is
+///   the same object (v2 hashed the located body, which made position
+///   destabilize content addressing and defeat dedup and merge convergence);
+///   the located original moves to
+///   [`FactProvenance::located_body`](object::FactProvenance::located_body),
+///   outside the hash, so nothing is lost. The authored ledger marker is
+///   recorded in [`FactProvenance::marker`](object::FactProvenance::marker),
+///   because `decided`/`ratified`/`provisional` share one support polynomial
+///   and reverse lowering could not otherwise tell them apart. A v2 object
+///   upcasts on read by normalizing its carriage body — which lands it on the
+///   **same identity** as a freshly lowered v3 object, so an existing store is
+///   recognized as the same lineage rather than refused as foreign — and
+///   records no marker, since v2 never stored one.
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// All schemars-derived JSON schemas for this crate's stored objects, paired
 /// with their schema name. Used by `xtask schema` to emit and drift-check the

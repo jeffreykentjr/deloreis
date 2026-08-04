@@ -116,7 +116,11 @@ fn downgrade_to_v1(fo: &FactObject) -> Value {
 }
 
 fn embedded_proof(fo: &FactObject) -> ProofDecl {
-    let body = &fo.expert_body.as_ref().unwrap().body[0];
+    // `carriage_json` is the reconstruction path: the located body when the
+    // object has one, so source positions survive the store (DL-0055). Reading
+    // `expert_body.body` here instead would rebuild the proof from the
+    // span-normalized bytes and quietly zero every span in the report.
+    let body = fo.carriage_json().expect("a carriage object has a body");
     match serde_json::from_str(body).expect("embedded decl decodes") {
         Decl::Proof(proof) => proof,
         _ => panic!("carriage is a proof"),
