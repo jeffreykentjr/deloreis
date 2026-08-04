@@ -14,7 +14,9 @@ one orchestrating agent running an agent team across both checkouts concurrently
 Authored 2026-08-04 from a verified two-repo survey. Where this doc disagrees
 with `docs/decisions.md`, the ledger wins; the campaign's rulings are minted as
 DL entries at their landing PRs (provisional numbers below — mint order is merge
-order, single-writer, mint-and-use).
+order, single-writer, mint-and-use; the numbers shifted by one once DL-0052 took
+the governance ruling). Those entries are minted by the agents that decide them,
+each carrying its `machine`/`human` attribution (DL-0052).
 
 ## 0. Preconditions and first acts
 
@@ -121,7 +123,7 @@ authority; contract §5 step 1 requires the doc rewrite before the tag.
 
 Exit: `cargo xtask docs-oracle` + `authority` green; the tag visible on the
 remote; STATUS rows `provided` with evidence; `auth2` green at the tag.
-Ledger: DL-0052 (handshake delivery + tag policy), DL-0053 (authority scrub).
+Ledger: DL-0053 (handshake delivery + tag policy), DL-0054 (authority scrub).
 
 ### DM-2 — Lorestore-backed project loader + SCHEMA_VERSION 3
 
@@ -154,7 +156,7 @@ Exit: gate green including the syntax-free lane; a default build loads a
 store-backed project and answers the consumer's five read ops; materialize →
 restart → reload sees the new head; a v2→v3 re-fold migration test; the 0.x
 parity oracle untouched. No contract bump (server config, not wire).
-Ledger: DL-0054 (store-backed projects + SCHEMA_VERSION 3 rulings).
+Ledger: DL-0055 (store-backed projects + SCHEMA_VERSION 3 rulings).
 
 ### DM-3 — Corpus exchange on the wire + rendered loud-refusal (contract 1.1.0)
 
@@ -178,7 +180,7 @@ for both ops plus the rendered-refusal negative replay cold; an end-to-end
 rehearsal: import a multi-document corpus on a syntax build → serve from the
 store on a default build → export returns object-identical facts. Tag
 `contract/1.1.0` (bundling DM-2 in the tagged tree).
-Ledger: DL-0055 (corpus exchange + loud-refusal rule).
+Ledger: DL-0056 (corpus exchange + loud-refusal rule).
 
 ### DM-4 — Expert authoring wave 1 + tier 2, and the scrub code (contract 1.2.0)
 
@@ -214,7 +216,7 @@ Exit: gate green; version echo `1.2.0`; three fixtures per new tool replay
 cold; a scenario test stages dialect + name-part + name + banned via tools,
 materializes, reloads, and the language model sees them; 0.x parity green.
 Tag `contract/1.2.0`.
-Ledger: DL-0056 (wave-1/tier-2 tools + scrub implementation + tier re-scoping).
+Ledger: DL-0057 (wave-1/tier-2 tools + scrub implementation + tier re-scoping).
 
 ### DM-5 — Validator governance, detection corpus, parity support (concurrent)
 
@@ -244,7 +246,7 @@ consumer's ruled source flip and their boundary guard forbids its return).
 Exit: gate green with the detection-corpus test asserting twelve-code
 coverage; authority + docs-oracle green with the new note; no "first slice"
 text remains. No wire surface, no contract bump. Fully parallel with DM-1..4.
-Ledger: DL-0057 (validator governance + scope + corpus ownership).
+Ledger: DL-0058 (validator governance + scope + corpus ownership).
 
 ### DM-6 — Post-EXT-F4 retirement and closeout (contract 2.0.0; strictly last)
 
@@ -283,9 +285,16 @@ has confirmed on the STATUS evidence trail that nothing production-side pins
 Exit: gate green with both parity oracles (0.x in refusal mode, 1.x
 byte-identity); version echo `2.0.0` with the shrunk accepted list; no
 dual-mode branch survives (grep-asserted); all STATUS rows closed.
-Ledger: DL-0058 (the retirement).
+Ledger: DL-0059 (the retirement).
 
 ## 4. Sync points (deloreis delivers → consumer proceeds)
+
+Every sync point below is machine-to-machine: one repo's agents wait on an
+artifact the other repo's agents produce — a tag, a transcript, a STATUS row
+with evidence. **None of them is a human sync point**, and no phase waits on the
+author's review (DL-0052). Human steering arrives async, on its own cadence, and
+lands as a repair — a superseding ledger entry — not as a gate anything blocks
+on.
 
 | # | Deloreis delivers | Unblocks |
 |---|---|---|
@@ -355,8 +364,11 @@ guard erosion (blocks), **SEV-D** drift (fix before phase close).
 **Global invariants, asserted at every phase close** (identical list in the
 consumer doc): both gates green; every diff touches exactly one repo and both
 worktrees are porcelain-clean after every agent; ledgers append-only, ids
-mint-and-use (DL entries orchestrator-only; consumer D entries author-only —
-agents file ruling requests and wait); additive-only on the wire until EXT-F4
+mint-and-use, every entry attributed `machine` or `human` (DL-0052); machine
+agents mint their own rulings in both ledgers — deloreis `DL` entries stay
+orchestrator-only for single-writer reasons, consumer `D` entries are minted by
+the consumer's own agents — and no entry waits on a human sign-off, so a phase
+never closes on an author's availability; additive-only on the wire until EXT-F4
 is verified; every fenced doc example machine-checked; no silent removal —
 every retirement lands in a registry naming its successor; the consumer's
 factory keeps shipping episodes throughout; a flipped check never silently
@@ -412,10 +424,13 @@ red**, re-run whenever the harness changes.
 9. Hallucinated red-team findings prompting harmful "fixes" → no repro, no
    block.
 10. A flip retroactively fails shipped episodes → run the episode gate suite
-    over the existing corpus before/after each flip; grandfathering is an
-    author ruling, never a weakened gate.
-11. Cross-repo deadlock → STATUS rows stuck more than one cycle escalate to
-    the author; agents never improvise around the ladder.
+    over the existing corpus before/after each flip; grandfathering is a minted
+    ruling carrying its attribution, never a weakened gate.
+11. Cross-repo deadlock → a STATUS row stuck more than one cycle is broken by
+    the orchestrating agents, who mint the resolving ruling `machine`-attributed
+    (DL-0052) and leave it for the author's lagging review; nobody blocks on a
+    reply. Agents still never improvise *around* the ladder — the row advances
+    by a recorded decision or not at all.
 12. Evidence scripts that structurally cannot fail (the consumer's parity
     script was one: comparisons a tripwire guarantees empty, no-op check
     loops, delegation to deleted scripts) → seed-and-expect-red probes before
