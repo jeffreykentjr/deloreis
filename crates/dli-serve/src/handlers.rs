@@ -2129,30 +2129,9 @@ fn import_objects(
         ));
     }
 
-    // The same guard on the other carried table. Standing is read against the
-    // *tip* commit's decision set, so a commit that lands without a decision the
-    // store already knew demotes every fact resting on it — `decided d-1`
-    // reconstructs as `proposed`, and nothing the caller sent said so. Note this
-    // catches omission as well as regression: `decisions` defaults to empty on
-    // the wire, so "I forgot the field" and "I meant to drop them all" arrive
-    // identically and neither may proceed silently.
-    let head_decisions = store
-        .head_decisions()
-        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    if let Some(dropped) = head_decisions
-        .iter()
-        .find(|known| !decisions.contains(*known))
-    {
-        return Err((
-            ErrorCode::SchemaViolation,
-            format!(
-                "the supplied `decisions` drops `{dropped}`, which this store already knows; \
-                 standing is read against the newest commit's decision set, so committing \
-                 without it would demote every fact resting on that decision from `decided` to \
-                 `proposed` — send the store's decisions plus any new ones"
-            ),
-        ));
-    }
+    // The decision set is guarded at the commit seam, not here — see
+    // `commit_on_branch`. A drop (including the omission `decisions` defaults
+    // to) comes back as `DecisionRegression` and is mapped below.
 
     let mut hashes = Vec::with_capacity(objects.len());
     for (index, value) in objects.iter().enumerate() {
@@ -2178,7 +2157,39 @@ fn import_objects(
             decisions.to_vec(),
             document.to_owned(),
         )
-        .map_err(|e| (ErrorCode::Internal, e.to_string()))
+        .map_err(corpus_commit_fault)
+}
+
+/// Map a store write failure onto the wire.
+///
+/// The two structural refusals — a name table or a decision set that does not
+/// extend what the store already holds — are caller mistakes, and must read as
+/// caller mistakes on every arm. The store raises them as its own error type,
+/// which would otherwise surface as `internal`: a server-defect code for a
+/// caller-supplied payload (DL-0056 rulings 3 and 5). Everything else genuinely
+/// is ours.
+fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
+    match error {
+        dli_lorestore::StoreError::InternerRegression { parent_len, .. } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "the corpus does not extend the name table this store already resolves against \
+                 ({parent_len} name(s)); every earlier fact's support indexes into that table, so \
+                 committing would rewrite its provenance — export the store, extend what it \
+                 returns, and send the whole corpus"
+            ),
+        ),
+        dli_lorestore::StoreError::DecisionRegression { dropped, .. } => (
+            ErrorCode::SchemaViolation,
+            format!(
+                "the corpus drops decision `{dropped}`, which this store already knows; standing \
+                 is read against the newest commit's decision set, so committing without it would \
+                 demote every fact resting on that decision from `decided` to `proposed` — send \
+                 the store's decisions plus any new ones"
+            ),
+        ),
+        other => (ErrorCode::Internal, other.to_string()),
+    }
 }
 
 /// Import `.dli` text. The front end is the one thing a default build does not
@@ -2204,33 +2215,7 @@ fn import_dli_documents(
         name: document.to_owned(),
         documents: parsed,
     };
-    // The same structural refusals the `objects` arm catches by hand reach this
-    // arm through the store, which raises them as `internal`. A caller whose
-    // `.dli` append does not extend what the store already holds made a caller's
-    // mistake, and must read it as one (DL-0056 rulings 3 and 5).
-    store.import_pack(&pack).map_err(|error| match error {
-        dli_lorestore::StoreError::InternerRegression { parent_len, .. } => (
-            ErrorCode::SchemaViolation,
-            format!(
-                "these `dli_documents` compile to a name table that does not extend the one this \
-                 store already resolves against ({parent_len} name(s)); every earlier fact's \
-                 support indexes into that table, so committing them would rewrite its \
-                 provenance — send the whole corpus, not just the new documents"
-            ),
-        ),
-        dli_lorestore::StoreError::ForeignBase {
-            store_pack,
-            importing,
-        } => (
-            ErrorCode::SchemaViolation,
-            format!(
-                "this store holds the `{store_pack}` lineage and these documents are `{importing}`; \
-                 a store carries one pack lineage, so importing a foreign base would replace the \
-                 corpus rather than extend it"
-            ),
-        ),
-        other => (ErrorCode::Internal, other.to_string()),
-    })
+    store.import_pack(&pack).map_err(corpus_commit_fault)
 }
 
 #[cfg(not(feature = "syntax"))]

@@ -178,16 +178,6 @@ impl Lorestore {
         Ok(self.commit_at(at)?.decisions)
     }
 
-    /// The head commit's decision set — the seed any commit must carry forward,
-    /// since standing is read against the newest commit's set and dropping a
-    /// known decision demotes every fact resting on it.
-    pub fn head_decisions(&self) -> Result<Vec<String>, StoreError> {
-        let Some(head) = self.root_hash()? else {
-            return Ok(Vec::new());
-        };
-        self.decisions_at(&head)
-    }
-
     fn commit_at(&self, at: &ContentHash) -> Result<Commit, StoreError> {
         storage::read_typed(&*self.storage, at)?
             .ok_or_else(|| StoreError::NotFound(format!("commit missing: {at}")))
@@ -382,6 +372,25 @@ impl Lorestore {
                 return Err(StoreError::InternerRegression {
                     parent_len: parent.interner.len(),
                     diverges_at,
+                });
+            }
+
+            // The decision set is append-only across the chain for the same
+            // reason, on the other table: `reconstruct` reads standing against
+            // the *head* commit's decisions, so a child that drops one demotes
+            // every fact resting on it from `decided` to `proposed`. Held here
+            // rather than in each caller because every write path funnels
+            // through this seam — three separate arms grew the same hole when
+            // the check lived above it. Order is not meaningful (the merge path
+            // unions these as a set), so this is containment, not prefix.
+            if let Some(dropped) = parent
+                .decisions
+                .iter()
+                .find(|known| !decisions.contains(*known))
+            {
+                return Err(StoreError::DecisionRegression {
+                    parent_len: parent.decisions.len(),
+                    dropped: dropped.clone(),
                 });
             }
         }

@@ -153,3 +153,51 @@ fn ensure_pack_imported_is_idempotent_and_single_lineage() {
         "store-compiled atom count matches the direct compile"
     );
 }
+
+/// The decision set obeys the same append-only discipline as the interner, and
+/// for the same reason: `reconstruct` reads standing against the head commit's
+/// decisions, so a child that drops one demotes every fact resting on it from
+/// `decided` to `proposed`. Held at the commit seam so every write path
+/// inherits it — three separate callers grew the same hole while the check
+/// lived above this layer (DL-0056).
+///
+/// Containment, not prefix: the merge path unions decisions as a set, so order
+/// carries no meaning here.
+#[test]
+fn commit_refuses_decision_regression() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let ls = Lorestore::open(temp.path().to_path_buf()).expect("open");
+
+    let decisions = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    let commit = |decisions: Vec<String>| {
+        ls.commit(
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            "t".to_owned(),
+        )
+    };
+
+    commit(decisions(&["d-1"])).expect("a decision over genesis");
+    commit(decisions(&["d-1", "d-2"])).expect("append-only extension");
+    // Reordering is not a regression — the set is what matters.
+    commit(decisions(&["d-2", "d-1"])).expect("reorder keeps every decision");
+    // Dropping one the parent held: refused.
+    match commit(decisions(&["d-1"])) {
+        Err(StoreError::DecisionRegression {
+            dropped,
+            parent_len,
+        }) => {
+            assert_eq!(dropped, "d-2");
+            assert_eq!(parent_len, 2);
+        }
+        other => panic!("dropping a known decision must be refused, got {other:?}"),
+    }
+    // And the empty set — what an omitted wire field decodes to.
+    match commit(Vec::new()) {
+        Err(StoreError::DecisionRegression { .. }) => {}
+        other => panic!("an empty decision set must be refused, got {other:?}"),
+    }
+}

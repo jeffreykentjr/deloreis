@@ -846,3 +846,65 @@ fn a_dli_append_that_regresses_the_name_table_is_a_schema_violation() {
         "the refusal names the way forward, got: {message}"
     );
 }
+
+/// The `.dli` twin of the decision-drop refusal.
+///
+/// `import_pack` derives the tip's decision set from the pack's own `ratify`
+/// declarations, so re-sending the corpus minus one `ratify` line commits a
+/// shrunken set — and every fact resting on that decision demotes. The interner
+/// guard does not fire, because the dropped decision is still referenced by the
+/// fact and so still in the name table. Same corruption, different arm: the
+/// guard belongs at the commit choke point both arms funnel through.
+#[cfg(feature = "syntax")]
+#[test]
+fn a_dli_append_that_drops_a_ratify_is_refused() {
+    let root = temp("corpus-dli-append-drops-ratify");
+    let dir = root.join("store");
+    fs::create_dir_all(&dir).unwrap();
+    let store = Lorestore::open(dir.clone()).expect("open store");
+
+    let seed = "scope corpus\nratify d-1\nperson wren decided d-1\n";
+    let (seed_doc, diagnostics) = dli_syntax::parse_document(seed);
+    assert!(diagnostics.iter().all(|d| !d.class.is_error()));
+    let head = store
+        .import_pack(&Pack {
+            name: "corpus".to_owned(),
+            documents: vec![seed_doc],
+        })
+        .expect("seed the store");
+    let before = store.reconstruct_at(&head).expect("reconstruct");
+    assert!(
+        dli_syntax::format_document(&before.documents[0]).contains("decided d-1"),
+        "the seeded fact is decided"
+    );
+
+    write_manifest(&root, "[documents.corpus]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+
+    // The whole corpus again, minus the `ratify` line.
+    let response = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+            "params":{"document":"corpus","mode":"append",
+                      "dli_documents":[{"id":"corpus",
+                          "text":"scope corpus\nperson wren decided d-1\n"}]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        response["error"]["code"], "schema-violation",
+        "dropping a ratify on append refuses: {response}"
+    );
+
+    let after_head = store
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("head present");
+    assert_eq!(after_head, head, "a refused import commits nothing");
+    assert_eq!(
+        store.reconstruct_at(&after_head).expect("reconstruct"),
+        before,
+        "the committed lore keeps its standing"
+    );
+}
