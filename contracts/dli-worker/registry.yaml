@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 0.6.4
+contract_version: 1.0.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -45,6 +45,8 @@ fixtures:
   sha256: 7e2e89db564438529600edec66ac322f531293b19d33f5fd689ab4087868b4ad
 - path: framing/author-why-framing.json
   sha256: 4d7ecd950fe274e3d51c516cfed0a06d9245c1618b37ec956249b22b9a4b060e
+- path: framing/contract-1-0-framing.json
+  sha256: 76595e2e9aae0239e98aa949b8f8b6affdca0fd1d912a00f0e192b4c6f7076b9
 - path: framing/fork-add-framing.json
   sha256: 9fde791f6d0af22ee63b4a8d41f7b3be9d1c870b7786062f55c3318389a03ae0
 - path: framing/name-check-framing.json
@@ -103,6 +105,10 @@ fixtures:
   sha256: 2a032c5b499b65969e76eb047c43c226734053545604b7afa98136247f6fe3d0
 - path: golden/check-proof-turning-v1.json
   sha256: b906d311f3fbd04573d4ae9397fbd39ccf679cb6a1ce072f84b8282a846a759c
+- path: golden/contract-1-0-field-retirement-v1.json
+  sha256: 9754f57d9ef614d13aa9b717f84b95d5e00e2c62cab67bc4d7f812598b9d1e97
+- path: golden/contract-1-0-terse-atom-v1.json
+  sha256: acc168f2874c1e60b3bba502f76136c2a06fb929dd1e7f27c4eea9d81aa863a1
 - path: golden/export-ludii-v1.json
   sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
 - path: golden/fork-add-typed-v1.json
@@ -207,6 +213,14 @@ fixtures:
   sha256: 9dcb5273007cd4cc0ed04b66932108d1160fcb0bf0c2a4474a8c842ea2205fff
 - path: negative/cited-refused.json
   sha256: 2a252be7e4194b11265b328d70c04c993341be25ba0409cbbc49c18c06dac8f1
+- path: negative/contract-1-0-killed-author-query-goal.json
+  sha256: 94e59c149c7e467aa86fa9c363284b50dc9eac091fb1c16b3a0e0c92232c7107
+- path: negative/contract-1-0-killed-claim-atom.json
+  sha256: 156d6958a2a4b7f4fe8a7d9809d4113ebf43fd373ed9780389d8fb07dd6aa0c7
+- path: negative/contract-1-0-killed-fork-add-declarations.json
+  sha256: 96cf14658adca2027c165c96fec21e59c408b1e0b70fe7fcecd328199a01f5be
+- path: negative/contract-1-0-killed-query-goal.json
+  sha256: 04856f20ff0391bb3a80e46ef7a3583eeed403b29aaed14c21a373b070f9575d
 - path: negative/export-run-schema-violation.json
   sha256: 068eca78abb35b2db3f026596bf3651933bcea59b8fc4247ec2f35a023f46773
 - path: negative/forged-digest.json

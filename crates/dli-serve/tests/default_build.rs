@@ -576,6 +576,104 @@ fn materialize_without_a_lorestore_is_refused_without_a_renderer() {
     assert_eq!(error(&response)["code"], json!("schema-violation"));
 }
 
+// -- contract 1.0: the field retirement, in both lanes ------------------------
+
+/// LS-8 turns the LS-7 field registry live at contract `1.0.0`, and the switch
+/// is a property of the *negotiated version*, not of the build: a string `goal`
+/// is `killed-form` at 1.0 whether or not this build links a parser. Refusing
+/// it for want of a front end (the LS-7 refusal above) and refusing it because
+/// the contract retired it are different verdicts, and the second one outranks
+/// the first — a caller who upgrades a parser-linked build must still be told
+/// the form is gone.
+#[test]
+fn a_string_goal_is_a_killed_form_at_contract_1_0() {
+    let (mut sessions, mut store) = demo();
+    let response = drive(
+        &json!({
+            "dli": "1.0.0",
+            "id": "q-1-0",
+            "op": "dli.query",
+            "params": { "document": "camelot", "goal": "adjacent(camelot, ?to)" },
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        error(&response)["code"],
+        json!("killed-form"),
+        "1.0 retires the string form in both lanes: {response}"
+    );
+    let message = error(&response)["message"].as_str().unwrap();
+    assert!(
+        message.contains("goal_atom") && message.contains("1.0.0"),
+        "the refusal names the successor and the wire, got: {message}"
+    );
+}
+
+/// The same request one version down is not a killed form. What it *is* differs
+/// by lane — answered with the parser, refused for want of one without it — and
+/// neither is the retirement, which is the point: LS-8 added a verdict at 1.0
+/// and moved nothing below it.
+#[test]
+fn the_same_request_is_not_a_killed_form_at_0_6_4() {
+    let (mut sessions, mut store) = demo();
+    let response = drive(
+        &json!({
+            "dli": "0.6.4",
+            "id": "q-0-6-4",
+            "op": "dli.query",
+            "params": { "document": "camelot", "goal": "adjacent(camelot, ?to)" },
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    if SYNTAX {
+        assert!(
+            result(&response).get("rows").is_some(),
+            "0.6.4 still answers the string form: {response}"
+        );
+        return;
+    }
+    assert_eq!(error(&response)["code"], json!("schema-violation"));
+    assert!(
+        error(&response)["message"]
+            .as_str()
+            .unwrap()
+            .contains("goal_atom"),
+        "the parser-free refusal is LS-7's, not the retirement: {response}"
+    );
+}
+
+/// At 1.0 the typed successor is sent ALONE — the retired field is no longer
+/// required, which is what makes the retirement usable rather than a dead end.
+/// This build has no parser, so answering it also proves the typed path never
+/// touches one.
+#[test]
+fn a_typed_goal_is_answered_at_contract_1_0() {
+    let (mut sessions, mut store) = demo();
+    let response = drive(
+        &json!({
+            "dli": "1.0.0",
+            "id": "q-typed-1-0",
+            "op": "dli.query",
+            "params": {
+                "document": "camelot",
+                "goal_atom": {
+                    "pred": ident("adjacent"),
+                    "args": [{ "Sym": ident("camelot") }, { "Var": ident("to") }],
+                },
+            },
+        }),
+        &mut sessions,
+        &mut store,
+    );
+    let rows = result(&response)
+        .get("rows")
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| panic!("a 1.0 typed query answers with rows: {response}"));
+    assert!(!rows.is_empty(), "{response}");
+}
+
 // -- projects -----------------------------------------------------------------
 
 #[test]

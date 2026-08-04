@@ -22,10 +22,24 @@ pub mod serve;
 pub mod session;
 mod simulation;
 
-/// The current worker contract and envelope protocol version. `0.6.4` is the
-/// LS-7 runtime-continuity typed-successor bump: the fourth and last place the
-/// wire carried `.dli` text — `dli.check-draft`'s `continuity` rows, whose
-/// `predicate`/`subject`/`value` strings were assembled into
+/// The current worker contract and envelope protocol version. `1.0.0` is the
+/// LS-8 major: the JSON-first surface, and the version at which the retired
+/// string forms registered in `serve::KILLED_FIELDS` stop being accepted. The
+/// registry that LS-7 left dormant is live from here — a `1.0` request carrying
+/// `goal`, `declarations`, or a payload claim's `atom` is refused with
+/// `killed-form` naming its typed successor, and the typed successor is sent
+/// alone (the string form is no longer a required field). The retirement is
+/// two-sided and version-gated in one place, so nothing about it reaches a
+/// `0.x` wire: before `1.0` the string form is still **required**, exactly as
+/// its params struct required it, and still answered.
+///
+/// LS-8 is otherwise **local prep**. Every `0.5.1`–`0.6.4` response is
+/// byte-identical, every dual-mode path is intact, and the consumer cutover is
+/// external-blocked on EXT-F4.
+///
+/// `0.6.4` was the LS-7 runtime-continuity typed-successor bump: the fourth and
+/// last place the wire carried `.dli` text — `dli.check-draft`'s `continuity`
+/// rows, whose `predicate`/`subject`/`value` strings were assembled into
 /// `predicate(subject, value)` and parsed — gains the typed successors
 /// `atom_expr` (on an established or prior fact) and `to_atom_expr` (on a
 /// change, whose target atom is what canon is checked against). Both are
@@ -36,7 +50,7 @@ mod simulation;
 /// remnants: `goal_atom` beside `dli.query`/`author.query`'s `goal`,
 /// `additions` beside `dli.fork.add`'s `declarations`, and `atom_expr` beside a
 /// payload claim's `atom`. The retirement of the string forms is registered in
-/// `serve::KILLED_FIELDS` and gated on contract 1.0 — dormant here.
+/// `serve::KILLED_FIELDS` and gated on contract 1.0 — dormant on that wire.
 /// `0.6.2` was the LS-9 typed-interior structuring bump: typing the `ratify`
 /// carriage (`RatifyDecl`) shifted the ratify serialization, which re-derives
 /// the embedded commit/merge hashes in the affected golden fixtures — a
@@ -47,7 +61,7 @@ mod simulation;
 /// LS-6 merge engine on the tool surface (roadmap LS-6). `0.6.0` through
 /// `0.6.4` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
 /// shape.
-pub const CONTRACT_VERSION: &str = "0.6.4";
+pub const CONTRACT_VERSION: &str = "1.0.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -56,15 +70,20 @@ pub const CONTRACT_VERSION: &str = "0.6.4";
 pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 
 /// Every contract version this build answers. Multi-version dual-mode
-/// negotiation (DL-0046, extended by LS-6, LS-9, and LS-7): `0.5.1` (legacy),
-/// `0.6.0` (JSON-first), `0.6.1` (JSON-first + branch/merge), `0.6.2`
+/// negotiation (DL-0046, extended by LS-6, LS-9, LS-7, and LS-8): `0.5.1`
+/// (legacy), `0.6.0` (JSON-first), `0.6.1` (JSON-first + branch/merge), `0.6.2`
 /// (JSON-first + LS-9 typed interiors), `0.6.3` (JSON-first + LS-7 typed
-/// successors), and `0.6.4` (JSON-first + LS-7 typed runtime-continuity rows).
-/// Contract `1.0` — where the retired string forms in `serve::KILLED_FIELDS`
-/// start being refused — is deliberately absent: no version this build speaks
-/// reaches it, so the field-level killed forms are dormant.
-pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] =
-    &["0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4"];
+/// successors), `0.6.4` (JSON-first + LS-7 typed runtime-continuity rows), and
+/// `1.0.0` (LS-8: the typed successors are the only form).
+///
+/// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
+/// minor: a consumer pinned to any of them keeps its byte-identical wire until
+/// EXT-F4, and `1.0.0` is opt-in by negotiation like every version before it.
+/// The `serve::KILLED_FIELDS` retirement is keyed on the major, so it is live
+/// on exactly one member of this list and dormant on the other six.
+pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
+    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0",
+];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
 /// 0.6.0 replay-context fields (`root_hash`, `valuation`) and the JSON-first

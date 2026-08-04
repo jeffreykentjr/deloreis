@@ -42,39 +42,142 @@ const KILLED_OPS: &[(&str, &str)] = &[
 ];
 
 /// The contract version at which the retired *field* forms in [`KILLED_FIELDS`]
-/// start being refused. No version in
-/// [`ACCEPTED_CONTRACT_VERSIONS`](crate::ACCEPTED_CONTRACT_VERSIONS) reaches it,
-/// so the field-level registry is **dormant**: every string form is still
-/// accepted on every wire this build speaks.
+/// start being refused. `1.0.0` is the one accepted version that reaches it
+/// (LS-8), so the registry is live on exactly that wire and dormant on the
+/// whole `0.x` prefix.
 const FIELD_RETIREMENT_MAJOR: u32 = 1;
 
-/// The killed wire forms at *field* granularity: `(op, retired field, successor
-/// field)`. Where [`KILLED_OPS`] retires a whole operation, this retires one
-/// text-carrying parameter in favour of its typed successor — the LS-7 surface
-/// retirement (`docs/design-notes/lorestore-roadmap.md` §LS-7). The field is a
-/// dotted path from `params`, in the same shape
-/// [`handlers::first_unknown_field`] reports (an array is traversed silently,
-/// so `payload.claims.atom` names the `atom` of any claim).
+/// One retired wire *field* and what replaced it.
+struct KilledField {
+    /// The wire op the retirement applies to. A retirement is keyed on the
+    /// `(op, field)` pair, never on the field name alone: `author.why` also
+    /// takes an `atom`, and it is not this one.
+    op: &'static str,
+    /// The retired field, as a dotted path from `params` in the same shape
+    /// [`handlers::first_unknown_field`] reports — an array is traversed
+    /// silently, so `payload.claims.atom` names the `atom` of a claim.
+    field: &'static str,
+    /// The typed field that replaces it.
+    successor: &'static str,
+    /// The **required** fields serde would have named before this one, had the
+    /// retired field still been declared required — its own struct's earlier
+    /// required siblings, as dotted paths from `params`.
+    ///
+    /// This is what keeps [`required_retired_field`] from stealing serde's
+    /// first word below 1.0. `dli.query` with empty params must still report
+    /// `document`, because `document` is declared before `goal`; a `Claim`
+    /// missing both `atom` and `quote` must still report `atom`, because
+    /// `atom` is declared first. The list is empty for a **nested**
+    /// registration even when the outer struct has earlier required fields: a
+    /// nested decode fails while the outer map is still being visited, so it
+    /// beats the outer struct's end-of-map missing-field check outright.
+    preceded_by: &'static [&'static str],
+    /// The fields whose missing-field error the retired field **out-ranks** —
+    /// everything serde would only have reached *after* naming the retired one.
+    ///
+    /// `preceded_by` alone is not enough, because "the decode failed with some
+    /// missing field" does not say which struct that field belongs to. A
+    /// malformed typed successor fails **deeper** — `goal_atom: {"args": []}` is
+    /// a missing `pred` on `AtomExpr` — and that error was raised while this
+    /// struct's map was still being visited, so it beat the retired field to the
+    /// answer when the field was required and must still beat it now. Matching
+    /// the named field against this list tells "what I out-rank" from "what
+    /// out-ranks me": `pred` and `args` are on no list here, so they always win.
+    ///
+    /// Two kinds of name belong on the list, and a **nested** registration
+    /// carries both:
+    ///
+    /// - The retired field's own later siblings — a `Claim`'s `quote` and
+    ///   `line`, which serde reaches only once `atom` is satisfied.
+    /// - For a nested field, every field of the **enclosing** struct. A nested
+    ///   decode runs while the outer map is still being visited, so it fires
+    ///   before the outer struct's end-of-map check: a submission missing
+    ///   `document` AND a claim's `atom` named `atom`, not `document`.
+    followed_by: &'static [&'static str],
+}
+
+/// The killed wire forms at *field* granularity. Where [`KILLED_OPS`] retires a
+/// whole operation, this retires one text-carrying parameter in favour of its
+/// typed successor — the LS-7 surface retirement, activated at contract 1.0 by
+/// LS-8 (`docs/design-notes/lorestore-roadmap.md` §LS-7, §LS-8).
 ///
-/// Registered, not yet enforced — the exact discipline [`KILLED_OPS`] follows.
-/// A killed op is refused because [`Op`] does not admit it; a killed *field* is
-/// refused because the params struct no longer declares it. Neither registry
-/// creates the refusal — each turns an anonymous one ("no such op", "unknown
-/// field") into a refusal that names the successor. So this fires only once
-/// contract 1.0 removes the retired field from its params struct: today every
-/// string form is still declared and accepted, and [`killed_field_successor`]
-/// is additionally gated on [`FIELD_RETIREMENT_MAJOR`], which no accepted
-/// version reaches. Two locks, both closed.
-const KILLED_FIELDS: &[(&str, &str, &str)] = &[
-    ("dli.query", "goal", "goal_atom"),
-    ("author.query", "goal", "goal_atom"),
-    ("dli.fork.add", "declarations", "additions"),
-    ("dli.payload-submit", "payload.claims.atom", "atom_expr"),
+/// The retirement is **two-sided**, and both sides read this one table:
+///
+/// - From contract `1.0`, [`killed_field_successor`] matches the field and
+///   [`dispatch`] refuses the request with `killed-form`, naming the successor.
+/// - Before `1.0`, [`required_retired_field`] requires it — the string form is
+///   still the only way to say the thing, exactly as its params struct required
+///   it before 1.0 made the field optional. A `0.x` request omitting it is the
+///   same schema violation it always was, in the same words.
+///
+/// So the version gate is not a lock over an inert table; it is the hinge
+/// between two live behaviours, and neither leaks onto the other's wire.
+///
+/// **A registration is per-op, but a params *type* can be shared.** `Claim` is
+/// carried by both `dli.payload-submit` and `dli.check-draft`, so both are
+/// registered: one entry would retire the field on one wire and silently
+/// un-require it on the other, which is precisely the hole
+/// `tests/ls8_zero_x_parity.rs` exists to catch.
+const KILLED_FIELDS: &[KilledField] = &[
+    KilledField {
+        op: "dli.query",
+        field: "goal",
+        successor: "goal_atom",
+        preceded_by: &["document"],
+        followed_by: &["goal_atom", "layer", "as_of", "fork", "why"],
+    },
+    KilledField {
+        op: "author.query",
+        field: "goal",
+        successor: "goal_atom",
+        preceded_by: &["workspace"],
+        followed_by: &["goal_atom", "layer", "why"],
+    },
+    KilledField {
+        op: "dli.fork.add",
+        field: "declarations",
+        successor: "additions",
+        preceded_by: &["fork"],
+        followed_by: &["additions"],
+    },
+    KilledField {
+        op: "dli.payload-submit",
+        field: "payload.claims.atom",
+        successor: "atom_expr",
+        preceded_by: &[],
+        // `Claim`'s later siblings, then `PayloadSubmitParams`'s own fields:
+        // the claim fails while the outer map is still being visited.
+        followed_by: &[
+            "atom_expr",
+            "quote",
+            "line",
+            "document",
+            "payload",
+            "source",
+        ],
+    },
+    KilledField {
+        op: "dli.check-draft",
+        field: "payload.claims.atom",
+        successor: "atom_expr",
+        preceded_by: &[],
+        // As above, over `CheckDraftParams`'s fields.
+        followed_by: &[
+            "atom_expr",
+            "quote",
+            "line",
+            "document",
+            "payload",
+            "source",
+            "continuity",
+        ],
+    },
 ];
 
 /// Whether field-level killed forms are enforced on a negotiated wire version.
-/// True only from contract [`FIELD_RETIREMENT_MAJOR`].0 up — so false for every
-/// version this build accepts, which is what makes [`KILLED_FIELDS`] dormant.
+/// True only from contract [`FIELD_RETIREMENT_MAJOR`].0 up — so true for
+/// `1.0.0` and false for the whole `0.x` prefix, which is the single switch
+/// both halves of the retirement turn on.
 fn field_retirement_active(dli: &str) -> bool {
     dli.split('.')
         .next()
@@ -99,13 +202,30 @@ fn field_present(value: &Value, path: &str) -> bool {
     }
 }
 
-/// The successor field naming a retired form the request still carries, or
-/// `None` when the field is not registered or the retirement has not landed.
+/// Whether a dotted path is carried by **every** place that can carry it —
+/// the complement [`required_retired_field`] needs, which is not the negation
+/// of [`field_present`]: an array where one claim carries `atom` and another
+/// does not is neither wholly present nor wholly absent, and only the strict
+/// reading keeps the pre-1.0 wire as strict as its params struct was.
 ///
-/// The caller reaches here only on a params decode that has **already failed**,
-/// so this can never turn an accepted request into a refusal — it only replaces
-/// an anonymous `schema-violation` with a `killed-form` that names the
-/// replacement. `None` on every version this build speaks.
+/// An intermediate the path cannot reach is *not* this check's business — the
+/// params decoded before it runs, so the structure above the field is already
+/// valid and an absent parent means the field has no place to be.
+fn field_carried(value: &Value, path: &str) -> bool {
+    match value {
+        Value::Array(items) => items.iter().all(|item| field_carried(item, path)),
+        Value::Object(map) => match path.split_once('.') {
+            Some((head, rest)) => map.get(head).is_none_or(|inner| field_carried(inner, rest)),
+            None => map.contains_key(path),
+        },
+        _ => true,
+    }
+}
+
+/// The successor field naming a retired form the request still carries, or
+/// `None` when the field is not registered or the wire predates the
+/// retirement. `Some` only from contract 1.0 up (LS-8) — on the whole `0.x`
+/// prefix this is `None` and the string form is answered as it always was.
 pub(crate) fn killed_field_successor(
     dli: &str,
     op: Op,
@@ -117,13 +237,118 @@ pub(crate) fn killed_field_successor(
     let op = handlers::wire_name(op);
     KILLED_FIELDS
         .iter()
-        .find(|(killed_op, field, _)| *killed_op == op && field_present(params, field))
-        .map(|(_, field, successor)| (*field, *successor))
+        .find(|killed| killed.op == op && field_present(params, killed.field))
+        .map(|killed| (killed.field, killed.successor))
 }
 
-/// The `killed-form` message for a retired field, shaped like [`refuse_op`]'s.
-pub(crate) fn killed_field_message(field: &str, successor: &str) -> String {
-    format!("field '{field}' is a killed form; its successor is '{successor}'")
+/// The retired field a **pre-1.0** request must carry but does not — the other
+/// side of the same registry. Contract 1.0 makes the string form optional so
+/// the typed successor can be sent alone; on every earlier wire the field is
+/// still required, so this restores the exact `missing field` verdict the
+/// params struct produced before it was. `None` from 1.0 up, where the field is
+/// refused rather than required.
+///
+/// Three guards decide it, and each answers a different question about what
+/// serde would have said when the field was still declared required:
+///
+/// - **Is the field absent?** [`field_carried`], element-wise across arrays.
+/// - **Would serde have named an EARLIER field?** [`KilledField::preceded_by`].
+///   `dli.query` with empty params must still report `document`.
+/// - **Did the decode fail for something this field out-ranks?**
+///   [`KilledField::followed_by`]. A decode that succeeded needs no answer here;
+///   a decode that failed for a *sibling declared later* (a `Claim`'s `quote`)
+///   is the retired field's to pre-empt; a decode that failed for anything else
+///   — an unknown key, a type error, or a missing field on a **nested** type
+///   like `AtomExpr`'s `pred` — was raised while this struct's map was still
+///   being visited, so it beat the retired field to the answer then and keeps
+///   it now.
+pub(crate) fn required_retired_field(
+    dli: &str,
+    op: Op,
+    params: &Value,
+    decode_error: Option<&serde_json::Error>,
+) -> Option<&'static str> {
+    if field_retirement_active(dli) {
+        return None;
+    }
+    let missing = decode_error.and_then(missing_field_name);
+    let op = handlers::wire_name(op);
+    KILLED_FIELDS
+        .iter()
+        .find(|killed| {
+            killed.op == op
+                && !field_carried(params, killed.field)
+                && killed
+                    .preceded_by
+                    .iter()
+                    .all(|earlier| field_carried(params, earlier))
+                && match (decode_error, missing.as_deref()) {
+                    // The decode stands; nothing raced the retired field.
+                    (None, _) => true,
+                    // A sibling declared after it — its to answer instead.
+                    (Some(_), Some(named)) => killed.followed_by.contains(&named),
+                    // Anything else serde raised first, including a missing
+                    // field belonging to some nested type.
+                    (Some(_), None) => false,
+                }
+        })
+        .map(|killed| killed.field)
+}
+
+/// The field named by a serde **missing field** error, or `None` for any other
+/// error class.
+///
+/// Reading the message is the coupling it looks like, and it is the same
+/// coupling [`required_retired_field`]'s callers already carry by reproducing
+/// serde's wording verbatim. `the_missing_field_wording_is_serdes_own` pins it
+/// against the live serde, so a wording change fails loudly rather than
+/// silently widening what may be pre-empted — this returning `None` can only
+/// ever make the retirement yield.
+fn missing_field_name(error: &serde_json::Error) -> Option<String> {
+    // `from_value` renders exactly ``missing field `x` ``; `from_str` appends a
+    // line and column, so the name is read up to the closing backtick rather
+    // than to the end.
+    error
+        .to_string()
+        .strip_prefix("missing field `")?
+        .split('`')
+        .next()
+        .map(str::to_owned)
+}
+
+/// The leaf name of a registry path, as serde names a missing field. Serde
+/// names the field alone and carries no path, so a nested registration
+/// (`payload.claims.atom`) must report `atom` to keep the pre-1.0 message
+/// byte-identical.
+pub(crate) fn field_leaf(field: &str) -> &str {
+    field.rsplit('.').next().unwrap_or(field)
+}
+
+/// The `killed-form` message for a retired field, shaped like [`refuse_op`]'s
+/// and naming the contract that retired it — a caller who sends the string
+/// form is reading this to learn both what replaced it and which wire it still
+/// works on.
+pub(crate) fn killed_field_message(dli: &str, field: &str, successor: &str) -> String {
+    format!("field '{field}' is a killed form at contract {dli}; its successor is '{successor}'")
+}
+
+/// The version a pre-dispatch refusal echoes: the frame's own, when the frame
+/// named one this worker actually speaks, and the build's otherwise.
+///
+/// A refusal raised *before* [`dispatch`] — an unknown op, an unknown envelope
+/// field — has no negotiated version to echo, so it used to answer with
+/// [`CONTRACT_VERSION`]. That made a framing refusal drift with every version
+/// bump: the same `0.5.1` unknown-op answered `0.5.1` under one build and
+/// `0.6.4` under the next, having nothing to do with the caller's wire. Echoing
+/// the frame's own version instead pins the answer to the conversation, and
+/// falling back to [`CONTRACT_VERSION`] keeps the invariant that a response
+/// never claims a version this worker cannot speak.
+fn spoken_version(dli: &str) -> String {
+    if crate::ACCEPTED_CONTRACT_VERSIONS.contains(&dli) {
+        dli.to_owned()
+    } else {
+        CONTRACT_VERSION.to_owned()
+    }
 }
 
 /// The outcome of decoding one input line.
@@ -137,6 +362,8 @@ enum Frame {
     /// A syntactically valid frame naming an op the contract does not define,
     /// with the successor when the op is a registered killed form.
     Unknown {
+        /// The negotiated version to echo.
+        dli: String,
         /// The correlation id to echo.
         id: String,
         /// The offending op string.
@@ -148,6 +375,8 @@ enum Frame {
     /// (contract §2, unknown fields are errors), so a stray or mistyped field is
     /// never silently dropped.
     SchemaViolation {
+        /// The negotiated version to echo.
+        dli: String,
         /// The correlation id to echo.
         id: String,
         /// The offending field path.
@@ -235,14 +464,26 @@ pub fn respond(
         Frame::Skip => None,
         Frame::Request(request) => Some(dispatch(&request, sessions, author_store)),
         Frame::Bad(id) => Some(bad_frame(&id)),
-        Frame::Unknown { id, op, successor } => Some(refuse_op(&id, &op, successor)),
-        Frame::SchemaViolation { id, field } => Some(schema_violation(&id, &field)),
+        Frame::Unknown {
+            dli,
+            id,
+            op,
+            successor,
+        } => Some(refuse_op(&dli, &id, &op, successor)),
+        Frame::SchemaViolation { dli, id, field } => Some(schema_violation(&dli, &id, &field)),
     }
 }
 
 /// Route a decoded request to its handler and build the response. `author.*` ops
 /// go through the frozen Door T seam; every `dli.*` op through the batch handlers.
 /// A frame declaring the wrong contract version is refused here.
+///
+/// A **killed field** is refused here too, before either seam. It has to be:
+/// the retired forms are still declared by their params structs — that is what
+/// keeps the `0.x` wire whole — so a `1.0` request carrying one would decode
+/// cleanly and be answered. Version-gated (`field_retirement_active`), the
+/// check is a no-op on every `0.x` request and covers `author.*` and `dli.*`
+/// alike by sitting above the routing fork.
 #[must_use]
 pub fn dispatch(
     request: &Request,
@@ -251,6 +492,11 @@ pub fn dispatch(
 ) -> Response {
     if !crate::ACCEPTED_CONTRACT_VERSIONS.contains(&request.dli.as_str()) {
         return version_mismatch(request);
+    }
+    if let Some((field, successor)) =
+        killed_field_successor(&request.dli, request.op, &request.params)
+    {
+        return refuse_field(request, field, successor);
     }
     if !request.op.accepts_author_fences() {
         if request.expected_digest.is_some() {
@@ -319,6 +565,7 @@ fn decode_frame(line: &str) -> Frame {
             // stale-fence) is silently dropped unless caught here — the envelope
             // half of the params round-trip.
             Some(field) => Frame::SchemaViolation {
+                dli: spoken_version(&request.dli),
                 id: request.id,
                 field,
             },
@@ -361,6 +608,7 @@ fn classify_reject(line: &str) -> Frame {
             .find(|(killed, _)| *killed == op)
             .map(|(_, successor)| *successor);
         return Frame::Unknown {
+            dli: spoken_version(value.get("dli").and_then(Value::as_str).unwrap_or_default()),
             id,
             op: op.to_owned(),
             successor,
@@ -414,9 +662,9 @@ fn bad_frame(id: &str) -> Response {
     )
 }
 
-fn schema_violation(id: &str, field: &str) -> Response {
+fn schema_violation(dli: &str, id: &str, field: &str) -> Response {
     typed_error(
-        CONTRACT_VERSION,
+        dli,
         id,
         ErrorCode::SchemaViolation,
         format!("unknown envelope field '{field}' is not defined by the contract"),
@@ -435,7 +683,7 @@ fn fence_schema_violation(request: &Request, field: &str) -> Response {
 /// Refuse an op the contract does not dispatch: a registered killed form is a
 /// `killed-form` error naming its successor; anything else is `unknown-op`. Both
 /// are refused, never silently dropped (`fantasy-contract.md` §3.1, §9).
-fn refuse_op(id: &str, op: &str, successor: Option<&str>) -> Response {
+fn refuse_op(dli: &str, id: &str, op: &str, successor: Option<&str>) -> Response {
     let (code, message) = match successor {
         Some(successor) => (
             ErrorCode::KilledForm,
@@ -446,7 +694,20 @@ fn refuse_op(id: &str, op: &str, successor: Option<&str>) -> Response {
             format!("no operation named '{op}' is defined by the contract"),
         ),
     };
-    typed_error(CONTRACT_VERSION, id, code, message)
+    typed_error(dli, id, code, message)
+}
+
+/// Refuse a request carrying a retired *field*, the twin of [`refuse_op`]: a
+/// registered killed form is `killed-form` naming its successor, never a silent
+/// acceptance and never an anonymous schema violation. The negotiated version
+/// is echoed, so the refusal identifies the wire it was made on.
+fn refuse_field(request: &Request, field: &str, successor: &str) -> Response {
+    typed_error(
+        &request.dli,
+        &request.id,
+        ErrorCode::KilledForm,
+        killed_field_message(&request.dli, field, successor),
+    )
 }
 
 fn version_mismatch(request: &Request) -> Response {
@@ -470,39 +731,65 @@ mod tests {
 
     /// Every registered killed field names a real op and a successor distinct
     /// from the form it retires — the registry cannot drift into naming a
-    /// successor that is the retired field itself.
+    /// successor that is the retired field itself. Its `preceded_by` fields are
+    /// paths under the same params, never the retired field again.
     #[test]
     fn killed_fields_name_real_ops_and_distinct_successors() {
-        for (op, field, successor) in KILLED_FIELDS {
+        for killed in KILLED_FIELDS {
+            let op = killed.op;
             assert!(
                 Op::ALL
                     .iter()
-                    .any(|known| handlers::wire_name(*known) == *op),
+                    .any(|known| handlers::wire_name(*known) == op),
                 "killed field registry names an unknown op '{op}'"
             );
-            assert_ne!(field, successor, "'{op}' retires a field to itself");
+            assert_ne!(
+                killed.field, killed.successor,
+                "'{op}' retires a field to itself"
+            );
+            for earlier in killed.preceded_by {
+                assert_ne!(
+                    *earlier, killed.field,
+                    "'{op}' lists its own retired field as preceding it"
+                );
+            }
+            // A nested registration is reached through the outer map, so it
+            // out-ranks the outer struct's missing fields outright and can
+            // never need a predecessor.
+            if killed.field.contains('.') {
+                assert!(
+                    killed.preceded_by.is_empty(),
+                    "'{op}': a nested retirement beats the outer struct's end-of-map check"
+                );
+            }
         }
     }
 
-    /// The first lock: field retirement is off for every version this build
-    /// accepts, so no accepted wire can be refused for a killed field.
+    /// The version gate reads the major and nothing else: live on `1.0.0` — the
+    /// one accepted version that reaches it — and off across the whole `0.x`
+    /// prefix. A minor bump can never wake the registry by accident.
     #[test]
-    fn field_retirement_is_dormant_on_every_accepted_version() {
+    fn field_retirement_is_keyed_on_the_major_alone() {
         for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-            assert!(
-                !field_retirement_active(version),
-                "field retirement must be dormant on accepted version {version}"
+            assert_eq!(
+                field_retirement_active(version),
+                version.starts_with("1."),
+                "field retirement at accepted version {version}"
             );
         }
         assert!(field_retirement_active("1.0.0"));
+        assert!(!field_retirement_active("0.9.9"));
+        assert!(field_retirement_active("2.0.0"));
     }
 
-    /// The second lock, and the one that matters: every retired field is STILL
-    /// DECLARED by its params struct, so it decodes cleanly and never becomes
-    /// the "unknown field" the registry upgrades. Even with the version gate
-    /// forced open, a string-form request has nothing for the registry to catch.
+    /// Every retired field is still DECLARED by its params struct — that is
+    /// what keeps the `0.x` wire whole — so it decodes cleanly and never
+    /// becomes an "unknown field". The refusal therefore cannot come from the
+    /// decode seam; it comes from [`dispatch`], which consults the registry
+    /// before routing. Here: the registry matches at `1.0.0` and matches
+    /// nowhere below it.
     #[test]
-    fn retired_fields_are_still_declared_so_nothing_is_unknown() {
+    fn the_registry_matches_at_1_0_and_nowhere_below() {
         let carriers = [
             (
                 Op::Query,
@@ -518,17 +805,15 @@ mod tests {
             ),
         ];
         for (op, params) in &carriers {
-            // Forced to a synthetic 1.0.0, the registry DOES match the field —
-            // that is the mechanism working ...
             assert!(
                 killed_field_successor("1.0.0", *op, params).is_some(),
                 "{} carries its registered retired field",
                 handlers::wire_name(*op)
             );
-            // ... but nothing consults it, because the params still decode. The
-            // wire-level proof that these requests are answered is
-            // `tests/ls7_typed_successors.rs`.
             for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+                if version.starts_with("1.") {
+                    continue;
+                }
                 assert!(
                     killed_field_successor(version, *op, params).is_none(),
                     "{} at {version} must not reach the killed-field registry",
@@ -538,13 +823,9 @@ mod tests {
         }
     }
 
-    /// What contract 1.0 will look like, synthesized: the retired field has been
-    /// removed from its params struct, so it arrives as an unknown field and the
-    /// decode fails. The registry turns that anonymous schema violation into a
-    /// `killed-form` naming the successor FIELD. Nothing here is reachable from
-    /// an accepted version — the version is fake and the removal is hypothetical.
+    /// The refusal names the successor FIELD, and the wire it was made on.
     #[test]
-    fn synthetic_1_0_names_the_successor_field() {
+    fn contract_1_0_names_the_successor_field() {
         let (field, successor) = killed_field_successor(
             "1.0.0",
             Op::Query,
@@ -553,7 +834,7 @@ mod tests {
         .expect("`goal` is registered as retired for dli.query");
         assert_eq!((field, successor), ("goal", "goal_atom"));
 
-        let message = killed_field_message(field, successor);
+        let message = killed_field_message("1.0.0", field, successor);
         assert!(
             message.contains("'goal'") && message.contains("'goal_atom'"),
             "the refusal names the retired field and its successor: {message}"
@@ -562,6 +843,157 @@ mod tests {
             message.contains("killed form"),
             "the message is shaped like refuse_op's: {message}"
         );
+        assert!(
+            message.contains("1.0.0"),
+            "the refusal names the wire it was made on: {message}"
+        );
+    }
+
+    /// The other side of the same table: before 1.0 the retired field is
+    /// REQUIRED, and the requirement is spelled the way serde spelled it — a
+    /// nested registration reports its leaf, because `serde_json::from_value`
+    /// names the missing field alone and carries no path.
+    #[test]
+    fn the_retired_field_is_required_below_1_0_and_refused_at_it() {
+        let missing = json!({ "document": "d", "goal_atom": { "pred": "x", "args": [] } });
+        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+            let required = required_retired_field(version, Op::Query, &missing, None);
+            if version.starts_with("1.") {
+                assert_eq!(required, None, "1.0 does not require a retired field");
+            } else {
+                assert_eq!(
+                    required,
+                    Some("goal"),
+                    "{version} still requires the string form"
+                );
+            }
+        }
+        // Carried: nothing to require, on either side of the hinge.
+        let carried = json!({ "document": "d", "goal": "serves(mara)" });
+        assert_eq!(
+            required_retired_field("0.6.4", Op::Query, &carried, None),
+            None
+        );
+        assert_eq!(field_leaf("payload.claims.atom"), "atom");
+        assert_eq!(field_leaf("goal"), "goal");
+    }
+
+    /// Every guard is coupled to serde's exact wording — the message the
+    /// callers reproduce, and the name [`missing_field_name`] reads back out of
+    /// the error to decide what may be pre-empted — so the wording is pinned
+    /// against the live serde rather than assumed. A serde that renamed this
+    /// error would fail here, loudly, instead of silently changing which field
+    /// a malformed request is told about.
+    #[test]
+    fn the_missing_field_wording_is_serdes_own() {
+        #[derive(Debug, serde::Deserialize)]
+        #[allow(dead_code)]
+        struct Probe {
+            first: String,
+            second: String,
+        }
+
+        let error = serde_json::from_value::<Probe>(json!({ "second": "x" }))
+            .expect_err("`first` is missing");
+        assert_eq!(
+            error.to_string(),
+            "missing field `first`",
+            "the message `required_retired_field`'s callers reproduce verbatim"
+        );
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
+
+        // Serde names the FIRST missing field in declaration order — the whole
+        // premise of `KilledField::preceded_by`.
+        let error =
+            serde_json::from_value::<Probe>(json!({})).expect_err("both fields are missing");
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
+
+        // An error raised while the map was still being visited is not a
+        // missing-field error at all, so nothing may pre-empt it.
+        let error = serde_json::from_value::<Probe>(json!({ "first": 7, "second": "x" }))
+            .expect_err("`first` is not a string");
+        assert_eq!(
+            missing_field_name(&error),
+            None,
+            "a type error is nobody's to out-rank: {error}"
+        );
+
+        // `from_str` appends a line and column; the name is still read cleanly.
+        let error = serde_json::from_str::<Probe>(r#"{"second":"x"}"#).expect_err("`first`");
+        assert!(error.to_string().contains("at line"), "{error}");
+        assert_eq!(missing_field_name(&error).as_deref(), Some("first"));
+    }
+
+    /// The blocking case the second red team found: a decode that failed
+    /// **deeper** is not the retired field's to answer. `goal_atom: {"args":[]}`
+    /// is a missing `pred` on `AtomExpr`, raised while `QueryParams`'s own map
+    /// was still being visited — so it out-ranked the retired `goal` when
+    /// `goal` was required, and it must still out-rank it.
+    ///
+    /// The distinction is `followed_by`: `pred` and `args` are not siblings of
+    /// `goal`, so they are never pre-empted, while a `Claim`'s `quote` is and is.
+    #[test]
+    fn a_nested_decode_failure_is_never_pre_empted() {
+        let malformed = json!({ "document": "d", "goal_atom": { "args": [] } });
+        let nested = serde_json::from_value::<crate::contract::QueryParams>(malformed.clone())
+            .expect_err("`pred` is missing from the typed successor");
+        assert_eq!(missing_field_name(&nested).as_deref(), Some("pred"));
+        assert_eq!(
+            required_retired_field("0.6.4", Op::Query, &malformed, Some(&nested)),
+            None,
+            "the nested `pred` answers, not the retired `goal`"
+        );
+
+        // A sibling declared after the retired field IS pre-empted: this is the
+        // `Claim` case, where serde named `quote` only because `atom` stopped
+        // being required.
+        let claim = json!({ "payload": { "claims": [{ "line": 1 }] } });
+        let sibling = serde_json::from_value::<dli_world::payload::Claim>(json!({ "line": 1 }))
+            .expect_err("`quote` is missing");
+        assert_eq!(missing_field_name(&sibling).as_deref(), Some("quote"));
+        assert_eq!(
+            required_retired_field("0.6.4", Op::PayloadSubmit, &claim, Some(&sibling)),
+            Some("payload.claims.atom"),
+            "`quote` is a sibling declared after `atom`, so `atom` answers"
+        );
+    }
+
+    /// A claims array is required element-wise: one claim carrying `atom` does
+    /// not excuse the next. `field_present` (any) and `field_carried` (all) are
+    /// genuinely different questions, and the pre-1.0 wire needs the strict one
+    /// or a mixed array would slip through where the params struct refused it.
+    #[test]
+    fn an_array_requires_the_retired_field_of_every_element() {
+        let mixed = json!({ "payload": { "claims": [
+            { "atom": "warded(arden)", "quote": "q", "line": 1 },
+            { "atom_expr": null, "quote": "q", "line": 2 },
+        ] } });
+        assert_eq!(
+            required_retired_field("0.6.4", Op::PayloadSubmit, &mixed, None),
+            Some("payload.claims.atom"),
+            "every claim must carry the string form before 1.0"
+        );
+        let all = json!({ "payload": { "claims": [
+            { "atom": "warded(arden)", "quote": "q", "line": 1 },
+            { "atom": "warded(brac)", "quote": "q", "line": 2 },
+        ] } });
+        assert_eq!(
+            required_retired_field("0.6.4", Op::PayloadSubmit, &all, None),
+            None
+        );
+        // An empty array requires nothing, and neither does an absent parent:
+        // the params already decoded, so there is no place for the field to be.
+        for vacuous in [
+            json!({ "payload": { "claims": [] } }),
+            json!({ "payload": {} }),
+            json!({}),
+        ] {
+            assert_eq!(
+                required_retired_field("0.6.4", Op::PayloadSubmit, &vacuous, None),
+                None,
+                "nothing to require: {vacuous}"
+            );
+        }
     }
 
     /// A typed successor is never itself a killed form, and an unregistered op

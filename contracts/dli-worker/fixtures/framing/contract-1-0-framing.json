@@ -1,0 +1,68 @@
+{
+  "fixture": "framing/contract-1-0-framing",
+  "version": 1,
+  "marker": "__DLI_FRAME_ATTACK__",
+  "note": "The paired control/attack framing case for dli.query on the contract 1.0 wire. At 1.0 the string `goal` is a killed form, so the attack rides inside the typed `goal_atom` sent ALONE \u2014 the shape a 1.0 caller actually has. Retiring the text spelling did not make structure into authority: a typed atom carrying instruction-shaped text is answered as data, and the taint stays confined to the rows that quote it. The 0.6.3 twin of this case is framing/typed-successors-framing; the pair is what shows the confinement is a property of the handler, not of the wire version.",
+  "cases": [
+    {
+      "op": "dli.query",
+      "control": {
+        "dli": "1.0.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": [
+              {
+                "Str": "control"
+              }
+            ],
+            "pred": {
+              "span": {
+                "end": 0,
+                "file": 0,
+                "start": 0
+              },
+              "text": "marker"
+            }
+          }
+        }
+      },
+      "attack": {
+        "dli": "1.0.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "saltmarket",
+          "goal_atom": {
+            "args": [
+              {
+                "Str": "__DLI_FRAME_ATTACK__"
+              }
+            ],
+            "pred": {
+              "span": {
+                "end": 0,
+                "file": 0,
+                "start": 0
+              },
+              "text": "marker"
+            }
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/goal_atom/args/0/Str"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/root_hash",
+        "/result/valuation"
+      ],
+      "allow_taint_paths": [
+        "/result/rows"
+      ]
+    }
+  ]
+}

@@ -341,12 +341,35 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
             },
         ));
     }
-    serde_json::from_value(request.params.clone()).map_err(|err| {
+    let decoded = serde_json::from_value(request.params.clone());
+    // The pre-1.0 half of the retirement (LS-8), placed exactly as the batch
+    // seam places it: between the decode and its error, so the retired field
+    // keeps the precedence it had when the struct declared it required —
+    // out-ranking a missing field named after it, yielding to every error serde
+    // raised while the map was still being visited.
+    if let Some(field) = crate::serve::required_retired_field(
+        &request.dli,
+        request.op,
+        &request.params,
+        decoded.as_ref().err(),
+    ) {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: format!("missing field `{}`", crate::serve::field_leaf(field)),
+                data: None,
+            },
+        ));
+    }
+    decoded.map_err(|err| {
         // The Door T twin of the batch seam's check: a retired params field the
         // struct no longer declares fails `deny_unknown_fields` here, and the
         // killed-field registry renames the anonymous schema violation into a
-        // refusal that names its successor (LS-7). Dormant — every retired field
-        // is still declared, and the registry is version-gated besides.
+        // refusal that names its successor (LS-7). Since LS-8 a retired field
+        // that is still declared never reaches here — `serve::dispatch` refuses
+        // it above the routing fork — so this covers the shape 1.0 will have
+        // once the field leaves the struct outright.
         let (code, message) =
             crate::serve::killed_field_successor(&request.dli, request.op, &request.params)
                 .map_or_else(
@@ -354,7 +377,7 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
                     |(field, successor)| {
                         (
                             ErrorCode::KilledForm,
-                            crate::serve::killed_field_message(field, successor),
+                            crate::serve::killed_field_message(&request.dli, field, successor),
                         )
                     },
                 );
