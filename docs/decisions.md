@@ -1559,3 +1559,60 @@ EXT-F4, consumer-owned, remains.
 digest-checked contract, the 0.5.1 dual-mode paths retire through the killed-form
 registry, and the deferred runtime-continuity / expert-tool / project-loader items
 close.
+
+## DL-0052 — Governance: machine-minted ledger entries with attribution; supervision is async
+
+*Date: 2026-08-04*
+
+**Attribution:** human — this entry encodes the author's explicit words, quoted below.
+
+**Ruling.** Ledger entries are minted by whoever decides, machine or human, and every
+entry says which. Four parts:
+
+1. **Machine agents may mint ledger entries.** A `DL-nnnn` entry in this repo, and a
+   `D-nnnn` entry in the consuming fantasy repo, may be minted by a machine agent on
+   its own judgment — not only by the human author. An agent that reaches a settled
+   decision writes it down; it does not file a ruling request and wait.
+2. **Every entry carries an `Attribution:` marker**, one of two values. `machine` — an
+   agent decided it autonomously; the decision is live and binding on the tree, pending
+   the author's async review. `human` — the entry encodes the human author's explicit
+   words, quoted in the entry so the ruling can be checked against its source.
+3. **Human supervision is async and lagging, and steers as repair.** The author reviews
+   on his own cadence, after the fact, and corrects by minting a superseding entry — the
+   ledger's ordinary append-only mechanism. Supervision is never a merge-blocking
+   sign-off, and no work waits on a human sync point; there are no hard human sync
+   points in this repo's procedures.
+4. **The rest of ledger discipline is unchanged.** Append-only (never edit or renumber
+   an entry; a decision that changes is superseded by a new entry naming the one it
+   supersedes), single-writer (one agent writes the file per commit), and mint-and-use
+   in one commit all stand exactly as DL-0011 set them. Machine minting widens *who*
+   may write an entry; it loosens nothing about *how*.
+
+This entry is where the `Attribution:` convention lives, and it stays here: `cargo
+xtask authority` enforces append-only as strict byte-prefix extension, so the file's
+preamble cannot be amended to carry a new discipline bullet — evolving discipline
+lands as an entry, by design. `AGENTS.md` §2 restates it for cold-start agents.
+
+**Rationale.** The author ruled it on 2026-08-04, in these words:
+
+> i dont think i need hard human sync points of any kind. i'll review on a lagging
+> basis and steer as repair, not as merge-blocking signoff. this is another area where
+> the overall procedures need a rewrite.
+
+and, on who writes the entries:
+
+> just write them yourself with clear attribution on what was machine versus human. as
+> discused, i'll mostly supervise on an async/lagging basis
+
+The prior procedure — agents file ruling requests and wait for the author — made one
+human the serializing bottleneck on a machine-paced build, and it produced entries
+uniformly presented as the author's whether or not he had decided anything. The
+attribution marker is what makes machine minting readable later: a reviewer can tell at
+a glance which entries carry the author's own words and which are an agent's judgment
+awaiting his lagging review. Append-only is what makes it safe: a wrong machine ruling
+is superseded, never erased, and the correction costs no more than the mistake.
+
+**Scope.** This rules the governance procedure, not the engine. The authority model on
+the wire — attribution and decision state as machine-supplied data, no role gating
+inside deloreis — is a separate author ruling, recorded in
+`docs/integration/cutover-campaign.md` §1 and minted under its own entry.

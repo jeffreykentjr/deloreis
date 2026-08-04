@@ -33,6 +33,9 @@ Discipline (`decisions.md` DL-0011):
   ledger wins and the doc is stale until fixed.
 - **DL-IDs are minted single-writer**, in the ledger only, mint-and-use in one
   commit. No other file invents a `DL-nnnn`.
+- **Entries carry an `Attribution:` marker** — `machine` or `human` (DL-0052).
+  Agents mint their own rulings rather than filing requests; human supervision
+  is async and lagging, steering as repair, never a merge-blocking sign-off.
 - **The tree is flat.** No `INDEX` files, no index generators. The ledger and
   frontmatter carry authority; a generator to keep honest is a liability.
 - **Design notes are not re-litigated.** A `docs/design-notes/` note is settled
