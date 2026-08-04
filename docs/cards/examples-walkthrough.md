@@ -64,15 +64,14 @@ about a hundred facts and twenty-one interner entries.
 
 You interrogate a committed corpus with `dli.query`, which stages nothing.
 (`author.query` is its sibling for a workspace you have open — same rows, over
-your staged work.) Ask for the goal as a typed atom; a `Var` argument
-enumerates:
+your staged work.) Ask for the goal as a typed atom, writing each name as plain
+text; a `Var` argument enumerates:
 
 ```json transcript
 → { "op": "dli.query", "params": { "document": "round-table", "why": true,
       "goal_atom": {
-        "pred": { "text": "adjacent", "span": { "file": 0, "start": 0, "end": 0 } },
-        "args": [ { "Sym": { "text": "camelot", "span": {…} } },
-                  { "Var": { "text": "where",   "span": {…} } } ] } } }
+        "pred": "adjacent",
+        "args": [ { "Sym": "camelot" }, { "Var": "where" } ] } } }
 ← { "ok": true, "result": { "rows": [
       { "atom": "adjacent(camelot, camlann)", "bindings": { "where": "camlann" },
         "status": "certain", "grade": "asserted",
@@ -243,9 +242,8 @@ hypothesis gates it. Query them together and the engine says so:
 
 ```json transcript
 → { "op": "dli.query", "params": { "document": "round-table", "why": true,
-      "goal_atom": { "pred": { "text": "keeps", "span": {…} },
-        "args": [ { "Var": { "text": "who", "span": {…} } },
-                  { "Sym": { "text": "excalibur", "span": {…} } } ] } } }
+      "goal_atom": { "pred": "keeps",
+        "args": [ { "Var": "who" }, { "Sym": "excalibur" } ] } } }
 ← { "ok": true, "result": { "rows": [
       { "atom": "keeps(arthur, excalibur)",   "status": "possible",
         "support": { "monomials": [["+18"]] },

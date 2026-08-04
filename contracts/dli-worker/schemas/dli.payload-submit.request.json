@@ -277,22 +277,51 @@
       "minimum": 0
     },
     "Ident": {
-      "description": "A named identifier with its source span.",
-      "type": "object",
-      "properties": {
-        "span": {
-          "description": "Where the identifier appears in source.",
-          "$ref": "#/$defs/Span"
-        },
-        "text": {
-          "description": "The identifier text as written.",
+      "description": "A named identifier. Either the bare text, whose span is synthetic, or an object carrying the text and an optional span.",
+      "oneOf": [
+        {
           "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "span": {
+              "description": "A half-open byte range within a single source file.",
+              "type": "object",
+              "properties": {
+                "end": {
+                  "description": "End byte offset (exclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "file": {
+                  "description": "The file this span points into.",
+                  "$ref": "#/$defs/FileId"
+                },
+                "start": {
+                  "description": "Start byte offset (inclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "start",
+                "end"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ]
         }
-      },
-      "additionalProperties": false,
-      "required": [
-        "text",
-        "span"
       ]
     },
     "Lexicon": {
@@ -700,34 +729,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "Span": {
-      "description": "A half-open byte range within a single source file.",
-      "type": "object",
-      "properties": {
-        "end": {
-          "description": "End byte offset (exclusive).",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        },
-        "file": {
-          "description": "The file this span points into.",
-          "$ref": "#/$defs/FileId"
-        },
-        "start": {
-          "description": "Start byte offset (inclusive).",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "file",
-        "start",
-        "end"
-      ]
     },
     "Term": {
       "description": "A term: a variable, symbol, literal, or time reference.",

@@ -150,15 +150,17 @@ The five read tools interrogate the staged world without mutating it. Start with
 did. You can prove a consequence with `author.query`. Ask for the goal as a
 **typed atom** — `goal_atom` is the 0.6.3 successor to the rendered `goal`
 string, carried structurally instead of re-parsed from text; a `Var` argument
-is what the string form spelled `?who`. A proposed claim reads
-`status:"possible"`, never `certain`:
+is what the string form spelled `?who`. Each name is written as plain text: a
+typed atom is not source, so there is no location to point at and none to
+invent. (`{ "text": …, "span": … }` is still accepted — it is what the parser
+emits — but you never write it.) A proposed claim reads `status:"possible"`,
+never `certain`:
 
 ```json transcript
 → { "op": "author.query", "params": { "workspace": "ws-1", "why": true,
       "goal_atom": {
-        "pred": { "text": "serves", "span": { "file": 0, "start": 0, "end": 0 } },
-        "args": [ { "Sym": { "text": "bedivere", "span": {…} } },
-                  { "Var": { "text": "who",      "span": {…} } } ] } } }
+        "pred": "serves",
+        "args": [ { "Sym": "bedivere" }, { "Var": "who" } ] } } }
 ← { "ok": true, "result": {
       "root_hash": "jcs:sha256:1659361c…2bbfddca",
       "rows": [ {
@@ -169,10 +171,11 @@ is what the string form spelled `?who`. A proposed claim reads
         "why": { "antichain": [[0]], "rendered": ["h.session-7c9"] } } ] } }
 ```
 
-The string `goal` still works and still means the same thing — it is a
-registered field-level killed form, accepted through 0.6.x and retired at
-contract 1.0. When both are present, `goal_atom` wins and `goal` is never
-parsed. Prefer the typed form in new code.
+The string `goal` still means the same thing on a `0.5.1`/`0.6.x` wire, where
+it is also still **required** — it is a registered field-level killed form, and
+at contract 1.0 it is refused outright, the refusal naming `goal_atom`. Below
+1.0, when both are present `goal_atom` wins and `goal` is never parsed. Write
+the typed form.
 
 Ask `author.why` why the row is not yet certain — `why_not` names the blocking
 rulings; `known:false` would mean the world derives no such atom at all:

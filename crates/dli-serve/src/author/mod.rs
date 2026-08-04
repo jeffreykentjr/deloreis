@@ -341,7 +341,29 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
             },
         ));
     }
-    let typed = serde_json::from_value(request.params.clone()).map_err(|err| {
+    let decoded = serde_json::from_value(request.params.clone());
+    // The pre-1.0 half of the retirement (LS-8), placed exactly as the batch
+    // seam places it: between the decode and its error, so the retired field
+    // keeps the precedence it had when the struct declared it required —
+    // out-ranking a missing field named after it, yielding to every error serde
+    // raised while the map was still being visited.
+    if let Some(field) =
+        crate::serve::required_retired_field(&request.dli, request.op, &request.params)
+        && decoded
+            .as_ref()
+            .err()
+            .is_none_or(crate::serve::is_missing_field_error)
+    {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: format!("missing field `{}`", crate::serve::field_leaf(field)),
+                data: None,
+            },
+        ));
+    }
+    decoded.map_err(|err| {
         // The Door T twin of the batch seam's check: a retired params field the
         // struct no longer declares fails `deny_unknown_fields` here, and the
         // killed-field registry renames the anonymous schema violation into a
@@ -368,24 +390,7 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
                 data: None,
             },
         )
-    })?;
-    // The pre-1.0 half of the retirement (LS-8): contract 1.0 makes the retired
-    // string forms optional so the typed successor can be sent alone, and every
-    // earlier wire keeps them required — with serde's own wording, so a `0.x`
-    // caller sees exactly the message it saw before.
-    if let Some(field) =
-        crate::serve::required_retired_field(&request.dli, request.op, &request.params)
-    {
-        return Err(error(
-            request,
-            ErrorBody {
-                code: ErrorCode::SchemaViolation,
-                message: format!("missing field `{}`", crate::serve::field_leaf(field)),
-                data: None,
-            },
-        ));
-    }
-    Ok(typed)
+    })
 }
 
 fn ok(request: &Request, result: Value) -> Response {

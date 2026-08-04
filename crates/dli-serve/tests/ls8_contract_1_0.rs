@@ -462,24 +462,25 @@ fn a_partly_typed_claims_array_is_refused_below_1_0() {
 }
 
 /// Only what is REGISTERED is retired. The registry is keyed on the `(op,
-/// dotted field path)` pair and 1.0 refuses nothing by association — which is
-/// two claims, one a safety property and one an honest gap, and both are pinned
-/// here rather than left to be discovered.
+/// dotted field path)` pair, so 1.0 refuses nothing by association.
 ///
 /// **Not by name.** `author.why` takes a top-level `atom` string. The registry
-/// retires `atom` only as `dli.payload-submit`'s `payload.claims.atom`, so
-/// `author.why` is untouched at 1.0. A registry keyed on the field name alone
-/// would have broken it; this is the test that would catch that.
+/// retires `atom` only as a *claim's* `payload.claims.atom`, so `author.why` is
+/// untouched at 1.0. A registry keyed on the field name alone would have broken
+/// it; this is the test that would catch that.
 ///
-/// **The gaps.** Two text-on-wire spellings that LS-7 gave typed successors
-/// were never entered in `KILLED_FIELDS`, so they survive into 1.0 and are
-/// answered: `dli.check-draft`'s runtime-continuity `predicate`/`subject`/
-/// `value` rows (successors `atom_expr`/`to_atom_expr`, contract `0.6.4`), and
-/// a claim's `atom` when it arrives on `dli.check-draft` rather than on
-/// `dli.payload-submit` — the same payload shape, retired on one op and not the
-/// other. Neither is a mechanism failure; both are registry content, and
-/// closing them is a ledger decision, not a silent edit. Pinned so the choice
-/// stays visible.
+/// **The remaining gap.** `dli.check-draft`'s runtime-continuity rows —
+/// `predicate`/`subject`/`value`, whose typed successors `atom_expr` and
+/// `to_atom_expr` arrived at `0.6.4` — were never entered in `KILLED_FIELDS`,
+/// so the string spelling survives into 1.0 and is answered. That is registry
+/// content, not a mechanism failure, and closing it is a ledger decision rather
+/// than a silent edit. Pinned so the choice stays visible.
+///
+/// (A claim's `atom` was a second such gap until the `0.x` parity oracle showed
+/// it was worse than a gap: `Claim` is shared, so leaving `dli.check-draft`
+/// unregistered also un-required the field there. Both ops are registered now,
+/// and `a_shared_params_type_is_retired_on_every_op_that_carries_it` is what
+/// holds them together.)
 #[test]
 fn nothing_is_refused_by_association_at_1_0() {
     let checked = send(
@@ -500,10 +501,10 @@ fn nothing_is_refused_by_association_at_1_0() {
     assert_ne!(
         why.pointer("/error/code").and_then(Value::as_str),
         Some("killed-form"),
-        "author.why's `atom` is not dli.payload-submit's claim atom: {why}"
+        "author.why's `atom` is not a claim's atom: {why}"
     );
 
-    // Gap 1: the runtime-continuity strings were never registered.
+    // The runtime-continuity strings were never registered, so they survive.
     let continuity = send(
         "1.0.0",
         "dli.check-draft",
@@ -524,25 +525,188 @@ fn nothing_is_refused_by_association_at_1_0() {
         Value::Bool(true),
         "an unregistered text field is not retired at 1.0: {continuity}"
     );
+}
 
-    // Gap 2: the same claim shape is retired on dli.payload-submit and not on
-    // dli.check-draft, because only the former carries a registry entry.
-    let draft_claim = send(
-        "1.0.0",
-        "dli.check-draft",
-        &json!({
+/// A params *type* can be shared by several ops, and a retirement that lands on
+/// only one of them is not half-done — it is broken in both directions.
+///
+/// `Claim` is carried by `dli.payload-submit` and by `dli.check-draft`. Making
+/// `atom` optional is what lets a 1.0 caller send `atom_expr` alone, but it is a
+/// property of the TYPE, so it un-required the field on both ops at once. With
+/// only `dli.payload-submit` registered, `dli.check-draft` got the relaxation
+/// and none of the re-imposition: below 1.0 a claim missing `atom` went from
+/// refused to accepted, and at 1.0 the retired spelling was still accepted.
+/// Both ops are registered, and this asserts the symmetry directly.
+#[test]
+fn a_shared_params_type_is_retired_on_every_op_that_carries_it() {
+    let string_claim = json!([
+        { "atom": "marker(\"control\")", "quote": "the marker holds", "line": 1 }
+    ]);
+    let typed_claim = json!([
+        {
+            "atom_expr": { "pred": ident("marker"), "args": [{ "Str": "control" }] },
+            "quote": "the marker holds",
+            "line": 1,
+        }
+    ]);
+    for op in ["dli.payload-submit", "dli.check-draft"] {
+        let params = |claims: &Value| {
+            json!({
+                "document": "saltmarket",
+                "source": "the marker holds\n",
+                "payload": payload(claims),
+            })
+        };
+        let refused = send("1.0.0", op, &params(&string_claim), &[]);
+        assert_eq!(
+            code(&refused),
+            "killed-form",
+            "{op}: a claim's string atom is retired at 1.0: {refused}"
+        );
+        assert!(message(&refused).contains("atom_expr"), "{op}: {refused}");
+
+        let answered = send("1.0.0", op, &params(&typed_claim), &[]);
+        assert_eq!(
+            answered["ok"],
+            Value::Bool(true),
+            "{op}: the typed claim is answered at 1.0: {answered}"
+        );
+
+        // ... and below 1.0 the string form is required on BOTH, which is the
+        // half that the shared type silently dropped.
+        for version in pre_1_0() {
+            let missing = send(
+                version,
+                op,
+                &params(&json!([{ "quote": "the marker holds", "line": 1 }])),
+                &[],
+            );
+            assert_eq!(
+                code(&missing),
+                "schema-violation",
+                "{op} at {version}: a claim without `atom` is still refused: {missing}"
+            );
+            assert_eq!(
+                message(&missing),
+                "params do not satisfy the operation schema: missing field `atom`",
+                "{op} at {version}: with serde's own wording"
+            );
+        }
+    }
+}
+
+/// The retired field keeps the PRECEDENCE it had when its struct declared it
+/// required. Making it optional moved *when* serde notices it is absent, and
+/// without care that reorders which field a malformed request is told about.
+///
+/// Two directions, and the registry's `preceded_by` is what tells them apart:
+///
+/// - `Claim` declares `atom` FIRST, before the still-required `quote`. A claim
+///   missing both must report `atom` — serde would have, and after the
+///   relaxation it fails on `quote` instead unless the retirement pre-empts it.
+/// - `QueryParams` declares `document` BEFORE `goal`. A request missing both
+///   must still report `document` — here the retirement must NOT pre-empt.
+///
+/// A nested registration additionally out-ranks the outer struct's missing
+/// fields, because a nested decode fails while the outer map is still being
+/// visited: a submission missing `document` AND a claim's `atom` reports
+/// `atom`.
+#[test]
+fn the_retired_field_keeps_its_declaration_precedence_below_1_0() {
+    let submission = |params: Value| send("0.6.4", "dli.payload-submit", &params, &[]);
+    let claims = |claims: Value| {
+        json!({
             "document": "saltmarket",
             "source": "the marker holds\n",
-            "payload": payload(&json!([
-                { "atom": "marker(\"control\")", "quote": "the marker holds", "line": 1 }
-            ])),
-        }),
-        &[],
+            "payload": payload(&claims),
+        })
+    };
+    let missing = |response: &Value| {
+        message(response)
+            .strip_prefix("params do not satisfy the operation schema: ")
+            .unwrap_or_else(|| panic!("a schema violation: {response}"))
+            .to_owned()
+    };
+
+    // atom-first: the retired field out-ranks a field declared after it.
+    assert_eq!(
+        missing(&submission(claims(json!([{ "quote": "q", "line": 1 }])))),
+        "missing field `atom`"
     );
-    assert_ne!(
-        draft_claim.pointer("/error/code").and_then(Value::as_str),
-        Some("killed-form"),
-        "dli.check-draft has no registry entry, so its claim atom is not retired: {draft_claim}"
+    assert_eq!(
+        missing(&submission(claims(json!([{ "line": 1 }])))),
+        "missing field `atom`",
+        "`atom` is declared before `quote`, so `atom` is what serde named"
+    );
+    // ... and yields to a field declared before it, within the claim.
+    assert_eq!(
+        missing(&submission(claims(json!([
+            { "atom": "marker(\"control\")", "line": 1 }
+        ])))),
+        "missing field `quote`",
+        "the retirement has nothing to say when the retired field is present"
+    );
+    // A nested decode beats the outer struct's end-of-map check.
+    assert_eq!(
+        missing(&submission(json!({
+            "source": "the marker holds\n",
+            "payload": payload(&json!([{ "quote": "q", "line": 1 }])),
+        }))),
+        "missing field `atom`",
+        "the claim fails while the outer map is still being visited"
+    );
+
+    // document-first: the retirement must NOT steal serde's earlier word.
+    let query = |params: Value| send("0.6.4", "dli.query", &params, &[]);
+    assert_eq!(
+        missing(&query(json!({}))),
+        "missing field `document`",
+        "`document` is declared before `goal`"
+    );
+    assert_eq!(
+        missing(&query(json!({ "goal_atom": marker_baseline() }))),
+        "missing field `document`"
+    );
+    assert_eq!(
+        missing(&query(json!({ "document": "saltmarket" }))),
+        "missing field `goal`"
+    );
+}
+
+/// The retirement yields to every error serde raised while the map was still
+/// being visited — an unknown key at the top level, and an unknown key nested
+/// inside a typed successor, which the server reports only *after* a successful
+/// decode. Both used to be answered by serde's `missing field` on the retired
+/// field, and both must still be.
+#[test]
+fn an_unknown_key_still_out_ranks_the_retired_field_below_1_0() {
+    let query = |params: Value| send("0.6.4", "dli.query", &params, &[]);
+
+    // Top-level: `deny_unknown_fields` errors during map iteration, so serde
+    // never reached its end-of-map missing-field check.
+    let top = query(json!({ "document": "saltmarket", "bogus": 1 }));
+    assert_eq!(code(&top), "schema-violation");
+    assert!(
+        message(&top).contains("bogus"),
+        "an unknown key answers first: {top}"
+    );
+
+    // Nested inside the typed successor: the decode SUCCEEDS (the retired field
+    // now defaults), and the unknown key surfaces from the post-decode
+    // normalized round-trip. The retirement must answer before that, because
+    // serde's missing-field answered before it.
+    let nested = query(json!({
+        "document": "saltmarket",
+        "goal_atom": {
+            "pred": ident("marker"),
+            "args": [{ "Sym": ident("baseline") }],
+            "bogus": 1,
+        },
+    }));
+    assert_eq!(
+        message(&nested),
+        "params do not satisfy the operation schema: missing field `goal`",
+        "the retired field is still what serde named: {nested}"
     );
 }
 

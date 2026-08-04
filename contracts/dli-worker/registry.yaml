@@ -107,6 +107,8 @@ fixtures:
   sha256: b906d311f3fbd04573d4ae9397fbd39ccf679cb6a1ce072f84b8282a846a759c
 - path: golden/contract-1-0-field-retirement-v1.json
   sha256: 9754f57d9ef614d13aa9b717f84b95d5e00e2c62cab67bc4d7f812598b9d1e97
+- path: golden/contract-1-0-terse-atom-v1.json
+  sha256: acc168f2874c1e60b3bba502f76136c2a06fb929dd1e7f27c4eea9d81aa863a1
 - path: golden/export-ludii-v1.json
   sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
 - path: golden/fork-add-typed-v1.json
