@@ -43,8 +43,10 @@ author.open                          open a workspace over a scope (or a fork)
                                      tools of §4) — read findings BEFORE you commit
   → fix                              author.add_* the missing piece, or
                                      author.discard a bad declaration
-  → author.materialize               get the .dli file bytes AS DATA
-  → commit through your own review   write the bytes to your repo and open a PR
+  → author.materialize               ACCEPT: commit the staged facts to the
+                                     lorestore; get them back as JSON
+  → review through your own pipeline the committed facts (or a rendering of
+                                     them) go to whoever reviews your work
 ```
 
 You reach the tools over a running `deloreis` server, on either of two
@@ -69,8 +71,9 @@ in its params.
 - **`rendered`** — the **opt-in** `.dli` rendering of the result, a convenience
   view for a human reviewer. The canonical result is the structured JSON above
   (findings plus the staged fact objects / rows and the digest); `rendered` is
-  returned only when asked (`rendered: true`, contract 0.6.0 / DL-0046) and is
-  **empty on a build with no formatter linked** — the default build links none
+  returned only when asked (`rendered: true`, from contract 0.6.0 / DL-0046;
+  the served contract is 1.0.0) and is **empty on a build with no formatter
+  linked** — the default build links none
   (LS-7). It is never the authoring surface: you propose through the typed tool
   params, not by writing these lines.
 - **`workspace_digest`** — the new fence.
@@ -79,10 +82,16 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (19 tools; see contract §3.2 table)
+## 2. The tool surface (the 19 tools you author with)
 
-**The eleven mutating tools** (each returns `{findings, rendered, workspace_digest}`) and
-**three read-only state ops** (status, diff, materialize):
+The contract's §3.2 table lists 21: it also carries `author.branch` and
+`author.merge`, which manage durable branches rather than stage lore, and are
+not part of the authoring loop below.
+
+**The twelve mutating tools** (each returns `{findings, workspace_digest}`, plus
+`rendered` when you ask for it) and **two read-only state ops** (status, diff).
+`author.materialize` is a mutation — it is the accept decision, and
+`author.discard` is the reject:
 
 | Tool | Intent |
 |---|---|
@@ -214,14 +223,16 @@ You never have to guess or reach outside the tool surface:
 
 ## 7. Reading a rendered diff — the gentle `.dli` card (reference)
 
-Authoring is tools-only, but you **review your own rendered output**: `author.diff`
-and `author.materialize` return canonical `.dli` lines, and a human reviews the
-same surface. So you must be able to *read* `.dli` even though you never *write*
-it. Read it as notes, not English — **what parses is exactly what the surface
+Authoring is tools-only, but you **review your own output**, and one of the
+views you can ask for is `.dli`: `author.diff` and `author.materialize` render
+canonical `.dli` lines when you opt in (`rendered: true`) on a build with a
+formatter linked — the canonical return is the JSON (§1). A human may review
+that same rendering. So you must be able to *read* `.dli` even though you never
+*write* it. Read it as notes, not English — **what parses is exactly what the surface
 shows** (`docs/cards/gentle-card.md` is the full one-page card).
 
-A materialized workspace — the exact bytes `author.materialize` hands back for a
-small cast:
+A materialized workspace — the exact lines a `rendered: true` materialize hands
+back for a small cast:
 
 ```dli
 scope camelot

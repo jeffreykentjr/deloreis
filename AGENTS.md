@@ -119,14 +119,26 @@ against the `deloreis` server — never by editing `.dli` text** (DL-0014 as
 restated by DL-0043: entry doors are retired; the tool surface is the single
 way in, and authority boundaries — who may propose, who may rule — are what
 distinguish authors). Every
-mutating tool call returns graded findings with repair data, the rendered
-canonical lines, and the workspace digest; read them, do not guess.
-`author.materialize` commits the staged fact objects to the lorestore and
-returns them as JSON by default, with `.dli` rendering as the `rendered: true`
-opt-in (contract 0.6.0, DL-0046); tools write fact objects to the store
-per-add (DL-0045). A `0.5.1` caller keeps the rendered-lines return,
-byte-identical, until EXT-F4 completes. `SKILL.md` governs the authoring session; supervision reviews
+mutating tool call returns graded findings with repair data, the structured
+result, and the workspace digest; read them, do not guess.
+`author.materialize` is a mutation and the accept decision: it commits the
+staged fact objects to the lorestore and returns them as JSON by default, with
+`.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
+the reject decision; tools write fact objects to the store per-add (DL-0045).
+The contract is **1.0.0** (DL-0051, DL-0053), served multi-version dual-mode:
+`0.5.1` and `0.6.0`–`0.6.4` stay accepted and answer byte-identically — a
+`0.5.1` caller keeps the rendered-lines return — until EXT-F4 completes, after
+which those versions retire through the killed-form registry, never silently.
+`SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
 editing is a measured fallback with no reliability claim, not the taught
 path.
+
+DL-0054 amends the authority half of that law, direction ruled and code
+scheduled for contract 1.2.0: the engine stops gating on *who may rule*. It
+keeps referential integrity — a cited decision id must resolve — and records
+caller-supplied attribution and decision state as data; review and approval
+workflow belong to the consuming application. Until 1.2.0 ships, the
+`provenance.cited-refused` refusal is still the served behavior on every
+version, and every 0.x wire keeps it byte-exact permanently.

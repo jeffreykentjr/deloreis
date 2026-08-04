@@ -1,7 +1,7 @@
 ---
 status: live
 title: "the tool surface: agent authoring through semantic tools"
-verdict: "agents author through tools, never text; every call answers with graded findings; the human reviews rendered diffs."
+verdict: "agents author through tools, never text; every call answers with graded findings; supervision reviews the structured diff, with .dli rendering an opt-in view of it."
 ---
 
 # Agent authoring — the tool surface
@@ -106,9 +106,13 @@ The workspace supports:
 - `author.discard` — drop the whole workspace, or drop one staged declaration
   (`{"workspace": ..., "decl": ...}`). Discarding a declaration is itself a
   mutating call: it returns the new workspace digest.
-- `author.materialize` — return `.dli` file contents **as data** (§4). The server
-  never writes canon; the calling agent commits the returned bytes through its own
-  repository's review.
+- `author.materialize` — commit the workspace's staged delta to the lorestore and
+  return the committed fact objects **as data**, with `.dli` rendering the
+  `rendered: true` opt-in (§4; `decisions.md` DL-0046). It is a mutation, and it
+  is the **accept** decision — `author.discard` is the reject. The server still
+  never writes canon and never writes the consuming repository; what crosses the
+  boundary is JSON, which the caller takes through its own review. A `0.5.1`
+  caller instead receives the pre-`0.6.0` return, the rendered lines as data.
 
 A workspace mutation after `author.open` may carry the **workspace digest** it
 expects and returns the new digest. (`author.open` creates the first digest, so
@@ -170,7 +174,7 @@ request is:
 
 ```json
 {
-  "dli": "0.5.1",
+  "dli": "1.0.0",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",
@@ -541,11 +545,13 @@ path drops the input silently.
 
 ## 5. Supervision
 
-The human never reads tool-call JSON. They review the **rendered canonical diff**
-— the output of `author.diff` in-session, or the materialized `.dli` files in the
-consuming repo — as ordinary code review. The diff is the same canonical surface
-a human author would have written by hand, so human and agent contributions are reviewed
-through one lens.
+The human never reads tool-call JSON. They review the **diff** — `author.diff`'s
+structured per-fact rows, each with its before/after standing, which the
+consuming application renders for review (DL-0046). Where a formatter is linked,
+that rendering can be the canonical `.dli` surface, which is the same surface a
+human author would have written by hand — so human and agent contributions are
+reviewed through one lens. Deloreis serves the structured rows; the rendering is
+consumer-owned.
 
 **Provenance discipline.** Nothing an agent writes mints authority (koan 3: the
 machine never writes canon). Every claim an agent stages enters `proposed` or is
@@ -573,7 +579,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `0.5.1` enforces that rule for all 46 operations. Paired cases declare
+Contract `1.0.0` enforces that rule for all 48 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.
@@ -617,8 +623,9 @@ surface better than path quality — evidence, not a measured verdict here.
 
 The end-to-end flow an agent runs — `author.open` a scope, `author.add_entity` the
 cast, `author.add_fact` their traits, `author.add_relation` their bonds,
-`author.diff` to see the canonical surface and its consequences, `author.materialize`
-to get file bytes, then fantasy-side review and ruling — is worked in full in
+`author.diff` to see the staged change and its consequences,
+`author.materialize` to commit it and get the fact objects back, then
+consumer-side review and ruling — is worked in full in
 `docs/integration/migration.md` §10. The agent-facing playbook — the same flow as
 a call-by-call sequence of **engine-true** requests and responses, captured from
 the running worker — is `docs/cards/authoring-loop.md`; the loop and its error
