@@ -230,3 +230,78 @@ fn walk_dli(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     }
     out
 }
+
+/// **The import-side claim-id validator agrees with the write-side minter, over
+/// every vendored pack.**
+///
+/// `expected_claim_id` is what `dli.corpus.import` checks a caller's object
+/// against from contract 1.3.0 (DL-0059 ruling 4). It re-derives the id by
+/// delegating to the same two minting functions the write paths use, so the
+/// *label format* has one reader and cannot drift. What it does re-decide is the
+/// **dispatch**: it picks the declaration minter or the atom minter by looking at
+/// whether the stored object carries an `expert_body`, while the write paths pick
+/// theirs at six separate call sites. Nothing structurally forces those two
+/// choices to agree, and if they ever diverge the validator would enforce an id
+/// the engine never mints — turning a guard into the bug.
+///
+/// So the agreement is asserted end-to-end rather than argued: lower every
+/// vendored pack and require that the validator re-derives exactly the id the
+/// lowering minted, for every object. A future write path that pairs a claim id
+/// with the wrong carriage shape reds here, whether or not anyone remembers this
+/// function exists.
+#[allow(clippy::print_stdout)]
+#[test]
+fn the_claim_id_validator_agrees_with_the_minter_on_every_vendored_object() {
+    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds");
+    let mut dli_files: Vec<std::path::PathBuf> = walk_dli(&worlds);
+    dli_files.sort();
+    assert!(!dli_files.is_empty(), "the vendored worlds tree has packs");
+
+    let (mut objects, mut carried, mut bare) = (0usize, 0usize, 0usize);
+    for path in &dli_files {
+        let source = std::fs::read_to_string(path).expect("read .dli file");
+        let (document, diagnostics) = dli_syntax::parse_document(&source);
+        assert!(diagnostics.is_empty(), "{}: parses", path.display());
+        let name = document.scope.as_ref().map_or_else(
+            || {
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("pack")
+                    .to_owned()
+            },
+            |s| s.name.text.clone(),
+        );
+        let pack = dli_world::Pack {
+            name,
+            documents: vec![document],
+        };
+        let (lowered, _interner) = dli_lorestore::lower::lower_pack(&pack);
+        for object in &lowered {
+            objects += 1;
+            if object.expert_body.is_some() {
+                carried += 1;
+            } else {
+                bare += 1;
+            }
+            assert_eq!(
+                dli_lorestore::lower::expected_claim_id(object),
+                object.claim_id,
+                "{}: the import validator would refuse an object this engine minted \
+                 (atom {})",
+                path.display(),
+                object.atom.render()
+            );
+        }
+    }
+    // Non-vacuous in both directions: the dispatch has two arms and a corpus
+    // that exercised only one would prove nothing about the other.
+    assert!(
+        carried > 0 && bare > 0,
+        "the corpus must exercise both claim-id arms (carried {carried}, bare {bare})"
+    );
+    println!(
+        "claim-id validator agrees with the minter on {objects} objects \
+         ({carried} carried, {bare} bare) across {} packs",
+        dli_files.len()
+    );
+}

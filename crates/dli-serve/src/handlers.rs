@@ -2051,10 +2051,22 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
     let p: CorpusImportParams = params(request)?;
     let store = document_store(sessions, &p.document)?;
 
-    let head = store
-        .branch_head(dli_lorestore::MAIN_REF)
-        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    if matches!(p.mode, CorpusImportMode::Init) && head.is_some() {
+    // "Empty" means **holds no facts**, and nothing weaker.
+    //
+    // Two weaker tests were tried here and both were wrong.
+    // `branch_head().is_some()` is wrong because opening a lorestore writes a
+    // genesis commit, so it is `Some` from the moment a store-backed document
+    // loads — which made `init` unreachable over the wire on every store the
+    // server could serve, leaving `append` as the only way in. The committed
+    // *pack name* is wrong too, and more dangerously: a scope-less corpus
+    // commits the empty name, so a populated store would answer "not seeded"
+    // and `init` would import straight over it. Only the facts themselves
+    // answer the question actually being asked.
+    let seeded = !store
+        .all_fact_hashes()
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .is_empty();
+    if matches!(p.mode, CorpusImportMode::Init) && seeded {
         return Err((
             ErrorCode::SchemaViolation,
             format!(
@@ -2088,9 +2100,16 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                  provenance (DL-0056)"
                     .to_owned(),
             ))?;
-            import_objects(&store, objects, interner, &p.decisions, &p.document)?
+            import_objects(
+                &store,
+                objects,
+                interner,
+                &p.decisions,
+                &p.document,
+                crate::validates_claim_ids(&request.dli),
+            )?
         }
-        (None, Some(documents)) => import_dli_documents(&store, documents, &p.document)?,
+        (None, Some(documents)) => import_dli_documents(&store, documents)?,
     };
 
     let count = store
@@ -2123,6 +2142,7 @@ fn import_objects(
     interner: &[String],
     decisions: &[String],
     document: &str,
+    validate_claim_ids: bool,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     // Appending into a populated store may only extend the table it already
     // resolves against. The store enforces this too, but as an `internal`
@@ -2156,6 +2176,34 @@ fn import_objects(
                     format!("object {index} is not a stored fact object: {error}"),
                 )
             })?;
+        // `claim_id` is the one field of an imported object nothing else can
+        // vouch for. The object's content hash covers the bytes as sent, so a
+        // wrong id produces a perfectly valid object and is then handed back by
+        // `export` as truth — a caller could store an identity that does not
+        // match its content, or give two atoms the same one, and
+        // content-addressing would simply not be enforced on this path.
+        //
+        // So it is re-derived and checked, never taken on trust and never
+        // silently rewritten. Deriving-and-ignoring would be the quieter fix and
+        // is the wrong one: it would discard what the caller stated without
+        // saying so, which is the same lossy-exchange pattern DL-0056 refused
+        // for a dropped interner. The id is reproducible from a short documented
+        // label (`atom:<pred>(<args>)`, `decl:<Kind>:<name>`) plus SHA-256, so an
+        // external emitter can compute it without replicating any canonicalization.
+        let expected = dli_lorestore::lower::expected_claim_id(&object);
+        if validate_claim_ids && object.claim_id != expected {
+            return Err((
+                ErrorCode::SchemaViolation,
+                format!(
+                    "object {index} carries claim id `{}`, but its content mints \
+                     `{expected}`; a claim id is the SHA-256 of the claim's own identity \
+                     (`atom:<pred>(<args>)` for a fact, `decl:<Kind>:<name>` for a carried \
+                     declaration), so a mismatch means the object is mislabelled — send \
+                     the derived id",
+                    object.claim_id
+                ),
+            ));
+        }
         hashes.push(
             store
                 .write_object(&object)
@@ -2229,7 +2277,6 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
 fn import_dli_documents(
     store: &dli_lorestore::Lorestore,
     documents: &[CorpusDocument],
-    document: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     let mut parsed = Vec::with_capacity(documents.len());
     for entry in documents {
@@ -2242,6 +2289,57 @@ fn import_dli_documents(
         }
         parsed.push(ast);
     }
+    // The name a seeding commit takes is the documents' **scope**, never the
+    // wire document id.
+    //
+    // These are different things and conflating them corrupts the round trip.
+    // The lowering walk mints a proposal's bundle variable under the document's
+    // scope (`h.<scope>#N`, empty when the document declares none), and
+    // `reconstruct_pack` re-derives both that prefix and the scope header it
+    // re-emits from the commit's recorded pack name. So when the recorded name
+    // is the document id and the id differs from the scope — including the
+    // scope-less case, where the scope is empty and any id differs from it —
+    // reconstruct looks for the wrong prefix, fails to recognize the bundle,
+    // and re-renders it as a lore **tag**: `proposed` comes back as
+    // `proposed #0`, under a `scope` header the author never wrote. That is the
+    // very failure DM-3 named on the other write path ("re-render every
+    // committed fact's provenance under a scope it was never written in") and
+    // guarded there; this arm was still taking the id.
+    //
+    // Recording the scope makes the two agree by construction, so reconstruct
+    // needs no special case — including for a scope-less corpus, where the
+    // empty name already makes it emit no scope header.
+    let scopes: std::collections::BTreeSet<&str> = parsed
+        .iter()
+        .map(|document| {
+            document
+                .scope
+                .as_ref()
+                .map_or("", |header| header.name.text.as_str())
+        })
+        .collect();
+    if scopes.len() > 1 {
+        let mut named: Vec<&str> = scopes.into_iter().collect();
+        named.sort_unstable();
+        return Err((
+            ErrorCode::SchemaViolation,
+            format!(
+                "these documents declare more than one scope ({}); one import seeds one corpus, \
+                 so send them as separate imports",
+                named
+                    .iter()
+                    .map(|s| if s.is_empty() {
+                        "<none>".to_owned()
+                    } else {
+                        format!("`{s}`")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        ));
+    }
+    let declared_scope = scopes.into_iter().next().unwrap_or_default().to_owned();
+
     // On an append the chain's committed name wins, exactly as in the `objects`
     // arm. But this arm carries a scope of its own, so a mismatch is a caller
     // error worth naming rather than quietly overriding: appending a document
@@ -2269,7 +2367,7 @@ fn import_dli_documents(
             }
             committed.clone()
         }
-        None => document.to_owned(),
+        None => declared_scope,
     };
 
     let pack = dli_world::Pack {
@@ -2283,7 +2381,6 @@ fn import_dli_documents(
 fn import_dli_documents(
     _store: &dli_lorestore::Lorestore,
     _documents: &[CorpusDocument],
-    _document: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     Err((
         ErrorCode::NotWired,

@@ -2157,3 +2157,111 @@ than of what is declarable.
 an unrecognized clause has no keyword to reconstruct — the grammar did not classify it,
 so the lowering does not guess. They are reachable only by a caller that deliberately
 sends them, and they carry no meaning to the compiler either way.
+
+## DL-0059 — The corpus door: a commit records the scope its facts were minted under, an empty corpus is one holding no facts, and an imported claim id is checked
+
+*Date: 2026-08-05*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Two corrections to the corpus door DL-0056 opened, both found by the
+consumer's FW-6 pivot attempting the one thing the door exists for: seeding a store from
+`.dli` text.
+
+1. **The lowering walk uses the loader's scope name, empty fallback included.** A
+   document with no `scope` header belongs to the **empty** pack — that is
+   `dli_world::loader`'s own rule — and the store's per-declaration walk now says the
+   same. It had fallen back to the *pack* name instead, so a scope-less document minted
+   its proposal bundle as `h.<pack>#0` where the compiled model minted `h.#0`. The
+   faithfulness guard did exactly its job and refused the import; the guard was right and
+   the walk was wrong. This is a bug fix, not a decision: the loader defines the canonical
+   interner and the walk's whole contract is to track it.
+
+2. **A seeding commit records the documents' *scope*, never the wire document id.** These
+   are different things and conflating them corrupted the round trip. The walk mints a
+   proposal's bundle under the document's scope (`h.<scope>#N`); `reconstruct_pack`
+   re-derives both that prefix and the scope header it re-emits from the commit's recorded
+   pack name. Where the recorded name was the document id and the id differed from the
+   scope, reconstruct looked for the wrong prefix, failed to recognize the bundle, and
+   re-rendered it as a lore **tag**: `proposed` came back as `proposed #0`, under a `scope`
+   header nobody wrote — on the served world and on the rendered export. DM-3 named exactly
+   this hazard on the other write path ("re-render every committed fact's provenance under
+   a scope it was never written in") and guarded it there; this arm was still taking the id.
+   Recording the scope makes the two agree by construction, so reconstruct needs no special
+   case, including for a scope-less corpus, whose empty name already suppresses the header.
+
+3. **`init` refuses on a store that holds *facts*, and nothing weaker.** Two weaker tests
+   were tried and both were wrong. `branch_head().is_some()` is wrong because opening a
+   lorestore writes a genesis commit, so it is `Some` for every store the server can serve
+   — which made `mode: init` unreachable over the wire, leaving `append` the only way to
+   seed, which for a non-Rust consumer is no way at all. The committed *pack name* is wrong
+   too, and worse: under ruling 2 a scope-less corpus records the empty name, which reads
+   as unnamed, so a populated store would have answered "not seeded" and `init` would have
+   imported straight over it. Only the facts answer the question being asked.
+
+4. **An imported object's `claim_id` is re-derived and checked, from contract 1.3.0.** A
+   claim id is a claim *identity* minted by `ClaimId::from_label` — `atom:<pred>(<args>)`
+   for a fact, `decl:<Kind>:<name>` for a carried declaration — and deliberately not a
+   content hash of the fact. That makes it the one field of an imported object nothing else
+   can vouch for: the object's own content hash covers the bytes as sent, so a wrong id
+   yields a perfectly valid object that `export` then hands back as truth. It was accepted
+   verbatim, so a caller could store an identity disagreeing with its content, or give two
+   atoms the same one; content-addressing was simply not enforced on that path. It is now
+   checked, and a mismatch is refused naming the id the content mints.
+
+   **Checked, not silently derived.** Deriving and ignoring the caller's value is the
+   quieter fix and the wrong one: it discards what the caller stated without saying so —
+   the same lossy-exchange pattern DL-0056 refused for a dropped interner — and it would
+   hide a broken emitter instead of reporting it. The objection to checking, that it forces
+   external emitters to reproduce the engine's canonicalization, does not apply: the label
+   is a short documented string and the id is its SHA-256, with no JCS anywhere.
+
+   **Gated at 1.3.0, and the mislabelled golden is deliberately left alone.**
+   `contract/1.2.0` is a tagged version that really does accept a mislabelled object, and
+   `golden/corpus-import-v1` records that it does — its `rowan` object carries
+   `sha256("atom:person(wren)")`, copied from the object beside it. Correcting those bytes
+   would falsify what a released version is on record as doing, and refusing on a `1.2.0`
+   wire would change a released version's behavior. So the check is a floor at `1.3.0`, the
+   golden keeps its bytes, and the same object is pinned twice more: accepted at `1.2.0` in
+   `golden/corpus-import-claim-id-frozen-1-2-0-v1`, refused at `1.3.0` in
+   `negative/corpus-import-mislabelled-claim-id`.
+
+**Rationale.** Rulings 1 and 2 are bugs and the interesting part is why they survived. Both
+committed corpus fixtures write a `scope` header, where walk and loader agree, and the
+only scope-less case anyone had exercised was the *empty* document — which mints no
+bundle at all and therefore cannot diverge. The suite held a case on each side of the
+defect and none through it. A guard that fires correctly on the first real caller is the
+system working; a test corpus whose every member dodges the same branch is the thing to
+fix, so the round-trip test added here drives scope-less text with **two** proposals,
+because one would not have caught a counter that failed to advance.
+
+Ruling 2 is the sharper version of the same lesson, and it was found only because ruling 1
+unblocked the path that reaches it. The round-trip test written for ruling 1 used a
+*carried* declaration — one with a label, so `carriage_kind` is `Some` — which replays from
+its stored carriage JSON and never touches the polynomial-to-annotation path at all. It
+could not have failed. The defect lives on bare `Fact`/`Attr`/`Entity` declarations, and it
+is not really about scope-less-ness either: a document with `scope tpth` served under
+document id `beta` — a configuration DM-3 explicitly supports — corrupted the same way on
+the `1.2.0` wire, before any of this work. Two tests, each written to cover the thing the
+other missed, and the defect sat in the gap. The round-trip test now runs a table over the
+shapes that differ *structurally in the store* — bare and carried, scoped and not, id equal
+to scope and not — and asserts text in equals canonical text out.
+
+Ruling 3 is a decision, which is why this entry exists at all rather than the fixes landing
+bare. "Empty" had two defensible readings and the code picked the one that made a
+documented wire mode dead: a consumer could not seed a fresh corpus through the interface,
+only extend one that some out-of-band process had already created — which for a non-Rust
+consumer means no path at all. Reading emptiness as *holds no facts* completes the wire
+and costs nothing, because the guard it replaces was never protecting anything a caller
+could reach. Choosing the reading that leaves an operation usable is not a loosening here;
+the refusal it preserves is the one that was always meant — and the second attempt at that
+predicate, the committed pack name, would have been a genuine loosening, which is why the
+one that survived is the one that asks about facts.
+
+**Not done, and named rather than half-built.** `LoweringDiverged` still maps to the
+`internal` wire code rather than a caller-facing one. That is arguably correct — the walk
+failing to track the loader is a server defect, not a caller mistake — and with this fix
+no caller input is known to reach it, so re-grading it now would be a guess at a surface
+nobody is standing on. It is named here so the next report against it is read as evidence
+rather than as a fresh discovery.

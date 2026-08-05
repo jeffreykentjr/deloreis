@@ -1,0 +1,57 @@
+{
+  "fixture": "golden/corpus-import-claim-id-frozen-1-2-0-v1",
+  "note": "The C4 freeze for the claim-id check: at contract 1.2.0 — a tagged version — a mislabelled object is still ACCEPTED, exactly as it always was. The object is the one from `golden/corpus-import-v1`, carrying sha256(\"atom:person(wren)\") on a `person(rowan)` fact. Its twin `negative/corpus-import-mislabelled-claim-id` sends the identical object at 1.3.0 and is refused. Together they are the evidence that DL-0059's validation is a floor at 1.3.0 and moves no released wire.",
+  "project": true,
+  "steps": [
+    {
+      "expect": {
+        "dli": "1.2.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "imported_count": 5,
+          "root_hash": "sha256:5586793060a8a07ae088f556b4d4afe5fc34f6f9bf2ebf96292f14228e28bbb4"
+        }
+      },
+      "send": {
+        "dli": "1.2.0",
+        "id": "1",
+        "op": "dli.corpus.import",
+        "params": {
+          "decisions": [
+            "d-1"
+          ],
+          "document": "corpus",
+          "interner": [
+            "d-1"
+          ],
+          "mode": "append",
+          "objects": [
+            {
+              "atom": {
+                "args": [
+                  "rowan"
+                ],
+                "pred": "person"
+              },
+              "authority": null,
+              "claim_id": "sha256:e64d705bc4ddb6c196bc1beef383cb66c07df4edf1078e9e464b5b41664c53d4",
+              "conditions": [],
+              "defeaters": {
+                "monomials": []
+              },
+              "expert_body": null,
+              "grade": "asserted",
+              "schema_version": 3,
+              "support": {
+                "monomials": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": 1
+}

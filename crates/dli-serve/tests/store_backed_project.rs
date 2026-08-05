@@ -1260,3 +1260,332 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
         language.bans
     );
 }
+
+// -- the scope-less corpus import (FW-6) -------------------------------------
+
+/// A store-backed document whose lorestore is **freshly opened** — a genesis
+/// commit and nothing else, which is the state a consumer seeding a new corpus
+/// actually starts from.
+#[cfg(feature = "syntax")]
+fn empty_corpus_server(
+    name: &str,
+) -> (
+    PathBuf,
+    dli_serve::session::Sessions,
+    dli_serve::author::store::Store,
+) {
+    use std::sync::Arc;
+    let root = temp(name);
+    // `Lorestore::open` writes the genesis commit; nothing is imported.
+    dli_lorestore::Lorestore::open(root.join("store")).expect("open an empty store");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a genesis-only store-backed project loads");
+    (
+        root,
+        dli_serve::session::Sessions::from_project(Arc::new(project)),
+        dli_serve::author::store::Store::default(),
+    )
+}
+
+/// **The FW-6 blocker.** `dli.corpus.import { dli_documents }` refused *every*
+/// non-empty scope-less corpus with `LoweringDiverged` at index 0.
+///
+/// The lowering walk minted a proposal's bundle variable as `h.<pack>#0` while
+/// the compiled model minted `h.#0`, because the walk fell back to the pack name
+/// for a document with no `scope` header where the loader falls back to the
+/// empty name. The store's faithfulness guard caught the disagreement and
+/// refused the import — correctly; the guard was right and the walk was wrong.
+///
+/// It survived DM-3 because both committed corpus fixtures write a `scope`
+/// header, where the two agree, and because the only scope-less case anyone had
+/// exercised was the **empty** document, which mints no bundle at all and so
+/// cannot diverge.
+#[cfg(feature = "syntax")]
+#[test]
+fn a_scope_less_dli_corpus_imports() {
+    let (_root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less");
+    let imported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+            "document":"tpth","mode":"append",
+            "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        imported["ok"], true,
+        "a scope-less corpus must import: {imported}"
+    );
+    assert!(
+        imported["result"]["imported_count"]
+            .as_u64()
+            .is_some_and(|n| n > 0),
+        "the import commits the declaration: {imported}"
+    );
+}
+
+/// The same import, round-tripped: `import { dli_documents }` → `export` must
+/// return the objects, interner and decisions, and the **standing** must
+/// survive. A `proposed` claim rests on an open bundle variable, so it reads
+/// `possible`; if the bundle name round-tripped as a *tag* instead of a
+/// positional bundle, the provenance would come back subtly different, which is
+/// the failure mode the interner divergence was hiding.
+#[cfg(feature = "syntax")]
+#[test]
+fn a_scope_less_corpus_round_trips_through_export() {
+    let (root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less-roundtrip");
+    let text = "person gwern \"Gwern\" proposed\nperson mara \"Mara\" proposed\n";
+    let imported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+            "document":"tpth","mode":"append",
+            "dli_documents":[{"id":"tpth","text":text}]}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(imported["ok"], true, "import: {imported}");
+
+    let exported = send(
+        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+                            "params":{"document":"tpth"}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(exported["ok"], true, "export: {exported}");
+    let result = &exported["result"];
+    assert!(
+        !result["objects"].as_array().unwrap().is_empty(),
+        "the export carries the facts: {exported}"
+    );
+    // Both proposals minted a positional bundle, and they are distinct — one
+    // shared name would collapse two independent proposals onto one gate.
+    let interner: Vec<String> = result["interner"]
+        .as_array()
+        .expect("the export carries the interner")
+        .iter()
+        .map(|v| v.as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(
+        interner.iter().any(|n| n == "h.#0") && interner.iter().any(|n| n == "h.#1"),
+        "the scope-less bundles keep the loader's own naming: {interner:?}"
+    );
+
+    // The standing survives: recompile the served store and read it back.
+    let reloaded = Project::load(&root).expect("the imported store reloads");
+    let document = reloaded
+        .documents()
+        .find(|(id, _)| *id == "tpth")
+        .expect("served")
+        .1;
+    let world = dli_world::compile(&document.pack).expect("the reconstructed pack compiles");
+    let people = world
+        .model
+        .entities()
+        .iter()
+        .filter(|e| e.sort.as_deref() == Some("person"))
+        .count();
+    assert_eq!(people, 2, "both people survive the round trip");
+    // A proposal rests on an open bundle, so it is possible-not-certain. If the
+    // bundle had round-tripped as a tag or been dropped, this would read
+    // `certain` and the corpus would have silently gained authority.
+    let statuses: Vec<(String, dli_core::ann::Status)> = world
+        .model
+        .atoms()
+        .iter()
+        .map(|a| {
+            (
+                a.atom.pred.text.clone(),
+                a.ann
+                    .status(&world.model.world.valuation, &world.model.world.theory),
+            )
+        })
+        .collect();
+    assert!(
+        !statuses.is_empty(),
+        "the reconstructed world holds atoms to judge"
+    );
+    assert!(
+        statuses
+            .iter()
+            .all(|(_, s)| *s != dli_core::ann::Status::Certain),
+        "a proposed corpus must not reconstruct as certain: {statuses:?}"
+    );
+}
+
+/// `mode: init` was unreachable over the wire, and the fix took two attempts —
+/// both recorded, because the one that failed is the more instructive.
+///
+/// Opening a lorestore writes a genesis commit, so `branch_head` is `Some` for
+/// every store the server can serve, and the original guard tested exactly that
+/// — leaving `append` as the only way to seed a corpus, which for a non-Rust
+/// consumer is no way at all.
+///
+/// The first replacement was the committed **pack name**, on the reasoning that
+/// genesis is unnamed so a name means a corpus. That predicate was wrong, and
+/// dangerously so: once a seeding commit records the document's *scope*
+/// (DL-0059 ruling 2), a scope-less corpus records the **empty** name, which
+/// reads as unnamed — so a populated store would answer "not seeded" and `init`
+/// would import straight over it. This test caught that when the ruling-2 change
+/// landed.
+///
+/// The predicate is therefore `all_fact_hashes().is_empty()`: a store is empty
+/// when it holds no facts, which is the question `init` is actually asking, and
+/// the only one of the three that no naming or commit-shape change can falsify.
+#[cfg(feature = "syntax")]
+#[test]
+fn init_seeds_a_genesis_only_store_and_still_refuses_a_seeded_one() {
+    let (_root, mut sessions, mut store) = empty_corpus_server("corpus-init-genesis");
+    let frame = |id: &str| {
+        serde_json::json!({"dli":"1.2.0","id":id,"op":"dli.corpus.import","params":{
+            "document":"tpth","mode":"init",
+            "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}})
+    };
+
+    let seeded = send(&frame("1"), &mut sessions, &mut store);
+    assert_eq!(
+        seeded["ok"], true,
+        "init must seed a store that holds no corpus yet: {seeded}"
+    );
+
+    // And the guard still bites once a corpus is actually there.
+    let again = send(&frame("2"), &mut sessions, &mut store);
+    assert_eq!(
+        again["ok"], false,
+        "init into a seeded store refuses: {again}"
+    );
+    assert_eq!(again["error"]["code"], "schema-violation");
+    assert!(
+        again["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("already holds a corpus")),
+        "the refusal names the reason: {again}"
+    );
+}
+
+/// **The store's round-trip invariant: a corpus renders back as the document
+/// that was authored** — no clause invented, no clause dropped, no scope header
+/// the author did not write.
+///
+/// The comparison is against the *canonical formatting* of the authored text
+/// rather than its literal bytes, because the store round-trips through the one
+/// formatter by design (koan 7) and that formatter aligns provenance into a
+/// column: `keeps(the-king, camelot)   proposed` is the canonical spelling of
+/// `keeps(the-king, camelot) proposed`. Comparing to raw input would fail on
+/// whitespace the engine is entitled to normalize and say nothing about
+/// provenance, which is what is actually under test. This is table-driven over the shapes that differ *structurally*
+/// inside the store, because the bug this pins was invisible to every shape but
+/// one.
+///
+/// What it caught, and why the earlier suite did not: `reconstruct_pack` derives
+/// both the proposal-bundle prefix (`h.<name>#N`) and the scope header it
+/// re-emits from the commit's recorded **pack name**, while the lowering walk and
+/// the compiled model mint that bundle under the document's **scope**. Those two
+/// agree only when the committed name happens to equal the scope — which is
+/// exactly the one shape every committed fixture uses. Everywhere else the
+/// prefix missed, the bundle fell through to the *tag* branch, and `proposed`
+/// came back as `proposed #0` under an invented scope: fabricated provenance on
+/// the served world and on the consumer-facing rendered export.
+///
+/// Two blind spots stacked. A *carried* declaration (one with a label, so
+/// `carriage_kind` is `Some`) replays from its stored carriage JSON and never
+/// reaches the polynomial-to-annotation path at all, so it cannot show the
+/// defect — and a carried entity was what the first round-trip test used. Hence
+/// the bare Fact/Attr/Entity rows below: they are the ones that go through the
+/// reconstruction that was wrong.
+#[cfg(feature = "syntax")]
+#[test]
+fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
+    // (case, document id, authored text). The expectation is the authored text
+    // put through the canonical formatter — see the note above.
+    let cases: &[(&str, &str, &str)] = &[
+        // Bare declarations: `carriage_kind` is `None`, so these reconstruct
+        // from the support polynomial — the path that fabricated the tag.
+        ("bare fact", "tpth", "keeps(the-lake, excalibur) proposed\n"),
+        ("bare attr", "tpth", "home(gwern, the-shallows) proposed\n"),
+        // A carried declaration, kept as the control: it replays from carriage
+        // and so must be unaffected either way.
+        (
+            "carried entity",
+            "tpth",
+            "person gwern \"Gwern\" proposed\n",
+        ),
+        // Scoped, and scoped under a document id that differs from the scope —
+        // a configuration DM-3 explicitly supports, and the shape that proved
+        // the defect was never really about scope-less-ness.
+        (
+            "scoped, id == scope",
+            "tpth",
+            "scope tpth\n\nkeeps(the-lake, excalibur) proposed\n",
+        ),
+        (
+            "scoped, id != scope",
+            "beta",
+            "scope tpth\n\nkeeps(the-lake, excalibur) proposed\n",
+        ),
+        // Several proposals: one bundle would not catch a counter that failed
+        // to advance, or two bundles collapsing onto one gate.
+        (
+            "two bare proposals",
+            "tpth",
+            "keeps(the-lake, excalibur) proposed\nkeeps(the-king, camelot) proposed\n",
+        ),
+        // A named origin tag is a real tag — it must survive as one, which is
+        // the negative control for the invented-tag bug.
+        (
+            "explicit origin tag",
+            "tpth",
+            "keeps(the-lake, excalibur) proposed session-7\n",
+        ),
+    ];
+
+    for (case, document, authored) in cases {
+        let root = temp(&format!(
+            "roundtrip-{}",
+            case.replace(|c: char| !c.is_alphanumeric(), "-")
+        ));
+        dli_lorestore::Lorestore::open(root.join("store")).expect("open an empty store");
+        write_manifest(
+            &root,
+            &format!("[documents.{document}]\nstore = \"store\"\n"),
+        );
+
+        let load = |root: &Path| {
+            let project = Project::load(root).expect("the store-backed project loads");
+            (
+                dli_serve::session::Sessions::from_project(std::sync::Arc::new(project)),
+                dli_serve::author::store::Store::default(),
+            )
+        };
+
+        let (mut sessions, mut store) = load(&root);
+        let imported = send(
+            &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+                "document": document, "mode":"append",
+                "dli_documents":[{"id": document, "text": authored}]}}),
+            &mut sessions,
+            &mut store,
+        );
+        assert_eq!(imported["ok"], true, "{case}: import: {imported}");
+
+        // Reload from disk — a fresh process sees exactly this — then render.
+        let (mut sessions, mut store) = load(&root);
+        let exported = send(
+            &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export","params":{
+                "document": document, "format":"rendered"}}),
+            &mut sessions,
+            &mut store,
+        );
+        assert_eq!(exported["ok"], true, "{case}: export: {exported}");
+        let rendered = exported["result"]["rendered"][0]
+            .as_str()
+            .unwrap_or_else(|| panic!("{case}: rendered export: {exported}"));
+        let (parsed, diagnostics) = dli_syntax::parse_document(authored);
+        assert!(
+            diagnostics.iter().all(|d| !d.class.is_error()),
+            "{case}: the authored text parses: {diagnostics:?}"
+        );
+        let canonical = dli_syntax::format_document(&parsed);
+        assert_eq!(
+            rendered, canonical,
+            "{case}: the corpus did not render back as it was authored"
+        );
+    }
+}

@@ -111,6 +111,28 @@ fn claim_for_decl(kind: ExpertDeclKind, name: &str) -> ClaimId {
     ClaimId::from_label(&format!("decl:{kind:?}:{name}"))
 }
 
+/// The claim id a stored object **must** carry, re-derived from the object
+/// itself — the check side of the two minting functions above.
+///
+/// A `ClaimId` is a claim *identity*, minted by [`ClaimId::from_label`] from
+/// addressing metadata, and deliberately not a content hash of the fact
+/// (`identity.rs`). That makes it the one field of an imported object that
+/// nothing else can vouch for: the object's own content hash covers the bytes a
+/// caller sent, so a wrong id hashes to a perfectly valid object and travels as
+/// truth. Re-deriving it here is what lets the import refuse one.
+///
+/// The label is exactly what the write paths mint: `decl:<Kind>:<name>` for a
+/// carried declaration, `atom:<pred>(<args>)` for a bare fact. Both live beside
+/// the minting functions on purpose — a checker that restated the format would
+/// eventually disagree with it, and then the check would be the bug.
+#[must_use]
+pub fn expected_claim_id(object: &FactObject) -> ClaimId {
+    match &object.expert_body {
+        Some(body) => claim_for_decl(body.kind, &body.name),
+        None => claim_for(&object.atom),
+    }
+}
+
 // ── declaration carriage ───────────────────────────────────────────────
 
 /// Which declarations are carried whole (audit A2, DL-0045 ruling 5):
@@ -1128,8 +1150,8 @@ pub fn reconstruct_pack(
 }
 
 /// Lower a whole pack per-declaration, in document order — the store's write
-/// path. Uses each document's scope-header name (falling back to the pack
-/// name) for proposal-bundle minting, exactly as the loader does. Returns the
+/// path. Uses each document's scope-header name — falling back to the **empty**
+/// name, exactly as the loader does — for proposal-bundle minting. Returns the
 /// lowered objects and the interner name table the walk built; callers refuse
 /// the result when that table diverges from the compiled model's (loud
 /// totality — the walk must track the loader or the pack does not import).
@@ -1142,10 +1164,19 @@ pub fn lower_pack(pack: &Pack) -> (Vec<FactObject>, Vec<String>) {
     let mut bundle_counter = 0u32;
     let mut objects: Vec<FactObject> = Vec::new();
     for doc in &pack.documents {
-        let scope_name = doc
-            .scope
-            .as_ref()
-            .map_or(pack.name.as_str(), |s| s.name.text.as_str());
+        // A document with no `scope` header belongs to the **empty** pack, not
+        // to the store's pack name. That is the loader's own rule
+        // (`dli_world::loader::Loader::load` falls back to `String::new()`),
+        // and this walk exists to track the loader exactly — where the two
+        // disagree the store refuses the import as `LoweringDiverged`.
+        //
+        // Falling back to `pack.name` here is what made
+        // `dli.corpus.import { dli_documents }` refuse **every** scope-less
+        // corpus: the walk minted `h.<pack>#0` while the compiled model minted
+        // `h.#0`, diverging at index 0 on the first proposal. It went unnoticed
+        // because every committed fixture writes a `scope` header, where the
+        // two agree, and because an empty document mints no bundle at all.
+        let scope_name = doc.scope.as_ref().map_or("", |s| s.name.text.as_str());
         for decl in &doc.decls {
             objects.extend(lower_decl(
                 decl,

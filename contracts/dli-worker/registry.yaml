@@ -131,6 +131,8 @@ fixtures:
   sha256: acc168f2874c1e60b3bba502f76136c2a06fb929dd1e7f27c4eea9d81aa863a1
 - path: golden/corpus-export-v1.json
   sha256: d3cb7810d4813a02a0a5981fe637cac58c898ca0db2f2d7387b3e2345473e5a4
+- path: golden/corpus-import-claim-id-frozen-1-2-0-v1.json
+  sha256: bdc12bb9682e8778a9c3a9b7c1a44ce99e49f91543b3cfc19e1294f4192c831c
 - path: golden/corpus-import-v1.json
   sha256: 103b5e4edb18d0b2afd07f3c4d4fe69bee4f212c1ed59cb2e7c4cd48395d22aa
 - path: golden/export-ludii-v1.json
@@ -269,6 +271,8 @@ fixtures:
   sha256: 6f8c2e3320dd8c5d4b6c364f2099f65ee901273348df621129a02273e3b6dd13
 - path: negative/corpus-import-interner-regression.json
   sha256: ba0bbe3d61e54f1e46d3556f0f6a558eba28c5349f6c25b1d699df7e4aebee85
+- path: negative/corpus-import-mislabelled-claim-id.json
+  sha256: 4befd36b2e7ef2cd93718728cfdb493e79fe10d25c6d541e16a717a665a45ee6
 - path: negative/corpus-import-missing-interner.json
   sha256: 03092b6e7d7c4a88b595440349f22a66fb33c2775dcc18fcdbfc1dfe05acb6e4
 - path: negative/export-run-schema-violation.json
