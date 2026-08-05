@@ -84,7 +84,7 @@ Phases P0–P7. Deloreis milestones DM-1..DM-6; consumer milestones FW-1..FW-10
 | P2 Wire + EXT-F4 | verify the posted transcript; CP-10 → `verified` | 1.0 wire jump; EXT-F4 transcript at 0.5.1 terms | SP-6: EXT-F4 done; LS-8 unblocks |
 | P3 Store serving | DM-2 loader + `SCHEMA_VERSION` 3; DM-3 corpus ops + rendered loud-refusal; tag `contract/1.1.0` | pack-emitter prep, mapping tables | SP-2/SP-3: tag 1.1.0 |
 | P4 Corpus pivot | support/verify | corpus to a committed lorestore; §5 dual-run; serving flip to the default build | consumer corpus store-served |
-| P5 Authoring | DM-4 wave-1 + tier-2 expert tools; authority-scrub code; SKILL rewrite; tag `contract/1.2.0` | MCP authoring adoption; staged data expansion | SP-4: tag 1.2.0 |
+| P5 Authoring | DM-4 wave-1 + tier-2 expert tools; authority-scrub code; SKILL rewrite; tag `contract/1.3.0` | MCP authoring adoption; staged data expansion | SP-4: tag 1.3.0 |
 | P6 Validator (concurrent from P1) | DM-5 governance home + detection corpus | shadow-validate harness; §5 accrual; CI flip to `validate-repo` | SP-4v: corpus + mapping table |
 | P7 Closeout | DM-6: 1.x parity capture; version retirement; contract `2.0.0`; STATUS closed | authorship flip; legacy deletion | SP-5 → SP-7: final re-vendor |
 
@@ -182,7 +182,7 @@ store on a default build → export returns object-identical facts. Tag
 `contract/1.1.0` (bundling DM-2 in the tagged tree).
 Ledger: DL-0056 (corpus exchange + loud-refusal rule).
 
-### DM-4 — Expert authoring wave 1 + tier 2, and the scrub code (contract 1.2.0)
+### DM-4 — Expert authoring wave 1 + tier 2, and the scrub code (contract 1.3.0)
 
 Tool scope per the author's tier ruling (2026-08-04):
 
@@ -215,10 +215,10 @@ Tool scope per the author's tier ruling (2026-08-04):
 Exit: gate green; version echo `1.2.0`; three fixtures per new tool replay
 cold; a scenario test stages dialect + name-part + name + banned via tools,
 materializes, reloads, and the language model sees them; 0.x parity green.
-Tag `contract/1.2.0`.
-Ledger: the next free id at landing time (wave-1/tier-2 tools + scrub
-implementation + tier re-scoping). DL-0057 went to DM-5, which reached the
-ledger first.
+Tag `contract/1.3.0`.
+**Landed as DL-0058** at contract `1.3.0`: DL-0057 went to DM-5, which reached
+the ledger first, and the minor moved with it — the `1.2.0` this section
+originally provisioned had already gone to DM-3's corpus exchange.
 
 ### DM-5 — Validator governance, detection corpus, parity support (concurrent)
 
@@ -444,6 +444,25 @@ red**, re-run whenever the harness changes.
     loops, delegation to deleted scripts) → seed-and-expect-red probes before
     any harness output counts as evidence; a harness self-test lands with
     every harness change.
+
+## 8b. Deferred hardening (found in review, scoped out deliberately)
+
+Neither item blocks a phase. Both are recorded here rather than in a review
+thread so they are picked up on purpose instead of rediscovered.
+
+1. **V8 validator body-relative line numbers.** The repository validator's V8
+   findings carry a line number that is not body-relative, so a consumer harness
+   comparing `{path, line, code}` against the legacy checker sees an offset
+   disagreement that is not a real divergence. Its own PR, and **before FW-9 pins
+   the finding shape** — once a consumer pins it, changing the line basis becomes
+   a breaking change to the compatibility promise rather than a fix.
+2. **Finding-message sanitization of raw caller text.** Pre-existing, not
+   introduced by the authoring tools: a finding message can echo caller-supplied
+   text verbatim. It is **materialize-barred** — such a finding is error-severity,
+   so nothing carrying it reaches a commit — and the message is a separate channel
+   from the staged declarations, so this is a presentation concern, not a lore
+   integrity one. Scoped as its own follow-up rather than folded into a tool PR,
+   because the fix is a rendering rule across every finding constructor.
 
 ## 9. Honest unknowns (resolve at the named phase, record in the landing DL)
 

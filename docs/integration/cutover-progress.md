@@ -72,8 +72,49 @@ The three rows stop at `provided` by the ladder rule. `acknowledged` requires
 the consumer's vendored SHA and digest-check output; `verified` requires their
 replay artifact. Neither is evidence deloreis can produce.
 
+## Stages 2–4 — the serving stack, tagged (cleared)
+
+The deloreis half of the pivot is delivered. Four contract minors, each tagged on
+a tree whose vendored contract doc describes the surface it serves.
+
+| Landed | Contract | Ledger | What |
+|---|---|---|---|
+| deloreis #29 | `1.1.0` | DL-0055 | DM-2: the lorestore-backed project loader and storage `SCHEMA_VERSION` 3 — a store-backed project loads, compiles and serves with no parser linked |
+| deloreis #30 (`33e6d20`) | `1.2.0` | DL-0056 | DM-3: `dli.corpus.import`/`export`, the rendered loud-refusal, and the append-path hardening |
+| deloreis #31 (`cd5adf5`) | — | — | the vendored contract doc to 1.2.0 truth, cut before the tag so the tagged tree agrees with itself |
+| deloreis #32 | — | DL-0057 | DM-5: validator governance — the PLAN node, the design note with the finding-shape promise, and the V1–V12 detection corpus |
+| deloreis #33 (`4146b3c`) | `1.3.0` | DL-0058 | DM-4: seven expert authoring tools (50 → 57 operations) and the authority scrub |
+
+Tags: `contract/1.0.0` at `76888052`, `contract/1.2.0` at `cd5adf52`. **SP-2/SP-3
+delivered** at 1.2.0 — the corpus exchange the consumer's pivot walks through.
+**SP-4 delivered** at 1.3.0 — the authoring tools and the scrub. The deloreis
+ledger is free; no `DL` entry is in flight.
+
+**What DM-3 cost, recorded because it is the campaign's most expensive lesson.**
+The corpus round trip shipped in a state where exporting fact objects and
+re-importing them was not lossless *and did not fail*: a corpus reading
+`person wren decided d-1` came back `proposed assumes __decl`, with `ok: true`
+and byte-identical objects. Four adversarial rounds found four instances of one
+class — a guard placed above the layer that needed it. The three fields a commit
+can use to rewrite what its ancestors mean (interner, decision set, pack name)
+are now checked at the single seam every write path funnels through, and both
+write paths preserve the committed scope rather than relying on the refusal.
+
+## Stage 3 — the consumer on the contract (cleared)
+
+- **FW-3**: the consumer's real-binary CI lane runs against a build at a pinned
+  tag. **CP-1 acknowledged**; **CP-9 demonstrated**.
+- **FW-4**: the bridge speaks the vendored contract on the 1.0 wire.
+- **FW-5**: **EXT-F4 complete.** The consumer ran the worked scenario against the
+  tagged build and posted the transcript; it is byte-parity verified against the
+  deloreis-owned AUTH-2 fixture (fantasy `e4a51fa2`). **CP-10 → `verified`** on
+  the STATUS board, acknowledged and verified together with both recorded in the
+  evidence cell.
+
 ## In progress
 
-- **FW-1** (fantasy) — pin consolidation on the consumer side.
-- **DM-2** (deloreis) — the lorestore-backed project loader and
-  `SCHEMA_VERSION` 2 → 3, which must land before any consumer store exists.
+- **FW-6** (fantasy) — the corpus pivot: the canon corpus becomes a committed
+  lorestore, served by a default JSON-native build. This is what `contract/1.2.0`
+  was cut for.
+- **DM-6** (deloreis) — the post-EXT-F4 retirement to `2.0.0`, gated on the
+  consumer confirming nothing production-side pins a `0.x` version.

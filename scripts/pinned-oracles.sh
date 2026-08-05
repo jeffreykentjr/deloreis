@@ -18,8 +18,11 @@
 #   the source repo's OBJECT STORE — never from its working tree. The fantasy
 #   tree is a shared live checkout that other agents dirty; archiving from the
 #   committed object at the pinned SHA is what makes this reproducible. The
-#   pinned SHA is the same one recorded in
-#   worlds/tpth/vendor/fantasy-40f6679/MANIFEST.txt and docs/design-notes/vendored-corpus.md.
+#   pinned SHA is the one recorded in
+#   worlds/tpth/vendor/fantasy-40f6679-craft/MANIFEST.txt. Note the two vendored
+#   artifacts sit at DIFFERENT pins: the craft sidecar this script defaults to is
+#   40f6679, while the corpus snapshot (fantasy-099e04cd/) is 099e04cd — see
+#   docs/design-notes/vendored-corpus.md.
 #
 # SUBCOMMANDS
 #   provision            Materialize + `uv sync` the pinned checkout (idempotent).
