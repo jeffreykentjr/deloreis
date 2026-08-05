@@ -126,7 +126,14 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorFindings
         | Op::AuthorListWorkspaces
         | Op::AuthorBranch
-        | Op::AuthorMerge => Err((
+        | Op::AuthorMerge
+        | Op::AuthorAddDialect
+        | Op::AuthorAddNamePart
+        | Op::AuthorAddName
+        | Op::AuthorAddTerm
+        | Op::AuthorAddBanned
+        | Op::AuthorAddState
+        | Op::AuthorAddAttest => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1941,22 +1948,29 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
 }
 
 /// The wire op names this build implements at the negotiated contract version.
-/// Ops added in `0.6.1` (the branch/merge surface) are omitted for a `0.5.1` or
-/// `0.6.0` handshake, so an older negotiation's capability list — and the golden
-/// fixture recording it — stays byte-identical. Every version at or beyond
-/// `0.6.1` (through the current `1.0.0`) advertises them, so the capability is
-/// gated on the version, not on being the newest build.
+///
+/// Each tier is gated on the negotiated version, **never** on being the newest
+/// build: that is what keeps an older caller's capability list — and the golden
+/// fixture recording it — byte-identical when a new tier lands (audit C4), and
+/// what lets a newer version inherit every earlier tier instead of resetting the
+/// list to whatever the build happens to be.
+///
+/// Each gate is a **floor** ([`crate::has_corpus_ops`] and friends), not an
+/// equality against the newest version. The distinction is load-bearing rather
+/// than stylistic: this function previously read `matches!(dli, "1.2.0")` for
+/// the corpus tier, which was correct only while `1.2.0` *was* the newest, and
+/// would have silently dropped both corpus ops from a `1.3.0` caller's list the
+/// moment DM-4 extended the accepted set.
 fn capabilities(dli: &str) -> Vec<String> {
-    let has_branch_merge = !matches!(dli, "0.5.1" | "0.6.0");
-    // The corpus ops arrived at `1.2.0`. Gating on the negotiated version — not
-    // on being the newest build — is what keeps an older caller's capability
-    // list, and the golden fixture recording it, byte-identical (audit C4).
-    let has_corpus = matches!(dli, "1.2.0");
+    let branch_merge = crate::has_branch_merge(dli);
+    let corpus = crate::has_corpus_ops(dli);
+    let expert_authoring = crate::has_expert_authoring(dli);
     Op::ALL
         .iter()
         .copied()
-        .filter(|op| has_branch_merge || !op.added_in_0_6_1())
-        .filter(|op| has_corpus || !op.added_in_1_2_0())
+        .filter(|op| branch_merge || !op.added_in_0_6_1())
+        .filter(|op| corpus || !op.added_in_1_2_0())
+        .filter(|op| expert_authoring || !op.added_in_1_3_0())
         .map(wire_name)
         .collect()
 }

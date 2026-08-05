@@ -1,8 +1,8 @@
 ---
 name: deloreis
-description: Author De Lore Is (.dli) lore through the tool surface — the deloreis server's author.* tools — by naming intents and reading the graded findings each call returns. You never write .dli by hand; you self-check with the read tools before you materialize; nothing you supply mints canon.
+description: Author De Lore Is (.dli) lore through the tool surface — the deloreis server's author.* tools — by naming intents and reading the graded findings each call returns. You never write .dli by hand; you self-check with the read tools before you materialize; you supply attribution and decision state, and the engine records them and verifies every citation resolves.
 status: live
-verdict: "The v0 authoring manual: author through tools, self-check before materialize, read the graded feedback, obey provenance discipline; raw .dli editing is a measured fallback and the gentle card is for reading your own rendered diffs."
+verdict: "The v0 authoring manual: author through tools, self-check before materialize, read the graded feedback, obey provenance discipline — attribution is data you supply and citations are verified, not gated on who you are (DL-0054/DL-0058); raw .dli editing is a measured fallback and the gentle card is for reading your own rendered diffs."
 ---
 
 # Skill: authoring De Lore Is through the tool surface
@@ -18,17 +18,36 @@ everything below, and they never bend:
    the world model, checks it, and renders it back. You do not type `.dli`
    surface, and you do not touch the AST. Hand-editing `.dli` is a *measured
    fallback* (§8), not a supported interface.
-2. **Nothing you supply mints authority.** Every claim you add enters `proposed`
-   or is `hypothesis`-scoped. A ruling — the act that makes a claim *true* — lives
-   in the consuming repo's decision ledger and is a **human** act in review. You
-   propose; the author confirms.
-3. **You cannot cite.** The `cited` provenance form is human-only (B1). A
-   `cited` provenance handed to any `author.*` tool is **refused** with the
-   `provenance.cited-refused` finding — nothing is staged. Resubmit as `proposed`.
+2. **You supply attribution and decision state; the engine records them.** Every
+   mutating call carries a provenance, and the engine writes down what you state
+   rather than deciding what you are allowed to state. It does not ask who you
+   are or whether you are entitled to a ruling: **every caller of this engine is
+   a machine**, so a question about *who may rule* is a question about the
+   consuming application's review pipeline, and it is answered there (DL-0054).
+3. **The engine verifies what it can check: that a cited decision exists.** This
+   is the one half of authority it keeps, and it is fail-closed. A `cited`
+   provenance names decision ids in the consuming repo's ledger; each is checked
+   against the decisions the corpus declares. An id that does not resolve draws
+   `citation.unknown-decision` at **error** severity, which bars materialize, and
+   the claim resting on it can never read `certain` — the engine leaves an
+   unknown decision's variable open rather than believing you. So: cite a real
+   ruling when a human made one, and **the engine will not invent one for you**.
+   A human ruling reaches canon the ordinary way — you cite the ledger id that
+   recorded it.
 4. **The compile is the oracle, and it outranks this file.** The findings a tool
    returns are the authority on whether your lore is well-formed and consistent.
    If a finding disagrees with anything written here, the finding is right and
    this file is stale.
+
+> **A version note, because the rule above reversed one.** Rules 2 and 3 hold
+> from **contract 1.3.0** (DL-0058). Before it, the engine refused every `cited`
+> provenance outright with `provenance.cited-refused` and staged nothing — it had
+> encoded "only a human mints citations" as a wire refusal, which never
+> distinguished a human's decision from an agent's and taught agents to route
+> human rulings *around* the provenance system instead of through it. Every wire
+> below 1.3.0 still serves that refusal, byte for byte, permanently. If you get
+> `provenance.cited-refused`, you are speaking an older contract: negotiate
+> 1.3.0 or above, or resubmit as `proposed`.
 
 You never need to read Rust or write `.dli` to author or self-check a world. The
 tools and their responses tell you everything: what you staged, what is wrong,
@@ -72,7 +91,7 @@ in its params.
   view for a human reviewer. The canonical result is the structured JSON above
   (findings plus the staged fact objects / rows and the digest); `rendered` is
   returned only when asked (`rendered: true`, from contract 0.6.0 / DL-0046;
-  the served contract is 1.0.0) and is **empty on a build with no formatter
+  the served contract is 1.3.0) and is **empty on a build with no formatter
   linked** — the default build links none
   (LS-7). It is never the authoring surface: you propose through the typed tool
   params, not by writing these lines.
@@ -82,23 +101,29 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 19 tools you author with)
+## 2. The tool surface (the 26 tools you author with)
 
-The contract's §3.2 table lists 21: it also carries `author.branch` and
+The contract's §3.2 table lists 28: it also carries `author.branch` and
 `author.merge`, which manage durable branches rather than stage lore, and are
 not part of the authoring loop below.
 
-**The twelve mutating tools** (each returns `{findings, workspace_digest}`, plus
-`rendered` when you ask for it) and **two read-only state ops** (status, diff).
-`author.materialize` is a mutation — it is the accept decision, and
-`author.discard` is the reject:
+**The nineteen mutating tools** (each returns `{findings, workspace_digest}`,
+plus `rendered` when you ask for it) and **two read-only state ops** (status,
+diff). `author.materialize` is a mutation — it is the accept decision, and
+`author.discard` is the reject.
+
+The **core nine** (`add_entity` … `suppose`) cover people, places, things,
+eras, their attributes, relations, chronology, and tracked debt — most authoring
+never leaves them. The **expert seven** below them are the language and
+continuity lane, available from **contract 1.3.0** (DL-0058); ask
+`dli.version` if you are unsure what your negotiated wire carries.
 
 | Tool | Intent |
 |---|---|
 | `author.open` | Open a workspace: `{scope}` to stage over a scope, `{fork}` for fork-scoped exploration. |
-| `author.status` | The staged declarations + current digest (read-only). |
+| `author.status` | The staged declarations + current digest (read-only). From 1.3.0 it also returns `staged`: one row per staged declaration with its structural `key`, its `kind`, and its rendered line where a formatter exists. That key is what `author.discard` takes. The key is a digest of the declaration's content, so it holds within a contract version — re-read `author.status` after negotiating a new one rather than carrying keys across. |
 | `author.diff` | The full rendered block of everything staged (read-only). |
-| `author.discard` | Drop one staged declaration (by its rendered line) or the whole workspace. |
+| `author.discard` | Drop one staged declaration or the whole workspace. From 1.3.0 a declaration is named by the **structural key** `author.status` lists for it (`jcs:sha256:…`), which exists on every build; below 1.3.0 it is named by its rendered `.dli` line, which a build with no formatter cannot produce — there, that form refuses by name. |
 | `author.materialize` | Commit the staged fact objects to the lorestore and return them as JSON (`facts` + `root_hash`); `.dli` rendering is the `rendered: true` opt-in (DL-0046). Refuses if any error-severity finding is open. |
 | `author.add_entity` | Add a `person` / `place` / `thing` / `era`. Provenance required. |
 | `author.add_fact` | Set `entity.key = value`. Provenance required. |
@@ -109,6 +134,13 @@ not part of the authoring loop below.
 | `author.add_option` | Add an option `{question, id, label}` to a question already open here. |
 | `author.add_hypothesis` | Mint a hyp variable `{id, statement}` — fork workspaces only, one per bundle. |
 | `author.suppose` | Pin staged hypotheses true `{hypotheses:[…]}` and read the consequence shift. |
+| `author.add_dialect` | **1.3.0.** Declare a naming register `{id, label?, body[]}` — its vowels, endings, foreign clusters, cluster/sayability ceilings, stress rule, and `name-kind` slot grammars. `body` is the typed interior; you send the items, not clause text. Provenance required. |
+| `author.add_name_part` | **1.3.0.** Declare a morpheme `{id, gloss?, head[]}` — the raw material composed names draw on. `head` carries the role tokens, e.g. `["role","given-proto"]`. Provenance required. |
+| `author.add_name` | **1.3.0.** Compose a name `{id, label?, head[], composition[], bearer?}` from morphemes, optionally binding it to the entity that bears it. Each composition step is `{role, morpheme}`. Provenance required. |
+| `author.add_term` | **1.3.0.** Introduce a glossary term `{id, label?}`. Provenance required. |
+| `author.add_banned` | **1.3.0.** Ban a word `{word, reason?}` from the lore surface. Provenance required. |
+| `author.add_state` | **1.3.0.** Assert a time-varying fluent `{id, value?, time?}` — a state that holds over an interval, not forever. `id` may be dotted (`lancelot.oath-status`), and the subject before the dot must be a known entity. `time` is `{kind: after\|during\|since\|until, point}`. Provenance required. |
+| `author.add_attest` | **1.3.0.** Request an attestation `{question}` against a question already open in this workspace. Provenance required. |
 
 **The five self-check read tools** let you interrogate the staged world *before*
 you materialize (§4). All are read-only and mutate nothing; each names a workspace
@@ -161,11 +193,15 @@ does not match the workspace's current state, the call is refused with
 view was stale; re-read before continuing.
 
 **Errors vs. findings — two different channels.** A malformed call (bad enum,
-missing field, unknown field, a `cited` provenance, a stale fence) is refused
-*whole* as a typed **wire error** (`schema-violation`, `stale-fence`,
-`materialize-blocked`, `unknown-doc`, …) and **stages nothing**. An
-**error-severity finding** is different: it stages the claim but bars materialize.
-Neither ever drops your input silently.
+missing field, unknown field, a stale fence) is refused *whole* as a typed **wire
+error** (`schema-violation`, `stale-fence`, `materialize-blocked`,
+`unknown-doc`, …) and **stages nothing**. An **error-severity finding** is
+different: it stages the claim but bars materialize. Neither ever drops your
+input silently.
+
+An unresolvable citation is deliberately the *second* kind, not the first: the
+claim stages so you can see it in the diff and repair the id, and
+`citation.unknown-decision` bars materialize until you do.
 
 ## 4. Self-check BEFORE you materialize
 
@@ -212,8 +248,16 @@ You never have to guess or reach outside the tool surface:
 
 ## 6. Provenance discipline
 
-- **Everything you add enters `proposed` or is `hypothesis`-scoped**, carrying
-  your session origin. Only the author's ruling makes a thing true.
+- **Default to `proposed`, carrying your session origin.** A claim you are
+  making on your own authority is a proposal, and a proposal reads `possible`,
+  never `certain`, until a ruling lands. `hypothesis`-scoped is the fork-local
+  form for exploration.
+- **Cite only a ruling that exists.** `cited` is for cascading a decision the
+  consuming repo's ledger already records — you name its id, and the engine
+  records the attribution and checks the id resolves. It is not a way to make
+  your own claim true: an id the corpus does not declare is refused
+  (`citation.unknown-decision`), and inventing one is the single thing this
+  interface is built to catch.
 - **A rename is a supersession, never an in-place edit.** The new name is ruled
   in; the old name dies into lineage and the killed-form registry, with every
   claim's history intact. There is no edit that changes the past quietly.
@@ -271,9 +315,13 @@ request and response — is `docs/cards/authoring-loop.md`.
 
 ## 8. The expert tier and the measured fallback
 
-- **Expert tier.** Rules, forks with suppositions, cycles, practices (magic
-  systems), proofs, dialects, and attestations are a second reference card
-  (`docs/cards/expert-card.md`) and their lane specs under `docs/spec/`. Fork
+- **Expert tier.** The language lane (dialects, name-parts, names, terms, bans)
+  and the continuity/ledger pair (states, attestations) have tools from contract
+  1.3.0 — they are in the §2 table, and you author them the same way as
+  everything else. Rules, cycles, practices (magic systems), and proofs do
+  **not** have tools yet: they are deliberately parked until a consumer needs
+  them (DL-0058), so for those the reference is the expert card
+  (`docs/cards/expert-card.md`) and the lane specs under `docs/spec/`. Fork
   authoring uses `author.open {fork}`, `author.add_hypothesis`, and
   `author.suppose`; read the consequence shift in `author.diff`.
 - **Raw `.dli` editing is a measured fallback**, not a supported interface. It meets the same

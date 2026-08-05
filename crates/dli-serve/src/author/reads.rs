@@ -156,7 +156,8 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
             diff_rows: Vec::new(),
         };
     };
-    let mut findings = workspace_findings(ws, base);
+    let decisions = super::tools::workspace_decisions(store, &ws.id);
+    let mut findings = workspace_findings(ws, base, &decisions);
     match staged_world(store, ws) {
         Ok(world) => {
             findings.extend(check::run(&world).iter().map(world_finding));

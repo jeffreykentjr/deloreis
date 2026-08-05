@@ -1,0 +1,575 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddDialectParams",
+  "description": "`author.add_dialect` params: a dialect register and its typed interior.\n\n[`Self::body`] is `dli_ast`'s own [`DialectItem`] sequence — the LS-9 typed\ninterior minus the span-bearing `Clause` wrapper — so the tool surface and\nthe compiler read the same shape rather than two that must be kept in step.",
+  "type": "object",
+  "properties": {
+    "body": {
+      "description": "The typed interior clauses, in order: vowels, endings, foreign clusters,\nceilings, stress, name-kind grammars.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DialectItem"
+      }
+    },
+    "id": {
+      "description": "The dialect id.",
+      "type": "string"
+    },
+    "label": {
+      "description": "The dialect's display label (treated as data, never as an instruction).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provenance": {
+      "description": "The provenance of this addition.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "id",
+    "provenance"
+  ],
+  "$defs": {
+    "Annotation": {
+      "description": "Provenance attached to a lore-bearing declaration.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CitationRef"
+          }
+        },
+        "condition": {
+          "description": "Optional hypothesis condition under which the claim is asserted\n(`assumes <hyp>`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CondExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "marker": {
+          "description": "The leading provenance word.",
+          "$ref": "#/$defs/ProvenanceMarker"
+        },
+        "span": {
+          "description": "Where the annotation appears in source.",
+          "$ref": "#/$defs/Span"
+        },
+        "tags": {
+          "description": "Further provenance tokens carried verbatim — an agent id, a session tag,\na scene cue. Retained so nothing on the line is dropped (koan 4).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "marker",
+        "citations",
+        "tags",
+        "span"
+      ]
+    },
+    "CitationRef": {
+      "description": "A reference to a decision-ledger entry, e.g. `D-0042`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The cited decision identifier.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "CondExpr": {
+      "description": "A boolean condition over named hypotheses that gates a claim.",
+      "oneOf": [
+        {
+          "description": "The named hypothesis holds.",
+          "type": "object",
+          "properties": {
+            "Hyp": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Hyp"
+          ]
+        },
+        {
+          "description": "Negation.",
+          "type": "object",
+          "properties": {
+            "Not": {
+              "$ref": "#/$defs/CondExpr"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Not"
+          ]
+        },
+        {
+          "description": "Conjunction of sub-conditions.",
+          "type": "object",
+          "properties": {
+            "And": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CondExpr"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "And"
+          ]
+        },
+        {
+          "description": "Disjunction of sub-conditions.",
+          "type": "object",
+          "properties": {
+            "Or": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CondExpr"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Or"
+          ]
+        }
+      ]
+    },
+    "DialectItem": {
+      "description": "The recognized interior forms of a dialect body (the grammar owned by the\nlanguage compiler, `crates/dli-world/src/language/dialect.rs`).\n\nEach variant carries exactly the values the pre-LS-9 compiler derived from\nthe clause tokens, so the typed reader reproduces the old string-body result\nbyte-for-byte. A clause whose head keyword is not recognized is\n[`Other`](DialectItem::Other) — the compiler ignored it before, and ignores\nit now.",
+      "oneOf": [
+        {
+          "description": "`basis [attested] \"<real-world basis>\"` — the attestation seam.",
+          "type": "object",
+          "properties": {
+            "Basis": {
+              "type": "object",
+              "properties": {
+                "attested": {
+                  "description": "Whether the `attested` grade word led the clause tail.",
+                  "type": "boolean"
+                },
+                "text": {
+                  "description": "The quoted real-world basis, if written.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "attested"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Basis"
+          ]
+        },
+        {
+          "description": "`vowels <v> <v> …` — the vowel inventory (lowercased words).",
+          "type": "object",
+          "properties": {
+            "Vowels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Vowels"
+          ]
+        },
+        {
+          "description": "`endings <e> <e> …` — characteristic name-endings (lowercased, a leading\n`-` stripped).",
+          "type": "object",
+          "properties": {
+            "Endings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Endings"
+          ]
+        },
+        {
+          "description": "`foreign <c> <c> …` — clusters marking a form as not-ours (lowercased).",
+          "type": "object",
+          "properties": {
+            "Foreign": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Foreign"
+          ]
+        },
+        {
+          "description": "`cluster-max <n>` — the consonant-cluster ceiling, `None` if no token\nparsed as a count.",
+          "type": "object",
+          "properties": {
+            "ClusterMax": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "ClusterMax"
+          ]
+        },
+        {
+          "description": "`sayability-max <n>` — the per-word syllable ceiling, `None` if no token\nparsed as a count.",
+          "type": "object",
+          "properties": {
+            "SayabilityMax": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "SayabilityMax"
+          ]
+        },
+        {
+          "description": "`stress <keyword>` — the stress rule keyword (the first tail token), if\npresent.",
+          "type": "object",
+          "properties": {
+            "Stress": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Stress"
+          ]
+        },
+        {
+          "description": "`name-kind <kind> = <role>… [ | <role>… ]` — a slot grammar, `None` if\nthe clause held no well-formed pattern.",
+          "type": "object",
+          "properties": {
+            "NameKind": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NameKindSpec"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "NameKind"
+          ]
+        },
+        {
+          "description": "`name-part <surface> …` — a morpheme declaration, typed exactly as the\ntop-level parser types a `name-part` line.",
+          "type": "object",
+          "properties": {
+            "NamePart": {
+              "$ref": "#/$defs/NamePartDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "NamePart"
+          ]
+        },
+        {
+          "description": "A clause whose head keyword the dialect grammar does not recognize.",
+          "type": "string",
+          "const": "Other"
+        }
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier. Either the bare text, whose span is synthetic, or an object carrying the text and an optional span.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "span": {
+              "description": "A half-open byte range within a single source file.",
+              "type": "object",
+              "properties": {
+                "end": {
+                  "description": "End byte offset (exclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "file": {
+                  "description": "The file this span points into.",
+                  "$ref": "#/$defs/FileId"
+                },
+                "start": {
+                  "description": "Start byte offset (inclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "start",
+                "end"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ]
+        }
+      ]
+    },
+    "NameKindSpec": {
+      "description": "A `name-kind` slot grammar: the name kind and its admissible slot-role\nsequences (alternatives split by `|`).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "The name kind this grammar governs (e.g. `person.given`, `place`).",
+          "type": "string"
+        },
+        "patterns": {
+          "description": "The admissible slot-role sequences (alternatives).",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "patterns"
+      ]
+    },
+    "NamePartDecl": {
+      "description": "`name-part <name> [\"gloss\"] …`.",
+      "type": "object",
+      "properties": {
+        "gloss": {
+          "description": "The gloss, if written.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head": {
+          "description": "Any remaining header tokens (`role given-proto`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "description": "The name-part name.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "head"
+      ]
+    },
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for Door T (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    },
+    "ProvenanceMarker": {
+      "description": "The leading provenance word a claim carries.\n\nA claim's *standing* is not stored (DL-0003: there is no status slot); it is\nderived from this marker together with the citations behind it. The marker\nrecords only where the claim came from — an agent's proposal or a ledger\nruling — and which register of ruling it was.",
+      "oneOf": [
+        {
+          "description": "`proposed` — an agent's claim, awaiting a ruling. Carries no citation.",
+          "type": "string",
+          "const": "Proposed"
+        },
+        {
+          "description": "`decided <d-id>` — grounded in a recorded decision.",
+          "type": "string",
+          "const": "Decided"
+        },
+        {
+          "description": "`ratified <d-id>` — a ratified ruling.",
+          "type": "string",
+          "const": "Ratified"
+        },
+        {
+          "description": "`provisional <d-id>` — a provisional ruling, open to revision.",
+          "type": "string",
+          "const": "Provisional"
+        }
+      ]
+    },
+    "Span": {
+      "description": "A half-open byte range within a single source file.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "The file this span points into.",
+          "$ref": "#/$defs/FileId"
+        },
+        "start": {
+          "description": "Start byte offset (inclusive).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start",
+        "end"
+      ]
+    }
+  }
+}

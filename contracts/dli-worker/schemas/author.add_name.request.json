@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddNameParams",
+  "description": "`author.add_name` params: a composed name, optionally bound to its bearer.\n\nThe AST's [`NameItem`](dli_ast::language::NameItem) has four variants; two\nare load-bearing here. `Composition` and `Bearer` are [`Self::composition`]\nand [`Self::bearer`]. `Provenance` is not exposed — it would be a second,\ncompeting spelling of [`Self::provenance`], and the header-first precedence\nrule would silently pick one. `Other` is by definition a clause the name\ngrammar does not recognize, which a typed constructor cannot produce.",
+  "type": "object",
+  "properties": {
+    "bearer": {
+      "description": "The entity that bears the name, if the name is bound to one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "composition": {
+      "description": "The composition steps: each a slot role filled by a named morpheme.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CompositionStep"
+      }
+    },
+    "head": {
+      "description": "The remaining header tokens, e.g. `[\"person.given\", \"in\", \"cymric-fringe\"]`.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "id": {
+      "description": "The name id.",
+      "type": "string"
+    },
+    "label": {
+      "description": "The rendered label (data, never an instruction).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provenance": {
+      "description": "The provenance of this addition.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "id",
+    "provenance"
+  ],
+  "$defs": {
+    "CompositionStep": {
+      "description": "One composition step: a slot role filled by a named morpheme.",
+      "type": "object",
+      "properties": {
+        "morpheme": {
+          "description": "The morpheme surface filling it (e.g. `en`).",
+          "type": "string"
+        },
+        "role": {
+          "description": "The slot role (e.g. `given-proto`).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "morpheme"
+      ]
+    },
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for Door T (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    }
+  }
+}

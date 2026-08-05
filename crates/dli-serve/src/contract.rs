@@ -9,6 +9,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use dli_ast::language::{CompositionStep, DialectItem};
 use dli_ast::term::AtomExpr;
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
@@ -1294,10 +1295,51 @@ pub struct AuthorStatusResult {
     /// machine-readable review surface. 0.6.0 only.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub diff_rows: Option<Vec<AuthorDiffRow>>,
+    /// The staged declarations and the structural key that names each one —
+    /// what `author.discard` takes to reject a single declaration. Contract
+    /// 1.3.0 and above only; below it, the key had no wire surface and
+    /// per-declaration discard named the rendered line instead (DL-0058).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub staged: Option<Vec<StagedDecl>>,
     /// Every current graded finding over the staged world.
     pub findings: Vec<Finding>,
     /// The current workspace digest.
     pub workspace_digest: String,
+}
+
+/// One staged declaration, named. The row an agent reads to reject a single
+/// declaration without discarding its whole workspace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct StagedDecl {
+    /// The structural key: `jcs:sha256:<hex>` over the declaration's canonical
+    /// JCS bytes — what `author.discard`'s `decl` accepts from contract 1.3.0.
+    ///
+    /// **What it is stable against**, and what it is not, because a consumer
+    /// reading this decides how long to hold one. JCS fixes the *encoding*: keys
+    /// sort and the number/string forms are specified, so the key does not
+    /// depend on the order this build's structs happen to declare their fields,
+    /// on which serializer produced the bytes, or on which build is running —
+    /// a default build and a `syntax` build compute the same key for the same
+    /// declaration, and it is recomputable by anyone holding the declaration.
+    ///
+    /// It is **not** stable across a schema change that adds a field which
+    /// serializes. A new field is content, and content is what the key hashes —
+    /// including a field that serializes as `null`, which is what an `Option`
+    /// without `skip_serializing_if` does when absent, and none of the
+    /// declaration types carry that attribute on their optional fields today.
+    /// Only a field elided entirely from the bytes leaves the key unmoved.
+    ///
+    /// So: a key is valid **within a contract version**. Hold it across a call,
+    /// not across an upgrade — re-read `author.status` after negotiating a new
+    /// version rather than persisting keys through one.
+    pub key: String,
+    /// The declaration's kind (`entity`, `fact`, `dialect`, …) — enough to read
+    /// the list without a formatter.
+    pub kind: String,
+    /// The canonical `.dli` line, when this build links a formatter. Absent on a
+    /// default build, where [`Self::key`] is the only name a declaration has.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub rendered: Option<String>,
 }
 
 // -- author.diff -------------------------------------------------------------
@@ -1558,6 +1600,182 @@ pub struct AuthorSupposeParams {
     pub workspace: String,
     /// The hypothesis ids to pin true.
     pub hypotheses: Vec<String>,
+}
+
+// -- the DM-4 expert authoring surface (contract 1.3.0) ----------------------
+//
+// Wave 1 (`dialect`, `name_part`, `name`, `term`, `banned`) is the consumer's
+// actual corpus; tier 2 (`state`, `attest`) is their episode-continuity and
+// question-ledger flow. Each params struct is a typed constructor over an AST
+// declaration that already exists — no new staging machinery (DL-0058).
+//
+// **Span-free by construction.** The AST's LS-9 typed interiors pair each typed
+// `item` with the normalized `Clause` text and span the parser captured for
+// exact round-trip. A caller has no source to point into, so these params carry
+// the typed items alone and the lowering synthesizes both the clause text and a
+// synthetic span. The language compiler reads `item`, so nothing semantic is
+// carried by what the wire omits.
+
+/// `author.add_dialect` params: a dialect register and its typed interior.
+///
+/// [`Self::body`] is `dli_ast`'s own [`DialectItem`] sequence — the LS-9 typed
+/// interior minus the span-bearing `Clause` wrapper — so the tool surface and
+/// the compiler read the same shape rather than two that must be kept in step.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddDialectParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The dialect id.
+    pub id: String,
+    /// The dialect's display label (treated as data, never as an instruction).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub label: Option<String>,
+    /// The typed interior clauses, in order: vowels, endings, foreign clusters,
+    /// ceilings, stress, name-kind grammars.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub body: Vec<DialectItem>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// `author.add_name_part` params: one morpheme and the role it fills.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddNamePartParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The morpheme surface (the name-part id).
+    pub id: String,
+    /// The gloss — what the morpheme means (data, never an instruction).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gloss: Option<String>,
+    /// The remaining header tokens, e.g. `["role", "given-proto"]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub head: Vec<String>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// `author.add_name` params: a composed name, optionally bound to its bearer.
+///
+/// The AST's [`NameItem`](dli_ast::language::NameItem) has four variants; two
+/// are load-bearing here. `Composition` and `Bearer` are [`Self::composition`]
+/// and [`Self::bearer`]. `Provenance` is not exposed — it would be a second,
+/// competing spelling of [`Self::provenance`], and the header-first precedence
+/// rule would silently pick one. `Other` is by definition a clause the name
+/// grammar does not recognize, which a typed constructor cannot produce.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddNameParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The name id.
+    pub id: String,
+    /// The rendered label (data, never an instruction).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub label: Option<String>,
+    /// The remaining header tokens, e.g. `["person.given", "in", "cymric-fringe"]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub head: Vec<String>,
+    /// The composition steps: each a slot role filled by a named morpheme.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub composition: Vec<CompositionStep>,
+    /// The entity that bears the name, if the name is bound to one.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub bearer: Option<String>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// `author.add_term` params: a glossary term.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddTermParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The term id.
+    pub id: String,
+    /// The term's rendered label (data, never an instruction).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub label: Option<String>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// `author.add_banned` params: a word refused on the lore surface.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddBannedParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The banned word.
+    pub word: String,
+    /// Why it is banned (data, never an instruction).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub reason: Option<String>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// `author.add_state` params: a time-varying fluent.
+///
+/// A state is not an attribute: it holds over an interval rather than forever,
+/// which is why it carries [`Self::time`] and lowers to `Decl::State` instead of
+/// `Decl::Attr`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddStateParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The state name; may be dotted, e.g. `gwern.water-status`.
+    pub id: String,
+    /// The value the state takes.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub value: Option<String>,
+    /// When the state holds, as a temporal clause.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub time: Option<StateTime>,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
+}
+
+/// The temporal clause of an [`AuthorAddStateParams`]: which anchor, and which
+/// point it names. Mirrors `dli_ast`'s `TimeClause` minus the multi-point
+/// `order` form, which orders events rather than bounding a state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub struct StateTime {
+    /// The temporal relation.
+    pub kind: StateTimeKind,
+    /// The era or event the relation anchors to.
+    pub point: String,
+}
+
+/// The temporal relation an [`StateTime`] asserts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum StateTimeKind {
+    /// Holds after the point.
+    After,
+    /// Holds throughout the point.
+    During,
+    /// Holds from the point onward.
+    Since,
+    /// Holds up to the point.
+    Until,
+}
+
+/// `author.add_attest` params: an attestation request against an open question.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddAttestParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The question being attested.
+    pub question: String,
+    /// The provenance of this addition.
+    pub provenance: Provenance,
 }
 
 // -- author.query (read) -----------------------------------------------------

@@ -17,12 +17,18 @@ use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
 
-use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
+use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
+use dli_ast::clause::Clause;
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind as AstEntityKind, FactDecl,
-    HypothesisDecl, OptionClause, QuestionDecl, ScopeHeader, TimeClause,
+    AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
+    EntityKind as AstEntityKind, FactDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause,
+    QuestionDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
+use dli_ast::language::{
+    CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause, NameItem,
+    NameKindSpec,
+};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
@@ -31,13 +37,14 @@ use dli_world::CompiledWorld;
 use dli_world::check::factcheck::{Verdict, factcheck};
 
 use crate::contract::{
-    AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
-    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorBranchParams,
-    AuthorBranchResult, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
-    AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
-    AuthorOpenQuestionParams, AuthorOpenResult, AuthorStatusParams, AuthorStatusResult,
-    AuthorSupposeParams, BranchAction, DiffConflict, EntityKind as WireEntityKind,
-    MergeStandingChange,
+    AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
+    AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
+    AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
+    AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorBranchResult,
+    AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams, AuthorMergeParams,
+    AuthorMergeResult, AuthorMutationResult, AuthorOpenParams, AuthorOpenQuestionParams,
+    AuthorOpenResult, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction,
+    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, Severity};
@@ -86,6 +93,7 @@ pub(super) fn status(
     store: &Store,
     params: &AuthorStatusParams,
     v2: bool,
+    structural_keys: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws);
@@ -93,9 +101,53 @@ pub(super) fn status(
         rendered: render_decls(&ws.decls),
         root_hash: if v2 { ws.base_root_hash.clone() } else { None },
         diff_rows: v2.then_some(report.diff_rows),
+        staged: structural_keys.then(|| ws.decls.iter().map(staged_decl).collect()),
         findings: report.findings,
         workspace_digest: ws.digest.clone(),
     }))
+}
+
+/// One staged declaration's wire row: its structural key, its kind, and its
+/// rendered line where a formatter exists to produce one.
+fn staged_decl(decl: &Decl) -> StagedDecl {
+    StagedDecl {
+        key: decl_key(decl),
+        kind: decl_kind(decl).to_owned(),
+        rendered: rendered_key(decl),
+    }
+}
+
+/// A declaration's kind word — the `.dli` keyword that introduces it.
+fn decl_kind(decl: &Decl) -> &'static str {
+    match decl {
+        Decl::Entity(e) => e.kind.keyword(),
+        Decl::Attr(_) => "attr",
+        Decl::Fact(_) => "fact",
+        Decl::Question(_) => "question",
+        Decl::Before(_) => "before",
+        Decl::Hypothesis(_) => "hypothesis",
+        Decl::Use(_) => "use",
+        Decl::Kind(_) => "kind",
+        Decl::Rule(_) => "rule",
+        Decl::State(_) => "state",
+        Decl::Cycle(_) => "cycle",
+        Decl::Fork(_) => "fork",
+        Decl::Practice(_) => "practice",
+        Decl::Dialect(_) => "dialect",
+        Decl::Word(_) => "word",
+        Decl::NamePart(_) => "name-part",
+        Decl::Draft(_) => "draft",
+        Decl::Attest(_) => "attest",
+        Decl::Export(_) => "export",
+        Decl::Name(_) => "name",
+        Decl::Term(_) => "term",
+        Decl::Banned(_) => "banned",
+        Decl::Narration(_) => "narration",
+        Decl::Variant(_) => "variant",
+        Decl::Ratify(_) => "ratify",
+        Decl::Principle(_) => "principle",
+        Decl::Proof(_) => "proof",
+    }
 }
 
 /// The rendered canonical block, findings, and consequences of the staged change.
@@ -122,19 +174,30 @@ pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result
 /// and answers `{discarded, workspace_digest}`; a `decl` that matches nothing is
 /// an `unknown-doc` refusal (it never falls through to nuking the workspace).
 ///
-/// The per-declaration form is keyed on the rendered line, so a build that
-/// renders no `.dli` (LS-7) refuses it by name rather than matching nothing and
-/// answering `unknown-doc` — which would read as "that declaration is not
-/// staged" when the truth is "this build cannot name it".
+/// # Naming one declaration, by version
+///
+/// **At contract ≥ 1.3.0** a declaration is named by its **structural key** —
+/// the JCS digest [`decl_key`] computes — which `author.status` lists beside
+/// each staged declaration. The key exists on every build, so this form works
+/// on a default build for the first time (the DM-3 deferral, closed by
+/// DL-0058). A `syntax` build additionally still accepts the rendered line, so
+/// a caller that negotiates up loses nothing it could do before.
+///
+/// **Below 1.3.0** only the rendered line is accepted, and a build that renders
+/// no `.dli` (LS-7) refuses by name rather than matching nothing and answering
+/// `unknown-doc` — which would read as "that declaration is not staged" when the
+/// truth is "this build cannot name it". Those bytes are frozen: that refusal
+/// shipped on every wire through 1.2.0.
 pub(super) fn discard(
     store: &mut Store,
     ws_id: &str,
     decl: Option<&str>,
+    structural_keys: bool,
 ) -> Result<Value, ErrorBody> {
     let Some(decl_id) = decl else {
         return Ok(json!({ "discarded": store.discard(ws_id) }));
     };
-    if !super::render::renders_dli() {
+    if !structural_keys && !super::render::renders_dli() {
         return Err(ErrorBody {
             code: ErrorCode::SchemaViolation,
             message: "per-declaration `discard` names a staged declaration by its rendered `.dli` \
@@ -145,21 +208,26 @@ pub(super) fn discard(
         });
     }
     let (_, ws) = parts_mut(store, ws_id)?;
-    let index = ws
-        .decls
-        .iter()
-        .position(|staged| decl_key(staged) == decl_id);
+    let index = ws.decls.iter().position(|staged| {
+        let by_structure = structural_keys && decl_key(staged) == decl_id;
+        by_structure || rendered_key(staged).is_some_and(|line| line == decl_id)
+    });
     match index {
         Some(i) => {
+            // Take the key from the declaration being removed rather than from
+            // the caller's string: the two are the same only when the caller
+            // named it structurally, and the durable bookkeeping is keyed
+            // structurally either way.
+            let key = ws.decls.get(i).map(decl_key);
             ws.remove_decl(i);
             // The reject drops the durably staged group too: a rejected claim
             // never reaches a commit (LS-5 accept/reject; the object itself
             // becomes an orphan, garbage never corruption).
-            if let Some(pos) = ws
-                .staged_fact_hashes
-                .iter()
-                .position(|(key, _)| key == decl_id)
-            {
+            if let Some(pos) = key.and_then(|key| {
+                ws.staged_fact_hashes
+                    .iter()
+                    .position(|(staged, _)| *staged == key)
+            }) {
                 ws.staged_fact_hashes.remove(pos);
             }
             // A structural change invalidates every cached replay: a later retry
@@ -400,8 +468,14 @@ pub(super) fn materialize(
 pub(super) fn add_entity(
     store: &mut Store,
     params: &AuthorAddEntityParams,
+    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(store, &params.workspace, &params.provenance) {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
         return refusal;
     }
     let decl = Decl::Entity(EntityDecl {
@@ -410,7 +484,7 @@ pub(super) fn add_entity(
         label: Some(params.name.clone()),
         time: None,
         slots: Vec::new(),
-        provenance: Some(annotation(&params.provenance)),
+        provenance: Some(annotation(&params.provenance, records_citations)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -419,15 +493,21 @@ pub(super) fn add_entity(
 pub(super) fn add_fact(
     store: &mut Store,
     params: &AuthorAddFactParams,
+    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(store, &params.workspace, &params.provenance) {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
         return refusal;
     }
     let decl = Decl::Attr(AttrDecl {
         subject: ident(&params.entity),
         attr: ident(&params.key),
         value: author_value(&params.value),
-        provenance: Some(annotation(&params.provenance)),
+        provenance: Some(annotation(&params.provenance, records_citations)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -436,8 +516,14 @@ pub(super) fn add_fact(
 pub(super) fn add_relation(
     store: &mut Store,
     params: &AuthorAddRelationParams,
+    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(store, &params.workspace, &params.provenance) {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
         return refusal;
     }
     let decl = Decl::Fact(FactDecl {
@@ -446,7 +532,7 @@ pub(super) fn add_relation(
             args: vec![Term::Sym(ident(&params.from)), Term::Sym(ident(&params.to))],
         },
         triple: false,
-        provenance: Some(annotation(&params.provenance)),
+        provenance: Some(annotation(&params.provenance, records_citations)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -455,8 +541,14 @@ pub(super) fn add_relation(
 pub(super) fn add_event(
     store: &mut Store,
     params: &AuthorAddEventParams,
+    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(store, &params.workspace, &params.provenance) {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
         return refusal;
     }
     let decl = Decl::Entity(EntityDecl {
@@ -465,7 +557,7 @@ pub(super) fn add_event(
         label: params.name.clone(),
         time: Some(TimeClause::During(ident(&params.era))),
         slots: Vec::new(),
-        provenance: Some(annotation(&params.provenance)),
+        provenance: Some(annotation(&params.provenance, records_citations)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -475,14 +567,20 @@ pub(super) fn add_event(
 pub(super) fn add_before(
     store: &mut Store,
     params: &AuthorAddBeforeParams,
+    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(store, &params.workspace, &params.provenance) {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
         return refusal;
     }
     let decl = Decl::Before(BeforeDecl {
         earlier: ident(&params.earlier),
         later: ident(&params.later),
-        provenance: Some(annotation(&params.provenance)),
+        provenance: Some(annotation(&params.provenance, records_citations)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -602,6 +700,323 @@ pub(super) fn suppose(store: &mut Store, params: &AuthorSupposeParams) -> Result
     Ok(mutation(findings, Vec::new(), &ws.digest))
 }
 
+// -- the DM-4 expert authoring surface (contract 1.3.0) ----------------------
+//
+// Wave 1 is the consumer's actual corpus — the language lane: a dialect
+// register, the morphemes it composes from, the names composed out of them, the
+// glossary, and the ban list. Tier 2 is their episode-continuity and
+// question-ledger flow. Every one of these is a typed constructor plus findings
+// on the *existing* staging path: same durable lorestore write, same digest,
+// same graded reply. No new machinery (DL-0058).
+//
+// Tier 3 (`rule`, `practice`, `proof`, `cycle`) is parked behind first consumer
+// use, and tier 4 indefinitely. That is a scope ruling, not an oversight: a tool
+// built before a caller exists is a guess at a shape, and the shapes here were
+// read off the consumer's corpus.
+
+/// Declare a dialect register: the phonology and name grammar a naming
+/// population draws on. The typed interior clauses arrive span-free and each
+/// gains the normalized clause text the formatter round-trips through.
+pub(super) fn add_dialect(
+    store: &mut Store,
+    params: &AuthorAddDialectParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Dialect(DialectDecl {
+        name: ident(&params.id),
+        label: params.label.clone(),
+        body: DialectBody {
+            clauses: params.body.iter().map(dialect_clause).collect(),
+        },
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Declare a name-part morpheme: the raw material composed names are built from.
+pub(super) fn add_name_part(
+    store: &mut Store,
+    params: &AuthorAddNamePartParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::NamePart(NamePartDecl {
+        name: ident(&params.id),
+        gloss: params.gloss.clone(),
+        head: params.head.clone(),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Compose a name from morphemes, optionally binding it to the entity that bears
+/// it. The composition and bearer clauses are built in that order, which is the
+/// order the name compiler's header-first precedence expects to read them.
+pub(super) fn add_name(
+    store: &mut Store,
+    params: &AuthorAddNameParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let mut clauses = Vec::new();
+    if !params.composition.is_empty() {
+        clauses.push(name_clause(
+            composition_text(&params.composition),
+            NameItem::Composition(params.composition.clone()),
+        ));
+    }
+    if let Some(bearer) = &params.bearer {
+        clauses.push(name_clause(
+            format!("bearer {bearer}"),
+            NameItem::Bearer {
+                entity: Some(bearer.clone()),
+                // The declaration-level provenance is the one provenance this
+                // name carries; duplicating it onto the bearer line would give
+                // the compiler's header-first precedence two candidates to
+                // choose between for a single authored intent.
+                provenance: None,
+            },
+        ));
+    }
+    let decl = Decl::Name(NameDecl {
+        name: ident(&params.id),
+        label: params.label.clone(),
+        head: params.head.clone(),
+        body: NameBody { clauses },
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Introduce a glossary term.
+pub(super) fn add_term(
+    store: &mut Store,
+    params: &AuthorAddTermParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Term(TermDecl {
+        name: ident(&params.id),
+        label: params.label.clone(),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Ban a word from the lore surface. The reason is stored verbatim as data — it
+/// is what a later refusal quotes back.
+pub(super) fn add_banned(
+    store: &mut Store,
+    params: &AuthorAddBannedParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Banned(BannedDecl {
+        word: ident(&params.word),
+        reason: params.reason.clone(),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Assert a time-varying state. Unlike `add_fact`, a state holds over an
+/// interval rather than forever, so it lowers to `Decl::State` and carries its
+/// temporal clause rather than being folded into the timeless attribute layer.
+pub(super) fn add_state(
+    store: &mut Store,
+    params: &AuthorAddStateParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::State(StateDecl {
+        name: ident(&params.id),
+        value: params.value.as_deref().map(author_value),
+        time: params.time.as_ref().map(|time| {
+            let point = ident(&time.point);
+            match time.kind {
+                StateTimeKind::After => TimeClause::After(point),
+                StateTimeKind::During => TimeClause::During(point),
+                StateTimeKind::Since => TimeClause::Since(point),
+                StateTimeKind::Until => TimeClause::Until(point),
+            }
+        }),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Request an attestation for an open question — the ledger entry a later
+/// attestation sweep answers.
+pub(super) fn add_attest(
+    store: &mut Store,
+    params: &AuthorAddAttestParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Attest(AttestDecl {
+        question: ident(&params.question),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+// -- typed-interior lowering -------------------------------------------------
+//
+// The AST pairs each typed interior `item` with the normalized `Clause` text the
+// parser captured, retained purely so the formatter round-trips exactly. A
+// caller supplies the item; these synthesize the text. The compiler reads
+// `item`, so a synthesized text that differed from what the parser would have
+// captured costs rendering fidelity, never meaning.
+
+fn dialect_clause(item: &DialectItem) -> DialectClause {
+    DialectClause {
+        clause: clause(dialect_item_text(item)),
+        item: item.clone(),
+    }
+}
+
+fn name_clause(text: String, item: NameItem) -> NameClause {
+    NameClause {
+        clause: clause(text),
+        item,
+    }
+}
+
+fn clause(text: String) -> Clause {
+    Clause {
+        text,
+        span: Span::synthetic(),
+    }
+}
+
+/// The `.dli` clause text a typed dialect item was written as.
+fn dialect_item_text(item: &DialectItem) -> String {
+    match item {
+        DialectItem::Basis { attested, text } => {
+            let attested = if *attested { "attested " } else { "" };
+            let text = text
+                .as_deref()
+                .map_or_else(String::new, |text| format!("\"{text}\""));
+            format!("basis {attested}{text}").trim_end().to_owned()
+        }
+        DialectItem::Vowels(words) => keyword_list("vowels", words),
+        DialectItem::Endings(words) => keyword_list("endings", words),
+        DialectItem::Foreign(words) => keyword_list("foreign", words),
+        DialectItem::ClusterMax(n) => keyword_count("cluster-max", *n),
+        DialectItem::SayabilityMax(n) => keyword_count("sayability-max", *n),
+        DialectItem::Stress(keyword) => {
+            format!("stress {}", keyword.as_deref().unwrap_or_default())
+                .trim_end()
+                .to_owned()
+        }
+        DialectItem::NameKind(spec) => spec
+            .as_ref()
+            .map_or_else(|| "name-kind".to_owned(), name_kind_text),
+        DialectItem::NamePart(part) => {
+            let gloss = part
+                .gloss
+                .as_deref()
+                .map_or_else(String::new, |gloss| format!(" \"{gloss}\""));
+            let head = if part.head.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", part.head.join(" "))
+            };
+            format!("name-part {}{head}{gloss}", part.name.text)
+        }
+        // An unrecognized clause has no keyword to reconstruct — by definition
+        // the grammar did not classify it. It renders as nothing rather than as
+        // a guess.
+        DialectItem::Other => String::new(),
+    }
+}
+
+fn keyword_list(keyword: &str, words: &[String]) -> String {
+    if words.is_empty() {
+        keyword.to_owned()
+    } else {
+        format!("{keyword} {}", words.join(" "))
+    }
+}
+
+fn keyword_count(keyword: &str, count: Option<usize>) -> String {
+    count.map_or_else(|| keyword.to_owned(), |n| format!("{keyword} {n}"))
+}
+
+fn name_kind_text(spec: &NameKindSpec) -> String {
+    let patterns = spec
+        .patterns
+        .iter()
+        .map(|roles| roles.join(" "))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    if patterns.is_empty() {
+        format!("name-kind {}", spec.kind)
+    } else {
+        format!("name-kind {} = {patterns}", spec.kind)
+    }
+}
+
+/// The `= <role> <morpheme> [+ <role> <morpheme> …]` composition line.
+fn composition_text(steps: &[CompositionStep]) -> String {
+    let body = steps
+        .iter()
+        .map(|step| format!("{} {}", step.role, step.morpheme))
+        .collect::<Vec<_>>()
+        .join(" + ");
+    format!("= {body}")
+}
+
 // -- staging + the checked layer ---------------------------------------------
 
 /// Stage a world declaration: check the candidate against the current staged
@@ -611,9 +1026,12 @@ pub(super) fn suppose(store: &mut Store, params: &AuthorSupposeParams) -> Result
 /// `FactObject` and written immediately, with the hash tracked in the
 /// workspace for `materialize` to commit.
 fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody> {
+    // Read the in-scope decision set before taking the mutable borrow: the
+    // citation check needs the base documents, which `parts_mut` does not reach.
+    let decisions = workspace_decisions(store, ws_id);
     let (findings, rendered) = {
         let (base, ws) = parts_mut(store, ws_id)?;
-        let findings = decl_findings(&decl, ws, base);
+        let findings = decl_findings(&decl, ws, base, &decisions);
         let rendered = render_decls(std::slice::from_ref(&decl));
         (findings, rendered)
     };
@@ -636,9 +1054,15 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
 /// The findings a declaration raises against the staged state and the base.
 /// Every declaration is first scanned for control characters in its free-text
 /// fields (R3/C1); the world declarations then add their resolution findings.
-fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+fn decl_findings(
+    decl: &Decl,
+    ws: &Workspace,
+    base: &CompiledWorld,
+    decisions: &BTreeSet<String>,
+) -> Vec<Finding> {
     let mut out = control_char_findings(decl);
     out.extend(declaration_rejected_lore_findings(base, decl));
+    out.extend(citation_findings(decl, decisions));
     match decl {
         Decl::Entity(e) => {
             if e.kind == AstEntityKind::Event {
@@ -650,6 +1074,13 @@ fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Findi
         Decl::Attr(a) => out.extend(attr_findings(a, ws, base)),
         Decl::Fact(f) => out.extend(relation_findings(f, ws, base)),
         Decl::Before(b) => out.extend(before_findings(b, ws, base)),
+        // The DM-4 expert declarations resolve nothing beyond their own text:
+        // a dialect, morpheme, term, or banned word introduces a name rather
+        // than referring to one. The two that *do* refer get their reference
+        // checked, on the same footing as `add_before`'s endpoints.
+        Decl::State(s) => out.extend(state_findings(s, ws, base)),
+        Decl::Attest(a) => out.extend(attest_findings(a, ws)),
+        Decl::Name(n) => out.extend(name_findings(n, ws, base)),
         _ => {}
     }
     out
@@ -771,16 +1202,92 @@ fn before_findings(before: &BeforeDecl, ws: &Workspace, base: &CompiledWorld) ->
     out
 }
 
+/// `add_state` findings: the subject the dotted state name is about must be a
+/// known entity, and a temporal anchor must name one too. A state is a claim
+/// *about* something, so an unresolvable subject is the same error class as
+/// `add_fact`'s.
+fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+    let known = known_entities(base, &ws.decls);
+    let mut out = Vec::new();
+    // `gwern.water-status` is a state on `gwern`; an undotted name names no
+    // subject and so has nothing to resolve.
+    if let Some((subject, _)) = state.name.text.split_once('.')
+        && !known.contains(subject)
+    {
+        out.push(entity_unknown(subject, &known));
+    }
+    if let Some(time) = &state.time {
+        let point = match time {
+            TimeClause::After(p)
+            | TimeClause::During(p)
+            | TimeClause::Since(p)
+            | TimeClause::Until(p) => p,
+            // `order` is not reachable from `author.add_state` (the wire form
+            // carries a single point), but the AST allows it, so it resolves
+            // every point rather than silently checking none.
+            TimeClause::Order(points) => {
+                for point in points {
+                    if !known.contains(&point.text) {
+                        out.push(entity_unknown(&point.text, &known));
+                    }
+                }
+                return out;
+            }
+        };
+        if !known.contains(&point.text) {
+            out.push(entity_unknown(&point.text, &known));
+        }
+    }
+    out
+}
+
+/// `add_attest` findings: the attested question must be open. An attestation
+/// request against a question nobody asked is tracked debt pointing at nothing.
+fn attest_findings(attest: &AttestDecl, ws: &Workspace) -> Vec<Finding> {
+    let staged = ws
+        .decls
+        .iter()
+        .any(|decl| matches!(decl, Decl::Question(q) if q.name.text == attest.question.text));
+    if staged {
+        Vec::new()
+    } else {
+        vec![question_unknown(&attest.question.text)]
+    }
+}
+
+/// `add_name` findings: a bound bearer must be a known entity, and the name
+/// itself has not passed the naming oracle — the same unvetted warning
+/// `add_entity` raises, for the same reason.
+fn name_findings(name: &NameDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+    let mut out = vec![name_unvetted(&name.name.text)];
+    let known = known_entities(base, &ws.decls);
+    for clause in &name.body.clauses {
+        if let NameItem::Bearer {
+            entity: Some(entity),
+            ..
+        } = &clause.item
+            && !known.contains(entity)
+        {
+            out.push(entity_unknown(entity, &known));
+        }
+    }
+    out
+}
+
 /// Every finding open over the whole workspace — the materialize gate reads its
 /// error-severity subset. Each declaration is re-checked against the *full*
 /// staged state, so a later-added target clears an earlier reference's block.
 ///
 /// The read tools (`author.findings`, `author.check`) reuse this so the standing
 /// aggregate is exactly what materialize refuses on.
-pub(super) fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+pub(super) fn workspace_findings(
+    ws: &Workspace,
+    base: &CompiledWorld,
+    decisions: &BTreeSet<String>,
+) -> Vec<Finding> {
     let mut out = Vec::new();
     for decl in &ws.decls {
-        out.extend(decl_findings(decl, ws, base));
+        out.extend(decl_findings(decl, ws, base, decisions));
     }
     let hyps = hypothesis_count(ws);
     if hyps > 0 && ws.mode != Mode::Fork {
@@ -956,6 +1463,10 @@ fn field_control(field: &'static str, text: &str) -> Option<Finding> {
 
 /// The named free-text fields a declaration renders — everything a control
 /// character could hide inside.
+// One arm per declaration kind, each a flat enumeration of that kind's fields.
+// It runs long by construction and splitting it would only scatter the census
+// this function exists to be complete about.
+#[allow(clippy::too_many_lines)]
 fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     match decl {
@@ -1016,9 +1527,136 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
                 fields.push(("statement", statement.clone()));
             }
         }
+        // The DM-4 expert declarations (contract 1.3.0). Every free-text field
+        // each one renders is enumerated here. This list is not optional
+        // bookkeeping: a field missing from it is a field a control character
+        // can hide in, and the `field.control-char` error is what stops a
+        // newline in a gloss or a ban reason from forging a second declaration
+        // line in the review diff (R3/C1).
+        Decl::Dialect(d) => {
+            fields.push(("id", d.name.text.clone()));
+            if let Some(label) = &d.label {
+                fields.push(("label", label.clone()));
+            }
+            for clause in &d.body.clauses {
+                fields.push(("clause", clause.clause.text.clone()));
+                dialect_item_fields(&mut fields, &clause.item);
+            }
+            annotation_fields(&mut fields, d.provenance.as_ref());
+        }
+        Decl::NamePart(n) => {
+            name_part_fields(&mut fields, n);
+        }
+        Decl::Name(n) => {
+            fields.push(("id", n.name.text.clone()));
+            if let Some(label) = &n.label {
+                fields.push(("label", label.clone()));
+            }
+            fields.extend(n.head.iter().map(|token| ("head", token.clone())));
+            for clause in &n.body.clauses {
+                fields.push(("clause", clause.clause.text.clone()));
+                match &clause.item {
+                    NameItem::Composition(steps) => {
+                        for step in steps {
+                            fields.push(("role", step.role.clone()));
+                            fields.push(("morpheme", step.morpheme.clone()));
+                        }
+                    }
+                    NameItem::Bearer {
+                        entity,
+                        provenance: bearer_provenance,
+                    } => {
+                        if let Some(entity) = entity {
+                            fields.push(("bearer", entity.clone()));
+                        }
+                        annotation_fields(&mut fields, bearer_provenance.as_ref());
+                    }
+                    NameItem::Provenance(annot) => annotation_fields(&mut fields, Some(annot)),
+                    NameItem::Other => {}
+                }
+            }
+            annotation_fields(&mut fields, n.provenance.as_ref());
+        }
+        Decl::Term(t) => {
+            fields.push(("id", t.name.text.clone()));
+            if let Some(label) = &t.label {
+                fields.push(("label", label.clone()));
+            }
+            annotation_fields(&mut fields, t.provenance.as_ref());
+        }
+        Decl::Banned(b) => {
+            fields.push(("word", b.word.text.clone()));
+            if let Some(reason) = &b.reason {
+                fields.push(("reason", reason.clone()));
+            }
+            annotation_fields(&mut fields, b.provenance.as_ref());
+        }
+        Decl::State(s) => {
+            fields.push(("id", s.name.text.clone()));
+            if let Some(value) = &s.value {
+                fields.push(("value", term_text(value)));
+            }
+            if let Some(time) = &s.time {
+                match time {
+                    TimeClause::After(point)
+                    | TimeClause::During(point)
+                    | TimeClause::Since(point)
+                    | TimeClause::Until(point) => fields.push(("time", point.text.clone())),
+                    TimeClause::Order(points) => {
+                        fields.extend(points.iter().map(|point| ("time", point.text.clone())));
+                    }
+                }
+            }
+            annotation_fields(&mut fields, s.provenance.as_ref());
+        }
+        Decl::Attest(a) => {
+            fields.push(("question", a.question.text.clone()));
+            annotation_fields(&mut fields, a.provenance.as_ref());
+        }
         _ => {}
     }
     fields
+}
+
+/// The free-text a typed dialect clause carries beyond its normalized text —
+/// every string the item payload holds, since the compiler reads the payload
+/// and the formatter may render either.
+fn dialect_item_fields(fields: &mut Vec<(&'static str, String)>, item: &DialectItem) {
+    match item {
+        DialectItem::Basis { text, .. } => {
+            if let Some(text) = text {
+                fields.push(("basis", text.clone()));
+            }
+        }
+        DialectItem::Vowels(words) | DialectItem::Endings(words) | DialectItem::Foreign(words) => {
+            fields.extend(words.iter().map(|word| ("token", word.clone())));
+        }
+        DialectItem::Stress(Some(keyword)) => fields.push(("stress", keyword.clone())),
+        DialectItem::NameKind(Some(spec)) => {
+            fields.push(("name-kind", spec.kind.clone()));
+            for pattern in &spec.patterns {
+                fields.extend(pattern.iter().map(|role| ("role", role.clone())));
+            }
+        }
+        DialectItem::NamePart(part) => name_part_fields(fields, part),
+        DialectItem::Stress(None)
+        | DialectItem::NameKind(None)
+        | DialectItem::ClusterMax(_)
+        | DialectItem::SayabilityMax(_)
+        | DialectItem::Other => {}
+    }
+}
+
+/// A name-part's free-text fields. Shared because a `name-part` is both a
+/// top-level declaration and a legal dialect interior clause, and both spellings
+/// must be scanned identically.
+fn name_part_fields(fields: &mut Vec<(&'static str, String)>, part: &NamePartDecl) {
+    fields.push(("id", part.name.text.clone()));
+    if let Some(gloss) = &part.gloss {
+        fields.push(("gloss", gloss.clone()));
+    }
+    fields.extend(part.head.iter().map(|token| ("head", token.clone())));
+    annotation_fields(fields, part.provenance.as_ref());
 }
 
 /// The free-text fields a provenance annotation carries (origin tag, cited
@@ -1038,24 +1676,47 @@ fn annotation_fields(fields: &mut Vec<(&'static str, String)>, annot: Option<&An
     }
 }
 
-/// The canonical rendered line that names a staged declaration for `author.discard`
-/// (R3/C3) — the same sanitized line the agent reads in `author.diff`.
+/// The **structural key** naming one staged declaration: the JCS digest of the
+/// declaration itself, `jcs:sha256:<hex>`.
 ///
-/// A build that renders no `.dli` (LS-7) has no such line, so the key falls back
-/// to the declaration's own JSON: still stable and still one-per-declaration, so
-/// the internal `staged_fact_hashes` bookkeeping is unaffected. It is not a wire
-/// identifier — nothing surfaces it — which is why [`discard`] refuses the
-/// per-declaration form outright on that build instead of silently matching
-/// nothing.
+/// This is the DM-3 deferral closed (DL-0058). The key used to be the rendered
+/// `.dli` line, with the declaration's raw `serde_json::to_string` as the
+/// fallback on a build that links no formatter — and that fallback could not be
+/// promoted to a wire identifier, which is why per-declaration `author.discard`
+/// refused outright there. Raw serde output is not a safe identifier: its bytes
+/// follow the order the struct happens to declare its fields, so reordering two
+/// fields would have re-keyed every staged declaration of that kind without
+/// changing a single one of them. JCS fixes the encoding — keys sort, the
+/// number and string forms are specified — so the key is a function of the
+/// declaration's *serialized content* under a spelling nobody has to guess at.
+///
+/// Being build-independent is the point: the same declaration has the same key
+/// on a default build and a `syntax` build, so the durable
+/// `staged_fact_hashes` bookkeeping no longer means two different things
+/// depending on which binary is running.
+///
+/// **The limit, stated because the wire schema states it too.** Canonical
+/// encoding buys reorder-stability, not immunity to schema growth. A field that
+/// serializes is content and moves the key — including one serializing as
+/// `null`, which is what an `Option` without `skip_serializing_if` does when
+/// absent, and that is every optional field on the declaration types today.
+/// Only a field elided from the bytes entirely leaves the key alone. The key is
+/// therefore valid within a contract version, which is what
+/// [`crate::contract::StagedDecl::key`] tells the caller.
 pub(super) fn decl_key(decl: &Decl) -> String {
-    if super::render::renders_dli() {
+    super::digest::digest_of(decl)
+}
+
+/// The canonical rendered line for a staged declaration, or `None` on a build
+/// that links no formatter (LS-7) — the pre-1.3.0 `author.discard` key, kept
+/// because that is what every wire below 1.3.0 accepts.
+fn rendered_key(decl: &Decl) -> Option<String> {
+    super::render::renders_dli().then(|| {
         render_decls(std::slice::from_ref(decl))
             .into_iter()
             .next()
             .unwrap_or_default()
-    } else {
-        serde_json::to_string(decl).unwrap_or_default()
-    }
+    })
 }
 
 // -- finding constructors ----------------------------------------------------
@@ -1230,16 +1891,65 @@ fn cited_refused() -> Finding {
     }
 }
 
+/// The per-add referential-integrity finding for a citation naming a decision
+/// the base does not declare (the authority scrub's kept half, DL-0054 clause 2).
+///
+/// The compiled staged world raises this too — `dli-eval`'s lowering leaves an
+/// unknown decision's variable open and `check::run` surfaces the finding, which
+/// is what actually bars materialize. Raising it *here* as well is not
+/// redundancy: a mutating tool call must answer with the findings its own claim
+/// raised (spec 11 §4), so an agent that only reads the add's reply learns the
+/// citation is unresolvable at the moment it cites, rather than at the next
+/// `author.check`. Both spellings carry the same code and message, so
+/// `dedup_findings` collapses them in the aggregate reads.
+fn citation_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "citation.unknown-decision".to_owned(),
+        message: format!("cited decision '{id}' is not a declared decision"),
+        grade: Grade::Checked,
+        repair: Some(json!({
+            "kind": "resolve-citation",
+            "candidates": candidates(id, known),
+        })),
+        citations: Vec::new(),
+    }
+}
+
 // -- lowering + wire helpers -------------------------------------------------
 
 /// Lower a wire [`Provenance`] to an AST [`Annotation`]. `proposed` records an
 /// origin tag; `hypothesis` scopes the claim to a fork-local hyp condition.
-/// Nothing an agent supplies mints authority (§5; R3/B1): `cited` is **refused**
-/// at the tool boundary ([`refuse_cited`]), and this lowering never maps it to a
-/// ledger marker — a `cited` that somehow reached here fails closed to a bare
-/// `proposed` with no citation, never `decided`/`ratified`/`provisional`.
-fn annotation(provenance: &Provenance) -> Annotation {
+///
+/// `cited` has two lowerings, selected by the negotiated version
+/// (`records_citations` — [`crate::records_citations`]):
+///
+/// - **At ≥ 1.3.0** (the authority scrub, DL-0054/DL-0058) it lowers to a real
+///   `decided` marker carrying the cited ids. The engine records what the caller
+///   states and verifies the one thing it can check — that each cited decision
+///   is declared. It does not ask *who* is citing: every caller is a machine,
+///   and a human ruling reaches the engine by a machine citing the
+///   consumer-ledger id that recorded it. Referential integrity stays
+///   fail-closed downstream: `dli-eval` sets a decision's variable true only
+///   when the corpus declares it, so a forged id leaves the variable open and
+///   the claim can never read certain.
+/// - **Below 1.3.0** `cited` is refused at the tool boundary
+///   ([`refuse_cited`]) and never reaches here. This arm is the fail-closed
+///   backstop for that era: a `cited` that somehow arrived flattens to a bare
+///   `proposed` with no citation — never `decided`/`ratified`/`provisional` —
+///   so no forged authority can be minted by a path that skipped the check.
+fn annotation(provenance: &Provenance, records_citations: bool) -> Annotation {
     match provenance {
+        Provenance::Cited { decisions } if records_citations => Annotation {
+            marker: ProvenanceMarker::Decided,
+            citations: decisions
+                .iter()
+                .map(|id| CitationRef { id: ident(id) })
+                .collect(),
+            condition: None,
+            tags: Vec::new(),
+            span: Span::synthetic(),
+        },
         Provenance::Cited { .. } => Annotation {
             marker: ProvenanceMarker::Proposed,
             citations: Vec::new(),
@@ -1339,23 +2049,90 @@ fn dedup(codes: impl IntoIterator<Item = String>) -> Vec<String> {
         .collect()
 }
 
-/// The refusal a claim-bearing tool returns when an agent supplies `cited`
-/// provenance (R3/B1): Door T authors `proposed` or `hypothesis` only, so a
-/// citation is refused as an error-severity finding and **nothing is staged** —
-/// no forged decision variable ever reaches the workspace, so the claim can
-/// never read certain. `None` when the provenance is agent-authorable.
+/// The pre-scrub refusal a claim-bearing tool returns when a caller supplies
+/// `cited` provenance (R3/B1): below contract 1.3.0, Door T authors `proposed`
+/// or `hypothesis` only, so a citation is refused as an error-severity finding
+/// and **nothing is staged**.
+///
+/// `None` — stage normally — when the provenance is not `cited`, **or** when the
+/// negotiated version records citations as data (≥ 1.3.0, the authority scrub of
+/// DL-0054 as versioned by DL-0058). Keeping the refusal reachable rather than
+/// deleting it is what freezes `0.5.1` through `1.2.0`: those wires shipped this
+/// finding, released fixtures pin its bytes, and the `ls8_zero_x_parity` oracle
+/// replays them.
 fn refuse_cited(
     store: &mut Store,
     ws_id: &str,
     provenance: &Provenance,
+    records_citations: bool,
 ) -> Option<Result<Value, ErrorBody>> {
-    if !matches!(provenance, Provenance::Cited { .. }) {
+    if records_citations || !matches!(provenance, Provenance::Cited { .. }) {
         return None;
     }
     Some(match parts_mut(store, ws_id) {
         Ok((_, ws)) => Ok(mutation(vec![cited_refused()], Vec::new(), &ws.digest)),
         Err(body) => Err(body),
     })
+}
+
+/// The decision ids in scope for a workspace — what a citation must resolve
+/// against. The engine verifies that a cited thing exists; it never invents one
+/// (DL-0054 clause 2).
+///
+/// A decision is declared by a `ratify` declaration, which is the same source
+/// `dli-eval` reads when it decides whether to rule a cited decision's variable
+/// true. Both the base documents and the staged layer are scanned, so a `ratify`
+/// staged in this workspace counts — the reference resolves against what is
+/// present, exactly as entity references do.
+pub(super) fn workspace_decisions(store: &Store, ws_id: &str) -> BTreeSet<String> {
+    let base = store
+        .workspace_base_docs(ws_id)
+        .unwrap_or_default()
+        .iter()
+        .flat_map(|document| document.decls.iter());
+    let staged = store.get(ws_id).into_iter().flat_map(|ws| ws.decls.iter());
+    base.chain(staged)
+        .filter_map(|decl| match decl {
+            Decl::Ratify(ratify) => Some(ratify.decision.text.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The referential-integrity findings a declaration's provenance raises: one per
+/// cited decision that is not declared in scope. Empty for every provenance that
+/// carries no citation — which, below the scrub version, is every provenance a
+/// staged declaration can carry, since `cited` is refused before it stages.
+fn citation_findings(decl: &Decl, decisions: &BTreeSet<String>) -> Vec<Finding> {
+    let Some(annot) = decl_annotation(decl) else {
+        return Vec::new();
+    };
+    annot
+        .citations
+        .iter()
+        .map(|citation| citation.id.text.trim())
+        .filter(|id| !decisions.contains(*id))
+        .map(|id| citation_unknown(id, decisions))
+        .collect()
+}
+
+/// The provenance annotation a declaration carries, if its kind carries one.
+fn decl_annotation(decl: &Decl) -> Option<&Annotation> {
+    match decl {
+        Decl::Entity(e) => e.provenance.as_ref(),
+        Decl::Attr(a) => a.provenance.as_ref(),
+        Decl::Fact(f) => f.provenance.as_ref(),
+        Decl::Before(b) => b.provenance.as_ref(),
+        Decl::Question(q) => q.provenance.as_ref(),
+        Decl::Dialect(d) => d.provenance.as_ref(),
+        Decl::NamePart(n) => n.provenance.as_ref(),
+        Decl::Name(n) => n.provenance.as_ref(),
+        Decl::Term(t) => t.provenance.as_ref(),
+        Decl::Banned(b) => b.provenance.as_ref(),
+        Decl::State(s) => s.provenance.as_ref(),
+        Decl::Attest(a) => a.provenance.as_ref(),
+        _ => None,
+    }
 }
 
 /// The base and a mutable workspace, or `internal` if the workspace vanished

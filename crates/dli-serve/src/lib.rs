@@ -61,7 +61,14 @@ mod simulation;
 /// LS-6 merge engine on the tool surface (roadmap LS-6). `0.6.0` through
 /// `0.6.4` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
 /// shape.
-pub const CONTRACT_VERSION: &str = "1.2.0";
+/// `1.3.0` is DM-4: the expert authoring surface (wave 1 — `author.add_dialect`,
+/// `add_name_part`, `add_name`, `add_term`, `add_banned`; tier 2 —
+/// `add_state`, `add_attest`) and the **authority scrub** (DL-0054, DL-0058).
+/// The ops are additive and advertised only from `1.3.0` up. The scrub is the
+/// one behavior change, and it is gated at this version precisely so it is not
+/// one: `0.5.1` through `1.2.0` keep the `provenance.cited-refused` refusal
+/// byte-exact, so every tagged contract before this one is frozen.
+pub const CONTRACT_VERSION: &str = "1.3.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -79,7 +86,10 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// is a contract change under schema-first, DL-0003/DL-0041/DL-0055), and
 /// `1.2.0` (DM-3: the corpus-exchange ops `dli.corpus.import` and
 /// `dli.corpus.export`, DL-0056 — additive, and advertised only at `1.2.0` and
-/// above so an older negotiation's capability list is unmoved).
+/// above so an older negotiation's capability list is unmoved), and `1.3.0`
+/// (DM-4: the expert authoring ops and the authority scrub, DL-0058 — the ops
+/// additive and advertised only from `1.3.0` up, the scrub gated so that every
+/// version below keeps `provenance.cited-refused` byte-exact).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -87,7 +97,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// The `serve::KILLED_FIELDS` retirement is keyed on the major, so it is live
 /// on exactly one member of this list and dormant on the other six.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
-    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0",
+    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -97,6 +107,75 @@ pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
 #[must_use]
 pub fn speaks_v2(dli: &str) -> bool {
     dli != COMPAT_CONTRACT_VERSION
+}
+
+/// A negotiated version's `(major, minor, patch)` ordering key, or `None` if it
+/// is not three dotted numbers. Only versions in [`ACCEPTED_CONTRACT_VERSIONS`]
+/// ever reach the gates below — dispatch refuses anything else before routing —
+/// so an unparseable version answers `false` to every floor rather than needing
+/// a fallible signature.
+fn version_key(dli: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = dli.split('.');
+    let mut next = || parts.next()?.parse::<u32>().ok();
+    let key = (next()?, next()?, next()?);
+    parts.next().is_none().then_some(key)
+}
+
+/// Whether the negotiated version is at or above a floor.
+///
+/// **A floor, deliberately, not an equality.** Every version gate here started
+/// as an exact match against the newest version, which is correct exactly until
+/// the next bump and then silently wrong: adding `1.3.0` to the accepted list
+/// with `matches!(dli, "1.2.0")` still guarding the corpus ops would have
+/// dropped `dli.corpus.import`/`export` from a `1.3.0` caller's capability list
+/// — a surface added in DM-3 disappearing in DM-4, with no test failing, since
+/// the tier assertion was written against the same exact match. A floor cannot
+/// fail that way: a version added later inherits every capability by
+/// construction, which is the promise `capabilities` documents.
+fn at_or_above(dli: &str, floor: (u32, u32, u32)) -> bool {
+    version_key(dli).is_some_and(|key| key >= floor)
+}
+
+/// Whether the negotiated version carries the LS-6 branch/merge ops (≥ `0.6.1`).
+#[must_use]
+pub fn has_branch_merge(dli: &str) -> bool {
+    at_or_above(dli, (0, 6, 1))
+}
+
+/// Whether the negotiated version carries the DM-3 corpus-exchange ops
+/// (≥ `1.2.0`, DL-0056).
+#[must_use]
+pub fn has_corpus_ops(dli: &str) -> bool {
+    at_or_above(dli, (1, 2, 0))
+}
+
+/// Whether the negotiated version carries the DM-4 expert authoring surface —
+/// wave 1 (`dialect`, `name_part`, `name`, `term`, `banned`) and tier 2
+/// (`state`, `attest`) — at ≥ `1.3.0` (DL-0058).
+#[must_use]
+pub fn has_expert_authoring(dli: &str) -> bool {
+    at_or_above(dli, (1, 3, 0))
+}
+
+/// Whether the negotiated version **records** caller-supplied citations as data
+/// rather than refusing them (the authority scrub: DL-0054, landed at the
+/// version this predicate names by DL-0058).
+///
+/// At and above `1.3.0` a `cited` provenance lowers to a real `decided`
+/// annotation carrying its citation ids, and referential integrity — the one
+/// thing the engine can actually check — is what decides the claim's standing:
+/// an id the corpus does not declare leaves its decision variable open, so the
+/// claim can never read certain, and raises `citation.unknown-decision`.
+///
+/// Below `1.3.0` the pre-scrub `provenance.cited-refused` refusal is served
+/// **byte-exact**, permanently. That is not a transition period: DL-0054 clause
+/// 4 freezes every `0.x` wire until version retirement, and DL-0058 extends the
+/// same freeze to `1.0.0`–`1.2.0`, which shipped with the refusal and are
+/// pinned by released fixtures. A caller opts into the scrub by negotiating up,
+/// exactly as it opts into every other version-gated change.
+#[must_use]
+pub fn records_citations(dli: &str) -> bool {
+    at_or_above(dli, (1, 3, 0))
 }
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
