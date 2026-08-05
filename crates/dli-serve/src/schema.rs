@@ -402,6 +402,65 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.merge.response".to_owned(),
             schema_for!(AuthorMergeResult),
         ),
+        // The DM-4 expert authoring surface (contract 1.3.0). Every one of these
+        // stages through the shared path, so each response is the shared
+        // `AuthorMutationResult` under its own op's file name.
+        (
+            "author.add_dialect.request".to_owned(),
+            schema_for!(AuthorAddDialectParams),
+        ),
+        (
+            "author.add_dialect.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_name_part.request".to_owned(),
+            schema_for!(AuthorAddNamePartParams),
+        ),
+        (
+            "author.add_name_part.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_name.request".to_owned(),
+            schema_for!(AuthorAddNameParams),
+        ),
+        (
+            "author.add_name.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_term.request".to_owned(),
+            schema_for!(AuthorAddTermParams),
+        ),
+        (
+            "author.add_term.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_banned.request".to_owned(),
+            schema_for!(AuthorAddBannedParams),
+        ),
+        (
+            "author.add_banned.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_state.request".to_owned(),
+            schema_for!(AuthorAddStateParams),
+        ),
+        (
+            "author.add_state.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
+            "author.add_attest.request".to_owned(),
+            schema_for!(AuthorAddAttestParams),
+        ),
+        (
+            "author.add_attest.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
     ];
     for (name, schema) in &mut schemas {
         if name.ends_with(".request") {

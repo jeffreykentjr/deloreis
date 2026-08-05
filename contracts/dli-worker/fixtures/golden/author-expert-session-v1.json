@@ -1,0 +1,308 @@
+{
+  "fixture": "golden/author-expert-session-v1",
+  "note": "The DM-4 expert authoring surface end to end at contract 1.3.0: a dialect register, the morpheme it composes from, the name composed out of it and bound to its bearer, a glossary term, a banned word, a time-varying state, and an attestation request against a question opened in the same workspace. Each tool stages through the shared path, so each reply carries the graded findings, the rendered canonical line, and the advanced workspace digest.",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "1.3.0",
+      "id": "pre",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "1.3.0",
+      "id": "pre-2",
+      "op": "author.open_question",
+      "params": {
+        "id": "who-holds-the-ford",
+        "prompt": "Who holds the ford?",
+        "workspace": "ws-1"
+      }
+    },
+    {
+      "dli": "1.3.0",
+      "id": "pre-3",
+      "op": "author.add_entity",
+      "params": {
+        "id": "mara",
+        "kind": "person",
+        "name": "Mara",
+        "provenance": {
+          "kind": "proposed",
+          "origin": "session-fx01"
+        },
+        "workspace": "ws-1"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "dialect cymric-fringe \"Cymric fringe\" proposed session-fx01 {",
+            "  vowels a e y",
+            "  endings wyn eth",
+            "  cluster-max 3",
+            "  name-kind person.given = given-proto",
+            "}"
+          ],
+          "workspace_digest": "jcs:sha256:c159f0c12bd117af149a4e666ba29e2ca6be81415587f28b527f5fe9b6414daf"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "1",
+        "op": "author.add_dialect",
+        "params": {
+          "body": [
+            {
+              "Vowels": [
+                "a",
+                "e",
+                "y"
+              ]
+            },
+            {
+              "Endings": [
+                "wyn",
+                "eth"
+              ]
+            },
+            {
+              "ClusterMax": 3
+            },
+            {
+              "NameKind": {
+                "kind": "person.given",
+                "patterns": [
+                  [
+                    "given-proto"
+                  ]
+                ]
+              }
+            }
+          ],
+          "id": "cymric-fringe",
+          "label": "Cymric fringe",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "name-part wyn \"fair\" role given-proto proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:9fa5452345089182fde4fa47b8943e37a2c3ae62b82f339ced7499547c9fd1f8"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "2",
+        "op": "author.add_name_part",
+        "params": {
+          "gloss": "fair",
+          "head": [
+            "role",
+            "given-proto"
+          ],
+          "id": "wyn",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "findings": [
+            {
+              "citations": [],
+              "code": "name.unvetted",
+              "grade": "asserted",
+              "message": "The name \"gwenwyn\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "repair": {
+                "kind": "run-check",
+                "op": "dli.name.check",
+                "params": {
+                  "name": "gwenwyn"
+                }
+              },
+              "severity": "warn"
+            }
+          ],
+          "rendered": [
+            "name gwenwyn \"Gwenwyn\" person.given in cymric-fringe proposed session-fx01",
+            "  = given-proto wyn",
+            "  bearer mara"
+          ],
+          "workspace_digest": "jcs:sha256:0921c2d83b3713460056a1d4e640ea235e624c8d1b295b4df480c2e21c2feade"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "3",
+        "op": "author.add_name",
+        "params": {
+          "bearer": "mara",
+          "composition": [
+            {
+              "morpheme": "wyn",
+              "role": "given-proto"
+            }
+          ],
+          "head": [
+            "person.given",
+            "in",
+            "cymric-fringe"
+          ],
+          "id": "gwenwyn",
+          "label": "Gwenwyn",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "term hedgeway \"the pleached boundary road\" proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:7ca03031021e981a12cf0807115ca5c486304da4413451e286a61155394bdae1"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "4",
+        "op": "author.add_term",
+        "params": {
+          "id": "hedgeway",
+          "label": "the pleached boundary road",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "banned sword \"no bladed weapons in this setting\""
+          ],
+          "workspace_digest": "jcs:sha256:fed5a9357629f375f0179570b59920b6a15ab11a3466e271afc8a1ae0fb34ac2"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "5",
+        "op": "author.add_banned",
+        "params": {
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "reason": "no bladed weapons in this setting",
+          "word": "sword",
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "6",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "state mara.water-status = tidebound during first-tides proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:c5271bce10f06ca13b8491c5fe6ddccda1968a232c45afa7853eda59a4e225f9"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "6",
+        "op": "author.add_state",
+        "params": {
+          "id": "mara.water-status",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "time": {
+            "kind": "during",
+            "point": "first-tides"
+          },
+          "value": "tidebound",
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "7",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "attest who-holds-the-ford proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:a8084a7434c3f207875e4e39350cf0fe53a8783699738953937e3a8a080cd6b7"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "7",
+        "op": "author.add_attest",
+        "params": {
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "question": "who-holds-the-ford",
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

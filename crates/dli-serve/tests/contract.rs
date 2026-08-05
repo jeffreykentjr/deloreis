@@ -56,6 +56,13 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorMerge, "author.merge"),
     (Op::CorpusImport, "dli.corpus.import"),
     (Op::CorpusExport, "dli.corpus.export"),
+    (Op::AuthorAddDialect, "author.add_dialect"),
+    (Op::AuthorAddNamePart, "author.add_name_part"),
+    (Op::AuthorAddName, "author.add_name"),
+    (Op::AuthorAddTerm, "author.add_term"),
+    (Op::AuthorAddBanned, "author.add_banned"),
+    (Op::AuthorAddState, "author.add_state"),
+    (Op::AuthorAddAttest, "author.add_attest"),
 ];
 
 #[test]

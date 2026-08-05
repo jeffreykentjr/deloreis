@@ -1,0 +1,160 @@
+{
+  "fixture": "golden/author-structural-key-v1",
+  "note": "The `author.discard` structural key, deferred from DM-3 and closed by DL-0058. `author.status` at 1.3.0 lists each staged declaration with the JCS key that names it; `author.discard` takes that key and drops exactly that declaration, leaving the workspace open and the other staged declaration untouched. The key is derived from the declaration's canonical bytes rather than from its rendering, so it exists on a build that links no formatter \u2014 which is why this form works there at all.",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "1.3.0",
+      "id": "pre",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "term hedgeway proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:78b6fde344556ce686ead9daac9ec41d6b6e0043356587cdbe8aff0445ef1ed7"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "1",
+        "op": "author.add_term",
+        "params": {
+          "id": "hedgeway",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "term ford proposed session-fx01"
+          ],
+          "workspace_digest": "jcs:sha256:448e601493bbff8b825ca50f079e3ec1a2975a1ec6ddd78a18dac6d9a0da4359"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "2",
+        "op": "author.add_term",
+        "params": {
+          "id": "ford",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fx01"
+          },
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "diff_rows": [],
+          "findings": [],
+          "rendered": [
+            "term hedgeway proposed session-fx01",
+            "term ford proposed session-fx01"
+          ],
+          "root_hash": "sha256:f7ff55dadf796e40e1ce22b19bde975639377a6be9ee347e9e06c053970afcb0",
+          "staged": [
+            {
+              "key": "jcs:sha256:cdbd778e035e2c12b5875875daca2d5c30ec911ad57d1452c5fb6fd114ba195c",
+              "kind": "term",
+              "rendered": "term hedgeway proposed session-fx01"
+            },
+            {
+              "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
+              "kind": "term",
+              "rendered": "term ford proposed session-fx01"
+            }
+          ],
+          "workspace_digest": "jcs:sha256:448e601493bbff8b825ca50f079e3ec1a2975a1ec6ddd78a18dac6d9a0da4359"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "3",
+        "op": "author.status",
+        "params": {
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "discarded": true,
+          "workspace_digest": "jcs:sha256:cc8afbb397710036b4a414693bb876c042a3716be109a39ca7d5461c3b6091ae"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "4",
+        "op": "author.discard",
+        "params": {
+          "decl": "jcs:sha256:cdbd778e035e2c12b5875875daca2d5c30ec911ad57d1452c5fb6fd114ba195c",
+          "workspace": "ws-1"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "1.3.0",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "diff_rows": [],
+          "findings": [],
+          "rendered": [
+            "term ford proposed session-fx01"
+          ],
+          "root_hash": "sha256:f7ff55dadf796e40e1ce22b19bde975639377a6be9ee347e9e06c053970afcb0",
+          "staged": [
+            {
+              "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
+              "kind": "term",
+              "rendered": "term ford proposed session-fx01"
+            }
+          ],
+          "workspace_digest": "jcs:sha256:cc8afbb397710036b4a414693bb876c042a3716be109a39ca7d5461c3b6091ae"
+        }
+      },
+      "send": {
+        "dli": "1.3.0",
+        "id": "5",
+        "op": "author.status",
+        "params": {
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

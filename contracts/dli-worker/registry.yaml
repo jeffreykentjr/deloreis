@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.2.0
+contract_version: 1.3.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -35,6 +35,8 @@ fixtures:
   sha256: 5f14444c1b82d3ccfdb8222bec092a0ff057f904e5ab9bdbf187493ecc0b4393
 - path: framing/author-add-option-framing.json
   sha256: c42d1436c76c634d84d9497a5d630b8ce35fe28f637d1b0cbbf9304aa72414e7
+- path: framing/author-expert-framing.json
+  sha256: 49770c15bd9b062175746ceb10e8689a0f2c21f67cfe79637bfba379584a30b9
 - path: framing/author-framing-attack.json
   sha256: d4abde9fe2a5b7a8300cdae67b1ed3650890adcc96b2d84ec8c68963690ee052
 - path: framing/author-merge-framing.json
@@ -79,6 +81,8 @@ fixtures:
   sha256: 1f0588d5c7516e8a3de3fc714ce6227031bec7423ea0154d2d15761b7a46e001
 - path: golden/author-discard-v1.json
   sha256: 46b840cb02102c6f3ae14a1a8c9bfa9377ee494123e6894e164c29be28f419bc
+- path: golden/author-expert-session-v1.json
+  sha256: 9d4351a43b15f0f5623fff6430d7b0a3b1b9e1fe555bd03da905f2d8507822c6
 - path: golden/author-findings-v1.json
   sha256: 46437ebaa34329733849534bc1921ea213d4fd91c2b212dd7b6b0fb8e8ece3f9
 - path: golden/author-list-workspaces-v1.json
@@ -91,10 +95,22 @@ fixtures:
   sha256: 3a26337c0abdf99e74cea922d2bab534c6214bdc1f90eed3e6c58c53b3516f0f
 - path: golden/author-query-v1.json
   sha256: eb871a1f3b8860bc33191ef88bdac9611140c2426ba32d02309f4bf82535ddbb
+- path: golden/author-scrub-cited-recorded-v1.json
+  sha256: 2e799364c35f190ec70b88e2367016607fefcead0133e2f193242234ea3e6f7d
+- path: golden/author-scrub-frozen-refusal-0-5-1-v1.json
+  sha256: a6e744865705e435fb1430751f80c1684fa2bfb992e44924233987fa509e7eb9
+- path: golden/author-scrub-frozen-refusal-1-0-0-v1.json
+  sha256: 3762932973a075a616e416d06134948c78e07f01bca176698f61e7222d1aae4d
+- path: golden/author-scrub-frozen-refusal-1-1-0-v1.json
+  sha256: e20a4871f7a3e5a36fb46d04ecaaa69219ed04e7b93068766af98b808f2c704c
+- path: golden/author-scrub-frozen-refusal-1-2-0-v1.json
+  sha256: 2c4e913e1bcb62c90e47328be9c864bff6ddcd9ab912f314e36776dbdeefc56a
 - path: golden/author-session-v1.json
   sha256: 3844bfbfc19eb177171537da287f15384ce0bf5c66c7e75cb62cae7669dbbe9d
 - path: golden/author-status-v1.json
   sha256: 7c2f0d32cbde0d996a19e2ca925051a3a9c34d7609bb7fe195d64afe5006ed15
+- path: golden/author-structural-key-v1.json
+  sha256: b1a4b5391dc2bd7e2daad9100db8518a57fc91b703dba8079ac9cea006619e99
 - path: golden/author-suppose-v1.json
   sha256: a650632f416df96ee3e54b1cf392301a76f034528accebed44cb09e7ce935589
 - path: golden/author-tegwen-v1.json
@@ -173,18 +189,32 @@ fixtures:
   sha256: 8edd4539f943a9a724993b04bcb1e6a67b59af1c1904dbe76a0c763eb60e9a41
 - path: negative/attestation-sweep-schema-violation.json
   sha256: def9c482c32a10167d231e33b2f3b27f72900389369a8fc737a180d2d2bac429
+- path: negative/author-add-attest-schema-violation.json
+  sha256: b86ca4c8abf6495708c58271f1a4a26984849a0dbeec2e25ba3fbe2e2487f51d
+- path: negative/author-add-banned-schema-violation.json
+  sha256: 43be8c2ee4fdfd239c169fc47de9eab1782e34b8d0a291288cee94b51ef03b5c
 - path: negative/author-add-before-schema-violation.json
   sha256: d4ba22460bc7deaf5aa4f6cf31decccd2c6e05a9d41539a1f1086d139f09088b
+- path: negative/author-add-dialect-schema-violation.json
+  sha256: b2c67e1c9edea005491330996af93b765e6edc8837adddff634b0688faa74b2d
 - path: negative/author-add-entity-schema-violation.json
   sha256: 5ad4a4ca992a5f994265744b0e92125a7ed0511fb5f785ee68d69569a6eec913
 - path: negative/author-add-event-schema-violation.json
   sha256: 55ffb504c34c631bf59df6ec22dce13b4974bc2282f8181ceac1d317996666a5
 - path: negative/author-add-hypothesis-schema-violation.json
   sha256: 64c4bf3ddd27e4fa956f18a5a038eae5547998f71e6d84bfab79f3db15dc0a02
+- path: negative/author-add-name-part-schema-violation.json
+  sha256: a0199664973a237612dc9b3984849beae5541f1f864fd12ca4c3bb1732a3e878
+- path: negative/author-add-name-schema-violation.json
+  sha256: 24ccb0df3a32145b77c2fd85d4b917f71b0ac61fbafeb3a03fcbbae12099b3b5
 - path: negative/author-add-option-schema-violation.json
   sha256: c72f0fb399b676458a611e03e271c13973cdb47b1b192e2ab9b9df357517e9ba
 - path: negative/author-add-relation-schema-violation.json
   sha256: 5e4fc62dc76806802fb5ae71580b4e6e56ea80d53edb05c9c9d1106bb8c21afa
+- path: negative/author-add-state-schema-violation.json
+  sha256: 459ea1d6444fddb1058673b5ae36e7903cf78b77ae28db84a6e555d262008fde
+- path: negative/author-add-term-schema-violation.json
+  sha256: 3bba0faf6db0ed20e696381ada718ebe40cee2fc9864d9ddfa7ad349e6eee5b3
 - path: negative/author-branch-schema-violation.json
   sha256: 2e198e074e4dadb93a1c8c8558484be5dcaf7e064526488fd0175379c1927525
 - path: negative/author-check-schema-violation.json

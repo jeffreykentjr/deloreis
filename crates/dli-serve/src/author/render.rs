@@ -33,11 +33,17 @@
 //! is sanitized.
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr};
+use dli_ast::clause::Clause;
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, FactDecl, HypothesisDecl, OptionClause,
-    QuestionDecl, ScopeHeader,
+    AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
+    FactDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause, QuestionDecl, ScopeHeader,
+    StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
+use dli_ast::language::{
+    CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause, NameItem,
+    NameKindSpec,
+};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 
@@ -250,7 +256,7 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             kind: e.kind,
             name: sanitize_ident(&e.name),
             label: e.label.as_deref().map(escape_controls),
-            time: e.time.clone(),
+            time: e.time.as_ref().map(sanitize_time),
             slots: e.slots.iter().map(sanitize_attr).collect(),
             provenance: e.provenance.as_ref().map(sanitize_annot),
         }),
@@ -275,8 +281,156 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             name: sanitize_ident(&h.name),
             statement: h.statement.as_deref().map(escape_controls),
         }),
-        // Door T never stages the other declaration kinds; pass them through.
+        // The DM-4 expert declarations (contract 1.3.0). Door T stages these
+        // from `author.add_dialect` and its siblings, so they need the same
+        // display sanitization as everything above: a newline smuggled into a
+        // gloss, a ban reason, or a dialect clause would otherwise split one
+        // staged line into two in the review diff and forge a declaration the
+        // reviewer reads as real (R3/C1).
+        Decl::Dialect(d) => Decl::Dialect(DialectDecl {
+            name: sanitize_ident(&d.name),
+            label: d.label.as_deref().map(escape_controls),
+            body: DialectBody {
+                clauses: d
+                    .body
+                    .clauses
+                    .iter()
+                    .map(|c| DialectClause {
+                        clause: sanitize_clause(&c.clause),
+                        item: sanitize_dialect_item(&c.item),
+                    })
+                    .collect(),
+            },
+            provenance: d.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::NamePart(n) => Decl::NamePart(sanitize_name_part(n)),
+        Decl::Name(n) => Decl::Name(NameDecl {
+            name: sanitize_ident(&n.name),
+            label: n.label.as_deref().map(escape_controls),
+            head: n.head.iter().map(|t| escape_controls(t)).collect(),
+            body: NameBody {
+                clauses: n
+                    .body
+                    .clauses
+                    .iter()
+                    .map(|c| NameClause {
+                        clause: sanitize_clause(&c.clause),
+                        item: sanitize_name_item(&c.item),
+                    })
+                    .collect(),
+            },
+            provenance: n.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::Term(t) => Decl::Term(TermDecl {
+            name: sanitize_ident(&t.name),
+            label: t.label.as_deref().map(escape_controls),
+            provenance: t.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::Banned(b) => Decl::Banned(BannedDecl {
+            word: sanitize_ident(&b.word),
+            reason: b.reason.as_deref().map(escape_controls),
+            provenance: b.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::State(s) => Decl::State(StateDecl {
+            name: sanitize_ident(&s.name),
+            value: s.value.as_ref().map(sanitize_term),
+            time: s.time.as_ref().map(sanitize_time),
+            provenance: s.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::Attest(a) => Decl::Attest(AttestDecl {
+            question: sanitize_ident(&a.question),
+            provenance: a.provenance.as_ref().map(sanitize_annot),
+        }),
+        // Door T stages no other declaration kind; pass them through.
         other => other.clone(),
+    }
+}
+
+fn sanitize_clause(clause: &Clause) -> Clause {
+    Clause {
+        text: escape_controls(&clause.text),
+        span: clause.span,
+    }
+}
+
+fn sanitize_name_part(part: &NamePartDecl) -> NamePartDecl {
+    NamePartDecl {
+        name: sanitize_ident(&part.name),
+        gloss: part.gloss.as_deref().map(escape_controls),
+        head: part.head.iter().map(|t| escape_controls(t)).collect(),
+        provenance: part.provenance.as_ref().map(sanitize_annot),
+    }
+}
+
+fn sanitize_dialect_item(item: &DialectItem) -> DialectItem {
+    let words = |list: &[String]| list.iter().map(|w| escape_controls(w)).collect::<Vec<_>>();
+    match item {
+        DialectItem::Basis { attested, text } => DialectItem::Basis {
+            attested: *attested,
+            text: text.as_deref().map(escape_controls),
+        },
+        DialectItem::Vowels(list) => DialectItem::Vowels(words(list)),
+        DialectItem::Endings(list) => DialectItem::Endings(words(list)),
+        DialectItem::Foreign(list) => DialectItem::Foreign(words(list)),
+        DialectItem::Stress(keyword) => {
+            DialectItem::Stress(keyword.as_deref().map(escape_controls))
+        }
+        DialectItem::NameKind(spec) => {
+            DialectItem::NameKind(spec.as_ref().map(|spec| NameKindSpec {
+                kind: escape_controls(&spec.kind),
+                patterns: spec.patterns.iter().map(|roles| words(roles)).collect(),
+            }))
+        }
+        DialectItem::NamePart(part) => DialectItem::NamePart(Box::new(sanitize_name_part(part))),
+        DialectItem::ClusterMax(_) | DialectItem::SayabilityMax(_) | DialectItem::Other => {
+            item.clone()
+        }
+    }
+}
+
+fn sanitize_name_item(item: &NameItem) -> NameItem {
+    match item {
+        NameItem::Composition(steps) => NameItem::Composition(
+            steps
+                .iter()
+                .map(|step| CompositionStep {
+                    role: escape_controls(&step.role),
+                    morpheme: escape_controls(&step.morpheme),
+                })
+                .collect(),
+        ),
+        NameItem::Bearer {
+            entity,
+            provenance: bearer_provenance,
+        } => NameItem::Bearer {
+            entity: entity.as_deref().map(escape_controls),
+            provenance: bearer_provenance.as_ref().map(sanitize_annot),
+        },
+        NameItem::Provenance(annot) => NameItem::Provenance(sanitize_annot(annot)),
+        NameItem::Other => NameItem::Other,
+    }
+}
+
+/// Sanitize a temporal clause's anchor idents.
+///
+/// A time clause names an era or event, and a name is free text that reaches the
+/// formatter: `during <era>` renders the era verbatim. This arm was missing for
+/// both `Decl::Entity` and `Decl::State`, and a newline in the anchor really did
+/// split one staged declaration into two rendered lines — `state x during
+/// the-flood\nstate forged during now` rendered as two `state` lines, the second
+/// of which a reviewer reads as a declaration the author never made. The
+/// `field.control-char` finding always fired and always barred materialize, so
+/// canon was never reachable; what was forgeable was the **review diff**, which
+/// this module's own contract says is forgery-proof. Found by a red-team probe
+/// against `author.add_state`; the `Decl::Entity` half predates it and is
+/// reachable through `author.add_event`'s `era`.
+fn sanitize_time(time: &TimeClause) -> TimeClause {
+    match time {
+        TimeClause::After(point) => TimeClause::After(sanitize_ident(point)),
+        TimeClause::During(point) => TimeClause::During(sanitize_ident(point)),
+        TimeClause::Since(point) => TimeClause::Since(sanitize_ident(point)),
+        TimeClause::Until(point) => TimeClause::Until(sanitize_ident(point)),
+        TimeClause::Order(points) => TimeClause::Order(points.iter().map(sanitize_ident).collect()),
     }
 }
 

@@ -2025,3 +2025,135 @@ platform-conditional operator — a worse trade than a named gap, since both bra
 convert an I/O error into a finding and the property that matters, that they are findings
 and not panics, is proven elsewhere. The corpus README names them; nothing claims they
 are covered.
+
+## DL-0058 — DM-4: the expert authoring tools, and the authority scrub lands at contract 1.3.0
+
+*Date: 2026-08-05*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Contract `1.3.0` adds the expert authoring surface the consumer's corpus
+needs, implements the authority scrub DL-0054 ruled, and closes the per-declaration
+`author.discard` deferral DM-3 recorded.
+
+1. **Seven tools land, in two tiers, and the tiers are a scope ruling.** Wave 1 is the
+   language lane the consumer's corpus actually contains — `author.add_dialect`,
+   `author.add_name_part`, `author.add_name`, `author.add_term`, `author.add_banned`.
+   Tier 2 is `author.add_state` (time-varying fluents, their episode continuity) and
+   `author.add_attest` (their question-ledger flow). Each is a typed constructor over an
+   AST declaration that already existed, staged through the existing path: same durable
+   lorestore write, same digest, same graded reply. **Tier 3 — `rule`, `practice`,
+   `proof`, `cycle` — is parked behind a named trigger, first consumer use**, and tier 4
+   (`word`, `narration`, `variant`, `principle`, `export`, `draft`, `use`, `kind`)
+   indefinitely. This re-scopes DL-0050's deferred "the remaining declaration kinds have
+   no tool" item: the gap is now a decision with a trigger rather than an omission. A
+   tool built before a caller exists is a guess at a shape, and every shape here was read
+   off a corpus that exists. `Use`/`Kind` remain unbuilt for the same reason — campaign
+   honest-unknown 5 asked for proven need and no mapping table has shown one.
+
+2. **Params carry the typed interiors minus spans.** The LS-9 interiors pair each typed
+   `item` with the normalized clause text and span the parser captured for exact
+   round-trip. A caller has no source to point into, so the wire carries the items alone
+   and the lowering synthesizes both. `author.add_dialect` therefore takes `dli_ast`'s own
+   `DialectItem` sequence — one type, not two kept in step. `author.add_name` is the one
+   deliberate narrowing: of `NameItem`'s four variants it exposes `Composition` and
+   `Bearer` as typed params, omits `Provenance` (a second spelling of the tool's own
+   `provenance`, which the compiler's header-first precedence would then have to choose
+   between) and omits `Other`, which is by definition a clause the grammar did not
+   recognize and which a typed constructor cannot produce.
+
+3. **The authority scrub lands at contract ≥ 1.3.0, superseding DL-0054's "≥ 1.2.0".**
+   DL-0054 named 1.2.0 when it was written; the minor ladder moved past it before the code
+   landed (1.1.0 took the storage schema, 1.2.0 the corpus exchange), so that number is
+   corrected here rather than in DL-0054, which is append-only and stands as written. At
+   1.3.0 and above a `cited` provenance lowers to a real `decided` annotation carrying its
+   ids: the engine records the attribution the caller states and stops asking whether the
+   caller was entitled to state it. **Every version below 1.3.0 keeps
+   `provenance.cited-refused` byte-exact — permanently, not transitionally.** That freeze
+   now covers `1.0.0`, `1.1.0`, and `1.2.0` as well as the whole `0.x` prefix: those three
+   shipped with the refusal and released fixtures pin it. A caller opts into the scrub by
+   negotiating up, exactly as it opts into every other version-gated change.
+
+4. **Referential integrity is the half that is kept, and it is fail-closed on every
+   wire.** A cited decision must resolve against the decisions the corpus declares — the
+   `ratify` set, which is the same source `dli-eval` reads. An id that does not resolve
+   leaves its decision variable **open**, so the claim resting on it can never read
+   `certain`, and raises `citation.unknown-decision` at error severity, which bars
+   materialize. The finding is now raised twice on purpose: once by the compiled staged
+   world, as before, and once by the add itself, so a mutating call answers with the
+   findings its own claim raised (spec 11 §4) instead of deferring them to the next
+   `author.check`. Recording a citation is not believing it, and that distinction is what
+   keeps the scrub from converting "the engine refuses citations" into "the engine accepts
+   forged ones".
+
+5. **`author.discard` names a declaration by a structural key from 1.3.0.** The key is
+   `jcs:sha256:` over the declaration's canonical JCS bytes, listed per declaration in
+   `author.status`'s new `staged` rows. This closes what DM-3 deferred with its reason
+   recorded: the key existed but nothing surfaced it, so on a build with no formatter the
+   per-declaration form had to refuse rather than match nothing. The internal fallback it
+   replaces was `serde_json::to_string` of the declaration, which could not be promoted to
+   a wire identifier — its bytes follow the order the struct declares its fields, so
+   reordering two fields would have re-keyed every staged declaration of that kind without
+   changing any of them. JCS fixes the encoding, so the key is a function of the
+   declaration's serialized content under a spelling a caller can reproduce, and it is
+   identical on a default build and a `syntax` build. Below 1.3.0 the rendered-line key and
+   its refusal are unchanged.
+
+   **What that stability is and is not**, recorded because the wire schema promises it to a
+   consumer. Canonical encoding buys reorder-stability; it does not buy immunity to schema
+   growth. A field that serializes is content and moves the key — including one that
+   serializes as `null`, which is what an `Option` without `skip_serializing_if` does when
+   absent, and that is every optional field on the declaration types as they stand. Only a
+   field elided from the bytes entirely leaves the key alone. So a key is valid **within a
+   contract version**, and the schema says so rather than implying a durability the digest
+   does not have. An earlier draft of this entry and of the `StagedDecl::key` description
+   claimed stability "across additive schema changes"; that was wrong in the direction that
+   costs a consumer real work, and it is corrected here before either shipped.
+
+6. **Every version gate is a floor, not an equality.** `capabilities()` gated the DM-3
+   corpus ops on `matches!(dli, "1.2.0")`, which was correct exactly while 1.2.0 was the
+   newest version. Adding 1.3.0 to the accepted set would have dropped
+   `dli.corpus.import`/`export` from the newest wire's capability list with no test
+   failing — the tier assertion in `ls8_contract_1_0` was written against the same exact
+   match, so it would have agreed. Both are now floors stated independently of each other,
+   and a second test asserts the floor property per gate over every accepted version, in
+   both directions. This was verified by seeding the exact-match regression and observing
+   both guards go red.
+
+**Rationale.** The scrub is the substantive change, and it is a correction of the
+engine's model of its own callers rather than a loosening. The old refusal encoded a
+social fact — that a human author, and only a human author, mints citations — as a wire
+rule. Every caller of deloreis is a machine, so the rule never distinguished a human's
+decision from an agent's; it distinguished which field the machine filled in, and its
+practical effect was to teach agents to route human rulings *around* the provenance
+system rather than through it, because the one field designed to carry a ruling was the
+one field they were forbidden to use. What the engine can actually check is whether a
+cited decision exists, and that check is strictly stronger than the refusal it replaces:
+the refusal never inspected the ids at all.
+
+The version gate is doing real work here and is not ceremony. This is the first change in
+the campaign that alters what an existing request *returns* rather than adding a request
+that did not exist, so it is the first that could break a consumer mid-cutover — and the
+consumer is mid-cutover. Gating it means the same binary answers the old callers and the
+new one, and the evidence is mechanical rather than argued: the `ls8_zero_x_parity`
+corpus reproduces every captured `0.x` response with exactly two deviations, both of them
+the version list growing in a refusal whose whole purpose is to enumerate it, and neither
+touching the scrub; three new goldens pin the refusal at `0.5.1`, `1.0.0`, and `1.2.0`;
+and a test drives all nine frozen versions through a `cited` add and asserts the finding,
+its message, and its repair verbatim.
+
+The tier ruling deserves its own note because "we did not build it" and "we decided not to
+build it" look identical in a diff and are opposite in a review. DL-0050 recorded the
+missing tools as a deferred item, which reads as debt. Most of it is not debt: `word`,
+`narration`, `variant`, and `principle` have no consumer, and building typed constructors
+for them would freeze param shapes against a guess, on a wire where param shapes are the
+contract. Naming the trigger — first consumer use — converts the gap into something a
+future reader can act on, and keeps the tool surface a record of what is authored rather
+than of what is declarable.
+
+**Not done, and named rather than half-built.** `DialectItem::Other` and
+`NameItem::Other` round-trip through the params but render as empty clause text, because
+an unrecognized clause has no keyword to reconstruct — the grammar did not classify it,
+so the lowering does not guess. They are reachable only by a caller that deliberately
+sends them, and they carry no meaning to the compiler either way.

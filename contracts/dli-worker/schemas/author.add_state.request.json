@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddStateParams",
+  "description": "`author.add_state` params: a time-varying fluent.\n\nA state is not an attribute: it holds over an interval rather than forever,\nwhich is why it carries [`Self::time`] and lowers to `Decl::State` instead of\n`Decl::Attr`.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "The state name; may be dotted, e.g. `gwern.water-status`.",
+      "type": "string"
+    },
+    "provenance": {
+      "description": "The provenance of this addition.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "time": {
+      "description": "When the state holds, as a temporal clause.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StateTime"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "value": {
+      "description": "The value the state takes.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "id",
+    "provenance"
+  ],
+  "$defs": {
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for Door T (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    },
+    "StateTime": {
+      "description": "The temporal clause of an [`AuthorAddStateParams`]: which anchor, and which\npoint it names. Mirrors `dli_ast`'s `TimeClause` minus the multi-point\n`order` form, which orders events rather than bounding a state.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "The temporal relation.",
+          "$ref": "#/$defs/StateTimeKind"
+        },
+        "point": {
+          "description": "The era or event the relation anchors to.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "point"
+      ]
+    },
+    "StateTimeKind": {
+      "description": "The temporal relation an [`StateTime`] asserts.",
+      "oneOf": [
+        {
+          "description": "Holds after the point.",
+          "type": "string",
+          "const": "after"
+        },
+        {
+          "description": "Holds throughout the point.",
+          "type": "string",
+          "const": "during"
+        },
+        {
+          "description": "Holds from the point onward.",
+          "type": "string",
+          "const": "since"
+        },
+        {
+          "description": "Holds up to the point.",
+          "type": "string",
+          "const": "until"
+        }
+      ]
+    }
+  }
+}

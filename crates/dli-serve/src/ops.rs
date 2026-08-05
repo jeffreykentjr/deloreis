@@ -169,11 +169,39 @@ pub enum Op {
     /// Merge a named branch into the current branch (LS-6, contract 0.6.1).
     #[serde(rename = "author.merge")]
     AuthorMerge,
+    /// Add a dialect register (DM-4 wave 1, contract 1.3.0).
+    #[serde(rename = "author.add_dialect")]
+    AuthorAddDialect,
+    /// Add a name-part morpheme (DM-4 wave 1, contract 1.3.0).
+    #[serde(rename = "author.add_name_part")]
+    AuthorAddNamePart,
+    /// Add a composed name (DM-4 wave 1, contract 1.3.0).
+    #[serde(rename = "author.add_name")]
+    AuthorAddName,
+    /// Add a glossary term (DM-4 wave 1, contract 1.3.0).
+    #[serde(rename = "author.add_term")]
+    AuthorAddTerm,
+    /// Ban a word from the lore surface (DM-4 wave 1, contract 1.3.0).
+    #[serde(rename = "author.add_banned")]
+    AuthorAddBanned,
+    /// Add a time-varying state fluent (DM-4 tier 2, contract 1.3.0).
+    #[serde(rename = "author.add_state")]
+    AuthorAddState,
+    /// Request an attestation for an open question (DM-4 tier 2, contract 1.3.0).
+    #[serde(rename = "author.add_attest")]
+    AuthorAddAttest,
 }
 
 impl Op {
     /// Every operation, in wire order.
-    pub const ALL: [Op; 50] = [
+    ///
+    /// **Append only.** The capability list is this array filtered by the
+    /// negotiated version's gates, so its order *is* the advertised order:
+    /// inserting an op mid-array would reshuffle every older version's
+    /// capability list and move released handshake bytes (audit C4). New ops go
+    /// on the end, where the version filter can remove them without disturbing
+    /// what came before.
+    pub const ALL: [Op; 57] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -224,7 +252,33 @@ impl Op {
         Op::AuthorListWorkspaces,
         Op::AuthorBranch,
         Op::AuthorMerge,
+        Op::AuthorAddDialect,
+        Op::AuthorAddNamePart,
+        Op::AuthorAddName,
+        Op::AuthorAddTerm,
+        Op::AuthorAddBanned,
+        Op::AuthorAddState,
+        Op::AuthorAddAttest,
     ];
+
+    /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
+    /// authoring surface: wave 1 plus tier 2). Advertised only from `1.3.0` up,
+    /// so a `1.2.0`-or-earlier negotiation's capability list — and the golden
+    /// fixture recording it — stays byte-identical and needs no re-pin
+    /// (audit C4).
+    #[must_use]
+    pub const fn added_in_1_3_0(self) -> bool {
+        matches!(
+            self,
+            Op::AuthorAddDialect
+                | Op::AuthorAddNamePart
+                | Op::AuthorAddName
+                | Op::AuthorAddTerm
+                | Op::AuthorAddBanned
+                | Op::AuthorAddState
+                | Op::AuthorAddAttest
+        )
+    }
 
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
@@ -258,6 +312,13 @@ impl Op {
                 | Op::AuthorAddOption
                 | Op::AuthorAddHypothesis
                 | Op::AuthorSuppose
+                | Op::AuthorAddDialect
+                | Op::AuthorAddNamePart
+                | Op::AuthorAddName
+                | Op::AuthorAddTerm
+                | Op::AuthorAddBanned
+                | Op::AuthorAddState
+                | Op::AuthorAddAttest
         )
     }
 
@@ -369,6 +430,25 @@ impl Op {
             }
             Op::AuthorMerge => {
                 "Merge a named branch into the current one; returns the merge commit and a structural conflict report."
+            }
+            Op::AuthorAddDialect => {
+                "Declare a dialect register — the phonology and name grammar a naming population draws on."
+            }
+            Op::AuthorAddNamePart => {
+                "Declare a name-part morpheme and its role, the raw material composed names are built from."
+            }
+            Op::AuthorAddName => {
+                "Compose a name from name-part morphemes and optionally bind it to the entity that bears it."
+            }
+            Op::AuthorAddTerm => "Introduce a glossary term — a word the lore defines and reuses.",
+            Op::AuthorAddBanned => {
+                "Ban a word from the lore surface, with the reason; the guardrail that refuses it later."
+            }
+            Op::AuthorAddState => {
+                "Assert a time-varying state on an entity (a fluent that holds over an interval, not forever)."
+            }
+            Op::AuthorAddAttest => {
+                "Request an attestation for an open question — the ledger entry a later sweep answers."
             }
         }
     }

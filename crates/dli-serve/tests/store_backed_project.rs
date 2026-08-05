@@ -1093,3 +1093,170 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         "the reconstructed pack carries the committed scope"
     );
 }
+
+/// The DM-4 exit scenario (contract 1.3.0, DL-0058): stage a dialect, the
+/// morpheme it composes from, the name composed out of them, and a ban —
+/// through the tools, on the **default build** — materialize, reload the
+/// project from the store, and confirm the *language model* sees all four.
+///
+/// This is the property the whole milestone is for, and it is asserted here
+/// rather than in the syntax lane on purpose. The consumer's authoring server
+/// links no `.dli` front end: it cannot write the text form, cannot parse it
+/// back, and has no formatter to render what it staged. If the language lane
+/// only worked when a parser was present, the tools would be an interface the
+/// consumer cannot use. So the round trip under test is tools → fact objects →
+/// store → reload → compiled `LanguageModel`, with `.dli` text absent from
+/// every step.
+// A single end-to-end walk, asserted step by step: splitting it into helpers
+// would hide the sequence that is the thing under test.
+#[allow(clippy::too_many_lines)]
+#[test]
+fn the_expert_tools_reach_the_language_model_through_the_store() {
+    let root = temp("expert-tools-language-model");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let before = head_of(&dir);
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("a store-backed project loads");
+
+    let mut author =
+        dli_serve::author::store::Store::with_packs(project.documents().map(|(id, document)| {
+            (
+                id.to_owned(),
+                document.pack.clone(),
+                document.killed.clone(),
+            )
+        }))
+        .expect("the project compiles");
+    for (id, document) in project.documents() {
+        if let Some(origin) = document.store_origin.as_ref() {
+            author.register_store_origin(id.to_owned(), origin.clone(), document.store_pinned);
+        }
+    }
+    author
+        .attach_lorestore(root.join(".dli-lorestore"))
+        .expect("attach");
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+
+    let opened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"0","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"]
+        .as_str()
+        .unwrap_or_else(|| panic!("author.open answered with a workspace: {opened}"))
+        .to_owned();
+    let provenance = serde_json::json!({"kind":"proposed","origin":"session-dm4"});
+
+    for (id, frame) in [
+        (
+            "1",
+            serde_json::json!({"workspace":ws,"id":"cymric-fringe","label":"Cymric fringe",
+                "body":[{"Vowels":["a","e","y"]},{"Endings":["wyn"]},
+                        {"NameKind":{"kind":"person.given","patterns":[["given-proto"]]}}],
+                "provenance":provenance}),
+        ),
+        (
+            "2",
+            serde_json::json!({"workspace":ws,"id":"wyn","gloss":"fair",
+                               "head":["role","given-proto"],"provenance":provenance}),
+        ),
+        (
+            "3",
+            serde_json::json!({"workspace":ws,"id":"gwenwyn","label":"Gwenwyn",
+                "head":["person.given","in","cymric-fringe"],
+                "composition":[{"role":"given-proto","morpheme":"wyn"}],
+                "provenance":provenance}),
+        ),
+        (
+            "4",
+            serde_json::json!({"workspace":ws,"word":"sword",
+                               "reason":"no bladed weapons here","provenance":provenance}),
+        ),
+    ] {
+        let op = match id {
+            "1" => "author.add_dialect",
+            "2" => "author.add_name_part",
+            "3" => "author.add_name",
+            _ => "author.add_banned",
+        };
+        let staged = send(
+            &serde_json::json!({"dli":"1.3.0","id":id,"op":op,"params":frame}),
+            &mut sessions,
+            &mut author,
+        );
+        assert_eq!(
+            staged["ok"], true,
+            "{op} stages on the default build: {staged}"
+        );
+        // The default build renders nothing, so the reply's evidence that the
+        // declaration was understood is its findings and its moved digest —
+        // never a rendered line, which is exactly the point.
+        if !SYNTAX {
+            assert_eq!(
+                staged["result"]["rendered"],
+                serde_json::json!([]),
+                "{op}: a build with no formatter renders no lines: {staged}"
+            );
+        }
+    }
+
+    let materialized = send(
+        &serde_json::json!({"dli":"1.3.0","id":"5","op":"author.materialize",
+                            "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["ok"], true,
+        "materialize commits the expert declarations: {materialized}"
+    );
+    let after = head_of(&dir);
+    assert_ne!(after, before, "materialize advanced the store");
+
+    // Reload from disk — a new process would see exactly this — and compile.
+    let reloaded = Project::load(&root).expect("the advanced store reloads");
+    let document = reloaded
+        .documents()
+        .find(|(id, _)| *id == "tpth")
+        .expect("the document is still served")
+        .1;
+    let world = dli_world::compile(&document.pack).expect("the reloaded pack compiles");
+    let language = &world.model.language;
+
+    let register = language.register("cymric-fringe").unwrap_or_else(|| {
+        panic!(
+            "the register survived the round trip: {:?}",
+            language.registers
+        )
+    });
+    assert!(
+        register.phonotactics.endings.iter().any(|e| e == "wyn"),
+        "the register kept its typed interior: {register:?}"
+    );
+    assert!(
+        register
+            .name_kinds
+            .iter()
+            .any(|kind| kind.kind == "person.given"),
+        "the register kept its name-kind grammar: {register:?}"
+    );
+    assert!(
+        language
+            .resolve_morpheme("cymric-fringe", "wyn", "given-proto")
+            .is_some(),
+        "the morpheme resolves for the register: {:?}",
+        language.morphemes
+    );
+    assert!(
+        language.names.iter().any(|n| n.name == "gwenwyn"),
+        "the composed name compiled: {:?}",
+        language.names
+    );
+    assert!(
+        language.bans.iter().any(|b| b.word == "sword"),
+        "the ban compiled: {:?}",
+        language.bans
+    );
+}

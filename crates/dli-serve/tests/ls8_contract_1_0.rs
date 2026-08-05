@@ -808,20 +808,46 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 
 /// The capability list is gated on the *negotiated version*, never on "is this
 /// the newest build", so an older conversation keeps the surface it was promised
-/// while a newer one inherits every op. Three tiers, each an exact set:
+/// while a newer one inherits every op. Four tiers, each an exact set:
 ///
-/// - `0.5.1`/`0.6.0` — no `author.branch`/`author.merge`, no corpus ops.
+/// - `0.5.1`/`0.6.0` — no `author.branch`/`author.merge`, no corpus ops, no
+///   expert authoring.
 /// - `0.6.1`..=`1.1.0` — the branch/merge surface, still no corpus ops.
 /// - `1.2.0` — that surface plus `dli.corpus.import`/`dli.corpus.export`.
+/// - `1.3.0` — that surface plus the DM-4 expert authoring tools.
 ///
 /// Asserting the *differences* rather than a frozen list keeps this honest as
 /// ops are added: a new op must land in a tier deliberately, and an op leaking
 /// into an older tier — the C4 violation this guards — fails here.
+///
+/// **Each tier is a floor**, expressed here as `version >= introduced_at`, and
+/// that is the whole point of the rewrite this test got in DM-4. Its previous
+/// shape asked `version != "1.2.0"` to decide whether the corpus ops belonged,
+/// which mirrored the exact-match gate in `capabilities()` — so when `1.3.0`
+/// joined the accepted set, both would have agreed that a `1.3.0` caller gets no
+/// corpus ops, and this test would have passed while DM-3's surface silently
+/// vanished from the newest wire. A test that reproduces the implementation's
+/// mistake cannot catch it; a floor stated independently can.
 #[test]
 fn a_1_0_handshake_gets_the_full_capability_surface() {
     let (_temp, mut sessions, mut store) = fixture_project();
-    let branch_merge = ["author.branch", "author.merge"];
-    let corpus = ["dli.corpus.import", "dli.corpus.export"];
+    // Each tier: the ops it introduced, and the version that introduced them.
+    let tiers: &[(&str, &[&str])] = &[
+        ("0.6.1", &["author.branch", "author.merge"]),
+        ("1.2.0", &["dli.corpus.import", "dli.corpus.export"]),
+        (
+            "1.3.0",
+            &[
+                "author.add_dialect",
+                "author.add_name_part",
+                "author.add_name",
+                "author.add_term",
+                "author.add_banned",
+                "author.add_state",
+                "author.add_attest",
+            ],
+        ),
+    ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {
         let response = drive(
@@ -843,28 +869,88 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         caps
     };
 
-    // The 1.2.0 surface is the reference; every older tier is it minus what that
-    // tier predates.
-    let full = surface("1.2.0", &mut sessions, &mut store);
-    for op in branch_merge.iter().chain(corpus.iter()) {
-        assert!(
-            full.contains(&(*op).to_owned()),
-            "1.2.0 advertises `{op}`: {full:?}"
-        );
+    // Version ordering, spelled out here rather than imported, so the test does
+    // not inherit whatever comparison the server used to build the answer.
+    let key = |version: &str| -> (u32, u32, u32) {
+        let parts: Vec<u32> = version.split('.').map(|p| p.parse().unwrap()).collect();
+        (parts[0], parts[1], parts[2])
+    };
+
+    // The newest accepted version is the reference surface: it must carry every
+    // tier's ops, or a later tier has quietly displaced an earlier one.
+    let newest = dli_serve::ACCEPTED_CONTRACT_VERSIONS
+        .iter()
+        .max_by_key(|version| key(version))
+        .expect("at least one accepted version");
+    let full = surface(newest, &mut sessions, &mut store);
+    for (introduced_at, ops) in tiers {
+        for op in *ops {
+            assert!(
+                full.contains(&(*op).to_owned()),
+                "{newest} advertises `{op}` (introduced at {introduced_at}): {full:?}"
+            );
+        }
     }
 
     for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
         let caps = surface(version, &mut sessions, &mut store);
         let mut expected = full.clone();
-        if *version != "1.2.0" {
-            expected.retain(|op| !corpus.contains(&op.as_str()));
-        }
-        if matches!(*version, "0.5.1" | "0.6.0") {
-            expected.retain(|op| !branch_merge.contains(&op.as_str()));
+        for (introduced_at, ops) in tiers {
+            if key(version) < key(introduced_at) {
+                expected.retain(|op| !ops.contains(&op.as_str()));
+            }
         }
         assert_eq!(
             caps, expected,
             "{version} advertises exactly its tier's surface"
+        );
+    }
+}
+
+/// The version gates are floors, and a floor is what keeps a released surface
+/// from evaporating at the next bump.
+///
+/// This asserts the property directly, one predicate at a time, so it fails at
+/// the gate itself rather than only through the handshake: every accepted
+/// version at or above a tier's introduction answers `true`, and every version
+/// below answers `false`. An exact-match gate (`matches!(dli, "1.2.0")`) passes
+/// the second half and fails the first the moment a newer version exists.
+/// One version gate under test: its name, the version that introduced it, and
+/// the predicate the server asks.
+type Gate = (&'static str, &'static str, fn(&str) -> bool);
+
+#[test]
+fn every_capability_gate_is_a_floor_not_an_exact_match() {
+    let key = |version: &str| -> (u32, u32, u32) {
+        let parts: Vec<u32> = version.split('.').map(|p| p.parse().unwrap()).collect();
+        (parts[0], parts[1], parts[2])
+    };
+    let gates: &[Gate] = &[
+        ("branch/merge", "0.6.1", dli_serve::has_branch_merge),
+        ("corpus ops", "1.2.0", dli_serve::has_corpus_ops),
+        ("expert authoring", "1.3.0", dli_serve::has_expert_authoring),
+        ("citation recording", "1.3.0", dli_serve::records_citations),
+    ];
+    for (name, floor, gate) in gates {
+        let mut at_or_above = 0;
+        for version in dli_serve::ACCEPTED_CONTRACT_VERSIONS {
+            let expected = key(version) >= key(floor);
+            assert_eq!(
+                gate(version),
+                expected,
+                "the {name} gate must answer {expected} for {version} (floor {floor})"
+            );
+            at_or_above += usize::from(expected);
+        }
+        // Non-vacuous in both directions: a gate that answered a constant would
+        // satisfy the loop above only if every accepted version fell on one side.
+        assert!(
+            at_or_above > 0,
+            "the {name} gate never fires — no accepted version reaches {floor}"
+        );
+        assert!(
+            at_or_above < dli_serve::ACCEPTED_CONTRACT_VERSIONS.len(),
+            "the {name} gate always fires — it gates nothing"
         );
     }
 }

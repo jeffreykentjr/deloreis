@@ -40,12 +40,13 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::contract::{
-    AuthorAddBeforeParams, AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams,
-    AuthorAddHypothesisParams, AuthorAddOptionParams, AuthorAddRelationParams, AuthorBranchParams,
-    AuthorCheckParams, AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams,
-    AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams,
-    AuthorOpenQuestionParams, AuthorQueryParams, AuthorStatusParams, AuthorSupposeParams,
-    AuthorWhyParams,
+    AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
+    AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
+    AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
+    AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorCheckParams,
+    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
+    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
+    AuthorQueryParams, AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -55,6 +56,20 @@ use crate::ops::Op;
 /// ruling 4); `0.6.0` and `0.6.1` share the JSON-first shape.
 fn wire_v2(request: &Request) -> bool {
     crate::speaks_v2(&request.dli)
+}
+
+/// Whether this request's negotiated version records caller-supplied citations
+/// as data rather than refusing them (the authority scrub, DL-0054/DL-0058).
+/// Read once per call at the seam and passed down, so every claim-bearing tool
+/// answers to the same version rather than each consulting the wire itself.
+fn records_citations(request: &Request) -> bool {
+    crate::records_citations(&request.dli)
+}
+
+/// Whether this request's negotiated version names a staged declaration by its
+/// structural key (≥ 1.3.0, DL-0058) rather than by its rendered `.dli` line.
+fn structural_keys(request: &Request) -> bool {
+    crate::has_expert_authoring(&request.dli)
 }
 
 /// The Door T dispatch seam (frozen verbatim in the wave-3 sockets): route an
@@ -73,7 +88,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             let v2 = wire_v2(request);
-            Ok((params.workspace.clone(), tools::status(store, &params, v2)))
+            Ok((
+                params.workspace.clone(),
+                tools::status(store, &params, v2, structural_keys(request)),
+            ))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
@@ -99,36 +117,48 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let decl = request.params.get("decl").and_then(Value::as_str);
             Ok((
                 params.workspace.clone(),
-                tools::discard(store, &params.workspace, decl),
+                tools::discard(store, &params.workspace, decl, structural_keys(request)),
             ))
         }),
         Op::AuthorAddEntity => mutate(request, store, |store, request| {
             let params: AuthorAddEntityParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::add_entity(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::add_entity(store, &params, records_citations(request)),
+            ))
         }),
         Op::AuthorAddFact => mutate(request, store, |store, request| {
             let params: AuthorAddFactParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::add_fact(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::add_fact(store, &params, records_citations(request)),
+            ))
         }),
         Op::AuthorAddRelation => mutate(request, store, |store, request| {
             let params: AuthorAddRelationParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_relation(store, &params),
+                tools::add_relation(store, &params, records_citations(request)),
             ))
         }),
         Op::AuthorAddEvent => mutate(request, store, |store, request| {
             let params: AuthorAddEventParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::add_event(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::add_event(store, &params, records_citations(request)),
+            ))
         }),
         Op::AuthorAddBefore => mutate(request, store, |store, request| {
             let params: AuthorAddBeforeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::add_before(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::add_before(store, &params, records_citations(request)),
+            ))
         }),
         Op::AuthorOpenQuestion => mutate(request, store, |store, request| {
             let params: AuthorOpenQuestionParams = parse(request)?;
@@ -155,6 +185,65 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let params: AuthorSupposeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((params.workspace.clone(), tools::suppose(store, &params)))
+        }),
+        // The DM-4 expert authoring surface (contract 1.3.0). Ordinary staging
+        // mutations: same wrapper, same fences, same graded reply as the tools
+        // above — they differ only in which declaration they construct.
+        Op::AuthorAddDialect => mutate(request, store, |store, request| {
+            let params: AuthorAddDialectParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_dialect(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddNamePart => mutate(request, store, |store, request| {
+            let params: AuthorAddNamePartParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_name_part(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddName => mutate(request, store, |store, request| {
+            let params: AuthorAddNameParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_name(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddTerm => mutate(request, store, |store, request| {
+            let params: AuthorAddTermParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_term(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddBanned => mutate(request, store, |store, request| {
+            let params: AuthorAddBannedParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_banned(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddState => mutate(request, store, |store, request| {
+            let params: AuthorAddStateParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_state(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddAttest => mutate(request, store, |store, request| {
+            let params: AuthorAddAttestParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_attest(store, &params, records_citations(request)),
+            ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no

@@ -459,6 +459,11 @@ fn authoring_stages_and_diffs_without_a_renderer() {
     );
 }
 
+/// Below contract 1.3.0 a staged declaration is named only by its rendered
+/// `.dli` line, so a build with no formatter cannot name one at all and says so
+/// (LS-7). Those bytes are frozen — this is what every wire through 1.2.0
+/// answers, and `request` here speaks 0.6.4. DM-4 gives the declaration a
+/// build-independent name at 1.3.0 and up; the test below covers that half.
 #[test]
 fn per_declaration_discard_is_refused_without_a_renderer() {
     if SYNTAX {
@@ -695,5 +700,287 @@ fn a_dli_project_load_names_its_two_ways_forward() {
     assert!(
         message.contains("syntax") && message.contains("fact objects"),
         "the refusal must name both ways forward, got: {message}"
+    );
+}
+
+/// From contract 1.3.0, a staged declaration carries a **structural key** — the
+/// JCS digest of the declaration itself — which `author.status` lists and
+/// `author.discard` accepts. This closes the deferral DM-3 recorded: the key
+/// existed internally, but nothing surfaced it, so the per-declaration form had
+/// to refuse here rather than match nothing.
+///
+/// The whole point is that this runs in the default lane. The key is derived
+/// from the declaration's canonical bytes rather than from a rendering, so it
+/// exists on a build that links no formatter — which is the build the consumer's
+/// authoring server is. Rejecting one declaration out of several, without
+/// discarding the session, was simply not available there before.
+// A single end-to-end walk, asserted step by step: splitting it into helpers
+// would hide the sequence that is the thing under test.
+#[allow(clippy::too_many_lines)]
+#[test]
+fn per_declaration_discard_names_the_structural_key_from_1_3_0() {
+    let (mut sessions, mut store) = demo();
+    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "1.3.0", "id": id, "op": op, "params": params });
+    let opened = drive(
+        &at_1_3_0("ws-open", "author.open", &json!({ "scope": "camelot" })),
+        &mut sessions,
+        &mut store,
+    );
+    let workspace = result(&opened)["workspace"].as_str().unwrap().to_owned();
+    for (id, name) in [("elaine", "Elaine"), ("bors", "Bors")] {
+        drive(
+            &at_1_3_0(
+                "ws-add",
+                "author.add_entity",
+                &json!({
+                    "workspace": workspace,
+                    "kind": "person",
+                    "id": id,
+                    "name": name,
+                    "provenance": { "kind": "proposed", "origin": "dm4-default-build" },
+                }),
+            ),
+            &mut sessions,
+            &mut store,
+        );
+    }
+
+    let status = drive(
+        &at_1_3_0(
+            "ws-status",
+            "author.status",
+            &json!({ "workspace": workspace }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let staged = result(&status)["staged"]
+        .as_array()
+        .unwrap_or_else(|| panic!("1.3.0 status lists the staged declarations: {status}"))
+        .clone();
+    assert_eq!(staged.len(), 2, "both declarations are listed: {status}");
+    for row in &staged {
+        let key = row["key"].as_str().expect("every row carries a key");
+        assert!(
+            key.starts_with("jcs:sha256:"),
+            "the key is a JCS digest, not a rendering: {key}"
+        );
+        assert_eq!(row["kind"], "person", "the row names its kind: {row}");
+        if !SYNTAX {
+            assert!(
+                row.get("rendered").is_none(),
+                "a build with no formatter offers no rendered line: {row}"
+            );
+        }
+    }
+    // Two different declarations must not collide, or the key names a group
+    // rather than a declaration and `discard` would drop the wrong one.
+    assert_ne!(
+        staged[0]["key"], staged[1]["key"],
+        "distinct declarations take distinct keys: {status}"
+    );
+
+    let key = staged[0]["key"].as_str().unwrap().to_owned();
+    let discarded = drive(
+        &at_1_3_0(
+            "ws-discard",
+            "author.discard",
+            &json!({ "workspace": workspace, "decl": key }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        result(&discarded)["discarded"],
+        json!(true),
+        "the keyed declaration is dropped: {discarded}"
+    );
+
+    let after = drive(
+        &at_1_3_0(
+            "ws-after",
+            "author.status",
+            &json!({ "workspace": workspace }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let left = result(&after)["staged"].as_array().unwrap().clone();
+    assert_eq!(
+        left.len(),
+        1,
+        "exactly one declaration was removed: {after}"
+    );
+    assert_eq!(
+        left[0]["key"], staged[1]["key"],
+        "the OTHER declaration is the one that survived: {after}"
+    );
+
+    // An unknown key is a refusal, never a fall-through to nuking the workspace.
+    let missing = drive(
+        &at_1_3_0(
+            "ws-missing",
+            "author.discard",
+            &json!({ "workspace": workspace, "decl": "jcs:sha256:0000" }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        error(&missing)["code"],
+        "unknown-doc",
+        "an unmatched key refuses: {missing}"
+    );
+    let still = drive(
+        &at_1_3_0(
+            "ws-still",
+            "author.status",
+            &json!({ "workspace": workspace }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        result(&still)["staged"].as_array().unwrap().len(),
+        1,
+        "the refusal discarded nothing: {still}"
+    );
+}
+
+/// The structural key is a **published function of the declaration's content**,
+/// and both halves of that matter.
+///
+/// *Published*: the key `author.status` hands out is exactly
+/// `digest_of(&declaration)` — the same JCS-over-SHA-256 the contract already
+/// names as its digest domain. A caller can recompute it from the fact objects
+/// it holds instead of treating it as an engine secret it must round-trip.
+///
+/// *Of the content*: JCS sorts object keys and fixes the encoding, so the key
+/// depends on what the declaration says and on nothing else about how this
+/// binary happened to serialize it. That is why the raw `serde_json::to_string`
+/// this replaced could not be promoted to a wire identifier — see the assertion
+/// below, which shows the two serializations of one identical declaration
+/// disagreeing byte-for-byte while their JCS digests agree.
+#[test]
+fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
+    use dli_ast::decl::{Decl, DialectDecl, TermDecl};
+    use dli_ast::ident::Ident;
+    use dli_ast::language::DialectBody;
+    use dli_serve::author::digest::digest_of;
+
+    let decl = Decl::Term(TermDecl {
+        name: Ident::synthetic("hedgeway"),
+        label: Some("the pleached boundary road".to_owned()),
+        provenance: None,
+    });
+
+    // 1. Order-insensitive. `to_string` of the struct writes fields in
+    //    DECLARATION order; `to_string` of the same value re-serialized through
+    //    `Value` writes them in the map's order. One declaration, two byte
+    //    strings — and the old key was whichever one serde happened to produce,
+    //    so reordering two fields in the struct would have silently re-keyed
+    //    every staged declaration of that kind. The digests are equal.
+    let as_struct = serde_json::to_string(&decl).unwrap();
+    let as_value = serde_json::to_string(&serde_json::to_value(&decl).unwrap()).unwrap();
+    assert_ne!(
+        as_struct, as_value,
+        "this assertion is the hazard: if serde ever agreed on one ordering, the \
+         rest of this test would be proving nothing"
+    );
+    assert_eq!(
+        digest_of(&decl),
+        digest_of(&serde_json::to_value(&decl).unwrap()),
+        "the key must not depend on which serialization produced the bytes"
+    );
+
+    // 2. Additive-schema tolerance, stated honestly. A field that serializes to
+    //    NOTHING cannot move the key: `DialectDecl::body` carries
+    //    `skip_serializing_if`, so an empty body is absent from the bytes and
+    //    the key equals that of the same declaration with no `body` key at all.
+    //    This is the invariant that lets the AST grow: a declaration that does
+    //    not use a new optional field keeps its name. (A new field that IS
+    //    present changes the content and so changes the key — that is content
+    //    addressing working, not a defect.)
+    let dialect = Decl::Dialect(DialectDecl {
+        name: Ident::synthetic("cymric-fringe"),
+        label: None,
+        body: DialectBody::default(),
+        provenance: None,
+    });
+    let serialized = serde_json::to_value(&dialect).unwrap();
+    assert!(
+        serialized
+            .get("Dialect")
+            .and_then(|d| d.get("body"))
+            .is_none(),
+        "an empty typed body is absent from the bytes, not present-and-empty: {serialized}"
+    );
+    assert_eq!(
+        digest_of(&dialect),
+        digest_of(&serialized),
+        "a field that serializes to nothing does not participate in the key"
+    );
+
+    // 3. Distinct declarations take distinct keys — a key that collided would
+    //    name a group, and `discard` would drop something the caller did not ask
+    //    to drop.
+    let other = Decl::Term(TermDecl {
+        name: Ident::synthetic("ford"),
+        label: Some("the pleached boundary road".to_owned()),
+        provenance: None,
+    });
+    assert_ne!(digest_of(&decl), digest_of(&other));
+
+    // 4. And the wire really hands out this value, rather than something merely
+    //    shaped like it.
+    let (mut sessions, mut store) = demo();
+    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "1.3.0", "id": id, "op": op, "params": params });
+    let opened = drive(
+        &at_1_3_0("k-open", "author.open", &json!({ "scope": "camelot" })),
+        &mut sessions,
+        &mut store,
+    );
+    let workspace = result(&opened)["workspace"].as_str().unwrap().to_owned();
+    drive(
+        &at_1_3_0(
+            "k-add",
+            "author.add_term",
+            &json!({
+                "workspace": workspace,
+                "id": "hedgeway",
+                "label": "the pleached boundary road",
+                "provenance": { "kind": "proposed", "origin": "dm4-key" },
+            }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let status = drive(
+        &at_1_3_0(
+            "k-status",
+            "author.status",
+            &json!({ "workspace": workspace }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let staged = &result(&status)["staged"][0];
+    // The staged declaration carries the tool's provenance, so rebuild the same
+    // declaration rather than reusing `decl` above, which carries none.
+    let with_provenance = Decl::Term(TermDecl {
+        name: Ident::synthetic("hedgeway"),
+        label: Some("the pleached boundary road".to_owned()),
+        provenance: Some(dli_ast::annot::Annotation {
+            marker: dli_ast::annot::ProvenanceMarker::Proposed,
+            citations: Vec::new(),
+            condition: None,
+            tags: vec!["dm4-key".to_owned()],
+            span: dli_ast::span::Span::synthetic(),
+        }),
+    });
+    assert_eq!(
+        staged["key"].as_str().unwrap(),
+        digest_of(&with_provenance),
+        "the key on the wire is recomputable from the declaration: {status}"
     );
 }
