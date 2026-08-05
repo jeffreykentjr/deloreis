@@ -1,0 +1,9 @@
+characters:
+  - id: maren-holt
+    name: Maren Holt
+    role: ferry-warden
+    status: ratified
+  - id: osk-reeder
+    name: Osk Reeder
+    role: reed-cutter
+    status: provisional

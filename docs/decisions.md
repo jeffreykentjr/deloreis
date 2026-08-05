@@ -1908,3 +1908,120 @@ wire decision, and inventing one inside this change would be guessing at the con
 review flow. It is deferred to DM-4, where the authoring tools and `SKILL.md` are rewritten
 together. The current refusal is honest and names its way forward, so nothing is broken
 meanwhile; what is missing is a capability, not a correction.
+
+## DL-0057 — DM-5: the native repository validator's scope is closed at eleven codes, V9 absorbed
+
+*Date: 2026-08-04*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The native repository validator (`dli_world::validate_repository`,
+`crates/dli-world/src/repository.rs`, served as `deloreis validate-repo`) is ruled
+**scope-closed at eleven codes: V1–V8 and V10–V12**. It gets a governance home —
+PLAN node `VAL-1`, the design note `docs/design-notes/native-repository-validator.md`,
+and a committed detection corpus — and its finding shape becomes a promise the
+consuming project may build against.
+
+1. **There is no V9, and its absence is a ruling rather than an omission.** The legacy
+   V9 forbade a ratified claim from resting on a proposed one. Its native successors are
+   two committed artifacts, and the honest grade is **different for each half**:
+
+   - **The status-leak half is `checked`.** `crates/dli-core/src/derivation.rs:142`
+     (`Derivation::support_of`) computes a derived atom's support as the conjunction of
+     its rule's support with its premises' supports. A conclusion therefore *cannot* be
+     more certain than what it rests on — the violation is not caught, it is
+     unrepresentable. `docs/spec/02-semantics.md:78` states this as the theorem it is.
+     This is the strongest grade in the ladder and it is earned: nothing is testing a
+     behaviour, the type of the computation forbids the state.
+   - **The row-discipline half is `tested`.** `crates/dli-world/tests/mig1_replay.rs`
+     cross-checks every vendored row's stored `status:` against the standing the kernel
+     derives, and proves the cross-check is not a null oracle with three detection legs —
+     `detects_flip_proposed_to_ratified`, `detects_forged_promotion_strip_decisions`, and
+     `detects_break_status_marker` — beside a pristine census that finds zero
+     disagreements.
+   - **Legacy equivalence is `attested`, and the caveat is stated rather than buried.**
+     What V9 *was* is characterised from `02-semantics.md`'s account of it. The Python
+     V9 input file was deleted by the consumer's D-0245 source flip, so this is a
+     characterisation and **not a replay**: we cannot re-run the legacy check and diff it.
+     Labelling that honestly is the whole difference between an absorption ruling and
+     absorption by oral tradition. Under the weakest-grade rollup (DL-0006) the
+     absorption claim as a whole is therefore `attested`, even though its structural
+     half is `checked`.
+
+   V9 accordingly gets no corpus operator, and the detection suite asserts its absence
+   rather than leaving the gap silent.
+
+2. **The finding shape is a promise, not an implementation detail.**
+   `RepositoryFinding { path, line, code, message, severity }`, serialised as that JSON
+   object; `severity` is always `"error"`; `path` is a relative POSIX path from the canon
+   root; results are sorted by `(path, line, code, message)`. Unreadable files become
+   findings and a missing root yields an empty list — the library never panics on input,
+   and the CLI, not the library, decides that a missing root is a usage error. The design
+   note is the normative statement, including the two line-numbering deviations found
+   while building the corpus (V6/V7 report line 1 because the YAML reader keeps no
+   position; V8 reports a body-relative line, not a file line). Those are recorded as
+   they behave, not as they ought to; changing either is a behaviour change and needs its
+   own entry, because the consuming project's shadow-validate harness is about to pin
+   them.
+
+3. **The detection corpus is deloreis-owned and is the validator's first real oracle.**
+   `crates/dli-world/tests/data/validator-detection/` holds a baseline canon repository
+   that validates to the empty finding list plus twenty-six seeded-divergence operators
+   — at least one per emitted code, **eleven of eleven covered, with no honest miss and
+   nothing declared `xfail`**. `crates/dli-world/tests/repository_detection.rs` walks it
+   offline and deterministically over committed inputs and asserts the **exact** finding
+   set for each operator: path, line, code, and a distinguishing message fragment. The
+   pre-existing unit tests in `repository.rs` are not superseded, but they are not this:
+   they assert that *some* finding matches a predicate, which cannot see a check that
+   fires twice, fires against the wrong file, or reports the right code for the wrong
+   reason. The message fragment is in the corpus because that last failure actually
+   happened while it was being written — a malformed YAML append and a duplicate registry
+   id both land on `data/characters.yaml:1 V6`, and a triple-only oracle blessed the
+   wrong catch.
+
+4. **The consumer-side items are consumer-owned, by name.** Their DP-008 **X6**
+   direct-SQL lineage negatives and **X8** propagation/index parity are not deloreis
+   work and no deloreis node claims them. This repository delivers SP-4v — the corpus,
+   the mapping table, and the finding-shape promise — and their shadow-validate accrual
+   runs against it on their side. The `native-lineage-negatives` branch, opened here to
+   attempt X6 locally, was a dead end and is recorded as one: the negatives need a
+   database this repository does not have and must not grow.
+
+**Rationale.** The validator was functionally complete and governance-invisible: no node,
+no entry, no note, and therefore nothing `cargo xtask authority` could hold it to. That
+is a worse state than incomplete, because completeness with no oracle reads as
+completeness. Two things follow from fixing it in one change rather than two.
+
+The first is that closing the scope and proving detection are the same act. A ruling that
+"there are eleven codes" is only worth the corpus that would notice a twelfth appearing or
+one of the eleven going quiet, so the suite reads the code set out of `repository.rs`'s
+own source and refuses to let `EMITTED_CODES` be a constant the corpus merely agrees with.
+V9 returning would fail that assertion, which is the mechanical form of this entry's first
+clause.
+
+The second is that a baseline is worth as much as the operators. Every operator is a delta
+from a repository that validates clean, so an operator's expected set is exactly what its
+seed caused — and the baseline itself carries the negative controls that no operator can:
+the exempt files that need no frontmatter, the `note` register that may carry no passage,
+the `proposed` section that must cite nothing, the whole-file and section-scoped `affects`
+targets that must *not* raise V11. A validator that reports on clean input is worse than
+one that misses, because it teaches its readers to ignore it.
+
+The corpus also surfaced a real divergence inside the validator, recorded rather than
+smoothed away: `check_sections` parses a status marker strictly, rejecting the entire
+marker when a citation is malformed, while `check_citations` scans the same line loosely
+and never validates citation shape. A section citing `D-0001-forged` therefore draws both
+V3 ("no well-formed status marker") and V4 ("cites unknown D-0001-forged"). Both readings
+are defensible. The operator `v4-malformed-decision-reference` pins the pair, so a future
+tidy-up that unified the two parsers would have to argue for the change instead of
+shipping it as a cleanup.
+
+**Not done, and named rather than half-built.** Two branches are reachable in production
+and not from committed inputs: `check_frontmatter`'s `cannot read file` and `read_yaml`'s
+`cannot read YAML` both require a path that exists and cannot be read, which git cannot
+record portably. Seeding them would mean a `chmod` or a broken symlink and a
+platform-conditional operator — a worse trade than a named gap, since both branches only
+convert an I/O error into a finding and the property that matters, that they are findings
+and not panics, is proven elsewhere. The corpus README names them; nothing claims they
+are covered.

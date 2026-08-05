@@ -1,9 +1,16 @@
 //! Native repository-contract checks.
 //!
-//! This is the first slice of the repository validator migration.  It mirrors
-//! the Python canon validator's V1/V2 frontmatter checks while deliberately
-//! keeping the interface independent of the CLI: callers receive stable,
-//! serializable findings and decide how to render or exit.
+//! The native successor to the Python canon validator, covering eleven codes —
+//! `V1`–`V8` and `V10`–`V12`. There is deliberately no `V9`: it closed by
+//! absorption, its status-leak half becoming a theorem about derivation support
+//! (`dli_core::derivation::Derivation::support_of`, `02-semantics.md` §2) and its
+//! row-discipline half the MIG-1 replay legs. The scope is ruled closed by
+//! DL-0057; the mapping and the finding-shape compatibility promise are
+//! `docs/design-notes/native-repository-validator.md`.
+//!
+//! The interface is deliberately independent of the CLI: callers receive stable,
+//! serializable findings and decide how to render or exit. The detection corpus
+//! that holds that shape still is `tests/data/validator-detection/`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -65,7 +72,7 @@ pub struct RepositoryFinding {
     pub path: String,
     /// One-based source line.
     pub line: usize,
-    /// Stable validator code (`V1` or `V2` in this slice).
+    /// Stable validator code: one of `V1`–`V8`, `V10`–`V12`.
     pub code: String,
     /// Human-readable diagnostic.
     pub message: String,
@@ -89,11 +96,19 @@ impl RepositoryFinding {
     }
 }
 
-/// Validate V1/V2 frontmatter and V3 section markers for every non-exempt
-/// Markdown file under `canon`.
+/// Validate a Markdown canon repository rooted at `root` against all eleven
+/// checks: frontmatter presence and schema (`V1`, `V2`), section status markers
+/// (`V3`), ledger integrity and citation resolution (`V4`), id uniqueness and
+/// wiki-link resolution (`V5`), the structured data files (`V6`), the
+/// registry-to-file join (`V7`), the banned-vocabulary scan (`V8`), question
+/// placement (`V10`), section-granular provenance (`V11`), and the in-world text
+/// corpus (`V12`).
 ///
-/// Missing roots and unreadable files are represented as findings rather than
-/// panics. Results are deterministic by relative path, line, code, message.
+/// Unreadable files are represented as findings rather than panics, and a root
+/// that does not exist yields an empty list — the caller decides whether that is
+/// an error. Results are deterministic by relative path, line, code, message.
+/// The full shape guarantee, which the consuming project's shadow-validate
+/// harness compares against, is `docs/design-notes/native-repository-validator.md`.
 pub fn validate_repository(root: impl AsRef<Path>) -> Vec<RepositoryFinding> {
     let root = root.as_ref();
     let mut files = Vec::new();
