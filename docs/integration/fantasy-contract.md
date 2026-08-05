@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.2.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the tool surface, the corpus exchange, and complete paired framing replay are implemented; the server speaks 1.2.0 alongside the whole accepted 0.5.1-0.6.4, 1.0.0 and 1.1.0 window, and the consumer cutover (EXT-F4) is the one open item."
+verdict: "The generic worker contract at 1.3.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the expert tool surface, the corpus exchange, the authority scrub, and complete paired framing replay are implemented; the server speaks 1.3.0 alongside the whole accepted 0.5.1-0.6.4, 1.0.0, 1.1.0 and 1.2.0 window."
 ---
 
 # The dli-worker contract
@@ -18,16 +18,19 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.2.0` (`decisions.md` DL-0051,
-> DL-0053, DL-0055, DL-0056). It carries typed responses for all 50 operations,
+> **Implementation status:** the contract is at `1.3.0` (`decisions.md` DL-0051,
+> DL-0053, DL-0055, DL-0056, DL-0058). It carries typed responses for all 57 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, and `1.2.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, and `1.3.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
-> byte-identical responses. The consumer cutover onto `1.0.0` — `EXT-F4`,
-> consumer-owned — is the one open item.
+> byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
+> against a tagged build — is **complete**: the posted transcript is byte-parity
+> verified against the deloreis-owned AUTH-2 fixture, so `CP-10` stands
+> `verified` on the STATUS board. What remains is the consumer's own corpus
+> pivot, not a deloreis deliverable.
 
 ## 1. Parties
 
@@ -128,7 +131,7 @@ returned and the round trip reproduces the source commit hash. An append also
 preserves the store's committed scope: `document` is a wire identifier, so
 serving a store under a different id is supported and never renames it.
 
-All 50 operation names have request/response schemas, dispatch arms, and golden
+All 57 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
@@ -177,27 +180,62 @@ a gate. A finding's `code` is a **finding code** — dotted `family.item` form
 Each check family's finding codes are pinned by its fixtures as the family
 lands; `repair` carries the fix data; `citations` the support.
 
-**Provenance over the tool surface is `proposed` or `hypothesis` only** (B1). An agent
-cannot mint a citation — a ruling lives in the ledger, not a tool call — so a
-`cited` provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*`
-tool is refused with the `provenance.cited-refused` finding. This is the
-behavior on every version the server speaks today, `1.0.0` included.
+**Provenance over the tool surface depends on the negotiated version** — this is
+the authority scrub (DL-0054, implemented at `1.3.0` by DL-0058), and it is the
+one place where what an agent may assert changes with the version it speaks.
 
-> **Ruled, not yet implemented.** DL-0054 scrubs the engine's role gating: a
-> mutating call will be able to carry citation-bearing provenance together with
-> machine-supplied attribution and decision state, all recorded as data. The
-> engine keeps **referential integrity** — a cited decision id must resolve, and
-> a forged one is refused (`citation.unknown-decision`) — but it stops deciding
-> who is allowed to cite; review and approval workflow belongs to the consuming
-> application. Every `0.x` wire keeps the `provenance.cited-refused` refusal
-> byte-exact until version retirement.
->
-> **`1.2.0` does not carry it.** DL-0054 named `1.2.0` when it was written, but
-> the minor ladder moved after it: `1.1.0` went to the storage schema (DL-0055)
-> and `1.2.0` to the corpus exchange (DL-0056), so the scrub lands at the next
-> minor instead. Its landing entry states the version; until then the refusal
-> above is the served behavior on **every** accepted version, `1.2.0` included,
-> and callers should not build against the new shape.
+**Below `1.3.0`**, provenance is `proposed` or `hypothesis` only (B1). A `cited`
+provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*` tool is
+refused with the `provenance.cited-refused` finding. Every `0.x` wire keeps that
+refusal byte-exact until version retirement, and `1.0.0`–`1.2.0` keep it too.
+
+**At `1.3.0` and above**, the engine stops asking *who* is citing and starts
+recording *what* is cited:
+
+- **A citation of a *declared* decision is recorded, and the claim reads
+  certain.** This is the scrub's purpose, not a side effect. A `cited` provenance
+  lowers to a real `decided` marker carrying the cited ids, and because the
+  corpus declares that decision its variable evaluates true — so the claim stands
+  as decided rather than being flattened. That flattening is exactly what the
+  pre-scrub behavior did, and why an agent could not previously record a ruling
+  it had every right to cite. Every caller of this engine is a machine; a human
+  ruling reaches it by a machine citing the consumer-ledger id that recorded the
+  ruling. Review and approval workflow belongs to the consuming application, not
+  here.
+- **A citation of an *undeclared* decision is caught, and that is the guardrail.**
+  A citation naming a decision the corpus does not declare raises
+  `citation.unknown-decision` — an **error-severity finding**, graded `checked`,
+  returned by the mutating call itself and raised again over the compiled staged
+  world. It is **not** a transport-level refusal: the add answers, the finding is
+  in that answer, and `check::run`'s error severity is what bars materialize. **A
+  consumer harness that watches only for a refused frame will sail straight past
+  it** — read the findings.
+- **The guarantee sits one layer below the finding.** `dli-eval` sets a
+  decision's variable true only when the corpus declares that decision, so a
+  forged id leaves the variable **open** and the claim can never evaluate
+  certain, whatever the caller stated. An agent cannot cite a non-existent
+  decision into a believed fact; the worst it can do is stage a claim that reads
+  as merely possible and cannot be materialized.
+
+**Naming one staged declaration.** `author.status` returns
+`staged: [{key, kind, rendered?}]` — `key` is the structural key,
+`jcs:sha256:<hex>` over the declaration's canonical JCS bytes, and from `1.3.0`
+`author.discard`'s `decl` accepts it. `kind` is enough to read the list without a
+formatter; `rendered` is present only on a build that links one, which is why the
+key exists at all — on a default build it is the only name a declaration has.
+
+> **How long a key is good for, stated plainly.** JCS fixes the *encoding*: keys
+> sort, number and string forms are specified, so the key does not depend on
+> field declaration order, on which serializer produced the bytes, or on which
+> build is running — a default build and a `syntax` build compute the same key
+> for the same declaration, and any holder of the declaration can recompute it.
+> It is **not** stable across a schema change that adds a field which serializes
+> — including a field that serializes as `null`, which is what an `Option`
+> without `skip_serializing_if` does when absent, and the declaration types do
+> not carry that attribute on their optional fields today. A key is therefore
+> valid **within a contract version**: hold it across a call, not across an
+> upgrade, and re-read `author.status` after negotiating a new version rather
+> than persisting keys through one.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
@@ -222,6 +260,13 @@ behavior on every version the server speaks today, `1.0.0` included.
 | `author.list_workspaces` | List open workspaces and their summary status. | read |
 | `author.branch` | Create a persistent lorestore branch, or list them (added at `0.6.1`). | yes (`create`) |
 | `author.merge` | Merge a named branch into the target branch (default `main`); returns the merge commit, the merge base, structural conflicts, and findings (added at `0.6.1`). | yes |
+| `author.add_dialect` | **≥ `1.3.0`.** Declare a dialect — the explicit register `dli.name.check` vets against. | yes |
+| `author.add_name_part` | **≥ `1.3.0`.** Declare a name part (a morpheme a name is built from). | yes |
+| `author.add_name` | **≥ `1.3.0`.** Declare a name, optionally from declared parts, in a declared dialect. | yes |
+| `author.add_term` | **≥ `1.3.0`.** Declare a term of art with its gloss. | yes |
+| `author.add_banned` | **≥ `1.3.0`.** Declare a banned word, with the reason it is banned. | yes |
+| `author.add_state` | **≥ `1.3.0`.** Declare a time-varying fluent — the shape episode continuity is read over. | yes |
+| `author.add_attest` | **≥ `1.3.0`.** Raise an attestation request against a claim (the question-ledger door). | yes |
 
 **`author.materialize` is a mutation, and it is the accept decision**
 (DL-0046). It commits the workspace's staged delta to the lorestore and
@@ -245,7 +290,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.2.0` enforces it for all 50 operations.
+today: contract `1.3.0` enforces it for all 57 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -310,7 +355,7 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, `1.0.0`, `1.1.0`, and `1.2.0`. A frame declaring
+  `0.6.2`, `0.6.3`, `0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, and `1.3.0`. A frame declaring
   anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
@@ -339,6 +384,17 @@ decoupled, and the compatibility window carries the consumer across.
   Nothing is retired; the accepted window only widens. A build that links no
   renderer answers `format: rendered` with a loud `not-wired` refusal naming the
   ways forward, never a silent empty array.
+- **What `1.3.0` changes.** Two things, both additive (DL-0058). **Seven expert
+  authoring tools** join the surface, taking the inventory from 50 operations to
+  57: `author.add_dialect`, `add_name_part`, `add_name`, `add_term`, `add_banned`
+  (the wave the consumer's corpus actually needs) plus `add_state` and
+  `add_attest`. Like every op added since `0.6.1` they are gated on the
+  **negotiated version**, so an earlier handshake's capability list — and the
+  golden fixture recording it — stays byte-identical. And **the authority scrub**
+  lands: at `1.3.0` a mutating call may carry citation-bearing provenance,
+  recorded as data, with referential integrity kept fail-closed (§3.2). Below
+  `1.3.0` the `provenance.cited-refused` behavior is unchanged, on every version,
+  permanently.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

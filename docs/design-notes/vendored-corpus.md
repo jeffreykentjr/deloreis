@@ -21,6 +21,12 @@ evidence, never re-argued here.
 Three self-provided artifacts, all cut from **one pinned commit** of the fantasy
 repository and living under `deloreis` ownership:
 
+> **Two pins, not one.** The corpus snapshot below is at `099e04cd`; the craft
+> sidecar (`worlds/tpth/vendor/fantasy-40f6679-craft/`) is at `40f6679`, which is
+> also what `scripts/pinned-oracles.sh` defaults `PINNED_SHA` to. Each carries its
+> own `MANIFEST.txt` recording its own pin. They are re-cut independently, so
+> reading either pin as "the" vendored SHA is a mistake.
+
 1. **The corpus snapshot** — `worlds/tpth/vendor/fantasy-099e04cd/`. A `git archive`
    of the pinned tree, carrying:
    - `canon/**` — the whole story bible (49 files: characters, geography, society,
