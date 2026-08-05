@@ -157,6 +157,22 @@ pub fn has_expert_authoring(dli: &str) -> bool {
     at_or_above(dli, (1, 3, 0))
 }
 
+/// Whether the negotiated version checks that an imported object's `claim_id`
+/// matches the identity its content mints (≥ `1.3.0`, DL-0059).
+///
+/// Gated for the same reason every other behavior change here is: `1.2.0` is a
+/// **tagged** contract that shipped accepting a mislabelled object, and its
+/// golden fixture records that it does. Correcting the fixture would rewrite
+/// what a released version is on record as doing; refusing on a `1.2.0` wire
+/// would change a released version's behavior. The check therefore lands on the
+/// living wire and `1.2.0` keeps its bytes — including the mislabelled object in
+/// `golden/corpus-import-v1`, which stays exactly as recorded because it is a
+/// truthful record of the version it was recorded under.
+#[must_use]
+pub fn validates_claim_ids(dli: &str) -> bool {
+    at_or_above(dli, (1, 3, 0))
+}
+
 /// Whether the negotiated version **records** caller-supplied citations as data
 /// rather than refusing them (the authority scrub: DL-0054, landed at the
 /// version this predicate names by DL-0058).
