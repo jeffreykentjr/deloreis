@@ -1,6 +1,6 @@
 ---
 status: reference
-verdict: "VAL-1's written-up mapping: the legacy Python V-slices against their native successors (eleven codes, V1–V8 and V10–V12), V9's closure by absorption with its three honest grades, the detection corpus's per-code coverage, and the normative finding-shape compatibility promise — including the two line-numbering deviations — that the consuming project's shadow-validate harness compares against."
+verdict: "VAL-1's written-up mapping: the legacy Python V-slices against their native successors (eleven codes, V1–V8 and V10–V12), V9's closure by absorption with its three honest grades, the detection corpus's per-code coverage, and the normative finding-shape compatibility promise — including the one line-numbering deviation that remains after DL-0060 corrected V8 to file-absolute lines — that the consuming project's shadow-validate harness compares against."
 ---
 
 # The native repository validator
@@ -145,24 +145,44 @@ The library never panics on input:
 - **A structured data file that will not parse** becomes a `V6` finding; the
   other data file is still checked, and the Markdown checks are unaffected.
 
-### Two known line-numbering deviations
+### One known line-numbering deviation
 
-Both are recorded as they behave. Neither is fixed by DL-0057, because the
-consuming project is about to pin this output and a silent renumbering inside a
-parity-support change would be exactly the kind of drift the promise exists to
-prevent. Changing either one needs its own entry.
+It is recorded as it behaves. It is not fixed, because the consuming project is
+about to pin this output and a silent renumbering inside a parity-support change
+would be exactly the kind of drift the promise exists to prevent. Changing it
+needs its own entry.
 
-1. **V6 and V7 findings always carry `line: 1`.** The YAML reader keeps no
-   position information, so a finding about the ninth event in `timeline.yaml`
-   reports line 1. The `message` names the offending id; the line does not.
-2. **V8 lines are body-relative, not file-absolute.** The banned-vocabulary scan
-   numbers lines within the document body, and its body slice begins at the
-   *closing* `---` of the frontmatter, which becomes line 1. So for a document
-   whose frontmatter occupies `F` lines including both delimiters, a hit on file
-   line `N` is reported as line `N − F + 1`. In the detection corpus a hit on
-   file line 15 of an eight-line-frontmatter document reports as line 8, and a
-   hit on file line 13 of a seven-line-frontmatter document reports as line 7.
-   Every other check reports file-absolute lines.
+- **V6 and V7 findings always carry `line: 1`.** The structural checks read a
+  parsed YAML value that keeps no position information, so a finding about the
+  ninth event in `timeline.yaml` reports line 1, and the registry↔file join (V7)
+  is a whole-file presence check. The `message` names the offending id; the line
+  does not. This is a file-level convention, not a bug — DL-0060 keeps it accepted
+  and pins it — where the V8 body-relative numbering below *was* a bug. One honest
+  caveat: the **invalid-YAML** V6 branch parses through `serde_yaml_ng`, whose
+  error *does* carry a location, and that line is currently discarded and reported
+  as 1 like the rest. Surfacing it is a tracked DL-0060 follow-up, not a claim that
+  V6 never has a line; the convention is kept for now and pinned by a unit test
+  over that branch specifically.
+
+**V8 now reports file-absolute lines (DL-0060), and the fix removes spurious
+scans rather than merely renumbering.** V8 once numbered lines within the document
+body — a *byte* slice that began at the *closing* `---` of the frontmatter — so
+for a document whose frontmatter occupies `F` lines including both delimiters, a
+hit on file line `N` was reported as line `N − F + 1`. In the detection corpus a
+hit on file line 15 of an eight-line-frontmatter document reported as line 8, and
+a hit on file line 13 of a seven-line-frontmatter document reported as line 7.
+That violated the `line` field's "file/absolute line" contract; it was held
+recorded-not-fixed under DL-0057 only so the correction would land in its own
+ruled entry ahead of the consumer pinning this output, and DL-0060 is that entry.
+The scan now skips the frontmatter by *line count*, which corrects the line and
+also retires two false findings the byte arithmetic produced: on a **CRLF** file
+the old `len + 1` undercounted one byte per line and the slice drifted back into
+the last frontmatter field, matching a banned word in the metadata; on
+**unterminated** frontmatter the offset ran off into an arbitrary trailing slice.
+So the output change is the corrected line plus two classes of false V8 finding
+removed — no legitimate catch is dropped. Both corpus operators pin the absolute
+lines (15 and 13), the CRLF and unterminated cases each have a unit-test pin, and
+every check reports file-absolute lines.
 
 ## 4. The detection corpus
 
