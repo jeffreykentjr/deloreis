@@ -131,6 +131,41 @@ returned and the round trip reproduces the source commit hash. An append also
 preserves the store's committed scope: `document` is a wire identifier, so
 serving a store under a different id is supported and never renames it.
 
+**Three `1.3.0` refinements to that door** (DL-0059), each stated with the
+version it applies from, because two of them are floors rather than blanket
+rules and a consumer reading only this paragraph must not over-apply them.
+
+- **An imported `claim_id` is checked — from `1.3.0` only.** A claim id is the
+  SHA-256 of the claim's own identity, minted from a short documented label:
+  `atom:<pred>(<args>)` for a fact, `decl:<Kind>:<name>` for a carried
+  declaration. An external emitter can therefore compute it without replicating
+  any canonicalization. At `1.3.0` and above `dli.corpus.import` re-derives it
+  and **refuses a mismatch** with a `schema-violation` naming the id the content
+  mints; it is neither taken on trust nor silently rewritten, because rewriting
+  would discard what the caller stated without saying so.
+  **This is a floor, not a retroactive rule.** `1.2.0` and every version below
+  still **accept** a mislabelled object, and that stays true permanently —
+  released behavior is frozen. The pair is pinned in the registry so neither
+  half can drift: `golden/corpus-import-claim-id-frozen-1-2-0-v1` replays the
+  acceptance at `1.2.0`, `negative/corpus-import-mislabelled-claim-id` replays
+  the refusal at `1.3.0`. A consumer on `1.2.0` gains nothing here until it
+  negotiates `1.3.0`.
+- **`mode: init` means "holds no facts", and now actually reaches an empty
+  store.** Emptiness is measured by the facts a store holds, not by whether it
+  has a commit: opening a lorestore writes a genesis commit, so a
+  head-based test called every servable store "seeded" and left `append` as the
+  only way in. `init` now seeds a store that exists but is empty — the
+  seed-from-nothing path a consumer's first import needs. The refusal it keeps
+  is the one always intended: `init` into a store that already holds facts is
+  still refused, naming `append`.
+- **The store directory must already exist.** The project loader resolves
+  `documents.<id>.store` against the filesystem and fails to load a manifest
+  naming a directory that is not there — it does not create one. So
+  "seed from nothing" means *from an empty store*, not *from no store*:
+  something outside this wire has to create the directory first. That is a real
+  gap in wire completeness for a consumer with no other way to touch the
+  filesystem, and it is recorded here rather than left to be discovered.
+
 All 57 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
