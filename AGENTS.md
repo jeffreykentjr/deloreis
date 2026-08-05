@@ -125,24 +125,31 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.2.0** (DL-0051, DL-0053, DL-0055, DL-0056), served
-multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0` and `1.1.0` stay
-accepted and answer byte-identically — a `0.5.1` caller keeps the rendered-lines
-return — until EXT-F4 completes, after which the `0.x` versions retire through
-the killed-form registry, never silently.
+The contract is **1.3.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
+DL-0059), served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`,
+`1.1.0` and `1.2.0` stay accepted and answer byte-identically — a `0.5.1` caller
+keeps the rendered-lines return. EXT-F4 is complete, which licenses the `0.x`
+retirement but has not performed it: that is DM-6's, at `2.0.0`, and it runs
+through the killed-form registry naming each version's successor, never
+silently. `1.3.0` added seven expert authoring tools (`author.add_dialect`,
+`add_name_part`, `add_name`, `add_term`, `add_banned`, `add_state`,
+`add_attest`), taking the surface to 57 operations.
 `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
 editing is a measured fallback with no reliability claim, not the taught
 path.
 
-DL-0054 amends the authority half of that law — direction ruled, code not yet
-landed: the engine stops gating on *who may rule*. It keeps referential
-integrity — a cited decision id must resolve — and records caller-supplied
-attribution and decision state as data; review and approval workflow belong to
-the consuming application. DL-0054 named contract 1.2.0 when it was written, but
-the minor ladder moved after it (1.1.0 took the storage schema, 1.2.0 the corpus
-exchange), so the scrub lands at the next minor and its entry states the
-version. Until then `provenance.cited-refused` is still the served behavior on
-every accepted version, 1.2.0 included, and every 0.x wire keeps it byte-exact
-permanently.
+DL-0054 amends the authority half of that law, and the scrub **landed at
+`1.3.0`** (DL-0058). The engine no longer gates on *who may rule*: at `1.3.0` and
+above a mutating call may carry citation-bearing provenance, and caller-supplied
+attribution and decision state are recorded as data — a citation of a **declared**
+decision is recorded as `decided` and the claim reads certain, which is the point
+of the scrub, not a side effect. What it keeps is referential integrity: a cited
+decision must resolve, and an unknown one raises the `citation.unknown-decision`
+error-severity finding rather than a refused frame, with `check::run` barring
+materialize and the decision's variable left open so the claim can never read
+certain. Review and approval workflow belong to the consuming application.
+**Below `1.3.0` nothing changed** — `provenance.cited-refused` is the served
+behavior on every earlier accepted version, permanently, and every `0.x` wire
+keeps it byte-exact.
