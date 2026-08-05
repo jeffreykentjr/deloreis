@@ -2265,3 +2265,131 @@ failing to track the loader is a server defect, not a caller mistake — and wit
 no caller input is known to reach it, so re-grading it now would be a guess at a surface
 nobody is standing on. It is named here so the next report against it is read as evidence
 rather than as a fresh discovery.
+
+## DL-0060 — The repository validator's V8 lines are corrected to file-absolute; V6/V7 line-1 and the strict/loose marker-parser split are ruled accepted
+
+*Date: 2026-08-05*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** DL-0057 §2 recorded two line-numbering deviations in the native repository
+validator and held both recorded-not-fixed, on the ground that the consuming project is
+about to pin this output and a silent renumbering inside a parity-support change would be
+the drift the finding-shape promise exists to prevent. This entry is the promised own
+entry. It fixes one, keeps the other, and rules a third disagreement — the strict/loose
+marker parsers — accepted. It lands ahead of the consumer's FW-9, so FW-9 pins the
+corrected output and does not re-pin.
+
+1. **V8 now reports file-absolute lines; the body-relative numbering was a bug, and the fix
+   is strictly more correct than a renumbering.** The banned-vocabulary scan
+   (`check_lexicon`) numbered lines within the document *body*, and that body slice began at
+   the frontmatter's *closing* `---`, which became line 1. So for a document whose
+   frontmatter occupies `F` lines including both delimiters, a hit on file line `N` was
+   reported as `N − F + 1`: a word on file line 15 under an eight-line frontmatter reported
+   as line 8, and a word on file line 13 under a seven-line frontmatter reported as line 7.
+   That is a genuine violation of the `RepositoryFinding` contract, whose `line` is
+   documented as the one-based *file* line and which every other check (V1–V5, V10–V12)
+   already honours; a consumer diffing the array against the file would land the caret seven
+   lines high. The scan now enumerates over the whole source and skips the frontmatter block
+   by *line count*, so the reported line is the real file line.
+
+   The finding **shape** is untouched — `severity` is still always `"error"`, the list is
+   still sorted by `(path, line, code, message)`, a missing root is still an empty list — but
+   it would be false to say only the `line` value changed and the same words are caught. The
+   old slice was computed by byte arithmetic (`offset += line.len() + 1` per line, then a
+   substring), and replacing it with a line-count skip removes two spurious-scan bugs that
+   rode along with the wrong numbering:
+
+   - **CRLF documents.** `str::lines()` yields each line without its `\r`, so the old
+     `len + 1` charged one byte for the terminator where a `\r\n` file spends two. The offset
+     undercounted one byte per line and the slice began *before* the closing `---`, inside
+     the last frontmatter field — so a banned word in the *metadata* was reported as a V8
+     finding, on bytes the scan must never see. A regression test drives a ten-line CRLF
+     frontmatter whose only banned word is its last field and whose body is clean: the fix
+     emits no V8 finding, the byte scan emitted a false one.
+   - **Unterminated frontmatter.** With no closing `---` the old loop consumed the whole
+     file and the offset ran to (roughly) the end, leaving an arbitrary trailing slice
+     defined only by the opening delimiter's length — nonsense input that happened to match a
+     word only by accident. The fix skips every line waiting for a close that never comes and
+     scans nothing; the unterminated block is still its own V1 finding.
+
+   So the change to output is: V8 line values corrected, plus two classes of *false* V8
+   findings removed. No legitimate catch is dropped or relabelled. The correction is pinned
+   non-vacuously: both detection-corpus operators now assert the absolute lines (15 and 13,
+   over frontmatters of different heights so a partial regression cannot hide); a unit test
+   asserts a below-frontmatter hit at file line 11, where the old numbering said 5; and the
+   CRLF and unterminated cases each have a pin. A regression to the byte scan reds them.
+
+2. **V6 and V7 findings stay at `line: 1`, and this is accepted, not a bug — with one honest
+   caveat.** They are file-level findings: the structural checks read a parsed YAML value
+   that keeps no source position, and V7 is a whole-file presence check on the registry↔file
+   join. The `message` names the offending id; line 1 is a file-level convention. This is a
+   different kind from V8's defect: V8 had a real line and reported the wrong one. The caveat
+   is that it is not literally true that these findings *have* no line to report — the
+   **invalid-YAML** V6 branch parses through `serde_yaml_ng`, whose error carries a location,
+   and that line is currently discarded and reported as 1 like the rest. Surfacing it is a
+   tracked follow-up (below), out of scope for a V8 line-number fix; the convention is kept
+   for now and pinned by two unit tests — one over the structural V6/V7 findings and one over
+   the invalid-YAML branch specifically — so a later change to real line numbers needs its
+   own entry rather than arriving as a side effect.
+
+3. **The strict V3 and loose V4 marker parsers are allowed to disagree, by design — but the
+   guarantee is the gate, not that V4 always names the reference.** V3's marker check uses
+   the strict `parse_status_marker` (status in the enum, every reference well-formed); V4's
+   citation resolution uses the looser `section_citations` (it lifts a parenthesised,
+   `, `-separated reference list out of the first non-blank line under a heading). What holds
+   is the **gate**: `parse_status_marker` rejects every ill-formed marker, so V3 fires on all
+   of them and no malformed-marker section passes unflagged, and once a marker is well-formed
+   V4 resolves its references reliably. What does **not** hold — an earlier draft of this
+   entry wrongly claimed it did — is that V4 always names a dangling reference hidden behind
+   a *malformed* marker. The loose extractor is best-effort and unreliable on malformed
+   input, in two opposite ways, both now pinned:
+
+   - **It can miss.** A trailing character after the closing paren
+     (`> status: ratified (D-9999).`) defeats V4's `strip_suffix(')')`, so it lifts zero
+     references and stays silent on the dangling `D-9999`; only V3 fires, and V3's message
+     names no reference. That run reports *that the marker is malformed* but not *which id
+     dangles*.
+   - **It can invent.** References joined by ` and ` instead of `, ` are lifted as one
+     mangled token, so V4 reports a phantom composite id (`D-0001 and D-0002`) as unknown
+     even though both real ids resolve.
+
+   This is ruled **accepted**, not fixed: hardening `section_citations` is out of scope for a
+   V8 line-number change, and the gate — V3 flags every malformed marker — is what makes the
+   fragility tolerable (a reader is always told the marker is wrong; V4's extra line, when it
+   fires, is a best-effort bonus and, when it misfires, is bounded to malformed markers V3
+   has already condemned). All three faces — miss, phantom, and the ordinary case where both
+   fire on a nearly-well-formed marker — are pinned by one unit test.
+
+**Rationale.** The three items look alike — all three are "the line/parse behaviour is not
+what a naive reader expects" — and the ruling is that only one is a *defect against a
+promise*. V8 was: the `line` field is contracted as the file line and V8 returned a
+different number, so a shadow-validate harness comparing carets would silently misalign; and
+because the wrong number came from byte arithmetic, fixing it also retired the CRLF and
+unterminated false findings that arithmetic produced. V6/V7's line 1 is a named file-level
+convention, honest about the one branch (invalid YAML) where a real line exists but is not
+yet surfaced. The parser split is tolerable not because "both always fire" — they do not —
+but because V3's gate condemns every malformed marker, so V4's unreliability is confined to
+input already flagged and never touches well-formed markers. The discipline this entry tries
+to hold is that a top-authority ledger states what is *tested*, not what is rhetorically
+tidy: each claim above has a pin, including the unfavourable ones.
+
+**Tracked follow-ups (named, not built here).** Two are registered so the next report against
+them reads as known ground, not fresh discovery, and neither is touched by this V8 fix:
+
+1. **V4's `section_citations` is a fragile parser.** It can miss a reference (a trailing
+   character) and invent one (a non-`, ` separator). A hardening pass would share the strict
+   `parse_status_marker` tokenizer so V3 and V4 agree on what a reference is; it is deferred
+   because it changes V4's finding set and belongs with the consumer's marker-shape work, not
+   a line-number fix.
+2. **The invalid-YAML V6 line is available and discarded.** `serde_yaml_ng`'s parse error
+   carries a location that could replace the `line: 1` convention on that one branch; doing so
+   is a finding-shape change and needs its own entry.
+
+**Docs.** `docs/design-notes/native-repository-validator.md` §3 now records one line-number
+deviation (V6/V7) rather than two, notes V8 corrected here and the invalid-YAML caveat, and
+frames the fix as removing spurious scans rather than merely renumbering; the detection
+corpus's `operators.yaml` header and both V8 operator rationales are updated to the absolute
+lines. The design note is the normative finding-shape statement the consumer compares
+against, so this entry is the ledger evidence that reopens it (DL-0011).

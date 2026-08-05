@@ -372,8 +372,14 @@ fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFi
         };
         let diegetic = frontmatter_bool(&text, "diegetic").unwrap_or(false);
         let exceptions = frontmatter_strings(&text, "lexicon_exceptions");
-        let body = body_after_frontmatter(&text);
-        for (line_no, line) in body.lines().enumerate() {
+        // Scan the document body — everything past the frontmatter block — and
+        // report the file-absolute line. `enumerate` runs over the whole source,
+        // so `line_no + 1` is the real file line (V8 previously numbered lines
+        // within a byte slice that began at the closing `---`; DL-0060), and
+        // `skip` drops the frontmatter. Counting lines rather than bytes also
+        // makes the scan CRLF-safe and well-defined on unterminated frontmatter,
+        // where the old byte arithmetic drifted (see the DL-0060 rationale).
+        for (line_no, line) in text.lines().enumerate().skip(frontmatter_lines(&text)) {
             let lower = line.to_lowercase();
             for entry in entries {
                 let Some(map) = entry.as_mapping() else {
@@ -414,19 +420,25 @@ fn check_lexicon(root: &Path, files: &[PathBuf], findings: &mut Vec<RepositoryFi
     }
 }
 
-fn body_after_frontmatter(source: &str) -> &str {
+/// The number of leading lines the frontmatter block occupies, delimiters
+/// included — the count a body scan skips so its findings land on file-absolute
+/// lines. `0` when the document opens with no `---` frontmatter; the whole line
+/// count when the opening `---` is never closed, so an unterminated block (which
+/// is already a `V1` finding) contributes no body to scan. Counting lines, not
+/// bytes, keeps this correct under CRLF endings.
+fn frontmatter_lines(source: &str) -> usize {
     let mut lines = source.lines();
     if lines.next().map(str::trim) != Some("---") {
-        return source;
+        return 0;
     }
-    let mut offset = 0;
+    let mut count = 1;
     for line in lines {
-        offset += line.len() + 1;
+        count += 1;
         if line.trim() == "---" {
-            break;
+            return count;
         }
     }
-    source.get(offset..).unwrap_or("")
+    count
 }
 
 fn frontmatter_bool(source: &str, field: &str) -> Option<bool> {
@@ -1637,15 +1649,246 @@ mod tests {
             "---\nid: diegetic\ntitle: Diegetic\ntype: narrative\nstatus: proposed\ndiegetic: true\n---\n\n## Text\n> status: proposed\nA machine and algorithm stand here.\n",
         );
         let findings = validate_repository(dir.path());
+        // Both banned words sit on file line 11, below a seven-line frontmatter.
+        // The reported line is file-absolute, not body-relative: a regression to
+        // the old numbering (a body slice beginning at the closing `---`) would
+        // report line 5 and red these assertions (DL-0060).
         assert!(
             findings
                 .iter()
-                .any(|f| f.code == "V8" && f.message.contains("machine"))
+                .any(|f| f.code == "V8" && f.line == 11 && f.message.contains("machine")),
+            "{findings:?}"
         );
         assert!(
             findings
                 .iter()
-                .any(|f| f.code == "V8" && f.message.contains("algorithm"))
+                .any(|f| f.code == "V8" && f.line == 11 && f.message.contains("algorithm")),
+            "{findings:?}"
+        );
+    }
+
+    /// A CRLF document exposes the byte-offset bug the fix removes. The old scan
+    /// advanced `len + 1` per line — one byte short for every `\r\n` — so its
+    /// body slice drifted *back into* the frontmatter and matched a banned word
+    /// in the metadata, a false finding on bytes the scan should never see. The
+    /// line-based fix skips the frontmatter by line count, so a banned word that
+    /// appears only in the frontmatter (and nowhere in the body) yields no V8
+    /// finding at all (DL-0060). This pins the corrected finding *set*, not just
+    /// the corrected line: a regression to the byte scan reds it.
+    #[test]
+    fn v8_skips_crlf_frontmatter_and_emits_no_phantom_metadata_hit() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/banned-vocabulary.yaml",
+            "banned:\n  - word: machine\n    scope: all\n    match: stem\n",
+        );
+        // Ten CRLF frontmatter lines, the banned word only in the last field
+        // before the closing `---`; the body carries no banned word.
+        write(
+            dir.path(),
+            "m.md",
+            "---\r\nid: m\r\ntype: narrative\r\nstatus: proposed\r\ntags: []\r\nsource: null\r\ndiegetic: false\r\nlexicon_exceptions: []\r\ntitle: Machine\r\n---\r\n\r\n## Body\r\n> status: proposed\r\nNothing banned here.\r\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            !findings.iter().any(|f| f.code == "V8"),
+            "the fix skips frontmatter; a metadata-only banned word is not a V8 hit: {findings:?}"
+        );
+    }
+
+    /// Unterminated frontmatter contributes no body to scan. The old byte scan
+    /// walked off into an arbitrary trailing slice of such a file; the
+    /// line-based fix skips every line while waiting for a closing `---` that
+    /// never comes, so nothing is scanned and no V8 finding is emitted, while the
+    /// unterminated block is still a V1 finding (DL-0060). This guards the
+    /// unterminated branch of `frontmatter_lines`.
+    #[test]
+    fn v8_scans_nothing_when_frontmatter_is_unterminated() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/banned-vocabulary.yaml",
+            "banned:\n  - word: machine\n    scope: all\n    match: stem\n",
+        );
+        write(
+            dir.path(),
+            "open.md",
+            "---\nid: open\ntitle: Machine\ntype: narrative\nstatus: proposed\nA machine drifts.\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            !findings.iter().any(|f| f.code == "V8"),
+            "unterminated frontmatter yields no V8 finding: {findings:?}"
+        );
+        assert!(
+            findings.iter().any(|f| f.code == "V1"),
+            "unterminated frontmatter is itself a V1 finding: {findings:?}"
+        );
+    }
+
+    /// V6 and V7 are file-level findings and carry `line: 1` by ruling, not by
+    /// accident: the structural checks read a YAML value that keeps no source
+    /// position, and the registry↔file join is a whole-file presence check. The
+    /// `message` names the offending id. DL-0060 keeps this an accepted
+    /// convention (distinct from V8's real bug) and pins it so a later move to
+    /// real line numbers needs its own entry.
+    #[test]
+    fn v6_and_v7_findings_are_file_level_at_line_one() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        // A duplicate character id deep in the file still reports line 1 (V6),
+        // and a registry row with no file reports line 1 (V7).
+        write(
+            dir.path(),
+            "data/characters.yaml",
+            "characters:\n  - id: anchor\n    name: Anchor\n    role: person\n    status: proposed\n  - id: missing\n    name: Missing\n    role: person\n    status: proposed\n  - id: anchor\n    name: Dup\n    role: person\n    status: proposed\n",
+        );
+        write(
+            dir.path(),
+            "characters/anchor.md",
+            "---\nid: anchor\ntitle: Anchor\ntype: character\nstatus: proposed\n---\n\n## Anchor\n> status: proposed\n",
+        );
+        let findings = validate_repository(dir.path());
+        for finding in findings.iter().filter(|f| f.code == "V6" || f.code == "V7") {
+            assert_eq!(finding.line, 1, "V6/V7 are file-level: {finding:?}");
+        }
+        assert!(
+            findings.iter().any(|f| f.code == "V6" && f.line == 1),
+            "{findings:?}"
+        );
+        assert!(
+            findings.iter().any(|f| f.code == "V7" && f.line == 1),
+            "{findings:?}"
+        );
+    }
+
+    /// The invalid-YAML V6 branch is the one place a real source line *is*
+    /// available — serde's parse error carries a location — yet the finding is
+    /// still reported at line 1, like every other V6/V7 finding. DL-0060 keeps
+    /// the file-level line-1 convention and records surfacing the serde line as a
+    /// tracked follow-up, out of scope for this V8 fix; this pins the accepted
+    /// behavior so a change needs its own entry rather than being an unnoticed
+    /// side effect.
+    #[test]
+    fn v6_invalid_yaml_reports_line_one_though_a_serde_line_exists() {
+        let dir = tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("data")).expect("data");
+        write(
+            dir.path(),
+            "data/characters.yaml",
+            "characters: [unterminated\n",
+        );
+        let findings = validate_repository(dir.path());
+        let v6: Vec<_> = findings.iter().filter(|f| f.code == "V6").collect();
+        assert!(
+            !v6.is_empty(),
+            "expected an invalid-YAML V6 finding: {findings:?}"
+        );
+        assert!(
+            v6.iter().all(|f| f.line == 1),
+            "V6 reports line 1 by convention even when serde knows the line: {v6:?}"
+        );
+        assert!(
+            v6.iter().any(|f| f.message.contains("invalid YAML")),
+            "{v6:?}"
+        );
+    }
+
+    /// The strict V3 marker check and the loose V4 citation extractor answer
+    /// different questions, and on a *malformed* marker the loose extractor is
+    /// unreliable — it may miss a real reference or invent a phantom one. What
+    /// holds is the gate: V3 flags every malformed marker, so no ill-formed
+    /// section passes unflagged, and once a marker is well-formed V4 catches its
+    /// dangling refs. DL-0060 rules this fragility accepted (V4 is not hardened
+    /// in a V8 line-number fix) and pins its three faces so it is tested, not
+    /// papered over with a false universal.
+    #[test]
+    fn v4_loose_extractor_is_unreliable_on_malformed_markers_but_v3_always_fires() {
+        // (a) MISS. A trailing char after `)` defeats V4's `strip_suffix(')')`,
+        // so V4 lifts zero refs and stays silent on the dangling `D-9999`; only
+        // V3 fires, and V3's message never names the reference.
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — real\n- status: ratified\n- affects: [[miss]]\n",
+        );
+        write(
+            dir.path(),
+            "miss.md",
+            "---\nid: miss\ntitle: Miss\ntype: narrative\nstatus: proposed\n---\n\n## Claim\n> status: ratified (D-9999).\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings.iter().any(|f| f.path == "miss.md"
+                && f.code == "V3"
+                && f.message.contains("well-formed status marker")),
+            "V3 flags the malformed marker: {findings:?}"
+        );
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.path == "miss.md" && f.code == "V4"),
+            "V4 misses the dangling ref hidden behind a malformed marker: {findings:?}"
+        );
+
+        // (b) PHANTOM. Refs joined by ` and ` instead of `, ` are lifted as one
+        // mangled token, so V4 reports an id that appears nowhere in the file as
+        // unknown, though both real refs resolve; V3 still fires.
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — one\n- status: ratified\n- affects: [[phantom]]\n\n## D-0002 — two\n- status: ratified\n- affects: [[phantom]]\n",
+        );
+        write(
+            dir.path(),
+            "phantom.md",
+            "---\nid: phantom\ntitle: Phantom\ntype: narrative\nstatus: proposed\n---\n\n## Claim\n> status: ratified (D-0001 and D-0002)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.path == "phantom.md" && f.code == "V3"),
+            "V3 flags the malformed marker: {findings:?}"
+        );
+        assert!(
+            findings.iter().any(|f| f.path == "phantom.md"
+                && f.code == "V4"
+                && f.message.contains("D-0001 and D-0002")),
+            "V4 invents a phantom composite id: {findings:?}"
+        );
+
+        // (c) BOTH FIRE. When the loose extractor happens to lift a well-shaped
+        // but unknown ref that the strict parser rejects, V3 and V4 both fire —
+        // the layering the gate relies on when the marker is nearly well-formed.
+        let dir = tempdir().expect("tempdir");
+        write(
+            dir.path(),
+            "decisions.md",
+            "## D-0001 — real\n- status: ratified\n- affects: [[both]]\n",
+        );
+        write(
+            dir.path(),
+            "both.md",
+            "---\nid: both\ntitle: Both\ntype: narrative\nstatus: proposed\n---\n\n## Claim\n> status: ratified (D-99)\n",
+        );
+        let findings = validate_repository(dir.path());
+        assert!(
+            findings.iter().any(|f| f.path == "both.md"
+                && f.code == "V3"
+                && f.message.contains("well-formed status marker")),
+            "{findings:?}"
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.path == "both.md" && f.code == "V4" && f.message.contains("D-99")),
+            "{findings:?}"
         );
     }
 

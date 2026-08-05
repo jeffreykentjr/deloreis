@@ -25,8 +25,9 @@
 #
 # Line semantics differ per check and are pinned here as they are, not as they
 # ought to be. V6 and V7 findings carry line 1 because the YAML reader keeps no
-# position. V8 lines are body-relative with the closing `---` as line 1, which is
-# NOT the file line; the design note records this as a named deviation.
+# position — a file-level convention the design note records as an accepted
+# deviation. V8 reports the file-absolute line (DL-0060 fixed the former
+# body-relative numbering); every check now names a real file line.
 
 operators:
   - operator: v1-missing-frontmatter
@@ -402,14 +403,16 @@ operators:
       to: "the telephone knows the hour"
     expected:
       - path: texts/ferry-charms.md
-        line: 8
+        line: 15
         code: V8
         message_contains: banned word "telephone"
     rationale: >-
       The diegetic scope only fires on files that declare `diegetic: true`, so
       this operator also proves the scope gate: the same word in a non-diegetic
-      file is not a violation. The seeded word sits on file line 15 and is
-      reported at line 8 — the body-relative numbering the design note names.
+      file is not a violation. The seeded word sits on file line 15, below an
+      eight-line frontmatter, and is reported at file line 15 — the absolute line
+      DL-0060 corrected V8 to report. The old body-relative numbering said 8;
+      pinning 15 reds if that regresses.
 
   - operator: v8-banned-word-all-scope
     code: V8
@@ -421,14 +424,16 @@ operators:
       to: "by subroutine to the common beds"
     expected:
       - path: concepts/reed-compact.md
-        line: 7
+        line: 13
         code: V8
         message_contains: banned word "subroutine"
     rationale: >-
       Scope `all` reaches every non-exempt file whether or not it is in-world.
-      The seeded word sits on file line 13 and is reported at line 7, the same
-      body-relative offset as the diegetic operator — the deviation is systematic,
-      not a one-off.
+      The seeded word sits on file line 13, below a seven-line frontmatter, and
+      is reported at file line 13 — the absolute line DL-0060 corrected V8 to
+      report. The old body-relative numbering said 7; pinning 13 reds if that
+      regresses. Two operators over frontmatters of different heights fix the
+      offset in two places, so a partial regression cannot hide.
 
   - operator: v10-open-question-filed-as-resolved
     code: V10
