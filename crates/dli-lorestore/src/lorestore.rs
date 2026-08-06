@@ -65,6 +65,17 @@ pub struct Lorestore {
     storage: Box<dyn Storage>,
 }
 
+/// The durable result of a commit: the new commit and the whole ref that now
+/// points to it. Callers that continue authoring can retain the ref digest as
+/// their next optimistic-concurrency fence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommitReceipt {
+    /// The newly written commit object.
+    pub commit: ContentHash,
+    /// Digest of the ref written atomically with [`commit`](Self::commit).
+    pub ref_digest: ContentHash,
+}
+
 impl Lorestore {
     /// Open (or initialise) a store at `root`.
     ///
@@ -328,6 +339,35 @@ impl Lorestore {
         decisions: Vec<String>,
         pack_name: String,
     ) -> Result<ContentHash, StoreError> {
+        self.commit_on_branch_at_ref(
+            branch,
+            None,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            decisions,
+            pack_name,
+        )
+        .map(|receipt| receipt.commit)
+    }
+
+    /// Commit on `branch`, requiring its current whole-ref digest to still be
+    /// `expected_ref` when supplied. The check runs under the same lock as the
+    /// final CAS, so callers can safely bind authored work to a loaded
+    /// commit-and-valuation snapshot.
+    #[allow(clippy::too_many_arguments)]
+    pub fn commit_on_branch_at_ref(
+        &self,
+        branch: &str,
+        expected_ref: Option<&str>,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<CommitReceipt, StoreError> {
         let _lock = self.storage.acquire_lock()?;
         let ref_name = branch_ref_name(branch);
 
@@ -362,6 +402,15 @@ impl Lorestore {
             Some(r) => Some(r.digest()?.0),
             None => None,
         };
+        if let Some(expected_ref) = expected_ref
+            && expected_token.as_deref() != Some(expected_ref)
+        {
+            return Err(StoreError::RefSnapshotConflict {
+                name: ref_name,
+                expected: expected_ref.to_owned(),
+                found: expected_token,
+            });
+        }
         let branch_valuation = head_ref.map(|r| r.valuation).unwrap_or_default();
 
         // Three fields on a commit replace, rather than add to, what the head
@@ -406,6 +455,7 @@ impl Lorestore {
             Some(_) => Ref::with_valuation(ref_name.clone(), commit_hash.clone(), branch_valuation),
             None => Ref::new(ref_name.clone(), commit_hash.clone()),
         };
+        let new_ref_digest = new_ref.digest()?;
 
         let written = self
             .storage
@@ -421,7 +471,10 @@ impl Lorestore {
             });
         }
 
-        Ok(commit_hash)
+        Ok(CommitReceipt {
+            commit: commit_hash,
+            ref_digest: new_ref_digest,
+        })
     }
 
     /// Walk the commit DAG from `tip` back to `base` (inclusive), returning

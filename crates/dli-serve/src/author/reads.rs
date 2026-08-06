@@ -276,6 +276,12 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
         name: ws.base_name.clone(),
         documents,
     })?;
+    // The workspace is anchored to the store ref selected during project load.
+    // Apply that complete overlay before its local suppositions; explicit falses
+    // are as meaningful as trues and must not be reconstructed as absence.
+    for (atom, value) in &ws.base_valuation.0 {
+        world.model.world.valuation.0.insert(*atom, *value);
+    }
     for hypothesis in &ws.suppositions {
         if let Some(index) = world
             .model

@@ -320,7 +320,16 @@ pub(super) fn materialize(
         }));
     }
 
-    let (base_name, staged_decls, staged_fact_hashes, ws_interner, base_docs, ws_digest, pinned) = {
+    let (
+        base_name,
+        staged_decls,
+        staged_fact_hashes,
+        ws_interner,
+        base_docs,
+        ws_digest,
+        pinned,
+        base_ref_digest,
+    ) = {
         let ws = store.get(&params.workspace).ok_or_else(gone)?;
         (
             ws.base_name.clone(),
@@ -336,6 +345,7 @@ pub(super) fn materialize(
                 .unwrap_or_default(),
             ws.digest.clone(),
             ws.base_root_hash.clone(),
+            ws.base_ref_digest.clone(),
         )
     };
 
@@ -396,8 +406,10 @@ pub(super) fn materialize(
         })?
         .unwrap_or(base_name);
 
-    let commit_hash = ls
-        .commit(
+    let receipt = ls
+        .commit_on_branch_at_ref(
+            dli_lorestore::MAIN_REF,
+            base_ref_digest.as_deref(),
             ws_interner,
             staged_fact_hashes.clone(),
             Vec::new(),
@@ -413,6 +425,7 @@ pub(super) fn materialize(
                 dli_lorestore::StoreError::InternerRegression { .. }
                 | dli_lorestore::StoreError::DecisionRegression { .. }
                 | dli_lorestore::StoreError::PackRename { .. } => ErrorCode::SchemaViolation,
+                dli_lorestore::StoreError::RefSnapshotConflict { .. } => ErrorCode::StaleFence,
                 _ => ErrorCode::Internal,
             };
             ErrorBody {
@@ -446,11 +459,17 @@ pub(super) fn materialize(
         None
     };
 
+    let commit_hash = receipt.commit;
     // Advance the workspace: the staged facts are durable, the pin moves to
-    // the new commit, and a retry commits nothing.
+    // the new commit, and a retry commits nothing. Branch-mode workspaces also
+    // advance their whole-ref fence to the ref this commit just wrote, so their
+    // next materialize is fenced against external work rather than themselves.
     let (_, ws) = parts_mut(store, &params.workspace)?;
     ws.staged_fact_hashes.clear();
     ws.base_root_hash = Some(commit_hash.to_string());
+    if ws.base_ref_digest.is_some() {
+        ws.base_ref_digest = Some(receipt.ref_digest.to_string());
+    }
 
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

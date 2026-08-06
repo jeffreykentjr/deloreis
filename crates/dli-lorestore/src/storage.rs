@@ -58,6 +58,18 @@ pub enum StoreError {
         /// The commit hash actually found in the ref.
         found: Option<String>,
     },
+    /// A caller's loaded whole-ref snapshot no longer matches the branch.
+    #[error(
+        "ref `{name}` changed since the caller loaded it: expected {expected}, found {found:?}"
+    )]
+    RefSnapshotConflict {
+        /// The ref that changed.
+        name: String,
+        /// The loaded ref digest.
+        expected: String,
+        /// The current ref digest, if the ref still exists.
+        found: Option<String>,
+    },
     /// Filesystem I/O failed.
     #[error("I/O on {path}: {source}")]
     Io {

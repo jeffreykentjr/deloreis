@@ -11,6 +11,7 @@ use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::{Decl, Document};
+use dli_core::valuation::Valuation;
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
@@ -76,6 +77,25 @@ pub struct ProjectDocument {
     /// so `author.materialize` advances the very store the project reads from
     /// and the durable authoring loop closes (DL-0055).
     pub store_origin: Option<PathBuf>,
+    /// The commit selected while loading a store-backed document.
+    ///
+    /// Branch mode records the commit from the one `Ref` read that also supplied
+    /// [`store_valuation`](Self::store_valuation); pinned mode records the
+    /// manifest's exact commit. The serve layer must use this snapshot rather
+    /// than re-read a moving store head.
+    pub store_commit: Option<dli_lorestore::ContentHash>,
+    /// The selected store ref's complete valuation overlay.
+    ///
+    /// This is empty for a manifest-pinned commit: a pin is a replay of that
+    /// commit, not an instruction to borrow the valuation of whatever ref happens
+    /// to point elsewhere when the project starts.
+    pub store_valuation: Valuation,
+    /// Digest of the selected branch ref, including its valuation overlay.
+    ///
+    /// Only branch mode has a selected ref. The authoring write path uses this
+    /// whole-ref fence so it cannot silently parent staged work on an external
+    /// CAS that arrived after project load.
+    pub store_ref_digest: Option<String>,
     /// Whether the manifest pinned the store to an explicit `head`.
     ///
     /// A pinned document is a replay: it must not follow the branch as writes
@@ -562,7 +582,15 @@ fn load_document(
     id: &str,
     entry: &DocumentEntry,
 ) -> Result<ProjectDocument, ProjectError> {
-    let (pack, source_paths, source_digest, store_origin) = load_source(root, id, entry)?;
+    let (
+        pack,
+        source_paths,
+        source_digest,
+        store_origin,
+        store_commit,
+        store_valuation,
+        store_ref_digest,
+    ) = load_source(root, id, entry)?;
     compile(&pack).map_err(|error| ProjectError::Compile {
         document: id.to_owned(),
         message: error.to_string(),
@@ -626,6 +654,9 @@ fn load_document(
         source_digest,
         source_paths,
         store_origin: store_origin.clone(),
+        store_commit,
+        store_valuation,
+        store_ref_digest,
         store_pinned: store_origin.is_some() && entry.head.is_some(),
     })
 }
@@ -701,7 +732,18 @@ fn load_source(
     root: &Path,
     id: &str,
     entry: &DocumentEntry,
-) -> Result<(Pack, Vec<PathBuf>, String, Option<PathBuf>), ProjectError> {
+) -> Result<
+    (
+        Pack,
+        Vec<PathBuf>,
+        String,
+        Option<PathBuf>,
+        Option<dli_lorestore::ContentHash>,
+        Valuation,
+        Option<String>,
+    ),
+    ProjectError,
+> {
     match (entry.sources.is_empty(), entry.store.as_deref()) {
         (false, Some(_)) => Err(ProjectError::Invalid(format!(
             "document `{id}` declares both `sources` and `store`; a document has one source form \
@@ -711,10 +753,18 @@ fn load_source(
             "document `{id}` declares neither `sources` nor `store`; it has nothing to compile"
         ))),
         (true, Some(store)) => {
-            let (pack, paths, digest) =
+            let (pack, paths, digest, commit, valuation, ref_digest) =
                 load_pack_from_store(root, id, store, entry.head.as_deref())?;
             let origin = paths.first().cloned();
-            Ok((pack, paths, digest, origin))
+            Ok((
+                pack,
+                paths,
+                digest,
+                origin,
+                Some(commit),
+                valuation,
+                ref_digest,
+            ))
         }
         (false, None) => {
             if entry.head.is_some() {
@@ -724,7 +774,7 @@ fn load_source(
                 )));
             }
             let (pack, paths, digest) = load_pack(root, id, &entry.sources)?;
-            Ok((pack, paths, digest, None))
+            Ok((pack, paths, digest, None, None, Valuation::new(), None))
         }
     }
 }
@@ -739,12 +789,23 @@ fn load_source(
 /// The fingerprint is the resolved head's **content hash** — the store's own
 /// addressing regime. It is deliberately not the JCS `workspace_digest`
 /// regime: the two never share a field or a meaning (DL-0046 audit repair 1).
+#[allow(clippy::type_complexity)]
 fn load_pack_from_store(
     root: &Path,
     id: &str,
     store: &Path,
     head: Option<&str>,
-) -> Result<(Pack, Vec<PathBuf>, String), ProjectError> {
+) -> Result<
+    (
+        Pack,
+        Vec<PathBuf>,
+        String,
+        dli_lorestore::ContentHash,
+        Valuation,
+        Option<String>,
+    ),
+    ProjectError,
+> {
     let field = format!("documents.{id}.store");
     let dir = resolve_existing(root, &field, store)?;
     let lorestore =
@@ -754,17 +815,24 @@ fn load_pack_from_store(
             message: error.to_string(),
         })?;
 
-    let resolved = match head {
+    // Branch mode reads the complete ref once. Its commit and valuation are one
+    // inseparable project snapshot: reading the commit first and valuation later
+    // can mix two external CAS states.
+    let (resolved, valuation, ref_digest) = match head {
         // Pinned: the manifest names the commit, and that is the document.
-        Some(pin) => dli_lorestore::ContentHash::parse(pin).ok_or_else(|| {
-            ProjectError::Invalid(format!(
-                "document `{id}` pins `head` to `{pin}`, which is not a `sha256:<hex>` store \
-                 commit hash"
-            ))
-        })?,
+        Some(pin) => (
+            dli_lorestore::ContentHash::parse(pin).ok_or_else(|| {
+                ProjectError::Invalid(format!(
+                    "document `{id}` pins `head` to `{pin}`, which is not a `sha256:<hex>` store \
+                     commit hash"
+                ))
+            })?,
+            Valuation::new(),
+            None,
+        ),
         // Branch mode: follow the store's main tip.
         None => lorestore
-            .branch_head(dli_lorestore::MAIN_REF)
+            .branch_ref(dli_lorestore::MAIN_REF)
             .map_err(|error| ProjectError::AssetPath {
                 field: field.clone(),
                 path: store.display().to_string(),
@@ -776,6 +844,15 @@ fn load_pack_from_store(
                      import a corpus into the store, or pin `head` to an existing commit",
                     dli_lorestore::MAIN_REF
                 ))
+            })
+            .and_then(|reference| {
+                reference
+                    .digest()
+                    .map(|digest| (reference.commit, reference.valuation, Some(digest.0)))
+                    .map_err(|error| ProjectError::Compile {
+                        document: id.to_owned(),
+                        message: format!("store ref cannot be fingerprinted: {error}"),
+                    })
             })?,
     };
 
@@ -793,6 +870,9 @@ fn load_pack_from_store(
         },
         vec![dir],
         resolved.as_str().to_owned(),
+        resolved,
+        valuation,
+        ref_digest,
     ))
 }
 

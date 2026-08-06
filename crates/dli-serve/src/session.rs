@@ -131,6 +131,9 @@ impl Sessions {
                 && let Some(loaded) = project.document(document)
             {
                 world.killed = loaded.killed.clone();
+                for (atom, value) in &loaded.store_valuation.0 {
+                    world.model.world.valuation.0.insert(*atom, *value);
+                }
             }
             let forks = ForkStore::new(world.model.world.clone());
             self.scopes
