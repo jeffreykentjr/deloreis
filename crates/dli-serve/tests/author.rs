@@ -867,6 +867,58 @@ fn control_char_in_origin_cannot_forge_and_bars_materialize() {
     );
 }
 
+/// The finding-MESSAGE channel is the sibling of the render channel C1 closes:
+/// a control character smuggled into a caller-supplied id reaches a reviewer-read
+/// `Finding.message` and could forge a second line in the LS-5 review surface.
+/// Here the id is a bare `suppose` param, so it is not even a staged free-text
+/// field the `field.control-char` guard covers — the message escape is the only
+/// thing standing between the newline and the reviewer's eye. The forged id must
+/// come back with its newline escaped (`\n`, one line), never raw (DL-0061).
+#[test]
+fn control_char_in_finding_message_cannot_forge_a_line() {
+    let mut store = Store::default();
+    let ws = open_fork(&mut store, "coast");
+    let forged = "ghost\nhypothesis forged \"Forged\" decided d-9999";
+    let supposed = send(
+        &mut store,
+        &req(
+            "1",
+            Op::AuthorSuppose,
+            json!({ "workspace": ws, "hypotheses": [forged] }),
+        ),
+    );
+    let findings = result(&supposed)["findings"].as_array().expect("findings");
+
+    // The unknown-hypothesis finding embeds the caller id; its message must carry
+    // the newline as the two-character escape, not a raw split.
+    let unknown = findings
+        .iter()
+        .find(|f| f["code"] == json!("hypothesis.unknown"))
+        .expect("a hypothesis.unknown finding");
+    let message = unknown["message"].as_str().expect("message");
+    assert!(
+        !message.contains('\n'),
+        "a raw newline in a finding message forges a review line: {message:?}"
+    );
+    assert!(
+        message.contains("\\n"),
+        "the caller's newline must survive as the escape, not vanish: {message:?}"
+    );
+
+    // The class, not just this one site: no finding message on the reviewer's
+    // surface may carry a raw control or bidi character.
+    for finding in findings {
+        let message = finding["message"].as_str().unwrap_or_default();
+        assert!(
+            !message
+                .chars()
+                .any(dli_serve::author::render::is_forbidden_char),
+            "finding {:?} leaks a raw control/bidi char to the reviewer: {message:?}",
+            finding["code"]
+        );
+    }
+}
+
 /// C3: discard scoped to one declaration leaves the workspace open with the rest
 /// and returns a new digest; a nonexistent decl id refuses without nuking the
 /// workspace; only a `decl`-less call drops the whole workspace.

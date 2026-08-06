@@ -511,7 +511,11 @@ fn finding_conflict(finding: &Finding) -> DiffConflict {
         code: finding.code.clone(),
         kind: None,
         blame: finding.citations.clone(),
-        rendered: finding.message.clone(),
+        // `rendered` copies the finding message into the diff surface, so it
+        // carries the same caller text and needs the same escape the message
+        // gets at its serialization boundary — a raw copy here would reopen the
+        // forgery on the `author.diff` consequence channel (DL-0061).
+        rendered: super::render::escape_controls(&finding.message),
     }
 }
 

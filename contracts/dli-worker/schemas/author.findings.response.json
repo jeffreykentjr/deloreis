@@ -50,7 +50,7 @@
           "$ref": "#/$defs/Grade"
         },
         "message": {
-          "description": "A human-readable message.",
+          "description": "A human-readable message. Serialized with every control, bidi, and\nzero-width character escaped (DL-0061): this message is the LS-5 review\nsurface a reviewer reads, and caller-supplied text (ids, values) is\n`format!`-ed into it — the escape is what stops a newline in a caller id\nfrom forging a second line, exactly as the render channel escapes the\n`.dli` diff (DM-4). See the `serialize_message` function.",
           "type": "string"
         },
         "repair": {
