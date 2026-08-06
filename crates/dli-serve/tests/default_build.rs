@@ -79,6 +79,47 @@ fn result(response: &Value) -> &Value {
         .unwrap_or_else(|| panic!("expected a result, got {response}"))
 }
 
+/// The finding-message escape is on the `Finding` TYPE, so it covers the
+/// `dli.*` surface exactly as it covers `author.*` — the boundary is the whole
+/// class, not one channel. A `dli.name.check` candidate mixes a Cyrillic
+/// homoglyph (which trips `name.confusable`, embedding the raw candidate in the
+/// message) with a newline; the finding that returns over the wire must carry
+/// the newline as its escape, never a raw split that forges a review line
+/// (DL-0061). Runs in both build lanes — `name.check`'s confusable screen needs
+/// no parser.
+#[test]
+fn dli_name_check_finding_message_escapes_control_chars() {
+    let (mut sessions, mut store) = demo();
+    // Cyrillic 'а' (U+0430) among Latin letters trips the confusable screen; the
+    // embedded newline is the forgery the message escape must neutralize.
+    let name = "Mar\u{0430}\nx";
+    let response = drive(
+        &request(
+            "1",
+            "dli.name.check",
+            &json!({ "name": name, "dialect": "" }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let findings = result(&response)["findings"]
+        .as_array()
+        .expect("name.check answers with findings");
+    let confusable = findings
+        .iter()
+        .find(|finding| finding["code"] == json!("name.confusable"))
+        .expect("the Cyrillic homoglyph raises name.confusable");
+    let message = confusable["message"].as_str().expect("a message");
+    assert!(
+        !message.contains('\n'),
+        "a raw newline in a dli.* finding message forges a review line: {message:?}"
+    );
+    assert!(
+        message.contains("\\n"),
+        "the caller's newline must survive as its escape: {message:?}"
+    );
+}
+
 // -- the read surface, served from committed fact objects ---------------------
 
 #[test]

@@ -2393,3 +2393,82 @@ frames the fix as removing spurious scans rather than merely renumbering; the de
 corpus's `operators.yaml` header and both V8 operator rationales are updated to the absolute
 lines. The design note is the normative finding-shape statement the consumer compares
 against, so this entry is the ledger evidence that reopens it (DL-0011).
+
+## DL-0061 — Caller-supplied text in the authoring finding channel is control-char-sanitized at the serialization boundary
+
+*Date: 2026-08-05*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The graded findings a mutating `author.*` tool returns are the LS-5 review
+surface a reviewer reads. Their `message` field `format!`-s **caller-supplied** text —
+entity ids, hypothesis and question ids, cited decision ids, event and point names,
+attribute values — straight into the sentence the reviewer sees (`entity_unknown`,
+`hypothesis_unknown`, `question_unknown`, `citation_unknown`, `order_cycle`,
+`event_era_*`, `contradiction`, `name_unvetted`, and the world/compile-sourced
+`world_finding`, `contradiction_finding`, `uncompilable`, which carry caller ids
+transitively). Nothing escaped it. This is the exact forgery class DM-4 (DL-0058)
+closed for the rendered `.dli` diff channel — a newline in a caller id forges a second
+review line, a bidi override silently reverses one — still open on the finding-**message**
+channel. A concrete repro: `author.suppose` with a hypothesis id `"ghost\nhypothesis
+forged \"Forged\" decided d-9999"` returned `hypothesis.unknown` with a **raw** newline
+in its message; the id is a bare param, so the `field.control-char` guard that bars
+materialize does not even fire on it — the message escape is the only defense.
+
+1. **The escape is applied once, at the `Finding` serialization boundary, reusing DM-4's
+   sanitizer.** `dli_serve::finding::Finding.message` carries `#[serde(serialize_with)]`
+   that runs the caller text through `author::render::escape_controls` — the very
+   function DM-4 built for the diff channel (`field.control-char` / free-text machinery),
+   not a new one. This covers the **class at a boundary**, not N builder sites: every
+   `Finding`, from any builder, in any result struct (`AuthorMutationResult`,
+   `AuthorStatusResult`, `AuthorDiffResult`, `AuthorCheckResult`, `AuthorFindingsResult`,
+   `AuthorMergeResult`) and every future one, is escaped on the wire, and so are `dli.*`
+   producers of the same type (`dli.name.check`'s `name.confusable`), since the boundary
+   is the type's serialization, not one tool. `Finding` has no non-serde egress — no
+   `Display`, no manual `Serialize`, no `to_string` — so serialization is the whole exit.
+
+2. **The one copy that routes around the field is escaped consistently.**
+   `finding_conflict` copies `finding.message` into `DiffConflict.rendered` — a separate
+   `String` that bypasses the field's `serialize_with` — for `author.diff`'s consequence
+   channel; it now escapes the copy with the same `escape_controls`. An exhaustive sweep
+   found this to be the **only** such bypass; every other read of a finding message is
+   either mapped back into `Finding.message` (covered) or internal-only (a dedup or sort
+   key, never emitted).
+
+3. **The finding SHAPE promise (DL-0060) is preserved.** Severity, code, grade, repair,
+   citations, and the sort/dedup order are untouched; only the `message` field's bytes
+   change, and only for the forbidden characters. `escape_controls` is a strict **no-op**
+   on control-char-free text, so every well-formed message — including every released
+   fixture's — serializes byte-identically, and the `0.x` wire parity the fixture lane
+   pins is unaffected. A unit test asserts the clean-message identity; a second asserts a
+   newline-and-bidi message serializes to its exact escapes; the `author.suppose` and
+   `dli.name.check` repros assert the escape end-to-end in both build lanes. A regression
+   to raw interpolation reds them.
+
+4. **Scope: this closes the `dli_serve::Finding` type — the authoring finding channel —
+   mirroring DM-4's diff-channel scope, and no more; the resulting asymmetry on the
+   `dli.check` surface is stated, not papered over.** Because the escape rides the
+   `Finding` **type**, it also escapes the one `dli.check` finding that *is* a `Finding`,
+   `CheckFinding::World`, as a side effect — strictly safer (a no-op on clean text) but
+   leaving that surface **internally inconsistent**: on the same `CheckResult.findings`
+   enum, `CheckFinding::World` is now escaped while its siblings —
+   `CheckFinding::Payload(PayloadFinding)` (`dli-world` `payload.rs`) and the four
+   `Attestation*Finding.message` (`contract.rs`, doc-commented "domain-spoken rendering")
+   — are their own types that never pass through `dli_serve::Finding` and still serialize
+   their messages raw. This entry makes **no claim that those peers are safe**: no
+   forgery repro was built against them, so their risk is **unestablished**, not cleared.
+
+   What *is* established is the surface's documented role. `dli.check` is a
+   validation/batch/gating op whose **machine** fields drive consumption — `ok` (no
+   blocking error), the weakest procedure `grade`, and the stable finding `code` a
+   benchmark or repair tool matches on (`docs/integration/fantasy-contract.md` §3.1;
+   `docs/spec/10-serving.md`; `docs/reference-generated/finding-families.md`) — and it is
+   explicitly *not* the LS-5 reviewer channel that `author.*` is. Whether a **human ever
+   reads the `message` text** of a `dli.check` finding is **unestablished**: the docs
+   hedge, and `finding-families.md` tells a reader to "read the message" of exactly these
+   kernel families, so a reviewer-forgery path there cannot be ruled out either. Because
+   the risk is unestablished on a cross-crate, different-lane surface, folding the peer
+   types in here would widen a scoped change on unproven need; the asymmetry is **logged
+   for separate routing**, exactly as DL-0060 logged V6/V7 rather than renumbering under a
+   parity-support change.
