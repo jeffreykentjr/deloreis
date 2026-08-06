@@ -101,8 +101,21 @@ so CP-2/CP-4/CP-5 remain `proposed` until the fw6-flip lane merges (no point adv
 one side's evidence alone). Do not hand-fabricate; the `compile_lore_pack --check` ≣ committed
 pack already rules out a canned corpus.
 
-**Open gate (not fabricated):** §5 ≥1-real-ruling reproduction needs a real canon edit
-recompiled through `compile_lore_pack` (pack digest visibly changes mid-streak) — a
-canon-authoring step per AGENTS.md DL-0014/DL-0043 via the `author.*` MCP tools, absent
-here. Phases 3–4 blocked until the FW-6 flip lands + EXT-F4 verified.
+**§5 ≥1-real-ruling — CLOSED (scratch-store proof; real author.* MCP):** A real canon ruling
+was authored via `author.*` MCP (`deloreis mcp --project`) on a throwaway copy of the
+tpth store (`/tmp/s5`, NOT the committed `worlds/tpth`). `author.open→add_entity→materialize`
+staged the rule (workspace digest `9db59135…→6deb725d…`); the engine surfaced an honest
+`name.unvetted` finding (grade `asserted`, repair `dli.name.check {name:"s5witness"}`) —
+it reported a consequence instead of silently accepting an unvetted name; `materialize`
+committed it (`ok:true`, `__decl Entity s5witness`, claim_id `a7fb7833…`). Root shifted
+`sha256:db80a5a3…→ba63c029…`, persisted (re-read by a fresh `deloreis mcp --project` process).
+`dli.check` held `checked`/clean (0 findings); `alias(?v0,?v1)` ×20 → AGREE (12 rows, 1
+distinct frame). Committed `worlds/tpth` byte-identical (`db80a5a3`). §5 accrual re-verified
+on the restored dm4fix binary: `lore_dual_run.sh` PASSED @ `69dbc1ea…`/`db80a5a3…` (217
+identical / 6 refused / 0 divergence, 5 mutations RED, rollback PASSED); `shadow_lore --repeat 5`
+→ AGREE (274×5). §5 no longer blocks; Phases 3–4 blocked only on the FW-6 flip + EXT-F4.
+Evidence: the lane's `fw6-flip-verification-log-2026-08-06.md` §5-closure section. NOTE: the
+handoff's `/home/jeff/tg-findingsanitize/debug/deloreis` was clobbered by a deloreis-main
+rebuild (no store surface) — FW-6/MCP work uses the dm4fix binary at
+`/home/jeff/tg-dm4fix/debug/deloreis` (contract/1.3.0).
 
