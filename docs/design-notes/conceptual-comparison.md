@@ -1,13 +1,18 @@
 ---
 status: settled
-verdict: "A design-level comparison of De Lore Is against mainstream lore-wiki backing technology: SWM, graphdb-backed wikis, Cargo-style dependency systems, Datomic, and other Datalog-family solutions. Covers query patterns, data storage, schema evolution, invariant enforcement, runtime perf, and the single-authority valuation model. Updated for the lorestore (LS-1/LS-2/LS-3): the three-way identity split, content-addressed fact objects, and commit DAG."
+verdict: "A design-level comparison of De Lore Is against mainstream knowledge and database technology. Covers provenance, storage, schema evolution, invariant enforcement, runtime behavior, and the current single-valuation-context limit."
 ---
 
 # Conceptual comparison: De Lore Is vs. mainstream lore backing technology
 
 ## What De Lore Is is
 
-De Lore Is is a **knowledge language** for fictional worlds — a declarative, Datalog-derived dialect that records *what is true in a world, since when, on whose say-so, and what breaks if it changes.* It is not a play-time engine (not Inform/TADS), not a choice-flow language (not Ink/Twine). It occupies the third family of narrative language:
+De Lore Is is a **deterministic epistemic engine** — a declarative,
+Datalog-derived system that records structured claims, their provenance and
+defeaters, and what changes under a supplied valuation. Fictional worlds are a
+first-class reference domain, not a scope limit. It is not a play-time engine
+(not Inform/TADS), not a choice-flow language (not Ink/Twine), and not an LLM
+agent or authorization system.
 
 | Family | Models | Runs at | Exemplars |
 |---|---|---|---|
@@ -39,7 +44,10 @@ The **decision ledger** (`decisions.md` — or the consuming project's `canon/de
 - `.dli-cache/` — gitignored, content-hash-keyed; never a source of truth, only a rebuild target.
 - `.dli-evidence/` — immutable, RFC 8785 JCS-canonical JSON documents (attestation batches, payload records, simulation manifests) addressed by SHA-256. Writers take a project-wide advisory lock and publish atomically. Write-once, append-only.
 
-The machine's entire durable write surface is bounded to these two directories. It **never** writes `canon/` or ledger content that does not cite an existing ruling.
+The legacy worker's durable evidence/cache surface is bounded to these two
+directories. Lorestore adds DLI-owned fact objects; neither path writes a
+consuming repository or decides whether a caller is authorized to treat a fact
+as canon.
 
 ### The lorestore (LS-1/LS-2/LS-3)
 
@@ -160,7 +168,7 @@ Most fan-media wikis today use **MediaWiki** (PHP + MySQL) or **Semantic MediaWi
 | Runtime | PHP + MySQL/Elasticsearch/Redis | Rust, pure functions, thread-safe |
 | Storage | Files in git + database | `.dli` in git + lorestore (content-addressed objects + commit DAG) |
 
-The key gap: in a wiki, every edit is immediately visible and (barring protection) authoritative. There is no clean separation between "proposed" and "ratified" content. In De Lore Is, `proposed` is **structurally unassertable** — a proposed fact gates on an open hypothesis variable that no one can rule true except the sovereign author.
+The key gap: in a wiki, every edit is immediately visible and (barring protection) authoritative. There is no clean separation between "proposed" and "decided" content. In De Lore Is, `proposed` is **structurally unassertable** — a proposed fact gates on an open hypothesis variable; a resolved, known decision is needed before its path can be certain.
 
 ### Graphdb-backed wikis (Neo4j, ArangoDB)
 
@@ -226,7 +234,7 @@ Datomic is the closest professional prior art: a fact-based, immutable database 
 
 The core problem De Lore Is addresses: **the difference between "I wrote this down" and "this is true in the world."**
 
-In a wiki, every edit is immediately visible and (barring protection) authoritative. There's no clean separation between proposed and ratified content. In De Lore Is, `proposed` is *structurally unassertable* — a proposed fact gates on an open hypothesis variable that no one can rule true except the sovereign author. It can never accidentally become "certain" in a query unless someone explicitly ratifies it.
+In a wiki, every edit is immediately visible and (barring protection) authoritative. There's no clean separation between proposed and decided content. In De Lore Is, `proposed` is *structurally unassertable* — a proposed fact gates on an open hypothesis variable. It can become `certain` only when the application supplies a resolved, known decision in the valuation; DLI does not decide who was entitled to supply it.
 
 The **three-valued standing** (certain/possible/dead) is derived from the polynomial algebra, not a status field someone forgot to update. And "what breaks if I change this" is answered by a single fork+diff: the support index tells you exactly which atoms depend on which event variables, so changing a ruling ripples through with perfect precision.
 
@@ -234,8 +242,11 @@ This is provenance tracking of the kind that **IPFS/IPLD** aspires to for data, 
 
 ---
 
-## The single-authority valuation model (and why wikis don't have it)
+## The single-valuation-context model
 
-De Lore Is explicitly models **single-authority valuation** (charter koan 1). The machine may propose, check, render, and explain — but it may never make a thing true (koan 3). Multi-authority valuation (writers' rooms, shared universes, wiki canon) is **explicitly out of v1** (DEF-4 in the PLAN; DL-0002's budget).
-
-This is the fundamental mismatch with fan wikis: fan wikis are *collaborative by default* — many authors, no sovereign. De Lore Is is a tool for *dictator-mode* collaborative fiction — the author who is the final arbiter of truth, assisted by agents that propose but cannot decide. Every claim asks "on whose say-so" because there is exactly one say-so that matters: the sovereign author's ruling.
+De Lore Is currently evaluates one valuation context per compiled corpus. It
+records caller-supplied attribution and known decisions, but it does not enforce
+an authority role or resolve a dispute by vote. Multiple valuation contexts,
+their comparison, and any consensus policy remain deferred (PLAN `DEF-4` and
+DL-0062). This is a limit in the engine's current semantics, not a claim that
+one human sovereign is universally required.

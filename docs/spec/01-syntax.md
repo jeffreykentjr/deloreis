@@ -1,53 +1,43 @@
 ---
 status: live
 title: "Syntax"
-verdict: "AST-first; one canonical rendering; one interface since DL-0043 (this spec's two-door section is retained as history); grammar versioned, formatter is the migrator."
+verdict: "Schema-first: lorestore fact-object schemas and JCS bytes are normative; .dli is an opt-in renderer/compatibility input behind the syntax feature, while semantic tools are the supported interface."
 ---
 
 # Syntax
 
-This document specifies the surface of De Lore Is: what a `.dli` file is, what
-in it is normative, the shape of a record, the two supported ways in, and the
-discipline that keeps the written form from drifting away from the language it
-renders. It closes by naming, plainly, which claims about the surface are
-settled and which remain hypotheses awaiting measurement.
+This document specifies the optional `.dli` surface: its record shape and the
+discipline that keeps it compatible with the fact objects it renders. It is not
+the normative storage or authoring interface; semantic tools are. This document
+retains syntax details for the supported compatibility feature and illustrative
+rendering.
 
 The decision ledger (`../decisions.md`) outranks this document; where they
 disagree the ledger wins and this file is stale until fixed.
 
 ---
 
-## 1. Normativity: the AST is the language
+## 1. Normativity: fact objects are the language
 
-The language is defined **AST-first** (DL-0003). The normative definition is the
-serializable abstract syntax tree's **JSON Schema**. The two-page EBNF is a
-*rendering* of that schema, published in the same versioned document; when the
-grammar and the schema disagree, the schema wins and the grammar is corrected.
-The artifact the tool layer enforces *is* the language definition — there is no
-second, prose definition that the schema could fall out of step with.
+The language is defined **schema-first** (DL-0003 as amended by DL-0041). The
+normative definition is the schemars-derived JSON Schema of stored fact objects,
+with RFC 8785 JCS bytes as canonical form. The AST and `.dli` grammar are
+compatibility/rendering mechanisms; when either disagrees with the stored-object
+schema, the schema wins and the renderer or parser is corrected.
 
 The schema is **generated from the implementation's own types** (schemars,
-DL-0008): the Rust AST types are the single source, and the published JSON
-Schema is derived from them. A definition and an enforcer that are two hand-kept
-copies drift; a definition that is *computed from* the enforcer cannot. This is
-the same anti-drift move the whole system makes about lore, applied to the
-language's own grammar.
+DL-0008). A definition and an enforcer that are two hand-kept copies drift; a
+definition computed from the types does not. This is the same anti-drift move
+the whole system makes about lore, applied to its own data model.
 
-There is **exactly one canonical surface rendering**, defined by the formatter
-and enforced by the gate. Non-canonical text — a sloppily spaced record, a
-field in a different order, an idiosyncratic line break — is **always legal
-input and never legal repo state**. A writer types approximately; saving
-produces the one canonical form; the committed tree contains only canonical
-text. This is koan 7 (*one way to write it*) made mechanical: the convenience of
-loose input is paid once, at save, rather than by admitting a second surface
-regime into the repository.
+The formatter provides one stable `.dli` rendering when text is requested. It
+is not the canonical form of stored knowledge and it is not a second authoring
+door. Loose text remains a compatibility input behind the `syntax` feature;
+structured tool results and JSON schemas are the supported path.
 
-The grammar is **versioned**. A version bump ships a **canonical-to-canonical
-migration**, and **the formatter is the migrator**: upgrading a corpus across a
-grammar version is running the new formatter over the old canonical text.
-Deriving the schema from the types, the surface from the schema, and the
-migration from the formatter removes every seam at which the definition, the
-parser, and the tool surface could come apart.
+The grammar remains versioned for compatibility. Retired text forms are refused
+through the killed-form registry with a named successor; stored fact-object
+schema evolution remains the canonical migration path.
 
 Consequences that fall out of AST-first normativity, each load-bearing
 elsewhere in this suite:
@@ -56,9 +46,8 @@ elsewhere in this suite:
   provenance, never stored as a field (see `02-semantics.md`). A bare `ratified`
   with no origin therefore has nowhere to go and *cannot parse* — koan 1
   (*claims come from somewhere*) enforced at the grammar rather than by a lint.
-- **Agent tools render through the same formatter.** Whatever a tool constructs
-  internally becomes canonical surface before it is diffed, reviewed, or
-  committed (§6). The author reads one form of the language, always.
+- **Agent tools lower to fact objects.** A client may request rendering, but
+  structured diff rows and fact objects are the review and storage surface.
 - **The reference card and the schema are the same object at two altitudes.**
   What a card shows is exactly what parses (§4); there is no lenient dialect
   hiding behind the taught one.

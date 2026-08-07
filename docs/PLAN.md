@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone source release closed its local scope (DL-0038); the store lane (DL-0041, LS-0..LS-8) is the current local frontier; deferred audits and consumer-owned integration remain named explicitly."
+verdict: "The build as a dependency DAG with a gate-checked state and evidence row for every node. The standalone source release and embedded lorestore core are complete; the archive peer/service destination (DL-0062) is deferred behind external evidence and a loopback seam."
 ---
 
 # The plan
@@ -27,16 +27,17 @@ Each node carries:
 - **produces** — what downstream nodes consume from this one.
 - **oracle** — the concrete check that closes the node. A node without a
   falsifiable oracle is not a node.
-- **lane** — the concern it belongs to (one of eighteen).
+- **lane** — the concern it belongs to (one of nineteen).
 - **external** — true when the node is delivered by another party (the author's
   rulings, the fantasy repo); **deferred** when the node is parked behind a
   named flip condition and is not built at v1.
 
-## The eighteen lanes
+## The nineteen lanes
 
 | Lane | Concern |
 |---|---|
 | `store` | Lorestore: the embedded fact store, the JSON-first cutover (DL-0041). |
+| `distribution` | Archive-scale peer/service boundary, Magic-Set routing, and managed delivery (DL-0062). |
 | `infra` | Repository scaffold, the `cargo xtask gate`, CI lanes. |
 | `docs` | The lead documentation and the spec suite. |
 | `core` | AST, JSON Schema, the annotated evaluator, the verdict lattice, the loader/front-end. |
@@ -57,6 +58,15 @@ Each node carries:
 
 Nodes marked **external** or **deferred** are placed in the lane whose artifact
 they touch; they are not a lane of their own.
+
+## External evidence priority
+
+The four-suite evidence program — SubtleMemory, ClawArena, FlawedFictions, and
+ConStory — is owned by the sibling `dli-benchmarks` repository. It is the
+current priority for validating DLI's epistemic-engine direction, but it is not
+a node in this graph: this repository neither runs nor scores the protocols,
+and no benchmark result gates a local merge. Its traces are the named trigger
+for the deferred distribution work below (DL-0062).
 
 ## The node registry
 
@@ -508,6 +518,41 @@ theory grounding, and the risk register is
   against the vendored digest-checked copy; 0.5.1 dual-mode paths retire
   through the killed-form registry — *after* EXT-F4, never before.
 
+### `distribution`
+
+The archive destination is specified in `spec/12-scale-and-distribution.md`.
+These nodes are deliberately deferred: the embedded engine remains the
+certifying implementation until real benchmark traces or an archive deployment
+need the seam.
+
+- **DIST-1** — *(deferred.)* In-process peer/service loopback: separate the
+  peer, transactor, and segment-router roles without adding a network. The
+  request is pinned to `(root, goal, valuation)` and the response carries a
+  manifest of content-addressed inputs.
+  *Needs:* LS-5. *Produces:* the semantic segment boundary. *Oracle:* the
+  loopback route and whole-corpus evaluator produce byte-identical bindings,
+  standings, and provenance over the same fixture roots. *Trigger:* a benchmark
+  adapter records a representative query/update trace, or an archive deployment
+  needs the seam.
+- **DIST-2** — *(deferred.)* Supplementary-Magic-Set segment router over
+  indexed base facts. It derives complete, goal-relevant provenance clusters
+  rather than a final answer or an interactive table.
+  *Needs:* DIST-1. *Produces:* bounded-cluster construction. *Oracle:* a
+  generated corpus suite compares every routed cluster's peer evaluation with
+  complete-corpus evaluation and rejects a deliberately incomplete cluster.
+- **DIST-3** — *(deferred.)* Content-addressed peer cache and local hot-core
+  materialization. Cached immutable objects may be reused across roots only
+  through a manifest; valuation overlays remain local.
+  *Needs:* DIST-1. *Produces:* cache-safe autonomous peer reads. *Oracle:*
+  cold, warm, and evicted-cache executions agree byte-for-byte for the same
+  `(root, goal, valuation)`.
+- **DIST-4** — *(deferred.)* Managed transport/object backend and serialized
+  transactor. It replaces loopback I/O without moving certification or
+  application policy into the service.
+  *Needs:* DIST-2, DIST-3. *Produces:* peer/service conformance over a remote
+  deployment. *Oracle:* the remote route passes the DIST-1 exactness corpus and
+  an offline peer can replay every captured manifest without network access.
+
 ## The dependency graph
 
 ```mermaid
@@ -619,12 +664,20 @@ graph LR
   LS-6 --> LS-8
   LS-7 --> LS-8
   EXT-F4 --> LS-8
+
+  LS-5 --> DIST-1
+  DIST-1 --> DIST-2
+  DIST-1 --> DIST-3
+  DIST-2 --> DIST-4
+  DIST-3 --> DIST-4
 ```
 
 Nodes with no incoming edge are roots: INFRA-1, DOCS-1, EXT-A1, EXT-F1, EXT-F2,
-EXT-F5 (the runnable frontier), plus the deferred DEF-3 and DEF-4. The `store`
-lane joined after the standalone release closed (DL-0038, DL-0041); LS-0 is a
-new root, and the LS chain is the current local frontier.
+EXT-F5 (the zero-state runnable frontier), plus the deferred DEF-3 and DEF-4.
+The store lane joined after the standalone release closed (DL-0038, DL-0041)
+and is now complete locally. The distribution lane is a later, deferred chain;
+the status matrix, not this historical zero-state graph, is the current release
+authority.
 
 ## The frontier
 
@@ -735,6 +788,10 @@ author or consumer artifact that this repository does not own.
 | LS-7 | done | DL-0050; `dli_syntax` demoted to an opt-in `syntax` feature OFF by default — default build of dli-serve/deloreis links zero `dli_syntax` (proven by a two-build gate matrix), no-parse ratchet 3/3. Docs-oracle validates fenced `json` (#11); typed successors `goal_atom`/`additions`/`atom_expr`/`to_atom_expr` + dormant field-level killed-form (#12/#17, contract 0.6.3→0.6.4); demos served from committed lorestore fact objects (#15); feature-gate across 4 crates (#16); reference cards reframed around JSON (#18). Default build is 1.0-native; `.dli` (projects, formatter, string parse, upcast, CLI) is behind `--features syntax`, which serves the 0.5.1/0.6.x consumer byte-identical until EXT-F4. `dli_syntax` crate kept (phase-4 removal unscheduled). |
 | LS-8 | external-blocked | DL-0051; **local half complete; the cutover is consumer-owned and awaits EXT-F4.** Contract `1.0.0` is minted and accepted alongside all of `0.5.1`/`0.6.0`–`0.6.4`; the LS-7 field-level killed-form registry is ACTIVATED at the 1.0 major and wired into `serve::dispatch` above the `author.*`/`dli.*` fork, so a 1.0 request carrying `goal`, `declarations`, or a payload claim's `atom` is refused `killed-form` naming `goal_atom`/`additions`/`atom_expr` — and the typed successor is sent alone, the retired fields having become optional. The retirement is two-sided off one registry: below 1.0 the string form is still **required**, with serde's verbatim `missing field` verdict, so no `0.x` wire moved. Evidence: `dli-serve/tests/ls8_contract_1_0.rs` (fires at 1.0 / dormant on every 0.x, per-version), `tests/default_build.rs` (the same hinge in both build lanes), `golden/contract-1-0-field-retirement-v1` (the dual-mode pair replayed byte-exact on both wires), four `negative/contract-1-0-killed-*` fixtures, `framing/contract-1-0-framing`; every pre-1.0 fixture replays byte-identical under `fixture_replay` with no digest re-pinned. **Not done:** the consumer cutover is EXT-F4, consumer-owned in the fantasy repo. The `0.5.1`/`0.6.x` dual-mode paths are NOT deleted; they retire through the killed-form registry only after EXT-F4. |
 | LS-9 | done | DL-0049; all eleven declaration interiors typed (`RuleDecl` DL-0047 + `Practice`/`Proof`/`Dialect`/`NamePart`/`Name`/`Ratify` + five near-empty), `dli_syntax` the single producer via `structure_<type>_body`, `dli-world`/`dli-ledger` typed readers; proof structural validator replaces format-and-reparse; v1→v2 upcast (`deepen_<type>_carriage`) for all eleven; contract 0.6.2; `dli-ledger`+`dli-time` syntax-free (ratchet 2/3). Residual `dli-world` `payload.rs` claim/fact parse is LS-7's load-boundary concern, not a declaration body. Evidence in `design-notes/dli-syntax-coupling-audit.md` |
+| DIST-1 | deferred | DL-0062; trigger is a benchmark query/update trace or archive deployment need |
+| DIST-2 | deferred | DL-0062; waits for DIST-1's segment contract |
+| DIST-3 | deferred | DL-0062; waits for DIST-1's segment contract |
+| DIST-4 | deferred | DL-0062; waits for routed clusters and peer cache |
 
 ## Milestones (node-sets, not dates)
 
@@ -790,3 +847,7 @@ overlap; the language and craft lanes in particular run alongside the game lane.
   merge engine; the expert-tier interiors structured; the surface retired to
   an optional pretty-printer; contract 1.0 and the consumer's move off
   0.5.1.*
+- **Archive peer/service** — DIST-1, DIST-2, DIST-3, DIST-4. *A loopback-first
+  peer/service seam, exact supplementary-Magic-Set cluster routing,
+  content-addressed peer cache, then managed transport. Deferred by DL-0062
+  until external evidence traces or an archive deployment require it.*

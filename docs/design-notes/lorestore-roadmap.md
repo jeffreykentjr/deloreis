@@ -11,7 +11,10 @@ argued the direction — `lorestore-vision.md`, `dli-deprecation-plan.md`,
 `lorestore-indexing-strategy.md`, `multi-authority-knowledge-evolution.md` —
 remain the reasoning; this note is the sequence. Where they disagree with each
 other or with this note, this note wins; where this note disagrees with the
-ledger, the ledger wins (DL-0041 is the ratifying entry).
+ledger, the ledger wins (DL-0041 is the ratifying entry). The later peer/service
+distribution boundary is ruled by DL-0062 and specified in
+`../spec/12-scale-and-distribution.md`; it extends this store plan rather than
+reopening the completed lorestore cutover.
 
 Stages are written in the `PLAN.md` idiom: a deliverable, its needs, what it
 produces, and a falsifiable oracle. No dates. The stage ids (`LS-0` … `LS-8`)
@@ -33,8 +36,9 @@ untouched:
   chain, and judgments replay from committed inputs.
 - **The gate is offline and deterministic** (DL-0013). Lorestore reads no
   clock, calls no model, touches no network.
-- **The machine never writes canon** (DL-0014). Agents propose through tools;
-  provenance gates assertability structurally.
+- **The engine never decides canon** (DL-0054, DL-0058). Callers supply
+  attribution and decision state; provenance gates assertability structurally
+  and the engine checks the decision references it can resolve.
 
 What dies is the claim that `.dli` text is the canonical form of any of that:
 
@@ -424,9 +428,9 @@ The merge design falls out of the algebra (§4 for the full argument):
   exist.** Merge here is *simpler* than git's, not harder.
 - Conflict is confined to exactly three non-monotone places, and those are
   the merge report:
-  1. **Valuation disagreement** — two branches rule the same event variable
-     differently. Never auto-resolved; the sovereign decides (koan-1
-     territory).
+  1. **Valuation disagreement** — two branches supply different values for the
+     same event variable. Never auto-resolved; the consuming application decides
+     its policy and records the result.
   2. **Constraint violations in the merged world** — functional-dependency,
      exclusivity-family, certain-layer contradiction — detected by
      recompiling the merged result; surfaced as ordinary graded findings
@@ -665,7 +669,7 @@ Parked work, PLAN idiom — named, owned by a trigger, not built before it:
 | Track | Trigger |
 |---|---|
 | Compaction / packfiles | Store size or object count degrades clone/load measurably |
-| Remote backends (S3/IPFS) | A real deployment needs storage the filesystem cannot host |
+| Peer/service loopback, then remote backends | A benchmark trace or archive deployment needs bounded remote retrieval (DL-0062) |
 | `.dli` full removal (deprecation phase 4) | The pretty-printer crate's maintenance cost exceeds its use |
 | Review rendering | None — consumer-owned by design (LS-5); deloreis ships the JSON contract, never a UI |
 | Multi-authority valuations (DEF-4) | The first real second-authority corpus; the archive tier's authority model builds on the `authority` field and per-authority valuations |

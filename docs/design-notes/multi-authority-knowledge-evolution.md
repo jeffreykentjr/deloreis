@@ -1,6 +1,6 @@
 ---
 status: exploring
-verdict: "Characterizes the design space for evolving deloreis from single-sovereign canon to multi-authority, type-rich, dynamically-inferred knowledge. Maps prior art (Datomic, Prolog derivatives, ASP), development sequencing by lift/value, and key technical challenges. Exploratory, not committed."
+verdict: "Characterizes the exploratory design space beyond one valuation context. DLI already records caller-supplied attribution and decision state; multi-context valuation, consensus policy, trust, and argumentation remain uncommitted."
 ---
 
 # Multi-Authority Knowledge Representation: Beyond Single-Sovereign Canon
@@ -11,17 +11,21 @@ verdict: "Characterizes the design space for evolving deloreis from single-sover
 > schema and stays unset in single-sovereign deployments (DEF-4 unchanged); a
 > ledger entry is the only door in.
 
-## Current State: Single Sovereign, Two Doors
+## Current State: One valuation context, one interface
 
-The current architecture (DL-0002, DL-0004, DL-0005) makes three intertwined assumptions:
-
-1. **One sovereign authority** — There is one canonical valuation, one set of decisions that are "ratified."
-2. **Two doors to knowledge** — Humans write `.dli` text (Door H), agents call MCP tools (Door T).
-3. **Static type schema** — Entity kinds have fixed slots; the schema is part of the world definition.
+The shipped architecture has one effective valuation context per compiled
+corpus, one semantic tool interface, and schema-defined fact objects. Since
+DL-0054/DL-0058, DLI does **not** enforce who may rule: callers supply
+attribution and decision state, and DLI verifies only referential integrity.
+Authorization, approval, and the application's definition of canon are outside
+the engine.
 
 ## The Shift: Authority Boundaries, Not Doors
 
-The fundamental reframe: **eliminate the H/T distinction entirely**. All knowledge creation happens through **declarative agent interactions** via MCP tool calls. The real distinction is **authority boundaries**:
+The fundamental reframe was the retirement of the H/T distinction. All supported
+knowledge creation happens through declarative tools. The next question is not
+who may use the interface, but whether one corpus needs several valuation
+contexts and how an application compares them:
 
 ```
 Authority: Marvel Comics (Earth-616)
@@ -53,11 +57,13 @@ Answer Set Programming allows **multiple stable models** — each is a valid "wo
 
 ### Layer 1: Authority Model (Medium Lift, High Value)
 
-Replace single sovereign valuation with **trust-weighted, composable authorities**.
+Replace a single valuation context with **scoped, composable valuation
+contexts**.
 
-- Each fact carries an `authority` tag
-- Authorities have **trust weights** and **scope domains**
-- Resolution strategy: weighted combination, conflict detection, provenance tracking
+- Facts may carry an `authority` scope.
+- Contexts may be compared or composed while retaining provenance.
+- Trust weights and a winner-selection rule are separate, uncommitted policy
+  choices; they are not implied by multiple contexts.
 
 **Prior art:**
 - **TNL-Datalog**: Datalog with trust annotations

@@ -1,137 +1,96 @@
 ---
 status: live
-verdict: "The spec entry point: what De Lore Is is, the knowledge-family position, the seven programs and their ops, where world specifics reside, the generality and its single-authority limit, and the reading order per role."
+verdict: "The spec entry point: De Lore Is is a deterministic epistemic engine for agents; its core evaluates structured claims, provenance, defeaters, and valuations, while fiction and TPtH remain first-class reference domains."
 ---
 
 # Spec 00 — overview
 
-The entry point to the specification. It states what the language is, locates it
-among existing narrative languages, censuses the programs built on it, and points
-each reader at the file they need next. The per-lane specs elaborate; the
-decision ledger (`../decisions.md`) outranks all of them.
+The entry point to the specification. It states what the engine computes,
+separates the reusable core from its domain modules, and points each reader at
+the next document. The decision ledger (`../decisions.md`) outranks this file.
 
 ## What De Lore Is is
 
-De Lore Is is a **knowledge language**: a typed record of what a fictional world
-holds — geography, characters, magic, story-time, games — and, for every claim,
-where it came from and on whose say-so. Source files carry the `.dli` extension;
-the compiler-and-server binary is `deloreis`.
+De Lore Is is a **deterministic epistemic engine** for agents and the
+applications that supervise them. It stores typed claims as immutable fact
+objects, records their provenance and explicit defeaters, and derives each
+claim's standing — `certain`, `possible`, or `dead` — plus an explanation that
+can be replayed from committed inputs.
 
-It is not a runtime. It does not simulate a world at play time, and it does not
-deliver a narrative at play time. It answers a different question, the one no
-play-time language answers: *is this true, since when, on whose ruling, and what
-breaks if it changes?* Every line is a declarative claim about what the world
-holds — which is the name, read one way.
+DLI is infrastructure, not an agent. It does not call a model, decide an
+application's policy, or decide who is entitled to approve a claim. Callers
+supply attribution and decision state; DLI records them and verifies the
+referential integrity it can verify, including that a cited decision exists.
+The consuming application owns authorization, review, escalation, and any
+meaning of "canon."
 
-## The third family
+The `.dli` text surface survives as an opt-in rendering. The normative language
+definition is the schemars-derived schema of lorestore fact objects and their
+JCS-canonical bytes (DL-0041).
 
-Two families of narrative language already ship. De Lore Is is a third.
+## The epistemic core
 
-| Family | Models | Runs at | Exemplars |
-|---|---|---|---|
-| Simulation | world state | play | Inform, TADS, Dialog |
-| Flow | discourse and choice | play | Ink, Twine, ChoiceScript |
-| **Knowledge** | **what is true, on whose say-so** | **authoring** | articy (commercial, no provenance semantics); **De Lore Is** |
+The reusable core answers questions that a retrieval system or an unstructured
+agent transcript cannot answer deterministically:
 
-Positioning against both play-time lineages is the load-bearing claim of the
-export layer: a knowledge layer that is *not* a runtime is exactly what can feed
-many runtimes. The kernel is the authoritative layer those tools lack — it does
-not compete with them; it feeds them.
+- What claims hold under this committed snapshot and valuation?
+- What support and defeaters make them hold, remain open, or fail?
+- What changes when an application supplies a different decision or
+  hypothetical valuation?
+- Which exact constraints or derivation paths conflict?
 
-## The seven programs
+The engine computes one symbolic fixpoint, then applies valuations over that
+result. It therefore supports replayable `why` answers and cheap local
+what-if evaluation without treating a model's prose or a majority vote as a
+verdict. This is a semantic boundary, not a promise that DLI independently
+settles factual disputes: structured evidence, rules, and decision policy still
+come from the application.
 
-Seven ordinary programs share one library over versioned data files in a git
-repo:
+## Domain modules and reference applications
 
-1. **A magic-system workbench** — the headline. An author (or an agent under
-   author review) writes a magic system as *data*: its sorts, its laws as
-   annotated rules, its costs as declared resources, its failures as declared
-   error classes. The runtime derives a checker and evaluator for that system.
-   Nothing about any particular magic is hardcoded in the kernel — a magic
-   system is a practice with laws.
-2. **A compiler/checker** — `deloreis check`: assertability, continuity, the
-   pack, practice well-formedness.
-3. **A query engine** — `deloreis query` with `--layer/--as-of/--fork/--why`.
-4. **A fork manager** — `fork new/suppose/add/diff/promote`, `preflight`:
-   what-if worlds as cheap, reviewable, diffable values.
-5. **A ledger checker for any declared practice** — `deloreis check-proof
-   <file> --corpus <path> [--proof <name>]`: any practice's proof ledger is one
-   instance of a generic declarative-ledger checker.
-6. **A practice simulator** — `deloreis simulate`: batteries over any declared
-   practice with declared metrics and invariants; the Turning is its first
-   instance (see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
-7. **A language workbench** — registers, names as typed derivations, the
-   diegetic lexicon.
+The core is deliberately general. The current repository also ships domain
+modules that exercised it in fictional-world authoring and remain supported:
 
-**The ops, in one line each.** `check` (compile + check); `query` (read the
-compiled world); `fork` (create/suppose/add/diff/promote/preflight); `check-proof`
-(a proof ledger in a practice); `check-draft` (the battery over a draft payload);
-`simulate` (batteries with metrics + invariants); `timeline`
-(show/order/knows/episodes/phases); `export` (one-way compiles to targets);
-`name` (the kernel-half vet); `craft why` (principle explanations); and `serve`
-(the server hosting the batch `dli.*` operations and **the tool surface** — the
-`author.*` semantic tools agents author through). The full op inventory and its return shapes live in
-`../integration/fantasy-contract.md`.
+| Area | Role |
+|---|---|
+| [Time](03-time.md), [practices](04-practices.md), [language](05-language-layer.md), and [craft](06-craft-and-payloads.md) | Optional domain models over the common fact/provenance substrate. |
+| [Exports](09-exports.md) | One-way projections from evaluated knowledge to consuming tools. |
+| TPtH | A first-class, worked reference corpus and integration, not a limit on the engine's use. |
+| [Serving](10-serving.md) and [agent authoring](11-agent-authoring.md) | The JSON/MCP interface through which applications and agents interact with the engine. |
 
-## Where the world's specifics live
+Fiction remains valuable because canon, retcons, alternatives, and authored
+rules make provenance visible. The same machinery applies to an operational,
+research, or multi-agent corpus when its inputs are made explicit.
 
-A consuming repo holds four residencies, and the distinction is load-bearing:
+## Evaluation, scale, and consensus
 
-- **Source** (author/agents, reviewed) — `decisions.md` (the author's verbatim
-  rulings), the prose canon, and the `.dli` packs (`world`, `cast`, `chronology`,
-  `game`, the ledger mirror of `decisions.md`).
-- **Experiment-state** (agents) — forks: small committed files holding an
-  assumption list plus local declarations, cheap to create, deleted or archived
-  on promotion or abandonment.
-- **Evidence** (machine-written, agent-committed) — simulation run manifests and
-  the attestation store: replayable records, not truth.
-- **Derived** (machine) — the `.dli-cache/` compiled snapshots: content-hash
-  keyed, gitignored, never a source of anything.
+The current external evidence program is maintained in the sibling
+`dli-benchmarks` repository. Its relevant suites are SubtleMemory, ClawArena,
+FlawedFictions, and ConStory. Their protocols, costs, baselines, and results
+belong there; they are non-gating evidence for this repository, not claims made
+by this specification.
 
-**The machine's permitted durable write surface is bounded to** `.dli-cache/`
-and `.dli-evidence/`; ruling-request drafts are returned as data for a caller to
-review and file. At contract `1.0.0`, content-addressed payloads and append-only
-attestation batches are live, as are content-addressed, checkpointed simulation
-jobs.
-The machine never writes `canon/` or ledger content that does not cite an
-existing ruling. The machine never writes canon (charter, koan 3).
+At atelier scale, DLI runs embedded and saturates a whole corpus locally. Its
+archive destination is a local peer plus managed service: the service bounds an
+immutable query-relevant subgraph, and the peer performs exact symbolic
+evaluation and overlays from its local cache. [Scale and distribution](12-scale-and-distribution.md)
+specifies that planned boundary.
 
-## Generality, and the one limit
-
-Nothing in the kernel is world-specific; the domain keywords are a small
-standard prelude. The language generalizes:
-
-- **Another fiction world** — direct; only the Turning is bespoke, and it is a
-  module (see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
-- **An in-world magic system** — a different `practice` block; the core is
-  untouched.
-- **A card/board game plus variants** — decks, variants-as-deltas, house rules
-  as forks, invariants checked by enumeration or Monte Carlo (graded honestly).
-- **A curated-provenance knowledge base** — event variables map onto
-  sources-of-evidence; "if we trust this source" is a fork.
-- **A TTRPG campaign** — possibly the best fit outside fiction: the GM is the
-  valuation authority, sessions are episode acceptances, retcons are
-  supersession-with-lineage.
-
-**What does not generalize: the single-authority valuation model.** Everything
-above assumes one sovereign whose valuations are the world. Collaborative
-worldbuilding — writers' rooms, shared universes, wiki canon — needs
-multi-authority valuation (per-author valuations, a merge policy, consensus
-rules). The annotation layer is indifferent, but the valuation regime and the
-promotion workflow are built for one author. Multi-authority is explicitly
-outside v1 (`PLAN.md` DEF-4). Likewise house-specific and *not* claimed as
-language: the ratification SOP, the propagate machinery, the naming oracle's
-external screens, the banned lexicon — pipeline, not grammar.
+This also supplies the deterministic substrate for future multi-agent debate
+and consensus products: agents can submit structured claims and receive
+standing, conflict maps, and explanations. Winner-selection, trust weights,
+argumentation semantics, and human escalation policy are not yet DLI
+semantics; applications own them until a later decision specifies otherwise.
 
 ## Reading order, per role
 
-- **A new contributor:** the charter (`../charter.md`) → this file → your lane's
-  spec → `../PLAN.md` → `../decisions.md`, which outranks everything, including
-  this file.
-- **A human worldbuilder:** the gentle-subset reference card and
-  `SKILL.md`; the language reads like structured notes, and what parses is
-  exactly what the card shows.
-- **An agent (the tool surface):** `SKILL.md`, then the `author.*` tools — talk to the
-  server, read the graded findings, commit what `materialize` returns.
-- **An integrator (fantasy side):** `../integration/fantasy-contract.md` →
-  `../integration/migration.md` → `../integration/STATUS.md`.
+- **A contributor:** the charter (`../charter.md`) → this file → the relevant
+  spec → `../PLAN.md` → `../decisions.md`.
+- **An integrator or agent-system builder:** this file →
+  [semantics](02-semantics.md) → [reasoning](08-reasoning.md) →
+  [serving](10-serving.md) → [agent authoring](11-agent-authoring.md).
+- **A domain author:** this file → the relevant domain module → the TPtH
+  worldbook or another consuming project's corpus.
+- **A scale/distribution implementer:** this file →
+  [scale and distribution](12-scale-and-distribution.md) → `../PLAN.md` → the
+  lorestore roadmap.

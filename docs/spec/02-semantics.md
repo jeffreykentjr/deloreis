@@ -289,15 +289,14 @@ differently, *or* jointly violate Θ, *or* their joined certain layers break a
 functional dependency or a C-constraint. The third kind is semantic and reports
 its **blame pair** — the exact two monomials that cannot both hold.
 
-**Promotion is manual and generative.** A fork does not become canon by itself
-(koan 3, *the machine never writes canon*). It emits a **ruling request** whose
-draft clauses carry `scope` equal to the fork's atom set — so the affects-list is
-*generated*, and forged promotion of fork content is closed automatically. The
-author rules; the ledger valuates the new clause true; the fork's variables
-retire to false; origins persist as lineage. A sim-born variable carries its run
-manifest, so a promoted simulation finding renders its provenance in full.
-Abandonment-with-prejudice additionally writes C-entries: killed-token
-discipline, typed.
+**Promotion is an application decision recorded as data.** A fork does not
+become active merely because it exists. The consuming application records the
+decision state and supplies it with the affected scope; DLI verifies the
+referenced decision and re-evaluates the valuation. The affected atom set can
+therefore be generated, origins persist as lineage, and forged or unknown
+citations fail closed. DLI does not decide which caller was entitled to make the
+decision (DL-0054, DL-0058). A sim-born variable carries its run manifest, so a
+promoted simulation finding renders its provenance in full.
 
 **The keep-stamp is visibility, not valuation.** It is a thin second dimension —
 `kept-present | kept-absent | removed` — applied *after* evaluation and composing
