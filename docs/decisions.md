@@ -2472,3 +2472,67 @@ materialize does not even fire on it — the message escape is the only defense.
    types in here would widen a scoped change on unproven need; the asymmetry is **logged
    for separate routing**, exactly as DL-0060 logged V6/V7 rather than renumbering under a
    parity-support change.
+
+## DL-0062 — De Lore Is is epistemic infrastructure; the archive destination is peer plus service
+
+*Date: 2026-08-07*
+
+**Attribution:** machine — an engineering and documentation decision made from
+the author's supplied product direction. It is live and binding on the tree,
+pending async review under DL-0052.
+
+**Ruling.** De Lore Is is a deterministic **epistemic engine** for agents and
+their consuming applications, not an agent, a model orchestrator, or a
+fiction-only language. Fictional-world authoring, TPtH, and the existing domain
+modules remain first-class reference applications. The engine's durable core is
+the content-addressed fact store, provenance/defeater algebra, replayable
+standing, and valuation overlays.
+
+1. **Evidence first, owned elsewhere.** SubtleMemory, ClawArena,
+   FlawedFictions, and ConStory are the current external evidence program in
+   `dli-benchmarks`. Strong results across all four are an aspiration, not a
+   local release gate or a result this repository may assert without that
+   repository's scored records. Their traces may inform engine work but do not
+   change semantics by themselves.
+
+2. **The archive destination is a peer plus managed service.** The peer embeds
+   the certifying evaluator and uses immutable, content-addressed local cache;
+   it computes symbolic fixpoints, standing, explanations, and valuation
+   overlays. The service serializes commits and refs, holds immutable objects
+   and indexes, and supplies query-relevant provenance clusters. The first
+   implementation is an in-process loopback seam; remote transport and object
+   storage are later replacements behind that seam. The offline gate and the
+   peer evaluator remain network-free.
+
+3. **Supplementary Magic Sets are the service-side bounding algorithm.** Given
+   a snapshot-pinned typed goal, the service uses supplementary Magic Sets and
+   indexed base facts to construct a complete cluster. It does not produce the
+   final standing or act as a stateful SLG/tabling session. A peer evaluating a
+   returned cluster must match whole-corpus evaluation for the same root, goal,
+   and valuation; otherwise the service returns no answer. This exactness oracle
+   is the boundary's certification condition.
+
+4. **Database analogies are constrained by the ledger.** Commits are the
+   append-only log; refs plus valuation identify snapshots; caches, indexes, and
+   materialized fixpoints are rebuildable readers. Compaction may pack or
+   snapshot derived storage but never rewrite committed history. A defeater is
+   a conditional proof-path invalidator, not a physical deletion tombstone.
+
+5. **Consensus is an intentionally open product layer.** DLI already provides
+   structured submissions, derived standing, conflicts, and explanations — the
+   substrate for a deterministic referee. It does not yet define a
+   winner-selection rule, trust weights, formal argumentation semantics,
+   probability model, authorization policy, or escalation workflow. Each needs
+   a later decision and a dedicated oracle. DL-0054/DL-0058 continue to govern
+   authority: DLI records caller-supplied attribution and decision state and
+   checks referential integrity; consuming applications own policy.
+
+**Rationale.** The old fiction-first wording accurately described DLI's first
+corpus but obscured the reusable mechanism. The managed-service destination
+must also preserve the distinction between storage/routing and certification:
+distributing I/O must not turn a remote heuristic or a model majority into a
+verdict. This ruling names that boundary before implementation work begins.
+
+**Revisit trigger.** A proposed public segment wire shape, a second valuation
+context, or a consensus-selection policy requires a successor ruling with its
+own compatibility and exactness oracle.

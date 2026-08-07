@@ -22,6 +22,7 @@
 - [09 · Exports](spec-09.md)
 - [10 · Serving](spec-10.md)
 - [11 · Agent authoring](spec-11.md)
+- [12 · Scale and distribution](spec-12.md)
 
 # The TPtH worldbook
 

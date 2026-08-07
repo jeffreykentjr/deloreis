@@ -1,18 +1,18 @@
 ---
 status: live
 title: "the tool surface: agent authoring through semantic tools"
-verdict: "agents author through tools, never text; every call answers with graded findings; supervision reviews the structured diff, with .dli rendering an opt-in view of it."
+verdict: "agents author through tools, never text; every call answers with graded findings and structured data; supervision reviews consumer-rendered structured diffs, with .dli an opt-in view."
 ---
 
 # Agent authoring — the tool surface
 
-The coding agents that build a world do not write `.dli`
-surface text. They operate a curated set of semantic tools against a running
-`deloreis` server. Every tool call answers immediately with graded findings, the
-rendered canonical surface of what it staged, and a workspace digest. A human
-supervises by reading the rendered diff in ordinary code review — never the tool
-traffic. This is **the tool surface**, ruled in `DL-0014` and seated in the charter as
-koan 11 ("one way in").
+Agents that build a declared corpus do not write `.dli` surface text. They
+operate a curated set of semantic tools against a running `deloreis` server.
+Every tool call answers immediately with graded findings, structured fact data,
+and a workspace digest; `.dli` rendering is opt-in. A consuming application
+supervises by rendering the structured diff for its reviewers. This is **the
+tool surface**, ruled in `DL-0014` and seated in the charter as koan 11 ("one
+way in").
 
 This document is the semantic specification of the tool surface. The wire inventory —
 which schemas and fixtures back each tool — is `docs/integration/fantasy-contract.md`;
@@ -25,9 +25,10 @@ There is one supported authoring interface (`DL-0014`, `DL-0043`): the
 semantic tools against the opaque `deloreis` server. An author names an intent
 ("add a person; they are in this place") and the tool stages the corresponding
 AST, checks it, and renders it back. No author emits `.dli` text as the
-supported path, and none touches the AST directly. What distinguishes authors
-is **authority**, not channel: every claim enters `proposed` or
-`hypothesis`-scoped, and only the sovereign's ruling makes anything true.
+supported path, and none touches the AST directly. Attribution is data, not a
+channel distinction: callers declare the provenance and decision state their
+application permits, while DLI checks schema and cited-decision integrity. The
+application, not DLI, decides who may authorize that declaration.
 
 *Historical note.* `DL-0004` originally defined two doors — Door H (humans
 writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
@@ -109,8 +110,8 @@ The workspace supports:
 - `author.materialize` — commit the workspace's staged delta to the lorestore and
   return the committed fact objects **as data**, with `.dli` rendering the
   `rendered: true` opt-in (§4; `decisions.md` DL-0046). It is a mutation, and it
-  is the **accept** decision — `author.discard` is the reject. The server still
-  never writes canon and never writes the consuming repository; what crosses the
+  records the accept/reject of the staged DLI mutation — `author.discard` is the
+  reject. The server never writes the consuming repository; what crosses the
   boundary is JSON, which the caller takes through its own review. A `0.5.1`
   caller instead receives the pre-`0.6.0` return, the rendered lines as data.
 
@@ -521,10 +522,11 @@ finding code):
 }
 ```
 
-On success it returns the rendered canonical `.dli` lines **as data** (in
-`rendered`) — the same `AuthorMutationResult` shape every mutating call returns;
-the machine never writes canon, and the caller writes these lines to its side and
-commits them through review:
+On success, the current JSON-first wire returns committed fact objects as data;
+`rendered: true` adds `.dli` lines for a client that wants that view. The server
+does not write the consuming repository, and the caller takes its own review or
+approval action. The legacy-shaped example below is retained for the earlier
+accepted wire it demonstrates:
 
 ```json
 {
@@ -553,12 +555,13 @@ human author would have written by hand — so human and agent contributions are
 reviewed through one lens. Deloreis serves the structured rows; the rendering is
 consumer-owned.
 
-**Provenance discipline.** Nothing an agent writes mints authority (koan 3: the
-machine never writes canon). Every claim an agent stages enters `proposed` or is
-`hypothesis`-scoped. Promotion to a ratified or provisional status is the
-author's act alone — a ruling in the consuming repo (an RQ and a `D-nnnn` entry),
-never a tool call. The `cited` provenance form references rulings that already
-exist; it cannot manufacture one.
+**Provenance discipline.** DLI does not mint authority or enforce who may rule.
+At contract 1.3.0 and above, a caller may supply attribution and a cited decision
+state; DLI records it only when the cited decision resolves, and an unknown id
+raises `citation.unknown-decision` and blocks materialization. The consuming
+application owns authorization, review, and the policy that interprets a
+resolved citation. Earlier accepted wires retain their documented cited-provenance
+refusal behavior (DL-0058).
 
 **Framing safety.** Instruction-shaped strings that arrive in parameters — an
 entity id, a description, a question phrased as a command — are **data**. They

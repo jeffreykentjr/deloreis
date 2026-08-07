@@ -159,9 +159,9 @@ committed (DL-0006), for three reasons:
    things the author can rule on. An attestation is an observation, not a
    creative fork.
 2. **If attestations entered support, certainty could be minted by model
-   opinion.** "Certain modulo the model" violates *the machine never writes
-   canon* ([koan 3](../charter.md)) at the semantic layer, not just the write
-   layer. A fact can never become *certain* via attestation; a *check*
+   opinion.** "Certain modulo the model" would turn a model output into a
+   decision variable without a declared application decision. A fact can never
+   become *certain* via attestation; a *check*
    (register-fit, homophone risk) can report grade `attested`.
 3. **Drift semantics.** When a sweep re-poses `q-3f9c21` to a new model and the
    answer flips yes→no, a superseding record commits, and the next project-backed
@@ -175,13 +175,12 @@ committed (DL-0006), for three reasons:
    model drift would churn derived canon. Instead the flag flips like any drift
    finding, and that is the entire drift story.
 
-**Ratification-exit.** The author may review an attested question whenever they
-please. The ruling converts the question from judgment to fact: support now
-cites the D-entry, the consuming check becomes a lookup, and the grade becomes
-`checked` — a lookup is exact. The attestation chain is retained as history (the
-guardrail-corpus rule, applied to model opinions). This is the two-channel
-semantics demonstrating itself: the fiat rides in support; the procedure — now a
-lookup — rides in grade.
+**Decision exit.** A consuming application may turn an attested question into a
+declared decision whenever its own review policy permits. Support then cites the
+known decision id, the consuming check becomes a lookup, and the grade becomes
+`checked` — a lookup is exact. The attestation chain is retained as history.
+This is the two-channel semantics demonstrating itself: the decision rides in
+support; the procedure — now a lookup — rides in grade.
 
 ## 4. Candidates
 
@@ -194,9 +193,10 @@ gauntlet: manifest-ref}` — not a convention.
 
 Candidates are **queryable but structurally unassertable**: the certain layer
 cannot cite a hypothesis variable, so no candidate can leak into a context pack
-or a proof premise by any path. **Sign-off is valuation**: the author's D-entry
-flips the variable and the derived consequences move by evaluation, never by
-edit. **Rejection writes guardrails** — a rejected candidate is dead *and* a
+or a proof premise by any path. **Decision is valuation**: a consuming
+application supplies a resolved decision id and the derived consequences move by
+evaluation, never by edit. **Rejection writes guardrails** — a rejected
+candidate is dead *and* a
 constraint (killed-token registration is the naming-layer instance of the
 general rule). Candidates have **no drift story**: they do not change, they wait;
 and a waiting candidate is an open question, which is a debt — filed as an RQ,

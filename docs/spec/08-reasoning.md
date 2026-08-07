@@ -313,3 +313,20 @@ judgment boundary, and its every output is re-checked or graded honestly before
 it touches canon. Nothing foreign certifies; through the medium term, nothing
 foreign is even required to build, gate, or serve. That is DL-0005 and koan 12,
 discharged row by row.
+
+## 9. Archive evaluation keeps the line
+
+Whole-corpus saturation is the atelier-scale implementation, not a semantic
+requirement. At archive scale, a managed service will use supplementary Magic
+Sets to bound a snapshot-pinned provenance cluster, then an embedded peer will
+run this same owned bottom-up evaluator over that cluster. The service performs
+indexed I/O and binding propagation; it does not certify standing, choose a
+consensus, or replace the evaluator with a remote solver.
+
+The required oracle is stronger than a latency benchmark: for the same root,
+typed goal, and valuation, peer evaluation over a valid returned cluster must
+produce the same bindings, standing, and provenance as whole-corpus evaluation.
+An incomplete or unbounded cluster is a failure, not an approximate answer.
+The loopback-first peer/service work is deferred in `PLAN.md` as DIST-1 through
+DIST-4; [scale and distribution](12-scale-and-distribution.md) defines the
+boundary.

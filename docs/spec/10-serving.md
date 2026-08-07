@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface at contract 1.0.0, offline and deterministic. Typed responses, durable payload and attestation evidence, restart-resumable simulation jobs, and fixture closure are complete."
+verdict: "One project-backed JSON/MCP worker surface, offline and deterministic. Contract 1.3.0 is current while accepted earlier wires retain their specified behavior; typed responses, durable evidence, and fixture closure are complete."
 ---
 
 # Serving
@@ -295,8 +295,9 @@ the exact pair of sources — resolves or accepts, then proposes for ratificatio
 ```
 
 The kernel does evaluation, diff, blame, draft content, and the generated
-affects-list. The consumer does rendering, glossing, file placement, and the
-review queue. **Canon is untouched until the author rules** (koan 3).
+affects-list. The consumer does rendering, glossing, file placement, review,
+authorization, and records the decision state its policy requires. DLI then
+evaluates that declared state; it does not decide the policy (koan 3).
 
 ### 3.2 Game simulation jobs
 
@@ -422,13 +423,16 @@ accumulator shape, and publication. Replay of the selected immutable head and
 all trial computation run outside it; publication reacquires the lock and
 compares the observed head before appending.
 
-The worker never writes canon, and it never writes a ruling-request file
-directly. An open question surfaced by the worker is a debt the consumer files
-and the author rules (koan 5).
+The worker never writes a consuming repository or a ruling-request file
+directly. It records structured fact objects and supplied attribution through
+its own lorestore surface, while the consumer owns the review workflow,
+authorization, and any decision to treat those facts as canon (DL-0054,
+DL-0058). An open question surfaced by the worker is a debt the consumer files
+and resolves under its own policy.
 
-The target write surface remains content-addressed evidence, derived cache
-entries, and run manifests only. Canon and ruling-request files remain outside
-the worker's authority.
+The target write surface remains DLI-owned lorestore objects, content-addressed
+evidence, derived cache entries, and run manifests. Consumer repositories and
+their policy ledgers remain outside the worker's authority.
 
 ## 5. Concurrency and jobs
 

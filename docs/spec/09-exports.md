@@ -130,11 +130,11 @@ a game database and an authority is how a project acquires two truths; koan 10
 (one fabric) refuses it by principle. The write-back refusal is worked in full in
 `charter.md` under "The trials" (trial 3): a studio asking for
 `deloreis export --write-back` is answered by four koans in one paragraph — the tool's current field value is
-not an origin with authority (koan 1), the machine never writes canon (koan 3),
-integration is by declaration not by API (koan 10), and if the studio's writers
-need in, they come through the same tool surface, their edits entering as `proposed`
-declarations awaiting a ruling like every claim from outside the sovereign's
-hand (koan 11).
+not an origin with authority (koan 1), the engine cannot decide the studio's
+authorization policy (koan 3), integration is by declaration not by API (koan
+10), and if the studio's writers need in, they come through the same tool
+surface with the attribution and review process their application requires
+(koan 11).
 
 ## 3. The target family
 
@@ -305,8 +305,8 @@ a canon state, never a mystery.
   queries the kernel.
 - **No engine bindings maintained here.** Importers are thin and target-owned.
 - **No bidirectional sync, ever.** When a downstream tool's users want changes,
-  their edits come home as `proposed` declarations through the authoring interface,
-  awaiting a ruling like every claim from outside the sovereign's hand.
+  they enter through the authoring interface with application-supplied
+  attribution and decision state; DLI never treats an export as authoritative.
 - **Exports are not canon.** A bad profile is a compiler bug, diagnosable via the
   manifest — never a lore event.
 - **Generality is a compiler surface, not an essay.** Every future generality
