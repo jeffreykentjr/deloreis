@@ -62,3 +62,60 @@ transcript that verified it is not re-run per tag.
 When a point advances, deloreis updates its **State** and fills **Evidence** with
 a link (a fixture path, a tagged build, a transcript). A point never advances
 without its evidence.
+
+## Cutover execution log
+
+### 2026-08-06 — Phase 0 closed (both lanes); §5 accrual proven on a real binary
+
+**deloreis (`origin/main` = `6a626e1`, DL-0060 + DL-0061):** the `finding-sanitize` lane
+(DL-0061) is committed, gate 21/21 green, red-team cleared (single-serde-egress bypass
+sweep; non-vacuity pins `message_is_control_char_escaped_on_the_wire` +
+`a_clean_message_serializes_unchanged`; 0 schema drift; DL-0061 honest-deferral), and
+auto-squash-merged. Merged tree ≣ `daff4fe`. CI green post-merge (deny/gate/no-ai-authorship/
+default-build/docs-oracle `success`). Evidence: `docs/decisions.md#dl-0061`;
+`crates/dli-serve/src/finding.rs` (`Finding.message` `#[serde(serialize_with=serialize_message)]`,
+reusing `author::render::escape_controls`); 25 regen'd schema `description`s.
+
+**fantasy (fw6-flip `b519115a`, green NOT yet merged):**
+- Store census reconciled: `558 = 556` claim-bearing facts `+ 2` system (seed sentinel
+  `b4/9f784…` + root manifest `db80a5a3…` ≡ `lorestore-head.txt`); `543` distinct claim_ids
+  (13 `decl:ratify` dupes); content-addressed `558/558`. OPEN #1 closed.
+- 5-mutation battery audited; `KNOWN_DIVERGENCES = {}`. Non-vacuity **13/13 offline green**
+  (`tests/test_lore_pivot_dual_serve.py` + `tests/test_shadow_lore_live.py`, incl.
+  `structural-only → 5` not `0`).
+- §5 accrual, real binary `contract/1.3.0`+DL-0061: `lore_dual_run.sh` full pass green —
+  **217 predicates answered identically / 6 refused / 0 divergences** (parity at both
+  ends); 5 mutations RED at own tags; pack reproduces from `.dli`; store root `db80a5a3…`
+  reproduced **exactly**; rollback rehearsal clean. Plus `shadow_lore.py --repeat 20` →
+  AGREE×20, 0 DIVERGENT, worktree clean.
+
+**Phase 1 re-scoped (two stale-plan landmines removed):** `detect_parity.py` was already
+deleted at FW-1 (`b9947240`, ancestor of the flip base — confirmed via
+`git merge-base --is-ancestor`); `shadow_validate.py` already exists as
+`scripts/shadow_factcheck.py` (strict `{code,line,quote,severity}` + `PROMPT_DIGEST` +
+`--repeat`, non-vacuity proven green 13/13). Phase 1 = VERIFY, not BUILD.
+
+**CP state (honest):** deloreis-side evidence for CP-2/CP-4/CP-5 is committed (`origin/main`);
+fantasy-side evidence (the shadow harness/factories in fw6-flip) is green but **unmerged** —
+so CP-2/CP-4/CP-5 remain `proposed` until the fw6-flip lane merges (no point advances on
+one side's evidence alone). Do not hand-fabricate; the `compile_lore_pack --check` ≣ committed
+pack already rules out a canned corpus.
+
+**§5 ≥1-real-ruling — CLOSED (scratch-store proof; real author.* MCP):** A real canon ruling
+was authored via `author.*` MCP (`deloreis mcp --project`) on a throwaway copy of the
+tpth store (`/tmp/s5`, NOT the committed `worlds/tpth`). `author.open→add_entity→materialize`
+staged the rule (workspace digest `9db59135…→6deb725d…`); the engine surfaced an honest
+`name.unvetted` finding (grade `asserted`, repair `dli.name.check {name:"s5witness"}`) —
+it reported a consequence instead of silently accepting an unvetted name; `materialize`
+committed it (`ok:true`, `__decl Entity s5witness`, claim_id `a7fb7833…`). Root shifted
+`sha256:db80a5a3…→ba63c029…`, persisted (re-read by a fresh `deloreis mcp --project` process).
+`dli.check` held `checked`/clean (0 findings); `alias(?v0,?v1)` ×20 → AGREE (12 rows, 1
+distinct frame). Committed `worlds/tpth` byte-identical (`db80a5a3`). §5 accrual re-verified
+on the restored dm4fix binary: `lore_dual_run.sh` PASSED @ `69dbc1ea…`/`db80a5a3…` (217
+identical / 6 refused / 0 divergence, 5 mutations RED, rollback PASSED); `shadow_lore --repeat 5`
+→ AGREE (274×5). §5 no longer blocks; Phases 3–4 blocked only on the FW-6 flip + EXT-F4.
+Evidence: the lane's `fw6-flip-verification-log-2026-08-06.md` §5-closure section. NOTE: the
+handoff's `/home/jeff/tg-findingsanitize/debug/deloreis` was clobbered by a deloreis-main
+rebuild (no store surface) — FW-6/MCP work uses the dm4fix binary at
+`/home/jeff/tg-dm4fix/debug/deloreis` (contract/1.3.0).
+
