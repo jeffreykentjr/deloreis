@@ -8,6 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
+use dli_core::valuation::Valuation;
 use dli_eval::error::EvalError;
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
@@ -51,6 +52,11 @@ pub struct Store {
     /// Bases the manifest pinned to an explicit commit, which the served world
     /// must not follow off.
     pinned_bases: BTreeSet<String>,
+    /// The immutable commit-and-valuation pair selected by project loading for
+    /// each store-backed base. This is deliberately distinct from the live
+    /// lorestore handle: an external CAS after load must not mix its state into
+    /// an already loaded project.
+    snapshots: BTreeMap<String, StoreSnapshot>,
 }
 
 const MAX_DISCARD_REPLAYS: usize = 1024;
@@ -62,6 +68,13 @@ struct Base {
     /// The pack name the base was compiled under — the scope identity a
     /// lorestore import must reproduce to yield identical fact objects.
     pack_name: String,
+}
+
+#[derive(Debug, Clone)]
+struct StoreSnapshot {
+    commit: dli_lorestore::ContentHash,
+    valuation: Valuation,
+    ref_digest: Option<String>,
 }
 
 /// A caller-project store cannot be constructed unambiguously.
@@ -105,6 +118,7 @@ impl Default for Store {
             lorestore_root: None,
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
+            snapshots: BTreeMap::new(),
         }
     }
 }
@@ -134,6 +148,7 @@ impl Store {
             lorestore_root: None,
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
+            snapshots: BTreeMap::new(),
         }
     }
 
@@ -174,6 +189,7 @@ impl Store {
             lorestore_root: None,
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
+            snapshots: BTreeMap::new(),
         })
     }
 
@@ -223,6 +239,7 @@ impl Store {
             lorestore_root: None,
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
+            snapshots: BTreeMap::new(),
         })
     }
 
@@ -248,16 +265,31 @@ impl Store {
                 .or_else(|| (!self.strict_forks).then(|| base_name.clone()))?,
         };
         let base = self.base_named(&base_key)?;
-        // Seed the workspace interner from the lorestore head when one is
-        // attached — the head interner extends the base compile's append-only
-        // as materializes land, and a workspace seeded from the stale base
-        // would commit an interner regression (audit A6). Without a store,
-        // the base world's interner is the seed.
-        let base_names = match self.lorestores.get(&base_key) {
-            Some(ls) => ls
-                .head_interner()
+        // A pinned replay serves its manifest commit but explicitly authors to
+        // the live origin. Capture that origin ref once at open for both its
+        // interner and the write fence. Branch mode instead uses the immutable
+        // project snapshot, avoiding a mixed read after an external CAS.
+        let pinned_origin_ref = self.is_pinned(&base_key).then(|| {
+            self.lorestores
+                .get(&base_key)
+                .and_then(|ls| ls.head_ref().ok().flatten())
+        });
+        let base_names = match (
+            self.lorestores.get(&base_key),
+            self.snapshots.get(&base_key),
+            pinned_origin_ref.as_ref().and_then(Option::as_ref),
+        ) {
+            // A pinned project replays the selected pack and valuation, but its
+            // documented authoring path appends to the live origin branch. Keep
+            // that branch's interner seed so an intervening append cannot cause
+            // an avoidable interner-regression refusal on materialize.
+            (Some(ls), Some(_), Some(origin_ref)) => ls
+                .interner_at(&origin_ref.commit)
                 .unwrap_or_else(|_| base.world.model().interner().names().to_vec()),
-            None => base.world.model().interner().names().to_vec(),
+            (Some(ls), Some(snapshot), _) => ls
+                .interner_at(&snapshot.commit)
+                .unwrap_or_else(|_| base.world.model().interner().names().to_vec()),
+            _ => base.world.model().interner().names().to_vec(),
         };
         self.next_id += 1;
         let id = format!("ws-{}", self.next_id);
@@ -276,13 +308,23 @@ impl Store {
         }
         workspace.interner_names = base_names;
         workspace.bundle_counter = bundle_counter;
-        // Pin the base commit this workspace is relative to (audit B8): the
-        // store head at open time, not the moving global head.
-        workspace.base_root_hash = self
-            .lorestores
-            .get(&base_key)
-            .and_then(|ls| ls.root_hash().ok().flatten())
-            .map(|h| h.to_string());
+        // Pin the project-selected commit and valuation together. For local
+        // demo stores no snapshot exists, preserving their previous behavior.
+        if let Some(snapshot) = self.snapshots.get(&base_key) {
+            workspace.base_root_hash = Some(snapshot.commit.to_string());
+            workspace.base_valuation = snapshot.valuation.clone();
+            if let Some(origin_ref) = pinned_origin_ref.flatten() {
+                workspace.base_ref_digest = origin_ref.digest().ok().map(|digest| digest.0);
+            } else {
+                workspace.base_ref_digest.clone_from(&snapshot.ref_digest);
+            }
+        } else {
+            workspace.base_root_hash = self
+                .lorestores
+                .get(&base_key)
+                .and_then(|ls| ls.root_hash().ok().flatten())
+                .map(|h| h.to_string());
+        }
         self.workspace_bases.insert(id.clone(), base_key);
         Some(self.workspaces.entry(id.clone()).or_insert(workspace))
     }
@@ -391,8 +433,29 @@ impl Store {
     /// materialize writes — but the *served* world stays the pinned commit
     /// until the manifest says otherwise, which is what makes a pinned project
     /// replayable.
-    pub fn register_store_origin(&mut self, key: String, origin: std::path::PathBuf, pinned: bool) {
+    pub fn register_store_origin(
+        &mut self,
+        key: String,
+        origin: std::path::PathBuf,
+        pinned: bool,
+        commit: dli_lorestore::ContentHash,
+        valuation: Valuation,
+        ref_digest: Option<String>,
+    ) {
         self.origins.insert(key.clone(), origin);
+        if let Some(base) = self.bases.get_mut(&key) {
+            for (atom, value) in &valuation.0 {
+                base.world.model.world.valuation.0.insert(*atom, *value);
+            }
+        }
+        self.snapshots.insert(
+            key.clone(),
+            StoreSnapshot {
+                commit,
+                valuation,
+                ref_digest,
+            },
+        );
         if pinned {
             self.pinned_bases.insert(key);
         }

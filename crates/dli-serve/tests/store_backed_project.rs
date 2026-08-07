@@ -200,6 +200,135 @@ fn a_pinned_head_serves_that_commit_and_does_not_follow_the_branch() {
     );
 }
 
+/// A pin fixes the served replay, not the origin branch an author explicitly
+/// writes to. Its workspace therefore needs the live branch interner when the
+/// branch advanced beyond the pinned commit.
+#[test]
+fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
+    use std::sync::Arc;
+
+    let root = temp("store-backed-pinned-authors");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let pinned = head_of(&dir);
+    let lorestore = Lorestore::open(dir).expect("open store");
+    lorestore
+        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .expect("advance origin branch");
+    write_manifest(
+        &root,
+        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+    );
+
+    let project = Arc::new(Project::load(&root).expect("pinned project loads"));
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace id")
+        .to_owned();
+    let staged = send(
+        &serde_json::json!({"dli":"1.3.0","id":"stage","op":"author.add_fact",
+                            "params":{"workspace":workspace,"entity":"bedivere",
+                                      "key":"color","value":"red",
+                                      "provenance":{"kind":"proposed","origin":"pinned-author"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(staged["ok"], true, "the pinned workspace stages: {staged}");
+    let materialized = send(
+        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["ok"], true,
+        "a pinned replay can still append to its advanced origin branch: {materialized}"
+    );
+}
+
+/// A pinned replay intentionally authors to its live origin, but opening the
+/// workspace still captures one whole-ref fence. An intervening writer must
+/// therefore refuse materialize rather than silently append the staged work to
+/// that newer origin state.
+#[test]
+fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
+    use std::sync::Arc;
+
+    let root = temp("store-backed-pinned-write-fence");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let pinned = head_of(&dir);
+    let lorestore = Lorestore::open(dir).expect("open store");
+    lorestore
+        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .expect("advance origin before the pinned workspace opens");
+    write_manifest(
+        &root,
+        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+    );
+
+    let project = Arc::new(Project::load(&root).expect("pinned project loads"));
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace id")
+        .to_owned();
+
+    // A separate authority advances the ref after the workspace captures its
+    // live-origin snapshot, without changing the interner shape.
+    let ref_after_open = lorestore
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .expect("read live ref")
+        .expect("live ref exists");
+    let commit: dli_lorestore::Commit = lorestore
+        .read_object(&ref_after_open.commit)
+        .expect("read live commit")
+        .expect("live commit exists");
+    lorestore
+        .commit(
+            commit.interner,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            commit.decisions,
+            commit.pack_name,
+        )
+        .expect("authority advances the origin after open");
+
+    let staged = send(
+        &serde_json::json!({"dli":"1.3.0","id":"stage","op":"author.add_fact",
+                            "params":{"workspace":workspace,"entity":"bedivere",
+                                      "key":"color","value":"red",
+                                      "provenance":{"kind":"proposed","origin":"pinned-race"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(staged["ok"], true, "the workspace stages: {staged}");
+    let materialized = send(
+        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["error"]["code"], "stale-fence",
+        "the post-open origin advance fences materialize: {materialized}"
+    );
+}
+
 #[test]
 fn branch_mode_follows_the_tip_across_a_reload() {
     let root = temp("store-backed-branch-tip");
@@ -467,6 +596,37 @@ fn send(
     let response =
         dli_serve::serve::respond(&line, sessions, store).expect("a well-formed frame is answered");
     serde_json::to_value(&response).unwrap()
+}
+
+/// Construct the production author store for a freshly loaded project. Keeping
+/// this beside the restart regressions makes the test exercise the same
+/// store-origin and snapshot registration path as `deloreis serve`.
+fn author_store_for(project: &Project) -> dli_serve::author::store::Store {
+    let packs = project.documents().map(|(id, document)| {
+        (
+            id.to_owned(),
+            document.pack.clone(),
+            document.killed.clone(),
+        )
+    });
+    let mut author = dli_serve::author::store::Store::with_packs(packs)
+        .expect("the project compiles for authoring");
+    for (id, document) in project.documents() {
+        if let Some(origin) = document.store_origin.as_ref() {
+            author.register_store_origin(
+                id.to_owned(),
+                origin.clone(),
+                document.store_pinned,
+                document.store_commit.clone().expect("store commit"),
+                document.store_valuation.clone(),
+                document.store_ref_digest.clone(),
+            );
+        }
+    }
+    author
+        .attach_lorestore(project.root().join(".dli-lorestore"))
+        .expect("attach project lorestores");
+    author
 }
 
 /// Asking for a `.dli` rendering from a build that links no renderer is a **loud
@@ -1038,7 +1198,14 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         .expect("the project compiles");
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            author.register_store_origin(id.to_owned(), origin.clone(), document.store_pinned);
+            author.register_store_origin(
+                id.to_owned(),
+                origin.clone(),
+                document.store_pinned,
+                document.store_commit.clone().expect("store commit"),
+                document.store_valuation.clone(),
+                document.store_ref_digest.clone(),
+            );
         }
     }
     author
@@ -1077,6 +1244,28 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         "materialize under a differing document id succeeds: {materialized}"
     );
 
+    let staged_again = send(
+        &serde_json::json!({"dli":"1.2.0","id":"4","op":"author.add_entity",
+            "params":{"workspace":workspace,"kind":"person","id":"galahad",
+                      "name":"Galahad","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        staged_again["ok"], true,
+        "the same workspace stages a second delta: {staged_again}"
+    );
+    let materialized_again = send(
+        &serde_json::json!({"dli":"1.2.0","id":"5","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized_again["ok"], true,
+        "a workspace advances its own ref fence after materialize: {materialized_again}"
+    );
+
     let after = store
         .branch_head(dli_lorestore::MAIN_REF)
         .expect("read head")
@@ -1091,6 +1280,216 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     assert_eq!(
         world.name, "tpth",
         "the reconstructed pack carries the committed scope"
+    );
+}
+
+/// A branch ref is a single authority snapshot, not a commit pointer plus a
+/// best-effort later valuation read. This drives the reported failure all the
+/// way through the public tools: author a proposed fact, rule its persisted
+/// ref externally, restart, and query through both read surfaces.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
+    use std::sync::Arc;
+
+    use dli_core::atom::Atom;
+    use dli_lorestore::{Ref, branch_ref_name};
+
+    let root = temp("store-ref-valuation-reload");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+
+    // The first worker materializes one proposal under a named authority gate.
+    let initial = Project::load(&root).expect("initial project loads");
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::new(initial));
+    let mut author = author_store_for(
+        sessions
+            .project_handle()
+            .as_deref()
+            .expect("project-backed sessions"),
+    );
+    let opened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace id")
+        .to_owned();
+    let staged = send(
+        &serde_json::json!({"dli":"1.3.0","id":"add","op":"author.add_fact",
+                            "params":{"workspace":workspace,"entity":"bedivere",
+                                      "key":"color","value":"red",
+                                      "provenance":{"kind":"proposed","origin":"source-b"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(staged["ok"], true, "the proposed fact stages: {staged}");
+    let materialized = send(
+        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["ok"], true,
+        "the proposed fact materializes: {materialized}"
+    );
+
+    // An authority process writes both kinds of ruling. The false is deliberately
+    // retained in the response: absence and false have different semantics.
+    let lorestore = Lorestore::open(dir.clone()).expect("open authority store");
+    let current = lorestore
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .expect("read main ref")
+        .expect("main ref exists");
+    let commit: dli_lorestore::Commit = lorestore
+        .read_object(&current.commit)
+        .expect("read commit")
+        .expect("main commit exists");
+    let source_b = Atom(
+        u32::try_from(
+            commit
+                .interner
+                .iter()
+                .position(|name| name == "h.source-b")
+                .expect("materialized tag gate is interned"),
+        )
+        .expect("interner index fits an Atom"),
+    );
+    let superseded = Atom(
+        u32::try_from(
+            commit
+                .interner
+                .iter()
+                .position(|name| name == "h.tpth#0")
+                .expect("seeded proposal gate is interned"),
+        )
+        .expect("interner index fits an Atom"),
+    );
+    let mut valuation = current.valuation.clone();
+    valuation.set(source_b, true);
+    valuation.set(superseded, false);
+    let expected = current.digest().expect("ref digest").0;
+    let next = Ref::with_valuation(
+        branch_ref_name(dli_lorestore::MAIN_REF),
+        current.commit,
+        valuation,
+    );
+    assert!(
+        lorestore
+            .cas_branch_ref(dli_lorestore::MAIN_REF, Some(&expected), &next)
+            .expect("authority CAS"),
+        "authority ruling commits"
+    );
+
+    // A new worker loads the ref once. Advance the live branch afterwards to
+    // prove opening a workspace cannot splice that later head into the snapshot.
+    let reloaded = Project::load(&root).expect("reloaded project loads");
+    let selected_commit = reloaded.document("tpth").unwrap().source_digest.clone();
+    lorestore
+        .commit(
+            commit.interner.clone(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            commit.decisions.clone(),
+            commit.pack_name.clone(),
+        )
+        .expect("later external write advances the live branch");
+    assert_ne!(
+        head_of(&dir),
+        selected_commit,
+        "the live ref has moved after load"
+    );
+
+    let project = Arc::new(reloaded);
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"restart-open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("restarted workspace id")
+        .to_owned();
+    let status = send(
+        &serde_json::json!({"dli":"1.3.0","id":"status","op":"author.status",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        status["result"]["root_hash"], selected_commit,
+        "the workspace pin is the project-selected commit, not the later head: {status}"
+    );
+
+    let goal = serde_json::json!({"pred":"color","args":[{"Sym":"bedivere"},{"Sym":"red"}]});
+    let author_query = send(
+        &serde_json::json!({"dli":"1.3.0","id":"author-query","op":"author.query",
+                            "params":{"workspace":workspace,"goal_atom":goal,"layer":"all"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        author_query["result"]["rows"][0]["status"], "certain",
+        "author.query applies the persisted true ruling: {author_query}"
+    );
+    assert!(
+        author_query["result"]["valuation"]
+            .as_array()
+            .expect("valuation array")
+            .iter()
+            .any(|entry| entry["atom"] == "h.source-b" && entry["value"] == true)
+            && author_query["result"]["valuation"]
+                .as_array()
+                .expect("valuation array")
+                .iter()
+                .any(|entry| entry["atom"] == "h.tpth#0" && entry["value"] == false),
+        "the complete persisted overlay, including false, is returned: {author_query}"
+    );
+
+    let stale_stage = send(
+        &serde_json::json!({"dli":"1.3.0","id":"stale-stage","op":"author.add_fact",
+                            "params":{"workspace":workspace,"entity":"bedivere",
+                                      "key":"weight","value":"heavy",
+                                      "provenance":{"kind":"proposed","origin":"source-c"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        stale_stage["ok"], true,
+        "stale workspace may still stage: {stale_stage}"
+    );
+    let stale_materialize = send(
+        &serde_json::json!({"dli":"1.3.0","id":"stale-commit","op":"author.materialize",
+                            "params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        stale_materialize["error"]["code"], "stale-fence",
+        "materialize must not silently parent staged work on the later ref: {stale_materialize}"
+    );
+
+    let batch_query = send(
+        &serde_json::json!({"dli":"1.3.0","id":"batch-query","op":"dli.query",
+                            "params":{"document":"tpth","goal_atom":goal,"layer":"all"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        batch_query["result"]["rows"][0]["status"], "certain",
+        "dli.query shares the store-backed valuation path: {batch_query}"
+    );
+    assert_eq!(
+        batch_query["result"]["valuation"], author_query["result"]["valuation"],
+        "both query surfaces expose the effective stored valuation"
     );
 }
 
@@ -1129,7 +1528,14 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
         .expect("the project compiles");
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            author.register_store_origin(id.to_owned(), origin.clone(), document.store_pinned);
+            author.register_store_origin(
+                id.to_owned(),
+                origin.clone(),
+                document.store_pinned,
+                document.store_commit.clone().expect("store commit"),
+                document.store_valuation.clone(),
+                document.store_ref_digest.clone(),
+            );
         }
     }
     author

@@ -29,6 +29,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use dli_ast::decl::Decl;
+use dli_core::valuation::Valuation;
 
 use crate::author::digest::digest_hash;
 
@@ -84,6 +85,13 @@ pub struct Workspace {
     /// advanced only by this workspace's own `materialize`, never the moving
     /// global head (audit B8). `None` without a lorestore.
     pub base_root_hash: Option<String>,
+    /// The persisted valuation paired with [`base_root_hash`](Self::base_root_hash)
+    /// when the workspace opened. It is applied before local suppositions.
+    pub base_valuation: Valuation,
+    /// Whole-ref fence for the branch the workspace writes to. Branch-mode
+    /// workspaces inherit their project snapshot; pinned replays capture the
+    /// live origin ref at open while continuing to serve their pinned world.
+    pub base_ref_digest: Option<String>,
     /// Idempotency replay cache: key → (payload fingerprint, the exact result
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
@@ -113,6 +121,8 @@ impl Workspace {
             interner_names: Vec::new(),
             bundle_counter: 0,
             base_root_hash: None,
+            base_valuation: Valuation::new(),
+            base_ref_digest: None,
         };
         workspace.absorb_head();
         workspace.reseal();
