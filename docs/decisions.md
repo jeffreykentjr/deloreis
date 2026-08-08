@@ -2472,3 +2472,110 @@ materialize does not even fire on it — the message escape is the only defense.
    types in here would widen a scoped change on unproven need; the asymmetry is **logged
    for separate routing**, exactly as DL-0060 logged V6/V7 rather than renumbering under a
    parity-support change.
+
+## DL-0062 — The `killed` registry predicate is exempt from the factcheck.contradicted killed-hit scan
+
+*Date: 2026-08-06*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `dli_world::check::factcheck::classify` scans every asserted claim's
+`args` + `pred` text for killed-token substrings (the `killed_hits` block in
+`crates/dli-world/src/check/factcheck.rs`). A `killed` registry fact *records* a banned
+token as its **payload**: embedding the token in the fact's value is the fact's purpose,
+not a realized usage of a banned form. To make the killed-tokens registry expressible as
+store fact objects (LS-9/lorestore pivot, DL-0041/44/45/46) the `killed_hits` scan
+**skips** claims whose `pred` text is `killed`; the `rejected_hits` (contextual
+rejected-claim) check at L95 is unchanged. This is a narrow, predicate-scoped exemption:
+no other predicate is affected, and the matcher still rejects a killed token realized in
+any non-registry fact.
+
+**Rationale.** Without the exemption the registry fact that *records* a token is itself
+contradicted by the checker that *enforces* the token — a circular contradiction that makes
+the killed-tokens domain (`killed_tokens.yaml`, 20 rows) un-storeable, blocking the
+`--canon` export's 6th parity domain from ever becoming store-derived. The exemption
+breaks the cycle at the predicate boundary while preserving the guardrail for all real
+lore. Concretely: a store-borne `fact <entity> killed {token,match,kind,scope,decision}`
+is now materializable; the token (e.g. `doom-wight`, `goal`) remains refused everywhere
+else under `factcheck.contradicted`.
+
+**Revisit trigger.** Re-evaluated if the killed-tokens registry is re-encoded under a
+non-`killed` predicate; otherwise the exemption stands.
+
+**Affected code:** `crates/dli-world/src/check/factcheck.rs` — a guard around the
+`killed_hits` scan reading `if claim.pred.text.as_str() != "killed" { … }`.
+
+> **Scope correction / superseded.** DL-0063 supersedes this entry: it under-described
+> the exemption set, listing only `crates/dli-world/src/check/factcheck.rs`. The
+> `killed` registry predicate is exempt at **all three** scan sites — this
+> `classify` `killed_hits` guard (`dli-world/factcheck.rs`), the
+> `declaration_rejected_lore_findings` pre-scan (`dli-serve/src/author/tools.rs`),
+> and the `certain_rejected_lore` scan (`dli-world/src/check/continuity.rs`). The
+> `classify` guard was also revised from the simple `!= "killed"` predicate check to
+> the `is_killed_registry_fact` disjunction (see DL-0063). DL-0062 is retained as a
+> historical record; DL-0063 is the binding rule.
+
+## DL-0063 — `killed` registry predicate exempt at all three scan sites (supersedes DL-0062)
+
+*Date: 2026-08-07*
+
+**Attribution:** machine — an engineering decision by the implementing agents. Live
+and binding on the tree, pending the author's async review (DL-0052). DL-0063
+supersedes DL-0062, whose "Affected code" listed only `crates/dli-world`; the full
+exemption set spans **both** crates.
+
+**Ruling.** A `killed` registry fact records a banned token as its **payload** — the
+token's value is the fact's purpose, not a realized usage of a banned form. The
+factcheck/contradiction machinery therefore **skips** the `killed` registry fact at
+all three scan sites that would otherwise fire on its banned-token payload:
+
+1. **Staging pre-scan** — `crates/dli-serve/src/author/tools.rs`
+   `declaration_rejected_lore_findings` (L1108): returns `Vec::new()` for a
+   `Decl::Attr` whose `attr.text == "killed"`, evaluated **before**
+   `free_text_fields` → `rejected_lore_findings` → `realizes_killed_token` pre-scan.
+   This stops the staging-time killed-token scan from ever staging a blocking
+   finding for the registry record.
+
+2. **`classify` killed-token scan** — `crates/dli-world/src/check/factcheck.rs`
+   (L121-137): the guard is the `is_killed_registry_fact` disjunction, computed as
+   `pred == "killed"` **or** (`pred == "declaration"` **and** `args[1] == "killed"`
+   for both `Term::Sym` and `Term::Str`). Only when this is **false** does the
+   `killed_hits` block run; the `rejected_hits` (contextual rejected-claim) check at
+   L95-123 is untouched. DL-0062 described only the original `pred != "killed"`
+   predicate check; the revised disjunction (handling the
+   `declaration(subject, killed, value, source)` rendering) is binding here.
+
+3. **Continuity rejected-lore scan** — `crates/dli-world/src/check/continuity.rs`
+   `certain_rejected_lore` (L210): skips atoms whose `pred.text == "killed"`
+   (`if atom.atom.pred.text == "killed" { continue; }`) after the `Status::Certain`
+   guard, so the materialized registry fact is not run through
+   `world.killed.hits(token)` → `continuity.rejected-lore`.
+
+**Rationale.** DL-0062's `classify`-only exemption proved **insufficient** under the
+live `author.materialize` probe (`/tmp/mcp_author_kill.py`): `classify` alone cleared
+the `factcheck.contradicted` check, but `materialize` then surfaced
+`continuity.rejected-lore` (scan-site #3 ran over the staged `killed` atom, matching
+its embedded token). A second failure mode existed at site #1:
+`declaration_rejected_lore_findings` staged a
+`declaration(killed-token-registry, killed, {…token…})` claim whose free-text value
+contained the banned token, tripping the `realizes_killed_token` pre-scan before
+`classify` was ever reached. The three-scan exemption closes both failure modes at
+their origin. Without it, the killed-tokens registry (20 rows) is un-storeable,
+blocking the `--canon` export's killed-tokens domain (parity.json
+`{killed:20, worker_projection:19, rejected_claims:5, excluded_ratified_surface_collisions:1}`) from ever becoming store-derived. The exemption breaks the cycle at the
+predicate boundary while preserving the guardrail for all real lore: a store-borne
+`fact <entity> killed {token,match,kind,scope,decision}` is now materializable; the
+token (e.g. `doom-wight`, `goal`, `Audrey`) remains refused everywhere else under
+`factcheck.contradicted`.
+
+**Verification.** `mcp_author_kill.py` probe over `/tmp/s5b` (exact copy of
+`worlds/tpth`): `[killed facts] 20/20 authored clean; 0 blocked`; `[materialize]
+committed 22 objects; isError=False`; `[canon] killed predicate bucket: 20
+objects`; `integrity` root_hash stable at the `/tmp/s5b` tip. `cargo xtask gate
+--ci` → `PASSED — 21 steps green`, `GATE_EXIT=0`. This entry is the live binding
+superseding DL-0062 (whose "Affected code" is corrected to note the `dli-serve` +
+`continuity` sites).
+
+**Revisit trigger.** Re-evaluated if the killed-tokens registry is re-encoded under
+a non-`killed` predicate; otherwise the three-scan exemption stands.

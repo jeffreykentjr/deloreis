@@ -213,6 +213,12 @@ fn certain_rejected_lore(world: &CompiledWorld) -> Vec<WorldFinding> {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
+        // The `killed` registry predicate embeds banned tokens as its value
+        // (DL-0062, refined by DL-0063); the token is the fact's subject matter,
+        // not a realized usage, so it is exempt from the killed-token scan here.
+        if atom.atom.pred.text == "killed" {
+            continue;
+        }
         let hits = atom
             .atom
             .args
