@@ -169,8 +169,44 @@ byte-identifies to committed `parity.json` (`sort_keys=True` equality):
 reconstruction from the raw `objects` export + a planted divergence) passes GREEN
 before the plant and RED after. Full empirical derivation: `docs/design-notes/LS-7-killed-tokens-canon.md`.
 
-**Remaining Phase 2 (out of A1 scope):** re-point `compile_lore_dli.py`
-`write_or_check` onto `dli.corpus.export{format:"canon"}` (fantasy side), then
-port the remaining 5 domains (`facts`/`timeline`/`characters`/`names`/
-`dialects`) into `canon_export`.
+### 2026-08-07 — Phase 2 store-migration gate CLOSED (committed re-seed `b19b0740`)
+
+**Committed-store re-seed, reversible.** Authored the 20 killed-token registry
+facts (cited D-0108) into the committed `worlds/tpth` lorestore via `author.*`,
+re-rooting `db80a5a3` (556 objects) → `6a165d81` (578 objects; +22 = registry
+`thing`+`__decl` decl + 20 `killed`). The killed-tokens canon domain is now
+reproducible against the **committed** lane: `canon_export{format:"canon"}` on the
+committed manifest yields `killed=20 / worker_projection=19 / rejected_claims=5 /
+excluded=1`, byte-identical to committed `generated/{parity.json,killed-tokens.yaml}`
+(`git diff` empty); `check-lore-cutover-boundaries.sh` stays green. Non-vacuous
+red-team (plant divergence on `/tmp/s5b` ≡ committed `6a165d81` → RED → restore →
+GREEN) passed. Gate: `cargo xtask gate --ci` → 21/21 green. The canonical lane is
+no longer `/tmp/s5b`-only; `/tmp/s5b` is re-synced to `6a165d81`.
+
+**Paths B–E feasibility (byte-exact fold probes against `by_pred`):**
+- `facts.factcheck_aliases` (11) — 1:1 `factcheck-alias` args `[subject,surface]` →
+  `{subject,surface}`. **Byte-exact. Fully canon-derivable.** (mechanism validated)
+- `facts.relations` (12, 8 predicates) — `{subject, kind←predicate, object, decisions←support→interner
+  sorted, status:'ratified'}`. Fold located (decl/interner join); byte-exact confirmation pending the
+  ordered commit-order match (the field mapping is exact).
+- `facts.entities` (23) — `id`/`kind`/`decisions`/`note` recoverable from
+  `source-kind`+`name-note`, but the `name` surface for places/concepts
+  (e.g. `The Keep-Stamped Deck`, `Whitecombe`) is **not a by_pred arg** (only the
+  lowercased id + a `Name` decl survive) — a human-ratified surface → **not fully
+  canon-derivable** without a name-source.
+- `characters`/`names` — name surfaces likewise not all present as by_pred args
+  → **YAML-sourced** (ratified registries), the projection carries only the
+  by_pred-sufficient fields.
+- `dialects.registers` — phonotactics live in `src/fantasy/naming/data/registers.yaml`
+  (external), **not by_pred** → YAML-sourced (per LS-7).
+
+**Remaining Phase 2 (B–E):** a *per-domain by_pred-sufficiency analysis*, not a
+uniform port. `canon_export` will emit the by_pred-sufficient sub-maps
+(`factcheck_aliases`, `relations`, event/era edges, entity decls,…) as canonical
+projections; the human-ratified surfaces (`names`, `dialects.registers`, entity
+`name` for concepts/places) stay as explicit YAML fallback sources in
+`compile_lore_dli.py products()`. A ledger entry for the committed-store re-seed
+should be minted once the contended single-writer `docs/decisions.md` is read back
+in full (it is being appended by the parallel `finding-sanitize` lane — not
+clobbered mid-flight).
 
