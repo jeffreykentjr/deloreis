@@ -2562,7 +2562,163 @@ fn canon_export(
         "killed_tokens".to_string(),
         canon_killed_tokens(&serialized_objects, &by_pred, &interner)?,
     );
+    // LS-7 / B-E: the byte-exact `facts.dli` sub-maps that are fully
+    // by_pred/serialize-order-sufficient. `relations` (12, 8 predicates) and
+    // `constraints` (3) reproduce `parity.json`'s `facts.dli` byte-for-byte from
+    // folded fact objects; `compile_facts` derives `provenance` from
+    // `status`+`decisions`, so none is emitted here. The human-ratified surfaces
+    // (`factcheck_aliases` is rendered by `compile_facts` from `cue_source`, and
+    // entity `name` for concepts/places is absent from by_pred) stay
+    // YAML-sourced — see DL-0067 + compile_lore_dli.py products().
+    canon.insert(
+        "facts".to_string(),
+        canon_facts(&serialized_objects, &by_pred, &interner)?,
+    );
     Ok(serde_json::Value::Object(canon))
+}
+
+/// Project the byte-exact `facts.dli` sub-maps that are fully
+/// by_pred/serialize-order-sufficient (LS-7 / B-E): `relations` (12 atoms across
+/// 8 predicates) and `constraints` (3). These reproduce `parity.json`'s
+/// `facts.dli` byte-for-byte from folded fact objects; `compile_facts` derives
+/// `provenance` from `status`+`decisions`, so no `provenance` is emitted here.
+/// The human-ratified surfaces (`factcheck_aliases` is rendered by
+/// `compile_facts` from `cue_source`, and entity `name` for concepts/places is
+/// absent from by_pred) stay YAML-sourced — see DL-0067 +
+/// `compile_lore_dli.py products()`.
+///
+/// Row order is commit order: `relations` walks `serialized_objects`
+/// (the `facts.dli` source order) filtered to the eight relation predicates;
+/// `constraints` walks `by_pred["constraint-kind"]` (commit order within the
+/// single predicate). Field order is irrelevant — `compile_lore_dli.py` dumps
+/// parity.json with `sort_keys=True`.
+#[allow(clippy::doc_markdown)]
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::collapsible_if)]
+fn canon_facts(
+    serialized_objects: &[serde_json::Value],
+    by_pred: &BTreeMap<String, Vec<serde_json::Value>>,
+    interner: &[String],
+) -> Result<serde_json::Value, Fault> {
+    use serde_json::json;
+
+    // Expand a fact object's `support` monomials through the interner, sorted +
+    // deduped — mirrors `canon_killed_tokens`'s `rejected_claims` expansion
+    // (DL-0064) and `compile_lore_dli.py`'s `decisions(row)`.
+    let support_decisions =
+        |o: &serde_json::Value| -> Result<Vec<String>, Fault> {
+            let mut ds = Vec::new();
+            if let Some(mons) = o["support"]["monomials"].as_array() {
+                if let Some(first) = mons.first().and_then(|m| m.as_array()) {
+                    for lit in first {
+                        if let Some(s) = lit.as_str() {
+                            let var = s.trim_start_matches(['+', '-']).parse::<usize>().map_err(
+                                |_| (ErrorCode::Internal, format!("bad support literal: {s}")),
+                            )?;
+                            if let Some(d) = interner.get(var) {
+                                ds.push(d.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            ds.sort();
+            ds.dedup();
+            Ok(ds)
+        };
+
+    // relations(12): commit order over serialized_objects filtered to the eight
+    // relation predicates. {subject, kind=pred, object, decisions, status}.
+    let mut relations: Vec<serde_json::Value> = Vec::new();
+    for o in serialized_objects.iter().filter(|o| {
+        matches!(
+            o["atom"]["pred"].as_str(),
+            Some(
+                "adjacent_to"
+                    | "located_in"
+                    | "member_of"
+                    | "raised_by"
+                    | "reads"
+                    | "rigged_variant_of"
+                    | "trained_by"
+                    | "upstream_of"
+            )
+        )
+    }) {
+        let args = o["atom"]["args"]
+            .as_array()
+            .ok_or((ErrorCode::Internal, "relation atom has no args".to_string()))?;
+        let subject = args
+            .first()
+            .and_then(|v| v.as_str())
+            .ok_or((ErrorCode::Internal, "relation subject missing".to_string()))?;
+        let object = args
+            .get(1)
+            .and_then(|v| v.as_str())
+            .ok_or((ErrorCode::Internal, "relation object missing".to_string()))?;
+        let pred = o["atom"]["pred"].as_str().ok_or((
+            ErrorCode::Internal,
+            "relation predicate missing".to_string(),
+        ))?;
+        relations.push(json!({
+            "subject": subject,
+            "kind": pred,
+            "object": object,
+            "decisions": support_decisions(o)?,
+            "status": "ratified",
+        }));
+    }
+
+    // constraints(3): constraint-kind drives the row set (commit order);
+    // target, pattern, and description are looked up by id across the
+    // constraint-* predicates. {id, decisions, description,
+    // machine_check:{kind,target,pattern}}.
+    let mut constraints: Vec<serde_json::Value> = Vec::new();
+    if let Some(kind_objs) = by_pred.get("constraint-kind") {
+        for o in kind_objs {
+            let args = o["atom"]["args"].as_array().ok_or((
+                ErrorCode::Internal,
+                "constraint-kind atom has no args".to_string(),
+            ))?;
+            let id = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| (ErrorCode::Internal, "constraint id missing".to_string()))?;
+            let kind = args
+                .get(1)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| (ErrorCode::Internal, "constraint kind missing".to_string()))?;
+            // Look up the sibling constraint-* atom carrying this id, by
+            // matching args[0] == id (the id is the first atom arg).
+            let lookup = |pred: &str| -> Option<String> {
+                by_pred
+                    .get(pred)?
+                    .iter()
+                    .find(|x| x["atom"]["args"].get(0).and_then(|v| v.as_str()) == Some(id))
+                    .and_then(|x| x["atom"]["args"].get(1).and_then(|v| v.as_str()))
+                    .map(str::to_string)
+            };
+            // pattern is a raw regex string (NOT JSON-encoded) — emit verbatim,
+            // matching parity.constraints.machine_check.pattern and compile_facts'
+            // `token()` rendering (do NOT serde_json::from_str it).
+            let pattern = lookup("constraint-pattern");
+            constraints.push(json!({
+                "id": id,
+                "decisions": support_decisions(o)?,
+                "description": lookup("constraint-description"),
+                "machine_check": {
+                    "kind": kind,
+                    "target": lookup("constraint-target"),
+                    "pattern": pattern,
+                },
+            }));
+        }
+    }
+
+    Ok(json!({
+        "relations": relations,
+        "constraints": constraints,
+    }))
 }
 
 /// Project the folded fact objects into `compile_lore_dli.py`'s `killed_tokens()`
