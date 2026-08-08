@@ -2128,6 +2128,12 @@ pub enum CorpusExportFormat {
     Objects,
     /// The `.dli` rendering. Syntax builds only; elsewhere a loud refusal.
     Rendered,
+    /// The canon-normalized projection: fact objects folded into the
+    /// per-domain normalized maps that `parity.json` carries (`facts`,
+    /// `timeline`, `characters`, `names`, `dialects`, `killed-tokens`), the
+    /// store-read equivalent of `compile_lore_dli.py`'s `products()` (LS-7,
+    /// DL-0041). Omitted from the result unless `format: canon` was requested.
+    Canon,
 }
 
 /// `dli.corpus.export` result.
@@ -2149,4 +2155,10 @@ pub struct CorpusExportResult {
     /// The `.dli` rendering, when `format: rendered` was asked for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rendered: Vec<String>,
+    /// The canon-normalized per-domain maps, when `format: canon` was asked
+    /// for. `null` (omitted from the serialized response) for non-canon
+    /// exports. Round-trips with `objects` and `interner`: re-importing
+    /// `objects` at `root_hash` reproduces this projection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canon: Option<serde_json::Value>,
 }

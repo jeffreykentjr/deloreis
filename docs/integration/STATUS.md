@@ -119,3 +119,58 @@ handoff's `/home/jeff/tg-findingsanitize/debug/deloreis` was clobbered by a delo
 rebuild (no store surface) — FW-6/MCP work uses the dm4fix binary at
 `/home/jeff/tg-dm4fix/debug/deloreis` (contract/1.3.0).
 
+### 2026-08-07 — Phase 2 path A1 CLOSED: killed-tokens canon domain verified (gate 21/21 GREEN)
+
+**deloreis canonical projection (committed via DL-0063/DL-0064):**
+- `CorpusExportFormat` gained `Canon`; `CorpusExportResult` gained `canon: Option<serde_json::Value>`.
+- `canon_export()` (`handlers.rs`) folds the live `FactObject`s at head into a
+  `BTreeMap<String, Vec<Value>>` keyed by `atom.pred`, returning `{by_pred, interner, decisions, killed_tokens}`.
+- Schemas regenerated (`xtask schema`, 2 drift files: `dli.corpus.export.{request,response}.json`).
+- Live probe over a throwaway copy (`/tmp/s5b`) with the rebuilt dm4fix: `--canon` returns all
+  74 predicates bucketed (`__decl`=149, `source-kind`=23, `name-note`=20, `person`=5,
+  `place`=8, `thing`=15, `event`=9, `era`, `before`, `name`, `name-part`, `dialect`,
+  `factcheck-alias`=11, plus ~50 lore fact-predicates). `decisions` census = 68 ratified ids;
+  `interner` (68 symbols, 0-based) carries decision ids, so `support` monomials
+  (`+N` → `interner[N]`) ARE resolvable — byte-identical projection is real, not fantasy.
+
+**killed-tokens blocker — RESOLVED by DL-0063 + DL-0064.** The circular
+contradiction (storing a banned token fires the checker that bans tokens) is
+broken at the predicate boundary: DL-0063 exempts the `killed` registry fact at
+all three scan sites, so `fact killed-token-registry <json>` materializes; the
+token remains refused everywhere else under `factcheck.contradicted`.
+`canon_export` then projects the killed-tokens domain purely from the folded
+objects, byte-identical to committed `worlds/tpth/generated/parity.json`:
+
+- `killed` (20): `fact killed-token-registry <json>` rows emitted as the verbatim
+  registry-row object. `match` is read verbatim from the stored JSON (not
+  re-derived — `doom-wight`/`doom-ward` are `"phrase"` despite no space).
+- `worker_projection` (19): killed rows whose token is **not** a ratified
+  surface — 4-key `{token, match, decision, scope}` (no `kind`).
+- `excluded_ratified_surface_collisions` (1 = Frankpledge/D-0138): killed rows
+  whose token **is** a ratified surface (Frankpledge is a real declared entity);
+  full field set.
+- `rejected_claims` (5): `factcheck-object-{key}` facts expanded through the
+  interner via `support` monomials, in commit order. `gender` is excluded
+  (ratified → no `factcheck-reject-*` cue); `mortality` is excluded (its slot is
+  owned by a plain asserted `fact`).
+
+**Colophon scope split (DL-0064):** the store fact carries `scope` as a single
+flat string; the projection `split(", ")`s it and rebuilds the sibling columns
+YAML parsed as null-valued keys (`scope: a, b, c` → `scope="a"`, `b=null`,
+`c=null`) — today only the Colophon row. Commit order is carried by
+`serialized_objects` (the ordered Vec), not the `by_pred` BTreeMap.
+
+**Verification.** `canon_export{killed_tokens}` over `/tmp/s5b`
+(root_hash `sha256:6a165d81…`, 578 objects, interner 68, decisions 68)
+byte-identifies to committed `parity.json` (`sort_keys=True` equality):
+`killed: 20/20`, `worker_projection: 19/19`, `rejected_claims: 5/5`,
+`excluded: 1/1`, AND `by_pred`/`interner`/`decisions` match. `cargo xtask gate
+--ci` → `PASSED — 21 steps green`. Independent red-team (fresh-context
+reconstruction from the raw `objects` export + a planted divergence) passes GREEN
+before the plant and RED after. Full empirical derivation: `docs/design-notes/LS-7-killed-tokens-canon.md`.
+
+**Remaining Phase 2 (out of A1 scope):** re-point `compile_lore_dli.py`
+`write_or_check` onto `dli.corpus.export{format:"canon"}` (fantasy side), then
+port the remaining 5 domains (`facts`/`timeline`/`characters`/`names`/
+`dialects`) into `canon_export`.
+

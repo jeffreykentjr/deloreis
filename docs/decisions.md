@@ -2579,3 +2579,85 @@ superseding DL-0062 (whose "Affected code" is corrected to note the `dli-serve` 
 
 **Revisit trigger.** Re-evaluated if the killed-tokens registry is re-encoded under
 a non-`killed` predicate; otherwise the three-scan exemption stands.
+
+## DL-0064 — The killed-tokens canon domain is store-projected via the `killed` predicate bucket
+
+*Date: 2026-08-07*
+
+**Attribution:** machine — a projection design decision by the implementing
+agents. DL-0063 opens the `killed` registry fact for storage; DL-0064 settles
+how that stored fact yields `parity.json`'s `killed-tokens.yaml` census without
+re-touching the YAML. Live and binding on the tree, pending the author's async
+review (DL-0052). Supersedes the open `(A1)`/`(A2)` design call text in
+`docs/integration/STATUS.md` L154-161.
+
+**Ruling.** The `--canon` export projects the killed-tokens domain (LS-7) purely
+from the folded store fact objects at `head`, in four maps that byte-identify to
+the committed `worlds/tpth/generated/parity.json` `killed-tokens.yaml` census:
+
+- `killed` (20): every `fact killed-token-registry <json>` row, emitted as the
+  verbatim registry-row object from the fact's `value` JSON — the full field set
+  `{token, match, kind, scope, decision}` plus any sibling columns the source
+  YAML flow-mapping parsed as null-valued keys.
+- `worker_projection` (19): the killed rows whose `token` (casefolded) is **not**
+  a ratified surface — the same fields minus `kind`.
+- `excluded_ratified_surface_collisions` (1 = Frankpledge/D-0138): killed rows
+  whose `token` (casefolded) **is** a ratified surface — full field set.
+- `rejected_claims` (5): one per guardrail reject cue, expanded from the
+  `factcheck-object-{key}` facts' `support` monomials through the interner.
+
+Three empirical rules make the projection store-sourced and deterministic (the
+kernel reads no clock, no model — DL-0007):
+
+1. **`match` is data, not a function of the token.** It is read from the stored
+   fact's `value` JSON (`token_obj["match"]`) verbatim; it is never re-derived.
+   The prior `token.contains(' ')` derivation marked hyphenated tokens
+   (`doom-wight`, `doom-ward`) as `"word"`; they are `"phrase"` in the source
+   registry. Reading verbatim fixes both.
+2. **Commit order is carried by `serialized_objects`.** `by_pred` is a `BTreeMap`
+   (alphabetical by predicate) and would reorder the guardrail cue sequence; the
+   per-domain lists iterate the commit-order `Vec` instead, so `rejected_claims`
+   and the census rows follow registry row order.
+3. **The Colophon scope split is reconstructed in-projection.** The store fact
+   carries `scope` as a single flat string (the authoring flattened the YAML
+   flow-mapping). The projection rebuilds the sibling columns YAML parsed as
+   null-valued keys: `scope: a, b, c` → `scope = "a"`, `b = null`, `c = null` —
+   today only the Colophon row (`scope: series title — clunky, mismatched,
+   suspected AI-literary-vocabulary tic`). The other 19 rows have no `, ` in scope
+   and pass through untouched. The `killed`/`excluded` census emits the
+   reconstructed object as-is; `worker_projection` emits the 4-key filtered form
+   `{token, match, decision, scope}` (scope = the split short form).
+
+**Exclusions** (two), mirroring `killed_tokens()`:
+- `gender` is absent from `rejected_claims` — it is ratified (`factcheck-assert-*`,
+  no `factcheck-reject-*` cue keys it), so `rejected_keys` never contains `gender`.
+- `mortality` is absent — ratified by `D-0120`, but its `(protagonist, mortality)`
+  slot is a plain asserted `fact protagonist mortality <value>` in the source
+  registry, so `asserted_slots` filters it out (parity L2726-2728 equivalent).
+
+**Interner:** 0-based (`+N` → `interner[N]`); `+1` → `D-0108` (the ratified
+batch-002 authoring decision — ALL 20 killed facts carry `support.monomials
+[["+1"]]`). `ratified_surfaces` is derived from every `(actor, pred)` pair in the
+folded buckets (entity ids + alias/name second-args, casefolded); this is
+sufficient for the `Frankpledge` collision (D-0138) which is a real declared
+entity.
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_killed_tokens()` (and the `Canon => (Vec::new(), Some(canon_export(...)))`
+branch in `handle_corpus_export`). Depends on the DL-0063 three-scan exemption
+to make the `killed` fact materializable in the first place.
+
+**Verification.** `canon_export{killed_tokens}` over `/tmp/s5b` (exact copy of
+`worlds/tpth` + 20 authored killed facts + declaration) byte-identifies to
+committed `worlds/tpth/generated/parity.json` (`json.dumps(..., sort_keys=True)`
+equality): `killed: 20/20`, `worker_projection: 19/19`,
+`rejected_claims: 5/5`, `excluded_ratified_surface_collisions: 1/1`, AND
+`by_pred`/`interner`/`decisions` all match. `cargo xtask gate --ci` →
+`PASSED — 21 steps green`, `GATE_EXIT=0`. Independent red-team (fresh-context
+reconstruction of the four maps from raw objects + a planted divergence) confirms
+the projection detects a store mutation → RED.
+
+**Revisit trigger.** Re-evaluated if the `killed` fact's `value` JSON is no
+longer a verbatim registry row, or if `compile_lore_dli.py`'s `killed_tokens()`
+semantics change (parity.json becomes the stale artifact, per the
+reconciled-empty gate on the fantasy side).

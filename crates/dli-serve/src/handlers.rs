@@ -2427,9 +2427,13 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
             .push(serde_json::to_value(&object).map_err(|e| (ErrorCode::Internal, e.to_string()))?);
     }
 
-    let rendered = match p.format {
-        CorpusExportFormat::Objects => Vec::new(),
-        CorpusExportFormat::Rendered => render_export(&store, &head)?,
+    let (rendered, canon) = match p.format {
+        CorpusExportFormat::Objects => (Vec::new(), None),
+        CorpusExportFormat::Rendered => (render_export(&store, &head)?, None),
+        // `canon` projects the folded state into the per-domain normalized maps
+        // that `parity.json` carries — the store-read equivalent of
+        // `compile_lore_dli.py`'s `products()` normalizers (LS-7).
+        CorpusExportFormat::Canon => (Vec::new(), Some(canon_export(&store, &head)?)),
     };
 
     // The name table those objects' support polynomials index into. Exported
@@ -2449,6 +2453,7 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
             interner,
             decisions,
             rendered,
+            canon,
         },
     ))
 }
@@ -2482,6 +2487,313 @@ fn render_export(
          (the canonical form), or run the export on a `syntax`-enabled build"
             .to_owned(),
     ))
+}
+
+/// Project the folded fact objects at `head` into the per-domain normalized
+/// maps that `parity.json` carries — the store-read equivalent of
+/// `compile_lore_dli.py`'s `products()` normalizers (LS-7, DL-0041).
+///
+/// Objects are first folded by their atom predicate into stable buckets; the
+/// per-domain normalized maps (matching `compile_*` byte-for-byte) are then
+/// derived from those buckets. This is the projection scaffold: predicate
+/// bucketing, the interner, and the known decisions are emitted now, and the
+/// domain normalizers layer onto the buckets incrementally.
+fn canon_export(
+    store: &dli_lorestore::Lorestore,
+    head: &dli_lorestore::ContentHash,
+) -> Result<serde_json::Value, Fault> {
+    let hashes = store
+        .fact_hashes_from(head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let mut objects: Vec<dli_lorestore::FactObject> = Vec::with_capacity(hashes.len());
+    for hash in &hashes {
+        let object: dli_lorestore::FactObject = store
+            .read_object(hash)
+            .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+            .ok_or((
+                ErrorCode::Internal,
+                format!("commit references object {hash}, which the store does not hold"),
+            ))?;
+        objects.push(object);
+    }
+    let interner = store
+        .interner_at(head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let decisions = store
+        .decisions_at(head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+
+    // `serialized_objects` preserves the store commit order (`fact_hashes_from`
+    // walks the history in append order, which is the `facts.dli` source order =
+    // the registry row order). This is what makes the projected lists
+    // byte-identical to `compile_lore_dli.py`'s normalizers: `by_pred` is a
+    // `BTreeMap` (alphabetical by predicate) and would reorder the guardrail
+    // cue sequence, but the commit-order Vec below does not (DL-0064).
+    let mut serialized_objects: Vec<serde_json::Value> = Vec::with_capacity(objects.len());
+    let mut by_pred: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
+    for object in &objects {
+        let value =
+            serde_json::to_value(object).map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+        serialized_objects.push(value.clone());
+        by_pred
+            .entry(object.atom.pred.clone())
+            .or_default()
+            .push(value);
+    }
+
+    let mut canon = serde_json::Map::new();
+    canon.insert(
+        "by_pred".to_string(),
+        serde_json::to_value(&by_pred).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+    );
+    canon.insert(
+        "interner".to_string(),
+        serde_json::to_value(&interner).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+    );
+    canon.insert(
+        "decisions".to_string(),
+        serde_json::to_value(&decisions).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+    );
+    // LS-7: the killed-tokens domain is the first per-domain normalizer to land
+    // (DL-0064). It projects {killed, worker_projection, rejected_claims,
+    // excluded_ratified_surface_collisions} purely from folded fact objects,
+    // byte-identical to compile_lore_dli.py's killed_tokens().
+    canon.insert(
+        "killed_tokens".to_string(),
+        canon_killed_tokens(&serialized_objects, &by_pred, &interner)?,
+    );
+    Ok(serde_json::Value::Object(canon))
+}
+
+/// Project the folded fact objects into `compile_lore_dli.py`'s `killed_tokens()`
+/// normalized maps (LS-7 / DL-0064). The four maps reproduce `parity.json`'s
+/// `killed-tokens.yaml` census exactly:
+///
+/// - `killed` (20): every `fact killed-token-registry <json>` row, with its full
+///   field set `{token, match, kind, scope, decision}`.
+/// - `worker_projection` (19): the killed rows whose token surface is NOT a
+///   ratified surface — same fields minus `kind`.
+/// - `excluded_ratified_surface_collisions` (1 = Frankpledge/D-0138): killed rows
+///   whose token surface IS a ratified surface — full field set.
+/// - `rejected_claims` (5): one per guardrail reject decision, expanded from the
+///   `factcheck-object-{key}` facts' `support` monomials through the interner.
+///
+/// Two exclusions mirror `killed_tokens()`:
+///   (a) `gender` is dropped because it is ratified (`factcheck-assert-*`, no
+///       `factcheck-reject-*` cue keys it);
+///   (b) `mortality` is dropped because its `(subject, key)` pair appears as a
+///       plain asserted `fact <entity> <key> <value>` in the source registry, so
+///       the lore owns that slot.
+///
+/// Commit order is carried by `serialized_objects`; `by_pred` (a `BTreeMap`) is
+/// used only for predicate-bucketed lookups and the `asserted_slots` census.
+#[allow(clippy::too_many_lines)]
+fn canon_killed_tokens(
+    serialized_objects: &[serde_json::Value],
+    by_pred: &BTreeMap<String, Vec<serde_json::Value>>,
+    interner: &[String],
+) -> Result<serde_json::Value, Fault> {
+    use std::collections::HashSet;
+
+    // ratified_surfaces: entity identifiers + alias/name surfaces (casefolded).
+    // The store carries entity ids in declaration atoms and alias/name surfaces
+    // in `factcheck-alias` / `name` atoms; for the facts.yaml entities the id
+    // casefolds to the same surface as the declared display name, so ids are a
+    // faithful source (DL-0064 verification note).
+    let mut ratified_surfaces: HashSet<String> = HashSet::new();
+    for objs in by_pred.values() {
+        for obj in objs {
+            if let Some(args) = obj["atom"]["args"].as_array() {
+                if let Some(a0) = args.first().and_then(|v| v.as_str()) {
+                    ratified_surfaces.insert(a0.to_lowercase());
+                }
+                if let Some(a1) = args.get(1).and_then(|v| v.as_str()) {
+                    ratified_surfaces.insert(a1.to_lowercase());
+                }
+            }
+        }
+    }
+
+    // asserted_slots: the (subject, key) pairs that own a plain asserted
+    // `fact <entity> <key> <value>` statement — i.e. the guardrail cannot also
+    // claim that slot. Built from every (actor, pred) pair in the folded
+    // buckets; the guardrail `key` is the bare predicate, so a `factcheck-*`
+    // predicate never matches here.
+    let mut asserted_slots: HashSet<(String, String)> = HashSet::new();
+    for (pred, objs) in by_pred {
+        for obj in objs {
+            let Some(args) = obj["atom"]["args"].as_array() else {
+                continue;
+            };
+            let Some(subject) = args.first().and_then(|v| v.as_str()) else {
+                continue;
+            };
+            asserted_slots.insert((subject.to_string(), pred.clone()));
+        }
+    }
+
+    // rejected_keys: guardrail keys that carry a `factcheck-reject-*` cue (the
+    // registry's `status == "rejected"`). `factcheck-assert-*` keys (e.g.
+    // `gender`) are ratified and therefore absent here.
+    let mut rejected_keys: HashSet<String> = HashSet::new();
+    for pred in by_pred.keys() {
+        if let Some(rest) = pred.strip_prefix("factcheck-reject-") {
+            // form: `factcheck-reject-{priority:04d}-{key}`
+            if let Some(key) = rest.split_once('-').map(|(_, k)| k) {
+                rejected_keys.insert(key.to_string());
+            }
+        }
+    }
+
+    // killed (20): `fact killed-token-registry <json>` rows, in commit order.
+    let killed_objs = by_pred.get("killed").cloned().unwrap_or_default();
+    let mut killed: Vec<serde_json::Value> = Vec::with_capacity(killed_objs.len());
+    let mut worker_projection: Vec<serde_json::Value> = Vec::new();
+    let mut excluded: Vec<serde_json::Value> = Vec::new();
+    for fact in &killed_objs {
+        let args = fact["atom"]["args"].as_array().ok_or((
+            ErrorCode::Internal,
+            "killed fact is missing args".to_string(),
+        ))?;
+        let json_src = args.get(1).and_then(|v| v.as_str()).ok_or((
+            ErrorCode::Internal,
+            "killed fact is missing its json value".to_string(),
+        ))?;
+        let token_obj: serde_json::Value = serde_json::from_str(json_src).map_err(|e| {
+            (
+                ErrorCode::Internal,
+                format!("killed fact holds invalid json: {e}"),
+            )
+        })?;
+        let token = token_obj["token"].as_str().ok_or((
+            ErrorCode::Internal,
+            "killed fact json missing `token`".to_string(),
+        ))?;
+        // `match` / `scope` / `decision` are verbatim fields of the registry row
+        // (killed_tokens.yaml) — read them, do NOT re-derive. `match` in
+        // particular is data, not a function of the token: `doom-wight` is
+        // `phrase` despite containing no space (it is hyphenated) (LS-7/DL-0064).
+        let match_kind = token_obj["match"].as_str().ok_or((
+            ErrorCode::Internal,
+            "killed fact json missing `match`".to_string(),
+        ))?;
+        let scope_raw = token_obj["scope"].as_str().ok_or((
+            ErrorCode::Internal,
+            "killed fact json missing `scope`".to_string(),
+        ))?;
+        let decision = token_obj["decision"].as_str().ok_or((
+            ErrorCode::Internal,
+            "killed fact json missing `decision`".to_string(),
+        ))?;
+        // The `killed`/`excluded` census is the verbatim registry row (`rows`
+        // in killed_tokens()), which `compile_lore_dli` reads as the YAML-parsed
+        // flow-mapping. The store fact carries `scope` as a single flat string,
+        // so rebuild the sibling columns YAML parsed as null-valued keys:
+        // `scope: a, b, c` -> scope=`a`, `b`=null, `c`=null. Today only the
+        // Colophon row has comma-joined columns (DL-0064); the other 19 rows
+        // have no `, ` in scope and pass through untouched.
+        let scope_parts: Vec<&str> = scope_raw.split(", ").collect();
+        let scope = scope_parts[0];
+        let mut row = token_obj.clone();
+        if scope_parts.len() > 1 {
+            row["scope"] = serde_json::Value::String(scope.to_string());
+            for extra in &scope_parts[1..] {
+                row[extra] = serde_json::Value::Null;
+            }
+        }
+        killed.push(row.clone());
+        if ratified_surfaces.contains(&token.to_lowercase()) {
+            excluded.push(row);
+        } else {
+            worker_projection.push(serde_json::json!({
+                "token": token,
+                "match": match_kind,
+                "decision": decision,
+                "scope": scope,
+            }));
+        }
+    }
+
+    // rejected_claims: iterate `factcheck-object-{key}` in COMMIT order (so the
+    // registry cue order is preserved), expand each fact's support monomial
+    // through the interner to recover the decision ids, and apply the two
+    // exclusions above.
+    let mut rejected_claims: Vec<serde_json::Value> = Vec::new();
+    for obj in serialized_objects {
+        let pred = obj["atom"]["pred"].as_str().ok_or((
+            ErrorCode::Internal,
+            "fact object missing predicate".to_string(),
+        ))?;
+        let Some(key) = pred.strip_prefix("factcheck-object-") else {
+            continue;
+        };
+        if !rejected_keys.contains(key) {
+            continue;
+        }
+        let args = obj["atom"]["args"].as_array().ok_or((
+            ErrorCode::Internal,
+            "factcheck-object fact missing args".to_string(),
+        ))?;
+        let subject = args.first().and_then(|v| v.as_str()).ok_or((
+            ErrorCode::Internal,
+            "factcheck-object fact missing subject".to_string(),
+        ))?;
+        let value = args.get(1).and_then(|v| v.as_str()).ok_or((
+            ErrorCode::Internal,
+            "factcheck-object fact missing value".to_string(),
+        ))?;
+        if asserted_slots.contains(&(subject.to_string(), key.to_string())) {
+            continue;
+        }
+        let match_kind = if value.contains(' ') {
+            "phrase"
+        } else {
+            "word"
+        };
+        let scope = format!("rejected {subject} {key}");
+        let monomials = obj["support"]["monomials"].as_array().ok_or((
+            ErrorCode::Internal,
+            "factcheck-object fact missing support.monomials".to_string(),
+        ))?;
+        let first = monomials.first().and_then(|m| m.as_array()).ok_or((
+            ErrorCode::Internal,
+            "factcheck-object fact has empty support monomial".to_string(),
+        ))?;
+        for lit in first {
+            let lit_str = lit.as_str().ok_or((
+                ErrorCode::Internal,
+                "support monomial literal is not a string".to_string(),
+            ))?;
+            let var = lit_str
+                .trim_start_matches(['+', '-'])
+                .parse::<usize>()
+                .map_err(|_| {
+                    (
+                        ErrorCode::Internal,
+                        format!("could not parse support literal {lit_str}"),
+                    )
+                })?;
+            let decision = interner.get(var).ok_or((
+                ErrorCode::Internal,
+                format!("support literal {lit_str} references nonexistent interner slot {var}"),
+            ))?;
+            rejected_claims.push(serde_json::json!({
+                "predicate": key,
+                "subject": subject,
+                "value": value,
+                "match": match_kind,
+                "decision": decision,
+                "scope": scope,
+            }));
+        }
+    }
+
+    Ok(serde_json::json!({
+        "killed": killed,
+        "worker_projection": worker_projection,
+        "rejected_claims": rejected_claims,
+        "excluded_ratified_surface_collisions": excluded,
+    }))
 }
 
 #[cfg(test)]
