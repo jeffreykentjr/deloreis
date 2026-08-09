@@ -2661,3 +2661,162 @@ the projection detects a store mutation → RED.
 longer a verbatim registry row, or if `compile_lore_dli.py`'s `killed_tokens()`
 semantics change (parity.json becomes the stale artifact, per the
 reconciled-empty gate on the fantasy side).
+
+## DL-0065 — The facts sub-maps (relations, constraints) reproduce parity from the folded store
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 facts sub-map projection (Path B), the
+store-sourced sibling of DL-0064 (killed-tokens) and DL-0067 (the general
+by_pred/YAML cutover rule). The projection code committed at `a51f3bd`
+(`canon_facts()`) was authored without its own ledger entry; DL-0065 retroactively
+records the ruling that the commit already encodes. Live and binding, pending
+async review (DL-0052).
+
+**Ruling.** `dli.corpus.export{format:"canon"}` projects the `relations` (12) and
+`constraints` (3) predicate buckets from the folded store fact objects at `head`,
+as `canonical.facts.{relations, constraints}`, each byte-identical to the
+committed `parity.json`:
+
+- `relations` (12 rows across 9 predicates: `adjacent_to`(3), `located_in`(2),
+  `upstream_of`(2), `raised_by`(1), `trained_by`(1), `member_of`(1),
+  `rigged_variant_of`(1), `reads`(1)) — the `(pred, args)` atoms from the folded
+  `by_pred` buckets, emitted in commit order (`serialized_objects`).
+- `constraints` (3: `constraint-kind`/`constraint-target`/`constraint-pattern`/
+  `constraint-description`) — emitted with their raw-regex `pattern` verbatim
+  (the `value` JSON is NOT re-parsed as a regex; the projection emits it as
+  found).
+
+Each row carries `decisions` (the `support` monomials expanded through the
+interner) and `status` (`support.monomials[0]`'s `provenance.marker` lowercased:
+`provisional`/`ratified`). The `support.monomials` literal `+N` is an interner
+index (`+N` → `interner[N]`) into the canonical decision set (`interner` len 68).
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_facts()` (joined into `canon_export` as `canonical.facts`); the
+`compile_facts` re-point in `scripts/compile_lore_dli.py`.
+
+**Verification.** `canon_export{facts}` byte-identifies to committed
+`parity.json` (`json.dumps(..., sort_keys=True)` equality): `by_pred` relation
+atoms match, constraint `pattern` strings match verbatim (no regex escape),
+`interner`/`decisions` match. `compile_lore_dli.py --check` green in both canon
+(`DELOREIS_BIN` set) and offline lanes; `git diff worlds/tpth/generated/` empty.
+Gate 21/21 (`GATE_EXIT=0`).
+
+**Revisit trigger.** Re-evaluated if a constraint `value` JSON stops being a
+verbatim constraint row, or if `compile_facts` re-renders `constraint-pattern`
+from a non-raw-regex source.
+
+## DL-0066 — The chronology before-edges reproduce the committed timeline from the folded store
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 chronology projection (Path C), the
+store-sourced sibling of DL-0064 (killed-tokens), DL-0065 (facts), and DL-0067
+(the general by_pred/YAML cutover rule). The projection code committed at
+`7e6aa56` (`canon_timeline()`) was authored without its own ledger entry; DL-0066
+retroactively records the ruling that the commit already encodes. Live and
+binding, pending async review (DL-0052).
+
+**Ruling.** `dli.corpus.export{format:"canon"}` projects the `before` predicate
+bucket as `canonical.timeline`, in four maps that byte-identify to the committed
+`parity.json` `timeline.dli` (flat, 4 edges):
+
+- `before_edges` (4): every `(earlier, later)` atom from the folded `before`
+  `by_pred` bucket, in commit order — `{before, after, decision, era, source,
+  status}` rows. `decision` is singular (per row, the interner-expanded `support`
+  monomial; all four `+7` → `interner[7]` → D-0072, the ratified batch-003 authoring
+  decision).
+- `era_provenance` (`{status:"ratified", decisions:[D-0040,D-0060,D-0062,D-0070,D-0072],
+  source:"event-citation-union"}`): the ratified era-decision union.
+- `events` (9) / `eras` (9): from the event/era atoms (rendered as era/offset lists
+  in `timeline.dli`, the `era` and `source` reassembled from the YAML
+  `timeline.yaml`'s era/offset grouping — the store carries no `era`/`source` in
+  the atom).
+
+The `line` rendering `before breaking-of-the-stones -> tithe-of-minds-sweeps
+provisional D-0072` is reproduced verbatim; chronologically-inconsistent pairs
+reverse the edge order and are rejected by the `fact.contradiction` guardrail, so
+a reverse `before` plant fails (use chronologically-consistent pairs).
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_timeline()` (joined into `canon_export` as `canonical.timeline`); the
+`compile_timeline` re-point in `scripts/compile_lore_dli.py`.
+
+**Verification.** `canon_export{timeline}` byte-identifies to committed
+`timeline.dli`; `compile_lore_dli.py --check` green in both canon and offline
+lanes; `git diff worlds/tpth/generated/` empty. Gate 21/21 (`GATE_EXIT=0`).
+Independent fresh-context red-team (reconstruct the 4 `before` edges from raw
+objects + plant a non-chronological `before` edge cited→`Decided`) confirms the
+projection detects a store mutation → RED → restore → GREEN (4 edges).
+
+**Revisit trigger.** Re-evaluated if the `before` fact atom gains an `era` or
+`source` field, or if `compile_timeline` no longer reassembles `era`/`source`
+from the YAML era/offset grouping.
+
+## DL-0067 — LS-7 by_pred / YAML cutover: canon carries the structural by_pred
+fields; ratified name surfaces stay YAML-sourced
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 lorestore cutover split, decided across the
+Path B (relations/constraints), Path C (before-edges), and Path E
+(person/role/alias) canon projections. DL-0064 opens the killed-tokens domain;
+DL-0067 settles the general rule governing every canon domain: which `by_pred`
+fields project into `dli.corpus.export{format:"canon"}` and which human-ratified
+display surfaces stay on the YAML fallback. Live and binding on the tree,
+pending the author's async review (DL-0052).
+
+**Ruling.** On the LS-7 cutover, the canon export projects the **structural
+`by_pred` fields** that are fully `by_pred`/commit-order-sufficient — each row
+carrying `decisions` (the `support` monomials expanded through the interner) and
+`status` (`provenance.marker` lowercased):
+
+- relations (`adjacent_to`, `located_in`, …), constraints, chronology `before`
+  edges, `killed`-registry atoms, and the character sheet's `person`, `role`,
+  and `alias` predicates (`canon_facts`, `canon_timeline`, `canon_characters`).
+
+Non-canonical markers are refused fail-closed at projection time: the MCP
+`author.*` tools emit `Decided`/`Proposed` markers (not the `.dli`-authored
+`Provisional`/`Ratified`), so a planted `Decided` row makes the export signal
+`ok=false` rather than silently rendering a non-canonical surface.
+
+The **human-ratified display `name` surfaces** stay YAML-sourced — not
+canon-projected:
+
+- `entities.name` (the `person <id> "<display name>"` surface, eg. `Enfys Livia`)
+  — `characters.yaml` supplies it; the store carries only the slug `name`
+  by_pred atoms (3, ratified D-0132/D-0134), not the display surfaces.
+- the guardrail `factcheck-alias` surfaces (the cue-checked alias surfaces eg.
+  `the Anchor`) — rendered by `compile_facts` from `cue_source`
+  (guardrail-facts.yaml), NOT from `canon.facts`. The `factcheck-alias` re-point
+  (Path D) was evaluated and **rejected**: the canonical `factcheck-alias` by_pred
+  (11 rows) is byte-identical to the committed `facts.dli` factcheck-alias lines,
+  so re-rooting changes nothing but reverses the ratified-surface YAML convention
+  for no byte-level gain.
+
+`compile_lore_dli.py`'s per-domain normalizers consume the canon projection when
+`DELOREIS_BIN` serves the lane; the matching YAML projection is the offline
+fallback so the offline CI gate (no binary) still reproduces `parity.json`
+byte-for-byte. Both emit identical output — `canon == parity`.
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_characters()` (joined into `canon_export` as `canonical.characters`) and the
+`compile_characters` re-point in `scripts/compile_lore_dli.py` (B-E Path E).
+
+**Verification.** `canon_export{characters}` over `/tmp/s5b` projects `person`: 5,
+`role`: 15, `alias`: 12 — byte-identical to the six core characters' committed
+`characters.dli` (5 `person` declarations + 6 `role` + 12 `alias`; `hound` is a
+declared entity and so has no `person` atom). `compile_lore_dli.py --check` is
+green in BOTH canon (`DELOREIS_BIN` set) and offline lanes (exit 0); `git diff
+worlds/tpth/generated/` is empty. `cargo xtask gate --ci` → `PASSED — 21 steps
+green`, `GATE_EXIT=0`. Independent fresh-context red-team (reconstruct
+`canon.characters` from raw objects + plant a bogus `protagonist alias`
+cited→`Decided`) confirms fail-closed: export `ok=false`
+(*"unknown person/role/alias provenance marker: Decided"*) → RED → restore →
+GREEN (5/15/12).
+
+**Revisit trigger.** Re-evaluated if display `name` surfaces are ever stored as
+`by_pred` `name` atoms carrying the canonical display surface (currently the
+store carries only slug `name` atoms, D-0132/D-0134), or if `compile_characters`
+selects a different character set than the YAML `characters.yaml` registry.

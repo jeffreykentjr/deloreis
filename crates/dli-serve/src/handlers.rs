@@ -2583,6 +2583,14 @@ fn canon_export(
         "timeline".to_string(),
         canon_timeline(&serialized_objects, &interner)?,
     );
+    // LS-7 / B-E path E: the character `by_pred` fields (`person`, `role`,
+    // `alias`) that `compile_characters` renders onto canon. `name` (the
+    // display surface) stays YAML-sourced via characters.yaml — see DL-0067;
+    // `compile_characters` re-joins the canonical rows to the YAML names.
+    canon.insert(
+        "characters".to_string(),
+        canon_characters(&by_pred, &interner)?,
+    );
     Ok(serde_json::Value::Object(canon))
 }
 
@@ -2790,6 +2798,122 @@ fn canon_timeline(
         }));
     }
     Ok(serde_json::Value::Array(edges))
+}
+
+/// Project the character `by_pred` fields that `compile_characters` renders onto
+/// canon (LS-7 / DL-0067 B-E path E): `person` (the 5 non-declared character ids
+/// — `hound` is a declared entity and has no `person` atom), `role` (15 atoms
+/// across all entities; `compile_characters` selects the six core character
+/// rows), and `alias` (12). Each row carries `decisions` (the `support`
+/// monomials expanded through the interner) and `status` (`provenance.marker`
+/// lowercased). The human-ratified display `name` is NOT carried here —
+/// `entities.name` stays YAML-sourced (characters.yaml) per DL-0067 and is
+/// re-joined by `compile_characters`; the guardrail `factcheck-alias` surfaces
+/// likewise stay YAML-sourced (the `factcheck-alias` re-point was rejected).
+/// `status` is derived from the marker to fail-closed on non-canonical markers
+/// (eg. a `Decided` row — see the path-E red-team); canonical character rows are
+/// all `Ratified`. Commit order is carried by `by_pred`'s per-predicate Vec
+/// (DL-0064).
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::collapsible_if)]
+fn canon_characters(
+    by_pred: &BTreeMap<String, Vec<serde_json::Value>>,
+    interner: &[String],
+) -> Result<serde_json::Value, Fault> {
+    use serde_json::json;
+
+    // Expand a fact object's `support` monomials through the interner, sorted +
+    // deduped — mirrors `canon_facts`' `support_decisions` (DL-0064).
+    let support_decisions =
+        |o: &serde_json::Value| -> Result<Vec<String>, Fault> {
+            let mut ds = Vec::new();
+            if let Some(mons) = o["support"]["monomials"].as_array() {
+                if let Some(first) = mons.first().and_then(|m| m.as_array()) {
+                    for lit in first {
+                        if let Some(s) = lit.as_str() {
+                            let var = s.trim_start_matches(['+', '-']).parse::<usize>().map_err(
+                                |_| (ErrorCode::Internal, format!("bad support literal: {s}")),
+                            )?;
+                            if let Some(d) = interner.get(var) {
+                                ds.push(d.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            ds.sort();
+            ds.dedup();
+            Ok(ds)
+        };
+
+    // Lowercase `provenance.marker`, failing closed on a non-canonical marker
+    // (eg. a `Decided` row planted by the red-team — the canonical character
+    // rows are all `Ratified`).
+    let status_of = |o: &serde_json::Value| -> Result<String, Fault> {
+        match o["provenance"]["marker"].as_str() {
+            Some("Ratified") => Ok("ratified".to_string()),
+            Some("Provisional") => Ok("provisional".to_string()),
+            Some("Proposed") => Ok("proposed".to_string()),
+            Some(m) => Err((
+                ErrorCode::Internal,
+                format!("unknown person/role/alias provenance marker: {m}"),
+            )),
+            None => Ok("asserted".to_string()),
+        }
+    };
+
+    // `person` atoms: args[0] is the id (no surface — the display name is
+    // YAML-sourced, re-joined by `compile_characters`). Commit order via
+    // `by_pred["person"]`.
+    let mut persons: Vec<serde_json::Value> = Vec::new();
+    if let Some(objs) = by_pred.get("person") {
+        for o in objs {
+            let args = o["atom"]["args"]
+                .as_array()
+                .ok_or((ErrorCode::Internal, "person atom has no args".to_string()))?;
+            let id = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or((ErrorCode::Internal, "person id missing".to_string()))?;
+            persons.push(json!({
+                "id": id,
+                "decisions": support_decisions(o)?,
+                "status": status_of(o)?,
+            }));
+        }
+    }
+
+    // `role` and `alias` atoms: args[0] = subject, args[1] = surface. Per-predicate
+    // commit order via `by_pred`.
+    let project_subject_surface = |pred: &str| -> Result<Vec<serde_json::Value>, Fault> {
+        let mut out: Vec<serde_json::Value> = Vec::new();
+        if let Some(objs) = by_pred.get(pred) {
+            for o in objs {
+                let Some(args) = o["atom"]["args"].as_array() else {
+                    continue;
+                };
+                let Some(subject) = args.first().and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                let Some(surface) = args.get(1).and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                out.push(json!({
+                    "subject": subject,
+                    "surface": surface,
+                    "decisions": support_decisions(o)?,
+                    "status": status_of(o)?,
+                }));
+            }
+        }
+        Ok(out)
+    };
+
+    Ok(json!({
+        "person": persons,
+        "role": project_subject_surface("role")?,
+        "alias": project_subject_surface("alias")?,
+    }))
 }
 
 /// Project the folded fact objects into `compile_lore_dli.py`'s `killed_tokens()`
