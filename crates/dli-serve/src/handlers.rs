@@ -2574,6 +2574,15 @@ fn canon_export(
         "facts".to_string(),
         canon_facts(&serialized_objects, &by_pred, &interner)?,
     );
+    // LS-7 / B-E path C: the 4 chronology `before` edges, projected from the
+    // folded `before` fact objects in commit order. `compile_timeline`
+    // reassembles the human-ratified `era`/`source` columns from the YAML
+    // `eras`/`events`; canon carries only the atom-derived fields
+    // ({before, after, decision, status}) — byte-exact for those.
+    canon.insert(
+        "timeline".to_string(),
+        canon_timeline(&serialized_objects, &interner)?,
+    );
     Ok(serde_json::Value::Object(canon))
 }
 
@@ -2719,6 +2728,68 @@ fn canon_facts(
         "relations": relations,
         "constraints": constraints,
     }))
+}
+
+/// Project the 4 chronology `before` fact objects into `compile_timeline`'s
+/// `before_edges` rows. Only the atom-derived fields are carried here:
+/// `before` (args[0], the earlier event), `after` (args[1], the later event),
+/// `decision` (the later event's ratification — `support.monomials[0]` expanded
+/// through the interner, mirroring `canon_killed_tokens`' `rejected_claims`
+/// expansion), and `status` (`provenance.marker` lowercased). The `era` and
+/// `source: "offset-translated"` columns are `compile_timeline`'s own
+/// event-grouping derivation (eras/events stay YAML-sourced per LS-7) and are
+/// reassembled by the normalizer, so canon stays byte-exact for the fields it
+/// owns. Commit order is carried by `serialized_objects` (DL-0064).
+fn canon_timeline(
+    serialized_objects: &[serde_json::Value],
+    interner: &[String],
+) -> Result<serde_json::Value, Fault> {
+    use serde_json::json;
+
+    let mut edges: Vec<serde_json::Value> = Vec::new();
+    for o in serialized_objects
+        .iter()
+        .filter(|o| o["atom"]["pred"].as_str() == Some("before"))
+    {
+        let args = o["atom"]["args"]
+            .as_array()
+            .ok_or((ErrorCode::Internal, "before atom has no args".to_string()))?;
+        let before = args.first().and_then(|v| v.as_str()).ok_or((
+            ErrorCode::Internal,
+            "before atom subject missing".to_string(),
+        ))?;
+        let after = args.get(1).and_then(|v| v.as_str()).ok_or((
+            ErrorCode::Internal,
+            "before atom object missing".to_string(),
+        ))?;
+        let status = match o["provenance"]["marker"].as_str() {
+            Some("Provisional") => "provisional",
+            Some("Ratified") => "ratified",
+            Some(m) => {
+                return Err((
+                    ErrorCode::Internal,
+                    format!("unknown before-atom provenance marker: {m}"),
+                ));
+            }
+            None => "asserted",
+        };
+        let decision = o["support"]["monomials"]
+            .as_array()
+            .and_then(|m| m.first())
+            .and_then(|m| m.as_array())
+            .and_then(|m| m.first())
+            .and_then(|l| l.as_str())
+            .and_then(|s| s.trim_start_matches(['+', '-']).parse::<usize>().ok())
+            .and_then(|var| interner.get(var).cloned())
+            .unwrap_or_default();
+        edges.push(json!({
+            "before": before,
+            "after": after,
+            "decision": decision,
+            "status": status,
+        }));
+    }
+    Ok(serde_json::Value::Array(edges))
 }
 
 /// Project the folded fact objects into `compile_lore_dli.py`'s `killed_tokens()`
