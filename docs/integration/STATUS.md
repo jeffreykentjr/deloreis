@@ -210,3 +210,57 @@ should be minted once the contended single-writer `docs/decisions.md` is read ba
 in full (it is being appended by the parallel `finding-sanitize` lane — not
 clobbered mid-flight).
 
+## FW-6 flip checkpoint — Phase 2 B–E complete (canon_characters, DL-0067)
+
+All three canon projections are committed, gated, and red-TEAM'd (fresh-context
+reconstruction of the canon sub-maps from raw objects + planted divergence →
+RED → restore → GREEN):
+
+- **Path A** `canon_killed_tokens` (killed=20 / worker=19 / rejected=5 / excluded=1):
+  deloreis `2a3730e` (DL-0064). Re-seed `db80a5a3`→`6a165d81` (578 objects).
+- **Path B** `canon_facts` (relations=12, constraints=3): deloreis `a51f3bd`;
+  fw6-flip `7189c9a2`. **DL-0065** (minted on `integration-status`, retrospectively
+  recording the ruling the `canon_facts()` commit already encodes).
+- **Path C** `canon_timeline` (before=4): deloreis `7e6aa56`; fw6-flip `65e6dd34`.
+  **DL-0066** (minted on `integration-status`; before-edges `+7`→`interner[7]→D-0072`).
+- **Path E** `canon_characters` (person=5, role=15, alias=12): deloreis `4c9afeb`;
+  fw6-flip `c37b6490`. **DL-0067** settles the general rule: structural `by_pred`
+  fields (person/role/alias, relations, constraints, before, killed) → canon;
+  the human-ratified display `name` surfaces (`entities.name`, the guardrail
+  `factcheck-alias` surfaces) stay YAML-sourced from `characters.yaml`/
+  `cue_source`.
+
+**finding-sanitize lane — resolved stalled.** The contending single-writer lane
+on `docs/decisions.md` during paths B-E is **stalled**: its worktree is absent
+from `git worktree list` and no orphaned commit holds DL-0065/0066 (`git log
+--all --grep` clean) — the `agent-a1b5e029059455d70`/ls9-integration tree is a
+separate BEHIND lane (DL-0049, not appending this ledger). DL-0065/0066 were
+therefore minted retrospectively to keep the ledger's strict sequence
+(`DL-0064→0065→0066→0067`; `cargo xtask authority` valid). DL-0064's re-seed
+ledger entry remains live. **Path D** (factcheck-alias re-point onto canon) stays
+**rejected** — byte-neutral already (canon `factcheck-alias` 11 rows == committed
+11 lines; L657 keeps it YAML-sourced), DO NOT redo.
+
+**Per-domain red-teams (all GREEN/RED/restore/GREEN):**
+- facts: GREEN(12 rels)→PLANT `keep-stamped-deck adjacent_to bogus-redteam-realm`→RED(13, --check STALE)→restore→GREEN(12).
+- timeline: GREEN(4 before)→PLANT `prosperous-cycles before story-opening` cited→Decided→RED("unknown before-atom provenance marker: Decided")→restore→GREEN(4).
+- characters: GREEN(5/15/12)→PLANT `fact protagonist alias "bogus redteam alias"` cited→Decided→RED("unknown person/role/alias provenance marker: Decided")→restore→GREEN(5/15/12).
+
+**Gate / check:** `cargo xtask gate --ci` (tg-findingsanitize target) →
+`PASSED — 21 steps green`, `GATE_EXIT=0`. `compile_lore_dli.py --check` green in
+BOTH canon (`DELOREIS_BIN=/home/jeff/tg-dm4fix/debug/deloreis`, default
+`CANON_PROJECT` → committed `6a165d81`) and offline (`DELOREIS_BIN` unset) lanes;
+`git diff worlds/tpth/generated/` empty. Serving binary `dm4fix` rebuilt
+(`BUILD_EXIT=0`); `dm4fix` is NOT re-built after the clippy `#[allow]` (no-op) attr.
+
+**Dialects / names YAML-only (LS-7 confirmed):** `names.dli`←`ratified_names.yaml`,
+`dialects.dli`←`registers.yaml` — no `canon_<domain>` needed (these surfaces are
+absent from `by_pred`; `person <id> "<name>"` is the YAML name surface, `name`
+by_pred is the 3 ratified slug atoms). `cargo xtask docs-oracle` ("71 dli units
+parse; 86 json blocks") + `cargo xtask authority` green.
+
+**Phase 3/4 §5 authoring over `/tmp/s5`:** **blocked** on EXT-F4 / FW-6 flip land.
+The authored canon surface (B-E) is in place; the `author.*` authoring session over
+`/tmp/s5` is deferred until the flip lands. `docs/integration/migration.md` is the
+in-flight handoff for that lane.
+
