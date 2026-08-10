@@ -4,6 +4,9 @@
   "description": "`dli.corpus.export` result.",
   "type": "object",
   "properties": {
+    "canon": {
+      "description": "The canon-normalized per-domain maps, when `format: canon` was asked\nfor. `null` (omitted from the serialized response) for non-canon\nexports. Round-trips with `objects` and `interner`: re-importing\n`objects` at `root_hash` reproduces this projection."
+    },
     "decisions": {
       "description": "The decision ids known at that commit — what makes a fact read `decided`\nrather than `proposed assumes`. Round-trips with `objects` and\n`interner`; the three together are the exported state.",
       "type": "array",

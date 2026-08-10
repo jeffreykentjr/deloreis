@@ -928,6 +928,7 @@ fn every_capability_gate_is_a_floor_not_an_exact_match() {
     let gates: &[Gate] = &[
         ("branch/merge", "0.6.1", dli_serve::has_branch_merge),
         ("corpus ops", "1.2.0", dli_serve::has_corpus_ops),
+        ("canon export", "1.4.0", dli_serve::has_canon_export),
         ("expert authoring", "1.3.0", dli_serve::has_expert_authoring),
         ("citation recording", "1.3.0", dli_serve::records_citations),
     ];

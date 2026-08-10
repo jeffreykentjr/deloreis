@@ -85,6 +85,7 @@ pub fn factcheck(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<ClaimReport>
 }
 
 /// Classify one claim.
+#[allow(clippy::too_many_lines)]
 fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     let rendered = render_atom(claim);
 
@@ -117,39 +118,56 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         }
     }
 
-    // Rejected lore first: a claim naming a killed token is contradicted outright.
-    // Keep every matching ruling; one rejected form may have several authorities.
-    let killed_hits = claim
-        .args
-        .iter()
-        .filter_map(|term| match term {
-            dli_ast::term::Term::Sym(id) => Some(id.text.as_str()),
-            dli_ast::term::Term::Str(text) => Some(text.as_str()),
-            _ => None,
-        })
-        .chain(std::iter::once(claim.pred.text.as_str()))
-        .flat_map(|token| world.killed.hits(token))
-        .collect::<Vec<_>>();
-    if !killed_hits.is_empty() {
-        let citations = killed_hits
+    // The `killed` registry predicate records a banned token as its payload; the
+    // token is the fact's subject matter, not a realized usage, so it is exempt
+    // from the killed-token substring scan (DL-0063, refined by DL-0064). This
+    // covers both the lore `killed(E, V)` form (`pred == "killed"`) and the
+    // `declaration(E, killed, V, source)` form staged by `author.add_fact`
+    // (`pred == "declaration"` with the `killed` attr as `args[1]`, since the
+    // registry value embeds the very token being banned). The rejected_hits
+    // (contextual rejected-claim) check above still applies to it.
+    let registry_key_is_killed = claim.args.get(1).is_some_and(|term| match term {
+        dli_ast::term::Term::Sym(id) => id.text.as_str() == "killed",
+        dli_ast::term::Term::Str(text) => text.as_str() == "killed",
+        _ => false,
+    });
+    let is_killed_registry_fact = claim.pred.text.as_str() == "killed"
+        || (claim.pred.text.as_str() == "declaration" && registry_key_is_killed);
+    if !is_killed_registry_fact {
+        // Rejected lore first: a claim naming a killed token is contradicted outright.
+        // Keep every matching ruling; one rejected form may have several authorities.
+        let killed_hits = claim
+            .args
             .iter()
-            .map(|hit| hit.decision.clone())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect();
-        let reasons = killed_hits
-            .iter()
-            .map(|hit| format!("'{}' ({}): {}", hit.token, hit.decision, hit.scope))
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
-            .join("; ");
-        return ClaimReport {
-            claim: rendered,
-            verdict: Verdict::Contradicted,
-            citations,
-            reason: format!("realizes killed token ruling(s): {reasons}"),
-        };
+            .filter_map(|term| match term {
+                dli_ast::term::Term::Sym(id) => Some(id.text.as_str()),
+                dli_ast::term::Term::Str(text) => Some(text.as_str()),
+                _ => None,
+            })
+            .chain(std::iter::once(claim.pred.text.as_str()))
+            .flat_map(|token| world.killed.hits(token))
+            .collect::<Vec<_>>();
+        if !killed_hits.is_empty() {
+            let citations = killed_hits
+                .iter()
+                .map(|hit| hit.decision.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            let reasons = killed_hits
+                .iter()
+                .map(|hit| format!("'{}' ({}): {}", hit.token, hit.decision, hit.scope))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join("; ");
+            return ClaimReport {
+                claim: rendered,
+                verdict: Verdict::Contradicted,
+                citations,
+                reason: format!("realizes killed token ruling(s): {reasons}"),
+            };
+        }
     }
 
     let Some((slot, value)) = slot else {

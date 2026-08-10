@@ -685,6 +685,45 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
     );
 }
 
+/// The canon projection is a 1.4.0 wire addition. Older negotiated versions
+/// retain the released closed-enum schema refusal, while 1.4.0 exposes the
+/// store-derived projection without changing the objects default.
+#[test]
+fn canon_export_is_gated_at_contract_1_4_0() {
+    let (_root, mut sessions, mut store) = corpus_server("corpus-canon-version");
+
+    let old = send(
+        &serde_json::json!({"dli":"1.3.0","id":"1","op":"dli.corpus.export",
+                            "params":{"document":"tpth","format":"canon"}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(
+        old["ok"], false,
+        "1.3.0 keeps the canon schema refusal: {old}"
+    );
+    assert_eq!(old["error"]["code"], "schema-violation", "{old}");
+    assert!(
+        old["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("unknown variant `canon`"),
+        "the refusal names the released enum surface: {old}"
+    );
+
+    let current = send(
+        &serde_json::json!({"dli":"1.4.0","id":"2","op":"dli.corpus.export",
+                            "params":{"document":"tpth","format":"canon"}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(current["ok"], true, "1.4.0 serves canon export: {current}");
+    assert!(
+        current["result"]["canon"].is_object(),
+        "the 1.4.0 response carries the canon projection: {current}"
+    );
+}
+
 /// The corpus round-trip is lossless, and that is a stronger claim than
 /// "the objects match": a stored fact records its support as `±<index>` into the
 /// commit's interner, and its standing is read against the commit's decision

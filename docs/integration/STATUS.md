@@ -119,3 +119,147 @@ handoff's `/home/jeff/tg-findingsanitize/debug/deloreis` was clobbered by a delo
 rebuild (no store surface) — FW-6/MCP work uses the dm4fix binary at
 `/home/jeff/tg-dm4fix/debug/deloreis` (contract/1.3.0).
 
+### 2026-08-07 — Phase 2 path A1 CLOSED: killed-tokens canon domain verified (gate 21/21 GREEN)
+
+**deloreis canonical projection (committed via DL-0064/DL-0065):**
+- `CorpusExportFormat` gained `Canon`; `CorpusExportResult` gained `canon: Option<serde_json::Value>`.
+- `canon_export()` (`handlers.rs`) folds the live `FactObject`s at head into a
+  `BTreeMap<String, Vec<Value>>` keyed by `atom.pred`, returning `{by_pred, interner, decisions, killed_tokens}`.
+- Schemas regenerated (`xtask schema`, 2 drift files: `dli.corpus.export.{request,response}.json`).
+- Live probe over a throwaway copy (`/tmp/s5b`) with the rebuilt dm4fix: `--canon` returns all
+  74 predicates bucketed (`__decl`=149, `source-kind`=23, `name-note`=20, `person`=5,
+  `place`=8, `thing`=15, `event`=9, `era`, `before`, `name`, `name-part`, `dialect`,
+  `factcheck-alias`=11, plus ~50 lore fact-predicates). `decisions` census = 68 ratified ids;
+  `interner` (68 symbols, 0-based) carries decision ids, so `support` monomials
+  (`+N` → `interner[N]`) ARE resolvable — byte-identical projection is real, not fantasy.
+
+**killed-tokens blocker — RESOLVED by DL-0064 + DL-0065.** The circular
+contradiction (storing a banned token fires the checker that bans tokens) is
+broken at the predicate boundary: DL-0064 exempts the `killed` registry fact at
+all three scan sites, so `fact killed-token-registry <json>` materializes; the
+token remains refused everywhere else under `factcheck.contradicted`.
+`canon_export` then projects the killed-tokens domain purely from the folded
+objects, byte-identical to committed `worlds/tpth/generated/parity.json`:
+
+- `killed` (20): `fact killed-token-registry <json>` rows emitted as the verbatim
+  registry-row object. `match` is read verbatim from the stored JSON (not
+  re-derived — `doom-wight`/`doom-ward` are `"phrase"` despite no space).
+- `worker_projection` (19): killed rows whose token is **not** a ratified
+  surface — 4-key `{token, match, decision, scope}` (no `kind`).
+- `excluded_ratified_surface_collisions` (1 = Frankpledge/D-0138): killed rows
+  whose token **is** a ratified surface (Frankpledge is a real declared entity);
+  full field set.
+- `rejected_claims` (5): `factcheck-object-{key}` facts expanded through the
+  interner via `support` monomials, in commit order. `gender` is excluded
+  (ratified → no `factcheck-reject-*` cue); `mortality` is excluded (its slot is
+  owned by a plain asserted `fact`).
+
+**Colophon scope split (DL-0065):** the store fact carries `scope` as a single
+flat string; the projection `split(", ")`s it and rebuilds the sibling columns
+YAML parsed as null-valued keys (`scope: a, b, c` → `scope="a"`, `b=null`,
+`c=null`) — today only the Colophon row. Commit order is carried by
+`serialized_objects` (the ordered Vec), not the `by_pred` BTreeMap.
+
+**Verification.** `canon_export{killed_tokens}` over `/tmp/s5b`
+(root_hash `sha256:6a165d81…`, 578 objects, interner 68, decisions 68)
+byte-identifies to committed `parity.json` (`sort_keys=True` equality):
+`killed: 20/20`, `worker_projection: 19/19`, `rejected_claims: 5/5`,
+`excluded: 1/1`, AND `by_pred`/`interner`/`decisions` match. `cargo xtask gate
+--ci` → `PASSED — 21 steps green`. Independent red-team (fresh-context
+reconstruction from the raw `objects` export + a planted divergence) passes GREEN
+before the plant and RED after. Full empirical derivation: `docs/design-notes/LS-7-killed-tokens-canon.md`.
+
+### 2026-08-07 — Phase 2 store-migration gate CLOSED (committed re-seed `b19b0740`)
+
+**Committed-store re-seed, reversible.** Authored the 20 killed-token registry
+facts (cited D-0108) into the committed `worlds/tpth` lorestore via `author.*`,
+re-rooting `db80a5a3` (556 objects) → `6a165d81` (578 objects; +22 = registry
+`thing`+`__decl` decl + 20 `killed`). The killed-tokens canon domain is now
+reproducible against the **committed** lane: `canon_export{format:"canon"}` on the
+committed manifest yields `killed=20 / worker_projection=19 / rejected_claims=5 /
+excluded=1`, byte-identical to committed `generated/{parity.json,killed-tokens.yaml}`
+(`git diff` empty); `check-lore-cutover-boundaries.sh` stays green. Non-vacuous
+red-team (plant divergence on `/tmp/s5b` ≡ committed `6a165d81` → RED → restore →
+GREEN) passed. Gate: `cargo xtask gate --ci` → 21/21 green. The canonical lane is
+no longer `/tmp/s5b`-only; `/tmp/s5b` is re-synced to `6a165d81`.
+
+**Paths B–E feasibility (byte-exact fold probes against `by_pred`):**
+- `facts.factcheck_aliases` (11) — 1:1 `factcheck-alias` args `[subject,surface]` →
+  `{subject,surface}`. **Byte-exact. Fully canon-derivable.** (mechanism validated)
+- `facts.relations` (12, 8 predicates) — `{subject, kind←predicate, object, decisions←support→interner
+  sorted, status:'ratified'}`. Fold located (decl/interner join); byte-exact confirmation pending the
+  ordered commit-order match (the field mapping is exact).
+- `facts.entities` (23) — `id`/`kind`/`decisions`/`note` recoverable from
+  `source-kind`+`name-note`, but the `name` surface for places/concepts
+  (e.g. `The Keep-Stamped Deck`, `Whitecombe`) is **not a by_pred arg** (only the
+  lowercased id + a `Name` decl survive) — a human-ratified surface → **not fully
+  canon-derivable** without a name-source.
+- `characters`/`names` — name surfaces likewise not all present as by_pred args
+  → **YAML-sourced** (ratified registries), the projection carries only the
+  by_pred-sufficient fields.
+- `dialects.registers` — phonotactics live in `src/fantasy/naming/data/registers.yaml`
+  (external), **not by_pred** → YAML-sourced (per LS-7).
+
+**Remaining Phase 2 (B–E):** a *per-domain by_pred-sufficiency analysis*, not a
+uniform port. `canon_export` will emit the by_pred-sufficient sub-maps
+(`factcheck_aliases`, `relations`, event/era edges, entity decls,…) as canonical
+projections; the human-ratified surfaces (`names`, `dialects.registers`, entity
+`name` for concepts/places) stay as explicit YAML fallback sources in
+`compile_lore_dli.py products()`. A ledger entry for the committed-store re-seed
+should be minted once the contended single-writer `docs/decisions.md` is read back
+in full (it is being appended by the parallel `finding-sanitize` lane — not
+clobbered mid-flight).
+
+## FW-6 flip checkpoint — Phase 2 B–E complete (canon_characters, DL-0068)
+
+All three canon projections are committed, gated, and red-TEAM'd (fresh-context
+reconstruction of the canon sub-maps from raw objects + planted divergence →
+RED → restore → GREEN):
+
+- **Path A** `canon_killed_tokens` (killed=20 / worker=19 / rejected=5 / excluded=1):
+  deloreis `2a3730e` (DL-0065). Re-seed `db80a5a3`→`6a165d81` (578 objects).
+- **Path B** `canon_facts` (relations=12, constraints=3): deloreis `a51f3bd`;
+  fw6-flip `7189c9a2`. **DL-0066** (minted on `integration-status`, retrospectively
+  recording the ruling the `canon_facts()` commit already encodes).
+- **Path C** `canon_timeline` (before=4): deloreis `7e6aa56`; fw6-flip `65e6dd34`.
+  **DL-0067** (minted on `integration-status`; before-edges `+7`→`interner[7]→D-0072`).
+- **Path E** `canon_characters` (person=5, role=15, alias=12): deloreis `4c9afeb`;
+  fw6-flip `c37b6490`. **DL-0068** settles the general rule: structural `by_pred`
+  fields (person/role/alias, relations, constraints, before, killed) → canon;
+  the human-ratified display `name` surfaces (`entities.name`, the guardrail
+  `factcheck-alias` surfaces) stay YAML-sourced from `characters.yaml`/
+  `cue_source`.
+
+**finding-sanitize lane — resolved stalled.** The contending single-writer lane
+on `docs/decisions.md` during paths B-E is **stalled**: its worktree is absent
+from `git worktree list` and no orphaned commit holds DL-0066/0067 (`git log
+--all --grep` clean) — the `agent-a1b5e029059455d70`/ls9-integration tree is a
+separate BEHIND lane (DL-0049, not appending this ledger). DL-0066/0067 were
+therefore minted retrospectively to keep the ledger's strict sequence
+(`DL-0065→0066→0067→0068`; `cargo xtask authority` valid). DL-0065's re-seed
+ledger entry remains live. **Path D** (factcheck-alias re-point onto canon) stays
+**rejected** — byte-neutral already (canon `factcheck-alias` 11 rows == committed
+11 lines; L657 keeps it YAML-sourced), DO NOT redo.
+
+**Per-domain red-teams (all GREEN/RED/restore/GREEN):**
+- facts: GREEN(12 rels)→PLANT `keep-stamped-deck adjacent_to bogus-redteam-realm`→RED(13, --check STALE)→restore→GREEN(12).
+- timeline: GREEN(4 before)→PLANT `prosperous-cycles before story-opening` cited→Decided→RED("unknown before-atom provenance marker: Decided")→restore→GREEN(4).
+- characters: GREEN(5/15/12)→PLANT `fact protagonist alias "bogus redteam alias"` cited→Decided→RED("unknown person/role/alias provenance marker: Decided")→restore→GREEN(5/15/12).
+
+**Gate / check:** `cargo xtask gate --ci` (tg-findingsanitize target) →
+`PASSED — 21 steps green`, `GATE_EXIT=0`. `compile_lore_dli.py --check` green in
+BOTH canon (`DELOREIS_BIN=/home/jeff/tg-dm4fix/debug/deloreis`, default
+`CANON_PROJECT` → committed `6a165d81`) and offline (`DELOREIS_BIN` unset) lanes;
+`git diff worlds/tpth/generated/` empty. Serving binary `dm4fix` rebuilt
+(`BUILD_EXIT=0`); `dm4fix` is NOT re-built after the clippy `#[allow]` (no-op) attr.
+
+**Dialects / names YAML-only (LS-7 confirmed):** `names.dli`←`ratified_names.yaml`,
+`dialects.dli`←`registers.yaml` — no `canon_<domain>` needed (these surfaces are
+absent from `by_pred`; `person <id> "<name>"` is the YAML name surface, `name`
+by_pred is the 3 ratified slug atoms). `cargo xtask docs-oracle` ("71 dli units
+parse; 86 json blocks") + `cargo xtask authority` green.
+
+**Phase 3/4 §5 authoring over `/tmp/s5`:** **blocked** on EXT-F4 / FW-6 flip land.
+The authored canon surface (B-E) is in place; the `author.*` authoring session over
+`/tmp/s5` is deferred until the flip lands. `docs/integration/migration.md` is the
+in-flight handoff for that lane.
