@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.3.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the expert tool surface, the corpus exchange, the authority scrub, and complete paired framing replay are implemented; the server speaks 1.3.0 alongside the whole accepted 0.5.1-0.6.4, 1.0.0, 1.1.0 and 1.2.0 window."
+verdict: "The generic worker contract at 1.4.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the expert tool surface, the corpus exchange, the canon projection, the authority scrub, and complete paired framing replay are implemented; the server speaks 1.4.0 alongside the whole accepted legacy window."
 ---
 
 # The dli-worker contract
@@ -18,13 +18,13 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.3.0` (`decisions.md` DL-0051,
+> **Implementation status:** the contract is at `1.4.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058). It carries typed responses for all 57 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, and `1.3.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, and `1.4.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -110,7 +110,7 @@ The table states the semantics every advertised operation satisfies.
 | `dli.attestation-sweep` | Validate and append an attestation sweep's results to the store. | accepted count + immutable batch digest |
 | `dli.payload-submit` | Submit a `payload/v1` document: validate, quote-anchor-check, store. | findings + payload digest |
 | `dli.corpus.import` | **≥ `1.2.0`.** Seed or extend a store-backed document's corpus. `document`; `mode` `init`/`append`; exactly one of `objects` (fact objects, any build) or `dli_documents` (syntax builds only). An `objects` payload also carries `interner`, and `decisions` unless the store has none. | `{root_hash, imported_count, findings}` |
-| `dli.corpus.export` | **≥ `1.2.0`.** The folded live facts of a store-backed document — state, not the commit log. `document`; optional `at` (a store commit hash, default the served head); `format` `objects` (default) or `rendered` (syntax builds only). | `{root_hash, objects, interner, decisions, rendered?}` |
+| `dli.corpus.export` | **≥ `1.2.0`; `format: canon` ≥ `1.4.0`.** The folded live facts of a store-backed document — state, not the commit log. `document`; optional `at` (a store commit hash, default the served head); `format` `objects` (default), `rendered` (syntax builds only), or `canon` (the LS-7 normalized projection). | `{root_hash, objects, interner, decisions, rendered?, canon?}` |
 
 `dli.fork.suppose` **supersedes** `dli.suppose`, which is a **killed form** — it
 is registered as such and the server refuses it with a `refused` error naming
@@ -430,6 +430,11 @@ decoupled, and the compatibility window carries the consumer across.
   recorded as data, with referential integrity kept fail-closed (§3.2). Below
   `1.3.0` the `provenance.cited-refused` behavior is unchanged, on every version,
   permanently.
+- **What `1.4.0` changes.** The canon-normalized `dli.corpus.export` format
+  (DL-0069) joins the existing `objects` and `rendered` forms. It returns the
+  store-derived `canon` projection alongside the unchanged corpus fields, and
+  is gated on the negotiated version: `1.3.0` and earlier retain the released
+  schema refusal for `format: canon`.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

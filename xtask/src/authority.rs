@@ -1,6 +1,7 @@
 //! Machine checks for the decision ledger and PLAN node-state matrix.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -235,17 +236,13 @@ fn valid_date_line(line: &str) -> bool {
 }
 
 fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
-    let Some(head) = git_file(root, "HEAD", LEDGER)? else {
-        return Ok(());
-    };
-    let baseline = if current == head {
-        git_file(root, "HEAD^", LEDGER)?
-    } else {
-        Some(head)
-    };
-    if let Some(previous) = baseline
-        && !current.starts_with(&previous)
-    {
+    let base_ref = env::var("GITHUB_BASE_REF").map_or_else(
+        |_| "origin/main".to_owned(),
+        |branch| format!("origin/{branch}"),
+    );
+    let merge_base = git_merge_base(root, &base_ref)?;
+    let baseline = git_file(root, &merge_base, LEDGER)?;
+    if !current.starts_with(&baseline) {
         bail!(
             "{LEDGER} is not append-only: bytes already present in the comparison revision changed"
         );
@@ -253,16 +250,39 @@ fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn git_file(root: &Path, revision: &str, path: &str) -> Result<Option<Vec<u8>>> {
+fn git_merge_base(root: &Path, base_ref: &str) -> Result<String> {
+    let output = Command::new("git")
+        .current_dir(root)
+        .args(["merge-base", "HEAD", base_ref])
+        .output()
+        .with_context(|| format!("could not invoke git to find merge-base with {base_ref}"))?;
+    if !output.status.success() {
+        bail!(
+            "could not read the authority baseline: git merge-base HEAD {base_ref} failed; fetch the PR base with full history"
+        );
+    }
+    let revision = String::from_utf8(output.stdout)
+        .context("git merge-base returned non-UTF-8 output")?
+        .trim()
+        .to_owned();
+    if revision.is_empty() {
+        bail!("could not read the authority baseline: merge-base was empty");
+    }
+    Ok(revision)
+}
+
+fn git_file(root: &Path, revision: &str, path: &str) -> Result<Vec<u8>> {
     let output = Command::new("git")
         .current_dir(root)
         .args(["show", &format!("{revision}:{path}")])
         .output()
         .context("could not invoke git for the ledger append-only check")?;
     if output.status.success() {
-        Ok(Some(output.stdout))
+        Ok(output.stdout)
     } else {
-        Ok(None)
+        bail!(
+            "could not read the authority baseline `{revision}:{path}`; missing history is a hard failure"
+        );
     }
 }
 

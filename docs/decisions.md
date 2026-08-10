@@ -2536,3 +2536,373 @@ verdict. This ruling names that boundary before implementation work begins.
 **Revisit trigger.** A proposed public segment wire shape, a second valuation
 context, or a consensus-selection policy requires a successor ruling with its
 own compatibility and exactness oracle.
+## DL-0063 — The `killed` registry predicate is exempt from the factcheck.contradicted killed-hit scan
+
+*Date: 2026-08-06*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `dli_world::check::factcheck::classify` scans every asserted claim's
+`args` + `pred` text for killed-token substrings (the `killed_hits` block in
+`crates/dli-world/src/check/factcheck.rs`). A `killed` registry fact *records* a banned
+token as its **payload**: embedding the token in the fact's value is the fact's purpose,
+not a realized usage of a banned form. To make the killed-tokens registry expressible as
+store fact objects (LS-9/lorestore pivot, DL-0041/44/45/46) the `killed_hits` scan
+**skips** claims whose `pred` text is `killed`; the `rejected_hits` (contextual
+rejected-claim) check at L95 is unchanged. This is a narrow, predicate-scoped exemption:
+no other predicate is affected, and the matcher still rejects a killed token realized in
+any non-registry fact.
+
+**Rationale.** Without the exemption the registry fact that *records* a token is itself
+contradicted by the checker that *enforces* the token — a circular contradiction that makes
+the killed-tokens domain (`killed_tokens.yaml`, 20 rows) un-storeable, blocking the
+`--canon` export's 6th parity domain from ever becoming store-derived. The exemption
+breaks the cycle at the predicate boundary while preserving the guardrail for all real
+lore. Concretely: a store-borne `fact <entity> killed {token,match,kind,scope,decision}`
+is now materializable; the token (e.g. `doom-wight`, `goal`) remains refused everywhere
+else under `factcheck.contradicted`.
+
+**Revisit trigger.** Re-evaluated if the killed-tokens registry is re-encoded under a
+non-`killed` predicate; otherwise the exemption stands.
+
+**Affected code:** `crates/dli-world/src/check/factcheck.rs` — a guard around the
+`killed_hits` scan reading `if claim.pred.text.as_str() != "killed" { … }`.
+
+> **Scope correction / superseded.** DL-0064 supersedes this entry: it under-described
+> the exemption set, listing only `crates/dli-world/src/check/factcheck.rs`. The
+> `killed` registry predicate is exempt at **all three** scan sites — this
+> `classify` `killed_hits` guard (`dli-world/factcheck.rs`), the
+> `declaration_rejected_lore_findings` pre-scan (`dli-serve/src/author/tools.rs`),
+> and the `certain_rejected_lore` scan (`dli-world/src/check/continuity.rs`). The
+> `classify` guard was also revised from the simple `!= "killed"` predicate check to
+> the `is_killed_registry_fact` disjunction (see DL-0064). DL-0063 is retained as a
+> historical record; DL-0064 is the binding rule.
+
+## DL-0064 — `killed` registry predicate exempt at all three scan sites (supersedes DL-0063)
+
+*Date: 2026-08-07*
+
+**Attribution:** machine — an engineering decision by the implementing agents. Live
+and binding on the tree, pending the author's async review (DL-0052). DL-0064
+supersedes DL-0063, whose "Affected code" listed only `crates/dli-world`; the full
+exemption set spans **both** crates.
+
+**Ruling.** A `killed` registry fact records a banned token as its **payload** — the
+token's value is the fact's purpose, not a realized usage of a banned form. The
+factcheck/contradiction machinery therefore **skips** the `killed` registry fact at
+all three scan sites that would otherwise fire on its banned-token payload:
+
+1. **Staging pre-scan** — `crates/dli-serve/src/author/tools.rs`
+   `declaration_rejected_lore_findings` (L1108): returns `Vec::new()` for a
+   `Decl::Attr` whose `attr.text == "killed"`, evaluated **before**
+   `free_text_fields` → `rejected_lore_findings` → `realizes_killed_token` pre-scan.
+   This stops the staging-time killed-token scan from ever staging a blocking
+   finding for the registry record.
+
+2. **`classify` killed-token scan** — `crates/dli-world/src/check/factcheck.rs`
+   (L121-137): the guard is the `is_killed_registry_fact` disjunction, computed as
+   `pred == "killed"` **or** (`pred == "declaration"` **and** `args[1] == "killed"`
+   for both `Term::Sym` and `Term::Str`). Only when this is **false** does the
+   `killed_hits` block run; the `rejected_hits` (contextual rejected-claim) check at
+   L95-123 is untouched. DL-0063 described only the original `pred != "killed"`
+   predicate check; the revised disjunction (handling the
+   `declaration(subject, killed, value, source)` rendering) is binding here.
+
+3. **Continuity rejected-lore scan** — `crates/dli-world/src/check/continuity.rs`
+   `certain_rejected_lore` (L210): skips atoms whose `pred.text == "killed"`
+   (`if atom.atom.pred.text == "killed" { continue; }`) after the `Status::Certain`
+   guard, so the materialized registry fact is not run through
+   `world.killed.hits(token)` → `continuity.rejected-lore`.
+
+**Rationale.** DL-0063's `classify`-only exemption proved **insufficient** under the
+live `author.materialize` probe (`/tmp/mcp_author_kill.py`): `classify` alone cleared
+the `factcheck.contradicted` check, but `materialize` then surfaced
+`continuity.rejected-lore` (scan-site #3 ran over the staged `killed` atom, matching
+its embedded token). A second failure mode existed at site #1:
+`declaration_rejected_lore_findings` staged a
+`declaration(killed-token-registry, killed, {…token…})` claim whose free-text value
+contained the banned token, tripping the `realizes_killed_token` pre-scan before
+`classify` was ever reached. The three-scan exemption closes both failure modes at
+their origin. Without it, the killed-tokens registry (20 rows) is un-storeable,
+blocking the `--canon` export's killed-tokens domain (parity.json
+`{killed:20, worker_projection:19, rejected_claims:5, excluded_ratified_surface_collisions:1}`) from ever becoming store-derived. The exemption breaks the cycle at the
+predicate boundary while preserving the guardrail for all real lore: a store-borne
+`fact <entity> killed {token,match,kind,scope,decision}` is now materializable; the
+token (e.g. `doom-wight`, `goal`, `Audrey`) remains refused everywhere else under
+`factcheck.contradicted`.
+
+**Verification.** `mcp_author_kill.py` probe over `/tmp/s5b` (exact copy of
+`worlds/tpth`): `[killed facts] 20/20 authored clean; 0 blocked`; `[materialize]
+committed 22 objects; isError=False`; `[canon] killed predicate bucket: 20
+objects`; `integrity` root_hash stable at the `/tmp/s5b` tip. `cargo xtask gate
+--ci` → `PASSED — 21 steps green`, `GATE_EXIT=0`. This entry is the live binding
+superseding DL-0063 (whose "Affected code" is corrected to note the `dli-serve` +
+`continuity` sites).
+
+**Revisit trigger.** Re-evaluated if the killed-tokens registry is re-encoded under
+a non-`killed` predicate; otherwise the three-scan exemption stands.
+
+## DL-0065 — The killed-tokens canon domain is store-projected via the `killed` predicate bucket
+
+*Date: 2026-08-07*
+
+**Attribution:** machine — a projection design decision by the implementing
+agents. DL-0064 opens the `killed` registry fact for storage; DL-0065 settles
+how that stored fact yields `parity.json`'s `killed-tokens.yaml` census without
+re-touching the YAML. Live and binding on the tree, pending the author's async
+review (DL-0052). Supersedes the open `(A1)`/`(A2)` design call text in
+`docs/integration/STATUS.md` L154-161.
+
+**Ruling.** The `--canon` export projects the killed-tokens domain (LS-7) purely
+from the folded store fact objects at `head`, in four maps that byte-identify to
+the committed `worlds/tpth/generated/parity.json` `killed-tokens.yaml` census:
+
+- `killed` (20): every `fact killed-token-registry <json>` row, emitted as the
+  verbatim registry-row object from the fact's `value` JSON — the full field set
+  `{token, match, kind, scope, decision}` plus any sibling columns the source
+  YAML flow-mapping parsed as null-valued keys.
+- `worker_projection` (19): the killed rows whose `token` (casefolded) is **not**
+  a ratified surface — the same fields minus `kind`.
+- `excluded_ratified_surface_collisions` (1 = Frankpledge/D-0138): killed rows
+  whose `token` (casefolded) **is** a ratified surface — full field set.
+- `rejected_claims` (5): one per guardrail reject cue, expanded from the
+  `factcheck-object-{key}` facts' `support` monomials through the interner.
+
+Three empirical rules make the projection store-sourced and deterministic (the
+kernel reads no clock, no model — DL-0007):
+
+1. **`match` is data, not a function of the token.** It is read from the stored
+   fact's `value` JSON (`token_obj["match"]`) verbatim; it is never re-derived.
+   The prior `token.contains(' ')` derivation marked hyphenated tokens
+   (`doom-wight`, `doom-ward`) as `"word"`; they are `"phrase"` in the source
+   registry. Reading verbatim fixes both.
+2. **Commit order is carried by `serialized_objects`.** `by_pred` is a `BTreeMap`
+   (alphabetical by predicate) and would reorder the guardrail cue sequence; the
+   per-domain lists iterate the commit-order `Vec` instead, so `rejected_claims`
+   and the census rows follow registry row order.
+3. **The Colophon scope split is reconstructed in-projection.** The store fact
+   carries `scope` as a single flat string (the authoring flattened the YAML
+   flow-mapping). The projection rebuilds the sibling columns YAML parsed as
+   null-valued keys: `scope: a, b, c` → `scope = "a"`, `b = null`, `c = null` —
+   today only the Colophon row (`scope: series title — clunky, mismatched,
+   suspected AI-literary-vocabulary tic`). The other 19 rows have no `, ` in scope
+   and pass through untouched. The `killed`/`excluded` census emits the
+   reconstructed object as-is; `worker_projection` emits the 4-key filtered form
+   `{token, match, decision, scope}` (scope = the split short form).
+
+**Exclusions** (two), mirroring `killed_tokens()`:
+- `gender` is absent from `rejected_claims` — it is ratified (`factcheck-assert-*`,
+  no `factcheck-reject-*` cue keys it), so `rejected_keys` never contains `gender`.
+- `mortality` is absent — ratified by `D-0120`, but its `(protagonist, mortality)`
+  slot is a plain asserted `fact protagonist mortality <value>` in the source
+  registry, so `asserted_slots` filters it out (parity L2726-2728 equivalent).
+
+**Interner:** 0-based (`+N` → `interner[N]`); `+1` → `D-0108` (the ratified
+batch-002 authoring decision — ALL 20 killed facts carry `support.monomials
+[["+1"]]`). `ratified_surfaces` is derived from every `(actor, pred)` pair in the
+folded buckets (entity ids + alias/name second-args, casefolded); this is
+sufficient for the `Frankpledge` collision (D-0138) which is a real declared
+entity.
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_killed_tokens()` (and the `Canon => (Vec::new(), Some(canon_export(...)))`
+branch in `handle_corpus_export`). Depends on the DL-0064 three-scan exemption
+to make the `killed` fact materializable in the first place.
+
+**Verification.** `canon_export{killed_tokens}` over `/tmp/s5b` (exact copy of
+`worlds/tpth` + 20 authored killed facts + declaration) byte-identifies to
+committed `worlds/tpth/generated/parity.json` (`json.dumps(..., sort_keys=True)`
+equality): `killed: 20/20`, `worker_projection: 19/19`,
+`rejected_claims: 5/5`, `excluded_ratified_surface_collisions: 1/1`, AND
+`by_pred`/`interner`/`decisions` all match. `cargo xtask gate --ci` →
+`PASSED — 21 steps green`, `GATE_EXIT=0`. Independent red-team (fresh-context
+reconstruction of the four maps from raw objects + a planted divergence) confirms
+the projection detects a store mutation → RED.
+
+**Revisit trigger.** Re-evaluated if the `killed` fact's `value` JSON is no
+longer a verbatim registry row, or if `compile_lore_dli.py`'s `killed_tokens()`
+semantics change (parity.json becomes the stale artifact, per the
+reconciled-empty gate on the fantasy side).
+
+## DL-0066 — The facts sub-maps (relations, constraints) reproduce parity from the folded store
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 facts sub-map projection (Path B), the
+store-sourced sibling of DL-0065 (killed-tokens) and DL-0068 (the general
+by_pred/YAML cutover rule). The projection code committed at `a51f3bd`
+(`canon_facts()`) was authored without its own ledger entry; DL-0066 retroactively
+records the ruling that the commit already encodes. Live and binding, pending
+async review (DL-0052).
+
+**Ruling.** `dli.corpus.export{format:"canon"}` projects the `relations` (12) and
+`constraints` (3) predicate buckets from the folded store fact objects at `head`,
+as `canonical.facts.{relations, constraints}`, each byte-identical to the
+committed `parity.json`:
+
+- `relations` (12 rows across 9 predicates: `adjacent_to`(3), `located_in`(2),
+  `upstream_of`(2), `raised_by`(1), `trained_by`(1), `member_of`(1),
+  `rigged_variant_of`(1), `reads`(1)) — the `(pred, args)` atoms from the folded
+  `by_pred` buckets, emitted in commit order (`serialized_objects`).
+- `constraints` (3: `constraint-kind`/`constraint-target`/`constraint-pattern`/
+  `constraint-description`) — emitted with their raw-regex `pattern` verbatim
+  (the `value` JSON is NOT re-parsed as a regex; the projection emits it as
+  found).
+
+Each row carries `decisions` (the `support` monomials expanded through the
+interner) and `status` (`support.monomials[0]`'s `provenance.marker` lowercased:
+`provisional`/`ratified`). The `support.monomials` literal `+N` is an interner
+index (`+N` → `interner[N]`) into the canonical decision set (`interner` len 68).
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_facts()` (joined into `canon_export` as `canonical.facts`); the
+`compile_facts` re-point in `scripts/compile_lore_dli.py`.
+
+**Verification.** `canon_export{facts}` byte-identifies to committed
+`parity.json` (`json.dumps(..., sort_keys=True)` equality): `by_pred` relation
+atoms match, constraint `pattern` strings match verbatim (no regex escape),
+`interner`/`decisions` match. `compile_lore_dli.py --check` green in both canon
+(`DELOREIS_BIN` set) and offline lanes; `git diff worlds/tpth/generated/` empty.
+Gate 21/21 (`GATE_EXIT=0`).
+
+**Revisit trigger.** Re-evaluated if a constraint `value` JSON stops being a
+verbatim constraint row, or if `compile_facts` re-renders `constraint-pattern`
+from a non-raw-regex source.
+
+## DL-0067 — The chronology before-edges reproduce the committed timeline from the folded store
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 chronology projection (Path C), the
+store-sourced sibling of DL-0065 (killed-tokens), DL-0066 (facts), and DL-0068
+(the general by_pred/YAML cutover rule). The projection code committed at
+`7e6aa56` (`canon_timeline()`) was authored without its own ledger entry; DL-0067
+retroactively records the ruling that the commit already encodes. Live and
+binding, pending async review (DL-0052).
+
+**Ruling.** `dli.corpus.export{format:"canon"}` projects the `before` predicate
+bucket as `canonical.timeline`, in four maps that byte-identify to the committed
+`parity.json` `timeline.dli` (flat, 4 edges):
+
+- `before_edges` (4): every `(earlier, later)` atom from the folded `before`
+  `by_pred` bucket, in commit order — `{before, after, decision, era, source,
+  status}` rows. `decision` is singular (per row, the interner-expanded `support`
+  monomial; all four `+7` → `interner[7]` → D-0072, the ratified batch-003 authoring
+  decision).
+- `era_provenance` (`{status:"ratified", decisions:[D-0040,D-0060,D-0062,D-0070,D-0072],
+  source:"event-citation-union"}`): the ratified era-decision union.
+- `events` (9) / `eras` (9): from the event/era atoms (rendered as era/offset lists
+  in `timeline.dli`, the `era` and `source` reassembled from the YAML
+  `timeline.yaml`'s era/offset grouping — the store carries no `era`/`source` in
+  the atom).
+
+The `line` rendering `before breaking-of-the-stones -> tithe-of-minds-sweeps
+provisional D-0072` is reproduced verbatim; chronologically-inconsistent pairs
+reverse the edge order and are rejected by the `fact.contradiction` guardrail, so
+a reverse `before` plant fails (use chronologically-consistent pairs).
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_timeline()` (joined into `canon_export` as `canonical.timeline`); the
+`compile_timeline` re-point in `scripts/compile_lore_dli.py`.
+
+**Verification.** `canon_export{timeline}` byte-identifies to committed
+`timeline.dli`; `compile_lore_dli.py --check` green in both canon and offline
+lanes; `git diff worlds/tpth/generated/` empty. Gate 21/21 (`GATE_EXIT=0`).
+Independent fresh-context red-team (reconstruct the 4 `before` edges from raw
+objects + plant a non-chronological `before` edge cited→`Decided`) confirms the
+projection detects a store mutation → RED → restore → GREEN (4 edges).
+
+**Revisit trigger.** Re-evaluated if the `before` fact atom gains an `era` or
+`source` field, or if `compile_timeline` no longer reassembles `era`/`source`
+from the YAML era/offset grouping.
+
+## DL-0068 — LS-7 by_pred / YAML cutover: canon carries the structural by_pred
+fields; ratified name surfaces stay YAML-sourced
+
+*Date: 2026-08-09*
+
+**Attribution:** machine — the LS-7 lorestore cutover split, decided across the
+Path B (relations/constraints), Path C (before-edges), and Path E
+(person/role/alias) canon projections. DL-0065 opens the killed-tokens domain;
+DL-0068 settles the general rule governing every canon domain: which `by_pred`
+fields project into `dli.corpus.export{format:"canon"}` and which human-ratified
+display surfaces stay on the YAML fallback. Live and binding on the tree,
+pending the author's async review (DL-0052).
+
+**Ruling.** On the LS-7 cutover, the canon export projects the **structural
+`by_pred` fields** that are fully `by_pred`/commit-order-sufficient — each row
+carrying `decisions` (the `support` monomials expanded through the interner) and
+`status` (`provenance.marker` lowercased):
+
+- relations (`adjacent_to`, `located_in`, …), constraints, chronology `before`
+  edges, `killed`-registry atoms, and the character sheet's `person`, `role`,
+  and `alias` predicates (`canon_facts`, `canon_timeline`, `canon_characters`).
+
+Non-canonical markers are refused fail-closed at projection time: the MCP
+`author.*` tools emit `Decided`/`Proposed` markers (not the `.dli`-authored
+`Provisional`/`Ratified`), so a planted `Decided` row makes the export signal
+`ok=false` rather than silently rendering a non-canonical surface.
+
+The **human-ratified display `name` surfaces** stay YAML-sourced — not
+canon-projected:
+
+- `entities.name` (the `person <id> "<display name>"` surface, eg. `Enfys Livia`)
+  — `characters.yaml` supplies it; the store carries only the slug `name`
+  by_pred atoms (3, ratified D-0132/D-0134), not the display surfaces.
+- the guardrail `factcheck-alias` surfaces (the cue-checked alias surfaces eg.
+  `the Anchor`) — rendered by `compile_facts` from `cue_source`
+  (guardrail-facts.yaml), NOT from `canon.facts`. The `factcheck-alias` re-point
+  (Path D) was evaluated and **rejected**: the canonical `factcheck-alias` by_pred
+  (11 rows) is byte-identical to the committed `facts.dli` factcheck-alias lines,
+  so re-rooting changes nothing but reverses the ratified-surface YAML convention
+  for no byte-level gain.
+
+`compile_lore_dli.py`'s per-domain normalizers consume the canon projection when
+`DELOREIS_BIN` serves the lane; the matching YAML projection is the offline
+fallback so the offline CI gate (no binary) still reproduces `parity.json`
+byte-for-byte. Both emit identical output — `canon == parity`.
+
+**Affected code.** `crates/dli-serve/src/handlers.rs`
+`canon_characters()` (joined into `canon_export` as `canonical.characters`) and the
+`compile_characters` re-point in `scripts/compile_lore_dli.py` (B-E Path E).
+
+**Verification.** `canon_export{characters}` over `/tmp/s5b` projects `person`: 5,
+`role`: 15, `alias`: 12 — byte-identical to the six core characters' committed
+`characters.dli` (5 `person` declarations + 6 `role` + 12 `alias`; `hound` is a
+declared entity and so has no `person` atom). `compile_lore_dli.py --check` is
+green in BOTH canon (`DELOREIS_BIN` set) and offline lanes (exit 0); `git diff
+worlds/tpth/generated/` is empty. `cargo xtask gate --ci` → `PASSED — 21 steps
+green`, `GATE_EXIT=0`. Independent fresh-context red-team (reconstruct
+`canon.characters` from raw objects + plant a bogus `protagonist alias`
+cited→`Decided`) confirms fail-closed: export `ok=false`
+(*"unknown person/role/alias provenance marker: Decided"*) → RED → restore →
+GREEN (5/15/12).
+
+**Revisit trigger.** Re-evaluated if display `name` surfaces are ever stored as
+`by_pred` `name` atoms carrying the canonical display surface (currently the
+store carries only slug `name` atoms, D-0132/D-0134), or if `compile_characters`
+selects a different character set than the YAML `characters.yaml` registry.
+
+## DL-0069 — Canon export is a contract 1.4.0 wire addition
+
+*Date: 2026-08-10*
+
+**Attribution:** machine — the contract versioning repair for the LS-7 canon
+export. The implementation adds `CorpusExportFormat::Canon` and the optional
+`canon` response field, so it must not ship as a second meaning of `1.3.0`.
+
+**Ruling.** `dli.corpus.export{format: "canon"}` is introduced at contract
+`1.4.0`. The server advertises and accepts `1.4.0` alongside every previously
+accepted version. A request negotiated at `1.3.0` or below that names `canon`
+receives the released decoder's schema refusal, byte-identically; all older
+wire behavior remains frozen.
+
+**Rationale.** A same-version response-shape change would make the contract
+tag ambiguous and would let a pinned fantasy consumer receive different wire
+surfaces from different commits. A minimal version bump keeps the canon
+projection additive while preserving the multi-version dual-mode law.
+
+**Verification.** The contract schemas, version echo, capability replay, and
+the pre-1.4.0 canon-refusal fixture are checked by the gate; the refusal is
+replayed against the `contract/1.3.0` build and the `1.4.0` build.

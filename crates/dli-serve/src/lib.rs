@@ -68,7 +68,9 @@ mod simulation;
 /// one behavior change, and it is gated at this version precisely so it is not
 /// one: `0.5.1` through `1.2.0` keep the `provenance.cited-refused` refusal
 /// byte-exact, so every tagged contract before this one is frozen.
-pub const CONTRACT_VERSION: &str = "1.3.0";
+/// `1.4.0` adds the canon-normalized corpus export and its `canon` response
+/// field; it is a new wire version because the response shape is additive.
+pub const CONTRACT_VERSION: &str = "1.4.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -89,7 +91,8 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// above so an older negotiation's capability list is unmoved), and `1.3.0`
 /// (DM-4: the expert authoring ops and the authority scrub, DL-0058 — the ops
 /// additive and advertised only from `1.3.0` up, the scrub gated so that every
-/// version below keeps `provenance.cited-refused` byte-exact).
+/// version below keeps `provenance.cited-refused` byte-exact), and `1.4.0`
+/// (LS-7: canon-normalized corpus export).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -98,6 +101,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the other six.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
+    "1.4.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -147,6 +151,13 @@ pub fn has_branch_merge(dli: &str) -> bool {
 #[must_use]
 pub fn has_corpus_ops(dli: &str) -> bool {
     at_or_above(dli, (1, 2, 0))
+}
+
+/// Whether the negotiated version carries LS-7's canon-normalized corpus
+/// export and additive `canon` response field (>= `1.4.0`).
+#[must_use]
+pub fn has_canon_export(dli: &str) -> bool {
+    at_or_above(dli, (1, 4, 0))
 }
 
 /// Whether the negotiated version carries the DM-4 expert authoring surface —
