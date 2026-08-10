@@ -116,9 +116,9 @@ Discipline (`decisions.md` DL-0011):
 
 **Agents author lore through the one interface — the `author.*` MCP tools
 against the `deloreis` server — never by editing `.dli` text** (DL-0014 as
-restated by DL-0043: entry doors are retired; the tool surface is the single
-way in, and authority boundaries — who may propose, who may rule — are what
-distinguish authors). Every
+restated by DL-0043: entry doors are retired and the tool surface is the single
+way in. Attribution and decision state are caller-supplied data; policy about
+who may authorize them belongs to the consuming application, DL-0054). Every
 mutating tool call returns graded findings with repair data, the structured
 result, and the workspace digest; read them, do not guess.
 `author.materialize` is a mutation and the accept decision: it commits the

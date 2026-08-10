@@ -46,9 +46,10 @@ canon believes.
 
 ### 2. Nothing changes but a ruling.
 
-**Meaning.** The world changes only when the author rules; every other operation
-— forks, sims, imports, repairs, tools — is exploration over an unchanged store.
-Koan 2 bounds what change *is*; koan 3 bounds *who* may cause it.
+**Meaning.** The evaluated world changes only when a declared decision changes
+its valuation; every other operation — forks, sims, imports, repairs, tools —
+is exploration over an unchanged store. Koan 2 bounds what change *is*; koan 3
+bounds what the engine may claim about the caller that declared it.
 
 **It settles.** There is no delete opcode; supersession keeps lineage; forks are
 O(1); cutting an episode is a valuation flip plus a re-fold, not an erasure.
@@ -64,17 +65,22 @@ visibly.
 **Why here.** The author's practice is already massively forked; the koan turns
 that workflow into the semantics.
 
-### 3. The machine never writes canon.
+### 3. The engine never decides canon.
 
-**Meaning.** The machine may propose, check, render, and explain; it may never
-make a thing true. Truth is the author's act alone.
+**Meaning.** The engine records, checks, renders, and explains declared claims;
+it does not decide who is entitled to approve them or what an application calls
+canon. A caller supplies attribution and decision state. The engine checks the
+structure and the cited decision's existence; the consuming application owns
+authorization, review, and policy.
 
-**It settles.** The auto-fill trial (the machine offering to complete a claim
-does not assert it); the entire agent surface writes proposals and evidence,
-never canon.
+**It settles.** The auto-fill trial still cannot turn a model completion into a
+verdict by itself. But the engine does not refuse a citation because of the
+caller's identity: at contract 1.3.0 and above, it records supplied attribution
+and resolved decision state as data (DL-0054, DL-0058).
 
-**Why here.** This is the constitution of the repo and the moral center of the
-allegory: the honest deck — a tool for the mind, never instead of it.
+**Why here.** The honest deck is a tool for the mind, never a hidden governor of
+the people using it. Its boundary is epistemic: it verifies what it can observe
+and never invents social authority it cannot observe.
 
 ---
 
@@ -176,10 +182,11 @@ owned, which targets are served.
 
 ### 10. One fabric.
 
-**Meaning.** All world knowledge — geography, magic, names, story-time, games —
-lives in one runtime under one semantics. No satellite lore systems; integration
-by declaration, not by API. If a thing is knowledge about the world, it is
-declarations in the fabric; if it is not, it consumes exports.
+**Meaning.** All knowledge in a declared corpus — including geography, magic,
+names, story-time, and games — lives in one runtime under one semantics. No
+satellite knowledge systems; integration is by declaration, not by API. If a
+thing is knowledge in the corpus, it is declarations in the fabric; if it is
+not, it consumes exports.
 
 **It settles.** The Turning engine is in-kernel because its rules are ratified
 lore whose invariants are checked claims, while a video game is outside because a
@@ -202,10 +209,10 @@ is that lesson as law: divergence is prevented by having nothing to diverge.
 ### 11. One way in.
 
 **Meaning.** Every author — human or agent — enters the fabric through the one
-declarative interface: the semantic tools against the server. What
-distinguishes authors is **authority** — who may propose, who may rule — never
-the entry channel (DL-0043 retired the earlier two-door semantic). Interfaces
-stay few; clients multiply freely — a nicer keyboard is not a new interface.
+declarative interface: the semantic tools against the server. Callers may
+declare attribution and decision state; the consuming application determines
+what that declaration authorizes. Interfaces stay few; clients multiply freely
+— a nicer keyboard is not a new interface.
 
 **It settles.** The tool surface is the only supported way in; `.dli` text is
 an opt-in rendering, not a second way in (DL-0041); textual editing is a
@@ -253,8 +260,8 @@ contractual. When koans genuinely deadlock, the order is **truth outranks loss
 outranks form outranks growth** — form exists to prevent loss, loss-prevention
 exists to protect authorship, and growth exists to keep all three enforceable
 over time, never to enlarge the system for its own sake. Within a deadlock, the
-resolution preserving the author's sole authority wins first; at equal
-authority, the resolution that **adds less** wins — less language, and
+resolution that preserves replayable attribution wins first; at equal
+attribution, the resolution that **adds less** wins — less language, and
 explicitly fewer interfaces, fewer seats, fewer parts.
 
 The budget has named lines:
@@ -313,12 +320,12 @@ Three worked decisions test the charter end to end.
    `deloreis export --write-back`, so their tool can push edited entity fields
    home. Koan 10: integration is by declaration — an external tool's database is
    not the fabric. Koan 1: "the tool's current field value" is not an origin with
-   authority. Koan 3: the machine never writes canon. Koan 11: if the studio's
-   writers need in, they come through the same tool surface as every author —
-   their edits entering as `proposed` declarations citing their session,
-   awaiting ruling like every claim from outside the sovereign's hand. Four
-   koans, one paragraph, no committee: the flag is refused and the honest path
-   is offered.
+   authority. Koan 3: the engine cannot decide whether the studio's tool is
+   authorized to alter canon. Koan 11: if the studio's writers need in, they
+   come through the same tool surface as every author; their application records
+   the review and decision state it requires. Four koans, one paragraph: the
+   write-back flag is refused because it bypasses the fabric, and the honest
+   path is offered.
 
 ## A parked koan candidate
 

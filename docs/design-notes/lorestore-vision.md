@@ -1,6 +1,6 @@
 ---
 status: accepted
-verdict: "Architecture vision: Lorestore as deloreis's embedded, deterministic storage engine (like SQLite), replacing the git+text+evidence-v1 model for new deployments after fantasy cutover completes. Note: the Door H/T distinction in existing docs is being deprecated in favor of 'authority boundaries' — see design-notes/multi-authority-knowledge-evolution.md."
+verdict: "Lorestore is deloreis's embedded, deterministic storage engine. The embedded core has shipped; DL-0062 adds a deferred peer/service archive destination without changing lorestore's immutable fact model."
 ---
 
 # Lorestore: deloreis's deterministic storage layer
@@ -12,17 +12,16 @@ verdict: "Architecture vision: Lorestore as deloreis's embedded, deterministic s
 > `design-notes/lorestore-roadmap.md`, which consolidates this note and wins
 > where they differ.
 
-> **A post-cutover architectural evolution, not a migration blocker.** This document
-> captures the long-term vision for deloreis persistent storage. The current v1
-> model (git + `.dli` text + `.dli-evidence/`) remains in force until the fantasy
-> cutover is complete; this direction is realized only in Phase 2 or later.
+> **Embedded core shipped; distribution is deferred.** Lorestore's local
+> content-addressed core is live. The fantasy cutover remains consumer-owned;
+> `../spec/12-scale-and-distribution.md` records the later peer/service
+> destination and does not alter the current offline worker.
 
 ## Vision
 
-Today, deloreis stores facts in `.dli` text files in git, and evidence in
-`.dli-evidence/` as immutable content-addressed JSON. This "git + text files"
-approach is the **v1 implementation** — sufficient for the migration but not for
-general deployment.
+Lorestore stores structured facts as immutable, content-addressed objects.
+Legacy `.dli` inputs and evidence directories remain compatibility and consumer
+cutover concerns; they are not the normative store model.
 
 **Lorestore** is the vision for deloreis's next storage layer: a deterministic,
 immutable, content-addressed fact store with git-like merge semantics, embedded

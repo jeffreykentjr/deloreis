@@ -1,6 +1,6 @@
 ---
 status: proposed
-verdict: "Characterizes the indexing strategy evolution from current in-memory fixpoint materialization to lorestore's persistent, multi-phase indexing roadmap. Phases are sequenced by implementation lift and value delivered. Aspirational roadmap items (argumentation indexes, uncertainty propagation) are legitimate future directions but not greenlit for immediate implementation."
+verdict: "Characterizes the indexing strategy from embedded fixpoint materialization to persistent archive readers. Supplementary Magic Sets bound peer clusters under DL-0062; argumentation, uncertainty, and trust remain exploratory."
 ---
 
 # Lorestore Indexing Strategy: From In-Memory Fixpoints to Persistent Indices
