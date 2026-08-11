@@ -92,7 +92,7 @@ class has exactly one kernel input surface:
 | Class | What it is | Example | Human review | Kernel surface |
 |---|---|---|---|---|
 | **Attestation** | a stored model judgment on a bounded question | "Is Myrdin a real Welsh given name?" | never, by design | the attestation store (read-only input to checks) |
-| **Candidate** | model-generated content that wants to become canon | thirty hamlet names; a proposal bundle | always — sign-off *is* ratification | hypothesis declarations, via the tool surface |
+| **Candidate** | model-generated content that wants to become canon | thirty hamlet names; a proposal bundle | asynchronously, through the consuming ledger | hypothesis declarations, via the tool surface |
 | **Encoding** | model transcription of human content into formal form | cue → proof-ledger; draft → payload | of the rendered form, spot-wise; schema + fixtures always | declarations with `encoded-by` provenance |
 | **Gloss** | model prose over structured output | the fork-diff sidebar summary | n/a | none — never stored |
 

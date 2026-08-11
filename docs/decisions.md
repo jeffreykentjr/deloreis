@@ -3008,3 +3008,24 @@ value is never a fact-check contradiction, the existing single-valued and
 multi-valued intra-episode cases still hold), the two-lowering convergence oracle,
 the `dli-eval` state smoke test, the `dli-lorestore` total-lowering byte-identity
 oracle, and an end-to-end `author.add_state` → `author.query` serve test.
+## DL-0072 — Active teaching surfaces name citation integrity, not human sign-off
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — the documentation scrub and retired-vocabulary lint
+implement the authority model already ruled by DL-0054 and DL-0058.
+
+**Ruling.** At contract 1.3.0 and above, a caller-supplied citation is recorded
+when its consuming-ledger decision resolves; an unknown decision is a finding
+that bars materialization. Authorization and review belong to the consuming
+application. Accepted wires below 1.3.0 retain the byte-exact cited-provenance
+refusal. Active specifications, cards, and the authoring skill must teach this
+versioned split and must not describe the retired human-only or sign-off law.
+
+**Affected surfaces.** `docs/spec/11-agent-authoring.md`, the cards, `SKILL.md`,
+the author renderer comments, and the `xtask retired-vocabulary` gate.
+
+**Verification.** The retired-vocabulary lint fails on each retired phrase in an
+active teaching surface, permits the append-only historical record and the
+spec/11 compatibility row, and passes after the scrub; docs-oracle, authority,
+and the full gate remain the required follow-up checks.

@@ -272,7 +272,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 | `hypothesis.unknown` | error | — | no hypothesis of that id is staged in this workspace to suppose. |
 | `question.unknown` | error | — | no open question of that id exists in this workspace to add an option to. |
 | `field.control-char` | error | `remove-control-chars` | a free-text field carries a control/bidi/zero-width character that could forge or reorder a declaration in the review diff. |
-| `provenance.cited-refused` | error | `add-provenance` | below contract 1.3.0 only: a citation is refused outright and nothing is staged. Scrubbed at 1.3.0 and above, where a citation is recorded and verified instead (DL-0054, DL-0058); every earlier wire keeps this refusal permanently. |
+| legacy cited-provenance refusal | error | `add-provenance` | below contract 1.3.0 only: a citation is refused outright and nothing is staged. Scrubbed at 1.3.0 and above, where a citation is recorded and verified instead (DL-0054, DL-0058); every earlier wire keeps this refusal permanently. |
 | `citation.unknown-decision` | error | `resolve-citation` | a cited decision id does not resolve against the decisions the corpus declares. The engine records the attribution a caller supplies but verifies that what it cites exists: the unknown decision's variable is left open, so the claim can never read certain, and materialize is barred until the id is repaired. |
 | `workspace.base-missing` | error | — | the workspace's project document base is no longer loaded. |
 | `world.uncompilable` | error | — | the staged declarations do not compile into a checkable world. |
@@ -365,4 +365,3 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 | `outline.material-canon-ref-malformed` | error (default) | — | a material canon reference is malformed. |
 | `outline.material-research-ref-duplicate` | error (default) | — | a material research reference is duplicated. |
 | `outline.material-research-ref-malformed` | error (default) | — | a material research reference is malformed. |
-

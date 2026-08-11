@@ -56,7 +56,8 @@ implemented on the 1.x wire in phase P5:
 What this scrubs, and what it keeps:
 
 - **Scrubbed**: the Door-T refusal of citation-bearing provenance from agents
-  (`provenance.cited-refused`, `author/tools.rs`), `SKILL.md` §0's "you cannot
+  (the legacy cited-provenance refusal, `author/tools.rs`), `SKILL.md` §0's former
+  "you cannot
   cite" law, and the DL-0043 framing of authority boundaries ("who may propose,
   who may rule") as something the engine enforces.
 - **Kept**: referential integrity. A supplied citation must resolve against the

@@ -102,8 +102,8 @@ Three things about it are worth naming. The **`id`** is how everything else will
 refer to Avalon — never its position, never its label. The **`name`** is only
 what a reader sees. And the **`provenance`** is not optional and not decoration:
 it is the claim's truth condition. `proposed` is the only kind this card needs;
-`decided` is a human's act on a recorded ruling, and a tool call that tries to
-cite one is refused rather than staged. Nothing you send makes anything true
+a cited decision must resolve in the consuming ledger, and an unknown citation
+is refused as an error finding rather than staged. Nothing you send makes anything true
 (charter koan 3).
 
 ---

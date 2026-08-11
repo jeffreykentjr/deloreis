@@ -115,7 +115,7 @@ hypothesis, hang a claim on it, then pin it and read what moved:
       "message": "Under h-return, the derived-consequence set may move. See author.diff for the consequences." } ] } }
 ```
 
-`hypothesis` is a third provenance kind alongside `proposed` and the human-only
+`hypothesis` is a third provenance kind alongside `proposed` and cited decisions
 `cited`, and it is the one that makes exploration cheap. Now read the shift:
 
 ```json transcript
@@ -255,7 +255,8 @@ printing it.
 ## The one rule that still holds
 
 Everything here obeys the first card's discipline: **a claim carries its
-origin**, and nothing is true until the author rules it so (koan 1, koan 3). The
+origin**, and nothing is true until a declared decision is cited in the consuming
+ledger (koan 1, koan 3). The
 expert vocabulary buys reach — checkable rules, cyclic time, forks, magic — but
 not a way past provenance. When you materialize, all of it commits as fact
 objects with their typed interiors; a reviewer reads the structured diff rows,
