@@ -30,10 +30,11 @@
 //! module is pure detection over compiled worlds; the commit-writing orchestration
 //! is [`Lorestore::merge`](crate::Lorestore::merge).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use dli_core::ann::Status;
 use dli_core::atom::Atom;
+use dli_core::fd::{fd_violations, inferred_functional};
 use dli_core::valuation::Valuation;
 use dli_eval::error::EvalError;
 use dli_eval::fork::{Conflict, ConflictKind};
@@ -309,71 +310,59 @@ fn exclusivity_conflicts(world: &CompiledWorld, eff: &Valuation) -> Vec<Conflict
     out
 }
 
-/// Certain-layer / functional-dependency conflicts: a predicate the base world
-/// holds functional now carries two distinct certain values for one subject in
-/// the merged world. Base functionality is data-driven (mirrors
-/// `continuity::predicate_is_functional`); the merge that breaks it is the
-/// conflict (mirrors `continuity::intra_contradictions`), so a genuinely
-/// multi-valued relation never false-positives.
+/// Certain-layer / functional-dependency conflicts: a predicate the base holds
+/// functional **by shape** now carries two distinct certain values for one subject
+/// in the merged world. Distinctness keys on `fd_value_key` through the shared
+/// [`dli_core::fd`] primitive, so a cosmetic pair (`gold`/`Gold`) is one value here
+/// exactly as on load (DL-0075, issue 59).
+///
+/// This covers the **inferred** half only. The recompile also runs the full
+/// [`dli_world::check::run`] battery over the merged world, and that battery's
+/// `continuity.fd-violation` already reports a break on an author-**declared**
+/// predicate — fluent-aware and subject-kind-aware, over the source layer, exactly
+/// as on any load. So declared functionality is deliberately **not** re-added here:
+/// doing so double-reported it through a coarser derived-layer path that does not
+/// share the load check's fluent and non-symbol-subject exclusions, and reported a
+/// merge conflict for a break the base already held (issue 59 red-team, F2/F3/F5).
+/// The two halves compose to `declared ∪ inferred` across the merge report — the
+/// rich check owning declared, this delta check owning inferred — without either
+/// answering the FD question differently from the load.
 fn certain_layer_conflicts(
     base: Option<&CompiledWorld>,
     merged: &CompiledWorld,
     merged_eff: &Valuation,
 ) -> Vec<Conflict> {
     let Some(base) = base else {
-        // Without a shared base we cannot say a predicate was *intended*
-        // functional, so we do not guess — an honest limitation (roadmap §LS-6).
+        // Without a shared base we cannot infer intended functionality, so we do
+        // not guess — an honest limitation (roadmap §LS-6).
         return Vec::new();
     };
     let base_eff = base.model.world.valuation.clone();
-    let functional = functional_predicates(base, &base_eff);
+    let functional = inferred_functional(certain_slots(base, &base_eff));
 
-    let mut slots: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
-    for (pred, subject, value) in certain_slots(merged, merged_eff) {
-        slots.entry((pred, subject)).or_default().insert(value);
-    }
-
-    let mut out = Vec::new();
-    for ((pred, subject), values) in slots {
-        if values.len() >= 2 && functional.contains(&pred) {
-            let rendered: Vec<&str> = values.iter().map(String::as_str).collect();
-            out.push(Conflict {
-                kind: ConflictKind::Certain,
-                blame: (
-                    format!("{pred}({subject}) = {}", rendered[0]),
-                    format!("{pred}({subject}) = {}", rendered[1]),
-                ),
-                rendered: format!(
-                    "the merged certain layer breaks the functional dependency on \
-                     '{pred}': {subject} carries {} distinct certain values [{}]",
-                    values.len(),
-                    rendered.join(", ")
-                ),
-            });
-        }
-    }
-    out
-}
-
-/// The set of predicates the world holds functional under `eff`: every predicate
-/// that appears in at least one certain binary fact and whose every subject
-/// carries at most one certain value.
-fn functional_predicates(world: &CompiledWorld, eff: &Valuation) -> BTreeSet<String> {
-    let mut by_pred: BTreeMap<String, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
-    for (pred, subject, value) in certain_slots(world, eff) {
-        by_pred
-            .entry(pred)
-            .or_default()
-            .entry(subject)
-            .or_default()
-            .insert(value);
-    }
-    by_pred
+    fd_violations(certain_slots(merged, merged_eff), &functional)
         .into_iter()
-        .filter(|(_, subjects)| {
-            !subjects.is_empty() && subjects.values().all(|values| values.len() <= 1)
+        .map(|violation| Conflict {
+            kind: ConflictKind::Certain,
+            blame: (
+                format!(
+                    "{}({}) = {}",
+                    violation.pred, violation.subject, violation.values[0]
+                ),
+                format!(
+                    "{}({}) = {}",
+                    violation.pred, violation.subject, violation.values[1]
+                ),
+            ),
+            rendered: format!(
+                "the merged certain layer breaks the functional dependency on \
+                 '{}': {} carries {} distinct certain values [{}]",
+                violation.pred,
+                violation.subject,
+                violation.values.len(),
+                violation.values.join(", ")
+            ),
         })
-        .map(|(pred, _)| pred)
         .collect()
 }
 

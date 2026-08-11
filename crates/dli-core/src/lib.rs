@@ -8,6 +8,7 @@
 pub mod ann;
 pub mod atom;
 pub mod derivation;
+pub mod fd;
 pub mod grade;
 pub mod judgment;
 pub mod posbool;
@@ -17,6 +18,7 @@ pub mod verdict;
 pub use ann::{Ann, Status, Theory};
 pub use atom::{Atom, Interner, Lit, Rail};
 pub use derivation::{ClaimId, Derivation, GradeBasis, RuleId, SupportBasis};
+pub use fd::{FdViolation, fd_value_key, fd_violations, inferred_functional};
 pub use grade::Grade;
 pub use judgment::{Digest, Judgment, Replay};
 pub use posbool::{Monomial, PosBool};

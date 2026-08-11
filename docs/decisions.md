@@ -3169,3 +3169,160 @@ version echo are gate-checked, with the pre-`1.6.0` capability lists asserted
 unmoved. The parser, formatter, and the three lowerings are covered by the
 round-trip and byte-identity oracles, and the checker's use of the declared set is
 covered by the `dli-world` check lane (DL-0073).
+
+---
+
+## DL-0075 — One functional-dependency primitive across the load, fork, and merge checks
+
+*Date: 2026-08-12*
+
+*Attribution: machine*
+
+**Ruling.** The functional-dependency check — "does this certain layer set a
+single-valued slot two ways?" — is asked in three places, and they are unified
+behind one primitive so they cannot answer it differently. The primitive is
+`dli_core::fd`: `fd_value_key` (the value-distinctness key), `fd_violations` (the
+grouping that turns a stream of certain `(pred, subject, value)` slots plus a
+functional-predicate set into violations), and `inferred_functional` (the
+data-driven shape inference). The three call sites now render their own finding
+or `Conflict` but share this logic:
+
+- the load/read check, `dli_world::check::continuity`'s `fd_violations` and
+  `predicate_is_functional`, over a compiled world's **authored source** facts;
+- the in-memory fork merge, `dli_eval::fork`'s `certain_conflicts`, over the
+  **joined saturated** relation of two forks;
+- the durable-store merge, `dli_lorestore::merge`'s `certain_layer_conflicts`,
+  over the **recompiled merged** world.
+
+Three consequences settle the axes issue 59 named:
+
+1. **Distinctness keys on `fd_value_key` everywhere.** Cosmetic drift
+   (`gold`/`Gold`, `tide-bell`/`tide bell`) is one value on a fork merge and a
+   store merge exactly as it already was on load — never a phantom conflict. The
+   fork and merge paths formerly compared raw strings. The key folds a
+   hyphen/underscore/whitespace run to a single space **only between two other
+   characters**, and keeps a leading or trailing `-`/`_`: a separator's
+   word-joining meaning holds only *between* words, so `-5` and `5`, `_gold` and
+   `gold`, `5-` and `5` stay distinct. Folding them would silently drop a real
+   contradiction (koan 4) — the one thing the key must never do — and unifying
+   onto it made that latent edge-fold reach two paths that had compared raw
+   strings, so the fold was tightened as part of this change (issue 59 red-team).
+
+2. **The declared-functional set reaches the fork engine.** `functional_predicates`
+   is lifted onto the evaluable `dli_eval::World` (a read-only set carrying no
+   atom and shifting no interner), populated by `World::lower` and, on the
+   compiled path, seeded by the `dli-world` loader — the fork base is
+   `WorldModel::world`, so this is what carries a declaration into the in-memory
+   merge. This **amends DL-0074's** "the loader only populates the world-model
+   set": it now seeds the evaluable world's set too, and `functional` is no longer
+   a total no-op on the eval core — it records the constraint (still no atom, no
+   proposal index, no interned name, no finding). The functional-set *policy* is
+   unchanged from DL-0074: the world-internal load check over
+   canon-against-itself fires on **declared-only** (canon's shape cannot tell a
+   first-seen slip from a genuine many-to-many hub, koan 3), while the
+   delta-vs-base checks use `declared ∪ inferred-from-base`, because a merge is a
+   delta against a base and inference is sound only as that base. Inference is the
+   shared `inferred_functional`, so it too keys on `fd_value_key` — the fork/merge
+   inference now folds cosmetic drift exactly as the load side's
+   `predicate_is_functional` already did (a deliberate convergence, not a new
+   behavior of its own).
+
+3. **Where a declared break is reported differs by path, deliberately.** The load
+   check reads **authored source** atoms; the fork and store merges read the
+   **saturated derived** layer — what a merge derives once re-evaluated. That
+   split is intended (source is what canon *asserts*; derived is what a merge
+   *builds*), but the derived, flattened layer is coarser — it has erased fluent
+   intervals and subject term kinds. So the two merge paths place the
+   declared/inferred halves to keep each break reported by the lens that shares
+   the load check's exclusions:
+   - **Durable store merge.** `certain_layer_conflicts` is **inferred-only**. The
+     recompile's `dli_world::check::run` battery already reports an
+     author-**declared** break as `continuity.fd-violation` over the merged
+     world's *source* layer — fluent-aware and symbol-subject-aware, exactly as on
+     load. Re-adding declared to `certain_layer_conflicts` (an earlier cut of this
+     change) double-reported it through the coarse derived path and, lacking those
+     exclusions, raised a conflict for a declared *fluent* that loads clean and
+     re-blamed a break the base already held. So declared stays with `check::run`;
+     the two halves compose to `declared ∪ inferred` across the merge report
+     without either diverging from the load.
+   - **In-memory fork merge.** `certain_conflicts` has no findings channel, so it
+     must carry `declared ∪ inferred` itself, and it is a **delta** check: a break
+     the base already holds is the base's defect (the load check reports it), not
+     the join's conflict, and is subtracted — which keeps two clean forks joinable
+     over broken canon and neutralizes a flattened fluent whose two interval-values
+     both sit in the base. Its residual coarseness is accepted and documented: a
+     fork that *adds* a second interval-value to a declared-functional fluent, or a
+     declared predicate whose subject is a non-symbol literal, can over-report on
+     this what-if tool where the load check and the durable merge — which see
+     intervals and term kinds — do not. Representative value spellings in a message
+     are per-lens (each keeps the first raw spelling it meets in its own atom
+     order); the key they are judged by is identical.
+
+**Accepted consequences** (weighed against the alternatives; each documented here
+rather than engineered away):
+
+- **Inference keys on `fd_value_key`, like detection.** Because the shared
+  `inferred_functional` folds cosmetic drift, a many-to-many predicate whose *sole*
+  multi-valued subject is multi-valued only cosmetically (`tag(book, "Sea-Wolf")`
+  and `tag(book, "sea wolf")`) is inferred functional, and the next genuine edge on
+  that subject reads as a break the fork/merge report. This is narrow, and it is
+  the coherent choice: raw-key inference paired with folded-key detection would be
+  incoherent (it would call a slot functional and then refuse to fold its values,
+  or the reverse). It matches the claim-relative `predicate_is_functional`, which
+  already keyed this way. It is *not* convergence with the world-internal load check
+  (`continuity.fd-violation`), which is declared-only and raises nothing for an
+  undeclared predicate.
+- **A declared break is raised in different *kinds* on the two merges.** On the
+  fork merge it is a `Certain` `Conflict` (its only channel); on the durable merge
+  it is an error-severity `continuity.fd-violation` **finding** from `check::run`,
+  and `certain_layer_conflicts` stays silent on it. Both raise it, and the durable
+  merge report carries both a conflict and a finding array, so a consumer reads the
+  error finding as the blocking signal; the durable fact-set union is written
+  regardless (the report is advisory the sovereign rules on). Making the durable
+  path *also* emit a `Certain` conflict for declared breaks is exactly the earlier
+  cut that reintroduced the coarse-path F2/F3/F5 divergences, so the finding — from
+  the fluent- and symbol-aware lens — is the right home. This is the one residual
+  "same question, phrased differently" between the two merges, and it is deliberate.
+
+A separate, **pre-existing** inconsistency is noted for its own issue: a canon with
+non-symbol subjects (`crest(5, …)`, `crest("mara", …)`) raises no
+`continuity.fd-violation` on a direct `dli_world::compile` but two after a lorestore
+round-trip, because `reconstruct_pack` rebuilds integer and quoted-string subjects
+as bare symbols that `slot_of` then accepts. It reproduces on `main`, predates this
+change, and is in tension with the LS-3 differential-parity promise; it is not
+fixed here.
+
+**Rationale.** The store's value proposition is that its certain projection is
+internally consistent and a delta breaking a functional dependency is caught,
+cited, and refused *the same way wherever it is checked*. Three hand-written
+copies broke that promise: a cosmetic pair was one value on load but a conflict on
+merge, and a declared dependency was honored on load but invisible to a fork
+merge / ratification pre-flight. Issue 59's review also found the claim "the
+lorestore merge already runs `check::run`, so it is consistent" was only half
+true — merge runs `check::run` *and* its own raw-string `certain_layer_conflicts`.
+One primitive both sides call is the only structural guarantee they cannot drift
+again — but "one primitive" is the value-key and the grouping; the atom the check
+reads and where declared functionality is reported remain per-path choices, made
+above so no path answers the FD question differently from the load, within the
+limits of what the flattened eval layer can represent.
+
+**Scope.** This is an internal engine-consistency change: **no contract change**.
+There is no new wire operation and no version bump — the `functional` declaration
+and `author.declare_functional` stay at contract `1.6.0` (DL-0074) — so no golden
+fixture, schema, or capability list is re-pinned. `dli_eval::World`'s new field is
+`#[serde(default, skip_serializing_if)]` and empty for worlds that declare no
+functional predicate, so no stored world serializes differently; the eval `World`
+is not content-addressed.
+
+**Verification.** The primitive carries unit tests in `dli-core`: cosmetic fold is
+one value, genuinely-distinct values (including a leading/trailing `-`/`_`) never
+merge, and inference excludes a many-to-many relation. The `dli-eval` fork lane
+pins the merge folding cosmetic drift, honoring a declared first-seen dependency,
+folding cosmetic drift *under* a declaration, and not re-blaming a base-inherited
+break while still catching a merge-introduced one. The `dli-lorestore` merge lane
+pins the durable path: cosmetic drift is one value, and a declared first-seen break
+is raised on the merge as a `continuity.fd-violation` finding (the declared-owning
+load lens), not a coarse derived-layer conflict. The revised `functional_decl_honesty`
+differential in `dli-eval` pins that the declaration still touches nothing but the
+functional set, and the unchanged `dli-world` FD lane confirms the load-side
+refactor preserved its behavior exactly. The whole change is gate-green.

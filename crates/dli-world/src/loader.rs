@@ -447,10 +447,20 @@ impl LoadCtx {
     /// dependency even when canon bears no prior fact for it (issue 49). This is a
     /// carriage-only declaration — it lowers to no atom and interns no provenance
     /// (its provenance rides the durable store's serialized body, keeping the
-    /// three lowerings byte-identical, DL-0071), so the loader only populates the
-    /// world-model set the checker reads.
+    /// three lowerings byte-identical, DL-0071).
+    ///
+    /// The predicate name is recorded in **two** places, both read-only sets that
+    /// carry no atom and shift no interner: the world-model set the load-side
+    /// checker reads, and the evaluable `World`'s own set the fork engine reads.
+    /// The fork base is `WorldModel::world`, so seeding it here is what lets a
+    /// declared functional dependency reach the in-memory merge (DL-0075) — the
+    /// loader builds the eval world directly rather than through `World::lower`.
     fn process_functional(&mut self, functional: &FunctionalDecl) {
         self.wm
+            .functional_predicates
+            .insert(functional.pred.text.clone());
+        self.wm
+            .world
             .functional_predicates
             .insert(functional.pred.text.clone());
     }
