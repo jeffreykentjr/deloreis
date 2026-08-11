@@ -30,7 +30,7 @@ channel distinction: callers declare the provenance and decision state their
 application permits, while DLI checks schema and cited-decision integrity. The
 application, not DLI, decides who may authorize that declaration.
 
-*Historical note.* `DL-0004` originally defined two doors — Door H (humans
+*Historical note.* `DL-0004` originally defined two doors — a manual-text path (humans
 writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
 surface to an opt-in rendering; `DL-0043` retired the door semantic entirely.
 `.dli` text survives as a rendering and as the measured fallback below.
@@ -207,11 +207,12 @@ supplies mints authority (§5):
 to a fork-local hyp variable.
 
 The third provenance form, `cited` (naming decision-ledger entries in the
-**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["d-0001"] }`), is
-**human-only** (B1). An agent cannot mint a citation — a ruling lives in
-the ledger, not in a tool call (koan 3) — so a `cited` provenance supplied to any
-`author.*` tool is **refused** with the `provenance.cited-refused` finding. The
-agent proposes; the human confirms the citation in review.
+**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["d-0001"] }`),
+is accepted at contract 1.3.0 and above. DLI records the caller-supplied decision
+state only when every cited decision resolves; an unknown id raises
+`citation.unknown-decision` and bars materialization. Authorization and review
+remain the consuming application's policy. Accepted wires below 1.3.0 retain
+the permanent, byte-exact legacy cited-provenance refusal behavior.
 
 ### 3.1 `author.add_entity`
 
@@ -562,6 +563,11 @@ raises `citation.unknown-decision` and blocks materialization. The consuming
 application owns authorization, review, and the policy that interprets a
 resolved citation. Earlier accepted wires retain their documented cited-provenance
 refusal behavior (DL-0058).
+
+| Negotiated wire | Cited provenance | Materialization behavior |
+|---|---|---|
+| `1.3.0` and above | Recorded when every cited decision resolves | Unknown ids raise `citation.unknown-decision` and block materialization |
+| Below `1.3.0` | Refused with `provenance.cited-refused` | Nothing is staged; behavior remains byte-exact |
 
 **Framing safety.** Instruction-shaped strings that arrive in parameters — an
 entity id, a description, a question phrased as a command — are **data**. They

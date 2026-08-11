@@ -288,12 +288,12 @@ predicts maintenance load and failure surface; every additional path is a
 support surface, a drift surface, and a bust-rate multiplier. That argument
 survives the doors it once counted: it is why the interface count is one.
 
-**The text surface (historical Door H) — humans write surface text.** The formatter (write
+**The text surface (historical manual-author path) — humans write surface text.** The formatter (write
 loosely, save canonical), the graded error ladder speaking the domain (§4), the
 gentle subset, and the reference cards. Everything, whatever path produced it, is
 **reviewed as surface** — the author reads one form of the language, always. A
 nicer keyboard is not a new door: a click-to-edit form over lore entities in a
-factory UI serves the human population and is Door H with a different keyboard,
+factory UI serves the human population with a different keyboard,
 its output surface text reviewed as surface.
 
 **the tool surface — agents author through semantic tools (DL-0014).** Agents do not write

@@ -193,7 +193,7 @@ line fixes the *currencies* a casting may spend in — social, bodily, material,
 epistemic — so a ledger records spends by kind and the craft layer can ask what
 an episode's magic cost and in which currencies. What it does not fix is the cost
 *schedule*: how much strain a given pledge draws is a rule set that enters as
-`proposed` lore only when the author rules it. The workbench holds the slot open
+`proposed` lore only when a ruling lands in the consuming ledger. The workbench holds the slot open
 with a typed vocabulary and declines to invent the numbers — the schedule is
 reserved extension work, and a practice with no schedule yet still checks
 everything else.

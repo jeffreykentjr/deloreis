@@ -41,12 +41,12 @@ everything below, and they never bend:
 
 > **A version note, because the rule above reversed one.** Rules 2 and 3 hold
 > from **contract 1.3.0** (DL-0058). Before it, the engine refused every `cited`
-> provenance outright with `provenance.cited-refused` and staged nothing — it had
+> provenance outright with the legacy cited-provenance refusal and staged nothing — it had
 > encoded "only a human mints citations" as a wire refusal, which never
 > distinguished a human's decision from an agent's and taught agents to route
 > human rulings *around* the provenance system instead of through it. Every wire
 > below 1.3.0 still serves that refusal, byte for byte, permanently. If you get
-> `provenance.cited-refused`, you are speaking an older contract: negotiate
+> the legacy cited-provenance refusal, you are speaking an older contract: negotiate
 > 1.3.0 or above, or resubmit as `proposed`.
 
 You never need to read Rust or write `.dli` to author or self-check a world. The
@@ -216,7 +216,7 @@ have not interrogated. The read path costs nothing and mutates nothing.
   proposed fact that fights a certain one), not just local reference errors.
 - **`author.query`** proves a consequence before you commit to it: ask
   `serves(lancelot, ?who)` and read the rows. A proposed claim comes back
-  `status:"possible"` — expected, since only a human ruling makes it certain.
+  `status:"possible"` — expected until a resolvable decision citation makes it certain.
 - **`author.why`** answers "why isn't this certain yet?" — `why_not` names the
   blocking rulings and the defeater; `known:false` means the world derives no
   such atom at all (you referenced something that isn't there).

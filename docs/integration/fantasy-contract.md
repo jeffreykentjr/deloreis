@@ -221,7 +221,7 @@ one place where what an agent may assert changes with the version it speaks.
 
 **Below `1.3.0`**, provenance is `proposed` or `hypothesis` only (B1). A `cited`
 provenance (`{"kind":"cited","decisions":[…]}`) supplied to any `author.*` tool is
-refused with the `provenance.cited-refused` finding. Every `0.x` wire keeps that
+refused with the legacy cited-provenance refusal finding. Every `0.x` wire keeps that
 refusal byte-exact until version retirement, and `1.0.0`–`1.2.0` keep it too.
 
 **At `1.3.0` and above**, the engine stops asking *who* is citing and starts
@@ -428,7 +428,7 @@ decoupled, and the compatibility window carries the consumer across.
   golden fixture recording it — stays byte-identical. And **the authority scrub**
   lands: at `1.3.0` a mutating call may carry citation-bearing provenance,
   recorded as data, with referential integrity kept fail-closed (§3.2). Below
-  `1.3.0` the `provenance.cited-refused` behavior is unchanged, on every version,
+  `1.3.0` the legacy cited-provenance refusal behavior is unchanged, on every version,
   permanently.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:

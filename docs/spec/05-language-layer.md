@@ -192,7 +192,7 @@ Agents author through **the tool surface**, the semantic tools against the `delo
 server (DL-0014; [11-agent-authoring](11-agent-authoring.md)); the surface below
 is the *materialized* rendering of what those tools produced, reviewed as
 surface before it is committed. No agent hand-writes the AST, and no agent edits
-canon — the bundle enters `proposed`, awaiting the author's ruling.
+canon — the bundle enters `proposed`, awaiting a ruling in the consuming ledger.
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)

@@ -2820,3 +2820,25 @@ GREEN (5/15/12).
 `by_pred` `name` atoms carrying the canonical display surface (currently the
 store carries only slug `name` atoms, D-0132/D-0134), or if `compile_characters`
 selects a different character set than the YAML `characters.yaml` registry.
+
+## DL-0068 — Active teaching surfaces name citation integrity, not human sign-off
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — the documentation scrub and retired-vocabulary lint
+implement the authority model already ruled by DL-0054 and DL-0058.
+
+**Ruling.** At contract 1.3.0 and above, a caller-supplied citation is recorded
+when its consuming-ledger decision resolves; an unknown decision is a finding
+that bars materialization. Authorization and review belong to the consuming
+application. Accepted wires below 1.3.0 retain the byte-exact cited-provenance
+refusal. Active specifications, cards, and the authoring skill must teach this
+versioned split and must not describe the retired human-only or sign-off law.
+
+**Affected surfaces.** `docs/spec/11-agent-authoring.md`, the cards, `SKILL.md`,
+the author renderer comments, and the `xtask retired-vocabulary` gate.
+
+**Verification.** The retired-vocabulary lint fails on each retired phrase in an
+active teaching surface, permits the append-only historical record and the
+spec/11 compatibility row, and passes after the scrub; docs-oracle, authority,
+and the full gate remain the required follow-up checks.
