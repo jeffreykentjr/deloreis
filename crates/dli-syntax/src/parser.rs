@@ -17,10 +17,10 @@ use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document, DraftDecl,
-    EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, HypothesisDecl, KindDecl, NameDecl,
-    NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl, ProofDecl,
-    QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl, TimeClause,
-    UseDecl, VariantDecl, WordDecl,
+    EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, FunctionalDecl, HypothesisDecl,
+    KindDecl, NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl,
+    ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl,
+    TimeClause, UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -1090,6 +1090,7 @@ pub const LINE_OPEN_KEYWORDS: &[&str] = &[
     "export",
     "fact",
     "fork",
+    "functional",
     "hypothesis",
     "kind",
     "name",
@@ -1454,6 +1455,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         "state" => {
             if let Some(decl) = parse_state(&mut cur, diags, span) {
                 items.push(Item::Decl(Decl::State(decl)));
+            }
+        }
+        "functional" => {
+            if let Some(decl) = parse_functional(&mut cur, diags, span) {
+                items.push(Item::Decl(Decl::Functional(decl)));
             }
         }
         "cycle" => {
@@ -2696,6 +2702,19 @@ fn parse_state(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Opt
         time,
         provenance,
     })
+}
+
+fn parse_functional(
+    cur: &mut Cursor,
+    diags: &mut Vec<Diagnostic>,
+    span: Span,
+) -> Option<FunctionalDecl> {
+    let Some(pred) = cur.eat_ident() else {
+        missing_name(diags, "functional", span);
+        return None;
+    };
+    let provenance = parse_provenance(cur, diags);
+    Some(FunctionalDecl { pred, provenance })
 }
 
 fn parse_cycle(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<CycleDecl> {

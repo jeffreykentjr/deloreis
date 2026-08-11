@@ -816,6 +816,7 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 /// - `1.2.0` — that surface plus `dli.corpus.import`/`dli.corpus.export`.
 /// - `1.3.0` — that surface plus the DM-4 expert authoring tools.
 /// - `1.5.0` — that surface plus durable standing promotion and defeat.
+/// - `1.6.0` — that surface plus the `functional` single-valuedness declaration.
 ///
 /// Asserting the *differences* rather than a frozen list keeps this honest as
 /// ops are added: a new op must land in a tier deliberately, and an op leaking
@@ -849,6 +850,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
             ],
         ),
         ("1.5.0", &["author.set_standing", "author.defeat"]),
+        ("1.6.0", &["author.declare_functional"]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {
@@ -933,6 +935,7 @@ fn every_capability_gate_is_a_floor_not_an_exact_match() {
         ("canon export", "1.4.0", dli_serve::has_canon_export),
         ("expert authoring", "1.3.0", dli_serve::has_expert_authoring),
         ("standing tools", "1.5.0", dli_serve::has_standing_tools),
+        ("functional decls", "1.6.0", dli_serve::has_functional_decls),
         ("citation recording", "1.3.0", dli_serve::records_citations),
     ];
     for (name, floor, gate) in gates {

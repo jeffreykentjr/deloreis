@@ -19,6 +19,8 @@
 pub mod continuity;
 pub mod factcheck;
 
+pub use factcheck::fd_value_key;
+
 use dli_core::grade::Grade;
 
 use dli_ast::span::Span;

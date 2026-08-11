@@ -477,6 +477,14 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.defeat.response".to_owned(),
             schema_for!(AuthorMutationResult),
         ),
+        (
+            "author.declare_functional.request".to_owned(),
+            schema_for!(AuthorDeclareFunctionalParams),
+        ),
+        (
+            "author.declare_functional.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
     ];
     for (name, schema) in &mut schemas {
         if name.ends_with(".request") {

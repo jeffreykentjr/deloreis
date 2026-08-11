@@ -44,10 +44,10 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorCheckParams,
-    AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams,
-    AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams,
-    AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams, AuthorStatusParams,
-    AuthorSupposeParams, AuthorWhyParams,
+    AuthorDeclareFunctionalParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
+    AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -258,6 +258,14 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let params: AuthorDefeatParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((params.workspace.clone(), tools::defeat(store, &params)))
+        }),
+        Op::AuthorDeclareFunctional => mutate(request, store, |store, request| {
+            let params: AuthorDeclareFunctionalParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::declare_functional(store, &params, records_citations(request)),
+            ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no

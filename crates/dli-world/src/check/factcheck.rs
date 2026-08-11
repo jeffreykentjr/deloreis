@@ -180,6 +180,13 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     };
 
     let certain = certain_values(world, &slot);
+    // Compare on the normalized value key, so cosmetic drift (`gold` vs `Gold`,
+    // `tide-bell` vs `tide bell`) is not read as a distinct value — neither a
+    // false contradiction nor a phantom second value that would silently switch
+    // the detector off (issue 49, sub-claim 1). Distinctness is counted on the
+    // keys; the raw spelling is kept for the message.
+    let value_key = fd_value_key(&value);
+    let certain_keys: BTreeSet<String> = certain.iter().map(|v| fd_value_key(v)).collect();
     // A fluent slot is interval-sensitive: a value canon holds over a disjoint
     // span is not a contradiction of a different value claimed here (issue 48).
     // Genuine interval overlaps are surfaced by the world-internal
@@ -187,7 +194,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     // `contradicted` on a fluent slot — only supported (canon holds the value) or
     // unsupported.
     if world.model.fluents.contains_key(&slot) {
-        return if certain.contains(&value) {
+        return if certain_keys.contains(&value_key) {
             ClaimReport {
                 claim: rendered,
                 verdict: Verdict::Supported,
@@ -209,7 +216,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
             }
         };
     }
-    if certain.contains(&value) {
+    if certain_keys.contains(&value_key) {
         return ClaimReport {
             claim: rendered,
             verdict: Verdict::Supported,
@@ -217,7 +224,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
             reason: format!("{}.{} = {value} is asserted by canon", slot.0, slot.1),
         };
     }
-    if certain.len() == 1 {
+    if certain_keys.len() == 1 {
         let canon = certain.iter().next().cloned().unwrap_or_default();
         return ClaimReport {
             claim: rendered,
@@ -233,7 +240,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         claim: rendered,
         verdict: Verdict::Unsupported,
         citations: Vec::new(),
-        reason: if certain.is_empty() {
+        reason: if certain_keys.is_empty() {
             format!("canon bears no certain fact for {}.{}", slot.0, slot.1)
         } else {
             format!(
@@ -413,8 +420,43 @@ impl KilledTokens {
     }
 }
 
-/// Lowercase, and fold hyphens/underscores to spaces, collapsing runs of
-/// whitespace — so `doom-wight` and `Doom Wight` normalize alike.
+/// The key the FD/contradiction check compares values by: lowercased, with
+/// hyphen, underscore, and whitespace runs folded to a single space and trimmed
+/// — **only** case and separators. `gold`/`Gold` and `tide-bell`/`tide bell`
+/// collapse to one value, while every other character (digits, `.`, `/`, `:` …)
+/// survives, so `2.5` and `2-5` stay two distinct values and `gold`/`golden`
+/// stay distinct (never stems). Unlike `normalize` — which folds *every*
+/// non-alphanumeric for liberal killed-token/ban-evasion matching — this
+/// preserves value identity: it must never merge two genuinely distinct values,
+/// which would silently drop a real contradiction (issue 49, koan 4).
+/// Re-exported as [`crate::check::fd_value_key`] and shared with the interactive
+/// staging path so every FD comparison keys identically.
+#[must_use]
+pub fn fd_value_key(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut last_space = true;
+    for ch in value.chars() {
+        if ch == '-' || ch == '_' || ch.is_whitespace() {
+            if !last_space {
+                out.push(' ');
+                last_space = true;
+            }
+        } else {
+            out.extend(ch.to_lowercase());
+            last_space = false;
+        }
+    }
+    if out.ends_with(' ') {
+        out.pop();
+    }
+    out
+}
+
+/// Lowercase, and fold every non-alphanumeric run to a single space, collapsing
+/// whitespace — so `doom-wight` and `Doom Wight` match alike. This is the liberal
+/// fold the killed-token guardrail matches against (ban-evasion resistance); the
+/// FD/contradiction path uses the stricter [`fd_value_key`] instead, which must
+/// not merge distinct values.
 fn normalize(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut last_space = true;

@@ -67,7 +67,20 @@ silently dropped (DL-0029 as relocated by DL-0041).
 | `before` | `before <event-a> -> <event-b> [marker]` (declaring an order is a ruling) |
 | `use` | `use <scope>` |
 | `kind` | `kind <name> [= v1 \| v2 \| …]` |
+| `functional` | `functional <pred> [marker]` — declares `pred` single-valued (a functional dependency): one certain value per subject |
 | `narration` | `narration vantage <era>` (inert vantage; one per corpus) |
+
+`functional` states a constraint, not a fact — it lowers to no atom, and there is
+nothing to query. What it changes is the check: two distinct certain values for
+one subject of a declared predicate raise `continuity.fd-violation`. Undeclared,
+single-valuedness is inferred from canon's own precedent, which cannot judge a
+first-seen predicate — the declaration is how an author settles that case.
+
+```dli
+functional ruler-of              ratified d-0146
+
+ruler-of(camelot, arthur)        ratified d-0146
+```
 
 ### Questions, forks, hypotheses
 

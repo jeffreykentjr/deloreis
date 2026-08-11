@@ -595,6 +595,19 @@
           ]
         },
         {
+          "description": "`functional <pred>` — declare a predicate single-valued (a functional\ndependency): each subject may carry at most one certain value for it.",
+          "type": "object",
+          "properties": {
+            "Functional": {
+              "$ref": "#/$defs/FunctionalDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Functional"
+          ]
+        },
+        {
           "description": "`cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.",
           "type": "object",
           "properties": {
@@ -1379,6 +1392,30 @@
         "question",
         "options",
         "body"
+      ]
+    },
+    "FunctionalDecl": {
+      "description": "`functional <pred>` — a predicate-level single-valuedness constraint.\n\nThis declares that `pred` is a functional dependency: a subject holds at most\none certain value for it, so two distinct certain values are a contradiction\n(`continuity.fd-violation`). It carries no ground atom — like a `ratify`, it is\na carriage-only declaration whose provenance rides its serialized body, never\nthe interner (so the three lowerings stay byte-identical, DL-0071). It lets an\nauthor judge a *first-seen* predicate single-valued, which canon precedent\nalone cannot (issue 49, sub-claim 4).",
+      "type": "object",
+      "properties": {
+        "pred": {
+          "description": "The predicate declared single-valued.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pred"
       ]
     },
     "GradeDirection": {

@@ -66,8 +66,8 @@ use serde::{Deserialize, Serialize};
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl,
-    OptionClause, RuleDecl, ScopeHeader, StateDecl, TimeClause,
+    AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl,
+    FunctionalDecl, KindDecl, OptionClause, RuleDecl, ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -242,6 +242,7 @@ impl LoadCtx {
             Decl::Entity(entity) => self.process_entity(entity, pack),
             Decl::Attr(attr) => self.process_attr(attr, pack, None),
             Decl::State(state) => self.process_state(state, pack),
+            Decl::Functional(functional) => self.process_functional(functional),
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
             Decl::Kind(kind) => self.process_kind(kind, pack),
@@ -439,6 +440,19 @@ impl LoadCtx {
             self.wm.fluents.entry(slot).or_default().push(span);
         }
         self.push_atom(atom, compiled, pack, state.name.span);
+    }
+
+    /// Record a `functional <pred>` declaration: the predicate is single-valued,
+    /// so the FD/contradiction check treats a slot on it as a functional
+    /// dependency even when canon bears no prior fact for it (issue 49). This is a
+    /// carriage-only declaration — it lowers to no atom and interns no provenance
+    /// (its provenance rides the durable store's serialized body, keeping the
+    /// three lowerings byte-identical, DL-0071), so the loader only populates the
+    /// world-model set the checker reads.
+    fn process_functional(&mut self, functional: &FunctionalDecl) {
+        self.wm
+            .functional_predicates
+            .insert(functional.pred.text.clone());
     }
 
     /// The interval anchors a state's [`TimeClause`] bounds it to. `since`/`after`

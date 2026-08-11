@@ -207,6 +207,11 @@
           "const": "state"
         },
         {
+          "description": "`functional <pred>` — a predicate single-valuedness constraint. Carried\nwhole; it regenerates no atom (issue 49).",
+          "type": "string",
+          "const": "functional"
+        },
+        {
           "description": "`cycle <name> …` — a cycle declaration.",
           "type": "string",
           "const": "cycle"

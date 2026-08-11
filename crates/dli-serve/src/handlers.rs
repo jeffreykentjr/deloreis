@@ -135,7 +135,8 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorAddState
         | Op::AuthorAddAttest
         | Op::AuthorSetStanding
-        | Op::AuthorDefeat => Err((
+        | Op::AuthorDefeat
+        | Op::AuthorDeclareFunctional => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1968,6 +1969,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let corpus = crate::has_corpus_ops(dli);
     let expert_authoring = crate::has_expert_authoring(dli);
     let standing_tools = crate::has_standing_tools(dli);
+    let functional_decls = crate::has_functional_decls(dli);
     Op::ALL
         .iter()
         .copied()
@@ -1975,6 +1977,7 @@ fn capabilities(dli: &str) -> Vec<String> {
         .filter(|op| corpus || !op.added_in_1_2_0())
         .filter(|op| expert_authoring || !op.added_in_1_3_0())
         .filter(|op| standing_tools || !op.added_in_1_5_0())
+        .filter(|op| functional_decls || !op.added_in_1_6_0())
         .map(wire_name)
         .collect()
 }

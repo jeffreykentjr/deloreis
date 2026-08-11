@@ -244,13 +244,35 @@ the continuity checker already treats them so. A certain value `v` together with
 a possible claim `v′ ≠ v` raises a **pending-conflict** for the author — nothing
 is dropped, nothing is auto-resolved.
 
+**Which predicates are functional, and what a break is called.** A predicate is
+functional when the author declared it so (`functional <pred>`, spec/01 §3). For
+a claim-relative check — a draft setting one slot two ways — a predicate canon
+already witnesses as single-valued everywhere it appears also counts, and the
+clash is `continuity.intra-episode-contradiction`. But the world-internal check —
+asked of canon *itself*, `continuity.fd-violation` — fires **only** on a
+**declared** functional predicate: canon's own shape cannot settle functionality.
+A subject bearing several edges while others bear one each is a hub in a
+many-to-many relation (a place with several neighbours) exactly as readily as a
+functional-dependency break, so inferring functionality from degree manufactures
+findings against lore that is merely unusual. The author rules on it (koan 3); the
+declaration is what arms the class. This is the read-side counterpart to merge's
+blame-pair check (§5), closing the asymmetry that let a load accept a doubly-set
+slot a join refuses. Distinctness of values is judged on the **FD value key** —
+case, hyphen/underscore, and whitespace folded, so `gold` and `Gold` are one
+value — and on nothing else: other punctuation survives (`2.5` and `2-5` stay two
+values) and stems are never folded (`gold` and `golden` remain two), because
+merging genuinely distinct values would silently drop a contradiction (koan 4).
+Fluent slots are excluded here and judged over their intervals instead
+(`continuity.fluent-contradiction`, spec/03 §2), where a value held over disjoint
+spans is no clash at all.
+
 **Ratification pre-flight is a free query.** Before valuating an option, evaluate
 the would-be valuation and verify that the certain layer stays FD-consistent and
 C-consistent; report blame as the exact conflicting monomial pair. What would
 otherwise be discovered *after* a decision propagates becomes a question asked
 *before* it.
 
-The six continuity classes and the four fact-check verdicts are all recovered as
+The continuity classes and the four fact-check verdicts are all recovered as
 evaluations over this regime — contradiction is an FD-versus-certain clash or a
 C-match with blame; asserting-the-merely-possible is asserting a possible-not-
 certain atom; unknown is absence from certain ∪ possible. No new mechanisms are

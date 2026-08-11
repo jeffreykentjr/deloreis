@@ -65,6 +65,7 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorAddAttest, "author.add_attest"),
     (Op::AuthorSetStanding, "author.set_standing"),
     (Op::AuthorDefeat, "author.defeat"),
+    (Op::AuthorDeclareFunctional, "author.declare_functional"),
 ];
 
 #[test]

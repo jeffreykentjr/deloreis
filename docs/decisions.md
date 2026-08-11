@@ -3029,3 +3029,143 @@ the author renderer comments, and the `xtask retired-vocabulary` gate.
 active teaching surface, permits the append-only historical record and the
 spec/11 compatibility row, and passes after the scrub; docs-oracle, authority,
 and the full gate remain the required follow-up checks.
+
+## DL-0073 — Contradiction is judged on a normalized value key, and canon is checked against itself (issue 49)
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The functional-dependency detector compared values by **exact string**,
+ran **one-sided** (claim-against-canon only), and skipped a whole staged value
+form. Each of those is a way for a real contradiction to pass unremarked, which is
+koan 4 (*nothing is silently dropped*) read on the check layer: a detector that
+cannot see a clash drops it as surely as a parser that discards a line. Three of
+issue 49's four sub-claims are closed here; the fourth was already closed by
+DL-0071.
+
+1. **One normalized key, wherever two values are compared.** The fold the
+   killed-token guardrail already used — lowercase, hyphens and underscores to
+   spaces, runs of whitespace collapsed — is promoted to `dli_world::check::normalize`
+   and is now the key *every* FD comparison comes down to: the fact-checker's
+   certain-value match and its `certain.len() == 1` single-valuedness test, the
+   claim-relative `intra-episode-contradiction`, the data-driven
+   functional-predicate inference, and the interactive staging path. `gold` and
+   `Gold` are one value rather than a phantom two — and the phantom two was worse
+   than a cosmetic wart, because a second value silently switched the
+   single-valued detector *off* and took the real contradiction with it. The fold
+   is cosmetic only: case and separators, never stems. `gold` and `golden` stay
+   two values, because deciding that they are one is a ruling about the lore and
+   the engine does not make those (koan 3). The raw spelling is kept beside the
+   key so a finding still quotes what the author wrote.
+
+2. **`continuity.fd-violation` — canon is checked against itself.** The
+   contradiction battery only ever asked *does this claim clash with canon*, so a
+   functional-dependency break sitting inside canon's own certain layer was
+   invisible: a slot the store holds two ways was never checked against itself,
+   only against an incoming claim. `check::run` now raises
+   `continuity.fd-violation` for a slot whose own certain projection holds two or
+   more distinct values on a predicate the author **declared** `functional`
+   (DL-0074) — the read-side counterpart to the merge engine's `certain_conflicts`,
+   closing the asymmetry that let a load accept what a join refuses. The class
+   fires **only** on a declared predicate. Functionality is not inferred from
+   canon's shape: a subject bearing several edges while others bear one each is a
+   hub in a many-to-many relation (a place with several neighbours, R2/B) exactly
+   as readily as a functional-dependency break, so guessing manufactures findings
+   against lore that is merely unusual — and did, reddening two bundled corpora on
+   the first cut. The author rules on functionality (koan 3); the engine never
+   guesses. Fluent slots are skipped: their clashes are interval-sensitive and
+   belong to `continuity.fluent-contradiction` (DL-0071), where a value held over
+   disjoint spans is correctly no clash at all.
+
+3. **The staged world is checked like a loaded one.** Because materialize gates on
+   `check::run` over the *staged* world, the new world-internal class makes a
+   conflict between two **sibling staged** claims block the accept decision, where
+   before only a staged-versus-committed clash could — the staging path inherits
+   the symmetry rather than growing a second rule to keep in step. Alongside it,
+   the staging pre-check (`attr_findings`) now compares any ground value: a
+   `Term::Str` slot value was previously not compared at all, so a quoted
+   contradiction walked past the one check that was supposed to catch it.
+
+4. **Timelessness was not the remaining defect.** Issue 49's "timeless" sub-claim
+   is closed by DL-0071 (issues 47, 48): a time-varying property is a `state`,
+   which lowers to a queryable fact *and* pushes its interval onto the slot's
+   `FluentTimeline`, where overlap is judged with the intervals in hand. A flat
+   fact or slot is timeless by construction, so the FD check is right to compare
+   values without reasoning about time — and right to leave fluent slots to the
+   check that owns their spans.
+
+**Rationale.** All three fixes are one defect wearing three costumes: the detector
+answered a narrower question than the one it was trusted to answer, and answered it
+silently. Keying comparison on the FD value key stops cosmetic drift from reading as
+distinctness — but that key folds only case, hyphen/underscore, and whitespace,
+never other punctuation, so `2.5` and `2-5` stay two values: a fold that merged
+genuinely distinct values would itself silently drop a contradiction (koan 4), the
+very failure the issue names. Checking canon against itself removes the asymmetry
+that let the store hold what a merge would refuse; comparing every ground value
+removes the type-shaped hole. And functionality is the author's ruling, not the
+engine's guess (koan 3, DL-0074): where the data cannot settle whether a relation
+is single- or multi-valued, a declaration does — so the world-internal class fires
+on a declaration, never on canon's shape.
+
+**Verification.** The `dli-world` check lane covers the FD value key (`gold` and
+`Gold` are one value; `gold`/`golden` and `2.5`/`2-5` remain two), the new class
+(a declared `functional` predicate with a two-valued subject raises exactly one
+finding; an undeclared predicate — including the hub-and-chain topology that reds
+`camelot`/`saltmarket` if inferred — raises none), and the fluent skip (a value
+held over disjoint spans is still no FD finding). The `dli-serve` staging tests
+cover the sibling-staged conflict blocking materialize, the `Term::Str`
+contradiction, and the new op's citation and control-character guards. The
+finding-family catalogue is regenerated and coverage-checked against the emitting
+source, so the code is registered rather than merely raised.
+
+## DL-0074 — `functional <pred>` is a declaration, and `author.declare_functional` is a contract 1.6.0 wire addition (issue 49)
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Single-valuedness becomes something an author can **say**. The surface
+gains one keyword — `functional <pred>` — and the tool surface gains one operation,
+`author.declare_functional`, taking the closed operation set to 60. The declaration
+marks a predicate a functional dependency: each subject holds at most one certain
+value for it, so two distinct certain values are `continuity.fd-violation`
+(DL-0073). It is introduced at contract **`1.6.0`**, a minor bump on the
+additive-capability discipline DL-0069 (canon export at `1.4.0`) and DL-0070 (the
+standing tools at `1.5.0`) already set: the op goes on the *end* of the
+append-only operation list and is advertised only from `1.6.0` up, so every
+earlier negotiation's capability list — and the released golden fixture recording
+it — stays byte-identical and needs no re-pin (audit C4). `0.5.1`, `0.6.0`–`0.6.4`,
+and `1.0.0`–`1.6.0` all remain accepted, each caller answered in the version it
+declared.
+
+The declaration is **carriage-only**. It lowers to no ground atom — there is no
+fact "`ruler-of` is functional" to query — and it interns no provenance: the
+loader records the predicate in the world model and never calls `compile_ann`, so
+the durable lowering must not offer the annotation either, on pain of minting a
+bundle variable the full compile never mints and desyncing every index after it
+(the lock-step hazard DL-0071 named for `state`). Its provenance rides the
+serialized carriage body instead, as `ratify`'s does. Because it lowers to no
+atom it is not an inert declaration in the DL-0029 sense: it is consumed — by the
+checker, which is the only reader a constraint needs.
+
+**Rationale.** Without a declaration, functionality could only be *inferred* from
+canon precedent, and inference is structurally blind exactly where an author most
+needs the check: the first time a predicate is used. A first-seen predicate given
+two values is either a slip or a genuinely multi-valued relation, and no amount of
+data settles which — that is a ruling about the world, and the engine does not
+make rulings (koan 3). So the author makes it, once, in one line, and the checker
+enforces it from then on. A wire op rather than a text-only form, because agents
+author through the one interface (DL-0014, DL-0043); a version bump rather than a
+second meaning of `1.5.0`, because a pinned consumer must not receive different
+surfaces from different commits.
+
+**Verification.** The contract fixtures for `author.declare_functional` (framing,
+golden, and the negative schema violation) are registered in the closed fixture
+registry at `contract_version: 1.6.0`; the op inventory, capability replay, and
+version echo are gate-checked, with the pre-`1.6.0` capability lists asserted
+unmoved. The parser, formatter, and the three lowerings are covered by the
+round-trip and byte-identity oracles, and the checker's use of the declared set is
+covered by the `dli-world` check lane (DL-0073).

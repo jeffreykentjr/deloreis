@@ -59,6 +59,9 @@ pub enum Decl {
     Rule(RuleDecl),
     /// `state <name> = <value> …` — a time-varying property.
     State(StateDecl),
+    /// `functional <pred>` — declare a predicate single-valued (a functional
+    /// dependency): each subject may carry at most one certain value for it.
+    Functional(FunctionalDecl),
     /// `cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.
     Cycle(CycleDecl),
     /// `fork <question>` — an open creative fork.
@@ -346,6 +349,23 @@ impl StateDecl {
             }),
         }
     }
+}
+
+/// `functional <pred>` — a predicate-level single-valuedness constraint.
+///
+/// This declares that `pred` is a functional dependency: a subject holds at most
+/// one certain value for it, so two distinct certain values are a contradiction
+/// (`continuity.fd-violation`). It carries no ground atom — like a `ratify`, it is
+/// a carriage-only declaration whose provenance rides its serialized body, never
+/// the interner (so the three lowerings stay byte-identical, DL-0071). It lets an
+/// author judge a *first-seen* predicate single-valued, which canon precedent
+/// alone cannot (issue 49, sub-claim 4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct FunctionalDecl {
+    /// The predicate declared single-valued.
+    pub pred: Ident,
+    /// Provenance annotation, if any.
+    pub provenance: Option<Annotation>,
 }
 
 /// `cycle <name>(<modulus>) [= <spokes>]`.

@@ -1,0 +1,20 @@
+{
+  "fixture": "negative/author-declare-functional-schema-violation",
+  "version": 1,
+  "note": "author.declare_functional params omit the required pred.",
+  "send": {
+    "dli": "1.6.0",
+    "id": "1",
+    "op": "author.declare_functional",
+    "params": {
+      "workspace": "ws-1",
+      "provenance": {
+        "kind": "proposed",
+        "origin": "session-fd"
+      }
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

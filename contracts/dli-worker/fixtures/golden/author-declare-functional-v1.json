@@ -1,0 +1,44 @@
+{
+  "fixture": "golden/author-declare-functional-v1",
+  "version": 1,
+  "note": "Contract 1.6 functional declaration: declare a predicate single-valued (a functional dependency). The op stages a carriage-only Decl::Functional and returns the mutation result with the new workspace digest.",
+  "precondition": [
+    {
+      "dli": "1.6.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.6.0",
+        "id": "1",
+        "op": "author.declare_functional",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "rank",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-fd"
+          }
+        }
+      },
+      "expect": {
+        "dli": "1.6.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "functional rank proposed session-fd"
+          ],
+          "workspace_digest": "jcs:sha256:11fa3699cc298e747315eebec8c54882c312202b2ea6d42f0efd8ed0fb50482a"
+        }
+      }
+    }
+  ]
+}
