@@ -91,7 +91,7 @@ Mint the stage-A `D-nnnn`. (Can run locally now; not blocked by the GH outage.)
 **P2 — FW-8 MCP authoring integration (after flip PR).** MCP config + `SKILL.md`
 adaptation + structured-diff review renderer + store-integrity CI. Authors into
 the collapsed single-`tpth` store (scope-collapse approved). RT:
-supervision-bypass, propose-only-enforced; authoring is a **stateful session** —
+supervision-bypass, citation-integrity-enforced; authoring is a **stateful session** —
 `author.open`'s workspace lives in the serving process; hold it open across all
 authoring frames (one-shot bridge fails with `unknown-doc`). DL-0061 hardens
 its review surface.

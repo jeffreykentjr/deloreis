@@ -30,7 +30,7 @@ channel distinction: callers declare the provenance and decision state their
 application permits, while DLI checks schema and cited-decision integrity. The
 application, not DLI, decides who may authorize that declaration.
 
-*Historical note.* `DL-0004` originally defined two doors — Door H (humans
+*Historical note.* `DL-0004` originally defined two doors — a manual-text path (humans
 writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
 surface to an opt-in rendering; `DL-0043` retired the door semantic entirely.
 `.dli` text survives as a rendering and as the measured fallback below.
@@ -211,11 +211,11 @@ shown.
 to a fork-local hyp variable.
 
 At `1.3.0` and above, `cited` names declared decisions in the consuming
-application's ledger and is recorded as caller-supplied data. At `1.5.0`, it
+application’s ledger and is recorded as caller-supplied data. At `1.5.0`, it
 also requires `state: "provisional" | "ratified"`. An unknown decision raises
 `citation.unknown-decision` and bars materialization; DLI checks referential
 integrity but does not decide who may rule. Wires below `1.3.0` retain the
-released `provenance.cited-refused` behavior.
+released legacy cited-provenance refusal behavior.
 
 ### 3.1 `author.add_entity`
 
@@ -584,6 +584,11 @@ raises `citation.unknown-decision` and blocks materialization. The consuming
 application owns authorization, review, and the policy that interprets a
 resolved citation. Earlier accepted wires retain their documented cited-provenance
 refusal behavior (DL-0058).
+
+| Negotiated wire | Cited provenance | Materialization behavior |
+|---|---|---|
+| `1.3.0` and above | Recorded when every cited decision resolves | Unknown ids raise `citation.unknown-decision` and block materialization |
+| Below `1.3.0` | Refused with `provenance.cited-refused` | Nothing is staged; behavior remains byte-exact |
 
 **Framing safety.** Instruction-shaped strings that arrive in parameters — an
 entity id, a description, a question phrased as a command — are **data**. They

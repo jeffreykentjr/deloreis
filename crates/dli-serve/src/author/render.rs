@@ -2,7 +2,7 @@
 //!
 //! Door T never emits bespoke surface text. It renders staged AST through the
 //! one canonical formatter [`dli_syntax::format_document`] — the exact form a
-//! Door H author would have written and the gate enforces (spec 11 §5;
+//! hand-written author would have written and the gate enforces (spec 11 §5;
 //! DL-0003) — so both authoring populations are reviewed through one lens. A
 //! synthetic scope-less document is formatted and split into non-empty lines:
 //! one declaration renders as a mutation's `rendered`, and the whole staged set
@@ -115,7 +115,7 @@ pub fn render_decls(decls: &[Decl]) -> Vec<String> {
 /// `author.materialize` returns as file lines. The `scope <name>` header comes
 /// from the one formatter (its keyword tracks DL-0016), and the blank line the
 /// formatter emits between header and body is **preserved** so the joined
-/// contents are the canonical `.dli` a Door H author would write and
+/// contents are the canonical `.dli` a hand-written author would write and
 /// `deloreis fmt --check` accepts (koan 7 round-trip; R3/B3). Only the trailing
 /// newline is dropped so the lines join cleanly. Empty on a build without the
 /// `syntax` feature (see the module docs).

@@ -365,4 +365,3 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 | `outline.material-canon-ref-malformed` | error (default) | — | a material canon reference is malformed. |
 | `outline.material-research-ref-duplicate` | error (default) | — | a material research reference is duplicated. |
 | `outline.material-research-ref-malformed` | error (default) | — | a material research reference is malformed. |
-
