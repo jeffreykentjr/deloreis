@@ -138,25 +138,29 @@ pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, Upcast
         return Ok(value);
     }
 
-    // v1 → v2: deepen every expert carriage whose interior LS-9 structured. Each
-    // is a no-op unless the carriage is that kind, so at most one fires per
-    // object.
-    #[cfg(feature = "syntax")]
-    {
-        deepen_rule_carriage(&mut value)?;
-        deepen_dialect_carriage(&mut value)?;
-        deepen_name_carriage(&mut value)?;
-        deepen_ratify_carriage(&mut value)?;
-        deepen_proof_carriage(&mut value)?;
-        deepen_practice_carriage(&mut value)?;
-    }
-    #[cfg(not(feature = "syntax"))]
-    if let Some(kind) = expert_carriage_kind(&value)
-        && DEEPENED_CARRIAGE_KINDS.contains(&kind)
-    {
-        return Err(UpcastError::SyntaxRequired {
-            kind: kind.to_owned(),
-        });
+    // v1 → v2: deepen every expert carriage whose interior LS-9 structured.
+    // A v2/v3 carriage is already typed; running a v1 deepener against it would
+    // reinterpret its typed body as the old Vec<Clause> shape and reject a
+    // valid existing store. Each deepener is a no-op unless the carriage is
+    // that kind, so at most one fires per object.
+    if from_version < 2 {
+        #[cfg(feature = "syntax")]
+        {
+            deepen_rule_carriage(&mut value)?;
+            deepen_dialect_carriage(&mut value)?;
+            deepen_name_carriage(&mut value)?;
+            deepen_ratify_carriage(&mut value)?;
+            deepen_proof_carriage(&mut value)?;
+            deepen_practice_carriage(&mut value)?;
+        }
+        #[cfg(not(feature = "syntax"))]
+        if let Some(kind) = expert_carriage_kind(&value)
+            && DEEPENED_CARRIAGE_KINDS.contains(&kind)
+        {
+            return Err(UpcastError::SyntaxRequired {
+                kind: kind.to_owned(),
+            });
+        }
     }
 
     // v2 → v3: take source position out of the identity bytes (DL-0055).
@@ -591,5 +595,33 @@ mod tests {
         let lifted = upcast_value(3, old).expect("v3 marker lifts");
         assert_eq!(lifted["schema_version"], serde_json::json!(SCHEMA_VERSION));
         assert_eq!(lifted["provenance"]["marker"], "Provisional");
+    }
+
+    #[test]
+    fn a_v3_typed_carriage_is_not_reparsed_as_v1() {
+        let declaration = serde_json::json!({
+            "Dialect": {
+                "name": {"span": {"start": 0, "end": 0, "file": 0}, "text": "imperial"},
+                "label": "The Imperial Tongue",
+                "body": {"clauses": []},
+                "provenance": null
+            }
+        });
+        let old = serde_json::json!({
+            "schema_version": 3,
+            "expert_body": {
+                "kind": "dialect",
+                "name": "imperial",
+                "body": [serde_json::to_string(&declaration).expect("declaration JSON")]
+            }
+        });
+
+        let lifted = upcast_value(3, old).expect("v3 typed carriage lifts");
+        let body = lifted["expert_body"]["body"][0]
+            .as_str()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .expect("typed declaration remains JSON");
+        assert!(body["Dialect"]["body"].is_object());
+        assert_eq!(lifted["schema_version"], serde_json::json!(SCHEMA_VERSION));
     }
 }
