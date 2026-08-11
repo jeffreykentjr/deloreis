@@ -70,7 +70,8 @@ mod simulation;
 /// byte-exact, so every tagged contract before this one is frozen.
 /// `1.4.0` adds the canon-normalized corpus export and its `canon` response
 /// field; it is a new wire version because the response shape is additive.
-pub const CONTRACT_VERSION: &str = "1.4.0";
+/// `1.5.0` unifies standing markers and adds ordinary promotion/defeat tools.
+pub const CONTRACT_VERSION: &str = "1.5.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -92,16 +93,17 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// (DM-4: the expert authoring ops and the authority scrub, DL-0058 — the ops
 /// additive and advertised only from `1.3.0` up, the scrub gated so that every
 /// version below keeps `provenance.cited-refused` byte-exact), and `1.4.0`
-/// (LS-7: canon-normalized corpus export).
+/// (LS-7: canon-normalized corpus export), and `1.5.0` (standing vocabulary
+/// unification plus ordinary promotion/defeat tools).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
 /// EXT-F4, and `1.0.0` is opt-in by negotiation like every version before it.
 /// The `serve::KILLED_FIELDS` retirement is keyed on the major, so it is live
-/// on exactly one member of this list and dormant on the other six.
+/// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0",
+    "1.4.0", "1.5.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -168,6 +170,12 @@ pub fn has_expert_authoring(dli: &str) -> bool {
     at_or_above(dli, (1, 3, 0))
 }
 
+/// Whether the negotiated version carries Contract 1.5's standing tools.
+#[must_use]
+pub fn has_standing_tools(dli: &str) -> bool {
+    at_or_above(dli, (1, 5, 0))
+}
+
 /// Whether the negotiated version checks that an imported object's `claim_id`
 /// matches the identity its content mints (≥ `1.3.0`, DL-0059).
 ///
@@ -206,6 +214,6 @@ pub fn records_citations(dli: &str) -> bool {
 }
 
 pub use envelope::{ErrorBody, ErrorCode, Request, Response};
-pub use finding::{Finding, Provenance, Severity};
+pub use finding::{Finding, Provenance, ProvenanceState, Severity};
 pub use ops::Op;
 pub use schema::contract_schemas;

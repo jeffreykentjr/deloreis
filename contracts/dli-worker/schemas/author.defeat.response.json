@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorMutationResult",
+  "description": "The result of any mutating `author.*` op.",
+  "type": "object",
+  "properties": {
+    "facts": {
+      "description": "The committed fact objects as JSON — the 0.6.0 materialize JSON-first\nreturn (`.dli` rendering is the opt-in, DL-0045 ruling 1).",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": true
+    },
+    "findings": {
+      "description": "Findings raised by the mutation (data, never instructions).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Finding"
+      }
+    },
+    "rendered": {
+      "description": "The rendered lines the mutation produced. On a 0.6.0 `materialize`\nthis is empty unless the request opted in with `rendered: true` —\nthe JSON-first return carries `facts` instead.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "root_hash": {
+      "description": "The lorestore commit hash a `materialize` advanced the workspace's\nbranch to. A separate field from `workspace_digest` — the two digest\nregimes never share a field. 0.6.0 materialize only.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace_digest": {
+      "description": "The workspace digest after the mutation — always in the fence-valid\n`jcs:sha256:` regime, so fencing the next call with this value works.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "findings",
+    "rendered",
+    "workspace_digest"
+  ],
+  "$defs": {
+    "Finding": {
+      "description": "A single finding attached to a result: a coded, graded observation with an\noptional machine-applicable repair.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "Supporting citations.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "description": "A stable finding code.",
+          "type": "string"
+        },
+        "grade": {
+          "description": "The grade at which the finding is asserted.",
+          "$ref": "#/$defs/Grade"
+        },
+        "message": {
+          "description": "A human-readable message. Serialized with every control, bidi, and\nzero-width character escaped (DL-0061): this message is the LS-5 review\nsurface a reviewer reads, and caller-supplied text (ids, values) is\n`format!`-ed into it — the escape is what stops a newline in a caller id\nfrom forging a second line, exactly as the render channel escapes the\n`.dli` diff (DM-4). See the `serialize_message` function.",
+          "type": "string"
+        },
+        "repair": {
+          "description": "An optional structured repair suggestion."
+        },
+        "severity": {
+          "description": "The severity, which gates materialization.",
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "grade"
+      ]
+    },
+    "Grade": {
+      "description": "How strongly a claim is known, weakest to strongest.\n\nThe derived `Ord` is the semantics: `Asserted < Attested < Tested <\nChecked`. A claim's grade can only rise as evidence accumulates.\n\nThe grade axis measures the *recheckability of the establishing procedure*,\nnot the authority of the speaker (`docs/spec/07-verdicts-and-llm-boundary.md`\n§1). `Asserted` is the strongest word and the weakest evidence: authorial\nfiat grades below a model's opinion because there is nothing to re-run — not\nbecause the author is outranked. Authority lives in the valuation layer; the\nlattice ranks evidence, the ledger ranks authority (charter koan 6).",
+      "oneOf": [
+        {
+          "description": "Grounded in will; there is nothing to re-run — author's word.",
+          "type": "string",
+          "const": "asserted"
+        },
+        {
+          "description": "A stored model judgment: re-posable and contestable, not re-derivable.",
+          "type": "string",
+          "const": "attested"
+        },
+        {
+          "description": "Re-derives statistically — a battery over a committed spec and seed.",
+          "type": "string",
+          "const": "tested"
+        },
+        {
+          "description": "Re-derives exactly — anyone re-runs it and gets the same result.",
+          "type": "string",
+          "const": "checked"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "A finding's severity. Orthogonal to grade (evidence strength): severity gates\n`author.materialize` — an `error` blocks it, a `warn` passes.",
+      "oneOf": [
+        {
+          "description": "Blocks `author.materialize`.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "Advisory; does not block materialization.",
+          "type": "string",
+          "const": "warn"
+        }
+      ]
+    }
+  }
+}

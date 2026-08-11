@@ -44,9 +44,10 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorCheckParams,
-    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
-    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorQueryParams, AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams,
+    AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams,
+    AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams, AuthorStatusParams,
+    AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -245,6 +246,19 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
                 tools::add_attest(store, &params, records_citations(request)),
             ))
         }),
+        Op::AuthorSetStanding => mutate(request, store, |store, request| {
+            let params: AuthorSetStandingParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::set_standing(store, &params),
+            ))
+        }),
+        Op::AuthorDefeat => mutate(request, store, |store, request| {
+            let params: AuthorDefeatParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((params.workspace.clone(), tools::defeat(store, &params)))
+        }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no
         // idempotency caching, only the tool's result or a typed error.
@@ -402,6 +416,32 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
                     "expected_digest": ws.digest,
                     "presented_digest": expected,
                 })),
+            },
+        ));
+    }
+    let provenance = &request.params["provenance"];
+    if !crate::has_standing_tools(&request.dli) && provenance.get("state").is_some() {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "field `state` is defined only by contract 1.5 cited provenance"
+                    .to_owned(),
+                data: None,
+            },
+        ));
+    }
+    if crate::has_standing_tools(&request.dli)
+        && provenance["kind"] == serde_json::json!("cited")
+        && provenance.get("state").is_none()
+    {
+        return Err(error(
+            request,
+            ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "contract 1.5 cited provenance requires state `provisional` or `ratified`"
+                    .to_owned(),
+                data: None,
             },
         ));
     }

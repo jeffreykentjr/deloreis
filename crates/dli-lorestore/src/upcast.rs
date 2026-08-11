@@ -165,11 +165,30 @@ pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, Upcast
         normalize_carriage_spans(&mut value);
     }
 
+    // v3 → v4: retire `decided` as a stored vocabulary. Keep the AST variant
+    // readable for old frames, but normalize it before any current projection
+    // or authoring path can observe it. Provenance is outside the identity
+    // projection, so this changes no fact address.
+    if from_version < 4 {
+        normalize_decided_marker(&mut value);
+    }
+
     // Stamp the lifted object with the schema it now conforms to.
     if let Some(obj) = value.as_object_mut() {
         obj.insert("schema_version".to_owned(), Value::from(SCHEMA_VERSION));
     }
     Ok(value)
+}
+
+fn normalize_decided_marker(value: &mut Value) {
+    if let Some(marker) = value
+        .get_mut("provenance")
+        .and_then(Value::as_object_mut)
+        .and_then(|provenance| provenance.get_mut("marker"))
+        && marker.as_str() == Some("Decided")
+    {
+        *marker = Value::String("Provisional".to_owned());
+    }
 }
 
 /// Lift a pre-v3 carriage into the v3 span discipline: the hashed body becomes
@@ -561,5 +580,16 @@ mod tests {
             upcast_value(u64::from(SCHEMA_VERSION), current.clone()).expect("v2 needs no lift"),
             current
         );
+    }
+
+    #[test]
+    fn a_v3_decided_marker_upcasts_to_provisional() {
+        let old = serde_json::json!({
+            "schema_version": 3,
+            "provenance": { "marker": "Decided" }
+        });
+        let lifted = upcast_value(3, old).expect("v3 marker lifts");
+        assert_eq!(lifted["schema_version"], serde_json::json!(SCHEMA_VERSION));
+        assert_eq!(lifted["provenance"]["marker"], "Provisional");
     }
 }

@@ -1778,6 +1778,33 @@ pub struct AuthorAddAttestParams {
     pub provenance: Provenance,
 }
 
+/// `author.set_standing` promotes one provisional stored claim to ratified.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorSetStandingParams {
+    /// The authoring workspace whose lorestore is being updated.
+    pub workspace: String,
+    /// The stable claim id of the stored fact to promote.
+    pub claim_id: String,
+    /// The decision that records the ratification.
+    pub decision: String,
+}
+
+/// `author.defeat` records a defeating decision and rules the claim's existing
+/// supporting decision false without deleting the defeated fact.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorDefeatParams {
+    /// The authoring workspace whose lorestore is being updated.
+    pub workspace: String,
+    /// The stable claim id of the stored fact to defeat.
+    pub claim_id: String,
+    /// The decision that defeats the claim.
+    pub decision: String,
+    /// The claim's existing supporting decision to rule false.
+    pub defeated_decision: String,
+}
+
 // -- author.query (read) -----------------------------------------------------
 
 /// `author.query` params: query the **staged** world (base + staged

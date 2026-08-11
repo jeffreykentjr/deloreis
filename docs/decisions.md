@@ -2906,3 +2906,44 @@ projection additive while preserving the multi-version dual-mode law.
 **Verification.** The contract schemas, version echo, capability replay, and
 the pre-1.4.0 canon-refusal fixture are checked by the gate; the refusal is
 replayed against the `contract/1.3.0` build and the `1.4.0` build.
+
+## DL-0070 — Contract 1.5 unifies standing and adds ordinary ruling data
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — the contract 1.5 standing migration and authoring
+surface. Human supervision remains asynchronous; these operations do not
+pretend to be a human approval workflow.
+
+**Ruling.** The stored standing vocabulary is `asserted` (no marker),
+`proposed`, `provisional`, or `ratified`. The legacy `decided` marker remains
+deserializable for one compatibility cycle, is registered as a killed form
+whose successor is `provisional`, and is refused at the contract 1.5 import
+boundary. Schema v4 upcasts old stored `decided` metadata to `provisional`.
+Marker metadata remains outside the fact identity projection, so this upcast
+does not change content addresses.
+
+At contract `1.5.0`, cited authoring provenance carries a required
+`state: "provisional" | "ratified"`; below `1.5.0`, the prior wire remains
+byte-compatible and a cited call without state keeps its previous behavior.
+`author.set_standing` promotes an existing provisional claim when its cited
+decision is declared and occurs in every support path. `author.defeat` records
+the new defeating decision and sets the claim's old supporting decision false
+on the serving ref; defeated objects remain reachable in the append-only store.
+Both transitions retain their decision evidence in provenance metadata without
+changing the claim identity. They are ordinary data operations and do not block
+on a human-signoff gate. Canon excludes claims whose support evaluates dead,
+derives surviving status from the closed vocabulary, requires the commit's
+decision list to equal the stored `Ratify` carriage set, and fails closed on
+garbage markers or inconsistent decision evidence.
+
+**Rationale.** A single status vocabulary prevents the retired entry door from
+being mistaken for a standing value, while v4 metadata upcast preserves old
+stores and stable identity hashes. Explicit caller-supplied state records the
+data the consuming application needs; promotion and defeat belong to the
+author interface without assigning the engine authority over who may rule.
+
+**Verification.** Contract schemas, version gates, killed-form handling,
+marker upcast, identity-hash stability, canonical status projection, durable
+promotion, defeat valuation overlay, dead-claim exclusion, and decision-carriage
+corruption are covered by the Contract 1.5 test lane.

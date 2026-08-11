@@ -22,7 +22,7 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     EntityKind as AstEntityKind, FactDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause,
-    QuestionDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    QuestionDecl, RatifyDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -41,13 +41,14 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorBranchResult,
-    AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams, AuthorMergeParams,
-    AuthorMergeResult, AuthorMutationResult, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorOpenResult, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction,
-    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
+    AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
+    AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
+    AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams, AuthorStatusParams,
+    AuthorStatusResult, AuthorSupposeParams, BranchAction, DiffConflict,
+    EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
-use crate::finding::{Finding, Provenance, Severity};
+use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
 use dli_eval::fork::Conflict;
 use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 
@@ -1969,8 +1970,12 @@ fn citation_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
 ///   so no forged authority can be minted by a path that skipped the check.
 fn annotation(provenance: &Provenance, records_citations: bool) -> Annotation {
     match provenance {
-        Provenance::Cited { decisions } if records_citations => Annotation {
-            marker: ProvenanceMarker::Decided,
+        Provenance::Cited { decisions, state } if records_citations => Annotation {
+            marker: match state {
+                Some(ProvenanceState::Provisional) => ProvenanceMarker::Provisional,
+                Some(ProvenanceState::Ratified) => ProvenanceMarker::Ratified,
+                None => ProvenanceMarker::Decided,
+            },
             citations: decisions
                 .iter()
                 .map(|id| CitationRef { id: ident(id) })
@@ -2062,6 +2067,300 @@ fn mutation(findings: Vec<Finding>, rendered: Vec<String>, digest: &str) -> Valu
         root_hash: None,
         facts: None,
     })
+}
+
+/// Promote a stored provisional claim or defeat it through the durable ref.
+/// These are ordinary data operations: neither operation opens an approval
+/// gate, and the decision evidence is represented in the store itself.
+pub(super) fn set_standing(
+    store: &mut Store,
+    params: &AuthorSetStandingParams,
+) -> Result<Value, ErrorBody> {
+    durable_standing_change(
+        store,
+        &params.workspace,
+        &params.claim_id,
+        &params.decision,
+        None,
+    )
+}
+
+/// Record a defeating decision and rule the claim's existing supporting
+/// decision false on the current main ref. The defeated object remains
+/// reachable in the append-only store.
+pub(super) fn defeat(store: &mut Store, params: &AuthorDefeatParams) -> Result<Value, ErrorBody> {
+    durable_standing_change(
+        store,
+        &params.workspace,
+        &params.claim_id,
+        &params.decision,
+        Some(&params.defeated_decision),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn durable_standing_change(
+    store: &mut Store,
+    workspace: &str,
+    claim_id: &str,
+    decision: &str,
+    defeated_decision: Option<&str>,
+) -> Result<Value, ErrorBody> {
+    let defeating = defeated_decision.is_some();
+    let digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
+    let Some(_) = store.workspace_lorestore(workspace) else {
+        return Err(schema_error(
+            "standing operations require an attached lorestore",
+        ));
+    };
+
+    let (head, head_ref, pack_name, mut interner, mut decisions, mut target) = {
+        let ls = store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above");
+        let head = ls.root_hash().map_err(|error| store_fault(&error))?;
+        let head = head.ok_or_else(|| schema_error("the lorestore has no head commit"))?;
+        let head_ref = ls
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| schema_error("the lorestore has no main ref"))?;
+        let pack_name = ls
+            .head_pack_name()
+            .map_err(|error| store_fault(&error))?
+            .unwrap_or_default();
+        let interner = ls.interner_at(&head).map_err(|error| store_fault(&error))?;
+        let decisions = ls
+            .decisions_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        let hashes = ls
+            .fact_hashes_from(&head)
+            .map_err(|error| store_fault(&error))?;
+        let mut target = None;
+        for hash in &hashes {
+            let object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("store object {hash} is missing")))?;
+            if object.claim_id.0 == claim_id {
+                target = Some((hash.clone(), object));
+                break;
+            }
+        }
+        (head, head_ref, pack_name, interner, decisions, target)
+    };
+
+    let Some((_, mut object)) = target.take() else {
+        return Err(ErrorBody {
+            code: ErrorCode::UnknownDoc,
+            message: format!("no stored claim has claim_id `{claim_id}`"),
+            data: None,
+        });
+    };
+
+    if !defeating && !decisions.iter().any(|known| known == decision) {
+        let known = decisions.iter().cloned().collect::<BTreeSet<_>>();
+        return Ok(value(&AuthorMutationResult {
+            findings: vec![citation_unknown(decision, &known)],
+            rendered: Vec::new(),
+            workspace_digest: digest,
+            root_hash: Some(head.to_string()),
+            facts: None,
+        }));
+    }
+
+    if defeating {
+        let defeated_decision = defeated_decision.expect("defeat carries a supporting decision");
+        if defeated_decision == decision {
+            return Err(schema_error(
+                "author.defeat requires distinct defeating and defeated decisions",
+            ));
+        }
+        if !decisions.iter().any(|known| known == defeated_decision) {
+            let known = decisions.iter().cloned().collect::<BTreeSet<_>>();
+            return Ok(value(&AuthorMutationResult {
+                findings: vec![citation_unknown(defeated_decision, &known)],
+                rendered: Vec::new(),
+                workspace_digest: digest,
+                root_hash: Some(head.to_string()),
+                facts: None,
+            }));
+        }
+        if !support_cites_decision(&object, &interner, defeated_decision) {
+            return Err(schema_error(format!(
+                "claim `{claim_id}` does not rest on decision `{defeated_decision}` in every support path"
+            )));
+        }
+        object
+            .provenance
+            .get_or_insert_with(Default::default)
+            .defeated_by = Some(decision.to_owned());
+    } else {
+        let marker = object
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.marker);
+        if marker != Some(ProvenanceMarker::Provisional) {
+            return Err(schema_error(
+                "author.set_standing requires a provisional stored claim",
+            ));
+        }
+        if !support_cites_decision(&object, &interner, decision) {
+            return Err(schema_error(format!(
+                "claim `{claim_id}` does not rest on decision `{decision}` in every support path"
+            )));
+        }
+        let provenance = object.provenance.get_or_insert_with(Default::default);
+        provenance.marker = Some(ProvenanceMarker::Ratified);
+        provenance.standing_decision = Some(decision.to_owned());
+        provenance.defeated_by = None;
+    }
+    let adds_decision = defeating && !decisions.iter().any(|known| known == decision);
+    if adds_decision {
+        decisions.push(decision.to_owned());
+    }
+    if defeating && !interner.iter().any(|name| name == decision) {
+        interner.push(decision.to_owned());
+    }
+    let defeat_atom = if let Some(defeated_decision) = defeated_decision {
+        Some(
+            interner
+                .iter()
+                .position(|name| name == defeated_decision)
+                .and_then(|index| u32::try_from(index).ok())
+                .map(dli_core::Atom)
+                .ok_or_else(|| {
+                    schema_error(format!(
+                        "defeated decision `{defeated_decision}` has no interner atom"
+                    ))
+                })?,
+        )
+    } else {
+        None
+    };
+
+    let (commit, ref_digest) = {
+        let ls = store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above");
+        let mut fact_hashes = if adds_decision {
+            let mut bundle_counter = 0;
+            let ratify = Decl::Ratify(RatifyDecl {
+                decision: ident(decision),
+                body: dli_ast::language::RatifyBody::default(),
+            });
+            let mut lower_interner = dli_core::Interner::from_names(interner.clone());
+            dli_lorestore::lower::lower_decl(
+                &ratify,
+                &pack_name,
+                &mut lower_interner,
+                &mut bundle_counter,
+            )
+            .iter()
+            .map(|object| ls.write_object(object).map_err(|error| store_fault(&error)))
+            .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        };
+        fact_hashes.push(
+            ls.write_object(&object)
+                .map_err(|error| store_fault(&error))?,
+        );
+        let receipt = ls
+            .commit_on_branch_at_ref(
+                dli_lorestore::MAIN_REF,
+                Some(
+                    &head_ref
+                        .digest()
+                        .map_err(|error| schema_error(error.to_string()))?
+                        .to_string(),
+                ),
+                interner,
+                fact_hashes,
+                Vec::new(),
+                Vec::new(),
+                decisions,
+                pack_name,
+            )
+            .map_err(|error| store_fault(&error))?;
+        (receipt.commit, receipt.ref_digest)
+    };
+
+    if defeating {
+        let ls = store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above");
+        let current = ls
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| schema_error("the lorestore main ref disappeared"))?;
+        let mut valuation = current.valuation;
+        valuation.set(defeat_atom.expect("defeat carries an atom"), false);
+        let updated =
+            dli_lorestore::Ref::with_valuation(dli_lorestore::MAIN_REF, commit.clone(), valuation);
+        if !ls
+            .cas_main_ref(Some(ref_digest.as_str()), &updated)
+            .map_err(|error| store_fault(&error))?
+        {
+            return Err(ErrorBody {
+                code: ErrorCode::StaleFence,
+                message:
+                    "the lorestore changed while applying the defeat; retry from author.status"
+                        .to_owned(),
+                data: None,
+            });
+        }
+    }
+
+    let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
+    let current_ref = store
+        .workspace_lorestore(workspace)
+        .and_then(|ls| ls.branch_ref(dli_lorestore::MAIN_REF).ok().flatten())
+        .ok_or_else(|| schema_error("the lorestore main ref disappeared"))?;
+    let new_ref_digest = current_ref
+        .digest()
+        .map_err(|error| schema_error(error.to_string()))?
+        .to_string();
+    if let Some((_, ws)) = store.parts_mut(workspace) {
+        ws.base_root_hash = Some(commit.to_string());
+        ws.base_ref_digest = Some(new_ref_digest);
+        ws.base_valuation = current_ref.valuation;
+    }
+    Ok(value(&AuthorMutationResult {
+        findings: Vec::new(),
+        rendered: Vec::new(),
+        workspace_digest,
+        root_hash: Some(commit.to_string()),
+        facts: None,
+    }))
+}
+
+fn support_cites_decision(
+    object: &dli_lorestore::FactObject,
+    interner: &[String],
+    decision: &str,
+) -> bool {
+    let Some(index) = interner.iter().position(|name| name == decision) else {
+        return false;
+    };
+    let Ok(index) = u32::try_from(index) else {
+        return false;
+    };
+    let atom = dli_core::Atom(index);
+    let mut monomials = object.support.monomials().peekable();
+    monomials.peek().is_some()
+        && monomials.all(|monomial| {
+            monomial
+                .lits()
+                .any(|lit| lit.atom == atom && lit.rail == dli_core::atom::Rail::Pos)
+        })
+}
+
+fn store_fault(error: &dli_lorestore::StoreError) -> ErrorBody {
+    ErrorBody {
+        code: ErrorCode::Internal,
+        message: error.to_string(),
+        data: None,
+    }
 }
 
 /// Serialize a typed result to a wire value.
@@ -2174,10 +2473,10 @@ fn parts_mut<'a>(
     store.parts_mut(id).ok_or_else(gone)
 }
 
-fn schema_error(message: &str) -> ErrorBody {
+fn schema_error(message: impl Into<String>) -> ErrorBody {
     ErrorBody {
         code: ErrorCode::SchemaViolation,
-        message: message.to_owned(),
+        message: message.into(),
         data: None,
     }
 }

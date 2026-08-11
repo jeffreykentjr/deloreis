@@ -41,6 +41,17 @@
             "kind": {
               "type": "string",
               "const": "cited"
+            },
+            "state": {
+              "description": "The requested standing on contract 1.5 and above.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProvenanceState"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "additionalProperties": false,
@@ -86,6 +97,21 @@
             "kind",
             "hyp"
           ]
+        }
+      ]
+    },
+    "ProvenanceState": {
+      "description": "The stored standing requested for a cited authoring operation.\n\nThe field is optional here so pre-1.5 wire frames remain decodable. The\n1.5 request boundary requires it for `kind: cited`.",
+      "oneOf": [
+        {
+          "description": "Open to later revision.",
+          "type": "string",
+          "const": "provisional"
+        },
+        {
+          "description": "A settled ruling.",
+          "type": "string",
+          "const": "ratified"
         }
       ]
     }

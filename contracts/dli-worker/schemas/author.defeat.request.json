@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorDefeatParams",
+  "description": "`author.defeat` records a defeating decision and rules the claim's existing\nsupporting decision false without deleting the defeated fact.",
+  "type": "object",
+  "properties": {
+    "claim_id": {
+      "description": "The stable claim id of the stored fact to defeat.",
+      "type": "string"
+    },
+    "decision": {
+      "description": "The decision that defeats the claim.",
+      "type": "string"
+    },
+    "defeated_decision": {
+      "description": "The claim's existing supporting decision to rule false.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The authoring workspace whose lorestore is being updated.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "claim_id",
+    "decision",
+    "defeated_decision"
+  ]
+}

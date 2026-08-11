@@ -835,7 +835,7 @@ overlap; the language and craft lanes in particular run alongside the game lane.
   acknowledged.* Runs on v1 terms (`.dli` + contract 0.5.1) per DL-0041's
   boundary condition — and those terms still hold, because contract `1.0.0` was
   minted **ahead of** the cutover rather than at it (DL-0051, DL-0053): the
-  server accepts `0.5.1` through `1.0.0` and answers each caller in the version
+  server accepts `0.5.1` through `1.5.0` and answers each caller in the version
   it declared, so the consumer moves when it is ready and the 0.x versions
   retire through the killed-form registry only after EXT-F4.
 - **Lorestore core** — LS-0, LS-1, LS-2, LS-3, LS-4, LS-5. *The pivot ratified;
