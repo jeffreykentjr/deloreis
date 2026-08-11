@@ -1557,6 +1557,10 @@ pub fn render() -> String {
         }
         out.push('\n');
     }
+    while out.ends_with('\n') {
+        out.pop();
+    }
+    out.push('\n');
     out
 }
 

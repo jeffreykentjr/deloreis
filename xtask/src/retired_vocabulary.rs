@@ -112,5 +112,8 @@ fn is_allowlisted_line(rel: &str, line: usize) -> bool {
     // The exact legacy wire code is intentionally retained in the two-row
     // compatibility table in spec/11; all surrounding teaching prose uses the
     // current citation-integrity vocabulary.
-    rel == "docs/spec/11-agent-authoring.md" && (568..=571).contains(&line)
+    (rel == "docs/spec/11-agent-authoring.md" && (568..=571).contains(&line))
+        // Generated finding references must retain the exact legacy wire code;
+        // the surrounding prose is scrubbed and spec/11 carries the teaching table.
+        || (rel == "docs/reference-generated/finding-families.md" && line == 273)
 }
