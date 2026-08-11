@@ -423,28 +423,26 @@ fn fluent_contradictions(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// timeline, when two or more do — an interval-overlap contradiction — else
 /// `None`.
 ///
-/// The timeline is projected (`FluentTimeline::state_at`) at every span anchor:
-/// an overlap is always witnessed at the later span's `since`, because there the
-/// earlier span has started and not yet ended. A sentinel point covers the
-/// degenerate all-open case (two beginningless, endless spans bear no anchors);
-/// there the open spans cover any point, so the overlap still surfaces.
+/// The timeline is projected (`FluentTimeline::state_at`) at **every declared
+/// time point**, because a certain overlap need not be witnessed at either
+/// span's own anchor: two `until e` values collide over the common *past* before
+/// `e` (an open lower bound, so no anchor there), and two `since` values whose
+/// starts are unordered collide only at a shared *downstream* event that is
+/// neither span's `since`. Every anchor is itself an interned time point, so the
+/// full table subsumes the anchors; a sentinel point covers the degenerate case
+/// of a world with no declared points but two beginningless, endless spans.
+/// A point where the two anchors are merely unordered projects to
+/// `OrderIndeterminate`, not certain, so sweeping widely raises no false
+/// positive.
 fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Option<Vec<String>> {
     let chronology = &world.model.world.chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
-    let mut anchors: BTreeSet<u32> = BTreeSet::new();
-    for span in &timeline.spans {
-        if let Some(point) = span.since {
-            anchors.insert(point.0);
-        }
-        if let Some(point) = span.until {
-            anchors.insert(point.0);
-        }
-    }
-    let candidates: Vec<TimePoint> = if anchors.is_empty() {
+    let point_count = u32::try_from(world.model.world.time_points.len()).unwrap_or(u32::MAX);
+    let candidates: Vec<TimePoint> = if point_count == 0 {
         vec![TimePoint(u32::MAX)]
     } else {
-        anchors.into_iter().map(TimePoint).collect()
+        (0..point_count).map(TimePoint).collect()
     };
     for at in candidates {
         let state = timeline.state_at(chronology, valuation, theory, at);

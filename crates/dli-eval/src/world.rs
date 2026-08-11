@@ -433,7 +433,9 @@ impl World {
     /// evaluator and the compiled loader cannot disagree about the atom.
     ///
     /// An undotted valueless state names nothing evaluable; it carries no fact
-    /// (the loader records a finding for it).
+    /// and is recorded as a finding rather than silently dropped (charter koan 4),
+    /// mirroring the loader's `load.inert-declaration` so neither lowering path is
+    /// a silent-drop offender (issue 47).
     fn lower_state(
         &mut self,
         state: &StateDecl,
@@ -441,6 +443,13 @@ impl World {
         known_decisions: &BTreeSet<&str>,
     ) -> Result<(), EvalError> {
         let Some(pattern) = state.atom() else {
+            self.findings.push(LowerFinding {
+                code: "load.inert-declaration".to_owned(),
+                message: format!(
+                    "state '{}' names nothing evaluable, so it lowers to no fact",
+                    state.name.text
+                ),
+            });
             return Ok(());
         };
         let atom = ground_atom(&pattern)?;
