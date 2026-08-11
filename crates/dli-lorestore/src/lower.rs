@@ -305,6 +305,13 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
         ],
         Decl::Question(q) => implies_renders(&q.options),
         Decl::Fork(f) => implies_renders(&f.options),
+        // A state is carried whole *and* regenerates its mirrored attribute
+        // atom on recompile (issues 47/48) — the same seam the loader and the
+        // evaluator lower through, so the skip stays exact.
+        Decl::State(s) => s
+            .atom()
+            .map(|atom| vec![atom_expr_to_ground(&atom).render()])
+            .unwrap_or_default(),
         // Attr/Fact are never carried; other declarations regenerate no atoms.
         _ => Vec::new(),
     }
@@ -332,9 +339,9 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
 /// variables from expert-tier declarations (e.g. a `ratified` rule decl) would
 /// shift the bundle counter and desync all subsequent indices.
 ///
-/// Only the four fact-producing gentle-subset declarations yield objects:
-/// `Entity`, `Attr` (slot), `Fact` (relation), and `Before`. Returns an empty
-/// vector for all others.
+/// Only the fact-producing declarations yield atom objects: `Entity`, `Attr`
+/// (slot), `Fact` (relation), `Before`, and `State` (the mirrored attribute of
+/// a fluent — issues 47/48). Returns an empty vector for all others.
 ///
 /// **Must produce byte-identical `FactObject`s to [`lower_atoms`] given the
 /// same interner state** — the total-lowering oracle verifies this.
@@ -488,7 +495,7 @@ fn lower_options(
 
 /// Extract the provenance annotation from the decl types the world loader
 /// actually routes through its `compile_ann` (loader `process_decl`:
-/// Entity, Attr, Fact, Before, Kind, Rule, Cycle — Question/Fork/Hypothesis
+/// Entity, Attr, Fact, Before, Kind, Rule, Cycle, State — Question/Fork/Hypothesis
 /// are special-cased in `lower_decl`). Every other declaration kind carries
 /// its provenance to the *language* model's separate interner, so interning
 /// it here would shift world-interner indices against a full compile.
@@ -501,6 +508,11 @@ fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
         Decl::Kind(d) => d.provenance.as_ref(),
         Decl::Rule(d) => d.provenance.as_ref(),
         Decl::Cycle(d) => d.provenance.as_ref(),
+        // A state that names nothing evaluable is inert: the loader records the
+        // finding and returns *before* its `compile_ann`, so interning the
+        // provenance here would mint a bundle variable the full compile never
+        // does and desync every index after it.
+        Decl::State(d) => d.atom().and(d.provenance.as_ref()),
         _ => None,
     }
 }
@@ -514,6 +526,7 @@ fn decl_label(decl: &Decl) -> String {
         Decl::Attr(a) => format!("slot '{}.{}'", a.subject.text, a.attr.text),
         Decl::Fact(f) => format!("fact '{}'", f.atom.pred.text),
         Decl::Before(b) => format!("ordering '{} -> {}'", b.earlier.text, b.later.text),
+        Decl::State(s) => format!("state '{}'", s.name.text),
         other => format!("{other:?}"),
     }
 }
@@ -557,6 +570,12 @@ fn decl_to_atom(decl: &Decl) -> (Option<AtomExpr>, String) {
             let label = format!("ordering '{} -> {}'", b.earlier.text, b.later.text);
             (Some(atom), label)
         }
+        // A state mirrors an attribute so it becomes queryable (issues 47/48):
+        // it lowers through the one shared seam `StateDecl::atom`, the same the
+        // loader and the evaluator use, so the three cannot drift. An undotted
+        // name with no value names nothing evaluable — the carriage object
+        // alone carries it, as in the loader.
+        Decl::State(s) => (s.atom(), format!("state '{}'", s.name.text)),
         // Questions, hypotheses, use-decls, and expert-tier forms do not lower
         // to extensional fact objects — they affect the workspace index only.
         _ => (None, String::new()),

@@ -15,7 +15,8 @@ use serde::Deserialize;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::decl::{
-    Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader, TimeClause,
+    Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader, StateDecl,
+    TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -1081,6 +1082,172 @@ fn intra_episode_still_fires_on_a_single_valued_slot() {
             .iter()
             .any(|f| f.code == "continuity.intra-episode-contradiction"),
         "a single-valued slot set two ways must intra-contradict: {findings:?}"
+    );
+}
+
+// --- issues 47/48: fluent realization + interval-overlap contradiction --------
+
+/// A `state <name> [= <value>] [time]` declaration.
+fn state(
+    name: &str,
+    value: Option<&str>,
+    time: Option<TimeClause>,
+    provenance: Option<Annotation>,
+) -> Decl {
+    Decl::State(StateDecl {
+        name: id(name),
+        value: value.map(|v| Term::Sym(id(v))),
+        time,
+        provenance,
+    })
+}
+
+/// A bare `event <name>` entity, so a state's `since`/`until` anchor resolves.
+fn event(name: &str, cite: &str) -> Decl {
+    Decl::Entity(EntityDecl {
+        kind: EntityKind::Event,
+        name: id(name),
+        label: None,
+        time: None,
+        slots: Vec::new(),
+        provenance: Some(ratified(cite)),
+    })
+}
+
+#[test]
+fn a_declared_state_is_an_evaluable_queryable_fact() {
+    // Issue 47: a state must become a real ground fact, not vanish. A ratified
+    // state answers a query for its predicate exactly as an attribute would.
+    let world = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            state(
+                "gwern.water-status",
+                Some("commons"),
+                None,
+                Some(ratified("D-1")),
+            ),
+        ],
+    ))
+    .expect("compiles");
+    let answer = world
+        .model()
+        .world
+        .query(&Query {
+            goal: AtomExpr {
+                pred: id("water-status"),
+                args: vec![Term::Sym(id("gwern")), Term::Var(id("value"))],
+            },
+        })
+        .expect("the state predicate is evaluable");
+    assert_eq!(
+        answer.rows.len(),
+        1,
+        "the state answers a query: {answer:?}"
+    );
+    assert_eq!(
+        answer.rows[0].bindings.get("value").map(String::as_str),
+        Some("commons")
+    );
+}
+
+#[test]
+fn disjoint_span_states_raise_no_continuity_finding() {
+    // Issue 48: the water was commons until the enclosure, enclosed since — one
+    // fluent over two disjoint spans, not a contradiction.
+    let world = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            event("enclosure", "D-1"),
+            state(
+                "gwern.water-status",
+                Some("commons"),
+                Some(TimeClause::Until(id("enclosure"))),
+                Some(ratified("D-1")),
+            ),
+            state(
+                "gwern.water-status",
+                Some("enclosed"),
+                Some(TimeClause::Since(id("enclosure"))),
+                Some(ratified("D-1")),
+            ),
+        ],
+    ))
+    .expect("compiles");
+    let findings = check::run(&world);
+    assert!(
+        findings.is_empty(),
+        "disjoint fluent spans must raise nothing: {findings:?}"
+    );
+}
+
+#[test]
+fn overlapping_span_states_raise_exactly_one_fluent_contradiction() {
+    // Issue 48: two certain values in force since the same event, both open — the
+    // intervals overlap, so this is a genuine interval contradiction.
+    let world = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            event("enclosure", "D-1"),
+            state(
+                "gwern.water-status",
+                Some("commons"),
+                Some(TimeClause::Since(id("enclosure"))),
+                Some(ratified("D-1")),
+            ),
+            state(
+                "gwern.water-status",
+                Some("enclosed"),
+                Some(TimeClause::Since(id("enclosure"))),
+                Some(ratified("D-1")),
+            ),
+        ],
+    ))
+    .expect("compiles");
+    let findings = check::run(&world);
+    let clashes: Vec<_> = findings
+        .iter()
+        .filter(|f| f.code == "continuity.fluent-contradiction")
+        .collect();
+    assert_eq!(
+        clashes.len(),
+        1,
+        "exactly one interval-overlap contradiction: {findings:?}"
+    );
+    assert!(
+        clashes[0].message.contains("commons") && clashes[0].message.contains("enclosed"),
+        "names the clashing values: {}",
+        clashes[0].message
+    );
+    assert_eq!(findings.len(), 1, "and nothing spurious: {findings:?}");
+}
+
+#[test]
+fn a_disjoint_fluent_value_is_never_a_factcheck_contradiction() {
+    // Issue 48: canon holds the water commons until the enclosure. A draft
+    // claiming it enclosed (the other disjoint span) must not read as a
+    // contradiction — a fluent slot is interval-sensitive.
+    let world = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            event("enclosure", "D-1"),
+            state(
+                "gwern.water-status",
+                Some("commons"),
+                Some(TimeClause::Until(id("enclosure"))),
+                Some(ratified("D-1")),
+            ),
+        ],
+    ))
+    .expect("compiles");
+    let reports = factcheck(&world, &[atom("water-status", &["gwern", "enclosed"])]);
+    assert!(
+        reports.iter().all(|r| r.verdict != Verdict::Contradicted),
+        "a disjoint fluent value must not contradict: {reports:?}"
     );
 }
 

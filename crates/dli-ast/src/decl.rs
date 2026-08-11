@@ -301,6 +301,53 @@ pub struct StateDecl {
     pub provenance: Option<Annotation>,
 }
 
+impl StateDecl {
+    /// The ground atom this state lowers to, or `None` when the declaration
+    /// names nothing evaluable (an undotted name with no value).
+    ///
+    /// A state mirrors an attribute so it becomes queryable: a dotted name
+    /// `subject.pred` with value `v` lowers to `pred(subject, v)` — the same atom
+    /// `subject.pred = v` would produce (issues 47/48, DL-0029). The *interval*
+    /// over which it holds rides its fluent timeline and provenance, not the
+    /// atom, so the value does not collapse into the timeless attribute layer.
+    /// The dotted name is split on its first `.`, matching the subject
+    /// resolution the authoring validator already performs.
+    ///
+    /// - dotted `s.p` with value `v` → `p(s, v)`
+    /// - dotted `s.p`, no value → `p(s)` (the bare holding of a unary fluent)
+    /// - undotted `n` with value `v` → `n(v)`
+    /// - undotted `n`, no value → `None` (nothing to assert; callers record a
+    ///   finding rather than dropping it silently — charter koan 4)
+    ///
+    /// This is the single lowering seam the loader, the evaluator, and the
+    /// durable store all share, so their ground atoms cannot drift apart.
+    #[must_use]
+    pub fn atom(&self) -> Option<AtomExpr> {
+        match self.name.text.split_once('.') {
+            Some((subject, pred)) => {
+                let mut args = vec![Term::Sym(Ident {
+                    text: subject.to_owned(),
+                    span: self.name.span,
+                })];
+                if let Some(value) = &self.value {
+                    args.push(value.clone());
+                }
+                Some(AtomExpr {
+                    pred: Ident {
+                        text: pred.to_owned(),
+                        span: self.name.span,
+                    },
+                    args,
+                })
+            }
+            None => Some(AtomExpr {
+                pred: self.name.clone(),
+                args: vec![self.value.clone()?],
+            }),
+        }
+    }
+}
+
 /// `cycle <name>(<modulus>) [= <spokes>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CycleDecl {

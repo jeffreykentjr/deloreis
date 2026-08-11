@@ -72,7 +72,9 @@
       "sha256:ffcf186509bd711acaf2ada6936ecc69cbbd0e7651c849214c23d8592468dd94",
       "sha256:17395dc9ffff48c6eda451f49702bd1aaabea09888f8cbe8bda13db7a8b59dc0",
       "sha256:296cc49909d7b9af00ce74222d607f6ade2e154bbf4a7b63359e36ffbcdeb121",
+      "sha256:ec420ec07e6bf2dfac0cdff0b79a14d9db38a55492090c3dd2c71204232fccf3",
       "sha256:683e32211a57db5e935adab99c83897158fc29df972296adbf751b26d0469dcd",
+      "sha256:083ba3262baf2a2cb369b6976f20e47683dea45954cc1994d6615001f9df5ff9",
       "sha256:536300f014a4741e67d938ec155a8176e1485718911cc400129cb3c0440b61a2",
       "sha256:6660144729b58c7e2b0537c10b8d958a7cf7d72bebc19c9ebc835e7ea2f10dd3",
       "sha256:db6c5af855e1e9e2c4279e9eba77fa3c528375124c2994b2306a410cb494c7d5",
@@ -83,6 +85,7 @@
       "sha256:10da8e983690a827a8bdcf9599a51f671717ea457c06ce35f7ad05d3f3885098",
       "sha256:79d0244268f049a3911b4dcfaa711830530d3bd55526d6f5d2040aa2ab3bf43b",
       "sha256:b24a5433c35eb974face456e9278a1f081039a55d2e063c04ad5cbb983ffbdc3",
+      "sha256:a4d9fbbf3e6fd60b563e842ba0f3cbdc501887d87a24d215ee5997f5f5def1d1",
       "sha256:6c6bd0feb3667e57ba4db12853819061930a842c1c4e229d81321b7837f830c6",
       "sha256:e3b090f0ba7fd9b0fd2c0ac8101e963b7337356f82983b0b5a0fbcc256bb3a50",
       "sha256:016526b2c7442e22078785e498120d5037bca8ac5822ae54a5c3a81e57205897",
@@ -91,11 +94,11 @@
       "sha256:15d0f61fe4308de17069ba93b2a74a673c71368f48caacc494a3ec8c8ce36856",
       "sha256:3fc724329f2bbb8c6655c58482f4dc5a500c83219261b56f8c756cc24eca8560",
       "sha256:bdc2374b9f472f7f3345622a5acb27591ee5e5b2e84a5ae8e9a8fd3471d00484",
-      "sha256:3fe99c2ed2d57824e16d56940dd0fb7b69730b0767562e21c90b68e623e2ffab",
-      "sha256:60ff70d5374f37c45d5a24ee6345d4965ea1437e4b77cd2b699fd5982576c69c",
+      "sha256:bab305502c1246b7c3ce5071bc093a3c2bc9768e5e60a4d4a83d1fbe8a495704",
+      "sha256:299d418c7f66eb8ff2a932d367dfcf13f12fe4e9fa41453334c6eb922c70d034",
       "sha256:d15054caacd3c7a30afd401a715310996b19fe2d97183c5dd816e5895cfc8d6e",
       "sha256:375d9c6a0226b442d5dfa72f0fd596ab28e43186d3f0bc9553692484dd92d6e9",
-      "sha256:8b1150b6b74ff796f513932bc75c872435b03679f7ea9ff2d76e4f61147376c5",
+      "sha256:bdb8d6ea622edd2176b2c5ce01a9df38f3fe6b444701fcb1c91784841d68556c",
       "sha256:4c4d343e23bc89fca028541a4bd99cc3052f515b6898e9fa3900bd27ab36c93a"
     ],
     "lineage": [],
@@ -116,6 +119,7 @@
       "h-old-loan",
       "h.camelot#2",
       "h.camelot#3",
+      "h.camelot#4",
       "a-year-of-life",
       "a-truth-told",
       "h-return",
@@ -2073,6 +2077,32 @@
     {
       "schema_version": 4,
       "authority": null,
+      "claim_id": "sha256:7b3a4998acbd8c8cdb64468a1fcb8535521de597aa7d13d3d81db6a6203bdc49",
+      "atom": {
+        "pred": "keeper",
+        "args": [
+          "excalibur",
+          "in-the-stone"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+10"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
+    },
+    {
+      "schema_version": 4,
+      "authority": null,
       "claim_id": "sha256:9e42e7d1a01125d01aa59a5fbd2addd5218d331bc5d19bff56de6d561ea006df",
       "atom": {
         "pred": "__decl",
@@ -2099,6 +2129,32 @@
       },
       "provenance": {
         "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":2148,\"file\":0,\"start\":2132},\"text\":\"excalibur.keeper\"},\"provenance\":{\"citations\":[{\"id\":{\"span\":{\"end\":2196,\"file\":0,\"start\":2190},\"text\":\"d-0008\"}}],\"condition\":null,\"marker\":\"Decided\",\"span\":{\"end\":2189,\"file\":0,\"start\":2182},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":2181,\"file\":0,\"start\":2166},\"text\":\"the-sword-drawn\"}},\"value\":{\"Sym\":{\"span\":{\"end\":2159,\"file\":0,\"start\":2151},\"text\":\"the-king\"}}}}"
+      }
+    },
+    {
+      "schema_version": 4,
+      "authority": null,
+      "claim_id": "sha256:632b0b290d8bee7a44663811e6941f73f92970162427033601a8709a947ca533",
+      "atom": {
+        "pred": "keeper",
+        "args": [
+          "excalibur",
+          "the-king"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+10"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
       }
     },
     {
@@ -2408,6 +2464,32 @@
     {
       "schema_version": 4,
       "authority": null,
+      "claim_id": "sha256:d918e47d6da18c7e882b3a79fa840e758f29e91067624558dcf126b89e54aa4d",
+      "atom": {
+        "pred": "caster.myrdin",
+        "args": [
+          "knows",
+          "true"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+14"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Proposed"
+      }
+    },
+    {
+      "schema_version": 4,
+      "authority": null,
       "claim_id": "sha256:41828a8da29d4215178f9993dabac80ebd8474978eca2bffc502627f780d288e",
       "atom": {
         "pred": "__decl",
@@ -2667,7 +2749,7 @@
       "support": {
         "monomials": [
           [
-            "+18"
+            "+19"
           ]
         ]
       },
@@ -2690,8 +2772,8 @@
       "support": {
         "monomials": [
           [
-            "+17",
-            "+19"
+            "+18",
+            "+20"
           ]
         ]
       },
@@ -2778,7 +2860,7 @@
       "support": {
         "monomials": [
           [
-            "+20"
+            "+21"
           ]
         ]
       },

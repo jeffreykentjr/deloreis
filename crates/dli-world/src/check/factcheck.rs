@@ -180,6 +180,35 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     };
 
     let certain = certain_values(world, &slot);
+    // A fluent slot is interval-sensitive: a value canon holds over a disjoint
+    // span is not a contradiction of a different value claimed here (issue 48).
+    // Genuine interval overlaps are surfaced by the world-internal
+    // `fluent-contradiction` check, so the fact-checker never returns
+    // `contradicted` on a fluent slot — only supported (canon holds the value) or
+    // unsupported.
+    if world.model.fluents.contains_key(&slot) {
+        return if certain.contains(&value) {
+            ClaimReport {
+                claim: rendered,
+                verdict: Verdict::Supported,
+                citations: slot_citations(world, &slot),
+                reason: format!(
+                    "{}.{} = {value} holds over a fluent span in canon",
+                    slot.0, slot.1
+                ),
+            }
+        } else {
+            ClaimReport {
+                claim: rendered,
+                verdict: Verdict::Unsupported,
+                citations: Vec::new(),
+                reason: format!(
+                    "{}.{} is a fluent; {value} is not among canon's certain holdings",
+                    slot.0, slot.1
+                ),
+            }
+        };
+    }
     if certain.contains(&value) {
         return ClaimReport {
             claim: rendered,

@@ -5,7 +5,7 @@
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, HypothesisDecl,
-    OptionClause, QuestionDecl, RatifyDecl, TimeClause,
+    OptionClause, QuestionDecl, RatifyDecl, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -188,6 +188,34 @@ fn slot_attributes_lower_to_evaluable_facts() {
     assert_eq!(answer.rows.len(), 1);
     assert_eq!(answer.rows[0].bindings["description"], "river warden");
     assert_eq!(answer.rows[0].status, Status::Possible);
+}
+
+#[test]
+fn lower_realizes_state_as_fact() {
+    // `ratified gwern.water-status = commons cited d-water` — a dotted state
+    // lowers to the same atom the attribute form would, so it is queryable
+    // (issues 47/48); before this it fell through lowering and no query saw it.
+    let document = Document {
+        scope: None,
+        decls: vec![
+            ratify("d-water"),
+            Decl::State(StateDecl {
+                name: Ident::synthetic("gwern.water-status"),
+                value: Some(sym("commons")),
+                time: None,
+                provenance: Some(provenance(ProvenanceMarker::Ratified, &["d-water"])),
+            }),
+        ],
+    };
+    let world = World::lower(&document).unwrap().fixpoint().unwrap();
+    let answer = world
+        .query(&query(atom("water-status", vec![sym("gwern"), var("v")])))
+        .unwrap();
+
+    assert_eq!(answer.rows.len(), 1);
+    assert_eq!(answer.rows[0].bindings["v"], "commons");
+    // Its citation resolves to a declared decision, so the claim is certain.
+    assert_eq!(answer.rows[0].status, Status::Certain);
 }
 
 #[test]

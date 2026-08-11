@@ -15,7 +15,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
-use dli_ast::decl::{AttrDecl, Decl, Document, EntityKind, OptionClause, TimeClause};
+use dli_ast::decl::{AttrDecl, Decl, Document, EntityKind, OptionClause, StateDecl, TimeClause};
 use dli_ast::ident::Ident;
 use dli_ast::literal::BodyLiteral;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
@@ -393,6 +393,9 @@ impl World {
                     // fork can suppose it even when nothing references it yet.
                     world.interner.intern(&hypothesis.name.text);
                 }
+                Decl::State(state) => {
+                    world.lower_state(state, &mut proposal_seq, &known_decisions)?;
+                }
                 _ => {}
             }
         }
@@ -415,6 +418,34 @@ impl World {
             proposal_seq,
             known_decisions,
         );
+        self.facts.push(Fact {
+            atom,
+            ann,
+            grade: Grade::Asserted,
+        });
+        Ok(())
+    }
+
+    /// Lower a declared state to a ground fact, mirroring [`World::lower_attr`]:
+    /// a state is an attribute that holds over an interval, so the atom it
+    /// realizes is the same one the attribute form would produce and it answers
+    /// the same queries. [`StateDecl::atom`] is the shared lowering seam, so the
+    /// evaluator and the compiled loader cannot disagree about the atom.
+    ///
+    /// An undotted valueless state names nothing evaluable; it carries no fact
+    /// (the loader records a finding for it).
+    fn lower_state(
+        &mut self,
+        state: &StateDecl,
+        proposal_seq: &mut u32,
+        known_decisions: &BTreeSet<&str>,
+    ) -> Result<(), EvalError> {
+        let Some(pattern) = state.atom() else {
+            return Ok(());
+        };
+        let atom = ground_atom(&pattern)?;
+        let ann =
+            self.lower_fact_annotation(state.provenance.as_ref(), proposal_seq, known_decisions);
         self.facts.push(Fact {
             atom,
             ann,

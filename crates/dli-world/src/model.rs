@@ -26,6 +26,7 @@ use dli_core::atom::{Atom, Interner, Rail};
 use dli_eval::world::World;
 use dli_ledger::{LedgerEntry, PracticeDef};
 use dli_time::cycle::Cycle;
+use dli_time::fluent::FluentTimeline;
 
 /// A craft rule binding a principle to a register.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -256,6 +257,18 @@ pub enum LoadFinding {
         /// What made stratification impossible.
         reason: String,
     },
+    /// A declaration was accepted by the grammar but names nothing evaluable, so
+    /// it would lower to no fact at all — an inert declaration (DL-0029). Rather
+    /// than silently drop it (charter koan 4), the loader surfaces it. Today this
+    /// is the residual `state <name>` with neither a dotted subject nor a value.
+    InertDeclaration {
+        /// The inert declaration (kind and name).
+        decl: String,
+        /// The pack it was declared in.
+        pack: String,
+        /// Source location.
+        span: Span,
+    },
 }
 
 impl LoadFinding {
@@ -273,6 +286,7 @@ impl LoadFinding {
             Self::DuplicateDeclaration { .. } => "load.duplicate-declaration",
             Self::CrossPackCollision { .. } => "load.cross-pack-collision",
             Self::Unstratifiable { .. } => "load.unstratifiable",
+            Self::InertDeclaration { .. } => "load.inert-declaration",
         }
     }
 
@@ -333,6 +347,11 @@ impl LoadFinding {
             Self::Unstratifiable { reason } => {
                 format!("the rules cannot be ordered for evaluation: {reason}")
             }
+            Self::InertDeclaration { decl, pack, .. } => {
+                format!(
+                    "{decl} in pack '{pack}' names nothing evaluable, so it would lower to no fact; give it a value (and a dotted subject) so it can be asserted"
+                )
+            }
         }
     }
 }
@@ -371,6 +390,17 @@ pub struct WorldModel {
     /// serialized before this field round-trips.
     #[serde(default)]
     pub chronology_anns: Vec<Ann>,
+    /// Per-slot fluent timelines, keyed by the `(pred, subject)` slot a `state`
+    /// declaration lowers to. A `state s.p = v [since/until …]` pushes a
+    /// [`Span`](dli_time::fluent::Span) here carrying `v`, its interval anchors,
+    /// and the declaration's ruling — so the same slot held over disjoint spans
+    /// (`commons until e` / `enclosed since e`) is one fluent, not a
+    /// contradiction. The check path reads these to reason about interval
+    /// overlap; slots with no timeline fall back to the flat certain-value reader
+    /// (issues 47/48). `#[serde(default)]` so a world serialized before this
+    /// field round-trips.
+    #[serde(default)]
+    pub fluents: BTreeMap<(String, String), FluentTimeline<String>>,
 }
 
 impl WorldModel {

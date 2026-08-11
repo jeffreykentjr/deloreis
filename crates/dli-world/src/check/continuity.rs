@@ -41,6 +41,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status};
 use dli_core::atom::{Atom, Interner};
+use dli_time::chronology::TimePoint;
+use dli_time::fluent::FluentTimeline;
 
 use super::{CompiledWorld, WorldFinding};
 use crate::model::{LoadFinding, LoadedAtom};
@@ -67,6 +69,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     }
     out.extend(certain_rejected_lore(world));
     out.extend(chronology_cycle(world));
+    out.extend(fluent_contradictions(world));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -334,7 +337,15 @@ fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<World
     }
     by_slot
         .into_iter()
-        .filter(|(slot, values)| values.len() > 1 && slot_is_single_valued(world, slot))
+        // A fluent slot's contradictions are interval-sensitive: two values over
+        // disjoint spans (`commons until e` / `enclosed since e`) are not a clash.
+        // Those slots are judged by `fluent_contradictions` over their timeline;
+        // the flat single-valued reader would false-fire, so skip them here.
+        .filter(|(slot, values)| {
+            values.len() > 1
+                && !world.model.fluents.contains_key(slot)
+                && slot_is_single_valued(world, slot)
+        })
         .map(|(slot, values)| {
             let rendered: Vec<&str> = values.iter().map(String::as_str).collect();
             WorldFinding::error(
@@ -377,6 +388,74 @@ fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
         }
     }
     !by_subject.is_empty() && by_subject.values().all(|values| values.len() <= 1)
+}
+
+// --- fluent (interval) reasoning ---------------------------------------------
+
+/// `continuity.fluent-contradiction` for every slot whose fluent timeline holds
+/// two distinct values *certainly at once over overlapping intervals*. This is
+/// the live path for `dli-time`'s interval-overlap reasoning (issue 48): a value
+/// in force over disjoint spans (`commons until e`, `enclosed since e`) is one
+/// truthful fluent and raises nothing; two certain values whose intervals
+/// overlap is a genuine contradiction and raises exactly one finding. Slots with
+/// no timeline are not fluents and are untouched here.
+fn fluent_contradictions(world: &CompiledWorld) -> Vec<WorldFinding> {
+    let mut out = Vec::new();
+    for ((pred, subject), timeline) in &world.model.fluents {
+        if let Some(values) = fluent_clash(world, timeline) {
+            let slot = (pred.clone(), subject.clone());
+            out.push(
+                WorldFinding::error(
+                    "continuity.fluent-contradiction",
+                    format!(
+                        "the fluent {subject}.{pred} holds distinct values [{}] at once over overlapping spans; one interval must give",
+                        values.join(", ")
+                    ),
+                )
+                .with_citations(slot_citations(world, &slot)),
+            );
+        }
+    }
+    out
+}
+
+/// The distinct values that hold certainly at a single point of a fluent's
+/// timeline, when two or more do — an interval-overlap contradiction — else
+/// `None`.
+///
+/// The timeline is projected (`FluentTimeline::state_at`) at every span anchor:
+/// an overlap is always witnessed at the later span's `since`, because there the
+/// earlier span has started and not yet ended. A sentinel point covers the
+/// degenerate all-open case (two beginningless, endless spans bear no anchors);
+/// there the open spans cover any point, so the overlap still surfaces.
+fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Option<Vec<String>> {
+    let chronology = &world.model.world.chronology;
+    let valuation = &world.model.world.valuation;
+    let theory = &world.model.world.theory;
+    let mut anchors: BTreeSet<u32> = BTreeSet::new();
+    for span in &timeline.spans {
+        if let Some(point) = span.since {
+            anchors.insert(point.0);
+        }
+        if let Some(point) = span.until {
+            anchors.insert(point.0);
+        }
+    }
+    let candidates: Vec<TimePoint> = if anchors.is_empty() {
+        vec![TimePoint(u32::MAX)]
+    } else {
+        anchors.into_iter().map(TimePoint).collect()
+    };
+    for at in candidates {
+        let state = timeline.state_at(chronology, valuation, theory, at);
+        if state.has_contradiction() {
+            let mut values: Vec<String> = state.certain_values().into_iter().cloned().collect();
+            values.sort();
+            values.dedup();
+            return Some(values);
+        }
+    }
+    None
 }
 
 // --- shared helpers ----------------------------------------------------------
