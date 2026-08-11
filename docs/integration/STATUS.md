@@ -24,9 +24,9 @@ handshake — neither side edits the other's file, so there is no write race.
 The execution log below is retained as historical evidence. This snapshot is the
 active coordination truth after the Contract 1.5 cutover:
 
-- deloreis `main` is `63d5a3c` (PR #55), with the retired-authority vocabulary
-  scrub and its `retired-vocabulary` gate landed. Contract `1.5.0` is immutable
-  at `8c0641ac`; the corrective store/display-name hotfix is
+- deloreis `main` is `47667a1` (PR #56, following PR #55), with the
+  status-board catch-up landed. Contract `1.5.0` is immutable at `8c0641ac`;
+  the corrective store/display-name hotfix is
   `contract/1.5.0-hotfix.1` at `dd75afaa`.
 - Fantasy `main` is `de22b111` (PR #31, following PR #30). It pins the
   corrective Contract 1.5 build, produces `parity.json` from the lorestore
