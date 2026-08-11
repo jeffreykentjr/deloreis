@@ -215,7 +215,7 @@ application’s ledger and is recorded as caller-supplied data. At `1.5.0`, it
 also requires `state: "provisional" | "ratified"`. An unknown decision raises
 `citation.unknown-decision` and bars materialization; DLI checks referential
 integrity but does not decide who may rule. Wires below `1.3.0` retain the
-released `provenance.cited-refused` behavior.
+released legacy cited-provenance refusal behavior.
 
 ### 3.1 `author.add_entity`
 

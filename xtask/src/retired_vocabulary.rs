@@ -62,7 +62,7 @@ pub fn run_retired_vocabulary(root: &Path) -> Result<()> {
         }
         let text = std::fs::read_to_string(&path)?;
         for (line, token) in scan_text(&text) {
-            if is_allowlisted_line(&rel, line) {
+            if is_allowlisted_line(&rel, line, text.lines().nth(line - 1).unwrap_or_default()) {
                 continue;
             }
             violations.push((rel.clone(), line, token));
@@ -108,12 +108,14 @@ fn is_allowlisted_file(rel: &str) -> bool {
     ALLOWED_FILES.contains(&rel) || rel.starts_with("docs/design-notes/")
 }
 
-fn is_allowlisted_line(rel: &str, line: usize) -> bool {
+fn is_allowlisted_line(rel: &str, _line: usize, text: &str) -> bool {
     // The exact legacy wire code is intentionally retained in the two-row
     // compatibility table in spec/11; all surrounding teaching prose uses the
     // current citation-integrity vocabulary.
-    (rel == "docs/spec/11-agent-authoring.md" && (568..=571).contains(&line))
+    (rel == "docs/spec/11-agent-authoring.md"
+        && text.contains("| Below `1.3.0` | Refused with `provenance.cited-refused`"))
         // Generated finding references must retain the exact legacy wire code;
         // the surrounding prose is scrubbed and spec/11 carries the teaching table.
-        || (rel == "docs/reference-generated/finding-families.md" && line == 273)
+        || (rel == "docs/reference-generated/finding-families.md"
+            && text.starts_with("| `provenance.cited-refused` |"))
 }
