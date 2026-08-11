@@ -6,7 +6,7 @@ use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl, RuleDecl,
-    ScopeHeader, TimeClause,
+    ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -77,6 +77,20 @@ fn sort(name: &str, provenance: Option<Annotation>) -> Decl {
     })
 }
 
+fn state_decl(
+    name: &str,
+    value: Option<Term>,
+    time: Option<TimeClause>,
+    provenance: Option<Annotation>,
+) -> Decl {
+    Decl::State(StateDecl {
+        name: ident(name),
+        value,
+        time,
+        provenance,
+    })
+}
+
 fn doc(pack: &str, decls: Vec<Decl>) -> Document {
     Document {
         scope: Some(ScopeHeader {
@@ -140,6 +154,80 @@ fn string_attributes_are_evaluable_facts() {
     assert_eq!(
         answer.rows[0].bindings.get("value").map(String::as_str),
         Some("river warden")
+    );
+}
+
+#[test]
+fn state_declarations_are_evaluable_facts() {
+    // Issue 47: a `state` lowers to a queryable ground fact, exactly as an
+    // attribute does — `state gwern.water-status = commons` answers a query for
+    // `water-status(gwern, ?)`.
+    let docs = vec![doc(
+        "weir",
+        vec![state_decl(
+            "gwern.water-status",
+            Some(Term::Sym(ident("commons"))),
+            None,
+            Some(ann(ProvenanceMarker::Proposed, &[])),
+        )],
+    )];
+    let compiled = dli_world::compile(&Pack {
+        name: "weir".to_owned(),
+        documents: docs,
+    })
+    .expect("state world compiles");
+    let answer = compiled
+        .model()
+        .world
+        .query(&Query {
+            goal: AtomExpr {
+                pred: ident("water-status"),
+                args: vec![Term::Sym(ident("gwern")), Term::Var(ident("value"))],
+            },
+        })
+        .expect("the state predicate is evaluable");
+    assert_eq!(answer.rows.len(), 1);
+    assert_eq!(
+        answer.rows[0].bindings.get("value").map(String::as_str),
+        Some("commons")
+    );
+}
+
+#[test]
+fn missing_provenance_state_is_a_finding_and_fail_closed() {
+    // A provenance-less state claims something from nowhere, like any other slot.
+    let docs = vec![doc(
+        "weir",
+        vec![state_decl(
+            "gwern.water-status",
+            Some(Term::Sym(ident("commons"))),
+            None,
+            None,
+        )],
+    )];
+    let out = Loader::load(&docs);
+    assert!(has_code(&out, "load.missing-provenance"));
+    assert!(out.world.atoms()[0].is_fail_closed());
+}
+
+#[test]
+fn an_inert_state_declaration_surfaces_a_finding() {
+    // Koan 4 / DL-0029: a state that names nothing evaluable (undotted, no value)
+    // is surfaced as a finding rather than silently dropped.
+    let docs = vec![doc(
+        "weir",
+        vec![state_decl(
+            "waterlogged",
+            None,
+            None,
+            Some(ann(ProvenanceMarker::Proposed, &[])),
+        )],
+    )];
+    let out = Loader::load(&docs);
+    assert!(
+        has_code(&out, "load.inert-declaration"),
+        "unexpected: {:?}",
+        out.findings
     );
 }
 

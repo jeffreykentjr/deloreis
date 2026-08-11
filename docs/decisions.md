@@ -2947,3 +2947,64 @@ author interface without assigning the engine authority over who may rule.
 marker upcast, identity-hash stability, canonical status projection, durable
 promotion, defeat valuation overlay, dead-claim exclusion, and decision-carriage
 corruption are covered by the Contract 1.5 test lane.
+
+## DL-0071 — A `state` becomes an evaluable fluent fact, and interval-overlap contradiction goes live (issues 47, 48)
+
+*Date: 2026-08-11*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** A declared `state` — the surface `state s.p = v [time]` and the
+`author.add_state` wire op — was accepted, provenance-scrubbed, persisted, and
+round-tripped, yet lowered to *nothing*: both the loader and the evaluator routed
+`Decl::State` to a catch-all and the durable store emitted no fact object. That is
+an inert declaration (koan 4, DL-0029) and a provenance gap (the store carried a
+ruling for a claim no query could surface). It is closed:
+
+1. **One lowering seam, three paths.** `StateDecl::atom` (in `dli-ast`) maps a
+   state to its ground atom — dotted `s.p` with value `v` → `p(s, v)` (the same
+   atom `s.p = v` would produce, so a state is queryable), dotted no-value →
+   `p(s)`, undotted with value → `n(v)`, undotted no-value → none. The loader
+   (`process_state`), the evaluator (`World::lower`), and the durable store
+   (`lower_decl`) all lower through it, so their ground atoms cannot drift; the
+   two-lowering convergence oracle and the byte-identity oracle both hold.
+
+2. **The interval rides the fluent, not the atom.** A valued binary state also
+   pushes a `Span` onto the slot's `FluentTimeline` on the compiled world, keyed
+   by `(pred, subject)`, carrying its `since`/`until` anchors and the
+   declaration's ruling. The timeless atom stays queryable; the interval does not
+   collapse into the attribute layer. A state's temporal anchor is checked like an
+   entity's (`since`/`until` name events, `after`/`during` eras), so an undeclared
+   anchor surfaces `load.unknown-temporal-reference`.
+
+3. **Interval-overlap contradiction is now a live path.** `dli-time`'s fluent
+   machinery — built and tested but referenced nowhere — is wired into the check
+   battery. `continuity::run` raises exactly one `continuity.fluent-contradiction`
+   for a slot whose timeline holds two distinct values *certainly at once over
+   overlapping spans*; a value in force over disjoint spans (`commons until e` /
+   `enclosed since e`) is one truthful fluent and raises nothing. The
+   claim-relative `intra-episode-contradiction` skips fluent slots (the flat
+   single-valued reader would false-fire on disjoint spans), and the fact-checker
+   never returns `contradicted` on a fluent slot — the two false positives that
+   realizing states as flat facts would otherwise have introduced.
+
+4. **Nothing silently dropped.** A residual state that names nothing evaluable
+   (undotted, valueless) surfaces `load.inert-declaration` rather than vanishing.
+
+**Rationale.** DL-0029 already ruled that accepted syntax may not lower to
+nothing; a whole declaration kind that was accepted-and-vanished violated it. The
+fix realizes the state as the queryable fact issue 47 asks for while threading the
+interval through the fluent layer issue 48 asks for — and the two are one change,
+because emitting the flat fact without the fluent routing would itself have
+introduced the false disjoint-span contradiction issue 48 warns of. Contract
+behavior is unchanged: `author.add_state` still stages a `Decl::State`; it now
+lowers to something the world can answer.
+
+**Verification.** `dli-world` loader tests (a state is a queryable fact; missing
+provenance fails closed; an inert state is a finding), the check lane (disjoint
+spans raise zero findings, overlapping spans raise exactly one, a disjoint fluent
+value is never a fact-check contradiction, the existing single-valued and
+multi-valued intra-episode cases still hold), the two-lowering convergence oracle,
+the `dli-eval` state smoke test, the `dli-lorestore` total-lowering byte-identity
+oracle, and an end-to-end `author.add_state` → `author.query` serve test.

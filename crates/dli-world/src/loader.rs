@@ -67,7 +67,7 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl, KindDecl,
-    OptionClause, RuleDecl, ScopeHeader, TimeClause,
+    OptionClause, RuleDecl, ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -80,6 +80,7 @@ use dli_eval::EvalError;
 use dli_eval::world::{Fact, GroundAtom};
 use dli_time::chronology::TimePoint;
 use dli_time::cycle::Cycle;
+use dli_time::fluent::Span as FluentSpan;
 
 use crate::model::{
     EntityEntry, LoadFinding, LoadedAtom, PackProvenance, Provenance, SortEntry, WorldModel,
@@ -240,6 +241,7 @@ impl LoadCtx {
         match decl {
             Decl::Entity(entity) => self.process_entity(entity, pack),
             Decl::Attr(attr) => self.process_attr(attr, pack, None),
+            Decl::State(state) => self.process_state(state, pack),
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
             Decl::Kind(kind) => self.process_kind(kind, pack),
@@ -385,6 +387,95 @@ impl LoadCtx {
             grade: Grade::Asserted,
         });
         self.push_atom(atom, compiled, pack, attr.subject.span);
+    }
+
+    /// Lower a `state <name> [= <value>] [time]` fluent (issues 47/48).
+    ///
+    /// A state is realized exactly as an attribute is — a gated, queryable ground
+    /// fact via [`StateDecl::atom`] and the same provenance seam — *and*, when it
+    /// has a value on a dotted subject, a [`Span`] on the slot's
+    /// [`FluentTimeline`](dli_time::fluent::FluentTimeline). The span carries the
+    /// interval (`since`/`until`) and the ruling, so two values of the same slot
+    /// over disjoint spans read as one fluent rather than a contradiction; the
+    /// timeless fact stays queryable. Nothing is silently dropped (koan 4): a
+    /// declaration naming nothing evaluable surfaces an [`InertDeclaration`]
+    /// finding, and an undeclared time anchor a [`TemporalReference`] one.
+    ///
+    /// [`InertDeclaration`]: crate::model::LoadFinding::InertDeclaration
+    fn process_state(&mut self, state: &StateDecl, pack: &str) {
+        let label = format!("state '{}'", state.name.text);
+        let Some(atom) = state.atom() else {
+            self.findings.push(LoadFinding::InertDeclaration {
+                decl: label,
+                pack: pack.to_owned(),
+                span: state.name.span,
+            });
+            return;
+        };
+        let compiled = self.compile_ann(
+            state.provenance.as_ref(),
+            &label,
+            pack,
+            true,
+            state.name.span,
+        );
+        self.collect_entities(&atom);
+        // Thread the temporal clause so an undeclared anchor surfaces, exactly as
+        // an entity's does: `since`/`until` name events, `after`/`during` eras.
+        self.record_state_time(state, &label, pack);
+        // The evaluable core carries the gated fact — a state is queryable like
+        // any slot (issue 47).
+        self.wm.world.facts.push(Fact {
+            atom: ground_atom(&atom),
+            ann: compiled.ann.clone(),
+            grade: Grade::Asserted,
+        });
+        // A valued binary slot also bears a fluent span, so the check path reads
+        // it over its interval rather than as a timeless clash (issue 48).
+        if let [Term::Sym(subject), value] = atom.args.as_slice() {
+            let slot = (atom.pred.text.clone(), subject.text.clone());
+            let (since, until) = self.state_bounds(state.time.as_ref());
+            let span = FluentSpan::new(render_term(value), since, until, compiled.ann.clone());
+            self.wm.fluents.entry(slot).or_default().push(span);
+        }
+        self.push_atom(atom, compiled, pack, state.name.span);
+    }
+
+    /// The interval anchors a state's [`TimeClause`] bounds it to. `since`/`after`
+    /// open the span at a point; `until` closes it at one; `during` opens it at
+    /// the era (there is no era-end point to close on); an absent clause is the
+    /// migration default — open on both ends (`docs/spec/03-time.md` §2). An
+    /// `order` chain orders events rather than bounding one state, so it does not
+    /// apply here (and `author.add_state` cannot produce it).
+    fn state_bounds(
+        &mut self,
+        time: Option<&TimeClause>,
+    ) -> (Option<TimePoint>, Option<TimePoint>) {
+        match time {
+            Some(TimeClause::Since(t) | TimeClause::After(t) | TimeClause::During(t)) => {
+                (Some(self.time_point(&t.text)), None)
+            }
+            Some(TimeClause::Until(t)) => (None, Some(self.time_point(&t.text))),
+            Some(TimeClause::Order(_)) | None => (None, None),
+        }
+    }
+
+    /// Record a state's temporal clause as a [`TemporalReference`] to be resolved
+    /// after all documents load, mirroring [`process_entity`](LoadCtx::process_entity):
+    /// `since`/`until` require an event, `after`/`during` an era.
+    fn record_state_time(&mut self, state: &StateDecl, label: &str, pack: &str) {
+        let (target, expected_kind) = match &state.time {
+            Some(TimeClause::Since(t) | TimeClause::Until(t)) => (t, "event"),
+            Some(TimeClause::After(t) | TimeClause::During(t)) => (t, "era"),
+            Some(TimeClause::Order(_)) | None => return,
+        };
+        self.temporal_refs.push(TemporalReference {
+            decl: label.to_owned(),
+            expected_kind: expected_kind.to_owned(),
+            target: target.text.clone(),
+            pack: pack.to_owned(),
+            span: target.span,
+        });
     }
 
     fn process_fact(&mut self, fact: &FactDecl, pack: &str) {

@@ -185,6 +185,49 @@ fn golden_session_flows_end_to_end() {
 }
 
 #[test]
+fn add_state_then_query_surfaces_the_fluent() {
+    // Issue 47: `author.add_state` must produce a queryable fact, not a claim
+    // that vanishes. The state answers a query for its predicate end-to-end.
+    let (document, diagnostics) =
+        dli_syntax::parse_document("scope tpth\nratify d-1\nperson gwern \"Gwern\" decided d-1\n");
+    assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
+    let mut store = Store::with_pack(dli_world::pack::Pack {
+        name: "tpth".to_owned(),
+        documents: vec![document],
+    })
+    .expect("base compiles");
+    let ws = open_scope(&mut store, "tpth");
+    let added = send(
+        &mut store,
+        &req(
+            "add",
+            Op::AuthorAddState,
+            json!({
+                "workspace": ws,
+                "id": "gwern.water-status",
+                "value": "commons",
+                "provenance": {"kind": "proposed", "origin": "session-7c9"}
+            }),
+        ),
+    );
+    result(&added); // accepted (no error-severity finding blocks it)
+
+    let queried = send(
+        &mut store,
+        &req(
+            "query",
+            Op::AuthorQuery,
+            json!({"workspace": ws, "goal": "water-status(gwern, ?value)"}),
+        ),
+    );
+    let query_result = result(&queried);
+    assert_eq!(
+        query_result["rows"][0]["bindings"]["value"], "commons",
+        "the state answers a query for its predicate: {query_result}"
+    );
+}
+
+#[test]
 fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
     let (document, diagnostics) =
         dli_syntax::parse_document("scope tpth\nratify d-1\nplace mara \"Mara\" decided d-1\n");
