@@ -2880,10 +2880,10 @@ fn canon_timeline(
 /// across all entities; `compile_characters` selects the six core character
 /// rows), and `alias` (12). Each row carries `decisions` (the `support`
 /// monomials expanded through the interner) and `status` (`provenance.marker`
-/// lowercased). The human-ratified display `name` is NOT carried here —
-/// `entities.name` stays YAML-sourced (characters.yaml) per DL-0068 and is
-/// re-joined by `compile_characters`; the guardrail `factcheck-alias` surfaces
-/// likewise stay YAML-sourced (the `factcheck-alias` re-point was rejected).
+/// lowercased). Display names are projected from `by_pred["display-name"]` when
+/// the store carries them, so the compiler's YAML re-join is only a
+/// byte-identical pre-deletion fallback. The guardrail `factcheck-alias`
+/// surfaces stay YAML-sourced (the re-point was rejected).
 /// `status` is derived from the marker to fail-closed on non-canonical markers
 /// (eg. a `Decided` row — see the path-E red-team); canonical character rows are
 /// all `Ratified`. Commit order is carried by `by_pred`'s per-predicate Vec
@@ -2923,29 +2923,8 @@ fn canon_characters(
     // Lowercase `provenance.marker`, failing closed on a non-canonical marker
     // (eg. a `Decided` row planted by the red-team — the canonical character
     // rows are all `Ratified`).
-    // `person` atoms: args[0] is the id (no surface — the display name is
-    // YAML-sourced, re-joined by `compile_characters`). Commit order via
-    // `by_pred["person"]`.
-    let mut persons: Vec<serde_json::Value> = Vec::new();
-    if let Some(objs) = by_pred.get("person") {
-        for o in objs {
-            let args = o["atom"]["args"]
-                .as_array()
-                .ok_or((ErrorCode::Internal, "person atom has no args".to_string()))?;
-            let id = args
-                .first()
-                .and_then(|v| v.as_str())
-                .ok_or((ErrorCode::Internal, "person id missing".to_string()))?;
-            persons.push(json!({
-                "id": id,
-                "decisions": support_decisions(o)?,
-                "status": canon_status(o, "person")?,
-            }));
-        }
-    }
-
-    // `role` and `alias` atoms: args[0] = subject, args[1] = surface. Per-predicate
-    // commit order via `by_pred`.
+    // `role`, `alias`, and `display-name` atoms all carry subject + surface
+    // arguments. Per-predicate commit order comes from `by_pred`.
     let project_subject_surface = |pred: &str| -> Result<Vec<serde_json::Value>, Fault> {
         let mut out: Vec<serde_json::Value> = Vec::new();
         if let Some(objs) = by_pred.get(pred) {
@@ -2970,11 +2949,49 @@ fn canon_characters(
         Ok(out)
     };
 
-    Ok(json!({
+    // Display-name facts are independently projected because declared entities
+    // such as `hound` do not carry a `person` atom. Commit order is the
+    // predicate bucket's order, just as it is for role and alias.
+    let display_names = project_subject_surface("display-name")?;
+
+    // `person` atoms: args[0] is the id. When a matching display-name fact is
+    // present, carry it on the person row too so consumers can use the compact
+    // character projection without rejoining YAML.
+    let mut persons: Vec<serde_json::Value> = Vec::new();
+    if let Some(objs) = by_pred.get("person") {
+        for o in objs {
+            let args = o["atom"]["args"]
+                .as_array()
+                .ok_or((ErrorCode::Internal, "person atom has no args".to_string()))?;
+            let id = args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or((ErrorCode::Internal, "person id missing".to_string()))?;
+            let mut person = json!({
+                "id": id,
+                "decisions": support_decisions(o)?,
+                "status": canon_status(o, "person")?,
+            });
+            if let Some(name) = display_names
+                .iter()
+                .find(|row| row["subject"].as_str() == Some(id))
+                .and_then(|row| row["surface"].as_str())
+            {
+                person["name"] = json!(name);
+            }
+            persons.push(person);
+        }
+    }
+
+    let mut projected = json!({
         "person": persons,
         "role": project_subject_surface("role")?,
         "alias": project_subject_surface("alias")?,
-    }))
+    });
+    if !display_names.is_empty() {
+        projected["display-name"] = json!(display_names);
+    }
+    Ok(projected)
 }
 
 /// Map stored provenance to the one canonical standing vocabulary. A retired
@@ -3334,5 +3351,26 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn canon_characters_projects_display_name_facts() {
+        let object = serde_json::json!({
+            "atom": {"pred": "display-name", "args": ["mara", "Mara"]},
+            "provenance": {"marker": "Ratified"},
+            "support": {"monomials": [["+0"]]}
+        });
+        let person = serde_json::json!({
+            "atom": {"pred": "person", "args": ["mara"]},
+            "provenance": {"marker": "Ratified"},
+            "support": {"monomials": [["+0"]]}
+        });
+        let mut by_pred = std::collections::BTreeMap::new();
+        by_pred.insert("display-name".to_owned(), vec![object]);
+        by_pred.insert("person".to_owned(), vec![person]);
+
+        let projected = canon_characters(&by_pred, &["D-1".to_owned()]).expect("canon");
+        assert_eq!(projected["person"][0]["name"], "Mara");
+        assert_eq!(projected["display-name"][0]["subject"], "mara");
     }
 }
