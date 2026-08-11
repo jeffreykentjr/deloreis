@@ -236,10 +236,7 @@ fn valid_date_line(line: &str) -> bool {
 }
 
 fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
-    let base_ref = env::var("GITHUB_BASE_REF").map_or_else(
-        |_| "origin/main".to_owned(),
-        |branch| format!("origin/{branch}"),
-    );
+    let base_ref = baseline_ref(env::var("GITHUB_BASE_REF").ok());
     let merge_base = git_merge_base(root, &base_ref)?;
     let baseline = git_file(root, &merge_base, LEDGER)?;
     if !current.starts_with(&baseline) {
@@ -250,6 +247,13 @@ fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
     Ok(())
 }
 
+fn baseline_ref(github_base_ref: Option<String>) -> String {
+    match github_base_ref {
+        Some(branch) if !branch.is_empty() => format!("origin/{branch}"),
+        _ => "origin/main".to_owned(),
+    }
+}
+
 fn git_merge_base(root: &Path, base_ref: &str) -> Result<String> {
     let output = Command::new("git")
         .current_dir(root)
@@ -258,7 +262,7 @@ fn git_merge_base(root: &Path, base_ref: &str) -> Result<String> {
         .with_context(|| format!("could not invoke git to find merge-base with {base_ref}"))?;
     if !output.status.success() {
         bail!(
-            "could not read the authority baseline: git merge-base HEAD {base_ref} failed; fetch the PR base with full history"
+            "could not read the authority baseline: git merge-base HEAD {base_ref} failed; check that the base ref is available and GITHUB_BASE_REF is not empty"
         );
     }
     let revision = String::from_utf8(output.stdout)
@@ -347,7 +351,27 @@ fn section<'a>(text: &'a str, start: &str, end: &str) -> Result<&'a str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{valid_date_line, validate_ledger, validate_plan};
+    use super::{baseline_ref, valid_date_line, validate_ledger, validate_plan};
+
+    #[test]
+    fn baseline_ref_defaults_when_github_base_ref_is_unset() {
+        assert_eq!(baseline_ref(None), "origin/main");
+    }
+
+    #[test]
+    fn baseline_ref_defaults_when_github_base_ref_is_empty() {
+        assert_eq!(baseline_ref(Some(String::new())), "origin/main");
+    }
+
+    #[test]
+    fn baseline_ref_uses_main_branch() {
+        assert_eq!(baseline_ref(Some("main".to_owned())), "origin/main");
+    }
+
+    #[test]
+    fn baseline_ref_uses_feature_branch() {
+        assert_eq!(baseline_ref(Some("feature".to_owned())), "origin/feature");
+    }
 
     #[test]
     fn date_line_is_strict() {
