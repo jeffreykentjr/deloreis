@@ -260,6 +260,7 @@ fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject 
     object.with_provenance(crate::object::FactProvenance {
         marker: None,
         located_body: (located != body).then_some(located),
+        ..Default::default()
     })
 }
 
@@ -403,6 +404,7 @@ pub fn lower_decl(
         .with_provenance(crate::object::FactProvenance {
             marker: provenance.map(|p| p.marker),
             located_body: None,
+            ..Default::default()
         }),
     );
 
@@ -433,6 +435,7 @@ pub fn lower_decl(
                 .with_provenance(crate::object::FactProvenance {
                     marker: provenance.map(|p| p.marker),
                     located_body: None,
+                    ..Default::default()
                 }),
             );
         }

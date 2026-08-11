@@ -190,6 +190,12 @@ pub enum Op {
     /// Request an attestation for an open question (DM-4 tier 2, contract 1.3.0).
     #[serde(rename = "author.add_attest")]
     AuthorAddAttest,
+    /// Promote a provisional claim to ratified (contract 1.5.0).
+    #[serde(rename = "author.set_standing")]
+    AuthorSetStanding,
+    /// Record a defeating decision for a claim (contract 1.5.0).
+    #[serde(rename = "author.defeat")]
+    AuthorDefeat,
 }
 
 impl Op {
@@ -201,7 +207,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 57] = [
+    pub const ALL: [Op; 59] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -259,6 +265,8 @@ impl Op {
         Op::AuthorAddBanned,
         Op::AuthorAddState,
         Op::AuthorAddAttest,
+        Op::AuthorSetStanding,
+        Op::AuthorDefeat,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -278,6 +286,12 @@ impl Op {
                 | Op::AuthorAddState
                 | Op::AuthorAddAttest
         )
+    }
+
+    /// Whether this op was introduced in contract `1.5.0`.
+    #[must_use]
+    pub const fn added_in_1_5_0(self) -> bool {
+        matches!(self, Op::AuthorSetStanding | Op::AuthorDefeat)
     }
 
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
@@ -319,6 +333,8 @@ impl Op {
                 | Op::AuthorAddBanned
                 | Op::AuthorAddState
                 | Op::AuthorAddAttest
+                | Op::AuthorSetStanding
+                | Op::AuthorDefeat
         )
     }
 
@@ -449,6 +465,12 @@ impl Op {
             }
             Op::AuthorAddAttest => {
                 "Request an attestation for an open question — the ledger entry a later sweep answers."
+            }
+            Op::AuthorSetStanding => {
+                "Promote a provisional stored claim to ratified by citing a ratifying decision."
+            }
+            Op::AuthorDefeat => {
+                "Defeat a stored claim with a decision while preserving its history and object."
             }
         }
     }

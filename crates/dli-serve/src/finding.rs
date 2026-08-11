@@ -16,6 +16,19 @@ pub enum Severity {
     Warn,
 }
 
+/// The stored standing requested for a cited authoring operation.
+///
+/// The field is optional here so pre-1.5 wire frames remain decodable. The
+/// 1.5 request boundary requires it for `kind: cited`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ProvenanceState {
+    /// Open to later revision.
+    Provisional,
+    /// A settled ruling.
+    Ratified,
+}
+
 /// A single finding attached to a result: a coded, graded observation with an
 /// optional machine-applicable repair.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -71,6 +84,9 @@ pub enum Provenance {
     Cited {
         /// The cited decision identifiers in the consuming repo's ledger.
         decisions: Vec<String>,
+        /// The requested standing on contract 1.5 and above.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state: Option<ProvenanceState>,
     },
     /// Proposed (not yet ratified): `{"kind":"proposed","origin":"session-7c9"}`.
     Proposed {
@@ -145,6 +161,29 @@ mod tests {
         assert_eq!(
             wire["message"],
             serde_json::json!("The name \"mara\" has not passed the naming oracle.")
+        );
+    }
+
+    #[test]
+    fn cited_provenance_keeps_old_wire_and_accepts_contract_1_5_state() {
+        let old: Provenance = serde_json::from_value(serde_json::json!({
+            "kind": "cited",
+            "decisions": ["D-1"]
+        }))
+        .expect("the pre-1.5 cited wire remains readable");
+        assert_eq!(
+            serde_json::to_value(&old).expect("old provenance serializes"),
+            serde_json::json!({"kind": "cited", "decisions": ["D-1"]})
+        );
+        let current: Provenance = serde_json::from_value(serde_json::json!({
+            "kind": "cited",
+            "decisions": ["D-1"],
+            "state": "provisional"
+        }))
+        .expect("the 1.5 cited wire carries state");
+        assert_eq!(
+            serde_json::to_value(&current).expect("current provenance serializes")["state"],
+            "provisional"
         );
     }
 

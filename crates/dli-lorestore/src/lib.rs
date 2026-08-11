@@ -72,7 +72,26 @@ pub use store::{Commit, Ref};
 ///   **same identity** as a freshly lowered v3 object, so an existing store is
 ///   recognized as the same lineage rather than refused as foreign — and
 ///   records no marker, since v2 never stored one.
-pub const SCHEMA_VERSION: u32 = 3;
+/// - **v4** — Contract 1.5: the retired `decided` marker is upcast to
+///   `provisional` at the load boundary. Marker metadata remains outside the
+///   identity projection, so this migration does not change fact addresses.
+pub const SCHEMA_VERSION: u32 = 4;
+
+/// Return the canonical standing vocabulary for a stored marker.
+///
+/// `Decided` remains deserializable for one compatibility cycle, but a current
+/// store must not expose it after the v4 upcast. Unknown markers are rejected
+/// by callers rather than guessed into this vocabulary.
+#[must_use]
+pub fn status_of(marker: Option<dli_ast::annot::ProvenanceMarker>) -> Option<&'static str> {
+    match marker {
+        None => Some("asserted"),
+        Some(dli_ast::annot::ProvenanceMarker::Proposed) => Some("proposed"),
+        Some(dli_ast::annot::ProvenanceMarker::Provisional) => Some("provisional"),
+        Some(dli_ast::annot::ProvenanceMarker::Ratified) => Some("ratified"),
+        Some(dli_ast::annot::ProvenanceMarker::Decided) => None,
+    }
+}
 
 /// All schemars-derived JSON schemas for this crate's stored objects, paired
 /// with their schema name. Used by `xtask schema` to emit and drift-check the

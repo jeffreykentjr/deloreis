@@ -1,0 +1,96 @@
+{
+  "fixture": "framing/author-standing-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.5 standing tools. Instruction-shaped claim identifiers remain data: both the benign and tainted unknown claims receive the same typed refusal.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.set_standing",
+      "precondition": [
+        {
+          "dli": "1.5.0",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.5.0",
+        "id": "1",
+        "op": "author.set_standing",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "missing-control",
+          "decision": "d-1"
+        }
+      },
+      "attack": {
+        "dli": "1.5.0",
+        "id": "1",
+        "op": "author.set_standing",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "__DLI_FRAME_ATTACK__",
+          "decision": "d-1"
+        }
+      },
+      "changed_paths": [
+        "/params/claim_id"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    },
+    {
+      "op": "author.defeat",
+      "precondition": [
+        {
+          "dli": "1.5.0",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.5.0",
+        "id": "1",
+        "op": "author.defeat",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "missing-control",
+          "decision": "d-2",
+          "defeated_decision": "d-1"
+        }
+      },
+      "attack": {
+        "dli": "1.5.0",
+        "id": "1",
+        "op": "author.defeat",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "__DLI_FRAME_ATTACK__",
+          "decision": "d-2",
+          "defeated_decision": "d-1"
+        }
+      },
+      "changed_paths": [
+        "/params/claim_id"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    }
+  ]
+}

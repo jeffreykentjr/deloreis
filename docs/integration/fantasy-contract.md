@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.4.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, the expert tool surface, the corpus exchange, the canon projection, the authority scrub, and complete paired framing replay are implemented; the server speaks 1.4.0 alongside the whole accepted legacy window."
+verdict: "The generic worker contract at 1.5.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, and complete paired framing replay are implemented across the accepted legacy window."
 ---
 
 # The dli-worker contract
@@ -18,13 +18,13 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.4.0` (`decisions.md` DL-0051,
-> DL-0053, DL-0055, DL-0056, DL-0058). It carries typed responses for all 57 operations,
+> **Implementation status:** the contract is at `1.5.0` (`decisions.md` DL-0051,
+> DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070). It carries typed responses for all 59 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, `1.3.0`, and `1.4.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.5.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -166,7 +166,7 @@ rules and a consumer reading only this paragraph must not over-apply them.
   gap in wire completeness for a consumer with no other way to touch the
   filesystem, and it is recorded here rather than left to be discovered.
 
-All 57 operation names have request/response schemas, dispatch arms, and golden
+All 59 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
@@ -302,6 +302,8 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.add_banned` | **≥ `1.3.0`.** Declare a banned word, with the reason it is banned. | yes |
 | `author.add_state` | **≥ `1.3.0`.** Declare a time-varying fluent — the shape episode continuity is read over. | yes |
 | `author.add_attest` | **≥ `1.3.0`.** Raise an attestation request against a claim (the question-ledger door). | yes |
+| `author.set_standing` | **≥ `1.5.0`.** Promote a provisional stored claim to ratified; `decision` must be declared and support every path. | yes (commits) |
+| `author.defeat` | **≥ `1.5.0`.** Record a new defeating decision and rule the named old supporting decision false; the claim remains stored but evaluates dead. | yes (commits) |
 
 **`author.materialize` is a mutation, and it is the accept decision**
 (DL-0046). It commits the workspace's staged delta to the lorestore and
@@ -325,7 +327,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.3.0` enforces it for all 57 operations.
+today: contract `1.5.0` enforces it for all 59 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -390,7 +392,7 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, and `1.3.0`. A frame declaring
+  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.5.0`. A frame declaring
   anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
@@ -435,6 +437,14 @@ decoupled, and the compatibility window carries the consumer across.
   store-derived `canon` projection alongside the unchanged corpus fields, and
   is gated on the negotiated version: `1.3.0` and earlier retain the released
   schema refusal for `format: canon`.
+- **What `1.5.0` changes.** Schema v4 retires stored `Decided` standing in
+  favor of `Provisional`, with v3 objects upcast on read and claim identities
+  unchanged. Cited authoring requires an explicit `provisional` or `ratified`
+  state. `author.set_standing` and `author.defeat` join the negotiated surface,
+  taking the inventory to 59 operations. Promotion records its ratifying
+  decision; defeat records a new decision and rules the old supporting
+  decision false. Canon excludes dead claims and refuses corrupt commits whose
+  decision list disagrees with stored `Ratify` objects.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

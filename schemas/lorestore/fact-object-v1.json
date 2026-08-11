@@ -269,9 +269,16 @@
       ]
     },
     "FactProvenance": {
-      "description": "Provenance metadata carried beside a fact — **recorded, never hashed**.\n\nEverything here is deliberately outside the identity projection\n([`FactObject::content_hash`]), for the same reason `claim_id` is: it does\nnot change the proposition or the provenance polynomial that decides its\nstanding. Two facts that differ only in this block are the same fact, and\ncontent addressing must say so — otherwise dedup and cross-branch merge\nconvergence break (see the module docs on the three-way identity split).\n\nIntroduced at schema v3 (DL-0055). A v2 object carries none of it, and the\nupcast leaves both fields absent rather than inventing them.",
+      "description": "Provenance metadata carried beside a fact — **recorded, never hashed**.\n\nEverything here is deliberately outside the identity projection\n([`FactObject::content_hash`]), for the same reason `claim_id` is: it does\nnot change the proposition or the provenance polynomial that decides its\nstanding. Two facts that differ only in this block are the same fact, and\ncontent addressing must say so — otherwise dedup and cross-branch merge\nconvergence break (see the module docs on the three-way identity split).\n\nIntroduced at schema v3 (DL-0055). A v2 object carries none of it, and the\nupcast leaves the fields absent rather than inventing them.",
       "type": "object",
       "properties": {
+        "defeated_by": {
+          "description": "The decision that defeated this claim, when one has been recorded.\n\nDefeat remains a valuation outcome: the supporting decision is ruled\nfalse on the ref. This field preserves which later decision caused that\ntransition without deleting or re-identifying the fact object.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "located_body": {
           "description": "The carriage body exactly as authored, source spans intact.\n\n[`ExpertBody::body`] holds the span-normalized form, which is what the\ncontent hash sees; this holds the located original so a round trip\nthrough the store does not silently lose source positions (koan 4).\nReconstruction prefers this when present and falls back to the\nnormalized body.",
           "type": [
@@ -288,6 +295,13 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "standing_decision": {
+          "description": "The decision that last promoted this claim's standing.\n\nThis is transition evidence, not proposition identity, so it stays in\nthe unhashed provenance block. A directly authored ratified claim may\nleave it absent; `author.set_standing` records it explicitly.",
+          "type": [
+            "string",
+            "null"
           ]
         }
       },

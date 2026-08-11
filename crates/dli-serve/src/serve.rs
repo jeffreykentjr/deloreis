@@ -41,6 +41,22 @@ const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.check-ledger", "dli.check-proof"),
 ];
 
+/// Retired stored marker spellings and their typed successor. The AST keeps
+/// `Decided` readable for one compatibility cycle, while contract 1.5 refuses
+/// a newly imported occurrence through the same killed-form vocabulary used by
+/// retired operations and fields.
+const KILLED_MARKERS: &[(&str, &str)] = &[("decided", "provisional")];
+
+pub(crate) fn killed_marker_successor(dli: &str, marker: &str) -> Option<&'static str> {
+    if !crate::has_standing_tools(dli) {
+        return None;
+    }
+    KILLED_MARKERS
+        .iter()
+        .find(|(retired, _)| *retired == marker)
+        .map(|(_, successor)| *successor)
+}
+
 /// The contract version at which the retired *field* forms in [`KILLED_FIELDS`]
 /// start being refused. `1.0.0` is the one accepted version that reaches it
 /// (LS-8), so the registry is live on exactly that wire and dormant on the
@@ -493,6 +509,17 @@ pub fn dispatch(
     if !crate::ACCEPTED_CONTRACT_VERSIONS.contains(&request.dli.as_str()) {
         return version_mismatch(request);
     }
+    if request.op.added_in_1_5_0() && !crate::has_standing_tools(&request.dli) {
+        return typed_error(
+            &request.dli,
+            &request.id,
+            ErrorCode::UnknownOp,
+            format!(
+                "operation {:?} is not available before contract 1.5.0",
+                request.op
+            ),
+        );
+    }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
     {
@@ -780,6 +807,16 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn decided_marker_is_killed_only_on_contract_1_5() {
+        assert_eq!(killed_marker_successor("1.4.0", "decided"), None);
+        assert_eq!(
+            killed_marker_successor("1.5.0", "decided"),
+            Some("provisional")
+        );
+        assert_eq!(killed_marker_successor("1.5.0", "ratified"), None);
     }
 
     /// The version gate reads the major and nothing else: live on `1.0.0` — the

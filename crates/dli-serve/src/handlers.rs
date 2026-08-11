@@ -12,7 +12,7 @@
 //! durability semantics have not landed remain capability-gated. `dli.version`
 //! advertises only operations that currently satisfy their contract.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 // The contract module is one flat table of param/result structs; a scoped glob
 // is clearer than a 40-line import list, exactly as `schema.rs` does it.
@@ -133,7 +133,9 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorAddTerm
         | Op::AuthorAddBanned
         | Op::AuthorAddState
-        | Op::AuthorAddAttest => Err((
+        | Op::AuthorAddAttest
+        | Op::AuthorSetStanding
+        | Op::AuthorDefeat => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1965,12 +1967,14 @@ fn capabilities(dli: &str) -> Vec<String> {
     let branch_merge = crate::has_branch_merge(dli);
     let corpus = crate::has_corpus_ops(dli);
     let expert_authoring = crate::has_expert_authoring(dli);
+    let standing_tools = crate::has_standing_tools(dli);
     Op::ALL
         .iter()
         .copied()
         .filter(|op| branch_merge || !op.added_in_0_6_1())
         .filter(|op| corpus || !op.added_in_1_2_0())
         .filter(|op| expert_authoring || !op.added_in_1_3_0())
+        .filter(|op| standing_tools || !op.added_in_1_5_0())
         .map(wire_name)
         .collect()
 }
@@ -2107,9 +2111,10 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                 &p.decisions,
                 &p.document,
                 crate::validates_claim_ids(&request.dli),
+                &request.dli,
             )?
         }
-        (None, Some(documents)) => import_dli_documents(&store, documents)?,
+        (None, Some(documents)) => import_dli_documents(&store, documents, &request.dli)?,
     };
 
     let count = store
@@ -2143,6 +2148,7 @@ fn import_objects(
     decisions: &[String],
     document: &str,
     validate_claim_ids: bool,
+    dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     // Appending into a populated store may only extend the table it already
     // resolves against. The store enforces this too, but as an `internal`
@@ -2176,6 +2182,17 @@ fn import_objects(
                     format!("object {index} is not a stored fact object: {error}"),
                 )
             })?;
+        if let Some(successor) = object
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.marker)
+            .and_then(|marker| crate::serve::killed_marker_successor(dli, marker.keyword()))
+        {
+            return Err((
+                ErrorCode::KilledForm,
+                format!("stored marker `Decided` is retired; use `{successor}`"),
+            ));
+        }
         // `claim_id` is the one field of an imported object nothing else can
         // vouch for. The object's content hash covers the bytes as sent, so a
         // wrong id produces a perfectly valid object and is then handed back by
@@ -2277,6 +2294,7 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
 fn import_dli_documents(
     store: &dli_lorestore::Lorestore,
     documents: &[CorpusDocument],
+    dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     let mut parsed = Vec::with_capacity(documents.len());
     for entry in documents {
@@ -2285,6 +2303,14 @@ fn import_dli_documents(
             return Err((
                 ErrorCode::SchemaViolation,
                 format!("`{}` does not parse: {}", entry.id, diagnostic.message),
+            ));
+        }
+        if crate::has_standing_tools(dli)
+            && serde_json::to_value(&ast).is_ok_and(|value| contains_marker(&value, "Decided"))
+        {
+            return Err((
+                ErrorCode::KilledForm,
+                "stored marker `Decided` is retired; use `Provisional`".to_owned(),
             ));
         }
         parsed.push(ast);
@@ -2377,10 +2403,24 @@ fn import_dli_documents(
     store.import_pack(&pack).map_err(corpus_commit_fault)
 }
 
+#[cfg(feature = "syntax")]
+fn contains_marker(value: &serde_json::Value, marker: &str) -> bool {
+    match value {
+        serde_json::Value::Object(object) => object.iter().any(|(key, value)| {
+            (key == "marker" && value.as_str() == Some(marker)) || contains_marker(value, marker)
+        }),
+        serde_json::Value::Array(values) => {
+            values.iter().any(|value| contains_marker(value, marker))
+        }
+        _ => false,
+    }
+}
+
 #[cfg(not(feature = "syntax"))]
 fn import_dli_documents(
     _store: &dli_lorestore::Lorestore,
     _documents: &[CorpusDocument],
+    _dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     Err((
         ErrorCode::NotWired,
@@ -2530,6 +2570,39 @@ fn canon_export(
     let decisions = store
         .decisions_at(head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let stored_decisions: BTreeSet<String> = objects
+        .iter()
+        .filter_map(|object| {
+            object
+                .expert_body
+                .as_ref()
+                .filter(|body| body.kind == dli_lorestore::ExpertDeclKind::Ratify)
+                .map(|body| body.name.clone())
+        })
+        .collect();
+    let committed_decisions: BTreeSet<String> = decisions.iter().cloned().collect();
+    if stored_decisions != committed_decisions {
+        return Err((
+            ErrorCode::EvidenceCorrupt,
+            format!(
+                "commit decisions disagree with stored ratify declarations: commit={committed_decisions:?}, objects={stored_decisions:?}"
+            ),
+        ));
+    }
+    let mut compiled = store
+        .compile_at(head)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    if let Some(reference) = store
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .filter(|reference| reference.commit == *head)
+    {
+        for (atom, value) in reference.valuation.0 {
+            compiled.model.world.valuation.0.insert(atom, value);
+        }
+    }
+    let valuation = &compiled.model.world.valuation;
+    let theory = &compiled.model.world.theory;
 
     // `serialized_objects` preserves the store commit order (`fact_hashes_from`
     // walks the history in append order, which is the `facts.dli` source order =
@@ -2540,6 +2613,9 @@ fn canon_export(
     let mut serialized_objects: Vec<serde_json::Value> = Vec::with_capacity(objects.len());
     let mut by_pred: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
     for object in &objects {
+        if object.annotation().status(valuation, theory) == dli_core::ann::Status::Dead {
+            continue;
+        }
         let value =
             serde_json::to_value(object).map_err(|e| (ErrorCode::Internal, e.to_string()))?;
         serialized_objects.push(value.clone());
@@ -2690,7 +2766,7 @@ fn canon_facts(
             "kind": pred,
             "object": object,
             "decisions": support_decisions(o)?,
-            "status": "ratified",
+            "status": canon_status(o, "relation")?,
         }));
     }
 
@@ -2778,17 +2854,7 @@ fn canon_timeline(
             ErrorCode::Internal,
             "before atom object missing".to_string(),
         ))?;
-        let status = match o["provenance"]["marker"].as_str() {
-            Some("Provisional") => "provisional",
-            Some("Ratified") => "ratified",
-            Some(m) => {
-                return Err((
-                    ErrorCode::Internal,
-                    format!("unknown before-atom provenance marker: {m}"),
-                ));
-            }
-            None => "asserted",
-        };
+        let status = canon_status(o, "before-atom")?;
         let decision = o["support"]["monomials"]
             .as_array()
             .and_then(|m| m.first())
@@ -2857,19 +2923,6 @@ fn canon_characters(
     // Lowercase `provenance.marker`, failing closed on a non-canonical marker
     // (eg. a `Decided` row planted by the red-team — the canonical character
     // rows are all `Ratified`).
-    let status_of = |o: &serde_json::Value| -> Result<String, Fault> {
-        match o["provenance"]["marker"].as_str() {
-            Some("Ratified") => Ok("ratified".to_string()),
-            Some("Provisional") => Ok("provisional".to_string()),
-            Some("Proposed") => Ok("proposed".to_string()),
-            Some(m) => Err((
-                ErrorCode::Internal,
-                format!("unknown person/role/alias provenance marker: {m}"),
-            )),
-            None => Ok("asserted".to_string()),
-        }
-    };
-
     // `person` atoms: args[0] is the id (no surface — the display name is
     // YAML-sourced, re-joined by `compile_characters`). Commit order via
     // `by_pred["person"]`.
@@ -2886,7 +2939,7 @@ fn canon_characters(
             persons.push(json!({
                 "id": id,
                 "decisions": support_decisions(o)?,
-                "status": status_of(o)?,
+                "status": canon_status(o, "person")?,
             }));
         }
     }
@@ -2910,7 +2963,7 @@ fn canon_characters(
                     "subject": subject,
                     "surface": surface,
                     "decisions": support_decisions(o)?,
-                    "status": status_of(o)?,
+                    "status": canon_status(o, pred)?,
                 }));
             }
         }
@@ -2922,6 +2975,36 @@ fn canon_characters(
         "role": project_subject_surface("role")?,
         "alias": project_subject_surface("alias")?,
     }))
+}
+
+/// Map stored provenance to the one canonical standing vocabulary. A retired
+/// marker is a typed refusal, not a new status guessed from its spelling.
+fn canon_status(object: &serde_json::Value, context: &str) -> Result<String, Fault> {
+    let marker = object["provenance"]["marker"]
+        .as_str()
+        .map(|marker| {
+            serde_json::from_value::<dli_ast::annot::ProvenanceMarker>(serde_json::Value::String(
+                marker.to_owned(),
+            ))
+            .map_err(|_| {
+                (
+                    ErrorCode::Internal,
+                    format!("unknown {context} provenance marker: {marker}"),
+                )
+            })
+        })
+        .transpose()?;
+    dli_lorestore::status_of(marker)
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            (
+                ErrorCode::Internal,
+                format!(
+                    "unknown {context} provenance marker: {}",
+                    marker.map_or("<missing>", dli_ast::annot::ProvenanceMarker::keyword)
+                ),
+            )
+        })
 }
 
 /// Project the folded fact objects into `compile_lore_dli.py`'s `killed_tokens()`
@@ -3228,5 +3311,28 @@ mod tests {
             span: Span::synthetic(),
         };
         assert_eq!(lang_finding(&warn).severity, Severity::Warn);
+    }
+
+    #[test]
+    fn canon_status_accepts_only_the_current_vocabulary() {
+        assert_eq!(
+            canon_status(&serde_json::json!({}), "test").expect("asserted status"),
+            "asserted"
+        );
+        assert_eq!(
+            canon_status(
+                &serde_json::json!({"provenance": {"marker": "Provisional"}}),
+                "test"
+            )
+            .expect("provisional status"),
+            "provisional"
+        );
+        assert!(
+            canon_status(
+                &serde_json::json!({"provenance": {"marker": "Decided"}}),
+                "test"
+            )
+            .is_err()
+        );
     }
 }

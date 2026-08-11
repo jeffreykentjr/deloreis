@@ -63,6 +63,8 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorAddBanned, "author.add_banned"),
     (Op::AuthorAddState, "author.add_state"),
     (Op::AuthorAddAttest, "author.add_attest"),
+    (Op::AuthorSetStanding, "author.set_standing"),
+    (Op::AuthorDefeat, "author.defeat"),
 ];
 
 #[test]

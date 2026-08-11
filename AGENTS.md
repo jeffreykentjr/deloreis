@@ -125,15 +125,14 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.3.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
-DL-0059), served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`,
-`1.1.0` and `1.2.0` stay accepted and answer byte-identically — a `0.5.1` caller
-keeps the rendered-lines return. EXT-F4 is complete, which licenses the `0.x`
+The contract is **1.5.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
+DL-0059, DL-0069, DL-0070), served multi-version dual-mode: `0.5.1`,
+`0.6.0`–`0.6.4`, and `1.0.0`–`1.5.0` stay accepted — a `0.5.1` caller keeps
+the rendered-lines return. EXT-F4 is complete, which licenses the `0.x`
 retirement but has not performed it: that is DM-6's, at `2.0.0`, and it runs
 through the killed-form registry naming each version's successor, never
-silently. `1.3.0` added seven expert authoring tools (`author.add_dialect`,
-`add_name_part`, `add_name`, `add_term`, `add_banned`, `add_state`,
-`add_attest`), taking the surface to 57 operations.
+silently. `1.3.0` added seven expert authoring tools; `1.5.0` adds
+`author.set_standing` and `author.defeat`, taking the surface to 59 operations.
 `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
@@ -153,3 +152,11 @@ certain. Review and approval workflow belong to the consuming application.
 **Below `1.3.0` nothing changed** — `provenance.cited-refused` is the served
 behavior on every earlier accepted version, permanently, and every `0.x` wire
 keeps it byte-exact.
+
+At `1.5.0`, cited provenance requires caller-supplied
+`state: provisional | ratified`. Stored standing uses
+`asserted | proposed | provisional | ratified`; schema v4 upcasts legacy
+`Decided` metadata to `Provisional`. Promotion records the ratifying decision;
+defeat records a new decision and rules the old supporting decision false while
+keeping the object reachable. Canon excludes dead claims and verifies the
+commit decision list against stored `Ratify` carriage objects.

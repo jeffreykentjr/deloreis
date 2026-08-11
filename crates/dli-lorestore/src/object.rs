@@ -168,7 +168,7 @@ impl ExpertBody {
 /// convergence break (see the module docs on the three-way identity split).
 ///
 /// Introduced at schema v3 (DL-0055). A v2 object carries none of it, and the
-/// upcast leaves both fields absent rather than inventing them.
+/// upcast leaves the fields absent rather than inventing them.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FactProvenance {
@@ -185,6 +185,20 @@ pub struct FactProvenance {
     /// `None` means *not recorded* (a v2 store), never "proposed".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub marker: Option<dli_ast::annot::ProvenanceMarker>,
+    /// The decision that last promoted this claim's standing.
+    ///
+    /// This is transition evidence, not proposition identity, so it stays in
+    /// the unhashed provenance block. A directly authored ratified claim may
+    /// leave it absent; `author.set_standing` records it explicitly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub standing_decision: Option<String>,
+    /// The decision that defeated this claim, when one has been recorded.
+    ///
+    /// Defeat remains a valuation outcome: the supporting decision is ruled
+    /// false on the ref. This field preserves which later decision caused that
+    /// transition without deleting or re-identifying the fact object.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defeated_by: Option<String>,
     /// The carriage body exactly as authored, source spans intact.
     ///
     /// [`ExpertBody::body`] holds the span-normalized form, which is what the
@@ -200,7 +214,10 @@ impl FactProvenance {
     /// Whether this block carries nothing worth storing.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.marker.is_none() && self.located_body.is_none()
+        self.marker.is_none()
+            && self.standing_decision.is_none()
+            && self.defeated_by.is_none()
+            && self.located_body.is_none()
     }
 }
 
@@ -300,6 +317,21 @@ impl FactObject {
         self
     }
 
+    /// Rebuild the evaluator annotation carried by this stored object.
+    #[must_use]
+    pub fn annotation(&self) -> dli_core::ann::Ann {
+        if self.conditions.is_empty() {
+            return dli_core::ann::Ann::new(self.support.clone(), self.defeaters.clone());
+        }
+        let mut conditions = dli_core::ann::DefeaterConditions::new();
+        for pair in &self.conditions {
+            for monomial in pair.path.monomials() {
+                conditions.set(monomial.clone(), pair.poison.clone());
+            }
+        }
+        dli_core::ann::Ann::conditioned(self.support.clone(), conditions)
+    }
+
     /// Construct a fact object carrying an expert-tier clause body.
     #[must_use]
     pub fn with_expert_body(
@@ -392,5 +424,46 @@ impl FactObject {
             expert_body: &self.expert_body,
         };
         crate::canonical::content_hash(&content)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use dli_ast::annot::ProvenanceMarker;
+    use dli_core::grade::Grade;
+    use dli_core::posbool::PosBool;
+
+    use super::FactObject;
+
+    #[test]
+    fn standing_metadata_is_outside_the_identity_hash() {
+        let mut provisional = FactObject::new(
+            crate::ClaimId::from_label("test/standing"),
+            dli_eval::world::GroundAtom {
+                pred: "person".to_owned(),
+                args: vec!["mara".to_owned()],
+            },
+            PosBool::truth(),
+            PosBool::FALSE,
+            Vec::new(),
+            Grade::Asserted,
+        );
+        provisional.provenance = Some(crate::object::FactProvenance {
+            marker: Some(ProvenanceMarker::Provisional),
+            standing_decision: None,
+            defeated_by: None,
+            located_body: None,
+        });
+        let mut ratified = provisional.clone();
+        ratified.provenance = Some(crate::object::FactProvenance {
+            marker: Some(ProvenanceMarker::Ratified),
+            standing_decision: Some("D-2".to_owned()),
+            defeated_by: None,
+            located_body: None,
+        });
+        assert_eq!(
+            provisional.content_hash().expect("provisional hash"),
+            ratified.content_hash().expect("ratified hash")
+        );
     }
 }

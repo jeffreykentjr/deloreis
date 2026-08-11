@@ -1,0 +1,92 @@
+{
+  "fixture": "golden/author-standing-v1",
+  "version": 1,
+  "note": "Contract 1.5 durable standing flow: author a cited provisional fact, promote it with its declared supporting decision, then defeat that support with a new decision while preserving the stored object.",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "1.5.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "1.5.0",
+      "id": "pre-2",
+      "op": "author.add_entity",
+      "params": {
+        "workspace": "ws-1",
+        "kind": "person",
+        "id": "mara",
+        "name": "Mara",
+        "provenance": {
+          "kind": "cited",
+          "decisions": [
+            "d-1"
+          ],
+          "state": "provisional"
+        }
+      }
+    },
+    {
+      "dli": "1.5.0",
+      "id": "pre-3",
+      "op": "author.materialize",
+      "params": {
+        "workspace": "ws-1",
+        "rendered": false
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.5.0",
+        "id": "1",
+        "op": "author.set_standing",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "decision": "d-1"
+        }
+      },
+      "expect": {
+        "dli": "1.5.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [],
+          "root_hash": "sha256:32f2f0e67719d788c6b0ae531642e57293edaa8bfe005e24978f3c359c56bc75",
+          "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "1.5.0",
+        "id": "2",
+        "op": "author.defeat",
+        "params": {
+          "workspace": "ws-1",
+          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "decision": "d-2",
+          "defeated_decision": "d-1"
+        }
+      },
+      "expect": {
+        "dli": "1.5.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [],
+          "root_hash": "sha256:d458af9d238822af4b7733af1095fb72d5103764a0c1a5853509b2aaa85b9d74",
+          "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
+        }
+      }
+    }
+  ]
+}

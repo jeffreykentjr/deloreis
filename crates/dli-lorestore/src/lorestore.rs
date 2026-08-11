@@ -510,11 +510,20 @@ impl Lorestore {
         // walk_dag returns HEAD → … → ROOT; the fold runs ROOT → … → HEAD.
         let mut chain = self.storage.walk_dag(head, None)?;
         chain.reverse();
-        let mut seen = std::collections::BTreeSet::new();
+        let mut seen = std::collections::BTreeMap::new();
         let mut unique = Vec::new();
         for c in chain {
             for h in c.facts {
-                if seen.insert(h.clone()) {
+                let object: crate::FactObject = self
+                    .read_object(&h)?
+                    .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {h}")))?;
+                let identity = object.content_hash()?;
+                if let Some(index) = seen.get(&identity) {
+                    // Metadata revisions keep the identity address stable but
+                    // replace the storage object named by the folded view.
+                    unique[*index] = h;
+                } else {
+                    seen.insert(identity, unique.len());
                     unique.push(h);
                 }
             }

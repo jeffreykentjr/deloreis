@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorSetStandingParams",
+  "description": "`author.set_standing` promotes one provisional stored claim to ratified.",
+  "type": "object",
+  "properties": {
+    "claim_id": {
+      "description": "The stable claim id of the stored fact to promote.",
+      "type": "string"
+    },
+    "decision": {
+      "description": "The decision that records the ratification.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The authoring workspace whose lorestore is being updated.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "claim_id",
+    "decision"
+  ]
+}

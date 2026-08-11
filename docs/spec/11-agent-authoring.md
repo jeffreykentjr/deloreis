@@ -65,8 +65,13 @@ DL-0043).
 
 ## 2. Sessions and staging
 
-Nothing an agent does touches disk, and nothing changes canon. All authoring
-happens in a **workspace**: an in-memory staged layer over the compiled world.
+All authoring happens through a **workspace**: an in-memory staged layer over
+the compiled world with a pinned lorestore commit and ref. Add calls may write
+immutable fact objects, but they do not advance the serving ref.
+`author.materialize` commits the accepted staged delta; Contract 1.5 standing
+operations commit metadata revisions and valuation changes directly. The
+workspace digest remains the fence over staged declarations and suppositions;
+durable commit identity travels separately as `root_hash`.
 
 `author.open` creates a workspace and returns its id and digest. It opens in one
 of two modes:
@@ -192,9 +197,8 @@ error }`. The examples below elide `dli`, `id`, and often the `workspace`
 param for brevity; only `params` and the salient part of the response are
 shown.
 
-**Provenance is required on every claim-bearing tool.** An agent (the tool surface)
-supplies one of **two** forms — `proposed` or `hypothesis` — and nothing an agent
-supplies mints authority (§5):
+**Provenance is required on every claim-bearing tool.** A caller supplies
+`proposed`, `hypothesis`, or, on the authority-scrubbed wires, `cited`:
 
 ```json
 { "kind": "proposed", "origin": "session-7c9" }
@@ -206,12 +210,12 @@ supplies mints authority (§5):
 `proposed` records an origin and asserts no ruling; `hypothesis` scopes the claim
 to a fork-local hyp variable.
 
-The third provenance form, `cited` (naming decision-ledger entries in the
-**consuming** repo's ledger, `{ "kind": "cited", "decisions": ["d-0001"] }`), is
-**human-only** (B1). An agent cannot mint a citation — a ruling lives in
-the ledger, not in a tool call (koan 3) — so a `cited` provenance supplied to any
-`author.*` tool is **refused** with the `provenance.cited-refused` finding. The
-agent proposes; the human confirms the citation in review.
+At `1.3.0` and above, `cited` names declared decisions in the consuming
+application's ledger and is recorded as caller-supplied data. At `1.5.0`, it
+also requires `state: "provisional" | "ratified"`. An unknown decision raises
+`citation.unknown-decision` and bars materialization; DLI checks referential
+integrity but does not decide who may rule. Wires below `1.3.0` retain the
+released `provenance.cited-refused` behavior.
 
 ### 3.1 `author.add_entity`
 
@@ -427,7 +431,25 @@ feedback contract. They are invoked in the `author.*` (authoring) and `dli.*`
 (worker-protocol, e.g. `dli.name.check`) namespaces; this document does not
 invent their parameters.
 
-### 3.10 Read tools
+### 3.10 Standing transitions
+
+Contract `1.5.0` adds two durable operations over stored claims:
+
+- `author.set_standing {workspace, claim_id, decision}` promotes a provisional
+  claim to ratified only when `decision` is declared and occurs in every
+  support path. The object records `standing_decision`; its claim identity is
+  unchanged.
+- `author.defeat {workspace, claim_id, decision, defeated_decision}` records
+  the new defeating decision, verifies that `defeated_decision` supports every
+  path, and rules that old supporting decision false on the serving ref. The
+  object records `defeated_by`, remains reachable, and evaluates dead.
+
+Both return the new lorestore `root_hash` and the unchanged staged-state
+`workspace_digest`. Canon export excludes dead claims and refuses
+`evidence-corrupt` when the commit decision list differs from stored `Ratify`
+carriage objects.
+
+### 3.11 Read tools
 
 Five non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
@@ -582,7 +604,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.2.0` enforces that rule for all 50 operations. Paired cases declare
+Contract `1.5.0` enforces that rule for all 59 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.
