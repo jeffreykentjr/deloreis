@@ -36,8 +36,8 @@ use dli_ast::annot::{Annotation, CitationRef, CondExpr};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
-    FactDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause, QuestionDecl, ScopeHeader,
-    StateDecl, TermDecl, TimeClause,
+    FactDecl, FunctionalDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause, QuestionDecl,
+    ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -336,6 +336,10 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             value: s.value.as_ref().map(sanitize_term),
             time: s.time.as_ref().map(sanitize_time),
             provenance: s.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::Functional(f) => Decl::Functional(FunctionalDecl {
+            pred: sanitize_ident(&f.pred),
+            provenance: f.provenance.as_ref().map(sanitize_annot),
         }),
         Decl::Attest(a) => Decl::Attest(AttestDecl {
             question: sanitize_ident(&a.question),

@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.5.0
+contract_version: 1.6.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -47,6 +47,8 @@ fixtures:
   sha256: e8d6360a70ff15f4cad7756052413f81430882a69b52f91f7f28a7dd2b0636a6
 - path: framing/author-standing-framing.json
   sha256: 9f902b4797b07a9edbb7e34494e4c8cecad287233f0f5d9557a29a50acf237ce
+- path: framing/author-declare-functional-framing.json
+  sha256: 2ae047e97bacc11c209574418ef38f2e5f0bcbdfe9d070a303cf17ff8e5fb662
 - path: framing/author-query-framing.json
   sha256: 7e2e89db564438529600edec66ac322f531293b19d33f5fd689ab4087868b4ad
 - path: framing/author-why-framing.json
@@ -93,6 +95,8 @@ fixtures:
   sha256: 751e747cd3957a9521e3bcfe8dda8f390977889b0ecea9b4cc6fe861faa3936d
 - path: golden/author-standing-v1.json
   sha256: d3b9c387bfd5b15c3ddeb023c2439b9fa4490ccafb24b59354a02f8972e17d56
+- path: golden/author-declare-functional-v1.json
+  sha256: 0606a5860192b790a7bc5d4430ba486a38de23cc7297c8d24f00937594457ceb
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-typed-goal-v1.json
@@ -225,6 +229,8 @@ fixtures:
   sha256: 2e198e074e4dadb93a1c8c8558484be5dcaf7e064526488fd0175379c1927525
 - path: negative/author-defeat-schema-violation.json
   sha256: 302a9a63c41a16707d8e1bc53021b407ec8b2495fe8edb5c60ea05cfce238dcd
+- path: negative/author-declare-functional-schema-violation.json
+  sha256: f72323274e750a28fa0a54b2b5fc59cfb2470230e14d2e7b1bf4097fda75f513
 - path: negative/author-check-schema-violation.json
   sha256: 1b77089db82d2b7130e7e4806344f737260e864c10118d4d6d6355bde490d74e
 - path: negative/author-diff-schema-violation.json

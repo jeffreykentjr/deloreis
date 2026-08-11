@@ -12,9 +12,15 @@
 //! | `INTRA_EPISODE_CONTRADICTION` | `continuity.intra-episode-contradiction` | a claim set sets one slot two ways |
 //! | `REJECTED_LORE` | `continuity.rejected-lore` | a claim realizes a killed-token guardrail |
 //!
-//! One of the six is world-internal (it needs no external delta) and runs in
-//! [`run`] alongside the loader's fail-closed findings: `rejected-lore` over the
-//! certain projection. The other classes are claim-relative and run in the claim
+//! Two later world-internal classes join the battery in [`run`]:
+//! `continuity.fluent-contradiction` (DL-0071) for interval-overlap clashes on a
+//! fluent timeline, and `continuity.fd-violation` (DL-0073) for canon's own
+//! certain layer holding two distinct values for a subject on a predicate the
+//! author declared `functional`.
+//!
+//! One of the original six is world-internal (it needs no external delta) and
+//! runs in [`run`] alongside the loader's fail-closed findings: `rejected-lore`
+//! over the certain projection. The other classes are claim-relative and run in the claim
 //! battery ([`check_claims`]) that [`check_draft`](crate::check_draft) drives over
 //! a draft's asserted claims; `world-contradiction` is reported there by the
 //! fact-checker's `contradicted` verdict (`factcheck.contradicted`), so this
@@ -44,7 +50,7 @@ use dli_core::atom::{Atom, Interner};
 use dli_time::chronology::TimePoint;
 use dli_time::fluent::FluentTimeline;
 
-use super::{CompiledWorld, WorldFinding};
+use super::{CompiledWorld, WorldFinding, fd_value_key};
 use crate::model::{LoadFinding, LoadedAtom};
 
 /// The world-internal continuity battery: the classes that check the compiled
@@ -53,8 +59,10 @@ use crate::model::{LoadFinding, LoadedAtom};
 /// Surfaces the loader's fail-closed [`LoadFinding`]s (provenance, uniqueness) and
 /// the evaluator's lowering findings (a `citation.unknown-decision` forged-authority
 /// claim, `B1`) as [`WorldFinding`]s, and emits `continuity.rejected-lore` for
-/// every certain fact that realizes a killed token. Findings are sorted by
-/// `(code, message)`.
+/// every certain fact that realizes a killed token, `continuity.chronology-cycle`
+/// for a precedence loop, `continuity.fluent-contradiction` for an interval
+/// overlap (DL-0071), and `continuity.fd-violation` for a declared-`functional`
+/// slot canon holds two ways (DL-0073). Findings are sorted by `(code, message)`.
 #[must_use]
 pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     let mut out = Vec::new();
@@ -70,6 +78,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     out.extend(certain_rejected_lore(world));
     out.extend(chronology_cycle(world));
     out.extend(fluent_contradictions(world));
+    out.extend(fd_violations(world));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -190,8 +199,11 @@ pub fn prior_contradictions(
         let Some((slot, value)) = slot_of(claim) else {
             continue;
         };
+        // Compare on the FD value key, so cosmetic drift (`gold` vs `Gold`) is
+        // not read as reversing the prior value — the same key every other
+        // comparison site uses (issue 49, sub-claim 1).
         if let Some(prior_value) = prior.get(&slot)
-            && prior_value != &value
+            && fd_value_key(prior_value) != fd_value_key(&value)
         {
             out.push(WorldFinding::error(
                 "continuity.prior-contradiction",
@@ -329,10 +341,17 @@ fn proposed_as_fact(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFind
 /// slot unprovable and is not flagged, so novel multi-valued lore never
 /// false-positives.
 fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFinding> {
-    let mut by_slot: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
+    // Group each slot's claimed values by their normalized key, keeping the first
+    // raw spelling for the message. Distinctness is judged on the key, so `gold`
+    // and `Gold` are one value, not a phantom two (issue 49, sub-claim 1).
+    let mut by_slot: BTreeMap<(String, String), BTreeMap<String, String>> = BTreeMap::new();
     for claim in claims {
         if let Some((slot, value)) = slot_of(claim) {
-            by_slot.entry(slot).or_default().insert(value);
+            by_slot
+                .entry(slot)
+                .or_default()
+                .entry(fd_value_key(&value))
+                .or_insert(value);
         }
     }
     by_slot
@@ -347,7 +366,7 @@ fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<World
                 && slot_is_single_valued(world, slot)
         })
         .map(|(slot, values)| {
-            let rendered: Vec<&str> = values.iter().map(String::as_str).collect();
+            let rendered: Vec<&str> = values.values().map(String::as_str).collect();
             WorldFinding::error(
                 "continuity.intra-episode-contradiction",
                 format!(
@@ -361,21 +380,29 @@ fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<World
         .collect()
 }
 
-/// Whether canon holds a `(pred, subject)` slot to be single-valued: exactly one
-/// certain value here, or — when canon is silent here — the predicate is
-/// functional everywhere it appears. Mirrors the fact-checker's data-driven
-/// single-valuedness.
+/// Whether a `(pred, subject)` slot is single-valued: its predicate is declared
+/// `functional`, or exactly one certain value holds here, or — when canon is
+/// silent here — the predicate is functional everywhere it appears. Mirrors the
+/// fact-checker's data-driven single-valuedness, plus the author-declared
+/// override that lets a *first-seen* predicate be judged (issue 49, sub-claim 4).
 fn slot_is_single_valued(world: &CompiledWorld, slot: &(String, String)) -> bool {
-    match certain_values(world, slot).len() {
+    if world.model.functional_predicates.contains(&slot.0) {
+        return true;
+    }
+    match certain_value_keys(world, slot).len() {
         1 => true,
         0 => predicate_is_functional(world, &slot.0),
         _ => false,
     }
 }
 
-/// Whether the predicate is functional across canon: it appears in at least one
-/// certain fact, and no subject carries more than one certain value for it.
+/// Whether the predicate is functional: it is declared `functional`, or it
+/// appears in at least one certain fact and no subject carries more than one
+/// certain value for it. Distinctness is judged on the normalized value key.
 fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
+    if world.model.functional_predicates.contains(pred) {
+        return true;
+    }
     let mut by_subject: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for atom in world.model.atoms() {
         if atom_status(world, atom) != Status::Certain {
@@ -384,7 +411,10 @@ fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
         if let Some(((atom_pred, subject), value)) = slot_of(&atom.atom)
             && atom_pred == *pred
         {
-            by_subject.entry(subject).or_default().insert(value);
+            by_subject
+                .entry(subject)
+                .or_default()
+                .insert(fd_value_key(&value));
         }
     }
     !by_subject.is_empty() && by_subject.values().all(|values| values.len() <= 1)
@@ -456,6 +486,84 @@ fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Opt
     None
 }
 
+// --- functional-dependency reasoning -----------------------------------------
+
+/// `continuity.fd-violation` for a slot whose own certain projection holds two or
+/// more distinct values on a *functional* predicate — a functional-dependency
+/// break already sitting in canon (issue 49, sub-claim 3). The read-side twin of
+/// the merge engine's `certain_conflicts` (`dli-eval` `fork.rs`), so canon that
+/// would be rejected on a merge is not silently accepted on a load.
+///
+/// A predicate counts as functional when the author declared it `functional`, or
+/// — undeclared — when it is functional among its *other* subjects: every subject
+/// but this one carries at most one value, and at least one other subject exists
+/// to witness it. A first-seen predicate with a single two-valued subject is
+/// *not* flagged: canon alone cannot tell a functional slip from a genuine
+/// multi-valued relation, which is exactly what the `functional` declaration is
+/// for (sub-claim 4).
+///
+/// Fluent slots are interval-sensitive and judged by `fluent_contradictions`; a
+/// value held over disjoint spans is not a clash, so they are skipped here.
+/// Distinctness is judged on the normalized value key (sub-claim 1).
+fn fd_violations(world: &CompiledWorld) -> Vec<WorldFinding> {
+    // pred -> subject -> (normalized key -> first raw spelling).
+    let mut by_pred: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>> = BTreeMap::new();
+    for atom in world.model.atoms() {
+        if atom_status(world, atom) != Status::Certain {
+            continue;
+        }
+        let Some(((pred, subject), value)) = slot_of(&atom.atom) else {
+            continue;
+        };
+        if world
+            .model
+            .fluents
+            .contains_key(&(pred.clone(), subject.clone()))
+        {
+            continue;
+        }
+        by_pred
+            .entry(pred)
+            .or_default()
+            .entry(subject)
+            .or_default()
+            .entry(fd_value_key(&value))
+            .or_insert(value);
+    }
+    let mut out = Vec::new();
+    for (pred, subjects) in &by_pred {
+        // Only a predicate the author *declared* `functional` is checked. Canon's
+        // shape cannot settle whether a relation is single- or multi-valued: a
+        // subject with several edges among others with one each is a hub in a
+        // many-to-many relation (a place with several neighbours, R2/B) just as
+        // readily as a functional-dependency break. So the author rules on it
+        // (koan 3, DL-0074) and the engine never guesses from the data — an
+        // undeclared predicate raises nothing here, no matter its degree.
+        if !world.model.functional_predicates.contains(pred) {
+            continue;
+        }
+        for (subject, values) in subjects {
+            if values.len() < 2 {
+                continue;
+            }
+            let slot = (pred.clone(), subject.clone());
+            let rendered: Vec<&str> = values.values().map(String::as_str).collect();
+            out.push(
+                WorldFinding::error(
+                    "continuity.fd-violation",
+                    format!(
+                        "canon breaks the functional dependency on '{pred}': {subject} carries {} distinct certain values [{}]",
+                        rendered.len(),
+                        rendered.join(", ")
+                    ),
+                )
+                .with_citations(slot_citations(world, &slot)),
+            );
+        }
+    }
+    out
+}
+
 // --- shared helpers ----------------------------------------------------------
 
 /// The status of a loaded atom under the compiled world's ledger valuation.
@@ -479,6 +587,16 @@ pub(super) fn certain_values(world: &CompiledWorld, slot: &(String, String)) -> 
         }
     }
     out
+}
+
+/// The certain values a slot holds, keyed by their normalized form — so `gold`
+/// and `Gold` count once. Cardinality here is what the FD check reads: two keys
+/// is two genuinely distinct values (issue 49, sub-claim 1).
+fn certain_value_keys(world: &CompiledWorld, slot: &(String, String)) -> BTreeSet<String> {
+    certain_values(world, slot)
+        .iter()
+        .map(|value| fd_value_key(value))
+        .collect()
 }
 
 /// Whether the compiled world holds any *possible-but-not-certain* fact for a

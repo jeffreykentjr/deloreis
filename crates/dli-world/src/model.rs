@@ -14,7 +14,7 @@
 //! only adds the loader's descriptor of how a claim entered ([`Provenance`]) and
 //! its rendered citations.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -401,6 +401,14 @@ pub struct WorldModel {
     /// field round-trips.
     #[serde(default)]
     pub fluents: BTreeMap<(String, String), FluentTimeline<String>>,
+    /// Predicates an author has declared single-valued via `functional <pred>`.
+    /// The FD/contradiction check treats a slot on one of these as a functional
+    /// dependency even when canon bears no prior fact for it — so a *first-seen*
+    /// predicate set to two distinct certain values is a contradiction, which
+    /// canon-precedent inference alone cannot catch (issue 49, sub-claim 4).
+    /// `#[serde(default)]` so a world serialized before this field round-trips.
+    #[serde(default)]
+    pub functional_predicates: BTreeSet<String>,
 }
 
 impl WorldModel {

@@ -160,6 +160,7 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
         Decl::Proof(d) => Some((K::Proof, d.name.text.clone())),
         Decl::Kind(d) => Some((K::Kind, d.name.text.clone())),
         Decl::State(d) => Some((K::State, d.name.text.clone())),
+        Decl::Functional(d) => Some((K::Functional, d.pred.text.clone())),
         Decl::Cycle(d) => Some((K::Cycle, d.name.text.clone())),
         Decl::Question(d) => Some((K::Question, d.name.text.clone())),
         Decl::Hypothesis(d) => Some((K::Hypothesis, d.name.text.clone())),
@@ -513,6 +514,12 @@ fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
         // provenance here would mint a bundle variable the full compile never
         // does and desync every index after it.
         Decl::State(d) => d.atom().and(d.provenance.as_ref()),
+        // Carriage-only declarations intern no provenance here. A
+        // `functional <pred>` declaration (issue 49) is one: the loader records
+        // the predicate but never calls `compile_ann`, so returning its
+        // provenance here would mint a bundle variable the full compile never does
+        // and desync every index after it. Its provenance rides the serialized
+        // carriage body instead, keeping the three lowerings byte-identical.
         _ => None,
     }
 }

@@ -21,8 +21,8 @@ use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
-    EntityKind as AstEntityKind, FactDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause,
-    QuestionDecl, RatifyDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    EntityKind as AstEntityKind, FactDecl, FunctionalDecl, HypothesisDecl, NameDecl, NamePartDecl,
+    OptionClause, QuestionDecl, RatifyDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -41,16 +41,16 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorBranchResult,
-    AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
-    AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
-    AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams, AuthorStatusParams,
-    AuthorStatusResult, AuthorSupposeParams, BranchAction, DiffConflict,
+    AuthorDeclareFunctionalParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
+    AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, DiffConflict,
     EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
 use dli_eval::fork::Conflict;
-use dli_world::check::{Severity as WorldSeverity, WorldFinding};
+use dli_world::check::{Severity as WorldSeverity, WorldFinding, fd_value_key};
 
 use super::reads;
 use super::render::{render_decls, render_option, render_scoped};
@@ -131,6 +131,7 @@ fn decl_kind(decl: &Decl) -> &'static str {
         Decl::Kind(_) => "kind",
         Decl::Rule(_) => "rule",
         Decl::State(_) => "state",
+        Decl::Functional(_) => "functional",
         Decl::Cycle(_) => "cycle",
         Decl::Fork(_) => "fork",
         Decl::Practice(_) => "practice",
@@ -908,6 +909,31 @@ pub(super) fn add_state(
     stage(store, &params.workspace, decl)
 }
 
+/// Declare a predicate single-valued (a functional dependency). It stages a
+/// carriage-only `Decl::Functional`, so the FD/contradiction check treats a slot
+/// on `pred` as single-valued even for a first-seen predicate canon has no
+/// precedent for — the two-distinct-certain-values case then surfaces
+/// `continuity.fd-violation` (issue 49, sub-claim 4; contract 1.6.0).
+pub(super) fn declare_functional(
+    store: &mut Store,
+    params: &AuthorDeclareFunctionalParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Functional(FunctionalDecl {
+        pred: ident(&params.pred),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
 /// Request an attestation for an open question — the ledger entry a later
 /// attestation sweep answers.
 pub(super) fn add_attest(
@@ -1184,16 +1210,23 @@ fn attr_findings(attr: &AttrDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<F
     if !known.contains(&attr.subject.text) {
         out.push(entity_unknown(&attr.subject.text, &known));
     }
-    if let Term::Sym(value) = &attr.value {
+    // Compare the staged value against the base's certain value on the normalized
+    // key, for any ground value — a `Term::Str` slot contradicts just as a
+    // `Term::Sym` one does, and cosmetic case/hyphen drift is not a distinct value
+    // (issue 49, sub-claim 4's Term::Str bypass and sub-claim 1's exact-string).
+    if !matches!(attr.value, Term::Var(_)) {
+        let value_text = term_text(&attr.value);
+        let value_key = fd_value_key(&value_text);
         let certain = base_certain_values(base, &attr.attr.text, &attr.subject.text);
-        if certain.len() == 1
-            && !certain.contains(&value.text)
+        let certain_keys: BTreeSet<String> = certain.iter().map(|v| fd_value_key(v)).collect();
+        if certain_keys.len() == 1
+            && !certain_keys.contains(&value_key)
             && let Some(canon) = certain.iter().next()
         {
             out.push(contradiction(
                 &attr.subject.text,
                 &attr.attr.text,
-                &value.text,
+                &value_text,
                 canon,
             ));
         }
@@ -1638,6 +1671,10 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
                 }
             }
             annotation_fields(&mut fields, s.provenance.as_ref());
+        }
+        Decl::Functional(f) => {
+            fields.push(("pred", f.pred.text.clone()));
+            annotation_fields(&mut fields, f.provenance.as_ref());
         }
         Decl::Attest(a) => {
             fields.push(("question", a.question.text.clone()));
@@ -2458,6 +2495,7 @@ fn decl_annotation(decl: &Decl) -> Option<&Annotation> {
         Decl::Term(t) => t.provenance.as_ref(),
         Decl::Banned(b) => b.provenance.as_ref(),
         Decl::State(s) => s.provenance.as_ref(),
+        Decl::Functional(f) => f.provenance.as_ref(),
         Decl::Attest(a) => a.provenance.as_ref(),
         _ => None,
     }

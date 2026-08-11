@@ -1718,6 +1718,24 @@ pub struct AuthorAddBannedParams {
     pub provenance: Provenance,
 }
 
+/// `author.declare_functional` params: declare a predicate single-valued.
+///
+/// This stages a `Decl::Functional`, marking `pred` a functional dependency —
+/// each subject may carry at most one certain value for it, so two distinct
+/// certain values are a contradiction (`continuity.fd-violation`). It lets an
+/// author judge a *first-seen* predicate single-valued, which canon precedent
+/// alone cannot (issue 49, sub-claim 4; contract 1.6.0).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorDeclareFunctionalParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The predicate declared single-valued.
+    pub pred: String,
+    /// The provenance of this declaration.
+    pub provenance: Provenance,
+}
+
 /// `author.add_state` params: a time-varying fluent.
 ///
 /// A state is not an attribute: it holds over an interval rather than forever,

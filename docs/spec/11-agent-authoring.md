@@ -449,7 +449,22 @@ Both return the new lorestore `root_hash` and the unchanged staged-state
 `evidence-corrupt` when the commit decision list differs from stored `Ratify`
 carriage objects.
 
-### 3.11 Read tools
+### 3.11 Constraint declarations
+
+Contract `1.6.0` adds one declaration over predicates:
+
+- `author.declare_functional {workspace, pred, provenance}` declares `pred` a
+  functional dependency — each subject holds at most one certain value for it,
+  so two distinct certain values raise `continuity.fd-violation` (DL-0073).
+
+It stages like any other add and commits with `author.materialize`. Undeclared,
+the checker infers single-valuedness from canon's precedent, which cannot judge a
+predicate's *first* use; whether a relation admits one value or many is a ruling
+about the world, not one the engine makes (koan 3), so the caller declares it.
+The declaration lowers to no atom — there is no fact to query — and rides, with
+its provenance, on the stored declaration (DL-0074).
+
+### 3.12 Read tools
 
 Five non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
@@ -609,7 +624,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.5.0` enforces that rule for all 59 operations. Paired cases declare
+Contract `1.6.0` enforces that rule for all 60 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

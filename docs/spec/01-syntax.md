@@ -190,6 +190,32 @@ top-level rule that cannot be read as Datalog emits an error-class load finding;
 it never silently lowers no rule. Practice-internal `rule ... requires` remains
 a practice law, not a top-level world rule.
 
+A **`functional`** declaration states a constraint on a predicate rather than a
+fact about the world: `functional <pred>` says that predicate is a *functional
+dependency* — each subject holds at most one certain value for it.
+
+```dli
+# grammar: v0 (unfrozen; AST normative)
+scope camelot
+
+functional ruler-of                ratified d-0146
+
+ruler-of(camelot, arthur)          ratified d-0146
+```
+
+A second, different certain `ruler-of` for `camelot` is then a
+`continuity.fd-violation` — raised against canon's own certain layer, not only
+against an incoming claim (`02-semantics.md §4`). Undeclared, the checker infers
+single-valuedness from precedent: a predicate that carries at most one value for
+every subject it appears on is treated as functional. That inference is blind
+exactly where it is most wanted — the *first* use of a predicate, where two values
+may equally be a slip or a genuinely multi-valued relation. Deciding between them
+is a ruling about the world, and the engine does not make rulings (koan 3); the
+declaration is how an author makes it. It lowers to no atom — there is no fact
+"`ruler-of` is functional" to query — and rides, with its provenance, on the
+stored declaration. Agents declare it with `author.declare_functional`
+(`11-agent-authoring.md §3.11`; contract `1.6.0`, DL-0074).
+
 ---
 
 ## 4. Three stances at the surface

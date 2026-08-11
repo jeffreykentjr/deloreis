@@ -71,7 +71,10 @@ mod simulation;
 /// `1.4.0` adds the canon-normalized corpus export and its `canon` response
 /// field; it is a new wire version because the response shape is additive.
 /// `1.5.0` unifies standing markers and adds ordinary promotion/defeat tools.
-pub const CONTRACT_VERSION: &str = "1.5.0";
+/// `1.6.0` adds `author.declare_functional`, the single-valuedness declaration —
+/// additive, advertised only from `1.6.0` up, so every earlier negotiation's
+/// capability list stays byte-identical (issue 49, DL-0074).
+pub const CONTRACT_VERSION: &str = "1.6.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -94,7 +97,9 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// additive and advertised only from `1.3.0` up, the scrub gated so that every
 /// version below keeps `provenance.cited-refused` byte-exact), and `1.4.0`
 /// (LS-7: canon-normalized corpus export), and `1.5.0` (standing vocabulary
-/// unification plus ordinary promotion/defeat tools).
+/// unification plus ordinary promotion/defeat tools), and `1.6.0` (the
+/// `functional` single-valuedness declaration and its `author.declare_functional`
+/// op, DL-0074 — additive and advertised only from `1.6.0` up).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -103,7 +108,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0",
+    "1.4.0", "1.5.0", "1.6.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -174,6 +179,14 @@ pub fn has_expert_authoring(dli: &str) -> bool {
 #[must_use]
 pub fn has_standing_tools(dli: &str) -> bool {
     at_or_above(dli, (1, 5, 0))
+}
+
+/// Whether the negotiated version carries Contract 1.6's `functional`
+/// single-valuedness declaration (`author.declare_functional`, ≥ `1.6.0`,
+/// DL-0074).
+#[must_use]
+pub fn has_functional_decls(dli: &str) -> bool {
+    at_or_above(dli, (1, 6, 0))
 }
 
 /// Whether the negotiated version checks that an imported object's `claim_id`

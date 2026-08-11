@@ -62,14 +62,22 @@ The coordination points and what each side owes are defined in `migration.md`
 | **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | acknowledged | Fantasy `main` `6319b4d0` pins `contract/1.5.0-hotfix.1`; contract pin, projection provenance, and boundary checks are green |
 | **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | historical AUTH-2 replay remains verified; Contract 1.5 engine tests additionally cover cited provisional canon reach, standing promotion, defeat, and append-only object retention |
 
-The source tree currently implements contract `1.5.0`, served **multi-version
-dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`,
-`1.3.0`, `1.4.0`, and `1.5.0`, answering each caller in the version it
-declared. A `0.5.1` request still receives byte-identical `0.5.1`-shaped
-responses; the compatibility fixtures remain the standing suite. Contract 1.5
-adds the closed standing vocabulary, cited-state boundary, and ordinary
-`author.set_standing`/`author.defeat` data operations (DL-0046, DL-0051,
-DL-0053, DL-0055, DL-0056, DL-0058, DL-0070, DL-0071).
+The source tree currently implements contract `1.6.0`, served **multi-version
+dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0`,
+answering each caller in the version it declared, so a `0.5.1` request
+still receives byte-identical `0.5.1`-shaped responses and every vendored v1
+fixture remains in the registry as the standing compatibility suite (DL-0046,
+DL-0051, DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0071, DL-0074).
+All six export emission branches are implemented.
+
+`1.6.0` adds exactly one operation, `author.declare_functional` — the
+`functional <pred>` single-valuedness declaration (DL-0074), which lets the
+FD/contradiction check judge a first-seen predicate and raise
+`continuity.fd-violation` against canon's own certain layer (DL-0073). It is
+additive and advertised only from `1.6.0` up, so every earlier version's
+capability list and released fixtures are unmoved; no CP row changes on it, and
+nothing is owed by the consumer. The closed fixture registry is re-pinned at
+`contract_version: 1.6.0` with the op's golden, negative, and framing fixtures.
 
 The original `contract/1.0.0` milestone at `76888052` remains historical
 evidence for the frozen AUTH-2 fixture. The active deliverable is the Contract

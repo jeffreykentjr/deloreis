@@ -396,6 +396,12 @@ impl World {
                 Decl::State(state) => {
                     world.lower_state(state, &mut proposal_seq, &known_decisions)?;
                 }
+                // Constraint- and language-layer declarations carry no ground atom
+                // and so have no place in the pure evaluable core. A
+                // `functional <pred>` declaration (issue 49) is one of these: the
+                // loader records it in `WorldModel::functional_predicates` and the
+                // durable store carries it, so nothing is dropped here — unlike the
+                // fact-bearing `state`, whose omission was the #47 defect.
                 _ => {}
             }
         }

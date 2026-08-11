@@ -196,6 +196,10 @@ pub enum Op {
     /// Record a defeating decision for a claim (contract 1.5.0).
     #[serde(rename = "author.defeat")]
     AuthorDefeat,
+    /// Declare a predicate single-valued (a functional dependency), contract
+    /// 1.6.0.
+    #[serde(rename = "author.declare_functional")]
+    AuthorDeclareFunctional,
 }
 
 impl Op {
@@ -207,7 +211,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 59] = [
+    pub const ALL: [Op; 60] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -267,6 +271,7 @@ impl Op {
         Op::AuthorAddAttest,
         Op::AuthorSetStanding,
         Op::AuthorDefeat,
+        Op::AuthorDeclareFunctional,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -292,6 +297,15 @@ impl Op {
     #[must_use]
     pub const fn added_in_1_5_0(self) -> bool {
         matches!(self, Op::AuthorSetStanding | Op::AuthorDefeat)
+    }
+
+    /// Whether this op was introduced in contract `1.6.0` (the `functional`
+    /// single-valuedness declaration). Advertised only from `1.6.0` up, so a
+    /// `1.5.0`-or-earlier negotiation's capability list — and the golden fixture
+    /// recording it — stays byte-identical and needs no re-pin (audit C4).
+    #[must_use]
+    pub const fn added_in_1_6_0(self) -> bool {
+        matches!(self, Op::AuthorDeclareFunctional)
     }
 
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
@@ -335,6 +349,7 @@ impl Op {
                 | Op::AuthorAddAttest
                 | Op::AuthorSetStanding
                 | Op::AuthorDefeat
+                | Op::AuthorDeclareFunctional
         )
     }
 
@@ -471,6 +486,9 @@ impl Op {
             }
             Op::AuthorDefeat => {
                 "Defeat a stored claim with a decision while preserving its history and object."
+            }
+            Op::AuthorDeclareFunctional => {
+                "Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject are a contradiction — even for a first-seen predicate canon has no precedent for."
             }
         }
     }

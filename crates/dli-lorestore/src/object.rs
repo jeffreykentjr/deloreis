@@ -86,6 +86,9 @@ pub enum ExpertDeclKind {
     Kind,
     /// `state …` — a fluent-state declaration.
     State,
+    /// `functional <pred>` — a predicate single-valuedness constraint. Carried
+    /// whole; it regenerates no atom (issue 49).
+    Functional,
     /// `cycle <name> …` — a cycle declaration.
     Cycle,
     /// `question <name> { options }` — carried whole so option families and

@@ -64,6 +64,24 @@ scope camelot
 state excalibur.keeper = in-the-stone  until the-sword-drawn  decided d-0008
 ```
 
+## Functional predicates — one value per subject
+
+`functional <pred>` declares a predicate single-valued: each subject holds at
+most one certain value for it. Two distinct certain values are then a
+`continuity.fd-violation` against canon itself.
+
+```dli
+scope camelot
+
+functional ruler-of                ratified d-0146
+```
+
+Undeclared, the checker infers single-valuedness from precedent — a predicate
+that carries one value everywhere it appears is read as functional — which cannot
+judge a predicate's *first* use. Whether a relation admits one value or many is a
+ruling about the world (koan 3), so the author makes it. The declaration lowers
+to no atom; it is carried, with its provenance, on the stored declaration.
+
 ## Cycles — cyclic time that refuses rank
 
 A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but
