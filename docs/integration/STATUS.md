@@ -19,45 +19,64 @@ handshake — neither side edits the other's file, so there is no write race.
 - **verified** — both sides' fixtures/transcripts agree; the point holds.
 - **closed** — verified and no longer active work.
 
+## Current cutover snapshot — 2026-08-11
+
+The execution log below is retained as historical evidence. This snapshot is the
+active coordination truth after the Contract 1.5 cutover:
+
+- deloreis `main` is `63d5a3c` (PR #55), with the retired-authority vocabulary
+  scrub and its `retired-vocabulary` gate landed. Contract `1.5.0` is immutable
+  at `8c0641ac`; the corrective store/display-name hotfix is
+  `contract/1.5.0-hotfix.1` at `dd75afaa`.
+- Fantasy `main` is `1dfe30df` (PR #26). It pins the corrective Contract 1.5
+  build, produces `parity.json` from the lorestore export, and carries the
+  parity-chain check as a required offline path. The remaining fallback cleanup
+  is isolated in Fantasy PR #27 and is not counted as merged here.
+- The current Fantasy projection is bound to tag
+  `contract/1.5.0-hotfix.1`, store head
+  `sha256:9deb4d7b39fa5e5f6843519b7e3462448d5baf3aa0681bbe5429d51729677df2`,
+  and projection digest `sha256:dfff1a9fdbbf846a1a9d778fb0b47a9d3094065446ed82f8bc2a714979b0db5d`.
+- FW-6's killed-token, facts, timeline, and character projection work is
+  complete. The remaining closeout is authority-fallback deletion/board
+  synchronization, followed by a bounded FW-8 authoring proof; the Contract
+  1.5 engine-side standing tests already prove cited-provisional canon reach,
+  promotion, and defeat-with-object-retention.
+
+The rows below record the current handoff state; older paragraphs later in this
+file are evidence logs and must not be read as a reversion to their old pins or
+version claims.
+
 The coordination points and what each side owes are defined in `migration.md`
 §7. This board tracks their state and links the evidence.
 
 | CP | What deloreis provides | What fantasy provides | State | Evidence |
 |---|---|---|---|---|
-| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | provided | tag `contract/1.0.0` at `76888052`; `docs/integration/fantasy-contract.md` at 1.0.0 truth on that commit |
-| **CP-2** — pinned oracles | the shadow-read harness slot | the pinned legacy gates (EXT-F1) | proposed | — |
-| **CP-3** — vendored corpus | the dual-run consumer | canon snapshots at a pinned commit (EXT-F2) | proposed | — |
-| **CP-4** — detection corpus | detection proven separately | the seeded divergence corpus (EXT-F5) | proposed | — |
-| **CP-5** — core shadow-read | dual-run parity (validator/continuity/factcheck) | the pinned oracles + corpus | proposed | — |
-| **CP-6** — naming shadow-read | the LANG-2 kernel-half view | the legacy `name vet` + external screens | proposed | — |
-| **CP-7** — the batch RQ | the offset→before compiler + the draft RQ | the author's ruling | proposed | — |
-| **CP-8** — source deletion | the conversion + the reviewed diff | the review + the deletion commit | proposed | — |
-| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | provided | tag `contract/1.0.0` at `76888052` |
-| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | tag `contract/1.0.0` at `76888052`; the AUTH-2 worked-scenario fixture under `worlds/tpth/auth2/`, replayed by `cargo test -p dli-serve --test auth2`. Acknowledged and verified together at the Stage-3 close: the consumer ran EXT-F4 against the tagged build and their posted transcript is byte-parity verified against that fixture (fantasy `e4a51fa2`) |
+| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | provided | current deliverable tag `contract/1.5.0` at `8c0641ac`; corrective tag `contract/1.5.0-hotfix.1` at `dd75afaa` |
+| **CP-2** — pinned oracles | the shadow-read harness slot | the pinned legacy gates (EXT-F1) | provided | `scripts/shadow-read.sh` and `scripts/pinned-oracles.sh` remain the lab-side slot; the historical oracle pin needs re-pin before this row can close |
+| **CP-3** — vendored corpus | the dual-run consumer | canon snapshots at a pinned commit (EXT-F2) | acknowledged | Fantasy `main` `1dfe30df` consumes the Contract 1.5 lorestore pack and projection; the current store head and tag are recorded above |
+| **CP-4** — detection corpus | detection proven separately | the seeded divergence corpus (EXT-F5) | acknowledged | Fantasy's 33-operator mutation corpus is present and exercised by its offline test gate; the cleanup branch carries the post-projection harness repair |
+| **CP-5** — core shadow-read | dual-run parity (validator/continuity/factcheck) | the pinned oracles + corpus | provided | the dual-serve/canary machinery exists on both sides; the broad advisory predicate sweep remains evidence work, not a required merge check |
+| **CP-6** — naming shadow-read | the LANG-2 kernel-half view | the legacy `name vet` + external screens | provided | Contract 1.5 character/name projection is live; the consumer retains its external naming screen, with full naming parity still a separate follow-up |
+| **CP-7** — the batch RQ | the offset→before compiler + the draft RQ | the author's ruling | acknowledged | machine-attributed D-ledger entries are now permitted by the consuming governance ruling; the former synchronous author block is no longer a release blocker |
+| **CP-8** — source deletion | the conversion + the reviewed diff | the review + the deletion commit | provided | conversion and boundary checks are landed; Fantasy PR #27 is the remaining consumer-side deletion/cleanup closeout |
+| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | acknowledged | Fantasy `main` `1dfe30df` pins `contract/1.5.0-hotfix.1`; contract pin, projection provenance, and boundary checks are green |
+| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | historical AUTH-2 replay remains verified; Contract 1.5 engine tests additionally cover cited provisional canon reach, standing promotion, defeat, and append-only object retention |
 
-The source tree currently implements contract `1.3.0`, served **multi-version
-dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`, and
-`1.3.0`, answering each caller in the version it declared, so a `0.5.1` request
-still receives byte-identical `0.5.1`-shaped responses and every vendored v1
-fixture remains in the registry as the standing compatibility suite (DL-0046,
-DL-0051, DL-0053, DL-0055, DL-0056, DL-0058). All six export emission branches
-are implemented.
+The source tree currently implements contract `1.5.0`, served **multi-version
+dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, `1.0.0`, `1.1.0`, `1.2.0`,
+`1.3.0`, `1.4.0`, and `1.5.0`, answering each caller in the version it
+declared. A `0.5.1` request still receives byte-identical `0.5.1`-shaped
+responses; the compatibility fixtures remain the standing suite. Contract 1.5
+adds the closed standing vocabulary, cited-state boundary, and ordinary
+`author.set_standing`/`author.defeat` data operations (DL-0046, DL-0051,
+DL-0053, DL-0055, DL-0056, DL-0058, DL-0070, DL-0071).
 
-Engineering readiness became delivery when the annotated tag `contract/1.0.0`
-was cut on merge commit `76888052`, the commit whose tree carries the contract
-doc at 1.0.0 truth. That tag is the deloreis deliverable named by CP-1, CP-9,
-and CP-10, so those three rows stood at `provided`. Two of them still do:
-`acknowledged` needs the consumer's vendored SHA and digest-check output, and
-`verified` needs their replay artifact — neither is evidence deloreis can
-produce for itself.
-
-**CP-10 is now `verified`.** The consumer ran EXT-F4 against the tagged build and
-posted the transcript; it is byte-parity verified against the AUTH-2 fixture this
-side owns. The row moves from `provided` straight to `verified` because both
-rungs were earned at once and are recorded together — the acknowledgement is in
-the evidence cell rather than lost. Later tags (`contract/1.2.0`, `contract/1.3.0`)
-do not restate CP-10: the fixture is deliberately frozen at `0.5.1` terms, so the
-transcript that verified it is not re-run per tag.
+The original `contract/1.0.0` milestone at `76888052` remains historical
+evidence for the frozen AUTH-2 fixture. The active deliverable is the Contract
+1.5 tag pair recorded above; the consumer's current pin and projection digest
+are the evidence for the present handshake. CP-10's historical transcript is
+deliberately not re-run merely because the fixture remains frozen at `0.5.1`
+terms; the Contract 1.5 engine tests are the current standing-transition proof.
 
 When a point advances, deloreis updates its **State** and fills **Evidence** with
 a link (a fixture path, a tagged build, a transcript). A point never advances
