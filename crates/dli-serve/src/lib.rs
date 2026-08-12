@@ -74,7 +74,15 @@ mod simulation;
 /// `1.6.0` adds `author.declare_functional`, the single-valuedness declaration —
 /// additive, advertised only from `1.6.0` up, so every earlier negotiation's
 /// capability list stays byte-identical (issue 49, DL-0074).
-pub const CONTRACT_VERSION: &str = "1.6.0";
+/// `1.7.0` opens the wire-surface-completion campaign window (the CAMPAIGN DL).
+/// It ships as **scaffolding only**: the version is accepted and the three
+/// floor predicates below exist, but zero new ops are advertised at this
+/// commit — `capabilities("1.7.0")` and `capabilities("1.6.0")` return the
+/// identical 60-op list, byte-for-byte. The additive-capability discipline
+/// (DL-0069, DL-0070, DL-0074) still governs every op the campaign's later PRs
+/// append: each lands on the end of `Op::ALL`, gated on its own floor, so this
+/// scaffolding commit cannot itself move any released capability list.
+pub const CONTRACT_VERSION: &str = "1.7.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -99,7 +107,11 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// (LS-7: canon-normalized corpus export), and `1.5.0` (standing vocabulary
 /// unification plus ordinary promotion/defeat tools), and `1.6.0` (the
 /// `functional` single-valuedness declaration and its `author.declare_functional`
-/// op, DL-0074 — additive and advertised only from `1.6.0` up).
+/// op, DL-0074 — additive and advertised only from `1.6.0` up), and `1.7.0`
+/// (the wire-surface-completion campaign window, the CAMPAIGN DL — scaffolding
+/// only: accepted here with zero new ops, so its capability list is byte-
+/// identical to `1.6.0`'s until the campaign's feature PRs append their own
+/// floor-gated ops and params).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -108,7 +120,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -187,6 +199,39 @@ pub fn has_standing_tools(dli: &str) -> bool {
 #[must_use]
 pub fn has_functional_decls(dli: &str) -> bool {
     at_or_above(dli, (1, 6, 0))
+}
+
+/// Whether the negotiated version carries the campaign's identity-assertion
+/// surface (`author.assert_same_as` and the coreference merge machinery,
+/// ≥ `1.7.0`, the CAMPAIGN DL). A floor like every gate here, not an equality:
+/// no op is gated on it yet — this scaffolding commit adds zero new ops — but
+/// the predicate exists from the window's opening so the feature PR that lands
+/// `author.assert_same_as` gates on an already-reviewed floor rather than
+/// inventing one under time pressure.
+#[must_use]
+pub fn has_identity_assertions(dli: &str) -> bool {
+    at_or_above(dli, (1, 7, 0))
+}
+
+/// Whether the negotiated version carries the campaign's rule-authoring
+/// surface (`author.add_rule`, ≥ `1.7.0`, the CAMPAIGN DL). See
+/// [`has_identity_assertions`] for why the floor exists ahead of its op.
+#[must_use]
+pub fn has_rule_authoring(dli: &str) -> bool {
+    at_or_above(dli, (1, 7, 0))
+}
+
+/// Whether the negotiated version carries the campaign's branch-scoped write
+/// surface (`author.open`'s `branch` param, branch-routed materialize/standing
+/// writes, `author.merge`'s `dry_run`/`expected_ref`, and `author.branch`'s
+/// `delete` action, ≥ `1.7.0`, the CAMPAIGN DL). Params-only — no new op — so
+/// this predicate gates request fields, not `capabilities()` entries; a
+/// caller below `1.7.0` supplying `branch` (or the other gated params) meets a
+/// schema-violation refusal, not a silent no-op. See
+/// [`has_identity_assertions`] for why the floor exists ahead of its feature.
+#[must_use]
+pub fn has_branch_writes(dli: &str) -> bool {
+    at_or_above(dli, (1, 7, 0))
 }
 
 /// Whether the negotiated version checks that an imported object's `claim_id`

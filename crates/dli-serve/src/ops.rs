@@ -308,6 +308,19 @@ impl Op {
         matches!(self, Op::AuthorDeclareFunctional)
     }
 
+    /// Whether this op was introduced in contract `1.7.0` (the
+    /// wire-surface-completion campaign, the CAMPAIGN DL). `false` for every
+    /// op today: this scaffolding commit opens the `1.7.0` window without
+    /// appending any op — `Op::ALL` is untouched, so `1.7.0`'s capability list
+    /// is byte-identical to `1.6.0`'s. Kept as its own function next to the
+    /// other `added_in_*` gates, rather than omitted, so the feature PRs that
+    /// append `author.assert_same_as` and `author.add_rule` turn this body
+    /// into a `matches!` in place instead of introducing a second gate shape.
+    #[must_use]
+    pub const fn added_in_1_7_0(self) -> bool {
+        false
+    }
+
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
     /// negotiation's capability list — and the golden fixture recording it —
