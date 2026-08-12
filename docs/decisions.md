@@ -3326,3 +3326,42 @@ load lens), not a coarse derived-layer conflict. The revised `functional_decl_ho
 differential in `dli-eval` pins that the declaration still touches nothing but the
 functional set, and the unchanged `dli-world` FD lane confirms the load-side
 refactor preserved its behavior exactly. The whole change is gate-green.
+---
+
+## DL-0076 — LS-7 display-name by_pred sufficiency supersedes the YAML exception
+
+*Date: 2026-08-12*
+
+**Attribution:** machine — an engineering decision by the implementing agent.
+It is live and binding on the tree, pending the author's async review
+(DL-0052).
+
+**Supersedes:** DL-0068's rule that human-ratified display-name surfaces remain
+YAML-sourced.
+
+**Ruling.** The six migrated display-name facts are sufficiently represented by
+the lorestore's `by_pred["display-name"]` rows: their stored values, cited
+provenance, standing, and deterministic projection are the complete authority
+surface. `canon_characters` therefore projects those names from the store, and
+the consuming application may delete `characters.yaml` and its fallback branch
+after the committed parity proof. The old DL-0068 text remains historical; this
+entry is the explicit ruling that resolves its fired revisit trigger.
+
+The rule is narrow. It applies to the six display-name facts proven byte-identical
+through the store projection and does not authorize other human-facing YAML
+surfaces to move without their own parity evidence and ruling. Killed forms and
+other retired source files remain registered and fail closed rather than being
+silently recreated.
+
+**Rationale.** The store now carries the actual display strings, not merely name
+slugs, and `by_pred` expands each row's interner support into its cited decision.
+The producer flip preserved the projection digest while changing the producer,
+and the boundary check rejects the deleted YAML and every fallback carrier.
+Keeping DL-0068's exception after that evidence would make the ledger contradict
+the shipped authority boundary rather than preserve a real safety property.
+
+**Verification.** The corrective Contract 1.5.0-hotfix.1 build, `canon_characters`, the
+Fantasy parity digest, the four migrated-domain deletion proofs, and the
+projection-boundary check are the evidence chain for this ruling. A missing or
+malformed parity projection must now fail every production consumer loudly; no
+consumer may treat an empty projection as a valid world.

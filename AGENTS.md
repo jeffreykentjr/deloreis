@@ -125,14 +125,15 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.5.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
-DL-0059, DL-0069, DL-0070), served multi-version dual-mode: `0.5.1`,
-`0.6.0`–`0.6.4`, and `1.0.0`–`1.5.0` stay accepted — a `0.5.1` caller keeps
+The contract is **1.6.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
+DL-0059, DL-0069, DL-0070, DL-0074), served multi-version dual-mode: `0.5.1`,
+`0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0` stay accepted — a `0.5.1` caller keeps
 the rendered-lines return. EXT-F4 is complete, which licenses the `0.x`
 retirement but has not performed it: that is DM-6's, at `2.0.0`, and it runs
 through the killed-form registry naming each version's successor, never
 silently. `1.3.0` added seven expert authoring tools; `1.5.0` adds
 `author.set_standing` and `author.defeat`, taking the surface to 59 operations.
+`1.6.0` adds `author.declare_functional`, taking the surface to 60 operations.
 `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`

@@ -23,8 +23,9 @@
 //! part of the formatter and stays on the default path — `is_forbidden_char`
 //! also backs the `field.control-char` finding that bars materialization.
 //!
-//! **The rendered diff is the human's only supervision surface, so it is
-//! forgery-proof.** Every string a declaration carries is escaped for control
+//! **The rendered diff is a supervision surface, so it is forgery-proof.**
+//! Structured fact rows remain available to consuming applications alongside
+//! this rendering. Every string a declaration carries is escaped for control
 //! characters *before* it reaches the formatter ([`escape_controls`]): a newline
 //! smuggled into a provenance origin or a slot value can never split one staged
 //! line into two and forge a second declaration the reviewer would read as real
