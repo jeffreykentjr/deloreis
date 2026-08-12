@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.6.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, and complete paired framing replay are implemented across the accepted legacy window."
+verdict: "The generic worker contract at 1.7.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible coreference assertions, datalog rule authoring, temporal close-out findings, and complete paired framing replay are implemented across the accepted legacy window."
 ---
 
 # The dli-worker contract
@@ -18,8 +18,9 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.6.0` (`decisions.md` DL-0051,
-> DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074). It carries typed responses for all 60 operations,
+> **Implementation status:** the contract is at `1.7.0` (`decisions.md` DL-0051,
+> DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
+> DL-0080). It carries typed responses for all 62 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
@@ -166,7 +167,7 @@ rules and a consumer reading only this paragraph must not over-apply them.
   gap in wire completeness for a consumer with no other way to touch the
   filesystem, and it is recorded here rather than left to be discovered.
 
-All 60 operation names have request/response schemas, dispatch arms, and golden
+All 62 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
@@ -305,6 +306,8 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.set_standing` | **≥ `1.5.0`.** Promote a provisional stored claim to ratified; `decision` must be declared and support every path. | yes (commits) |
 | `author.defeat` | **≥ `1.5.0`.** Record a new defeating decision and rule the named old supporting decision false; the claim remains stored but evaluates dead. | yes (commits) |
 | `author.declare_functional` | **≥ `1.6.0`.** Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject raise `continuity.fd-violation` — including for a first-seen predicate canon has no precedent for. | yes |
+| `author.assert_same_as` | **≥ `1.7.0`.** Assert two entity ids name the same bearer; the evaluable world closes the merge symmetric-transitively, gated on the citing claim's own standing (defeasible: defeating the citation un-merges every derived consequence). | yes |
+| `author.add_rule` | **≥ `1.7.0`.** Declare one datalog derivation rule (a typed `head :- body` clause); every fact it derives carries this rule's own provenance, defeasible on the rule's own citation like any other claim. Refuses to stage on a bad rule shape or a stratification failure, so a bad rule never reaches the workspace. | yes |
 
 **`author.materialize` is a mutation, and it is the accept decision**
 (DL-0046). It commits the workspace's staged delta to the lorestore and
@@ -328,7 +331,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.6.0` enforces it for all 60 operations.
+today: contract `1.7.0` enforces it for all 62 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -454,8 +457,8 @@ decoupled, and the compatibility window carries the consumer across.
   predicate, which precedent-based inference cannot. The op is advertised only
   from `1.6.0` up, so a `1.5.0`-or-earlier caller's capability list is
   byte-identical to what it was; nothing else on the wire moves.
-- **`1.7.0` — in progress.** The wire-surface-completion campaign window
-  (`decisions.md` DL-0077) opens the version. The scaffolding step added
+- **`1.7.0` — complete.** The wire-surface-completion campaign window
+  (`decisions.md` DL-0077) opened the version. The scaffolding step added
   **zero new operations** — the inventory stayed at 60, and a `1.7.0`
   handshake's capability list was byte-identical to `1.6.0`'s — but the
   version was accepted, and the three floor predicates the campaign's
@@ -463,9 +466,9 @@ decoupled, and the compatibility window carries the consumer across.
   `has_branch_writes`) existed from that commit. Every pre-`1.7.0` wire stays
   byte-identical.
 
-  **Branch-scoped writes (WS-3) have landed**, params-only — the inventory is
-  still 60 ops. `author.open` gained `branch: Option<String>`: it routes the
-  workspace's reads and every subsequent write (`materialize`,
+  **Branch-scoped writes (WS-3) landed**, params-only — the inventory stayed
+  at 60 ops for this step. `author.open` gained `branch: Option<String>`: it
+  routes the workspace's reads and every subsequent write (`materialize`,
   `set_standing`, `defeat`) to that branch's own ref instead of `main`, and
   echoes it back on the result and on `author.list_workspaces` rows, all
   gated `has_branch_writes` (≥ `1.7.0`; a schema violation below it).
@@ -487,8 +490,37 @@ decoupled, and the compatibility window carries the consumer across.
   citing the new decision for a rival value and materializing succeeds
   there; merging surfaces the certain-layer conflict.
 
-  Coreference (`author.assert_same_as`) and rule authoring (`author.add_rule`)
-  land with their own PRs and update this section when they do.
+  **`1.7.0` adds `author.assert_same_as`** (DL-0078, the identity kernel;
+  DL-0080, the wire exposure) and **`author.add_rule`** (DL-0080, rule
+  authoring), taking the inventory from 60 to 62 operations, each gated on
+  its own floor predicate (`has_identity_assertions`,
+  `has_rule_authoring`) rather than an exact version match, so every
+  `1.6.0`-or-earlier negotiation's capability list stays byte-identical; a
+  `1.7.0` handshake differs from `1.6.0`'s by exactly these two ops, in
+  append order. `author.add_rule` derives every fact through a declared
+  `head :- body` clause with the rule's own provenance riding into each
+  derivation (defeasible on the rule's own citation, exactly like any other
+  claim); a functional-dependency break visible only once rules saturate
+  surfaces as `continuity.derived-fd-violation` on `author.check` and blocks
+  `author.materialize` the same as the pre-saturation `continuity.fd-violation`
+  does. Also `1.7.0` (DL-0080, no op, no contract-version-visible surface
+  beyond what is named here): **the `Finding.data` structured-payload
+  rider** — every wire `Finding` gains an optional `data` field
+  (additive, `skip_serializing_if`, so a pre-`1.7.0` response's bytes are
+  unchanged), populated only on a `≥1.7.0` negotiation and only for the
+  finding classes documented to carry one (`continuity.fd-violation` and its
+  derived sibling, `continuity.fluent-contradiction`,
+  `continuity.fluent-order-undeclared`) — enough for a consumer to
+  reconstruct the verdict without parsing the message; and **two temporal
+  close-out findings** over the existing chronology/fluent machinery:
+  `state.anchor-kind` (error, at add time) when a state's temporal anchor
+  names a KNOWN entity of the wrong sort, with a typed repair naming valid
+  alternatives, and `continuity.fluent-order-undeclared` (warn,
+  non-blocking) when a fluent slot's ambiguity would resolve if an
+  `author.add_before` declared the order between two named anchors — the
+  contradiction check itself still never fires on undeclared order; this
+  only names the gap. This closes the campaign: `1.7.0`'s surface is now
+  complete at 62 operations.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

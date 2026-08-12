@@ -884,6 +884,17 @@ fn author_reads_see_the_base_pack_not_just_staged() {
 /// `tests/decl_exhaustiveness.rs`). This closes the coverage gap that let a
 /// first pass regress `round-table` from zero findings to three before
 /// anything in the gate noticed.
+///
+/// **`excalibur.keeper` (`in-the-stone` until `the-sword-drawn`, `the-king`
+/// since the SAME `the-sword-drawn`) is the clean single-anchor transition,
+/// not an ambiguity** (rt-features SEV-B): a shared anchor between one
+/// span's `until` and the other's `since` is provably disjoint under every
+/// consistent order, so `continuity.fluent-order-undeclared` stays silent
+/// here — an earlier point-sweep design for that check false-positived on
+/// this exact corpus by testing each span against an unrelated third
+/// declared event instead of against each other; see
+/// `dli-world/src/check/continuity.rs`'s `fluent_order_gap` and
+/// `dli-world/tests/adversarial_fluent.rs`'s `sev_b_*` regressions.
 #[test]
 fn round_table_check_stays_clean() {
     let mut sessions = Sessions::new();

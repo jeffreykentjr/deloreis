@@ -128,6 +128,27 @@ The false contradiction a flashback would otherwise raise against the
 story-present enclosure fact is gone — not suppressed, but structurally absent,
 because the two claims hold over disjoint spans.
 
+**The wire recipe (contract 1.7.0, WS-4).** Author eras and events
+(`author.add_entity`), anchor states to them (`author.add_state`), chain
+chronology with pairwise `author.add_before` (a chain `a < b < c` is `N-1`
+befores — finer blame than a single chained ordering, and the only spelling
+the wire carries). Two close-out findings turn temporal dead ends into
+repairable ones: `state.anchor-kind` (error, at add time) fires when a
+*known* entity anchors a state with the wrong sort — `since`/`until` want an
+event, `after`/`during` want an era — with a typed repair naming both kinds
+and known entities of the right one; an anchor this workspace has never even
+declared is still the load-side `load.unknown-temporal-reference` backstop,
+unchanged. `continuity.fluent-order-undeclared` (warn, non-blocking) is the
+order-indeterminate case above made actionable: two distinct certain-support
+values whose cover depends on an undeclared order between named anchors,
+with a typed repair (`{kind: "declare-order", candidates: [[p, q], …]}`)
+listing exactly the pairs an `author.add_before` would settle. Soundness is
+unchanged either way — the contradiction check itself still never fires on
+undeclared order; the warn only names the gap. `dli.timeline.*` reflects
+*materialized* scaffolding only; staged scaffolding is visible through
+`author.query`/`author.check`/`author.why` instead, by design (the review
+surface is the staged layer, not a premature timeline render).
+
 ---
 
 ## 3. Composition with the annotation algebra

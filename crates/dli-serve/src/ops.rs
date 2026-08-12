@@ -200,6 +200,14 @@ pub enum Op {
     /// 1.6.0.
     #[serde(rename = "author.declare_functional")]
     AuthorDeclareFunctional,
+    /// Assert two entity ids name the same bearer — the identity-closure
+    /// kernel's wire surface (WS-1, contract 1.7.0).
+    #[serde(rename = "author.assert_same_as")]
+    AuthorAssertSameAs,
+    /// Declare one datalog derivation rule — the rule-authoring wire surface
+    /// (WS-2, contract 1.7.0).
+    #[serde(rename = "author.add_rule")]
+    AuthorAddRule,
 }
 
 impl Op {
@@ -211,7 +219,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 60] = [
+    pub const ALL: [Op; 62] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -272,6 +280,8 @@ impl Op {
         Op::AuthorSetStanding,
         Op::AuthorDefeat,
         Op::AuthorDeclareFunctional,
+        Op::AuthorAssertSameAs,
+        Op::AuthorAddRule,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -309,16 +319,15 @@ impl Op {
     }
 
     /// Whether this op was introduced in contract `1.7.0` (the
-    /// wire-surface-completion campaign, the CAMPAIGN DL). `false` for every
-    /// op today: this scaffolding commit opens the `1.7.0` window without
-    /// appending any op — `Op::ALL` is untouched, so `1.7.0`'s capability list
-    /// is byte-identical to `1.6.0`'s. Kept as its own function next to the
-    /// other `added_in_*` gates, rather than omitted, so the feature PRs that
-    /// append `author.assert_same_as` and `author.add_rule` turn this body
-    /// into a `matches!` in place instead of introducing a second gate shape.
+    /// wire-surface-completion campaign). Advertised only from `1.7.0` up, so
+    /// a `1.6.0`-or-earlier negotiation's capability list — and the golden
+    /// fixture recording it — stays byte-identical and needs no re-pin
+    /// (audit C4). `author.assert_same_as` (WS-1, the identity-closure
+    /// kernel's wire surface) is the first op the campaign appends;
+    /// `author.add_rule` (WS-2, rule authoring) is the second and last.
     #[must_use]
     pub const fn added_in_1_7_0(self) -> bool {
-        false
+        matches!(self, Op::AuthorAssertSameAs | Op::AuthorAddRule)
     }
 
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
@@ -345,7 +354,9 @@ impl Op {
     /// apart; the unit test below asserts the agreement for every op.
     #[must_use]
     pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_6_0() {
+        if self.added_in_1_7_0() {
+            "1.7.0"
+        } else if self.added_in_1_6_0() {
             "1.6.0"
         } else if self.added_in_1_5_0() {
             "1.5.0"
@@ -385,6 +396,8 @@ impl Op {
                 | Op::AuthorSetStanding
                 | Op::AuthorDefeat
                 | Op::AuthorDeclareFunctional
+                | Op::AuthorAssertSameAs
+                | Op::AuthorAddRule
         )
     }
 
@@ -524,6 +537,12 @@ impl Op {
             }
             Op::AuthorDeclareFunctional => {
                 "Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject are a contradiction — even for a first-seen predicate canon has no precedent for."
+            }
+            Op::AuthorAssertSameAs => {
+                "Assert two entity ids name the same bearer; the evaluable world merges them, the merge's standing carried by this claim's provenance."
+            }
+            Op::AuthorAddRule => {
+                "Declare one datalog derivation rule (a typed head :- body clause); every fact it derives carries this rule's own provenance, defeasible like any other claim."
             }
         }
     }

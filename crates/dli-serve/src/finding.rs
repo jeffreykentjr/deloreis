@@ -53,6 +53,15 @@ pub struct Finding {
     /// Supporting citations.
     #[serde(default)]
     pub citations: Vec<String>,
+    /// A structured payload a consumer can reconstruct the verdict from,
+    /// without parsing [`message`](Finding::message) (WS-2's rider, contract
+    /// `1.7.0`). Additive: absent serializes to nothing, so every frozen
+    /// fixture byte holds. Populated only on a `≥1.7.0` negotiation, and only
+    /// for the specific finding classes documented to carry one — every
+    /// other finding, on every version, keeps answering with no `data` key
+    /// at all, exactly as before this field existed.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<serde_json::Value>,
 }
 
 /// Escape every control, bidi, and zero-width character in a finding message at
@@ -121,6 +130,7 @@ mod tests {
             grade: Grade::Checked,
             repair: None,
             citations: Vec::new(),
+            data: None,
         };
         let wire = serde_json::to_value(&finding).expect("a finding serializes");
         let message = wire["message"].as_str().expect("message is a string");
@@ -156,6 +166,7 @@ mod tests {
             grade: Grade::Asserted,
             repair: None,
             citations: Vec::new(),
+            data: None,
         };
         let wire = serde_json::to_value(&finding).expect("a finding serializes");
         assert_eq!(

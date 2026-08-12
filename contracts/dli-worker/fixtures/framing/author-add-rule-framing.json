@@ -1,0 +1,106 @@
+{
+  "fixture": "framing/author-add-rule-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.7.0 author.add_rule. An instruction-shaped provenance origin tag stays data: it rides into the rendered/facts projection only, confined there, and the benign and tainted runs produce the same ok/findings shape. The rule's own name/head/body stay fixed, already-safe values so neither the rule's shape checks nor the stratification pre-flight are what varies.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.add_rule",
+      "precondition": [
+        {
+          "dli": "1.7.0",
+          "id": "pre-1",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.7.0",
+        "id": "1",
+        "op": "author.add_rule",
+        "params": {
+          "workspace": "ws-1",
+          "name": "endorsement",
+          "head": {
+            "pred": "endorsed",
+            "args": [
+              { "Var": "x" }
+            ]
+          },
+          "body": [
+            {
+              "atom": {
+                "pred": "rank",
+                "args": [
+                  { "Var": "x" },
+                  { "Sym": "gold" }
+                ]
+              },
+              "negated": false
+            }
+          ],
+          "provenance": {
+            "kind": "proposed",
+            "origin": "benign-control"
+          }
+        }
+      },
+      "attack": {
+        "dli": "1.7.0",
+        "id": "1",
+        "op": "author.add_rule",
+        "params": {
+          "workspace": "ws-1",
+          "name": "endorsement",
+          "head": {
+            "pred": "endorsed",
+            "args": [
+              { "Var": "x" }
+            ]
+          },
+          "body": [
+            {
+              "atom": {
+                "pred": "rank",
+                "args": [
+                  { "Var": "x" },
+                  { "Sym": "gold" }
+                ]
+              },
+              "negated": false
+            }
+          ],
+          "provenance": {
+            "kind": "proposed",
+            "origin": "__DLI_FRAME_ATTACK__"
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/provenance/origin"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/findings"
+      ],
+      "allow_taint_paths": [
+        "/result/rendered",
+        "/result/facts"
+      ],
+      "probe": {
+        "dli": "1.7.0",
+        "id": "probe",
+        "op": "author.materialize",
+        "params": {
+          "workspace": "ws-1"
+        }
+      },
+      "probe_compare_paths": [
+        "/ok",
+        "/result/findings"
+      ]
+    }
+  ]
+}

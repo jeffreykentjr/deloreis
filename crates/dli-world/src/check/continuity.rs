@@ -12,11 +12,13 @@
 //! | `INTRA_EPISODE_CONTRADICTION` | `continuity.intra-episode-contradiction` | a claim set sets one slot two ways |
 //! | `REJECTED_LORE` | `continuity.rejected-lore` | a claim realizes a killed-token guardrail |
 //!
-//! Two later world-internal classes join the battery in [`run`]:
+//! Three later world-internal classes join the battery in [`run`]:
 //! `continuity.fluent-contradiction` (DL-0071) for interval-overlap clashes on a
-//! fluent timeline, and `continuity.fd-violation` (DL-0073) for canon's own
+//! fluent timeline, `continuity.fd-violation` (DL-0073) for canon's own
 //! certain layer holding two distinct values for a subject on a predicate the
-//! author declared `functional`.
+//! author declared `functional`, and `continuity.derived-fd-violation` (WS-2,
+//! amending DL-0075) for the same break appearing only once a wire-authored
+//! rule's own derivations are saturated in.
 //!
 //! One of the original six is world-internal (it needs no external delta) and
 //! runs in [`run`] alongside the loader's fail-closed findings: `rejected-lore`
@@ -48,7 +50,7 @@ use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status};
 use dli_core::atom::{Atom, Interner};
 use dli_core::fd::{fd_violations as fd_violations_over, inferred_functional};
-use dli_time::chronology::TimePoint;
+use dli_time::chronology::{Chronology, TemporalVerdict, TimePoint};
 use dli_time::fluent::FluentTimeline;
 
 use super::{CompiledWorld, WorldFinding, fd_value_key};
@@ -63,9 +65,11 @@ use crate::model::{LoadFinding, LoadedAtom};
 /// every certain fact that realizes a killed token, `continuity.chronology-cycle`
 /// for a precedence loop, `continuity.identity-temporal-unsupported` for a
 /// `same-as` naming a declared era/event (WS-1, v1 boundary),
-/// `continuity.fluent-contradiction` for an interval overlap (DL-0071), and
+/// `continuity.fluent-contradiction` for an interval overlap (DL-0071),
 /// `continuity.fd-violation` for a declared-`functional` slot canon holds two
-/// ways (DL-0073). Findings are sorted by `(code, message)`.
+/// ways (DL-0073), and `continuity.derived-fd-violation` for the same break
+/// visible only once rules are saturated (WS-2). Findings are sorted by
+/// `(code, message)`.
 #[must_use]
 pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     let mut out = Vec::new();
@@ -87,6 +91,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     out.extend(identity_temporal_unsupported(world));
     out.extend(fluent_contradictions(world, &canon));
     out.extend(fd_violations(world, &canon));
+    out.extend(derived_fd_violations(world, &canon));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -620,18 +625,13 @@ fn fluent_contradictions(
     }
     let mut out = Vec::new();
     for (slot, members) in by_canon {
-        let clash = if let [only] = members.as_slice() {
-            fluent_clash(world, &world.model.fluents[*only])
-        } else {
-            let mut scratch: FluentTimeline<String> = FluentTimeline::new();
-            for member in &members {
-                for span in &world.model.fluents[*member].spans {
-                    scratch.push(span.clone());
-                }
+        let mut scratch: FluentTimeline<String> = FluentTimeline::new();
+        for member in &members {
+            for span in &world.model.fluents[*member].spans {
+                scratch.push(span.clone());
             }
-            fluent_clash(world, &scratch)
-        };
-        if let Some(values) = clash {
+        }
+        if let Some((witness, values)) = fluent_clash(world, &scratch) {
             out.push(
                 WorldFinding::error(
                     "continuity.fluent-contradiction",
@@ -642,8 +642,11 @@ fn fluent_contradictions(
                         values.join(", ")
                     ),
                 )
-                .with_citations(slot_citations(world, canon, &slot)),
+                .with_citations(slot_citations(world, canon, &slot))
+                .with_data(fluent_finding_data(world, &slot, &scratch, &values, &[witness])),
             );
+        } else if let Some(finding) = fluent_order_gap(world, canon, &slot, &scratch) {
+            out.push(finding);
         }
     }
     out
@@ -651,7 +654,8 @@ fn fluent_contradictions(
 
 /// The distinct values that hold certainly at a single point of a fluent's
 /// timeline, when two or more do — an interval-overlap contradiction — else
-/// `None`.
+/// `None`. Returns the witnessing point alongside the values (WS-2's
+/// `witness_points` payload field).
 ///
 /// The timeline is projected (`FluentTimeline::state_at`) at **every declared
 /// time point**, because a certain overlap need not be witnessed at either
@@ -664,26 +668,234 @@ fn fluent_contradictions(
 /// A point where the two anchors are merely unordered projects to
 /// `OrderIndeterminate`, not certain, so sweeping widely raises no false
 /// positive.
-fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Option<Vec<String>> {
+fn fluent_clash(
+    world: &CompiledWorld,
+    timeline: &FluentTimeline<String>,
+) -> Option<(TimePoint, Vec<String>)> {
     let chronology = &world.model.world.chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
-    let point_count = u32::try_from(world.model.world.time_points.len()).unwrap_or(u32::MAX);
-    let candidates: Vec<TimePoint> = if point_count == 0 {
-        vec![TimePoint(u32::MAX)]
-    } else {
-        (0..point_count).map(TimePoint).collect()
-    };
-    for at in candidates {
+    for at in fluent_sweep_points(world) {
         let state = timeline.state_at(chronology, valuation, theory, at);
         if state.has_contradiction() {
             let mut values: Vec<String> = state.certain_values().into_iter().cloned().collect();
             values.sort();
             values.dedup();
-            return Some(values);
+            return Some((at, values));
         }
     }
     None
+}
+
+/// `continuity.fluent-order-undeclared` (WS-4, warn, non-blocking — user pin
+/// §2.9): fires when two distinct-valued, certain-support spans on a fluent
+/// slot cannot be PROVEN disjoint — some consistent extension of the
+/// partial order would make them genuinely co-hold at a real point — but
+/// the order needed to decide it is undeclared.
+///
+/// **Pairwise, not point-swept.** An earlier design probed every declared
+/// time point and flagged a span whenever its cover read
+/// `OrderIndeterminate` there — but that tests a span against an
+/// UNRELATED third point, not against the other span it might clash with,
+/// and false-positives on exactly the common transition shape: `commons
+/// until x` / `enclosed since x` reads order-indeterminate against some
+/// OTHER declared event `y` (unordered vs `x`) even though `x`-until and
+/// `x`-since are the SAME anchor and the two spans can never actually
+/// overlap under any order at all (rt-features SEV-B; reproduced by both
+/// `examples/camelot.dli`'s `excalibur.keeper` and
+/// `examples/norse/nine-realms.dli`'s `sol.course`, which share this exact
+/// shape). The fix compares each pair of spans to EACH OTHER: two spans
+/// `[a.since, a.until)` and `[b.since, b.until)` are provably disjoint when
+/// one's `until` anchor equals or precedes the other's `since` anchor
+/// ([`provably_disjoint`]) — a shared anchor (`a.until == b.since`) is the
+/// clean-transition case and is always disjoint, regardless of what else
+/// the corpus declares. When neither ordering can be proven, the pair is a
+/// genuine ambiguity, and the candidate repair pairs are exactly the
+/// UNDECLARED cross-boundary anchor pairs between the two spans
+/// ([`undeclared_boundary_pairs`]) — declaring any of them settles this
+/// pair, either to disjoint or to a certain overlap
+/// `continuity.fluent-contradiction` would then catch.
+///
+/// **Soundness is unchanged:** this never asserts a contradiction itself,
+/// only names an undecided pair; [`fluent_clash`]'s sweep is what actually
+/// fires on a certain overlap, and this function runs only when it found
+/// none. Fires at most once per slot per read — the first ambiguous pair,
+/// spans compared in declaration order.
+fn fluent_order_gap(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+    timeline: &FluentTimeline<String>,
+) -> Option<WorldFinding> {
+    let chronology = &world.model.world.chronology;
+    let valuation = &world.model.world.valuation;
+    let theory = &world.model.world.theory;
+    let certain: Vec<&dli_time::fluent::Span<String>> = timeline
+        .spans
+        .iter()
+        .filter(|span| span.ann.status(valuation, theory) == Status::Certain)
+        .collect();
+    for (i, a) in certain.iter().enumerate() {
+        for b in certain.iter().skip(i + 1) {
+            if a.value == b.value || provably_disjoint(a, b, chronology) {
+                continue;
+            }
+            let candidates = undeclared_boundary_pairs(a, b, chronology);
+            if candidates.is_empty() {
+                // Not provably disjoint yet nothing left undeclared between
+                // them: every relevant crossing is already resolved (in a
+                // direction that does not disjoin them), which means a
+                // certain overlap — `fluent_clash` already owns that report,
+                // reached before this function ever runs. Kept as an
+                // explicit guard rather than an assumption.
+                continue;
+            }
+            let interner = &world.model.world.time_points;
+            let candidate_names: Vec<[String; 2]> = candidates
+                .iter()
+                .map(|&(p, q)| [point_name(interner, p), point_name(interner, q)])
+                .collect();
+            let named_pairs: Vec<String> = candidate_names
+                .iter()
+                .map(|pair| format!("{} / {}", pair[0], pair[1]))
+                .collect();
+            let mut values = [a.value.clone(), b.value.clone()];
+            values.sort();
+            let witnesses: Vec<TimePoint> = [a.since, a.until, b.since, b.until]
+                .into_iter()
+                .flatten()
+                .collect();
+            let mut data = fluent_finding_data(world, slot, timeline, &values, &witnesses);
+            if let serde_json::Value::Object(map) = &mut data {
+                map.insert(
+                    "repair".to_owned(),
+                    serde_json::json!({ "kind": "declare-order", "candidates": candidate_names }),
+                );
+            }
+            return Some(
+                WorldFinding::warn(
+                    "continuity.fluent-order-undeclared",
+                    format!(
+                        "the fluent {}.{} holds distinct values [{}] whose order is undeclared; a before-fact between {} would settle it",
+                        slot.1,
+                        slot.0,
+                        values.join(", "),
+                        named_pairs.join(", ")
+                    ),
+                )
+                .with_citations(slot_citations(world, canon, slot))
+                .with_data(data),
+            );
+        }
+    }
+    None
+}
+
+/// Whether two spans are PROVEN to never overlap under any consistent
+/// extension of the partial order: one span's `until` anchor equals or
+/// precedes the other's `since` anchor. An open end or open start (`None`)
+/// can never be proven to bound the other side, so disjointness needs both
+/// anchors present on at least one of the two crossings.
+fn provably_disjoint(
+    a: &dli_time::fluent::Span<String>,
+    b: &dli_time::fluent::Span<String>,
+    chronology: &Chronology,
+) -> bool {
+    boundary_at_or_before(a.until, b.since, chronology)
+        || boundary_at_or_before(b.until, a.since, chronology)
+}
+
+/// Whether `end` is known to be at-or-before `start` — the same point (the
+/// half-open-interval boundary case: `until x` excludes `x`, `since x`
+/// includes it, so a SHARED anchor is exactly the disjoint clean
+/// transition, not an ambiguity) or a proven `Before`. `None` on either
+/// side answers `false`: an open boundary proves nothing.
+fn boundary_at_or_before(
+    end: Option<TimePoint>,
+    start: Option<TimePoint>,
+    chronology: &Chronology,
+) -> bool {
+    match (end, start) {
+        (Some(end), Some(start)) => {
+            end == start || matches!(chronology.precedes(end, start), TemporalVerdict::Before)
+        }
+        _ => false,
+    }
+}
+
+/// The cross-boundary anchor pairs between two spans whose ORDER is
+/// currently undeclared — every `(Some, Some)` combination of `{a.since,
+/// a.until} × {b.since, b.until}` that is a real `Unordered` verdict. These
+/// are exactly the pairs [`provably_disjoint`] would need resolved (one
+/// way or the other) to settle whether the spans overlap.
+fn undeclared_boundary_pairs(
+    a: &dli_time::fluent::Span<String>,
+    b: &dli_time::fluent::Span<String>,
+    chronology: &Chronology,
+) -> Vec<(TimePoint, TimePoint)> {
+    [
+        (a.since, b.since),
+        (a.since, b.until),
+        (a.until, b.since),
+        (a.until, b.until),
+    ]
+    .into_iter()
+    .filter_map(|(p, q)| {
+        let (p, q) = (p?, q?);
+        (p != q && matches!(chronology.precedes(p, q), TemporalVerdict::Unordered))
+            .then_some((p, q))
+    })
+    .collect()
+}
+
+/// Every declared time point, or the degenerate single sentinel for a world
+/// with none — the sweep both [`fluent_clash`] and [`fluent_order_gap`] run.
+fn fluent_sweep_points(world: &CompiledWorld) -> Vec<TimePoint> {
+    let point_count = u32::try_from(world.model.world.time_points.len()).unwrap_or(u32::MAX);
+    if point_count == 0 {
+        vec![TimePoint(u32::MAX)]
+    } else {
+        (0..point_count).map(TimePoint).collect()
+    }
+}
+
+/// `{pred, subject, values, spans: [{value, since, until}], witness_points}`
+/// — enough to reconstruct a fluent verdict without parsing the message
+/// (WS-2's `Finding.data` rider, §2.9), shared by
+/// `continuity.fluent-contradiction` and `continuity.fluent-order-undeclared`.
+fn fluent_finding_data(
+    world: &CompiledWorld,
+    slot: &(String, String),
+    timeline: &FluentTimeline<String>,
+    values: &[String],
+    witness_points: &[TimePoint],
+) -> serde_json::Value {
+    let interner = &world.model.world.time_points;
+    let spans: Vec<serde_json::Value> = timeline
+        .spans
+        .iter()
+        .filter(|span| values.contains(&span.value))
+        .map(|span| {
+            serde_json::json!({
+                "value": span.value,
+                "since": span.since.map(|p| point_name(interner, p)),
+                "until": span.until.map(|p| point_name(interner, p)),
+            })
+        })
+        .collect();
+    let mut points: Vec<String> = witness_points
+        .iter()
+        .map(|p| point_name(interner, *p))
+        .collect();
+    points.sort();
+    points.dedup();
+    serde_json::json!({
+        "pred": slot.0,
+        "subject": slot.1,
+        "values": values,
+        "spans": spans,
+        "witness_points": points,
+    })
 }
 
 // --- functional-dependency reasoning -----------------------------------------
@@ -738,6 +950,85 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
             // merged it — so the finding names the identity assertion, not
             // only the two facts it brought together.
             .with_citations(slot_citations(world, canon, &slot))
+            .with_data(fd_violation_data(&violation))
+        })
+        .collect()
+}
+
+/// `{pred, subject, values, slot_key}` — enough to reconstruct an FD-violation
+/// verdict without parsing the message (WS-2's `Finding.data` rider, §2.9).
+/// `slot_key` is `pred/subject`, a stable compound id for the slot a consumer
+/// can correlate multiple findings (or a repair) against without re-deriving
+/// it from `pred` and `subject` separately.
+fn fd_violation_data(violation: &dli_core::fd::FdViolation) -> serde_json::Value {
+    serde_json::json!({
+        "pred": violation.pred,
+        "subject": violation.subject,
+        "values": violation.values,
+        "slot_key": format!("{}/{}", violation.pred, violation.subject),
+    })
+}
+
+/// `continuity.derived-fd-violation` (WS-2, amending DL-0075): a functional-
+/// dependency break the author's own check/materialize loop would otherwise
+/// never see. [`fd_violations`] reads authored atoms pre-saturation — a
+/// deliberate DL-0075 split — but a wire-authored `author.add_rule` clause can
+/// derive a second value for a functional slot that exists **only** in the
+/// saturated layer; nothing pre-saturation ever holds it. This is the load-
+/// battery's own derived lens, the read-side sibling of the fork/merge FD
+/// check (`certain_derived_slots` in `dli-eval`'s `fork.rs`), so an author
+/// sees the break at `check`/`materialize` time rather than only on merge.
+///
+/// Reads the valuation-certain rows of the world's saturated `derived` layer
+/// (facts and rule productions alike — a fact is trivially its own
+/// derivation), the same shared [`fd_violations_over`] primitive, and
+/// **declared-only** functional predicates — never [`inferred_functional`]:
+/// a slot's shape *after* saturation is even less informative about whether a
+/// relation is meant to be single-valued than the authored shape already is
+/// (koan 3, DL-0074). Fluent slots are excluded (rules cannot create spans —
+/// `wm.fluents` is populated only by `process_state` — so a rule-derived
+/// timeless value on a fluent slot is the pre-existing, already-documented
+/// residual, not this check's concern). Any `(pred, subject)` the source-
+/// certain [`fd_violations`] already reports is excluded here too: the two
+/// checks partition source-only breaks from breaks the saturated layer alone
+/// reveals, so nothing double-reports.
+fn derived_fd_violations(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+) -> Vec<WorldFinding> {
+    let source_breaks: BTreeSet<(String, String)> = fd_violations_over(
+        certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
+            !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
+        }),
+        &world.model.functional_predicates,
+    )
+    .into_iter()
+    .map(|violation| (violation.pred, violation.subject))
+    .collect();
+
+    let derived = certain_derived_binary_slots(world, canon).filter(|(pred, subject, _)| {
+        !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
+    });
+
+    fd_violations_over(derived, &world.model.functional_predicates)
+        .into_iter()
+        .filter(|violation| {
+            !source_breaks.contains(&(violation.pred.clone(), violation.subject.clone()))
+        })
+        .map(|violation| {
+            let slot = (violation.pred.clone(), violation.subject.clone());
+            WorldFinding::error(
+                "continuity.derived-fd-violation",
+                format!(
+                    "the evaluated world derives a functional-dependency break on '{}': {} carries {} distinct certain values [{}] once rules fire",
+                    violation.pred,
+                    violation.subject,
+                    violation.values.len(),
+                    violation.values.join(", ")
+                ),
+            )
+            .with_citations(derived_slot_citations(world, canon, &slot))
+            .with_data(fd_violation_data(&violation))
         })
         .collect()
 }
@@ -765,6 +1056,88 @@ fn certain_binary_slots<'a>(
                 (pred, subject, value)
             })
         })
+}
+
+/// Every certain binary slot `(pred, subject, value)` in the world's
+/// **saturated** derivation layer (`world.model.world.derived`) — facts and
+/// rule productions alike, since a fact is trivially its own derivation with
+/// support equal to its own annotation. Mirrors `certain_binary_slots`'
+/// canon-merging exactly, over the derived layer instead of the authored one
+/// (the split [`derived_fd_violations`] documents, mirroring `dli-eval`
+/// `fork.rs`'s `certain_derived_slots`).
+fn certain_derived_binary_slots<'a>(
+    world: &'a CompiledWorld,
+    canon: &'a BTreeMap<String, String>,
+) -> impl Iterator<Item = (String, String, String)> + 'a {
+    world
+        .model
+        .world
+        .derived
+        .iter()
+        .filter(move |derived| {
+            derived
+                .ann()
+                .status(&world.model.world.valuation, &world.model.world.theory)
+                == Status::Certain
+        })
+        .filter_map(move |derived| {
+            ground_binary_slot(&derived.atom).map(|(slot, value)| {
+                let (pred, subject) = canon_slot(canon, &slot);
+                let value = dli_core::alias::canon(canon, &value).to_owned();
+                (pred, subject, value)
+            })
+        })
+}
+
+/// A ground binary atom's slot `(pred, subject)` and its value (arg1). `None`
+/// for a non-binary atom — the [`slot_of`] sibling for the already-rendered
+/// [`GroundAtom`](dli_eval::world::GroundAtom) the derived layer carries, so
+/// no `Term`/symbol unwrapping is needed.
+fn ground_binary_slot(atom: &dli_eval::world::GroundAtom) -> Option<((String, String), String)> {
+    if atom.args.len() != 2 {
+        return None;
+    }
+    Some((
+        (atom.pred.clone(), atom.args[0].clone()),
+        atom.args[1].clone(),
+    ))
+}
+
+/// [`slot_citations`] plus the citations of every certain **derived-layer**
+/// atom in the slot's class — the piece a purely rule-derived value needs,
+/// since it carries no entry in `world.model.atoms()` for `slot_citations`'
+/// authored-atom scan to find. A derived-fd-violation finding this way names
+/// the rule (or fact) that produced *each* conflicting value, not only the
+/// authored half.
+fn derived_slot_citations(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> Vec<String> {
+    let mut out = slot_citations(world, canon, slot);
+    let slot = canon_slot(canon, slot);
+    let interner = &world.model.world.interner;
+    for derived in &world.model.world.derived {
+        if derived
+            .ann()
+            .status(&world.model.world.valuation, &world.model.world.theory)
+            != Status::Certain
+        {
+            continue;
+        }
+        let Some((atom_slot, _)) = ground_binary_slot(&derived.atom) else {
+            continue;
+        };
+        if canon_slot(canon, &atom_slot) != slot {
+            continue;
+        }
+        for citation in ann_citations(&derived.ann(), interner) {
+            if !out.contains(&citation) {
+                out.push(citation);
+            }
+        }
+    }
+    out
 }
 
 // --- shared helpers ----------------------------------------------------------

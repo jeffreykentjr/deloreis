@@ -38,13 +38,14 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     FactDecl, FunctionalDecl, HypothesisDecl, NameDecl, NamePartDecl, OptionClause, QuestionDecl,
-    ScopeHeader, StateDecl, TermDecl, TimeClause,
+    RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
     CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause, NameItem,
     NameKindSpec,
 };
+use dli_ast::rule::{RuleBody, RuleClause};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 
@@ -251,6 +252,10 @@ fn sanitized(decls: &[Decl]) -> Vec<Decl> {
     decls.iter().map(sanitize_decl).collect()
 }
 
+// One arm per declaration kind Door T stages; it runs long by construction
+// and splitting it would only scatter the census this function must be
+// complete about (mirrors `free_text_fields`'s same allowance).
+#[allow(clippy::too_many_lines)]
 fn sanitize_decl(decl: &Decl) -> Decl {
     match decl {
         Decl::Entity(e) => Decl::Entity(EntityDecl {
@@ -346,8 +351,38 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             question: sanitize_ident(&a.question),
             provenance: a.provenance.as_ref().map(sanitize_annot),
         }),
+        Decl::SameAs(s) => Decl::SameAs(SameAsDecl {
+            left: sanitize_ident(&s.left),
+            right: sanitize_ident(&s.right),
+            provenance: s.provenance.as_ref().map(sanitize_annot),
+        }),
+        Decl::Rule(r) => Decl::Rule(RuleDecl {
+            name: sanitize_ident(&r.name),
+            domain: r.domain,
+            head: r.head.iter().map(|token| escape_controls(token)).collect(),
+            body: RuleBody {
+                clauses: r.body.clauses.iter().map(sanitize_rule_clause).collect(),
+                inline: r.body.inline.as_ref().map(sanitize_rule_clause),
+            },
+            provenance: r.provenance.as_ref().map(sanitize_annot),
+        }),
         // The authoring seam stages no other declaration kind; pass them through.
         other => other.clone(),
+    }
+}
+
+/// Escape a rule clause's retained text — the ONLY part of a `RuleClause`
+/// the formatter ever displays (it renders `clause.text` verbatim and never
+/// re-derives text from `.datalog`, so a forged control character can only
+/// hide there). `.datalog` itself is carried through unsanitized: it is
+/// structure the checker/evaluator read, never a second display surface.
+fn sanitize_rule_clause(rc: &RuleClause) -> RuleClause {
+    RuleClause {
+        clause: Clause {
+            text: escape_controls(&rc.clause.text),
+            span: rc.clause.span,
+        },
+        datalog: rc.datalog.clone(),
     }
 }
 

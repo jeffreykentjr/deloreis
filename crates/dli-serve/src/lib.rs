@@ -74,14 +74,15 @@ mod simulation;
 /// `1.6.0` adds `author.declare_functional`, the single-valuedness declaration —
 /// additive, advertised only from `1.6.0` up, so every earlier negotiation's
 /// capability list stays byte-identical (issue 49, DL-0074).
-/// `1.7.0` opens the wire-surface-completion campaign window (the CAMPAIGN DL).
-/// It ships as **scaffolding only**: the version is accepted and the three
-/// floor predicates below exist, but zero new ops are advertised at this
-/// commit — `capabilities("1.7.0")` and `capabilities("1.6.0")` return the
-/// identical 60-op list, byte-for-byte. The additive-capability discipline
-/// (DL-0069, DL-0070, DL-0074) still governs every op the campaign's later PRs
-/// append: each lands on the end of `Op::ALL`, gated on its own floor, so this
-/// scaffolding commit cannot itself move any released capability list.
+/// `1.7.0` opens the wire-surface-completion campaign window (DL-0077) and
+/// appends two ops, in order: `author.assert_same_as` (WS-1, the
+/// identity-closure kernel's wire surface, DL-0078) and `author.add_rule`
+/// (WS-2, rule authoring, DL-0080) — both additive, each advertised only
+/// from `1.7.0` up on its own floor predicate, so `capabilities("1.6.0")`
+/// stays the byte-identical 60-op list it always was. The
+/// additive-capability discipline (DL-0069, DL-0070, DL-0074) governs every
+/// op the campaign appends: each lands on the end of `Op::ALL`, gated on
+/// its own floor, so no released capability list ever moves.
 pub const CONTRACT_VERSION: &str = "1.7.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
@@ -108,10 +109,12 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// unification plus ordinary promotion/defeat tools), and `1.6.0` (the
 /// `functional` single-valuedness declaration and its `author.declare_functional`
 /// op, DL-0074 — additive and advertised only from `1.6.0` up), and `1.7.0`
-/// (the wire-surface-completion campaign window, the CAMPAIGN DL — scaffolding
-/// only: accepted here with zero new ops, so its capability list is byte-
-/// identical to `1.6.0`'s until the campaign's feature PRs append their own
-/// floor-gated ops and params).
+/// (the wire-surface-completion campaign window, DL-0077, appending
+/// `author.assert_same_as` (DL-0078) and `author.add_rule` (DL-0080) —
+/// both additive and each advertised only from `1.7.0` up on its own floor
+/// predicate, so `1.6.0`'s capability list stays byte-identical; the
+/// campaign's remaining feature PR appends its own floor-gated params the
+/// same way, with no third op).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -203,11 +206,10 @@ pub fn has_functional_decls(dli: &str) -> bool {
 
 /// Whether the negotiated version carries the campaign's identity-assertion
 /// surface (`author.assert_same_as` and the coreference merge machinery,
-/// ≥ `1.7.0`, the CAMPAIGN DL). A floor like every gate here, not an equality:
-/// no op is gated on it yet — this scaffolding commit adds zero new ops — but
-/// the predicate exists from the window's opening so the feature PR that lands
-/// `author.assert_same_as` gates on an already-reviewed floor rather than
-/// inventing one under time pressure.
+/// ≥ `1.7.0`, DL-0078). A floor like every gate here, not an equality: this is
+/// what `serve::dispatch` gates `author.assert_same_as` on, and what
+/// `capabilities()` filters the op's advertisement by, so a `1.6.0`-or-earlier
+/// negotiation's capability list stays byte-identical (audit C4).
 #[must_use]
 pub fn has_identity_assertions(dli: &str) -> bool {
     at_or_above(dli, (1, 7, 0))
@@ -231,6 +233,19 @@ pub fn has_rule_authoring(dli: &str) -> bool {
 /// [`has_identity_assertions`] for why the floor exists ahead of its feature.
 #[must_use]
 pub fn has_branch_writes(dli: &str) -> bool {
+    at_or_above(dli, (1, 7, 0))
+}
+
+/// Whether the negotiated version carries the `Finding.data` structured-
+/// payload rider (≥ `1.7.0`, the CAMPAIGN DL). Additive and field-level, not
+/// an op gate: a finding's `data` is present only on specific classes that
+/// document one (`continuity.fd-violation` and its derived sibling,
+/// `continuity.fluent-contradiction`, `continuity.fluent-order-undeclared`)
+/// and only when this floor is met; every earlier negotiation's findings —
+/// and the fixtures pinning their bytes — stay byte-identical, since the
+/// field is absent rather than `null` (`skip_serializing_if`).
+#[must_use]
+pub fn has_finding_data(dli: &str) -> bool {
     at_or_above(dli, (1, 7, 0))
 }
 

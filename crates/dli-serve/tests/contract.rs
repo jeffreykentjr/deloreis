@@ -66,6 +66,8 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorSetStanding, "author.set_standing"),
     (Op::AuthorDefeat, "author.defeat"),
     (Op::AuthorDeclareFunctional, "author.declare_functional"),
+    (Op::AuthorAssertSameAs, "author.assert_same_as"),
+    (Op::AuthorAddRule, "author.add_rule"),
 ];
 
 #[test]
@@ -175,6 +177,7 @@ fn check_finding_domains_round_trip_without_losing_payload_fields() {
                 grade: Grade::Checked,
                 repair: None,
                 citations: Vec::new(),
+                data: None,
             }),
             CheckFinding::Payload(PayloadCheckFinding {
                 payload_digest: format!("sha256:{}", "b".repeat(64)),

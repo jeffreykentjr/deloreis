@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAddRuleParams",
+  "description": "`author.add_rule` params: declare one datalog derivation rule (WS-2,\ncontract 1.7.0).\n\n`head`/`body` are the already-typed wire forms `author.query`'s\n`goal_atom` and `author.add_rule` share — never a text field. One clause\nper call; an N-clause rule is N calls under distinct names, which is also\nfiner-grained for `author.defeat` (DL-0058's rule-authoring trigger,\nsatisfied here). Provenance is required, exactly as `author.add_before`'s\nis: a rule is a ruling like any other, and every fact it derives carries\nthis claim's own provenance into its support (`fire_rules` multiplies it\nin already; `author.add_rule` is what gives that multiplication something\nreal to work with).",
+  "type": "object",
+  "properties": {
+    "body": {
+      "description": "The body conjunction of literals (a negated literal is `not <atom>`).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BodyLiteral"
+      }
+    },
+    "head": {
+      "description": "The head atom the rule derives when the body holds.",
+      "$ref": "#/$defs/AtomExpr"
+    },
+    "name": {
+      "description": "The rule's name — the unit `author.defeat` cites and `rule.duplicate`\nguards.",
+      "type": "string"
+    },
+    "provenance": {
+      "description": "The provenance of this rule.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "name",
+    "head",
+    "body",
+    "provenance"
+  ],
+  "$defs": {
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "BodyLiteral": {
+      "description": "One literal of a rule body: an atom on a polarity rail.\n\nA positive literal ([`negated`](BodyLiteral::negated) is `false`) joins over\nthe relation and binds its variables; a negated literal filters against the\ncertain layer and binds nothing (datalog safety: every variable in a negated\nliteral must also appear in a positive body atom).",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The atom pattern.",
+          "$ref": "#/$defs/AtomExpr"
+        },
+        "negated": {
+          "description": "Whether the atom is negated (`not <atom>` at the surface).",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "atom",
+        "negated"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier. Either the bare text, whose span is synthetic, or an object carrying the text and an optional span.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "span": {
+              "description": "A half-open byte range within a single source file.",
+              "type": "object",
+              "properties": {
+                "end": {
+                  "description": "End byte offset (exclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "file": {
+                  "description": "The file this span points into.",
+                  "$ref": "#/$defs/FileId"
+                },
+                "start": {
+                  "description": "Start byte offset (inclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "start",
+                "end"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ]
+        }
+      ]
+    },
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for the authoring seam (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            },
+            "state": {
+              "description": "The requested standing on contract 1.5 and above.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProvenanceState"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    },
+    "ProvenanceState": {
+      "description": "The stored standing requested for a cited authoring operation.\n\nThe field is optional here so pre-1.5 wire frames remain decodable. The\n1.5 request boundary requires it for `kind: cited`.",
+      "oneOf": [
+        {
+          "description": "Open to later revision.",
+          "type": "string",
+          "const": "provisional"
+        },
+        {
+          "description": "A settled ruling.",
+          "type": "string",
+          "const": "ratified"
+        }
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
+        }
+      ]
+    }
+  }
+}

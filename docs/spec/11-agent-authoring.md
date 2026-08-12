@@ -464,7 +464,66 @@ about the world, not one the engine makes (koan 3), so the caller declares it.
 The declaration lowers to no atom — there is no fact to query — and rides, with
 its provenance, on the stored declaration (DL-0074).
 
-### 3.12 Read tools
+### 3.12 Coreference declarations
+
+Contract `1.7.0` adds one declaration merging identity:
+
+- `author.assert_same_as {workspace, left, right, provenance}` asserts that
+  `left` and `right` name the same bearer. The evaluable world closes the
+  merge symmetric-transitively over every predicate the two ids appear in
+  (DL-0078); the merge's standing is carried entirely by this claim's own
+  provenance — defeating the citing decision (`author.defeat`) un-merges
+  every derived consequence on the next read, with no re-fixpoint.
+
+Three findings are stage-time, not deferred to check: `identity.self-merge`
+(warn) when `left` and `right` are the same id — a harmless no-op merge,
+staged anyway; `identity.temporal-unsupported` (error) when either endpoint
+is a declared era or event — identity over the chronology spine is refused
+in v1, regardless of the claim's own standing (DL-0078); and
+`identity.sort-mismatch` (warn) when the two endpoints' declared kinds
+differ. A merge that would create a duplicate certain value for a
+functionally-declared predicate (§3.11) surfaces the existing
+`continuity.fd-violation` on `author.check` and blocks `author.materialize`
+the same as it would for any other write — no separate mechanism.
+
+### 3.13 Rule authoring
+
+Contract `1.7.0` adds one declaration over derivation rules:
+
+- `author.add_rule {workspace, name, head, body, provenance}` declares one
+  datalog derivation rule — a typed `head :- body` clause. `head` is the
+  already-typed `goal_atom` shape `author.query` shares; `body` is a list of
+  body literals (`{atom, negated}`), a positive atom or a `not`-negated one.
+  One clause per call: an N-clause rule is N `author.add_rule` calls under
+  distinct names — equivalent to one N-clause rule, and finer-grained for
+  `author.defeat`, which cites a rule by name. Every fact the rule derives
+  carries this claim's own provenance (`fire_rules` multiplies a rule's
+  annotation into every derivation it fires): defeating the rule's citing
+  decision kills every derivation through it, with no re-fixpoint, exactly
+  as defeating any other claim's citation does.
+
+  **Stricter than every other `author.add_*` tool.** An error-severity
+  finding refuses the whole add and stages nothing — not the usual
+  stage-then-block-materialize shape — because a bad rule staged even once
+  can BRICK every later read: the staged world recompiles on every call, and
+  an unstratifiable or range-unsafe rule set makes that recompile fail
+  outright. Checked before staging: `rule.unbound-variable` (a head or
+  negated-literal variable no positive body atom binds — datalog range
+  restriction); `rule.duplicate` (the name is already staged or already in
+  the compiled base); and, only once those pass, a stratification
+  pre-flight — a tentative compile of the candidate rule alongside
+  everything already staged — refusing with `rule.unstratifiable` on
+  failure. The ordinary per-declaration census still applies
+  (`field.control-char`, `citation.unknown-decision`).
+
+  A functional-dependency break a rule's own derivation creates — visible
+  only once the world is saturated, not in the pre-saturation authored
+  layer `continuity.fd-violation` reads — surfaces as
+  `continuity.derived-fd-violation` on `author.check` and blocks
+  `author.materialize` the same way. No separate wire mechanism: it is the
+  same check battery, reading a second, saturated lens.
+
+### 3.14 Read tools
 
 Five non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
@@ -485,7 +544,7 @@ query-specific result shapes rather than `{ ok, workspace_digest, rendered,
 findings }`. An agent uses them to orient before mutating: query what exists,
 check the current state, understand a derivation, then act.
 
-### 3.13 Expert authoring tools (contract 1.3.0)
+### 3.15 Expert authoring tools (contract 1.3.0)
 
 Seven tools add the language lane and the continuity/ledger pair the expert
 card (`docs/cards/expert-card.md`) describes; each stages like any other add,
@@ -502,7 +561,7 @@ seven are advertised only from contract `1.3.0` and above (DL-0058).
 | `author.add_state {id, value?, time?}` | Assert a time-varying state fluent — a value that holds over an interval, not forever; `time` is `{kind: after\|during\|since\|until, point}`. |
 | `author.add_attest {question}` | Request an attestation for an open question already in the workspace. |
 
-### 3.14 Branch and merge tools (contract 0.6.1)
+### 3.16 Branch and merge tools (contract 0.6.1)
 
 `author.branch {workspace, action: create|list, name?, from?}` creates a
 persistent, named ref into the workspace's lorestore at the source branch's
@@ -660,7 +719,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.6.0` enforces that rule for all 60 operations. Paired cases declare
+Contract `1.6.0` enforces that rule for all 62 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

@@ -43,11 +43,12 @@ use crate::contract::{
     AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
-    AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorCheckParams,
-    AuthorDeclareFunctionalParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
-    AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
+    AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams, AuthorDefeatParams,
+    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
+    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
+    AuthorQueryParams, AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams,
+    AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -82,6 +83,12 @@ fn branch_writes(request: &Request) -> bool {
     crate::has_branch_writes(&request.dli)
 }
 
+/// Whether a raised finding's structured payload rides across as
+/// `Finding.data` on this request's negotiated version (≥ 1.7.0, WS-2).
+fn carries_finding_data(request: &Request) -> bool {
+    crate::has_finding_data(&request.dli)
+}
+
 /// The authoring seam's dispatch (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
@@ -100,14 +107,23 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let v2 = wire_v2(request);
             Ok((
                 params.workspace.clone(),
-                tools::status(store, &params, v2, structural_keys(request)),
+                tools::status(
+                    store,
+                    &params,
+                    v2,
+                    structural_keys(request),
+                    carries_finding_data(request),
+                ),
             ))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             let v2 = wire_v2(request);
-            Ok((params.workspace.clone(), tools::diff(store, &params, v2)))
+            Ok((
+                params.workspace.clone(),
+                tools::diff(store, &params, v2, carries_finding_data(request)),
+            ))
         }),
         // materialize advances the lorestore ref: a mutation, dispatched
         // through the mutating wrapper so idempotency-key replay works
@@ -276,6 +292,22 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
                 tools::declare_functional(store, &params, records_citations(request)),
             ))
         }),
+        Op::AuthorAssertSameAs => mutate(request, store, |store, request| {
+            let params: AuthorAssertSameAsParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::assert_same_as(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAddRule => mutate(request, store, |store, request| {
+            let params: AuthorAddRuleParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::add_rule(store, &params, records_citations(request)),
+            ))
+        }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no
         // idempotency caching, only the tool's result or a typed error.
@@ -288,7 +320,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::check(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                reads::check(store, &params, carries_finding_data(request)),
+            ))
         }),
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
@@ -298,7 +333,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorFindings => read(request, store, |store, request| {
             let params: AuthorFindingsParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::findings(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                reads::findings(store, &params, carries_finding_data(request)),
+            ))
         }),
         // No workspace param, so no precheck: a store-level read of the open set.
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
@@ -328,7 +366,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::merge(store, &params, branch_writes(request)),
+                tools::merge(
+                    store,
+                    &params,
+                    branch_writes(request),
+                    carries_finding_data(request),
+                ),
             ))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only

@@ -136,7 +136,9 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorAddAttest
         | Op::AuthorSetStanding
         | Op::AuthorDefeat
-        | Op::AuthorDeclareFunctional => Err((
+        | Op::AuthorDeclareFunctional
+        | Op::AuthorAssertSameAs
+        | Op::AuthorAddRule => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -175,7 +177,7 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     procedure_grades.extend(world_findings.iter().map(|finding| finding.grade));
     let mut findings = world_findings
         .iter()
-        .map(|finding| CheckFinding::World(world_finding(finding)))
+        .map(|finding| CheckFinding::World(world_finding(finding, &request.dli)))
         .collect::<Vec<_>>();
     if let Some(project) = project {
         let pack = pack.ok_or_else(|| {
@@ -1559,8 +1561,10 @@ fn diff_conflict(conflict: &dli_eval::fork::Conflict) -> DiffConflict {
     }
 }
 
-/// Map a kernel [`WorldFinding`] onto the wire [`Finding`].
-fn world_finding(finding: &WorldFinding) -> Finding {
+/// Map a kernel [`WorldFinding`] onto the wire [`Finding`]. `data` rides
+/// across only on a `≥1.7.0` negotiation (`has_finding_data`, WS-2) — every
+/// earlier wire keeps answering with no `data` key, byte-identical.
+fn world_finding(finding: &WorldFinding, dli: &str) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -1571,6 +1575,9 @@ fn world_finding(finding: &WorldFinding) -> Finding {
         grade: finding.grade,
         repair: None,
         citations: finding.citations.clone(),
+        data: crate::has_finding_data(dli)
+            .then(|| finding.data.clone())
+            .flatten(),
     }
 }
 
@@ -1676,6 +1683,7 @@ fn lang_finding(finding: &LangFinding) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1971,6 +1979,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let standing_tools = crate::has_standing_tools(dli);
     let functional_decls = crate::has_functional_decls(dli);
     let identity_assertions = crate::has_identity_assertions(dli);
+    let rule_authoring = crate::has_rule_authoring(dli);
     Op::ALL
         .iter()
         .copied()
@@ -1979,7 +1988,13 @@ fn capabilities(dli: &str) -> Vec<String> {
         .filter(|op| expert_authoring || !op.added_in_1_3_0())
         .filter(|op| standing_tools || !op.added_in_1_5_0())
         .filter(|op| functional_decls || !op.added_in_1_6_0())
-        .filter(|op| identity_assertions || !op.added_in_1_7_0())
+        // Every 1.7.0 op gates on its OWN floor predicate (WS-2's three-floor
+        // design), not one blanket flag, so a later divergent floor moves only
+        // that op's row in a caller's capability list.
+        .filter(|op| match op {
+            Op::AuthorAddRule => rule_authoring,
+            other => identity_assertions || !other.added_in_1_7_0(),
+        })
         .map(wire_name)
         .collect()
 }
@@ -3277,6 +3292,7 @@ mod tests {
             grade: Grade::Checked,
             repair: None,
             citations: Vec::new(),
+            data: None,
         });
         let payload_warn = CheckFinding::Payload(PayloadCheckFinding {
             payload_digest: format!("sha256:{}", "0".repeat(64)),
@@ -3303,6 +3319,7 @@ mod tests {
             grade: Grade::Checked,
             repair: None,
             citations: Vec::new(),
+            data: None,
         });
         assert!(!check_finding_passes(&world_error));
     }
