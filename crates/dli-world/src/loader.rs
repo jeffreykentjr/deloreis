@@ -255,7 +255,54 @@ impl LoadCtx {
             Decl::Hypothesis(hypothesis) => {
                 self.intern(&hypothesis.name.text);
             }
-            _ => {}
+            // No world-model atom here, each for a different reason:
+            // - Dialect/Word/NamePart/Name/Term/Banned are compiled by the
+            //   LanguageModel pass over the raw documents
+            //   (`LanguageModel::from_documents`, `Loader::load` above,
+            //   :159), not by this per-decl dispatch.
+            // - `ratify` is consumed by `ledger_valuation`/
+            //   `declared_decisions` (dli-world::lib.rs), which turns a
+            //   corpus's `ratify` decls into the authoritative decision set
+            //   a citation must land in.
+            // - Practice/Proof/Principle are read by dli-ledger
+            //   (practice.rs, ledger_check.rs), not the world model:
+            //   resource-tracked practices, casting proofs, and craft
+            //   principles lower to no ground atom here.
+            // - `attest` carries no atom here either, but it is NOT inert:
+            //   `author.add_attest` (contract 1.3.0) is a live, materializable
+            //   wire capability, and the ledger's attestation-sweep machinery
+            //   (`dli.attest.missing` / `dli.attestation-sweep`) reads it
+            //   downstream of the store, not through this per-decl dispatch.
+            //   `load.inert-declaration` is error-severity and blocks
+            //   `author.materialize` (verified: flagging Attest here breaks
+            //   the shipped `add_attest` -> materialize flow), so it stays a
+            //   plain no-op here.
+            // - Use/Draft/Export/Variant/Narration are carried to the
+            //   lorestore but carry no evaluable atom here either. Whether
+            //   these deprecated-only forms should raise
+            //   `load.inert-declaration` (koan 4 / DL-0029) is a per-form
+            //   disposition DEFERRED to the deprecation audit (PR-FINAL):
+            //   flagging them error-severity regresses the shipped
+            //   round-table/camelot reference corpus (`use language`,
+            //   `use chronology`, `narration`), so this stays behavior-neutral
+            //   and the audit rules per form + fixes the corpus if a form
+            //   turns out to be a genuine defect.
+            Decl::Dialect(_)
+            | Decl::Word(_)
+            | Decl::NamePart(_)
+            | Decl::Name(_)
+            | Decl::Term(_)
+            | Decl::Banned(_)
+            | Decl::Ratify(_)
+            | Decl::Practice(_)
+            | Decl::Proof(_)
+            | Decl::Principle(_)
+            | Decl::Attest(_)
+            | Decl::Use(_)
+            | Decl::Draft(_)
+            | Decl::Export(_)
+            | Decl::Variant(_)
+            | Decl::Narration(_) => {}
         }
     }
 

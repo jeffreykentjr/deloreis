@@ -170,7 +170,7 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
         Decl::Attest(d) => Some((K::Attest, d.question.text.clone())),
         Decl::Term(d) => Some((K::Term, d.name.text.clone())),
         Decl::Banned(d) => Some((K::Banned, d.word.text.clone())),
-        Decl::Narration(_) => Some((K::Narration, String::new())),
+        Decl::Narration(d) => Some((K::Narration, d.head.join(" "))),
     }
 }
 
