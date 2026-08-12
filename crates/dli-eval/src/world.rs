@@ -297,6 +297,14 @@ pub struct World {
     /// stored on [`Derived::monomial_grades`] instead.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub var_grades: BTreeMap<Atom, Grade>,
+    /// Predicates the author declared `functional` (single-valued). This carries
+    /// no atom and derives nothing — it is a constraint the fork engine consults
+    /// so a declared functional dependency is honored on a merge exactly as the
+    /// load check honors it (DL-0075). Populated from `functional` declarations by
+    /// [`World::lower`] and, on the compiled path, seeded by the `dli-world`
+    /// loader; empty for worlds that declare none, so serialization is unchanged.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub functional_predicates: BTreeSet<String>,
 }
 
 impl World {
@@ -396,12 +404,23 @@ impl World {
                 Decl::State(state) => {
                     world.lower_state(state, &mut proposal_seq, &known_decisions)?;
                 }
-                // Constraint- and language-layer declarations carry no ground atom
-                // and so have no place in the pure evaluable core. A
-                // `functional <pred>` declaration (issue 49) is one of these: the
-                // loader records it in `WorldModel::functional_predicates` and the
-                // durable store carries it, so nothing is dropped here — unlike the
-                // fact-bearing `state`, whose omission was the #47 defect.
+                // A `functional <pred>` declaration carries no ground atom and
+                // interns no provenance (its provenance rides the durable carriage
+                // body, DL-0071), but it is not a no-op: it is a constraint the
+                // fork engine consults, so the predicate name is recorded in the
+                // world's `functional_predicates` set (DL-0075). This mints no
+                // variable and derives nothing, so the evaluable core is otherwise
+                // untouched — a fork sees the declaration exactly as the load check
+                // does, closing the gap where a declared dependency was honored on
+                // load but invisible on a merge (issue 59).
+                Decl::Functional(functional) => {
+                    world
+                        .functional_predicates
+                        .insert(functional.pred.text.clone());
+                }
+                // Other constraint- and language-layer declarations carry no atom
+                // and no constraint the evaluable core reads, so they lower to
+                // nothing here.
                 _ => {}
             }
         }

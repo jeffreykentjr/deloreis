@@ -47,6 +47,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status};
 use dli_core::atom::{Atom, Interner};
+use dli_core::fd::{fd_violations as fd_violations_over, inferred_functional};
 use dli_time::chronology::TimePoint;
 use dli_time::fluent::FluentTimeline;
 
@@ -398,26 +399,12 @@ fn slot_is_single_valued(world: &CompiledWorld, slot: &(String, String)) -> bool
 
 /// Whether the predicate is functional: it is declared `functional`, or it
 /// appears in at least one certain fact and no subject carries more than one
-/// certain value for it. Distinctness is judged on the normalized value key.
+/// certain value for it. The shape inference is the shared
+/// [`inferred_functional`] primitive, so it cannot drift from the fork- and
+/// merge-side checks that also union declared functionality with it.
 fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
-    if world.model.functional_predicates.contains(pred) {
-        return true;
-    }
-    let mut by_subject: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for atom in world.model.atoms() {
-        if atom_status(world, atom) != Status::Certain {
-            continue;
-        }
-        if let Some(((atom_pred, subject), value)) = slot_of(&atom.atom)
-            && atom_pred == *pred
-        {
-            by_subject
-                .entry(subject)
-                .or_default()
-                .insert(fd_value_key(&value));
-        }
-    }
-    !by_subject.is_empty() && by_subject.values().all(|values| values.len() <= 1)
+    world.model.functional_predicates.contains(pred)
+        || inferred_functional(certain_binary_slots(world)).contains(pred)
 }
 
 // --- fluent (interval) reasoning ---------------------------------------------
@@ -506,62 +493,56 @@ fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Opt
 /// value held over disjoint spans is not a clash, so they are skipped here.
 /// Distinctness is judged on the normalized value key (sub-claim 1).
 fn fd_violations(world: &CompiledWorld) -> Vec<WorldFinding> {
-    // pred -> subject -> (normalized key -> first raw spelling).
-    let mut by_pred: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>> = BTreeMap::new();
-    for atom in world.model.atoms() {
-        if atom_status(world, atom) != Status::Certain {
-            continue;
-        }
-        let Some(((pred, subject), value)) = slot_of(&atom.atom) else {
-            continue;
-        };
-        if world
+    // The certain source slots this check reads: authored `attr`/`fact` values,
+    // excluding fluents (interval-sensitive, judged by `fluent_contradictions` —
+    // a value held over disjoint spans is not a clash). Only a predicate the
+    // author *declared* `functional` is checked: canon's shape cannot settle
+    // whether a relation is single- or multi-valued — a subject with several
+    // edges among others with one each is a hub in a many-to-many relation (a
+    // place with several neighbours, R2/B) just as readily as a functional-
+    // dependency break — so the author rules on it (koan 3, DL-0074) and the
+    // engine never guesses, passing only the *declared* set to the primitive.
+    let certain = certain_binary_slots(world).filter(|(pred, subject, _)| {
+        !world
             .model
             .fluents
             .contains_key(&(pred.clone(), subject.clone()))
-        {
-            continue;
-        }
-        by_pred
-            .entry(pred)
-            .or_default()
-            .entry(subject)
-            .or_default()
-            .entry(fd_value_key(&value))
-            .or_insert(value);
-    }
-    let mut out = Vec::new();
-    for (pred, subjects) in &by_pred {
-        // Only a predicate the author *declared* `functional` is checked. Canon's
-        // shape cannot settle whether a relation is single- or multi-valued: a
-        // subject with several edges among others with one each is a hub in a
-        // many-to-many relation (a place with several neighbours, R2/B) just as
-        // readily as a functional-dependency break. So the author rules on it
-        // (koan 3, DL-0074) and the engine never guesses from the data — an
-        // undeclared predicate raises nothing here, no matter its degree.
-        if !world.model.functional_predicates.contains(pred) {
-            continue;
-        }
-        for (subject, values) in subjects {
-            if values.len() < 2 {
-                continue;
-            }
-            let slot = (pred.clone(), subject.clone());
-            let rendered: Vec<&str> = values.values().map(String::as_str).collect();
-            out.push(
-                WorldFinding::error(
-                    "continuity.fd-violation",
-                    format!(
-                        "canon breaks the functional dependency on '{pred}': {subject} carries {} distinct certain values [{}]",
-                        rendered.len(),
-                        rendered.join(", ")
-                    ),
-                )
-                .with_citations(slot_citations(world, &slot)),
-            );
-        }
-    }
-    out
+    });
+    fd_violations_over(certain, &world.model.functional_predicates)
+        .into_iter()
+        .map(|violation| {
+            let slot = (violation.pred.clone(), violation.subject.clone());
+            WorldFinding::error(
+                "continuity.fd-violation",
+                format!(
+                    "canon breaks the functional dependency on '{}': {} carries {} distinct certain values [{}]",
+                    violation.pred,
+                    violation.subject,
+                    violation.values.len(),
+                    violation.values.join(", ")
+                ),
+            )
+            .with_citations(slot_citations(world, &slot))
+        })
+        .collect()
+}
+
+/// Every certain binary source slot `(pred, subject, value)` in the compiled
+/// world — the annotated authored facts, before rule saturation. This is the
+/// atom layer the *load* check reads; the fork- and merge-side FD checks read the
+/// saturated *derived* layer instead, an intentional split documented in DL-0075:
+/// the load check judges what canon **asserts**, a merge judges what it
+/// **derives** once re-evaluated.
+fn certain_binary_slots(
+    world: &CompiledWorld,
+) -> impl Iterator<Item = (String, String, String)> + '_ {
+    world
+        .model
+        .atoms()
+        .iter()
+        .filter(move |atom| atom_status(world, atom) == Status::Certain)
+        .filter_map(|atom| slot_of(&atom.atom))
+        .map(|((pred, subject), value)| (pred, subject, value))
 }
 
 // --- shared helpers ----------------------------------------------------------

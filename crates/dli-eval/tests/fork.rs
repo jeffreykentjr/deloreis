@@ -444,6 +444,265 @@ fn merge_reports_certain_layer_functional_dependency() {
     );
 }
 
+/// Issue 59: the fork merge keys value distinctness on `fd_value_key`, exactly
+/// as the load check does. Two forks add values for one functional slot that
+/// differ only cosmetically (`shallows` vs `Shallows`); they are ONE value, so
+/// joining them is not a functional-dependency break. Before the unification the
+/// fork engine compared raw strings and raised a phantom conflict here.
+#[test]
+fn merge_folds_cosmetic_value_drift_to_one_value() {
+    // Base establishes `home` as functional by shape (one subject, one value).
+    let mut world = World::new();
+    world.assert_fact(ground("home", &["nan", "coast"]), Ann::unconditional());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("home", &["mara", "shallows"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let b = store.fork();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("home", &["mara", "Shallows"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    assert!(
+        store
+            .merge(a, b)
+            .unwrap()
+            .iter()
+            .all(|c| c.kind != ConflictKind::Certain),
+        "cosmetic drift (shallows vs Shallows) is one value, not an FD break"
+    );
+}
+
+/// Issue 59, acceptance (b): a fork merge honors a predicate the author *declared*
+/// `functional` even when the base holds no fact for it, so inference alone could
+/// never judge it. Before the unification the fork engine inferred functionality
+/// from the base only and never saw the declaration, so this merge passed clean.
+#[test]
+fn merge_honors_declared_functional_on_a_first_seen_predicate() {
+    // A base that declares `rank` functional but records no rank fact — the
+    // first-seen case inference is structurally blind to (koan 3, DL-0074). The
+    // declared set rides the world; a compiled base carries it the same way.
+    let mut world = World::new();
+    world.functional_predicates.insert("rank".to_owned());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("rank", &["mara", "gold"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let b = store.fork();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("rank", &["mara", "silver"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    let conflicts = store.merge(a, b).unwrap();
+    let certain: Vec<_> = conflicts
+        .iter()
+        .filter(|c| c.kind == ConflictKind::Certain)
+        .collect();
+    assert_eq!(
+        certain.len(),
+        1,
+        "the declared dependency is honored on the merge: {conflicts:?}"
+    );
+    assert!(
+        certain[0].rendered.contains("rank") && certain[0].rendered.contains("mara"),
+        "names the predicate and subject: {}",
+        certain[0].rendered
+    );
+    let blame = format!("{} {}", certain[0].blame.0, certain[0].blame.1);
+    assert!(
+        blame.contains("gold") && blame.contains("silver"),
+        "both clashing values ride the blame pair: {:?}",
+        certain[0].blame
+    );
+}
+
+/// The two fixes compose: a *declared*-functional slot still folds cosmetic
+/// drift, so `gold` vs `Gold` on a declared predicate is one value, not a break.
+#[test]
+fn merge_declared_functional_still_folds_cosmetic_drift() {
+    let mut world = World::new();
+    world.functional_predicates.insert("rank".to_owned());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("rank", &["mara", "gold"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let b = store.fork();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("rank", &["mara", "Gold"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    assert!(
+        store
+            .merge(a, b)
+            .unwrap()
+            .iter()
+            .all(|c| c.kind != ConflictKind::Certain),
+        "distinctness keys on fd_value_key even for a declared-functional slot"
+    );
+}
+
+/// Issue 59 (red-team F1): the value key keeps a leading sign, so `offset = -5`
+/// and `offset = 5` are two genuinely distinct values and their join breaks a
+/// declared functional dependency. The propagation-safety pin: unifying the fork
+/// merge onto `fd_value_key` must not fold `-5` into `5` (koan 4).
+#[test]
+fn merge_keeps_a_signed_value_distinct() {
+    let mut world = World::new();
+    world.functional_predicates.insert("offset".to_owned());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("offset", &["gate", "-5"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let b = store.fork();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("offset", &["gate", "5"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+
+    let certain: Vec<_> = store
+        .merge(a, b)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.kind == ConflictKind::Certain)
+        .collect();
+    assert_eq!(
+        certain.len(),
+        1,
+        "-5 and 5 are distinct values, so the join is a real FD break: {certain:?}"
+    );
+    let blame = format!("{} {}", certain[0].blame.0, certain[0].blame.1);
+    assert!(
+        blame.contains("-5") && blame.contains("= 5"),
+        "both signed values ride the blame: {:?}",
+        certain[0].blame
+    );
+}
+
+/// Issue 59 (red-team F3/F2): a break the BASE already holds is the base's defect,
+/// not a conflict the join introduces. Two empty forks over a base that already
+/// breaks a declared functional dependency merge clean — the delta test subtracts
+/// the base-inherent break. This also covers a fluent flattened into two certain
+/// base facts: both sit in the base, so the flat "break" is base-inherent and not
+/// re-blamed on every merge.
+#[test]
+fn merge_does_not_reblame_a_base_inherited_break() {
+    // A base that already breaks `rank` two ways for `mara` (a canon defect the
+    // load check reports on its own), with `rank` declared functional.
+    let mut world = World::new();
+    world.functional_predicates.insert("rank".to_owned());
+    world.assert_fact(ground("rank", &["mara", "gold"]), Ann::unconditional());
+    world.assert_fact(ground("rank", &["mara", "silver"]), Ann::unconditional());
+    let world = world.fixpoint().unwrap();
+    let mut store = ForkStore::new(world);
+
+    let a = store.fork();
+    let b = store.fork();
+    assert!(
+        store
+            .merge(a, b)
+            .unwrap()
+            .iter()
+            .all(|c| c.kind != ConflictKind::Certain),
+        "a base-inherited break is not a conflict the join introduces"
+    );
+
+    // But a break the merge genuinely introduces on top is still caught: fork a
+    // gives a *new* subject its second value.
+    store
+        .add(
+            a,
+            [Addition::asserted(
+                ground("rank", &["fen", "gold"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    store
+        .add(
+            b,
+            [Addition::asserted(
+                ground("rank", &["fen", "bronze"]),
+                Ann::unconditional(),
+            )],
+        )
+        .unwrap();
+    let certain: Vec<_> = store
+        .merge(a, b)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.kind == ConflictKind::Certain)
+        .collect();
+    assert_eq!(
+        certain.len(),
+        1,
+        "the merge-introduced break on `fen` is still caught: {certain:?}"
+    );
+    assert!(
+        certain[0].rendered.contains("fen"),
+        "and it blames the subject the join broke, not the base's: {}",
+        certain[0].rendered
+    );
+}
+
 #[test]
 fn fork_from_inherits_overlay_and_records_lineage() {
     let mut store = ForkStore::new(base_world());

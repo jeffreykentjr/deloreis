@@ -55,6 +55,7 @@ use thiserror::Error;
 
 use dli_core::ann::{Ann, Status};
 use dli_core::atom::Atom;
+use dli_core::fd::{fd_violations, inferred_functional};
 use dli_core::grade::Grade;
 use dli_core::valuation::Valuation;
 
@@ -644,10 +645,38 @@ impl ForkStore {
         Ok(conflicts)
     }
 
-    /// The certain-layer functional-dependency conflicts of joining two forks: a
-    /// predicate the base holds functional carries two distinct certain values
-    /// for one subject once both forks' overlays and additions are laid on. The
-    /// blame pair is the two `pred(subject) = value` claims that cannot co-hold.
+    /// The certain-layer functional-dependency conflicts the *join* introduces: a
+    /// predicate held functional carries two distinct certain values for one
+    /// subject once both forks' overlays and additions are laid on, where the base
+    /// alone did not already break it. The blame pair is the two `pred(subject) =
+    /// value` claims that cannot co-hold.
+    ///
+    /// Functionality is the author's **declared** set unioned with what the base
+    /// certain layer proves functional by shape (`declared ∪ inferred`), and value
+    /// distinctness keys on `fd_value_key` — both through the shared
+    /// [`dli_core::fd`] primitive, so this answers the FD question the way the load
+    /// check does. A cosmetic pair (`gold`/`Gold`) is one value here as on load, and
+    /// a declared first-seen dependency is honored because the base `World` carries
+    /// its declared set (DL-0075, issue 59).
+    ///
+    /// It is a **delta** check: a break the base already holds is the base's defect
+    /// (the load check reports it), not this join's conflict, so it is subtracted —
+    /// which also keeps two clean forks joinable over broken canon and neutralizes
+    /// a flattened fluent whose two interval-values both sit in the base (issue 59
+    /// red-team, F3/F2). The subtraction is **per `(pred, subject)` slot**: once
+    /// canon breaks a declared dependency on a slot, no join raises a conflict there
+    /// again, whatever value a fork piles on — that slot is canon's to repair, and
+    /// a further value on an already-broken slot is not a new joinability signal.
+    /// The joined layer is the saturated *derived* relation — a merge judges what
+    /// the world derives once re-evaluated.
+    ///
+    /// **Coarseness the load check does not share:** the evaluable world flattens a
+    /// fluent `state` to a plain fact and erases a subject's term kind, so a fork
+    /// that *adds* a second interval-value to a declared-functional fluent, or a
+    /// declared predicate whose subject is a non-symbol literal, can over-report
+    /// here where the load check (which sees intervals and term kinds) does not.
+    /// The durable-store merge and the load check judge those correctly; this
+    /// in-memory what-if tool is the coarse one (issue 59 red-team, F2/F5).
     fn certain_conflicts(&self, a: &Fork, b: &Fork) -> Result<Vec<Conflict>, ForkError> {
         // A merged fork carrying both overlays and both additions.
         let mut merged = Fork::default();
@@ -658,42 +687,50 @@ impl ForkStore {
         let joined = self.effective_valuation(&merged);
         let layered = self.saturated(&merged)?;
 
-        // Functional predicates come from the BASE certain layer (the canon
-        // baseline): a predicate is functional if it appears and no subject
-        // carries more than one certain value there.
-        let functional = functional_predicates(&self.base, &self.base.valuation);
+        let mut functional = self.base.functional_predicates.clone();
+        functional.extend(inferred_functional(certain_derived_slots(
+            &self.base,
+            &self.base.valuation,
+        )));
 
-        // The joined certain slots, over the layered (base + additions) program.
-        let mut slots: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
-        for derived in &layered.derived {
-            if derived.ann().status(&joined, &layered.theory) != Status::Certain {
-                continue;
-            }
-            if let Some(((pred, subject), value)) = binary_slot(&derived.atom) {
-                slots.entry((pred, subject)).or_default().insert(value);
-            }
-        }
+        // Breaks the base already holds are the base's defect, not this join's —
+        // subtract them so the conflict set is the delta the merge introduces.
+        let base_breaks: BTreeSet<(String, String)> = fd_violations(
+            certain_derived_slots(&self.base, &self.base.valuation),
+            &functional,
+        )
+        .into_iter()
+        .map(|violation| (violation.pred, violation.subject))
+        .collect();
 
-        let mut out = Vec::new();
-        for ((pred, subject), values) in slots {
-            if values.len() >= 2 && functional.contains(&pred) {
-                let rendered: Vec<&str> = values.iter().map(String::as_str).collect();
-                out.push(Conflict {
-                    kind: ConflictKind::Certain,
-                    blame: (
-                        format!("{pred}({subject}) = {}", rendered[0]),
-                        format!("{pred}({subject}) = {}", rendered[1]),
+        let joined_slots = certain_derived_slots(&layered, &joined);
+        Ok(fd_violations(joined_slots, &functional)
+            .into_iter()
+            .filter(|violation| {
+                !base_breaks.contains(&(violation.pred.clone(), violation.subject.clone()))
+            })
+            .map(|violation| Conflict {
+                kind: ConflictKind::Certain,
+                blame: (
+                    format!(
+                        "{}({}) = {}",
+                        violation.pred, violation.subject, violation.values[0]
                     ),
-                    rendered: format!(
-                        "the joined certain layer breaks the functional dependency on \
-                         '{pred}': {subject} carries {} certain values [{}]",
-                        values.len(),
-                        rendered.join(", ")
+                    format!(
+                        "{}({}) = {}",
+                        violation.pred, violation.subject, violation.values[1]
                     ),
-                });
-            }
-        }
-        Ok(out)
+                ),
+                rendered: format!(
+                    "the joined certain layer breaks the functional dependency on \
+                     '{}': {} carries {} certain values [{}]",
+                    violation.pred,
+                    violation.subject,
+                    violation.values.len(),
+                    violation.values.join(", ")
+                ),
+            })
+            .collect())
     }
 
     // -- internals -----------------------------------------------------------
@@ -826,44 +863,27 @@ impl ForkStore {
     }
 }
 
-/// A binary atom's functional slot: `((pred, subject), value)` for a 2-ary atom,
-/// `None` otherwise. The subject is arg0, the value arg1.
-fn binary_slot(atom: &GroundAtom) -> Option<((String, String), String)> {
-    if atom.args.len() == 2 {
-        Some((
-            (atom.pred.clone(), atom.args[0].clone()),
-            atom.args[1].clone(),
-        ))
-    } else {
-        None
-    }
-}
-
-/// The set of predicates a world holds functional under `nu`: every predicate
-/// that appears in at least one certain binary fact and whose every subject
-/// carries at most one certain value. Mirrors `continuity::predicate_is_functional`.
-fn functional_predicates(world: &World, nu: &Valuation) -> BTreeSet<String> {
-    let mut by_pred: BTreeMap<String, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
+/// The certain binary slots `(pred, subject, value)` of a world's saturated
+/// relation under a valuation — the derived layer the fork/merge FD check reads,
+/// fed to the shared [`dli_core::fd`] primitive for both inference and violation
+/// detection. A binary atom's subject is arg0, its value arg1; wider or narrower
+/// atoms are not slots and are skipped.
+fn certain_derived_slots(world: &World, nu: &Valuation) -> Vec<(String, String, String)> {
+    let mut out = Vec::new();
     for derived in &world.derived {
         if derived.ann().status(nu, &world.theory) != Status::Certain {
             continue;
         }
-        if let Some(((pred, subject), value)) = binary_slot(&derived.atom) {
-            by_pred
-                .entry(pred)
-                .or_default()
-                .entry(subject)
-                .or_default()
-                .insert(value);
+        let atom = &derived.atom;
+        if atom.args.len() == 2 {
+            out.push((
+                atom.pred.clone(),
+                atom.args[0].clone(),
+                atom.args[1].clone(),
+            ));
         }
     }
-    by_pred
-        .into_iter()
-        .filter(|(_, subjects)| {
-            !subjects.is_empty() && subjects.values().all(|values| values.len() <= 1)
-        })
-        .map(|(pred, _)| pred)
-        .collect()
+    out
 }
 
 /// Every atom's standing in a world under a valuation, dead atoms included (the

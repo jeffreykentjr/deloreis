@@ -20,6 +20,7 @@
 //! false-flagging a legitimate second edge (a second adjacency, say) as a clash.
 
 use dli_ast::term::AtomExpr;
+use dli_core::fd::fd_value_key;
 use dli_core::grade::Grade;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -420,43 +421,12 @@ impl KilledTokens {
     }
 }
 
-/// The key the FD/contradiction check compares values by: lowercased, with
-/// hyphen, underscore, and whitespace runs folded to a single space and trimmed
-/// — **only** case and separators. `gold`/`Gold` and `tide-bell`/`tide bell`
-/// collapse to one value, while every other character (digits, `.`, `/`, `:` …)
-/// survives, so `2.5` and `2-5` stay two distinct values and `gold`/`golden`
-/// stay distinct (never stems). Unlike `normalize` — which folds *every*
-/// non-alphanumeric for liberal killed-token/ban-evasion matching — this
-/// preserves value identity: it must never merge two genuinely distinct values,
-/// which would silently drop a real contradiction (issue 49, koan 4).
-/// Re-exported as [`crate::check::fd_value_key`] and shared with the interactive
-/// staging path so every FD comparison keys identically.
-#[must_use]
-pub fn fd_value_key(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    let mut last_space = true;
-    for ch in value.chars() {
-        if ch == '-' || ch == '_' || ch.is_whitespace() {
-            if !last_space {
-                out.push(' ');
-                last_space = true;
-            }
-        } else {
-            out.extend(ch.to_lowercase());
-            last_space = false;
-        }
-    }
-    if out.ends_with(' ') {
-        out.pop();
-    }
-    out
-}
-
 /// Lowercase, and fold every non-alphanumeric run to a single space, collapsing
 /// whitespace — so `doom-wight` and `Doom Wight` match alike. This is the liberal
 /// fold the killed-token guardrail matches against (ban-evasion resistance); the
-/// FD/contradiction path uses the stricter [`fd_value_key`] instead, which must
-/// not merge distinct values.
+/// FD/contradiction path uses the stricter `fd_value_key`
+/// ([`dli_core::fd::fd_value_key`], re-exported as [`crate::check::fd_value_key`])
+/// instead, which must not merge distinct values.
 fn normalize(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut last_space = true;
