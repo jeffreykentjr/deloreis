@@ -6,8 +6,8 @@
 //! `tools/call` payload through the very same [`crate::serve::respond`] path the
 //! stdio worker uses. An MCP client and a stdio client therefore exercise
 //! identical kernel paths and identical fixtures: a `tools/call` builds the
-//! ordinary wire frame `{dli, id, op, params}`, lifting the two reserved Door-T
-//! fence arguments into the envelope, and routes it through shared dispatch.
+//! ordinary wire frame `{dli, id, op, params}`, lifting the authoring seam's two
+//! reserved fence arguments into the envelope, and routes it through shared dispatch.
 
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -19,8 +19,8 @@ use crate::schema::contract_schemas;
 use crate::session::Sessions;
 
 /// Run the MCP JSON-RPC loop over stdio: one JSON-RPC message per line in, one
-/// reply per line out (notifications get no reply). The session cache and Door T
-/// store live for the life of the loop, exactly as the native worker's do.
+/// reply per line out (notifications get no reply). The session cache and the
+/// authoring seam's store live for the life of the loop, exactly as the native worker's do.
 pub fn run_mcp_demo() -> std::io::Result<()> {
     run_mcp_with(None)
 }
@@ -40,7 +40,7 @@ fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
     let mut sessions = project.as_ref().map_or_else(Sessions::new, |project| {
         Sessions::from_project(Arc::clone(project))
     });
-    // The read-complete Door T store (base + staged), same as the stdio worker.
+    // The read-complete authoring-seam store (base + staged), same as the stdio worker.
     let mut author = match project {
         Some(project) => crate::serve::project_author_store(&project)?,
         None => crate::serve::demo_author_store()?,

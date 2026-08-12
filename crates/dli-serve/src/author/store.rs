@@ -1,4 +1,4 @@
-//! Door T store (`AUTH-1`): each workspace bound to one loaded document base.
+//! The authoring seam's store (`AUTH-1`): each workspace bound to one loaded document base.
 //!
 //! A project store owns one compiled base per logical document. `author.open`
 //! resolves a scope or declared fork to exactly one of those bases and records
@@ -35,6 +35,16 @@ pub struct Store {
     strict_forks: bool,
     workspaces: BTreeMap<String, Workspace>,
     workspace_bases: BTreeMap<String, String>,
+    /// Per-workspace compiled base for a branch-mode workspace (WS-3), keyed
+    /// by workspace id rather than branch name: two workspaces opened against
+    /// the same branch compile it independently (each is a point-in-time read
+    /// of the branch head at its own open), so the base lives with the
+    /// workspace that read it, not with the branch. Populated only by a
+    /// `branch`-carrying `open`; consulted first by
+    /// [`workspace_base`](Store::workspace_base),
+    /// [`workspace_base_docs`](Store::workspace_base_docs), and
+    /// [`parts_mut`](Store::parts_mut); cleared by [`discard`](Store::discard).
+    branch_bases: BTreeMap<String, Base>,
     discard_replays: BTreeMap<String, (String, String, serde_json::Value)>,
     discard_replay_order: VecDeque<String>,
     next_id: u32,
@@ -98,6 +108,32 @@ pub enum StoreError {
     },
 }
 
+/// Why [`Store::open`] refused to open a workspace — distinct wire error codes
+/// for each cause (WS-3's `author.open` `branch` validation: `author.open`
+/// needs `UnknownDoc` for the pre-1.7.0 shape unchanged, and three new
+/// branch-specific outcomes the caller can tell apart).
+#[derive(Debug, Error)]
+pub enum OpenError {
+    /// No project document (or, for `fork` mode, no fork owner) matches —
+    /// the pre-1.7.0 failure. Message text unchanged (byte-pinned): earlier
+    /// builds constructed this string inline at the call site, so a
+    /// pre-1.7.0 fixture's wording must survive the move verbatim.
+    #[error("no project document named \"{0}\" is loaded")]
+    UnknownDoc(String),
+    /// A `branch` was supplied but the resolved base carries no attached
+    /// lorestore (a durable operation attempted in explicit demo mode).
+    #[error("branch-scoped opens need a durable lorestore; run against a project store")]
+    ProjectRequired,
+    /// A `branch` was supplied but no branch of that name exists.
+    #[error("no branch named \"{0}\" exists")]
+    UnknownBranch(String),
+    /// Reconstructing or compiling the branch head failed — a store-integrity
+    /// failure, not a caller mistake: every branch was, by construction,
+    /// compilable when created.
+    #[error("reconstructing branch head: {0}")]
+    BranchCompile(String),
+}
+
 impl Default for Store {
     fn default() -> Self {
         Self {
@@ -111,6 +147,7 @@ impl Default for Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            branch_bases: BTreeMap::new(),
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
@@ -141,6 +178,7 @@ impl Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            branch_bases: BTreeMap::new(),
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
@@ -182,6 +220,7 @@ impl Store {
             strict_forks: false,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            branch_bases: BTreeMap::new(),
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
@@ -232,6 +271,7 @@ impl Store {
             strict_forks: true,
             workspaces: BTreeMap::new(),
             workspace_bases: BTreeMap::new(),
+            branch_bases: BTreeMap::new(),
             discard_replays: BTreeMap::new(),
             discard_replay_order: VecDeque::new(),
             next_id: 0,
@@ -250,7 +290,33 @@ impl Store {
 
     /// Open a new empty workspace and return it. Ids are minted `ws-1`, `ws-2`, …
     /// in open order.
-    pub fn open(&mut self, mode: Mode, base_name: String) -> Option<&Workspace> {
+    ///
+    /// `branch`, when supplied, opens the workspace against a named branch
+    /// head instead of the project document's main lorestore ref (WS-3): the
+    /// branch's head is reconstructed and compiled fresh (a per-workspace read,
+    /// not shared with any other open workspace on the same branch), and every
+    /// subsequent read/write against this workspace id sees that compiled
+    /// world and routes to that branch — never `main` — until the workspace is
+    /// discarded. `branch: None` is the entire pre-1.7.0 path, untouched below:
+    /// same fields, same order, same fallbacks.
+    ///
+    /// # Errors
+    ///
+    /// [`OpenError::UnknownDoc`] if `mode`/`base_name` name no project document
+    /// (or, for [`Mode::Fork`], no fork owner) — the pre-1.7.0 failure, same
+    /// message as before. [`OpenError::ProjectRequired`] if `branch` is
+    /// supplied but the resolved base has no attached lorestore.
+    /// [`OpenError::UnknownBranch`] if `branch` is supplied but no branch of
+    /// that name exists. [`OpenError::BranchCompile`] if the branch head fails
+    /// to reconstruct or compile (a store-integrity failure, not a caller
+    /// mistake — every branch was, by construction, compilable when created).
+    #[allow(clippy::too_many_lines)]
+    pub fn open(
+        &mut self,
+        mode: Mode,
+        base_name: String,
+        branch: Option<String>,
+    ) -> Result<&Workspace, OpenError> {
         let base_key = match mode {
             Mode::Scope => base_name.clone(),
             Mode::Fork => self
@@ -262,13 +328,80 @@ impl Store {
                         .then(|| self.bases.keys().next().cloned())
                         .flatten()
                 })
-                .or_else(|| (!self.strict_forks).then(|| base_name.clone()))?,
+                .or_else(|| (!self.strict_forks).then(|| base_name.clone()))
+                .ok_or_else(|| OpenError::UnknownDoc(base_name.clone()))?,
         };
-        let base = self.base_named(&base_key)?;
+        let base = self
+            .base_named(&base_key)
+            .ok_or_else(|| OpenError::UnknownDoc(base_name.clone()))?;
+
+        if let Some(branch_name) = branch {
+            // Branch mode reads a point-in-time compile of the branch head —
+            // deliberately NOT sharing the pinned/snapshot machinery below,
+            // which is about the project's chosen MAIN commit. This is its own
+            // third path.
+            let killed = base.world.killed.clone();
+            let ls = self
+                .lorestores
+                .get(&base_key)
+                .ok_or(OpenError::ProjectRequired)?;
+            let branch_ref = ls
+                .branch_ref(&branch_name)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?
+                .ok_or_else(|| OpenError::UnknownBranch(branch_name.clone()))?;
+            let head = branch_ref.commit.clone();
+            let pack = ls
+                .reconstruct_at(&head)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+            let mut world = dli_world::compile(&pack)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+            world.killed = killed;
+            let branch_names = ls
+                .interner_at(&head)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+
+            self.next_id += 1;
+            let id = format!("ws-{}", self.next_id);
+            let mut workspace = Workspace::new(id.clone(), mode, base_name);
+            let mut bundle_counter = 0u32;
+            let prefix = format!("h.{}", workspace.base_name);
+            for name in &branch_names {
+                let Some(n_str) = name.strip_prefix(&format!("{prefix}#")) else {
+                    continue;
+                };
+                if let Ok(n) = n_str.parse::<u32>() {
+                    bundle_counter = bundle_counter.max(n + 1);
+                }
+            }
+            workspace.interner_names = branch_names;
+            workspace.bundle_counter = bundle_counter;
+            workspace.base_root_hash = Some(head.to_string());
+            workspace.base_valuation = branch_ref.valuation.clone();
+            workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
+            workspace.target_branch = Some(branch_name);
+            // `Workspace::new` already sealed the initial digest with
+            // `target_branch: None` (it has no way to know the branch yet at
+            // construction). Reseal now that it is set, or the fence never
+            // reflects it at all.
+            workspace.reseal();
+
+            self.branch_bases.insert(
+                id.clone(),
+                Base {
+                    world,
+                    documents: pack.documents,
+                    pack_name: pack.name,
+                },
+            );
+            self.workspace_bases.insert(id.clone(), base_key);
+            return Ok(self.workspaces.entry(id.clone()).or_insert(workspace));
+        }
+
         // A pinned replay serves its manifest commit but explicitly authors to
         // the live origin. Capture that origin ref once at open for both its
-        // interner and the write fence. Branch mode instead uses the immutable
-        // project snapshot, avoiding a mixed read after an external CAS.
+        // interner and the write fence. (WS-3 branch-mode opens never reach
+        // this point — they return above, before any of this pinned/snapshot
+        // machinery, which is about the project's chosen MAIN commit.)
         let pinned_origin_ref = self.is_pinned(&base_key).then(|| {
             self.lorestores
                 .get(&base_key)
@@ -326,7 +459,7 @@ impl Store {
                 .map(|h| h.to_string());
         }
         self.workspace_bases.insert(id.clone(), base_key);
-        Some(self.workspaces.entry(id.clone()).or_insert(workspace))
+        Ok(self.workspaces.entry(id.clone()).or_insert(workspace))
     }
 
     /// A shared reference to a workspace by id.
@@ -337,27 +470,43 @@ impl Store {
 
     /// The base and a mutable workspace together, borrowing disjoint fields so a
     /// tool can compute findings against the base while staging into the
-    /// workspace.
+    /// workspace. A branch-mode workspace's own compiled branch base
+    /// (`branch_bases`, keyed by workspace id — WS-3) is consulted first, so a
+    /// branch's world, not the project document's main world, is what
+    /// findings and staging compute against.
     pub fn parts_mut(&mut self, id: &str) -> Option<(&CompiledWorld, &mut Workspace)> {
-        let base_name = self.workspace_bases.get(id)?.clone();
-        let base = if let Some(base) = self.bases.get(&base_name) {
+        let base = if let Some(base) = self.branch_bases.get(id) {
             &base.world
         } else {
-            &self.fallback.as_ref()?.world
+            let base_name = self.workspace_bases.get(id)?.clone();
+            if let Some(base) = self.bases.get(&base_name) {
+                &base.world
+            } else {
+                &self.fallback.as_ref()?.world
+            }
         };
         self.workspaces.get_mut(id).map(|ws| (base, ws))
     }
 
-    /// The compiled base selected by a workspace.
+    /// The compiled base selected by a workspace. A branch-mode workspace's
+    /// own compiled branch base is consulted first (WS-3).
     #[must_use]
     pub fn workspace_base(&self, id: &str) -> Option<&CompiledWorld> {
+        if let Some(base) = self.branch_bases.get(id) {
+            return Some(&base.world);
+        }
         let base_name = self.workspace_bases.get(id)?;
         self.base_named(base_name).map(|base| &base.world)
     }
 
-    /// The source documents selected by a workspace.
+    /// The source documents selected by a workspace. A branch-mode
+    /// workspace's own reconstructed branch documents are consulted first
+    /// (WS-3).
     #[must_use]
     pub fn workspace_base_docs(&self, id: &str) -> Option<&[Document]> {
+        if let Some(base) = self.branch_bases.get(id) {
+            return Some(base.documents.as_slice());
+        }
         let base_name = self.workspace_bases.get(id)?;
         self.base_named(base_name)
             .map(|base| base.documents.as_slice())
@@ -562,10 +711,41 @@ impl Store {
             })
     }
 
-    /// Discard a whole workspace, returning whether one was present.
+    /// Discard a whole workspace, returning whether one was present. Clears
+    /// the workspace's compiled branch base too (WS-3), if it had one — a
+    /// fresh `author.open` against the same branch reconstructs it again from
+    /// the (possibly since-advanced) branch head rather than reusing a stale
+    /// compile.
     pub fn discard(&mut self, id: &str) -> bool {
         self.workspace_bases.remove(id);
+        self.branch_bases.remove(id);
         self.workspaces.remove(id).is_some()
+    }
+
+    /// The base key (project document / lorestore id) a workspace was opened
+    /// against — the key `workspace_lorestore` resolves through. Used by
+    /// `author.branch`'s `delete` action to scope its "any open workspace
+    /// still targets this branch" guard to the SAME lorestore the branch
+    /// lives in (branch names are scoped per lorestore, so a same-named
+    /// branch in a different document's store is unrelated).
+    #[must_use]
+    pub fn base_key_for(&self, id: &str) -> Option<&str> {
+        self.workspace_bases.get(id).map(String::as_str)
+    }
+
+    /// Whether any currently open workspace targets `branch` within
+    /// `base_key`'s lorestore (WS-3). `author.branch`'s `delete` action
+    /// refuses while this holds — deleting the ref out from under a live
+    /// authoring session would strand its next read/write.
+    #[must_use]
+    pub fn branch_has_open_workspace(&self, base_key: &str, branch: &str) -> bool {
+        self.workspaces.values().any(|ws| {
+            ws.target_branch.as_deref() == Some(branch)
+                && self
+                    .workspace_bases
+                    .get(&ws.id)
+                    .is_some_and(|key| key == base_key)
+        })
     }
 
     fn base_named(&self, name: &str) -> Option<&Base> {

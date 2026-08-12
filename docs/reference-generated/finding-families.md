@@ -7,14 +7,14 @@ verdict: "The finding-code catalogue: 204 stable dotted `family.item` codes acro
 
 # Finding families
 
-Every graded finding carries a stable, dotted `family.item` code (charter koan 9, *errors are lore*). The code is the contract a benchmark, a repair tool, or a downstream consumer matches on — it is stable across message wording. This page catalogues every code the system emits: its family (the check or tool that raises it), its severity, the machine-repair kind it carries (Door-T authoring findings only), and what it means.
+Every graded finding carries a stable, dotted `family.item` code (charter koan 9, *errors are lore*). The code is the contract a benchmark, a repair tool, or a downstream consumer matches on — it is stable across message wording. This page catalogues every code the system emits: its family (the check or tool that raises it), its severity, the machine-repair kind it carries (authoring-seam findings only), and what it means.
 
 These finding codes are **disjoint** from the wire error-code registry (the 13 `ErrorCode` values in `error-codes.md`, per the dli-worker contract §3.2 / §9). The distinction is load-bearing: a wire error code says the *call* failed — it was malformed (`schema`), refused by principle (`refused`), or hit a server defect (`internal`); a finding code is a graded *domain* observation about the lore itself. A well-formed call over inconsistent lore returns findings, not an error. No code appears in both sets.
 
-**204 dotted codes** across **15 families**, plus **4 `proof.resource-violation` sub-codes**. A `family.item` code names its check battery in the family and the specific violation in the item. Two codes can share a stem across families — the naming vet's `name.register-fit` (a kernel error) and Door T's `name.unvetted` (an authoring warn) are different findings from different surfaces.
+**204 dotted codes** across **15 families**, plus **4 `proof.resource-violation` sub-codes**. A `family.item` code names its check battery in the family and the specific violation in the item. Two codes can share a stem across families — the naming vet's `name.register-fit` (a kernel error) and the authoring seam's `name.unvetted` (an authoring warn) are different findings from different surfaces.
 
 
-> Note: severity is a property of the emitting site. Kernel check findings (`load`, `continuity`, `proof`, `practice`, `attest`, `name`, `citation`) carry no machine repair — read the message. Only the Door-T `author.*` findings carry structured repairs, which is what makes `author.materialize` gateable.
+> Note: severity is a property of the emitting site. Kernel check findings (`load`, `continuity`, `proof`, `practice`, `attest`, `name`, `citation`) carry no machine repair — read the message. Only the authoring seam's `author.*` findings carry structured repairs, which is what makes `author.materialize` gateable.
 
 ## load — the loader's fail-closed gate
 
@@ -56,7 +56,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 - **Emitted by:** the world-true half of the naming oracle, run by `dli.name.check` and the language layer of `check`
 - **Owner:** `dli-world :: language/derivation.rs (LangFinding)`
-- **Severity:** Mixed: structural, register, uniqueness, morphology, and banned-token violations are errors; aural clashes, set clashes, sayability, and confusables are warnings. (Distinct from the Door-T `name.unvetted` finding below.)
+- **Severity:** Mixed: structural, register, uniqueness, morphology, and banned-token violations are errors; aural clashes, set clashes, sayability, and confusables are warnings. (Distinct from the authoring-seam `name.unvetted` finding below.)
 
 | Code | Severity | Repair | Meaning |
 |---|---|---|---|
@@ -152,7 +152,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 ## factcheck — payload claim standing
 
-- **Emitted by:** the claim-relative certain-layer checks inside `check-draft` and Door T
+- **Emitted by:** the claim-relative certain-layer checks inside `check-draft` and the authoring seam
 - **Owner:** `dli-world :: payload.rs + check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs`
 - **Severity:** All error: supported claims are silent; only contradicted and unsupported claims emit findings.
 
@@ -254,9 +254,9 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 |---|---|---|---|
 | `citation.unknown-decision` | error | — | a claim cites a decision the corpus never declares; the claim is failed closed. |
 
-## author — Door-T authoring findings
+## author — authoring-seam findings
 
-- **Emitted by:** the `author.*` MCP tools (Door T)
+- **Emitted by:** the `author.*` MCP tools (the authoring seam)
 - **Owner:** `dli-serve :: author/tools.rs + author/reads.rs (Finding)`
 - **Severity:** Per-code severity gates `author.materialize`: an `error` blocks it, a `warn` passes. These are the findings that carry structured machine repairs.
 

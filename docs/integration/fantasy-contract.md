@@ -274,7 +274,7 @@ key exists at all — on a default build it is the only name a declaration has.
 
 | Tool | Purpose | Mutating |
 |---|---|---|
-| `author.open` | Open a workspace (a staging fork) over the world. | yes (creates) |
+| `author.open` | Open a workspace (a staging fork) over the world; `branch` (**≥ `1.7.0`**) opens against a named branch head instead of `main`. | yes (creates) |
 | `author.status` | The workspace's staged declarations and open findings. | no |
 | `author.diff` | The structured review diff — per-fact `rows` with before/after standing, from `0.6.0` — with the full findings and derived consequences, including merely-possible status; the `.dli` rendering is a view of it. | no |
 | `author.discard` | Discard the workspace, or one staged declaration — the **reject** decision. | yes |
@@ -292,9 +292,9 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.check` | Run the full check battery over the workspace and return findings. | read |
 | `author.why` | Explain why a fact holds: provenance chain + grade derivation. | read |
 | `author.findings` | Return all outstanding findings for the workspace. | read |
-| `author.list_workspaces` | List open workspaces and their summary status. | read |
-| `author.branch` | Create a persistent lorestore branch, or list them (added at `0.6.1`). | yes (`create`) |
-| `author.merge` | Merge a named branch into the target branch (default `main`); returns the merge commit, the merge base, structural conflicts, and findings (added at `0.6.1`). | yes |
+| `author.list_workspaces` | List open workspaces and their summary status; each row's `branch` (**≥ `1.7.0`**) names the branch it targets, if any. | read |
+| `author.branch` | Create a persistent lorestore branch, list them, or (**≥ `1.7.0`**) `delete` one; `create`/`delete` accept an `expected_ref` fence and the result carries per-branch `heads` (added at `0.6.1`). | yes (`create`, `delete`) |
+| `author.merge` | Merge a named branch into the target branch (default `main`); returns the merge commit, the merge base, structural conflicts, and findings. **≥ `1.7.0`**: `dry_run` inspects the merge without committing it (the same content-addressed commit a later real merge produces), and `expected_ref` fences the target (added at `0.6.1`). | yes |
 | `author.add_dialect` | **≥ `1.3.0`.** Declare a dialect — the explicit register `dli.name.check` vets against. | yes |
 | `author.add_name_part` | **≥ `1.3.0`.** Declare a name part (a morpheme a name is built from). | yes |
 | `author.add_name` | **≥ `1.3.0`.** Declare a name, optionally from declared parts, in a declared dialect. | yes |
@@ -455,17 +455,40 @@ decoupled, and the compatibility window carries the consumer across.
   from `1.6.0` up, so a `1.5.0`-or-earlier caller's capability list is
   byte-identical to what it was; nothing else on the wire moves.
 - **`1.7.0` — in progress.** The wire-surface-completion campaign window
-  (`decisions.md` DL-0077) opens the version. This scaffolding step adds
-  **zero new operations** — the inventory stays at 60, and a `1.7.0`
-  handshake's capability list is byte-identical to `1.6.0`'s — but the
-  version is now accepted, and the three floor predicates the campaign's
-  additions will gate on (`has_identity_assertions`, `has_rule_authoring`,
-  `has_branch_writes`) exist from this commit. Every pre-`1.7.0` wire stays
-  byte-identical. The campaign's actual surface — coreference
-  (`author.assert_same_as`), rule authoring (`author.add_rule`), and
-  branch-scoped write routing (params on the existing `author.open`,
-  `author.merge`, `author.branch`) — lands with each feature's own PR and
-  updates this section when it does.
+  (`decisions.md` DL-0077) opens the version. The scaffolding step added
+  **zero new operations** — the inventory stayed at 60, and a `1.7.0`
+  handshake's capability list was byte-identical to `1.6.0`'s — but the
+  version was accepted, and the three floor predicates the campaign's
+  additions gate on (`has_identity_assertions`, `has_rule_authoring`,
+  `has_branch_writes`) existed from that commit. Every pre-`1.7.0` wire stays
+  byte-identical.
+
+  **Branch-scoped writes (WS-3) have landed**, params-only — the inventory is
+  still 60 ops. `author.open` gained `branch: Option<String>`: it routes the
+  workspace's reads and every subsequent write (`materialize`,
+  `set_standing`, `defeat`) to that branch's own ref instead of `main`, and
+  echoes it back on the result and on `author.list_workspaces` rows, all
+  gated `has_branch_writes` (≥ `1.7.0`; a schema violation below it).
+  `author.merge` gained `dry_run: Option<bool>` (writes the same
+  content-addressed merge commit a real merge would and runs the full
+  conflict scan, but skips the target-ref CAS — a later real merge of the
+  same two heads produces the identical commit hash) and
+  `expected_ref: Option<String>` (fences the target branch's whole-ref
+  digest). `author.branch` gained the `delete` action (pointer removal only;
+  refuses `main` and refuses while any open workspace still targets the
+  branch) and an `expected_ref` fence on `create`/`delete`; its result gained
+  `heads: Option<Vec<{name, commit, ref_digest}>>`. `author.branch`/
+  `author.merge` now accept the envelope's `expected_digest`/
+  `idempotency_key` fences from `1.7.0` up (a retry with the same
+  idempotency key replays instead of re-executing). The certain-class
+  conflict that previously needed raw lorestore access to construct is now
+  wire-only: `author.defeat` on a branch, citing a new decision, rules the
+  base's supporting decision false on that branch's own ref valuation;
+  citing the new decision for a rival value and materializing succeeds
+  there; merging surfaces the certain-layer conflict.
+
+  Coreference (`author.assert_same_as`) and rule authoring (`author.add_rule`)
+  land with their own PRs and update this section when they do.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

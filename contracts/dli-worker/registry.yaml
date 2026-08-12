@@ -81,6 +81,8 @@ fixtures:
   sha256: 5760d9ce56e7be612155f4237a0f5b3e7fbb342d67720bfc9085a0db0aafc027
 - path: golden/author-branch-v1.json
   sha256: 4aa32ae0aa099071c2717c78516acacb2467f6ef2f6ae2b26c10aa3be4e59162
+- path: golden/author-branch-writes-v1.json
+  sha256: 13b99c7561d7af7b99aeba85c7e68c0345a1d7673c9ae4bce638ddd1b2b8fa3f
 - path: golden/author-check-v1.json
   sha256: 1f0588d5c7516e8a3de3fc714ce6227031bec7423ea0154d2d15761b7a46e001
 - path: golden/author-discard-v1.json
@@ -245,6 +247,8 @@ fixtures:
   sha256: e45ca54970914f7ae232cffcdbdf8e63d48521c4e14da746fcd04303c71d0c7a
 - path: negative/author-set-standing-schema-violation.json
   sha256: 35d53e5fac71f80eb8feddf86023b9e1efe8d92610ac637d9188f920225b83be
+- path: negative/author-open-branch-below-1-7-0.json
+  sha256: 067c0c0fb8fb7fe21feccb352d0d2eb0575d96f8f846ce3378d819bd3047ec51
 - path: negative/author-open-question-schema-violation.json
   sha256: 4c473f8136c823c975f390dae89db63297b62f13e29d5ab8aae0683e80315e34
 - path: negative/author-open-schema-violation.json

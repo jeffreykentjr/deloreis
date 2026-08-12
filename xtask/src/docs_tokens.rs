@@ -54,6 +54,12 @@ const ALLOWED_FILES: &[&str] = &[
     "docs/design-notes/audit-remediation-plan.md",
     "docs/design-notes/audit-validation-2026-07.md",
     "docs/design-notes/bench-deferral.md",
+    // Cites the two live TPtH consumer artifacts (`worlds/tpth/time/cycles.dli`,
+    // `worlds/tpth/practices/spoken-proof.dli`) as evidence for the `over
+    // order`/`over season` open-gap ruling (WS-6, DL-0079) — the same
+    // world-names-as-evidence shape `tpth-separation-plan.md` and
+    // `vendored-corpus.md` are already allowlisted for.
+    "docs/design-notes/dli-only-forms-audit.md",
 ];
 
 /// The marker that makes a paragraph a worldbook cross-link: a `docs/worlds/tpth/`

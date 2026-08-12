@@ -4,6 +4,20 @@
   "description": "`author.merge` params: merge `source` into `target` (default `main`).",
   "type": "object",
   "properties": {
+    "dry_run": {
+      "description": "Inspect the merge without committing it (WS-3, ≥ contract 1.7.0): writes\nthe same content-addressed merge commit a real merge would (so a later\nreal merge of the same two heads produces the identical hash) and runs\nthe full conflict scan, but skips the target-ref CAS — nothing\nobservable moves. A schema violation below 1.7.0.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "expected_ref": {
+      "description": "Fence the TARGET branch's whole-ref digest (WS-3, ≥ contract 1.7.0). A\nmismatch is `stale-fence`. A schema violation below 1.7.0.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "source": {
       "description": "The branch merged in.",
       "type": "string"

@@ -366,8 +366,8 @@ fn demo_source_fingerprint(document: &str) -> Option<String> {
 /// The pack is reconstructed from the demo's **committed fact objects**
 /// ([`crate::demo`]) — the same read path any lorestore-backed corpus takes — so
 /// no `.dli` text is parsed to serve a demo (roadmap §LS-7). It is the single
-/// source both the read surface ([`Sessions::scope`]) and the Door T store
-/// (`serve`'s `with_pack` construction) resolve a demo corpus through.
+/// source both the read surface ([`Sessions::scope`]) and the authoring seam's
+/// store (`serve`'s `with_pack` construction) resolve a demo corpus through.
 #[must_use]
 pub fn builtin_pack(document: &str) -> Option<Pack> {
     demo::pack(document)

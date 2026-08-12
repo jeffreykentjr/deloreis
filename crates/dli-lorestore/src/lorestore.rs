@@ -297,6 +297,41 @@ impl Lorestore {
             .cas_ref(&branch_ref_name(branch), expected, new)
     }
 
+    /// Delete a branch ref (WS-3, `author.branch`'s `delete` action). Pointer
+    /// removal only: the branch's commits, and every fact object they name,
+    /// stay in the content-addressed store — reachable by hash even though no
+    /// ref reaches them anymore. Orphaning them is harmless under the
+    /// append-only design (DL-0077 defers GC to a future ruling if stores grow).
+    ///
+    /// Whether `main` may be named here, and whether an open workspace still
+    /// targeting the branch should block the delete, are wire-level policy —
+    /// checked by the caller (`author.branch`'s tool implementation) before
+    /// this is reached, not re-checked here: this method's only job is the
+    /// mechanical existence check, the fence, and the removal.
+    ///
+    /// `expected_ref`, when supplied, fences the branch's whole-ref digest
+    /// under the same lock — a caller's stale snapshot is refused rather than
+    /// deleting out from under a concurrent writer.
+    pub fn delete_branch(&self, name: &str, expected_ref: Option<&str>) -> Result<(), StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        let ref_name = branch_ref_name(name);
+        let current = self
+            .storage
+            .load_ref(&ref_name)?
+            .ok_or_else(|| StoreError::NotFound(format!("branch `{name}` does not exist")))?;
+        if let Some(expected_ref) = expected_ref {
+            let actual = current.digest()?.0;
+            if actual != expected_ref {
+                return Err(StoreError::RefSnapshotConflict {
+                    name: ref_name,
+                    expected: expected_ref.to_owned(),
+                    found: Some(actual),
+                });
+            }
+        }
+        self.storage.delete_ref(&ref_name)
+    }
+
     /// Commit a new `Commit` to the `main` branch.
     ///
     /// Verifies that every referenced fact, lineage-edge, and evidence-envelope
@@ -829,12 +864,65 @@ impl Lorestore {
         target: &str,
         source: &str,
     ) -> Result<crate::merge::MergeReport, StoreError> {
+        self.merge_impl(target, source, true, None)
+    }
+
+    /// Merge `source` into `target`, choosing whether to advance the target
+    /// ref and whether to fence it (WS-3, `author.merge`'s `dry_run` and
+    /// `expected_ref`).
+    ///
+    /// `advance = false` writes the same content-addressed merge commit
+    /// object a real merge would — a later real merge of the same two heads
+    /// produces the identical hash, since the write is pure data, not a CAS —
+    /// and runs the full conflict scan against it, but skips the target-ref
+    /// CAS, so nothing observable moves. This is the derived-layer conflict
+    /// inspection: branch-vs-branch, with no commitment.
+    ///
+    /// `expected_ref`, checked under the same store lock the whole operation
+    /// runs under, fences the TARGET's whole-ref digest — applies whether or
+    /// not `advance` is set, so a dry run and the real merge that follows it
+    /// can both be pinned to the same caller-observed snapshot. A mismatch is
+    /// refused before either the commit write or the CAS, exactly like
+    /// [`commit_on_branch_at_ref`](Self::commit_on_branch_at_ref)'s own fence.
+    pub fn merge_with(
+        &self,
+        target: &str,
+        source: &str,
+        advance: bool,
+        expected_ref: Option<&str>,
+    ) -> Result<crate::merge::MergeReport, StoreError> {
+        self.merge_impl(target, source, advance, expected_ref)
+    }
+
+    /// The shared merge body behind [`merge`](Self::merge) and
+    /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
+    /// the fact-hash union, the merge-commit write, and the conflict scan —
+    /// runs identically regardless of `advance`, so a dry run and its later
+    /// real merge (same two heads) write the same merge commit and report the
+    /// same conflicts.
+    fn merge_impl(
+        &self,
+        target: &str,
+        source: &str,
+        advance: bool,
+        expected_ref: Option<&str>,
+    ) -> Result<crate::merge::MergeReport, StoreError> {
         let _lock = self.storage.acquire_lock()?;
 
         let target_ref = self
             .storage
             .load_ref(&branch_ref_name(target))?
             .ok_or_else(|| StoreError::NotFound(format!("branch `{target}` does not exist")))?;
+        if let Some(expected_ref) = expected_ref {
+            let actual = target_ref.digest()?.0;
+            if actual != expected_ref {
+                return Err(StoreError::RefSnapshotConflict {
+                    name: branch_ref_name(target),
+                    expected: expected_ref.to_owned(),
+                    found: Some(actual),
+                });
+            }
+        }
         let source_ref = self
             .storage
             .load_ref(&branch_ref_name(source))?
@@ -888,28 +976,33 @@ impl Lorestore {
         let merge_hash = storage::write_typed(&*self.storage, &merge_commit)?;
 
         // Advance the target branch to the merge commit, carrying the union
-        // overlay (target wins on disagreement — reported, never silent).
+        // overlay (target wins on disagreement — reported, never silent). A
+        // dry run (`advance = false`) skips the CAS: the commit object above is
+        // already durably written (content-addressed, so writing it is never
+        // itself the commitment), but no ref moves to point at it.
         let merged_valuation =
             crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
-        let new_ref = Ref::with_valuation(
-            branch_ref_name(target),
-            merge_hash.clone(),
-            merged_valuation.clone(),
-        );
-        let expected_token = Some(target_ref.digest()?.0);
-        if !self.storage.cas_ref(
-            &branch_ref_name(target),
-            expected_token.as_deref(),
-            &new_ref,
-        )? {
-            return Err(StoreError::CasConflict {
-                name: branch_ref_name(target),
-                expected: Some(target_head.0.clone()),
-                found: self
-                    .storage
-                    .load_ref(&branch_ref_name(target))?
-                    .map(|r| r.commit.0),
-            });
+        if advance {
+            let new_ref = Ref::with_valuation(
+                branch_ref_name(target),
+                merge_hash.clone(),
+                merged_valuation.clone(),
+            );
+            let expected_token = Some(target_ref.digest()?.0);
+            if !self.storage.cas_ref(
+                &branch_ref_name(target),
+                expected_token.as_deref(),
+                &new_ref,
+            )? {
+                return Err(StoreError::CasConflict {
+                    name: branch_ref_name(target),
+                    expected: Some(target_head.0.clone()),
+                    found: self
+                        .storage
+                        .load_ref(&branch_ref_name(target))?
+                        .map(|r| r.commit.0),
+                });
+            }
         }
 
         // Detect the three conflict classes over the merged state.

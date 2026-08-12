@@ -1,4 +1,4 @@
-//! AUTH-2: the migration guide's worked Door-T scenario against the pinned
+//! AUTH-2: the migration guide's worked authoring-seam scenario against the pinned
 //! `TPtH` corpus. The golden exchange is world-owned under `worlds/tpth/auth2`;
 //! the consumer-owned CP-10 transcript remains EXT-F4.
 #![allow(clippy::unwrap_used, clippy::expect_used)]

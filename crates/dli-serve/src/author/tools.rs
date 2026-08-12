@@ -1,4 +1,4 @@
-//! Door T tools (`AUTH-1`): the fourteen `author.*` tools and their immediate
+//! The authoring seam's tools (`AUTH-1`): the fourteen `author.*` tools and their immediate
 //! graded findings.
 //!
 //! Each tool lowers an agent intent to typed AST, stages it over the workspace's
@@ -44,8 +44,8 @@ use crate::contract::{
     AuthorDeclareFunctionalParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
     AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
     AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, DiffConflict,
-    EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
+    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
+    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -62,7 +62,26 @@ use super::workspace::{Mode, Workspace};
 /// Open a workspace over the store's base, in `scope` or `fork` mode (spec 11
 /// §2). The `scope` param stages over an existing scope (a pack, in DL-0016's
 /// renamed surface); `fork` opens a fork-scoped workspace.
-pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value, ErrorBody> {
+///
+/// `branch` (WS-3, ≥ contract 1.7.0 — `branch_writes` gates it) opens the
+/// workspace against a named branch head instead of the project document's
+/// main lorestore ref: it requires `scope` (branch + fork is refused — there
+/// is no third meaning of "fork"), an attached lorestore
+/// ([`ErrorCode::ProjectRequired`]), and an existing branch
+/// ([`ErrorCode::UnknownDoc`], naming the branch). Below 1.7.0, supplying
+/// `branch` at all is a schema violation — the same "explicit version check
+/// in the open arm" shape the provenance.state gate in `precheck` already
+/// uses.
+pub(super) fn open(
+    store: &mut Store,
+    params: &AuthorOpenParams,
+    branch_writes: bool,
+) -> Result<Value, ErrorBody> {
+    if params.branch.is_some() && !branch_writes {
+        return Err(schema_error(
+            "field `branch` is defined only by contract 1.7.0 branch-scoped writes",
+        ));
+    }
     let (mode, base_name) = match (&params.scope, &params.fork) {
         (Some(scope), None) => (Mode::Scope, scope.clone()),
         (None, Some(fork)) => (Mode::Fork, fork.clone()),
@@ -72,17 +91,37 @@ pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value
             ));
         }
     };
+    if params.branch.is_some() && matches!(mode, Mode::Fork) {
+        return Err(schema_error(
+            "author.open's `branch` requires `scope`; a fork workspace does not target a branch",
+        ));
+    }
     let ws = store
-        .open(mode, base_name.clone())
-        .ok_or_else(|| ErrorBody {
-            code: ErrorCode::UnknownDoc,
-            message: format!("no project document named \"{base_name}\" is loaded"),
-            data: None,
-        })?;
+        .open(mode, base_name, params.branch.clone())
+        .map_err(|err| open_error(&err))?;
     Ok(value(&AuthorOpenResult {
         workspace: ws.id.clone(),
         workspace_digest: ws.digest.clone(),
+        branch: branch_writes.then(|| ws.target_branch.clone()).flatten(),
     }))
+}
+
+/// Map a [`super::store::OpenError`] to its wire error. `UnknownDoc` keeps
+/// the pre-1.7.0 message byte-for-byte (the error type's `Display` impl
+/// carries it verbatim); the three branch-specific outcomes are new (WS-3).
+fn open_error(err: &super::store::OpenError) -> ErrorBody {
+    use super::store::OpenError as OE;
+    let message = err.to_string();
+    let code = match err {
+        OE::UnknownDoc(_) | OE::UnknownBranch(_) => ErrorCode::UnknownDoc,
+        OE::ProjectRequired => ErrorCode::ProjectRequired,
+        OE::BranchCompile(_) => ErrorCode::Internal,
+    };
+    ErrorBody {
+        code,
+        message,
+        data: None,
+    }
 }
 
 // -- author.status / author.diff (read-only) ---------------------------------
@@ -332,6 +371,7 @@ pub(super) fn materialize(
         ws_digest,
         pinned,
         base_ref_digest,
+        target_ref,
     ) = {
         let ws = store.get(&params.workspace).ok_or_else(gone)?;
         (
@@ -349,6 +389,7 @@ pub(super) fn materialize(
             ws.digest.clone(),
             ws.base_root_hash.clone(),
             ws.base_ref_digest.clone(),
+            target_ref_name(ws).to_owned(),
         )
     };
 
@@ -411,7 +452,7 @@ pub(super) fn materialize(
 
     let receipt = ls
         .commit_on_branch_at_ref(
-            dli_lorestore::MAIN_REF,
+            &target_ref,
             base_ref_digest.as_deref(),
             ws_interner,
             staged_fact_hashes.clone(),
@@ -2072,7 +2113,7 @@ fn ident(text: &str) -> Ident {
 }
 
 /// Preserve a compact token as a symbol; render every other caller value as a
-/// quoted string so Door T can never claim malformed text is canonical.
+/// quoted string so the authoring seam can never claim malformed text is canonical.
 fn author_value(text: &str) -> Term {
     let symbol = !text.is_empty()
         && !text.starts_with('$')
@@ -2145,7 +2186,14 @@ fn durable_standing_change(
     defeated_decision: Option<&str>,
 ) -> Result<Value, ErrorBody> {
     let defeating = defeated_decision.is_some();
-    let digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
+    let ws0 = store.get(workspace).ok_or_else(gone)?;
+    let digest = ws0.digest.clone();
+    // Captured once, owned: every write site below used to hardcode `main`
+    // (`dli_lorestore::MAIN_REF`); this is WS-3's routing, `target_ref_name`
+    // read while `ws0` is still a live immutable borrow of `store`, then held
+    // as an owned `String` so it survives the mutable `workspace_lorestore`
+    // borrows further down.
+    let target_branch = target_ref_name(ws0).to_owned();
     let Some(_) = store.workspace_lorestore(workspace) else {
         return Err(schema_error(
             "standing operations require an attached lorestore",
@@ -2156,12 +2204,20 @@ fn durable_standing_change(
         let ls = store
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above");
-        let head = ls.root_hash().map_err(|error| store_fault(&error))?;
-        let head = head.ok_or_else(|| schema_error("the lorestore has no head commit"))?;
+        // The pre-image this whole read step is against must be the WORKSPACE's
+        // own target branch, not `main` — `root_hash()` is hardcoded to `main`
+        // (WS-3 leakage: a branch-authored claim would read `unknown-doc`, and a
+        // branch-only ratified decision would read `citation.unknown-decision`,
+        // both because the lookup below would walk main's fact set instead of
+        // the branch's). `head_ref` already reads the correct branch; derive
+        // `head` from ITS commit rather than a second, main-only read.
         let head_ref = ls
-            .branch_ref(dli_lorestore::MAIN_REF)
+            .branch_ref(&target_branch)
             .map_err(|error| store_fault(&error))?
-            .ok_or_else(|| schema_error("the lorestore has no main ref"))?;
+            .ok_or_else(|| {
+                schema_error("the lorestore has no ref for this workspace's target branch")
+            })?;
+        let head = head_ref.commit.clone();
         let pack_name = ls
             .head_pack_name()
             .map_err(|error| store_fault(&error))?
@@ -2305,7 +2361,7 @@ fn durable_standing_change(
         );
         let receipt = ls
             .commit_on_branch_at_ref(
-                dli_lorestore::MAIN_REF,
+                &target_branch,
                 Some(
                     &head_ref
                         .digest()
@@ -2328,15 +2384,20 @@ fn durable_standing_change(
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above");
         let current = ls
-            .branch_ref(dli_lorestore::MAIN_REF)
+            .branch_ref(&target_branch)
             .map_err(|error| store_fault(&error))?
-            .ok_or_else(|| schema_error("the lorestore main ref disappeared"))?;
+            .ok_or_else(|| {
+                schema_error("the lorestore ref for this workspace's target branch disappeared")
+            })?;
         let mut valuation = current.valuation;
         valuation.set(defeat_atom.expect("defeat carries an atom"), false);
-        let updated =
-            dli_lorestore::Ref::with_valuation(dli_lorestore::MAIN_REF, commit.clone(), valuation);
+        let updated = dli_lorestore::Ref::with_valuation(
+            dli_lorestore::branch_ref_name(&target_branch),
+            commit.clone(),
+            valuation,
+        );
         if !ls
-            .cas_main_ref(Some(ref_digest.as_str()), &updated)
+            .cas_branch_ref(&target_branch, Some(ref_digest.as_str()), &updated)
             .map_err(|error| store_fault(&error))?
         {
             return Err(ErrorBody {
@@ -2352,8 +2413,10 @@ fn durable_standing_change(
     let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     let current_ref = store
         .workspace_lorestore(workspace)
-        .and_then(|ls| ls.branch_ref(dli_lorestore::MAIN_REF).ok().flatten())
-        .ok_or_else(|| schema_error("the lorestore main ref disappeared"))?;
+        .and_then(|ls| ls.branch_ref(&target_branch).ok().flatten())
+        .ok_or_else(|| {
+            schema_error("the lorestore ref for this workspace's target branch disappeared")
+        })?;
     let new_ref_digest = current_ref
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
@@ -2416,7 +2479,7 @@ fn dedup(codes: impl IntoIterator<Item = String>) -> Vec<String> {
 }
 
 /// The pre-scrub refusal a claim-bearing tool returns when a caller supplies
-/// `cited` provenance (R3/B1): below contract 1.3.0, Door T authors `proposed`
+/// `cited` provenance (R3/B1): below contract 1.3.0, the authoring seam authors `proposed`
 /// or `hypothesis` only, so a citation is refused as an error-severity finding
 /// and **nothing is staged**.
 ///
@@ -2540,10 +2603,28 @@ fn unknown_decl(decl_id: &str) -> ErrorBody {
 
 // -- author.branch / author.merge (LS-6, contract 0.6.1) ---------------------
 
-/// `author.branch`: create a persistent branch, or list them. Operates on the
-/// lorestore backing the workspace's base — branches are durable divergent lines
-/// of writes, so a store without a lorestore refuses (demo mode).
-pub(super) fn branch(store: &Store, params: &AuthorBranchParams) -> Result<Value, ErrorBody> {
+/// `author.branch`: create a persistent branch, list them, or delete one
+/// (`delete`, WS-3, ≥ contract 1.7.0). Operates on the lorestore backing the
+/// workspace's base — branches are durable divergent lines of writes, so a
+/// store without a lorestore refuses (demo mode).
+pub(super) fn branch(
+    store: &Store,
+    params: &AuthorBranchParams,
+    branch_writes: bool,
+) -> Result<Value, ErrorBody> {
+    if !branch_writes {
+        if params.expected_ref.is_some() {
+            return Err(schema_error(
+                "field `expected_ref` is defined only by contract 1.7.0 branch-scoped writes",
+            ));
+        }
+        if matches!(params.action, BranchAction::Delete) {
+            return Err(schema_error(
+                "action `delete` is defined only by contract 1.7.0 branch-scoped writes",
+            ));
+        }
+    }
+    let base_key = store.base_key_for(&params.workspace).map(str::to_owned);
     let lorestore = store
         .workspace_lorestore(&params.workspace)
         .ok_or_else(no_lorestore)?;
@@ -2556,25 +2637,134 @@ pub(super) fn branch(store: &Store, params: &AuthorBranchParams) -> Result<Value
                 data: None,
             })?;
             let from = params.from.as_deref().unwrap_or("main");
+            if let Some(expected_ref) = &params.expected_ref {
+                fence_branch_ref(lorestore, from, expected_ref)?;
+            }
             lorestore
                 .create_branch(name, from)
                 .map_err(|e| store_error(&e))?;
             Some(name.to_owned())
         }
+        BranchAction::Delete => {
+            let name = params.name.as_deref().ok_or_else(|| ErrorBody {
+                code: ErrorCode::SchemaViolation,
+                message: "author.branch `delete` requires a `name`".to_owned(),
+                data: None,
+            })?;
+            if name == dli_lorestore::MAIN_REF {
+                return Err(schema_error("the `main` branch cannot be deleted"));
+            }
+            if let Some(base_key) = &base_key
+                && store.branch_has_open_workspace(base_key, name)
+            {
+                return Err(ErrorBody {
+                    code: ErrorCode::Conflict,
+                    message: format!(
+                        "branch `{name}` has an open workspace targeting it; discard or materialize it first"
+                    ),
+                    data: None,
+                });
+            }
+            lorestore
+                .delete_branch(name, params.expected_ref.as_deref())
+                .map_err(|e| store_error(&e))?;
+            None
+        }
     };
     let branches = lorestore.list_branches().map_err(|e| store_error(&e))?;
-    to_value(&AuthorBranchResult { branches, created })
+    let heads = branch_writes.then(|| branch_heads(lorestore, &branches));
+    to_value(&AuthorBranchResult {
+        branches,
+        created,
+        heads,
+    })
+}
+
+/// Every listed branch's head commit and ref digest (WS-3) — a branch that
+/// vanished or lost its ref between the list and this read is skipped rather
+/// than failing the whole call; the list itself is the authority on what
+/// exists.
+fn branch_heads(lorestore: &dli_lorestore::Lorestore, branches: &[String]) -> Vec<BranchHead> {
+    branches
+        .iter()
+        .filter_map(|name| {
+            let r = lorestore.branch_ref(name).ok().flatten()?;
+            let digest = r.digest().ok()?;
+            Some(BranchHead {
+                name: name.clone(),
+                commit: r.commit.to_string(),
+                ref_digest: digest.0,
+            })
+        })
+        .collect()
+}
+
+/// Fence `branch`'s current whole-ref digest against `expected_ref` (WS-3):
+/// `author.branch`'s `create` fences its FROM branch this way (`delete`
+/// fences its own target through `Lorestore::delete_branch` instead, since
+/// that check has to run under the same lock as the removal).
+fn fence_branch_ref(
+    lorestore: &dli_lorestore::Lorestore,
+    branch: &str,
+    expected_ref: &str,
+) -> Result<(), ErrorBody> {
+    let current = lorestore
+        .branch_ref(branch)
+        .map_err(|e| store_error(&e))?
+        .ok_or_else(|| ErrorBody {
+            code: ErrorCode::UnknownDoc,
+            message: format!("no branch named \"{branch}\" exists"),
+            data: None,
+        })?;
+    let digest = current.digest().map_err(|e| schema_error(e.to_string()))?.0;
+    if digest != expected_ref {
+        return Err(ErrorBody {
+            code: ErrorCode::StaleFence,
+            message: format!(
+                "branch `{branch}` is at ref digest {digest}; you presented {expected_ref}"
+            ),
+            data: None,
+        });
+    }
+    Ok(())
 }
 
 /// `author.merge`: merge a named branch into the current one (default `main`),
 /// returning the merge commit hash and the structural conflict report.
-pub(super) fn merge(store: &Store, params: &AuthorMergeParams) -> Result<Value, ErrorBody> {
+///
+/// `dry_run` (WS-3, ≥ contract 1.7.0) writes the same content-addressed merge
+/// commit a real merge would and runs the full conflict scan, but skips the
+/// target-ref CAS — the derived-layer conflict inspection, with no
+/// commitment. `expected_ref` fences the TARGET's whole-ref digest either way.
+pub(super) fn merge(
+    store: &Store,
+    params: &AuthorMergeParams,
+    branch_writes: bool,
+) -> Result<Value, ErrorBody> {
+    if !branch_writes {
+        if params.dry_run.is_some() {
+            return Err(schema_error(
+                "field `dry_run` is defined only by contract 1.7.0 branch-scoped writes",
+            ));
+        }
+        if params.expected_ref.is_some() {
+            return Err(schema_error(
+                "field `expected_ref` is defined only by contract 1.7.0 branch-scoped writes",
+            ));
+        }
+    }
     let lorestore = store
         .workspace_lorestore(&params.workspace)
         .ok_or_else(no_lorestore)?;
     let target = params.target.as_deref().unwrap_or("main");
+    let advance = params.dry_run != Some(true);
     let report = lorestore
-        .merge(target, &params.source)
+        .merge_with(
+            target,
+            &params.source,
+            advance,
+            params.expected_ref.as_deref(),
+        )
         .map_err(|e| store_error(&e))?;
     let result = AuthorMergeResult {
         merge_commit: report.merge_commit.to_string(),
@@ -2596,6 +2786,27 @@ pub(super) fn merge(store: &Store, params: &AuthorMergeParams) -> Result<Value, 
     to_value(&result)
 }
 
+/// The branch a workspace's writes route to (WS-3): `"main"` for every
+/// workspace opened without a `branch`, or the branch name itself for one
+/// opened WITH a branch (`author.open`'s `branch` param). The one seam every
+/// write site that used to hardcode `dli_lorestore::MAIN_REF` now threads
+/// through, so a branch workspace's existing `base_ref_digest` fence gives
+/// branch fencing for free — no new fence-checking code, just the right
+/// branch at each call.
+///
+/// This is the BARE branch name — what `Lorestore::branch_ref`,
+/// `commit_on_branch_at_ref`, and `cas_branch_ref` all call their `branch`
+/// parameter and qualify internally via `dli_lorestore::branch_ref_name`.
+/// The one exception is constructing a [`dli_lorestore::Ref`] directly
+/// (its `name` field IS the qualified storage path, matching how
+/// `Lorestore::merge_impl` builds one) — call
+/// `dli_lorestore::branch_ref_name(target_ref_name(ws))` there.
+fn target_ref_name(ws: &Workspace) -> &str {
+    ws.target_branch
+        .as_deref()
+        .unwrap_or(dli_lorestore::MAIN_REF)
+}
+
 /// The refusal when branches/merge are called against a store with no durable
 /// lorestore (the demo store) — a durable operation in explicit demo mode.
 fn no_lorestore() -> ErrorBody {
@@ -2615,6 +2826,11 @@ fn store_error(err: &dli_lorestore::StoreError) -> ErrorBody {
         SE::BranchExists { .. } | SE::InternerRegression { .. } | SE::CasConflict { .. } => {
             ErrorCode::Conflict
         }
+        // WS-3: `author.merge`'s `expected_ref` and `author.branch`
+        // `delete`'s `expected_ref` both surface as this variant when a
+        // caller's snapshot has gone stale — the same code `materialize`'s
+        // own `RefSnapshotConflict` mapping already uses.
+        SE::RefSnapshotConflict { .. } => ErrorCode::StaleFence,
         _ => ErrorCode::Internal,
     };
     ErrorBody {

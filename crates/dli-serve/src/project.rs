@@ -975,7 +975,7 @@ fn reject_duplicate_decls(
                 &fork.question.text,
                 &mut *fork_owners,
                 "fork",
-                "a Door-T fork must have one document owner",
+                "a tool-surface fork must have one document owner",
             ),
             Decl::Dialect(dialect) => (
                 &dialect.name.text,

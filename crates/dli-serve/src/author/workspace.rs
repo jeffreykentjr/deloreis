@@ -1,4 +1,4 @@
-//! Door T workspace (`AUTH-1`): the in-memory staged layer over a compiled base.
+//! The authoring seam's workspace (`AUTH-1`): the in-memory staged layer over a compiled base.
 //!
 //! Nothing an agent does touches disk and nothing changes canon (spec 11 §2). A
 //! [`Workspace`] is a staged layer of typed AST declarations over an unchanged
@@ -92,6 +92,13 @@ pub struct Workspace {
     /// workspaces inherit their project snapshot; pinned replays capture the
     /// live origin ref at open while continuing to serve their pinned world.
     pub base_ref_digest: Option<String>,
+    /// The named branch this workspace was opened against and writes to
+    /// (WS-3, `author.open`'s `branch` param, ≥ 1.7.0). `None` is the
+    /// pre-1.7.0 shape: every write routes to `main`, exactly as before this
+    /// field existed. Absorbed into the digest fence ONLY when `Some` (see
+    /// [`reseal`](Workspace::reseal)), so a branchless workspace's digest is
+    /// byte-identical to every fixture recorded before this field was added.
+    pub target_branch: Option<String>,
     /// Idempotency replay cache: key → (payload fingerprint, the exact result
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
@@ -123,6 +130,7 @@ impl Workspace {
             base_root_hash: None,
             base_valuation: Valuation::new(),
             base_ref_digest: None,
+            target_branch: None,
         };
         workspace.absorb_head();
         workspace.reseal();
@@ -170,13 +178,23 @@ impl Workspace {
     ///
     /// The absorbed-plus-tail bytes are exactly
     /// `{"base_name":…,"decls":[…],"mode":…,"suppositions":…}`, the JCS string the
-    /// whole-snapshot reseal hashed, so the digest value is unchanged.
+    /// whole-snapshot reseal hashed, so the digest value is unchanged — UNLESS
+    /// [`target_branch`](Self::target_branch) is `Some`, in which case one more
+    /// key is appended (`"target_branch"` sorts after `"suppositions"` in JCS
+    /// key order, so it belongs at the very end of the tail). A `None`
+    /// `target_branch` emits nothing here, which is what keeps a branchless
+    /// workspace's digest byte-identical to every fixture recorded before this
+    /// field existed.
     pub fn reseal(&mut self) {
         let mut hasher = self.prefix.clone();
         hasher.update(b"],\"mode\":");
         hasher.update(encode(&self.mode).as_bytes());
         hasher.update(b",\"suppositions\":");
         hasher.update(encode(&self.suppositions).as_bytes());
+        if let Some(branch) = &self.target_branch {
+            hasher.update(b",\"target_branch\":");
+            hasher.update(encode(branch).as_bytes());
+        }
         hasher.update(b"}");
         self.digest = digest_hash(hasher.finalize().as_slice());
     }
@@ -229,6 +247,8 @@ mod tests {
         decls: &'a [Decl],
         mode: Mode,
         suppositions: &'a [String],
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target_branch: Option<&'a str>,
     }
 
     fn person(name: &str) -> Decl {
@@ -264,10 +284,56 @@ mod tests {
             decls: &ws.decls,
             mode: ws.mode,
             suppositions: &ws.suppositions,
+            target_branch: None,
         });
         assert_eq!(
             ws.digest, snapshot,
             "the incremental reseal equals the full-snapshot digest"
+        );
+    }
+
+    /// A `target_branch` moves the digest fence when present, and — because
+    /// it is only ever emitted when `Some` — a branchless workspace's digest
+    /// is byte-identical to every fixture recorded before this field existed
+    /// (pinned here, not just by omission: the `None` snapshot below matches
+    /// the pre-1.7.0 `Snapshot` shape exactly).
+    #[test]
+    fn target_branch_moves_the_fence_and_is_absent_when_none() {
+        let mut branchless = scope("saltmarket");
+        branchless.push_decl(person("mara"));
+
+        let mut branched = scope("saltmarket");
+        branched.push_decl(person("mara"));
+        branched.target_branch = Some("rival".to_owned());
+        branched.reseal();
+
+        assert_ne!(
+            branchless.digest, branched.digest,
+            "a target branch moves the fence"
+        );
+
+        let branched_snapshot = crate::author::digest::digest_of(&Snapshot {
+            base_name: &branched.base_name,
+            decls: &branched.decls,
+            mode: branched.mode,
+            suppositions: &branched.suppositions,
+            target_branch: branched.target_branch.as_deref(),
+        });
+        assert_eq!(
+            branched.digest, branched_snapshot,
+            "the incremental reseal with a branch equals the full-snapshot digest"
+        );
+
+        let branchless_snapshot = crate::author::digest::digest_of(&Snapshot {
+            base_name: &branchless.base_name,
+            decls: &branchless.decls,
+            mode: branchless.mode,
+            suppositions: &branchless.suppositions,
+            target_branch: None,
+        });
+        assert_eq!(
+            branchless.digest, branchless_snapshot,
+            "a branchless workspace's digest carries no `target_branch` key at all"
         );
     }
 

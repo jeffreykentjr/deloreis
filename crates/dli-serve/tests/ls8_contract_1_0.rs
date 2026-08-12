@@ -281,7 +281,7 @@ fn every_registered_string_form_is_refused_at_1_0() {
 }
 
 /// The refusal reaches `author.*` as well as `dli.*`. It has to be checked
-/// separately: Door T is a different decode seam behind a different branch, and
+/// separately: the authoring seam is a different decode seam behind a different branch, and
 /// the check earns both only by sitting above the fork in `dispatch`.
 #[test]
 fn the_refusal_covers_the_author_seam_too() {

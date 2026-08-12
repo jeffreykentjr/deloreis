@@ -113,6 +113,10 @@ impl Storage for FaultStorage {
         self.inner.list_refs()
     }
 
+    fn delete_ref(&self, name: &str) -> Result<(), StoreError> {
+        self.inner.delete_ref(name)
+    }
+
     fn acquire_lock(&self) -> Result<std::fs::File, StoreError> {
         self.inner.acquire_lock()
     }

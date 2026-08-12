@@ -83,7 +83,7 @@ fn mcp_session_registers_tools_and_forwards_calls() {
         serde_json::json!({"ok": true, "grade": "checked", "findings": []})
     );
 
-    // tools/call an author.* tool — routes through the Door T seam
+    // tools/call an author.* tool — routes through the authoring seam
     let author_call = rpc(
         r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"author.open","arguments":{"scope":"camelot"}}}"#,
         &mut sessions,

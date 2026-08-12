@@ -1,4 +1,4 @@
-//! Door T read/self-check tools (`AUTH-2`): the five `author.*` reads that let an
+//! The authoring seam's read/self-check tools (`AUTH-2`): the five `author.*` reads that let an
 //! agent author **and fully self-check** its work without ever writing `.dli`
 //! text or falling back to the batch `dli.*` ops.
 //!
@@ -239,7 +239,13 @@ pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<V
 /// The open authoring workspaces and their digests, in id order — enough for an
 /// agent to recover which workspaces it has open and where each stands. Total: a
 /// store-level read that never fails.
-pub(super) fn list_workspaces(store: &Store) -> Value {
+///
+/// `branch_writes` gates the row's `branch` field (WS-3, ≥ 1.7.0): this list
+/// can surface workspaces a DIFFERENT caller opened, so — unlike
+/// `author.open`'s own result, where a pre-1.7.0 caller could never have set
+/// `branch` on its own workspace in the first place — a 1.6.0-or-earlier
+/// caller here needs the field actively suppressed, not just naturally absent.
+pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
     let workspaces = store
         .workspaces()
         .map(|ws| WorkspaceDigest {
@@ -248,6 +254,7 @@ pub(super) fn list_workspaces(store: &Store) -> Value {
             mode: wire_mode(ws.mode),
             staged: ws.decls.len(),
             workspace_digest: ws.digest.clone(),
+            branch: branch_writes.then(|| ws.target_branch.clone()).flatten(),
         })
         .collect();
     value(&AuthorListWorkspacesResult { workspaces })

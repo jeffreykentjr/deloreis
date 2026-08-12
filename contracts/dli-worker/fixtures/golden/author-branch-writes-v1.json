@@ -1,0 +1,147 @@
+{
+  "fixture": "golden/author-branch-writes-v1",
+  "project": true,
+  "precondition": [
+    {
+      "dli": "0.6.1",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "1",
+        "op": "author.branch",
+        "params": {
+          "workspace": "ws-1",
+          "action": "create",
+          "name": "feature"
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "branches": ["main", "feature"],
+          "created": "feature",
+          "heads": [
+            {
+              "commit": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+              "name": "main",
+              "ref_digest": "sha256:ab8c7b5bb20faf063e3e51a6ac90be5b7c2a50a79f02e31ea2fad06baa0c3f96"
+            },
+            {
+              "commit": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+              "name": "feature",
+              "ref_digest": "sha256:da4f3c151336de834a33d4c9ae7148d64d453a3f12432f41d6d60049712bc593"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "2",
+        "op": "author.branch",
+        "params": {
+          "workspace": "ws-1",
+          "action": "list"
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "branches": ["main", "feature"],
+          "heads": [
+            {
+              "commit": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+              "name": "main",
+              "ref_digest": "sha256:ab8c7b5bb20faf063e3e51a6ac90be5b7c2a50a79f02e31ea2fad06baa0c3f96"
+            },
+            {
+              "commit": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+              "name": "feature",
+              "ref_digest": "sha256:da4f3c151336de834a33d4c9ae7148d64d453a3f12432f41d6d60049712bc593"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "3",
+        "op": "author.open",
+        "params": {
+          "scope": "saltmarket",
+          "branch": "feature"
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "branch": "feature",
+          "workspace": "ws-2",
+          "workspace_digest": "jcs:sha256:de068107fa3aac459630a597a7d3ff3a85629e9ec348e93e1edbcb0becaa28f1"
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "4",
+        "op": "author.discard",
+        "params": {
+          "workspace": "ws-2"
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "discarded": true
+        }
+      }
+    },
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "5",
+        "op": "author.branch",
+        "params": {
+          "workspace": "ws-1",
+          "action": "delete",
+          "name": "feature"
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "5",
+        "ok": true,
+        "result": {
+          "branches": ["main"],
+          "heads": [
+            {
+              "commit": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+              "name": "main",
+              "ref_digest": "sha256:ab8c7b5bb20faf063e3e51a6ac90be5b7c2a50a79f02e31ea2fad06baa0c3f96"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": 1
+}

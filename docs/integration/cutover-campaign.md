@@ -55,7 +55,7 @@ implemented on the 1.x wire in phase P5:
 
 What this scrubs, and what it keeps:
 
-- **Scrubbed**: the Door-T refusal of citation-bearing provenance from agents
+- **Scrubbed**: the authoring seam's refusal of citation-bearing provenance from agents
   (the legacy cited-provenance refusal, `author/tools.rs`), `SKILL.md` §0's former
   "you cannot
   cite" law, and the DL-0043 framing of authority boundaries ("who may propose,
@@ -165,7 +165,7 @@ Ledger: DL-0055 (store-backed projects + SCHEMA_VERSION 3 rulings).
   array, any build) or `dli_documents` (syntax builds only; loud refusal
   elsewhere naming the one-shot syntax-build path); `mode` init/append (init
   into a non-empty store refuses). Returns `root_hash`, count, graded
-  findings. Wraps the existing library import path. This is the door the
+  findings. Wraps the existing library import path. This is the path the
   consumer's corpus pivot walks through.
 - `dli.corpus.export`: `document`; optional `at` (content hash, default served
   head); `format` objects (default) or rendered (syntax builds only). Returns

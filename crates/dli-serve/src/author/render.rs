@@ -1,6 +1,6 @@
-//! Door T render (`AUTH-1`): staged declarations to canonical `.dli` lines.
+//! The authoring seam's render (`AUTH-1`): staged declarations to canonical `.dli` lines.
 //!
-//! Door T never emits bespoke surface text. It renders staged AST through the
+//! The authoring seam never emits bespoke surface text. It renders staged AST through the
 //! one canonical formatter [`dli_syntax::format_document`] — the exact form a
 //! hand-written author would have written and the gate enforces (spec 11 §5;
 //! DL-0003) — so both authoring populations are reviewed through one lens. A
@@ -282,7 +282,7 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             name: sanitize_ident(&h.name),
             statement: h.statement.as_deref().map(escape_controls),
         }),
-        // The DM-4 expert declarations (contract 1.3.0). Door T stages these
+        // The DM-4 expert declarations (contract 1.3.0). The authoring seam stages these
         // from `author.add_dialect` and its siblings, so they need the same
         // display sanitization as everything above: a newline smuggled into a
         // gloss, a ban reason, or a dialect clause would otherwise split one
@@ -346,7 +346,7 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             question: sanitize_ident(&a.question),
             provenance: a.provenance.as_ref().map(sanitize_annot),
         }),
-        // Door T stages no other declaration kind; pass them through.
+        // The authoring seam stages no other declaration kind; pass them through.
         other => other.clone(),
     }
 }

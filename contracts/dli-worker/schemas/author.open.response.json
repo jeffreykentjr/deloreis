@@ -4,6 +4,13 @@
   "description": "`author.open` result.",
   "type": "object",
   "properties": {
+    "branch": {
+      "description": "The branch this workspace targets, echoed back (WS-3). Emitted only on\na ≥ 1.7.0 request; `None` below it, and `None` on a 1.7.0-or-above\nrequest that did not supply `branch` either.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "workspace": {
       "description": "The opened workspace id.",
       "type": "string"
