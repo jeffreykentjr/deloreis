@@ -817,9 +817,10 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 /// - `1.3.0` — that surface plus the DM-4 expert authoring tools.
 /// - `1.5.0` — that surface plus durable standing promotion and defeat.
 /// - `1.6.0` — that surface plus the `functional` single-valuedness declaration.
-/// - `1.7.0` — that surface, unchanged: the wire-surface-completion campaign
-///   window opens with zero new ops (scaffolding only), so its tier's op set
-///   is empty and its capability list is byte-identical to `1.6.0`'s.
+/// - `1.7.0` — that surface plus `author.assert_same_as` (WS-1, the
+///   identity-closure kernel's wire surface) and `author.add_rule` (WS-2,
+///   rule authoring) — the wire-surface-completion campaign's two appended
+///   ops, in that order.
 ///
 /// Asserting the *differences* rather than a frozen list keeps this honest as
 /// ops are added: a new op must land in a tier deliberately, and an op leaking
@@ -854,7 +855,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         ),
         ("1.5.0", &["author.set_standing", "author.defeat"]),
         ("1.6.0", &["author.declare_functional"]),
-        ("1.7.0", &[]),
+        ("1.7.0", &["author.assert_same_as", "author.add_rule"]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {

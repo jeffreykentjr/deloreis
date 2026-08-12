@@ -614,11 +614,34 @@ impl World {
     /// Range restriction counts only positive body atoms as binding: every
     /// variable in the head *or in a negated literal* must appear in some
     /// positive body atom (`docs/spec/08-reasoning.md §1`).
+    ///
+    /// Delegates to [`define_rule_annotated`](World::define_rule_annotated) with
+    /// [`Ann::unconditional()`] and [`Grade::Asserted`] — the engine-internal and
+    /// test intake this crate has always had, untouched by the annotated form's
+    /// arrival.
     pub fn define_rule(
         &mut self,
         name: impl Into<String>,
         head: AtomExpr,
         body: impl IntoIterator<Item = impl Into<BodyLiteral>>,
+    ) -> Result<(), EvalError> {
+        self.define_rule_annotated(name, head, body, Ann::unconditional(), Grade::Asserted)
+    }
+
+    /// Define a derivation rule carrying its own annotation and grade — the
+    /// rule-as-claim intake (WS-2). `fire_rules` already multiplies a rule's
+    /// `ann` into every derivation passing through it and weakest-grades with
+    /// `rule.grade`; this is the constructor a provenanced caller (the loader,
+    /// the `author.add_rule` wire op) uses so that multiplication has something
+    /// real to work with, instead of every rule reading as an unconditional
+    /// axiom. Same range-restriction check as [`define_rule`](World::define_rule).
+    pub fn define_rule_annotated(
+        &mut self,
+        name: impl Into<String>,
+        head: AtomExpr,
+        body: impl IntoIterator<Item = impl Into<BodyLiteral>>,
+        ann: Ann,
+        grade: Grade,
     ) -> Result<(), EvalError> {
         let name = name.into();
         let body: Vec<BodyLiteral> = body.into_iter().map(Into::into).collect();
@@ -627,8 +650,8 @@ impl World {
             name,
             head,
             body,
-            ann: Ann::unconditional(),
-            grade: Grade::Asserted,
+            ann,
+            grade,
         });
         Ok(())
     }

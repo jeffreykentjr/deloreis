@@ -120,9 +120,13 @@ pub(super) fn query(
 /// contradictions ([`factcheck`]) over the staged claims. A new proposed claim is
 /// legitimately *unsupported*, so only *contradictions* surface here; unsupported
 /// is silent (it is candidate lore, not a defect). Findings are deduplicated.
-pub(super) fn check(store: &Store, params: &AuthorCheckParams) -> Result<Value, ErrorBody> {
+pub(super) fn check(
+    store: &Store,
+    params: &AuthorCheckParams,
+    carries_data: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let findings = workspace_report(store, ws).findings;
+    let findings = workspace_report(store, ws, carries_data).findings;
     let ok = findings
         .iter()
         .all(|finding| finding.severity != Severity::Error);
@@ -140,8 +144,14 @@ pub(super) struct WorkspaceReport {
     pub diff_rows: Vec<AuthorDiffRow>,
 }
 
-/// Compile and check one workspace without mutating it.
-pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport {
+/// Compile and check one workspace without mutating it. `carries_data` gates
+/// whether a raised [`WorldFinding`]'s structured payload rides across as
+/// `Finding.data` (WS-2, `≥1.7.0` only — [`crate::has_finding_data`]).
+pub(super) fn workspace_report(
+    store: &Store,
+    ws: &Workspace,
+    carries_data: bool,
+) -> WorkspaceReport {
     let Some(base) = store.workspace_base(&ws.id) else {
         return WorkspaceReport {
             findings: vec![Finding {
@@ -151,6 +161,7 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
                 grade: Grade::Checked,
                 repair: None,
                 citations: Vec::new(),
+                data: None,
             }],
             consequences: DiffDelta::default(),
             diff_rows: Vec::new(),
@@ -160,7 +171,11 @@ pub(super) fn workspace_report(store: &Store, ws: &Workspace) -> WorkspaceReport
     let mut findings = workspace_findings(ws, base, &decisions);
     match staged_world(store, ws) {
         Ok(world) => {
-            findings.extend(check::run(&world).iter().map(world_finding));
+            findings.extend(
+                check::run(&world)
+                    .iter()
+                    .map(|finding| world_finding(finding, carries_data)),
+            );
             for report in factcheck(&world, &staged_claims(&ws.decls)) {
                 if report.verdict == Verdict::Contradicted {
                     findings.push(contradiction_finding(&report));
@@ -221,9 +236,13 @@ pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, Erro
 /// pre-flight of what `author.materialize` would refuse on, each carrying its
 /// typed repair. This is the exact set the materialize gate reads, so
 /// `materializable` answers "could I materialize now?".
-pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<Value, ErrorBody> {
+pub(super) fn findings(
+    store: &Store,
+    params: &AuthorFindingsParams,
+    carries_data: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let all = workspace_report(store, ws).findings;
+    let all = workspace_report(store, ws, carries_data).findings;
     let (errors, warnings): (Vec<Finding>, Vec<Finding>) = all
         .into_iter()
         .partition(|finding| finding.severity == Severity::Error);
@@ -573,8 +592,9 @@ fn parse_goal(text: &str) -> Result<AtomExpr, ErrorBody> {
 
 /// Map a kernel [`WorldFinding`] onto the wire [`Finding`] (the same mapping the
 /// batch `dli.check` handler uses; the read surface carries no repair for a
-/// world-internal finding).
-fn world_finding(finding: &WorldFinding) -> Finding {
+/// world-internal finding). `data` rides across only when `carries_data`
+/// (WS-2, `≥1.7.0` — [`crate::has_finding_data`]).
+fn world_finding(finding: &WorldFinding, carries_data: bool) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -585,6 +605,7 @@ fn world_finding(finding: &WorldFinding) -> Finding {
         grade: finding.grade,
         repair: None,
         citations: finding.citations.clone(),
+        data: carries_data.then(|| finding.data.clone()).flatten(),
     }
 }
 
@@ -599,6 +620,7 @@ fn contradiction_finding(report: &ClaimReport) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: report.citations.clone(),
+        data: None,
     }
 }
 
@@ -612,6 +634,7 @@ fn uncompilable(err: &EvalError) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 

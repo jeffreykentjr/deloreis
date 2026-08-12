@@ -444,6 +444,7 @@ fn constraint_finding(conflict: &Conflict) -> WorldFinding {
         message: conflict.rendered.clone(),
         citations: vec![conflict.blame.0.clone(), conflict.blame.1.clone()],
         span: None,
+        data: None,
     }
 }
 

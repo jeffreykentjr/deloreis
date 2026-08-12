@@ -1,0 +1,63 @@
+{
+  "fixture": "golden/author-add-rule-v1",
+  "version": 1,
+  "note": "Contract 1.7.0 rule authoring: declare one datalog derivation rule (a typed head :- body clause). The op stages a Decl::Rule, and every fact it derives carries this rule's own provenance (fire_rules multiplies rule.ann into every derivation), defeasible on the rule's own citation like any other claim. Rule shape needs no pre-existing entities — findings here are about the rule's own shape, never entity resolution.",
+  "precondition": [
+    {
+      "dli": "1.7.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "1",
+        "op": "author.add_rule",
+        "params": {
+          "workspace": "ws-1",
+          "name": "endorsement",
+          "head": {
+            "pred": "endorsed",
+            "args": [
+              { "Var": "x" }
+            ]
+          },
+          "body": [
+            {
+              "atom": {
+                "pred": "rank",
+                "args": [
+                  { "Var": "x" },
+                  { "Sym": "gold" }
+                ]
+              },
+              "negated": false
+            }
+          ],
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-rule"
+          }
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "rule endorsement proposed session-rule",
+            "  endorsed($x) :- rank($x, gold)"
+          ],
+          "workspace_digest": "jcs:sha256:6248b26dc7dfa73f166b8f177aa9d5a7a3a84ba8af346c2b2b7dcfc102209790"
+        }
+      }
+    }
+  ]
+}

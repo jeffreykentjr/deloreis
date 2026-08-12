@@ -22,30 +22,36 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     EntityKind as AstEntityKind, FactDecl, FunctionalDecl, HypothesisDecl, NameDecl, NamePartDecl,
-    OptionClause, QuestionDecl, RatifyDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    OptionClause, QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl,
+    TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
     CompositionStep, DialectBody, DialectClause, DialectItem, NameBody, NameClause, NameItem,
     NameKindSpec,
 };
+use dli_ast::rule::{Datalog, RuleBody, RuleClause};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
+use dli_eval::EvalError;
 use dli_world::CompiledWorld;
 use dli_world::check::factcheck::{Verdict, factcheck};
+use dli_world::compile;
+use dli_world::pack::Pack;
 
 use crate::contract::{
     AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
-    AuthorAddStateParams, AuthorAddTermParams, AuthorBranchParams, AuthorBranchResult,
-    AuthorDeclareFunctionalParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
-    AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
-    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
+    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
+    AuthorBranchParams, AuthorBranchResult, AuthorDeclareFunctionalParams, AuthorDefeatParams,
+    AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams, AuthorMergeParams,
+    AuthorMergeResult, AuthorMutationResult, AuthorOpenParams, AuthorOpenQuestionParams,
+    AuthorOpenResult, AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult,
+    AuthorSupposeParams, BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind,
+    MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -134,9 +140,10 @@ pub(super) fn status(
     params: &AuthorStatusParams,
     v2: bool,
     structural_keys: bool,
+    carries_data: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let report = reads::workspace_report(store, ws);
+    let report = reads::workspace_report(store, ws, carries_data);
     Ok(value(&AuthorStatusResult {
         rendered: render_decls(&ws.decls),
         root_hash: if v2 { ws.base_root_hash.clone() } else { None },
@@ -195,9 +202,14 @@ fn decl_kind(decl: &Decl) -> &'static str {
 /// The rendered canonical block, findings, and consequences of the staged change.
 /// On a 0.6.0 request the result also carries the pinned base commit and the
 /// structured per-fact rows.
-pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result<Value, ErrorBody> {
+pub(super) fn diff(
+    store: &Store,
+    params: &AuthorDiffParams,
+    v2: bool,
+    carries_data: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let report = reads::workspace_report(store, ws);
+    let report = reads::workspace_report(store, ws, carries_data);
     Ok(value(&AuthorDiffResult {
         rendered: render_decls(&ws.decls),
         root_hash: if v2 { ws.base_root_hash.clone() } else { None },
@@ -314,7 +326,10 @@ pub(super) fn materialize(
     // between `store.get()` (immutable) and the mutable lorestore access.
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let blocking = dedup(
-        reads::workspace_report(store, ws)
+        // Only finding CODES cross into the blocking-list error data below —
+        // `data` is never read here, so the carries-data gate is moot; `false`
+        // costs nothing and skips computing payloads no caller will see.
+        reads::workspace_report(store, ws, false)
             .findings
             .into_iter()
             .filter(|f| f.severity == Severity::Error)
@@ -645,6 +660,118 @@ pub(super) fn add_before(
         later: ident(&params.later),
         provenance: Some(annotation(&params.provenance, records_citations)),
     });
+    stage(store, &params.workspace, decl)
+}
+
+/// Assert two entity ids name the same bearer (WS-1, the identity-closure
+/// kernel's wire surface). Stages a `Decl::SameAs`, which the compiled world
+/// closes symmetric-transitively (`dli_eval::world::synthesize_alias_rules`)
+/// and merges every other predicate's tuples across `left` and `right` — a
+/// plain `author.add_relation {pred: "same-as", ...}` does not merge anything
+/// (DL-0078, koan 3). The merge's standing is carried entirely by this
+/// claim's own provenance: defeating the citing decision un-merges every
+/// consequence algebraically, with no recompile.
+pub(super) fn assert_same_as(
+    store: &mut Store,
+    params: &AuthorAssertSameAsParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::SameAs(SameAsDecl {
+        left: ident(&params.left),
+        right: ident(&params.right),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Declare one datalog derivation rule (WS-2): the wire surface for the
+/// rule-as-claim kernel enrichment (`dli_eval::world::World::
+/// define_rule_annotated`) — `fire_rules` already multiplies a rule's own
+/// annotation into every derivation it fires, so this is what gives that
+/// multiplication a real, cited rule to work with; defeating the rule's own
+/// citing decision kills every derivation through it, exactly as defeating
+/// any other claim's citation does.
+///
+/// **Stricter than every other `author.add_*` tool.** An error-severity
+/// finding here refuses the whole add and stages nothing — never the usual
+/// "stage it, block materialize" shape — because a bad rule staged even
+/// once BRICKS every later read: `staged_world` recompiles the whole
+/// workspace on every call, and an unstratifiable or range-unsafe rule set
+/// makes that recompile fail outright, collapsing every subsequent
+/// query/check/why/diff/materialize to the single opaque
+/// `world.uncompilable` finding and losing whatever else that call would
+/// have reported. So the check runs BEFORE `stage()` ever sees the
+/// declaration (the `add_option` return-findings-without-push shape): first
+/// the ordinary census (`field.control-char`, `citation.unknown-decision`)
+/// plus the rule's own shape (`rule.unbound-variable`, `rule.duplicate`,
+/// all in [`rule_findings`]) — any error there refuses immediately — then,
+/// only once that is clean, the stratification pre-flight
+/// ([`rule_stratifies`]): a tentative compile of the candidate rule
+/// alongside everything already staged, refusing with `rule.unstratifiable`
+/// on failure. Only a rule that survives every one of those reaches
+/// `stage()`.
+pub(super) fn add_rule(
+    store: &mut Store,
+    params: &AuthorAddRuleParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let datalog = Datalog {
+        head: params.head.clone(),
+        body: params.body.clone(),
+    };
+    let decl = Decl::Rule(RuleDecl {
+        name: ident(&params.name),
+        domain: None,
+        head: Vec::new(),
+        body: RuleBody {
+            clauses: vec![RuleClause {
+                clause: Clause {
+                    text: datalog.render(),
+                    span: Span::synthetic(),
+                },
+                datalog: Some(datalog),
+            }],
+            inline: None,
+        },
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+
+    let decisions = workspace_decisions(store, &params.workspace);
+    let findings = {
+        let (base, ws) = parts_mut(store, &params.workspace)?;
+        decl_findings(&decl, ws, base, &decisions)
+    };
+    if findings
+        .iter()
+        .any(|finding| finding.severity == Severity::Error)
+    {
+        let (_, ws) = parts_mut(store, &params.workspace)?;
+        return Ok(mutation(findings, Vec::new(), &ws.digest));
+    }
+
+    if let Err(err) = rule_stratifies(store, &params.workspace, &decl) {
+        let mut findings = findings;
+        findings.push(rule_unstratifiable(&params.name, &err));
+        let (_, ws) = parts_mut(store, &params.workspace)?;
+        return Ok(mutation(findings, Vec::new(), &ws.digest));
+    }
+
     stage(store, &params.workspace, decl)
 }
 
@@ -1169,6 +1296,8 @@ fn decl_findings(
         Decl::State(s) => out.extend(state_findings(s, ws, base)),
         Decl::Attest(a) => out.extend(attest_findings(a, ws)),
         Decl::Name(n) => out.extend(name_findings(n, ws, base)),
+        Decl::SameAs(s) => out.extend(same_as_findings(s, ws, base)),
+        Decl::Rule(r) => out.extend(rule_findings(r, ws, base)),
         _ => {}
     }
     out
@@ -1225,6 +1354,7 @@ fn rejected_lore_findings(base: &CompiledWorld, claim: AtomExpr) -> Vec<Finding>
             grade: Grade::Checked,
             repair: None,
             citations: report.citations,
+            data: None,
         })
         .collect()
 }
@@ -1307,10 +1437,64 @@ fn before_findings(before: &BeforeDecl, ws: &Workspace, base: &CompiledWorld) ->
     out
 }
 
+/// `assert_same_as` findings (WS-1): an unknown endpoint (error, both sides
+/// checked against known entities, same as `add_before`'s); a self-merge
+/// (warn — `left == right` names one bearer twice, staged anyway as a
+/// harmless no-op, never an error); an endpoint naming a declared era or
+/// event (error — the stage-time counterpart to the kernel's world-check
+/// `continuity.identity-temporal-unsupported`, DL-0078's v1 boundary); and a
+/// sort mismatch between the two declared entity kinds (warn — an honest
+/// signal an author may still mean, never a block).
+fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+    let known = known_entities(base, &ws.decls);
+    let mut out = Vec::new();
+    if !known.contains(&same_as.left.text) {
+        out.push(entity_unknown(&same_as.left.text, &known));
+    }
+    if !known.contains(&same_as.right.text) {
+        out.push(entity_unknown(&same_as.right.text, &known));
+    }
+    if same_as.left.text == same_as.right.text {
+        out.push(identity_self_merge(&same_as.left.text));
+    }
+    // One finding even when both endpoints are temporal — mirrors the
+    // kernel's own `identity_temporal_unsupported`, which also stops at the
+    // first hit.
+    for endpoint in [same_as.left.text.as_str(), same_as.right.text.as_str()] {
+        if let Some(sort @ ("era" | "event")) = entity_sort(base, &ws.decls, endpoint) {
+            out.push(identity_temporal_unsupported(
+                &same_as.left.text,
+                &same_as.right.text,
+                endpoint,
+                sort,
+            ));
+            break;
+        }
+    }
+    if let (Some(left_sort), Some(right_sort)) = (
+        entity_sort(base, &ws.decls, &same_as.left.text),
+        entity_sort(base, &ws.decls, &same_as.right.text),
+    ) && left_sort != right_sort
+    {
+        out.push(identity_sort_mismatch(
+            &same_as.left.text,
+            left_sort,
+            &same_as.right.text,
+            right_sort,
+        ));
+    }
+    out
+}
+
 /// `add_state` findings: the subject the dotted state name is about must be a
 /// known entity, and a temporal anchor must name one too. A state is a claim
 /// *about* something, so an unresolvable subject is the same error class as
-/// `add_fact`'s.
+/// `add_fact`'s. A KNOWN anchor of the wrong sort — `since`/`until` naming an
+/// era, `after`/`during` naming an event — is `state.anchor-kind` (WS-4): the
+/// consumer's pinned xfail (an LLM anchoring `since`/`until` at an era) turns
+/// from a check-time dead end into an add-time repairable finding, ahead of
+/// the load-side `load.unknown-temporal-reference` backstop (unchanged) that
+/// still catches an anchor this workspace never even declares.
 fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let known = known_entities(base, &ws.decls);
     let mut out = Vec::new();
@@ -1322,14 +1506,13 @@ fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Ve
         out.push(entity_unknown(subject, &known));
     }
     if let Some(time) = &state.time {
-        let point = match time {
-            TimeClause::After(p)
-            | TimeClause::During(p)
-            | TimeClause::Since(p)
-            | TimeClause::Until(p) => p,
+        let (point, expected_kind) = match time {
+            TimeClause::Since(p) | TimeClause::Until(p) => (p, "event"),
+            TimeClause::After(p) | TimeClause::During(p) => (p, "era"),
             // `order` is not reachable from `author.add_state` (the wire form
             // carries a single point), but the AST allows it, so it resolves
-            // every point rather than silently checking none.
+            // every point rather than silently checking none. It carries no
+            // kind expectation of its own (chronology order, not an anchor).
             TimeClause::Order(points) => {
                 for point in points {
                     if !known.contains(&point.text) {
@@ -1341,9 +1524,39 @@ fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Ve
         };
         if !known.contains(&point.text) {
             out.push(entity_unknown(&point.text, &known));
+        } else if let Some(actual_kind) = entity_sort(base, &ws.decls, &point.text)
+            && actual_kind != expected_kind
+        {
+            out.push(state_anchor_kind(
+                &point.text,
+                expected_kind,
+                actual_kind,
+                &entities_of_kind(base, &ws.decls, expected_kind),
+            ));
         }
     }
     out
+}
+
+/// The known entities of exactly one sort (`era`, `event`, …), for a
+/// `state.anchor-kind` repair's `alternatives` — the valid anchors an author
+/// could have meant instead.
+fn entities_of_kind(base: &CompiledWorld, decls: &[Decl], kind: &str) -> Vec<String> {
+    let mut set: BTreeSet<String> = base
+        .model
+        .entities()
+        .iter()
+        .filter(|entry| entry.sort.as_deref() == Some(kind))
+        .map(|entry| entry.name.clone())
+        .collect();
+    for decl in decls {
+        if let Decl::Entity(e) = decl
+            && e.kind.keyword() == kind
+        {
+            set.insert(e.name.text.clone());
+        }
+    }
+    set.into_iter().collect()
 }
 
 /// `add_attest` findings: the attested question must be open. An attestation
@@ -1613,6 +1826,11 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             fields.push(("later", b.later.text.clone()));
             annotation_fields(&mut fields, b.provenance.as_ref());
         }
+        Decl::SameAs(s) => {
+            fields.push(("left", s.left.text.clone()));
+            fields.push(("right", s.right.text.clone()));
+            annotation_fields(&mut fields, s.provenance.as_ref());
+        }
         Decl::Question(q) => {
             fields.push(("id", q.name.text.clone()));
             if let Some(prompt) = &q.prompt {
@@ -1721,6 +1939,17 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
         Decl::Attest(a) => {
             fields.push(("question", a.question.text.clone()));
             annotation_fields(&mut fields, a.provenance.as_ref());
+        }
+        Decl::Rule(r) => {
+            fields.push(("id", r.name.text.clone()));
+            fields.extend(r.head.iter().map(|token| ("head", token.clone())));
+            for rc in &r.body.clauses {
+                fields.push(("clause", rc.clause.text.clone()));
+            }
+            if let Some(rc) = &r.body.inline {
+                fields.push(("clause", rc.clause.text.clone()));
+            }
+            annotation_fields(&mut fields, r.provenance.as_ref());
         }
         _ => {}
     }
@@ -1844,6 +2073,7 @@ fn name_unvetted(id: &str) -> Finding {
             "params": { "name": id }
         })),
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1857,6 +2087,7 @@ fn entity_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
         grade: Grade::Checked,
         repair: Some(json!({ "kind": "resolve-entity", "candidates": candidates(id, known) })),
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1870,6 +2101,7 @@ fn contradiction(subject: &str, key: &str, value: &str, canon: &str) -> Finding 
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1883,6 +2115,7 @@ fn order_cycle(earlier: &str, later: &str) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1897,6 +2130,7 @@ fn consequence_changed(supposed: &[String]) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1909,6 +2143,7 @@ fn hypothesis_not_in_fork() -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1922,6 +2157,7 @@ fn hypothesis_bundle_limit(count: usize) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1933,6 +2169,7 @@ fn hypothesis_unknown(id: &str) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1946,6 +2183,7 @@ fn question_unknown(id: &str) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1959,6 +2197,7 @@ fn event_era_missing(event: &str) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1972,6 +2211,247 @@ fn event_era_kind(event: &str, era: &str, actual: &str) -> Finding {
         grade: Grade::Checked,
         repair: None,
         citations: Vec::new(),
+        data: None,
+    }
+}
+
+/// `state.anchor-kind` (WS-4): a state's temporal anchor names a KNOWN entity
+/// of the wrong sort — `since`/`until` need an event, `after`/`during` need
+/// an era. Typed repair names both kinds, the offending point, and up to five
+/// known entities of the expected kind the author could anchor to instead.
+fn state_anchor_kind(
+    point: &str,
+    expected_kind: &str,
+    actual_kind: &str,
+    alternatives: &[String],
+) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "state.anchor-kind".to_owned(),
+        message: format!(
+            "the state anchors at \"{point}\", which is {actual_kind}, but this time clause needs {expected_kind}; choose an {expected_kind} entity."
+        ),
+        grade: Grade::Checked,
+        repair: Some(json!({
+            "kind": "resolve-anchor",
+            "expected_kind": expected_kind,
+            "actual_kind": actual_kind,
+            "point": point,
+            "alternatives": alternatives.iter().take(5).collect::<Vec<_>>(),
+        })),
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn identity_self_merge(id: &str) -> Finding {
+    Finding {
+        severity: Severity::Warn,
+        code: "identity.self-merge".to_owned(),
+        message: format!(
+            "same-as {id} = {id} names one bearer twice; staged anyway as a harmless no-op."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn identity_temporal_unsupported(left: &str, right: &str, endpoint: &str, sort: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "identity.temporal-unsupported".to_owned(),
+        message: format!(
+            "same-as {left} = {right} names \"{endpoint}\", a {sort}; identity over eras/events is not supported (v1 boundary) — point unification would half-merge the chronology."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn identity_sort_mismatch(left: &str, left_sort: &str, right: &str, right_sort: &str) -> Finding {
+    Finding {
+        severity: Severity::Warn,
+        code: "identity.sort-mismatch".to_owned(),
+        message: format!(
+            "same-as {left} = {right} merges a {left_sort} with a {right_sort} — an honest signal, not a block."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+// -- author.add_rule (WS-2) ---------------------------------------------------
+
+/// `add_rule`'s findings, computed WITHOUT staging (WS-2's stricter gate):
+/// unlike every other declaration, an error here refuses the whole add rather
+/// than staging alongside a blocking finding. A bad rule must never reach
+/// `ws.decls` — staging one BRICKS every subsequent read, because
+/// `staged_world` recompiles on every call and an unstratifiable or
+/// range-unsafe rule set makes that recompile fail outright, collapsing every
+/// read to the single opaque `world.uncompilable` finding and losing every
+/// other finding the same call would otherwise report. So this function
+/// covers a rule's *shape* — range restriction and a duplicate name — and the
+/// caller runs it, and the stratification pre-flight compile, BEFORE staging;
+/// the generic census (`field.control-char`, `citation.unknown-decision`) that
+/// `decl_findings` already runs for every declaration kind is error-severity
+/// too and gates the same way, once `free_text_fields`/`decl_annotation`
+/// carry a `Decl::Rule` arm (done above).
+fn rule_findings(rule: &RuleDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+    let mut out = Vec::new();
+    if let Some(datalog) = rule_datalog(rule) {
+        if datalog.body.is_empty() {
+            // rt-features SEV-C: an empty body would otherwise stage clean and
+            // derive the head unconditionally (fact-as-rule), but its render
+            // (`head :- `) reparses via the `.dli` text path to `datalog: None`
+            // — `parse_rule_clause` requires at least one body atom after the
+            // separator — which the loader then refuses as `MalformedWorldRule`
+            // (koan 4's own body-less handling, `dli-world/src/loader.rs`). A
+            // wire-staged rule that the reimport path would refuse is a
+            // migration-parity break, so refuse it here too, before it ever
+            // stages.
+            out.push(rule_empty_body(&rule.name.text));
+        } else if let Some(variable) =
+            dli_eval::world::unbound_variable(&datalog.head, &datalog.body)
+        {
+            out.push(rule_unbound_variable(&rule.name.text, &variable));
+        }
+    }
+    if rule_name_taken(rule, ws, base) {
+        out.push(rule_duplicate(&rule.name.text));
+    }
+    out
+}
+
+/// The typed datalog a `RuleDecl` carries, from whichever of the two shapes
+/// `structure_rule_body` can produce holds it — a single block clause (the
+/// shape every wire-authored rule uses) or the inline `name : head :- body`
+/// header form a text-authored corpus can use instead.
+fn rule_datalog(rule: &RuleDecl) -> Option<&Datalog> {
+    rule.body
+        .clauses
+        .first()
+        .and_then(|rc| rc.datalog.as_ref())
+        .or_else(|| rule.body.inline.as_ref().and_then(|rc| rc.datalog.as_ref()))
+}
+
+/// Whether `current`'s name already names a DIFFERENT rule — staged in this
+/// workspace, or already in the compiled base (a corpus-imported or
+/// previously materialized rule).
+///
+/// This runs at two different times against the same workspace: at add time,
+/// on a freshly built candidate not yet in `ws.decls`, where any staged rule
+/// sharing the name is a genuine duplicate; and again at every later
+/// `author.check`, over each already-staged declaration in turn
+/// ([`workspace_findings`]'s `for decl in &ws.decls` re-validation), where
+/// `current` IS one of the elements being scanned. Comparing by pointer
+/// excludes exactly that self-match — the one case a plain name scan cannot
+/// tell apart from a real duplicate — so a rule never reports itself as
+/// duplicating itself on every subsequent check.
+fn rule_name_taken(current: &RuleDecl, ws: &Workspace, base: &CompiledWorld) -> bool {
+    let staged = ws.decls.iter().any(|decl| match decl {
+        Decl::Rule(other) => !std::ptr::eq(other, current) && other.name.text == current.name.text,
+        _ => false,
+    });
+    let based = base
+        .model
+        .world
+        .rules
+        .iter()
+        .any(|r| r.name == current.name.text);
+    staged || based
+}
+
+/// Tentatively compile the workspace's staged declarations plus one candidate
+/// rule — the stratification pre-flight WS-2 requires. Mirrors
+/// [`reads::staged_world`]'s own compile shape (base docs + staged decls
+/// under the workspace's scope) but does not touch `ws.decls`: a caller uses
+/// the `Err` to refuse the add without ever staging the rule that caused it,
+/// which is the whole point — a rule that makes this fail must never reach
+/// the workspace it would brick.
+fn rule_stratifies(store: &Store, ws_id: &str, candidate: &Decl) -> Result<(), EvalError> {
+    let Some(ws) = store.get(ws_id) else {
+        // Unreachable in practice — `precheck` confirms the workspace exists
+        // before any tool runs — but a vanished workspace is not this
+        // function's stratification question to answer either way.
+        return Ok(());
+    };
+    let mut documents = store
+        .workspace_base_docs(ws_id)
+        .unwrap_or_default()
+        .to_vec();
+    let mut decls = ws.decls.clone();
+    decls.push(candidate.clone());
+    documents.push(Document {
+        scope: Some(ScopeHeader {
+            name: Ident::synthetic(&ws.base_name),
+            span: Span::synthetic(),
+        }),
+        decls,
+    });
+    compile(&Pack {
+        name: ws.base_name.clone(),
+        documents,
+    })
+    .map(|_| ())
+}
+
+fn rule_unbound_variable(name: &str, variable: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "rule.unbound-variable".to_owned(),
+        message: format!(
+            "rule '{name}' is not range-restricted: variable '{variable}' is not bound by any positive body atom"
+        ),
+        grade: Grade::Checked,
+        repair: Some(json!({ "kind": "bind-variable", "variable": variable })),
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn rule_empty_body(name: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "rule.empty-body".to_owned(),
+        message: format!(
+            "rule '{name}' has an empty body; a body-less rule derives its head unconditionally on the wire but the reimport path refuses it as malformed — add at least one body literal."
+        ),
+        grade: Grade::Checked,
+        repair: Some(json!({ "kind": "add-body-literal" })),
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn rule_duplicate(name: &str) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "rule.duplicate".to_owned(),
+        message: format!(
+            "a rule named '{name}' already exists; rule names are unique so `author.defeat` can cite one unambiguously — choose a different name."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn rule_unstratifiable(name: &str, reason: &EvalError) -> Finding {
+    Finding {
+        severity: Severity::Error,
+        code: "rule.unstratifiable".to_owned(),
+        message: format!("rule '{name}' would leave the world unstratifiable: {reason}"),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1985,6 +2465,7 @@ fn control_char(field: &str) -> Finding {
         grade: Grade::Checked,
         repair: Some(json!({ "kind": "remove-control-chars", "field": field })),
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -1997,6 +2478,7 @@ fn cited_refused() -> Finding {
         grade: Grade::Checked,
         repair: Some(json!({ "kind": "add-provenance", "required": "proposed" })),
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -2022,6 +2504,7 @@ fn citation_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
             "candidates": candidates(id, known),
         })),
         citations: Vec::new(),
+        data: None,
     }
 }
 
@@ -2435,11 +2918,29 @@ fn durable_standing_change(
     }))
 }
 
+/// Whether `decision` supports every path of a stored object's claim.
+///
+/// A **rule** carriage (WS-2) is the one case that cannot answer this the
+/// ordinary way: `carriage_object` stores every expert-carried declaration's
+/// `support` as `PosBool::truth()` — a structural constant, hashed content,
+/// never touched — so a rule's actual citation lives only in its carried
+/// `Decl::Rule`, not in the polynomial. `object.expert_body.body` holds that
+/// whole declaration as span-normalized canonical JSON (`carriage_object`'s
+/// `decl_json_pair`); deserializing it and reading `decl_annotation`'s
+/// citations directly is the only way to ask a rule's OWN provenance whether
+/// it cites `decision`, and it needs no `dli_syntax` — a `Decl` round-trips
+/// through plain `serde_json`. Every other stored claim keeps reading its
+/// gated `support` polynomial exactly as before.
 fn support_cites_decision(
     object: &dli_lorestore::FactObject,
     interner: &[String],
     decision: &str,
 ) -> bool {
+    if let Some(body) = &object.expert_body
+        && body.kind == dli_lorestore::object::ExpertDeclKind::Rule
+    {
+        return rule_carriage_cites_decision(body, decision);
+    }
     let Some(index) = interner.iter().position(|name| name == decision) else {
         return false;
     };
@@ -2454,6 +2955,22 @@ fn support_cites_decision(
                 .lits()
                 .any(|lit| lit.atom == atom && lit.rail == dli_core::atom::Rail::Pos)
         })
+}
+
+/// Whether a rule's carried `Decl::Rule` cites `decision`. A malformed or
+/// legacy carriage (a v1 store predating LS-9's typed body, say) falls
+/// closed to `false` rather than panicking — `support_cites_decision`'s
+/// caller then reports the ordinary "does not support" refusal, never a
+/// crash on a stored object this build cannot parse.
+fn rule_carriage_cites_decision(body: &dli_lorestore::object::ExpertBody, decision: &str) -> bool {
+    let Some(text) = body.body.first() else {
+        return false;
+    };
+    let Ok(decl) = serde_json::from_str::<Decl>(text) else {
+        return false;
+    };
+    decl_annotation(&decl)
+        .is_some_and(|annot| annot.citations.iter().any(|cite| cite.id.text == decision))
 }
 
 fn store_fault(error: &dli_lorestore::StoreError) -> ErrorBody {
@@ -2561,6 +3078,8 @@ fn decl_annotation(decl: &Decl) -> Option<&Annotation> {
         Decl::State(s) => s.provenance.as_ref(),
         Decl::Functional(f) => f.provenance.as_ref(),
         Decl::Attest(a) => a.provenance.as_ref(),
+        Decl::SameAs(s) => s.provenance.as_ref(),
+        Decl::Rule(r) => r.provenance.as_ref(),
         _ => None,
     }
 }
@@ -2740,6 +3259,7 @@ pub(super) fn merge(
     store: &Store,
     params: &AuthorMergeParams,
     branch_writes: bool,
+    carries_data: bool,
 ) -> Result<Value, ErrorBody> {
     if !branch_writes {
         if params.dry_run.is_some() {
@@ -2770,7 +3290,11 @@ pub(super) fn merge(
         merge_commit: report.merge_commit.to_string(),
         merge_base: report.merge_base.map(|h| h.to_string()),
         conflicts: report.conflicts.iter().map(conflict_to_wire).collect(),
-        findings: report.findings.iter().map(world_finding_to_wire).collect(),
+        findings: report
+            .findings
+            .iter()
+            .map(|finding| world_finding_to_wire(finding, carries_data))
+            .collect(),
         stratifies: report.stratifies,
         standing_changes: report
             .standing_changes
@@ -2854,7 +3378,9 @@ fn conflict_to_wire(conflict: &Conflict) -> DiffConflict {
 }
 
 /// A `dli-world` [`WorldFinding`] on the wire as the contract [`Finding`].
-fn world_finding_to_wire(finding: &WorldFinding) -> Finding {
+/// `data` rides across only when `carries_data` (WS-2, `≥1.7.0` —
+/// [`crate::has_finding_data`]).
+fn world_finding_to_wire(finding: &WorldFinding, carries_data: bool) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -2865,6 +3391,7 @@ fn world_finding_to_wire(finding: &WorldFinding) -> Finding {
         grade: finding.grade,
         repair: None,
         citations: finding.citations.clone(),
+        data: carries_data.then(|| finding.data.clone()).flatten(),
     }
 }
 

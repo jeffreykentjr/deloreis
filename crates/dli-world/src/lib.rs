@@ -110,11 +110,13 @@ fn declared_decisions(pack: &Pack) -> BTreeSet<&str> {
 ///
 /// The certain-layer atoms and sorts carry their citations as typed
 /// [`LoadedAtom`](crate::model::LoadedAtom)/[`SortEntry`](crate::model::SortEntry)
-/// provenance; a `term`, a `proof`'s premises, and a `ratify … { }` block cite
-/// decisions too, but the loader does not lift them into `atoms()`/`sorts()`, so
-/// [`gate_language_citations`] closes that hole over the raw declarations. Without
-/// it, a forged decision id on any of those three would mint authority the corpus
-/// never declared (`B1`) and escape the invariant.
+/// provenance; a `term`, a `proof`'s premises, a `ratify … { }` block, and a
+/// `rule`'s own provenance (WS-2) cite decisions too, but the loader does not
+/// lift any of them into `atoms()`/`sorts()` (a rule is carriage-only — it
+/// lowers to no atom of its own), so [`gate_language_citations`] closes that
+/// hole over the raw declarations. Without it, a forged decision id on any of
+/// these would mint authority the corpus never declared (`B1`) and escape the
+/// invariant.
 fn ledger_valuation(
     model: &WorldModel,
     pack: &Pack,
@@ -146,7 +148,7 @@ fn ledger_valuation(
     (nu, findings)
 }
 
-/// Extend the citation guard over the two ledger-authority declarations the loader
+/// Extend the citation guard over the ledger-authority declarations the loader
 /// keeps outside `atoms()`/`sorts()` — closing the `B1` hole the red team surfaced
 /// (a forged authority claim escaping the "authority is declared, not minted"
 /// invariant) — WITHOUT over-reaching into bibliographic provenance:
@@ -155,7 +157,18 @@ fn ledger_valuation(
 ///   (`premise … cited <d-id>`), harvested from the captured body clauses; a forged
 ///   id would mint a diegetic proof's authority, so it is gated;
 /// - a **`ratify … { }`** block mints its own decision (already declared), but any
-///   decision its body clauses *cite* is gated the same way.
+///   decision its body clauses *cite* is gated the same way;
+/// - a **`rule`**'s own provenance (WS-2) cites the ruling its derivations rest
+///   on, but a rule is carriage-only — `process_rule` never calls `push_atom`,
+///   so it has no entry in `model.atoms()` for the ordinary gate to see. Left
+///   unclosed, a rule's interned citation variable (`compile_ann` interns it
+///   unconditionally into the rule's own support polynomial, gated or not)
+///   would NEVER be ruled true by this pass, so every wire-authored rule's
+///   citation would be dead weight — riding along only when some OTHER atom
+///   happens to cite the same decision, never gating anything on its own. This
+///   arm is what makes `fire_rules`' multiplication of `rule.ann` into every
+///   derivation mean something, and what `author.defeat` on a rule's own
+///   citation has to flip.
 ///
 /// **Not gated:** a `term`/`dialect`/`word`/`name-part`'s `decided <d-id>` is
 /// *language-layer provenance* — a bibliographic pointer that may name a decision
@@ -198,6 +211,23 @@ fn gate_language_citations(
                     Provenance::Decided,
                     &ratify.body.citations,
                 );
+            }
+            Decl::Rule(rule) => {
+                if let Some(annotation) = &rule.provenance {
+                    let citations: Vec<String> = annotation
+                        .citations
+                        .iter()
+                        .map(|citation| citation.id.text.clone())
+                        .collect();
+                    gate_citations(
+                        nu,
+                        findings,
+                        model,
+                        known_decisions,
+                        Provenance::from_marker(annotation.marker),
+                        &citations,
+                    );
+                }
             }
             _ => {}
         }

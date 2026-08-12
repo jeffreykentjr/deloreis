@@ -531,6 +531,28 @@ pub fn dispatch(
             ),
         );
     }
+    if request.op.added_in_1_7_0() {
+        // Every 1.7.0 op gates on its OWN floor predicate (the campaign's
+        // three-floor design: `has_identity_assertions`, `has_rule_authoring`,
+        // `has_branch_writes`) rather than one blanket flag, even though every
+        // floor is `at_or_above(dli, (1, 7, 0))` today — so a later divergent
+        // floor is a one-line change here, never a silent capability leak.
+        let available = match request.op {
+            Op::AuthorAddRule => crate::has_rule_authoring(&request.dli),
+            _ => crate::has_identity_assertions(&request.dli),
+        };
+        if !available {
+            return typed_error(
+                &request.dli,
+                &request.id,
+                ErrorCode::UnknownOp,
+                format!(
+                    "operation {:?} is not available before contract 1.7.0",
+                    request.op
+                ),
+            );
+        }
+    }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
     {

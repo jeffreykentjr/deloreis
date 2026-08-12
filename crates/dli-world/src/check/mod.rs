@@ -123,6 +123,17 @@ pub struct WorldFinding {
     pub citations: Vec<String>,
     /// The source location of the offending claim, when known.
     pub span: Option<Span>,
+    /// A structured payload a consumer can reconstruct the verdict from,
+    /// without parsing [`message`](WorldFinding::message) — the WS-2 rider.
+    /// `None` for every finding this crate has always raised (the message is
+    /// the only report); populated only by the specific classes documented
+    /// to carry one (`continuity.fd-violation` and its derived sibling,
+    /// `continuity.fluent-contradiction`, `continuity.fluent-order-
+    /// undeclared`). The wire layer's `Finding.data` mirrors this field and
+    /// gates it on the negotiated contract version — this field itself is
+    /// unconditional; version-gating is a wire concern, not a kernel one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 impl WorldFinding {
@@ -137,6 +148,7 @@ impl WorldFinding {
             message: message.into(),
             citations: Vec::new(),
             span: None,
+            data: None,
         }
     }
 
@@ -160,6 +172,13 @@ impl WorldFinding {
     #[must_use]
     pub fn with_span(mut self, span: Span) -> Self {
         self.span = Some(span);
+        self
+    }
+
+    /// Attach a structured payload, builder-style (WS-2's `Finding.data` rider).
+    #[must_use]
+    pub fn with_data(mut self, data: serde_json::Value) -> Self {
+        self.data = Some(data);
         self
     }
 

@@ -1,0 +1,77 @@
+{
+  "fixture": "golden/author-assert-same-as-v1",
+  "version": 1,
+  "note": "Contract 1.7.0 identity assertion: assert two entity ids name the same bearer. The op stages a Decl::SameAs, which the compiled world closes symmetric-transitively, and returns the mutation result with the new workspace digest.",
+  "precondition": [
+    {
+      "dli": "1.7.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    },
+    {
+      "dli": "1.7.0",
+      "id": "pre-2",
+      "op": "author.add_entity",
+      "params": {
+        "workspace": "ws-1",
+        "kind": "person",
+        "id": "mara",
+        "name": "Mara",
+        "provenance": {
+          "kind": "cited",
+          "decisions": ["d-1"],
+          "state": "ratified"
+        }
+      }
+    },
+    {
+      "dli": "1.7.0",
+      "id": "pre-3",
+      "op": "author.add_entity",
+      "params": {
+        "workspace": "ws-1",
+        "kind": "person",
+        "id": "moira",
+        "name": "Moira",
+        "provenance": {
+          "kind": "cited",
+          "decisions": ["d-1"],
+          "state": "ratified"
+        }
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.7.0",
+        "id": "1",
+        "op": "author.assert_same_as",
+        "params": {
+          "workspace": "ws-1",
+          "left": "mara",
+          "right": "moira",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-identity"
+          }
+        }
+      },
+      "expect": {
+        "dli": "1.7.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "same-as mara = moira proposed session-identity"
+          ],
+          "workspace_digest": "jcs:sha256:b96f51f1f50c5c76d084a2920adf023761775e14389abe6f4e0d3356babb1c13"
+        }
+      }
+    }
+  ]
+}

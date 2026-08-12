@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::clause::Clause;
 use crate::literal::BodyLiteral;
-use crate::term::AtomExpr;
+use crate::term::{AtomExpr, Term, TimeRef};
 
 /// The structured body of a [`RuleDecl`](crate::decl::RuleDecl).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
@@ -83,4 +83,114 @@ pub struct Datalog {
     pub head: AtomExpr,
     /// The body conjunction of literals (a negated literal is `not <atom>`).
     pub body: Vec<BodyLiteral>,
+}
+
+impl Datalog {
+    /// Render this rule as parser-normalized `head :- body` text.
+    ///
+    /// The one point of truth for a **typed** producer's retained clause
+    /// text — a wire-authored `author.add_rule` call, most notably, which
+    /// receives `head`/`body` already structured and never carries a text
+    /// field. `dli_syntax::parser::parse_rule_clause` reparses this spelling
+    /// byte-for-byte back into an equal [`Datalog`] (a syntax-build oracle
+    /// pins the round trip); this crate has no `syntax`-feature dependency
+    /// to reach that parser itself, so this is a from-scratch renderer, not
+    /// a call into the formatter. It intentionally matches
+    /// `dli_syntax::format`'s own `AtomExpr`/`Term` rendering convention,
+    /// which is a **verbatim clause-text re-emitter** and never derives text
+    /// from `Datalog` structure itself — so this is the only renderer either
+    /// crate has for a `Datalog`, not a second implementation to drift from
+    /// a first.
+    #[must_use]
+    pub fn render(&self) -> String {
+        let body = self
+            .body
+            .iter()
+            .map(render_body_literal)
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{} :- {body}", render_atom(&self.head))
+    }
+}
+
+fn render_body_literal(lit: &BodyLiteral) -> String {
+    if lit.negated {
+        format!("not {}", render_atom(&lit.atom))
+    } else {
+        render_atom(&lit.atom)
+    }
+}
+
+fn render_atom(atom: &AtomExpr) -> String {
+    let args: Vec<String> = atom.args.iter().map(render_term).collect();
+    format!("{}({})", atom.pred.text, args.join(", "))
+}
+
+fn render_term(term: &Term) -> String {
+    match term {
+        Term::Var(v) => format!("${}", v.text),
+        Term::Sym(s) => s.text.clone(),
+        Term::Str(s) => quote(s),
+        Term::Int(n) => n.to_string(),
+        Term::Time(TimeRef::Era(x) | TimeRef::Event(x)) => x.text.clone(),
+    }
+}
+
+fn quote(text: &str) -> String {
+    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ident::Ident;
+
+    fn var(name: &str) -> Term {
+        Term::Var(Ident::synthetic(name))
+    }
+
+    fn sym(name: &str) -> Term {
+        Term::Sym(Ident::synthetic(name))
+    }
+
+    fn atom(pred: &str, args: Vec<Term>) -> AtomExpr {
+        AtomExpr {
+            pred: Ident::synthetic(pred),
+            args,
+        }
+    }
+
+    #[test]
+    fn renders_a_positive_only_clause() {
+        let datalog = Datalog {
+            head: atom("reachable", vec![var("x"), var("z")]),
+            body: vec![BodyLiteral::pos(atom("adjacent", vec![var("x"), var("z")]))],
+        };
+        assert_eq!(datalog.render(), "reachable($x, $z) :- adjacent($x, $z)");
+    }
+
+    #[test]
+    fn renders_negation_and_multiple_body_literals() {
+        let datalog = Datalog {
+            head: atom("ward-holds", vec![var("g")]),
+            body: vec![
+                BodyLiteral::pos(atom("seated", vec![var("g")])),
+                BodyLiteral::not(atom("breached", vec![var("g")])),
+            ],
+        };
+        assert_eq!(
+            datalog.render(),
+            "ward-holds($g) :- seated($g), not breached($g)"
+        );
+    }
+
+    #[test]
+    fn renders_symbols_strings_and_integers() {
+        let datalog = Datalog {
+            head: atom("rank", vec![sym("mara"), Term::Str("gold rank".to_owned())]),
+            body: vec![BodyLiteral::pos(atom("count", vec![Term::Int(2)]))],
+        };
+        assert_eq!(datalog.render(), "rank(mara, \"gold rank\") :- count(2)");
+    }
 }

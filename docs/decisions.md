@@ -3768,3 +3768,423 @@ mention outside the allowlisted set) and `docs-oracle`. No fixture, golden, or
 pinned wire byte moves as a result of this entry — it rules dispositions and
 retires prose, and touches no `Decl` lowering, no wire schema, and no captured
 response.
+
+---
+
+## DL-0080 — `author.assert_same_as` and `author.add_rule` are contract 1.7.0 wire additions, plus temporal close-out findings and the `Finding.data` rider (the wire-surface 1.7.0 campaign, items 2–4: coreference wire exposure, rule authoring, temporal close-out)
+
+*Date: 2026-08-12*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** DL-0078 landed the identity kernel with no wire operation; this is
+the following addition it named, alongside the campaign's second op append
+(rule authoring), its temporal close-out findings, and the `Finding.data`
+rider — one consolidated entry rather than four, since all four ship in the
+same PR and interleave (the rider's payload shapes are what the fd-violation
+and fluent findings below actually carry).
+
+**§1: `author.assert_same_as`.** Joins the tool surface as `Op::ALL`'s 61st
+entry, appended after `author.declare_functional`. Its params are
+`{workspace, left, right, provenance}` (campaign doc WS-1). It is gated on the
+`has_identity_assertions` floor predicate DL-0077's scaffolding already
+seeded, not on an exact version match, so the op reaches a `1.7.0` handshake
+and every later one; every `1.6.0`-or-earlier negotiation's capability list —
+and its released golden fixture — stays byte-identical (the same audit-C4
+append-only discipline DL-0074, DL-0069, and DL-0070 already set).
+
+Stage time carries three new findings, all in the Door-T `author` family
+alongside `entity.unknown`, `event.era-kind`, and their kin:
+
+- `identity.self-merge` (**warn**) — `left` and `right` name the same id; a
+  harmless no-op merge, staged anyway rather than refused.
+- `identity.temporal-unsupported` (**error**) — either endpoint is a declared
+  era or event. This is the wire-level twin of the kernel's own
+  `continuity.identity-temporal-unsupported` refusal (DL-0078, design fork 3):
+  the kernel refuses the merge regardless, but this finding catches it at
+  stage time so a caller sees the refusal on the call that raised it rather
+  than only later at `check`/`materialize`.
+- `identity.sort-mismatch` (**warn**) — the two endpoints' declared entity
+  kinds differ (a person merged with a place, say); staged and flagged for
+  review, not blocked, since a real cross-sort identity claim (an alias, a
+  title) is a legitimate thing to assert.
+
+Both endpoints are also run through the existing unknown-entity check
+(`entity.unknown`, Levenshtein-suggested repair) every other `author.*` tool
+that references an id already uses — same-as gets no bespoke existence check.
+
+**Post-merge functional-dependency detection needed no new code.** The
+kernel's `continuity.fd-violation` check (DL-0073) already fires over the
+check-layer canon grouping `dli_core::alias::canon_map` populates (DL-0078);
+this entry only confirms the wire surfaces it — `author.check` returns the
+finding once the merge is staged, and `author.materialize` refuses to commit
+while it is open, exactly as it does for any other error-severity finding.
+
+**Durable defeat closes the wire story.** DL-0078's own verification proved
+the defeat-algebra valuation flip only at the storage-round-trip level
+(`dli-lorestore/tests/same_as_decl_parity.rs`). A new wire test
+(`crates/dli-serve/tests/assert_same_as.rs`,
+`durable_defeat_of_a_same_as_claim_un_merges_the_wire_query`) exercises the
+piece that leaves open: it authors a cited same-as durably
+(`author.materialize`), confirms a merged consequence reads certain over
+`author.query`, then `author.defeat`s the identity claim's own citing
+decision through the wire, and confirms the merged consequence goes dead on
+the *next* `author.query` — through the same `Ref.valuation` overlay
+`author.defeat` writes and `staged_world`/`eval_under` read on every query,
+never a recompile. A sibling fact cited to an untouched decision is confirmed
+unaffected, isolating the assertion to the identity claim's own standing.
+
+**§2: rule-as-claim engine enrichment.** `fire_rules` (`dli-eval/src/world.rs`)
+already multiplied a rule's own `Ann` into every derivation it fires and
+weakest-graded with `rule.grade`; the entire gap was two things reading no
+real citation. First, `World::define_rule` hardcoded
+`Ann::unconditional()` — every rule read as a standing axiom regardless of
+what a caller wrote. Second, the loader's `process_rule` compiled the
+rule's provenance and discarded it (`let _ = self.compile_ann(...)`). Fixed
+by (a) `World::define_rule_annotated(name, head, body, ann, grade)` — the
+same range-restriction-checked constructor `define_rule` now delegates to
+with `Ann::unconditional()`/`Grade::Asserted`, so every engine-internal and
+test caller is untouched; (b) the loader keeps `compiled.ann` and threads it
+through `lower_or_flag_world_rule` → `lower_world_rule` →
+`define_rule_annotated`. Migration-safe by construction: an un-provenanced
+rule was already a `MissingProvenance` error finding (every `LoadFinding`
+lifts to error severity), so a green corpus has provenanced rules and a
+cited decision defaults valuation-true — the enrichment cannot move a clean
+corpus's certain layer. Only an already-red world's derivations change,
+from "error finding + fires anyway" to "error finding + dead" — honest
+fail-closed. No golden fixture contains a rule (grepped); the full gate is
+the proof obligation and stayed green on this commit alone before the wire
+op landed on top of it.
+
+**A second, deeper gap surfaced only once a rule's citation was tested
+end to end (not by inspection): a rule's own citation was interned into its
+support polynomial (`compile_ann` interns every cited decision
+unconditionally) but never GATED true.** `ledger_valuation`
+(`dli-world/src/lib.rs`) rules a cited decision's variable true by scanning
+`model.atoms()`/`model.sorts()` for citations — but `process_rule` never
+calls `push_atom` (a rule is carriage-only; DL-0078's identity kernel is the
+same shape for `same-as`, but every OTHER fact that shares a rule's cited
+decision papers over the gap by supplying the gate `same-as` itself does
+not need). A rule citing a decision no other atom also cites therefore
+NEVER read certain — a rule's own citation was, until this fix, structurally
+inert, contradicting the entire premise that a rule is "a claim like any
+other, defeasible on its own citation." This is the exact `B1` hole
+`gate_language_citations` already exists to close for `proof`/`ratify`
+citations outside `atoms()`/`sorts()`; the fix is a `Decl::Rule` arm in that
+same function, gating the rule's own provenance (marker mapped via the
+existing `Provenance::from_marker`) exactly as an atom's would be. Found and
+pinned by `crates/dli-serve/tests/add_rule.rs`'s durable-defeat test citing
+the rule to a decision NO base fact also cites (D-3 vs the base's D-1) — the
+isolation the identity kernel's own durable test used for the same reason —
+which read `possible`, never `certain`, before this fix and does after.
+
+**§3: the wire op.** `author.add_rule` joins the tool surface as `Op::ALL`'s
+62nd entry (the second and last op this campaign appends — WS-3's
+branch-scoped writes are params-only, zero ops), gated on the
+`has_rule_authoring` floor predicate DL-0077 seeded. Params:
+`{workspace, name, head: AtomExpr, body: Vec<BodyLiteral>, provenance}`
+(campaign doc WS-2) — `head`/`body` are the same typed shapes
+`author.query`'s `goal_atom` already carries on the wire; no text field,
+ever. One clause per call; an N-clause rule is N calls under distinct
+names — equivalent to one N-clause rule and finer-grained for
+`author.defeat`. This satisfies DL-0058's tier-3 trigger for
+Rule/Cycle/Practice/Proof ("first consumer use"): `author.add_rule` is that
+first use for `Rule`; `Cycle`/`Practice`/`Proof` remain untriggered.
+
+**Stricter than every other `author.add_*` tool, by design.** An
+error-severity finding refuses the WHOLE add and stages nothing — never the
+ordinary stage-then-block-materialize shape — because a bad rule staged
+even once can BRICK every later read: `staged_world` recompiles on every
+call, and an unstratifiable or range-unsafe rule set makes that recompile
+fail outright, collapsing every subsequent read to the single opaque
+`world.uncompilable` finding and losing whatever else that call would have
+reported. So the checks run BEFORE `stage()` ever sees the declaration (the
+`add_option` return-findings-without-push shape): the ordinary per-decl
+census (`field.control-char`, `citation.unknown-decision`, both automatic
+once `free_text_fields`/`decl_annotation` carry a `Decl::Rule` arm) plus
+three rule-shape findings — `rule.empty-body` (the body has no literals; a
+body-less rule would derive its head unconditionally on the wire, but its
+render, `head :- `, reparses via the `.dli` text path to `datalog: None`
+— `parse_rule_clause` requires at least one body atom after the separator
+— which the loader then refuses as `MalformedWorldRule`, so an unguarded
+empty body was a migration-parity break between the wire and reimport
+paths; caught by rt-features SEV-B/SEV-C review of this same entry, fixed
+before landing, with a typed `add-body-literal` repair), checked first
+since an empty body would otherwise make every head variable trivially
+"unbound" and misreport as the next finding instead; `rule.unbound-variable`
+(a head or negated-literal variable no positive body atom binds, via the
+existing public `dli_eval::world::unbound_variable`, with a typed
+`bind-variable` repair); and `rule.duplicate` (the name already names a
+staged or based rule; a pointer-identity exclusion is what lets a rule NOT
+report itself as duplicating itself on every later `author.check`
+re-validation pass, the one bug the wire test suite caught and this entry
+records) — and, only once those are clean, a stratification pre-flight: a
+tentative compile of the candidate rule alongside everything already
+staged, refusing with `rule.unstratifiable` on failure. Pinned by
+`an_unstratifiable_rule_is_refused_without_staging_and_reads_stay_healthy`:
+a rule that would brick every read never reaches the workspace, and a
+healthy read (no `world.uncompilable`) follows the refusal. The empty-body
+guard is pinned by `an_empty_body_is_refused_without_staging` (refused,
+nothing staged) and `a_non_empty_rules_render_round_trips_through_the_text_parser`
+(a healthy rule's rendered clause, fed back through
+`dli_syntax::parse_rule_clause` — the loader's own reimport path — structures
+to the identical head and body the wire call submitted).
+
+**Post-merge/post-derivation functional-dependency detection (amending
+DL-0075).** `continuity.fd-violation` reads authored atoms pre-saturation —
+a deliberate DL-0075 split between what canon asserts and what a merge
+derives. A wire-authored rule breaks that split's assumption: it can derive
+a second value for a functional slot that exists ONLY in the saturated
+layer, invisible to the pre-saturation check. New `continuity.derived-fd-violation`
+(`dli-world/src/check/continuity.rs`) closes the gap: reads the
+valuation-certain rows of the world's saturated `derived` layer (a fact is
+trivially its own derivation, so this layer is authored-plus-derived, not
+derived-only), the same shared `dli_core::fd::fd_violations` primitive,
+DECLARED-only functional predicates (never `inferred_functional` — a
+saturated slot's shape is even less informative about single-valuedness
+than the authored shape already is, koan 3), fluent slots excluded (rules
+cannot create spans — `wm.fluents` is populated only by `process_state`),
+and any `(pred, subject)` the source-certain check already reports
+excluded — the two checks partition, neither double-reports. Includes the
+named identity-interaction case: a derived break reachable only through an
+identity-closure copy (one endpoint's own value, the other's rule-derived
+value, combined only once `same-as` merges the canonical subject) appears
+under a certain identity link and clears the moment the link is not
+certain — the same algebraic un-merge DL-0078 proved for the source layer,
+now proved for the derived one (`dli-world/tests/derived_fd_violation.rs`,
+5 cases). The load battery's existing `continuity.fd-violation` prose is
+UNCHANGED (a consumer regex guard); this is a new, separate code, not a
+rewording.
+
+**Defeat works on a rule's own citation via one carriage-reading branch.**
+`support_cites_decision` (`dli-serve/src/author/tools.rs`) answers "does
+`decision` support every path of this stored claim" by reading the object's
+`support` polynomial — but `carriage_object` stores EVERY expert-carried
+declaration's `support` as the structural constant `PosBool::truth()`,
+never touched, so that question is unanswerable from `support` alone for a
+rule (or any other carried decl). Since `object.expert_body.body` holds the
+whole declaration as span-normalized canonical JSON
+(`carriage_object`'s `decl_json_pair`), the fix deserializes it and reads
+`decl_annotation`'s citations directly — a `Decl` round-trips through plain
+`serde_json`, no `dli_syntax` needed. Scoped to `ExpertDeclKind::Rule`
+specifically (not every carried kind): the mechanism is fully general, but
+only `Rule` gains a wire authoring path in this campaign, so only `Rule`'s
+behavior is asserted and tested here; a legacy or malformed carriage falls
+closed to `false` (the ordinary "does not support" refusal) rather than
+panicking. Pinned durably: `durable_defeat_of_a_rule_claim_kills_every_derivation_through_it`
+materializes a rule cited to a decision distinct from its supporting fact's
+citation, confirms the derivation reads certain, defeats the rule's own
+citing decision through the wire, and confirms the derivation goes dead on
+the next read with the sibling fact unaffected — the rule-authoring twin of
+DL-0078's own durable-defeat test.
+
+**§4: expressivity narrowing — bare world rules only (campaign doc §2.4,
+user-ruled).** Typed datalog head/body, recursion (including mutual) kept,
+stratified negation kept, range restriction enforced — already the loader's
+existing shape (`rule.body.clauses`/`.inline`'s typed `Datalog`, LS-9); this
+entry records the ruling rather than changing behavior. Excluded: `over
+order`/`over season` domain rules (`rule.domain.is_some()` returns before
+`world.rules` ever sees them; their micro-grammars stay owned by
+`dli-time`/`dli-ledger`) and non-datalog `requires` clauses (their only
+lowering is the existing `MalformedWorldRule` finding). **Un-lift condition
+(user pin, per DL-0011 discipline — a boundary without a stated trigger
+becomes permanent by default):** the named trigger is the first consumer
+ask for typed order/season authoring — fantasy's FW-10 cutover is the
+likely real trigger, since `worlds/tpth/time/cycles.dli` and
+`worlds/tpth/practices/spoken-proof.dli` are live artifacts of these forms
+today. **Lift design direction:** a typed `over order`/`over season` wire
+op would need its own params shape distinct from `author.add_rule`'s bare
+`head`/`body` (the domain clauses are text-owned micro-grammars, not
+datalog), so it is a new op when the trigger fires, not a parameter on this
+one. **`author.add_era_order` is declined as a synonym door:** pairwise
+`author.add_before` IS the chain spelling (a chain `a < b < c` is `N-1`
+pairwise befores, exactly what the existing `.dli` `order` chain lowers to,
+with finer per-edge blame and no head-prepend hazard) — a second op
+spelling the same chronology-ordering capability would be a synonym, not a
+new capability, and DL-0043 already retires synonym doors rather than
+minting them.
+
+**§5: temporal close-out (campaign doc WS-4, no op, no contract-version
+change beyond what §3/§6 below already move).** Era-to-era
+`author.add_before` already worked end to end (verified, unchanged). Two
+new findings close the two named gaps:
+
+- `state.anchor-kind` (**error**, `dli-serve/src/author/tools.rs`
+  `state_findings`) fires when a state's temporal anchor names a KNOWN
+  entity of the wrong sort — `since`/`until` need an event, `after`/`during`
+  need an era (the existing `entity_sort` helper). Typed repair
+  `{kind: "resolve-anchor", expected_kind, actual_kind, point, alternatives}`
+  names up to five known entities of the expected kind. Converts the
+  consumer's pinned xfail (an LLM anchoring `since`/`until` at an era) from
+  a check-time dead end into an add-time repairable finding. The load-side
+  `load.unknown-temporal-reference` backstop (an anchor this workspace
+  never declares at all) is unchanged, code and prose — this is the KNOWN-
+  but-wrong-sort case that backstop cannot express.
+- `continuity.fluent-order-undeclared` (**warn**, non-blocking,
+  `dli-world/src/check/continuity.rs`) fires when a fluent slot holds two
+  or more distinct-valued spans, both certainly supported, that could
+  genuinely CO-HOLD under some consistent extension of the partial order —
+  and names exactly the anchor pairs whose ordering would settle it.
+  **Soundness is unchanged by construction:** `fluent_clash`'s contradiction
+  sweep counts only `HoldsCertainly` holdings (`FluentState::certain_values`),
+  and an order-indeterminate holding never reads `HoldsCertainly` —
+  declaring the order is what SETTLES it, so the existing contradiction
+  check stays exactly as silent on undeclared order as it always has; this
+  is a separate, non-blocking signal naming the gap.
+
+  **Corrected mid-review (rt-features SEV-B, blocking):** the first design
+  swept every declared time point and tested each span's `cover()`
+  independently against it, rather than testing the two spans against EACH
+  OTHER. Two spans sharing a boundary (`V1 until X`, `V2 since X` — the
+  ordinary disjoint transition, `docs/spec/03-time.md`'s own water-status
+  example) both read `OrderIndeterminate` at any THIRD point unordered
+  against `X`, which the old sweep misread as an ambiguity between `V1` and
+  `V2` — a false positive with no repair that could ever resolve it, since
+  no order settles two spans that can never overlap in the first place.
+  Live on the shipped corpus: camelot's `excalibur.keeper`
+  (`in-the-stone until the-sword-drawn`, `the-king since` the same
+  `the-sword-drawn`) and nine-realms' `sol.course` (`crossing`/`devoured`
+  at `the-last-battle`) both false-positived under the old design. Fixed by
+  comparing spans PAIRWISE and directly: `provably_disjoint` (a new
+  `continuity.rs` helper) checks whether one span's `until` anchor is
+  at-or-before the other's `since` anchor under `Chronology::precedes` —
+  the shared-anchor and fully-ordered cases both clear this and are
+  skipped outright, with no false positive possible; only once a pair
+  clears that does `undeclared_boundary_pairs` name the `(Some, Some)`
+  cross-boundary anchor pairs between the two spans that read `Unordered`
+  — the actual candidates whose declaration would settle a genuine
+  ambiguity (two open-ended overlapping spans with no separating order,
+  the case the check still catches). `Span::indeterminate_anchors` (the
+  old sweep's helper) is dead under the new design and removed.
+
+  Typed repair still rides inside `data` (`WorldFinding`/wire `Finding`
+  carry no separate `repair` field the way Door-T author findings do — kernel
+  findings carry the message and, now, `data`, never a repair — so the
+  repair shape nests as a `data.repair` key):
+  `{kind: "declare-order", candidates: [[p, q], …]}`, now naming exactly the
+  anchor pairs between the two spans that would resolve the ambiguity,
+  never a point unrelated to either. Pinned by five `adversarial_fluent.rs`
+  cases (19 total, up from 14 pre-existing): the original three —
+  genuinely settleable indeterminacy naming the correct anchor pair; silent
+  on disjoint spans; silent on same-value indeterminate spans (one value
+  backed twice is not an ambiguity to repair) — plus two new SEV-B
+  regressions: the shared-anchor transition staying silent even with an
+  unrelated, unordered third event present (the exact false-positive
+  repro), and the real `examples/norse/nine-realms.dli` `sol.course`
+  corpus, compiled from its committed source, confirmed silent. The 14
+  original pre-existing cases are untouched — `fluent_findings`'s own
+  helper filters to `continuity.fluent-contradiction` specifically, so none
+  of them assert over this code at all. **`round-table` stays clean**:
+  camelot's `excalibur.keeper` is the ordinary shared-anchor transition, not
+  an ambiguity, so `dispatch.rs`'s `round_table_check_stays_clean` regression
+  pin is unchanged — it asserts zero findings, as it always has, and the
+  new check never trips it.
+
+**§6: the `Finding.data` structured-payload rider (campaign doc §2.9, user
+pin: "a consumer must reconstruct the verdict, not just read it").**
+`WorldFinding` (`dli-world/src/check/mod.rs`) and the wire `Finding`
+(`dli-serve/src/finding.rs`) each gain `data: Option<serde_json::Value>`
+(`skip_serializing_if`, so a pre-`1.7.0` response's bytes are byte-identical
+— absent, never `null`). `WorldFinding.data` is unconditional (a kernel
+concern); the wire's `Finding.data` is gated on the new
+`has_finding_data` predicate (`≥1.7.0`, `at_or_above`, the same floor shape
+every other campaign predicate uses) at the three call sites that convert a
+`WorldFinding` into a wire `Finding` (`handlers.rs`'s batch `dli.check`,
+`author/reads.rs`'s `author.check`/`author.findings`, `author/tools.rs`'s
+`author.merge`) — each now threads a `carries_data`/`dli` argument from its
+dispatch closure, mirroring the existing `v2`/`structural_keys` threading
+pattern. Populated only by the classes documented to carry one:
+`continuity.fd-violation`/`continuity.derived-fd-violation`
+(`{pred, subject, values, slot_key}`, `slot_key` a stable `pred/subject`
+compound id), `continuity.fluent-contradiction`
+(`{pred, subject, values, spans: [{value, since, until}], witness_points}`,
+extending `fluent_clash` to also return its witnessing point), and
+`continuity.fluent-order-undeclared` (the same shape plus the nested
+`data.repair` above). Every other finding, on every version, keeps
+answering with no `data` key — an additive field is additive only when
+nothing already-shipped reads differently because it exists.
+
+**Rationale.** The kernel capabilities DL-0078 (identity) and this entry's
+own §2 (rule-as-claim) build are unreachable to an agent without a typed op
+— agents author through the one interface (DL-0014, DL-0043) — so the wire
+exposure is not optional scope, it is what makes each feature usable at
+all. Append-only placement plus floor-predicate gating, rather than a
+second meaning of `1.6.0` or an exact-version check, is the same shape
+every capability addition since `0.6.1` has taken, so a pinned consumer's
+earlier negotiation never moves under it — now proven for TWO ops appended
+in the same window, each on its own named floor, not a shared one. The
+`gate_language_citations` fix (§2) generalizes a pattern (`proof`/`ratify`
+citations outside `atoms()`/`sorts()`) that already existed for exactly
+this reason — a carriage-only declaration's citation is invisible to the
+ordinary gate — rather than inventing a rule-specific mechanism, so the
+next carriage-only decl that needs its own citation gated has a precedent
+to extend, not a new shape to design. The expressivity narrowing (§4) and
+the two temporal findings (§5) are user-ruled boundaries recorded with
+their triggers per DL-0011 discipline, never silent permanent walls. The
+`Finding.data` rider (§6) is additive by construction — absent, not
+`null`, below its floor — so it is a genuine zero-cost capability add for
+every consumer that does not yet ask for it.
+
+**Verification.** Golden, negative, and paired-framing fixtures for both
+ops are registered in the closed fixture registry at
+`contract_version: 1.7.0` (`contracts/dli-worker/registry.yaml`) and
+replayed cold (`fixture_replay`); the op inventory (now 62), the two
+floor-gated capability entries, and the version echo are gate-checked, with
+every pre-`1.7.0` capability list asserted unmoved (`ls8_contract_1_0.rs`).
+
+`crates/dli-serve/tests/assert_same_as.rs` (15 cases) covers the
+happy-path stage-and-render, the staged declaration's shape, a merge
+answering a staged query under the alias, both unknown-endpoint sides, the
+self-merge warning, the era/event temporal refusal, the sort-mismatch
+warning, the post-merge fd-violation surfacing on `check` and blocking
+`materialize`, `author.why` naming the identity ruling, `author.diff` rows
+over the merged fact, the pre-`1.7.0` refusal and its capability list, a
+stale digest fence, an idempotent retry, and the durable-defeat un-merge.
+
+`crates/dli-serve/tests/add_rule.rs` (17 cases) covers the happy-path
+stage-and-derive, the staged declaration's shape, negation deriving
+correctly, the empty-body/unbound-variable/duplicate-name/undeclared-citation
+refusals (each refusing WITHOUT staging), a non-empty rule's rendered clause
+round-tripping through `dli_syntax::parse_rule_clause` to the identical head
+and body, the brick-proof stratification refusal (with a healthy read
+immediately after), the derived-fd-violation surfacing on `check` and
+blocking `materialize`, `author.diff` rows over the staged rule, the
+pre-`1.7.0` refusal and the two-op capability list, a stale digest fence, an
+idempotent retry, a migration-parity check against `dli.corpus.import`'s
+text path (the same logical rule authored two ways answers the same query
+the same way, over a real `Project`-backed store), and the
+durable-defeat-kills-every-derivation wire test.
+
+`crates/dli-world/tests/derived_fd_violation.rs` (5 cases, new) covers the
+derived-fd-violation check directly: a rule-only break invisible at the
+source layer, a rule deriving no new value raising nothing, a source-only
+break reported once never doubled, and the identity-interaction case
+appearing under a certain link and clearing when it is not. `dli-ast`'s
+`rule.rs` gains 3 unit tests for `Datalog::render`. `dli-world`'s
+`adversarial_fluent.rs` gains 5 cases for `continuity.fluent-order-undeclared`
+(19 total, the 14 pre-existing untouched): the original three
+(settleable-indeterminacy warn, disjoint-spans silence, same-value silence)
+plus the two SEV-B regressions above (the shared-anchor false-positive
+repro, and the real `nine-realms.dli` corpus). `dispatch.rs`'s
+`round_table_check_stays_clean` is unchanged — camelot's shared-anchor
+transition was never a genuine ambiguity, and the corrected check confirms
+that; the pin still asserts zero findings.
+
+`xtask/src/finding_families.rs` registers ten new codes across two
+families — `rule.empty-body`/`identity.self-merge`/
+`identity.temporal-unsupported`/`identity.sort-mismatch`/
+`rule.unbound-variable`/`rule.duplicate`/`rule.unstratifiable`/
+`state.anchor-kind` under the existing `author` family
+(`Scrape::CodeFieldsExcept`), `continuity.derived-fd-violation`/
+`continuity.fluent-order-undeclared` under the existing `continuity` family
+(`Scrape::Prefixed`) — taking the catalogue from 204 to 214 dotted codes;
+the strict source-coverage check and the regenerated
+`docs/reference-generated/finding-families.md` and `ops.md` (62 rows) are
+gate-checked. `docs/spec/11-agent-authoring.md` gains §3.13 (rule
+authoring) between §3.12 (coreference) and the renumbered §3.14–§3.16;
+`SKILL.md`'s tool-surface counts and table gain both ops;
+`docs/spec/03-time.md` gains the WS-4 wire-recipe paragraph;
+`docs/integration/fantasy-contract.md`'s op counts, §3.2 table, and §6
+changelog cover both ops, the temporal findings, and the rider. The full
+gate (`cargo xtask gate`) is green.

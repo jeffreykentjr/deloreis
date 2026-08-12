@@ -1,0 +1,23 @@
+{
+  "fixture": "negative/author-add-rule-schema-violation",
+  "version": 1,
+  "note": "author.add_rule params omit the required body and provenance.",
+  "send": {
+    "dli": "1.7.0",
+    "id": "1",
+    "op": "author.add_rule",
+    "params": {
+      "workspace": "ws-1",
+      "name": "endorsement",
+      "head": {
+        "pred": "endorsed",
+        "args": [
+          { "Var": "x" }
+        ]
+      }
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

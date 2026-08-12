@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAssertSameAsParams",
+  "description": "`author.assert_same_as` params: assert two entity ids name the same bearer\n(WS-1, contract 1.7.0).\n\nThis stages a `Decl::SameAs`, closed symmetric-transitively by the\ncompiled world (`dli_eval::world::synthesize_alias_rules`): every other\npredicate's tuples merge across `left` and `right`, and the merge's\nstanding is carried entirely by this claim's own provenance — defeating\nthe citing decision un-merges every consequence algebraically, with no\nrecompile (DL-0078). A plain `author.add_relation {pred: \"same-as\", …}`\ndoes NOT merge anything; only this declaration form does (koan 3).",
+  "type": "object",
+  "properties": {
+    "left": {
+      "description": "One side of the identity claim.",
+      "type": "string"
+    },
+    "provenance": {
+      "description": "The provenance of this claim.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "right": {
+      "description": "The other side of the identity claim.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "left",
+    "right",
+    "provenance"
+  ],
+  "$defs": {
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for the authoring seam (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            },
+            "state": {
+              "description": "The requested standing on contract 1.5 and above.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProvenanceState"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    },
+    "ProvenanceState": {
+      "description": "The stored standing requested for a cited authoring operation.\n\nThe field is optional here so pre-1.5 wire frames remain decodable. The\n1.5 request boundary requires it for `kind: cited`.",
+      "oneOf": [
+        {
+          "description": "Open to later revision.",
+          "type": "string",
+          "const": "provisional"
+        },
+        {
+          "description": "A settled ruling.",
+          "type": "string",
+          "const": "ratified"
+        }
+      ]
+    }
+  }
+}

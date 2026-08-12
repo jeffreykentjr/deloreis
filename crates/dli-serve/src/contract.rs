@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use dli_ast::language::{CompositionStep, DialectItem};
+use dli_ast::literal::BodyLiteral;
 use dli_ast::term::AtomExpr;
 use dli_core::ann::Status;
 use dli_core::grade::Grade;
@@ -1743,6 +1744,57 @@ pub struct AuthorDeclareFunctionalParams {
     /// The predicate declared single-valued.
     pub pred: String,
     /// The provenance of this declaration.
+    pub provenance: Provenance,
+}
+
+/// `author.assert_same_as` params: assert two entity ids name the same bearer
+/// (WS-1, contract 1.7.0).
+///
+/// This stages a `Decl::SameAs`, closed symmetric-transitively by the
+/// compiled world (`dli_eval::world::synthesize_alias_rules`): every other
+/// predicate's tuples merge across `left` and `right`, and the merge's
+/// standing is carried entirely by this claim's own provenance — defeating
+/// the citing decision un-merges every consequence algebraically, with no
+/// recompile (DL-0078). A plain `author.add_relation {pred: "same-as", …}`
+/// does NOT merge anything; only this declaration form does (koan 3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAssertSameAsParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// One side of the identity claim.
+    pub left: String,
+    /// The other side of the identity claim.
+    pub right: String,
+    /// The provenance of this claim.
+    pub provenance: Provenance,
+}
+
+/// `author.add_rule` params: declare one datalog derivation rule (WS-2,
+/// contract 1.7.0).
+///
+/// `head`/`body` are the already-typed wire forms `author.query`'s
+/// `goal_atom` and `author.add_rule` share — never a text field. One clause
+/// per call; an N-clause rule is N calls under distinct names, which is also
+/// finer-grained for `author.defeat` (DL-0058's rule-authoring trigger,
+/// satisfied here). Provenance is required, exactly as `author.add_before`'s
+/// is: a rule is a ruling like any other, and every fact it derives carries
+/// this claim's own provenance into its support (`fire_rules` multiplies it
+/// in already; `author.add_rule` is what gives that multiplication something
+/// real to work with).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAddRuleParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The rule's name — the unit `author.defeat` cites and `rule.duplicate`
+    /// guards.
+    pub name: String,
+    /// The head atom the rule derives when the body holds.
+    pub head: AtomExpr,
+    /// The body conjunction of literals (a negated literal is `not <atom>`).
+    pub body: Vec<BodyLiteral>,
+    /// The provenance of this rule.
     pub provenance: Provenance,
 }
 

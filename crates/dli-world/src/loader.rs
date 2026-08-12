@@ -39,8 +39,10 @@
 //! prefixed by `not` is negated). The loader is a *reader* of that typed AST —
 //! it no longer re-enters `dli_syntax` — and routes each clause through the
 //! evaluator's negation-aware intake
-//! ([`World::define_rule`](dli_eval::world::World::define_rule)), populating
-//! `world.rules`. Three load-time checks fire from there:
+//! ([`World::define_rule_annotated`](dli_eval::world::World::define_rule_annotated),
+//! carrying the rule's own compiled provenance so it is a defeasible claim like
+//! any other — WS-2), populating `world.rules`. Three load-time checks fire
+//! from there:
 //!
 //! - **Rule shape** — every bare top-level rule must parse as Datalog; a
 //!   malformed clause or body-less declaration is a
@@ -664,10 +666,13 @@ impl LoadCtx {
     }
 
     fn process_rule(&mut self, rule: &RuleDecl, pack: &str) {
-        // A rule's provenance is checkable now; its typed head/body intake and
-        // range restriction go through the evaluator's negation-aware seam.
+        // A rule's provenance is checkable now, and — since WS-2 — it is also the
+        // annotation every derivation through this rule carries: `fire_rules`
+        // multiplies `rule.ann` into each production it fires, so a rule is a
+        // claim like any other, defeasible on its own citation.
         let label = format!("rule '{}'", rule.name.text);
-        let _ = self.compile_ann(rule.provenance.as_ref(), &label, pack, true, rule.name.span);
+        let compiled =
+            self.compile_ann(rule.provenance.as_ref(), &label, pack, true, rule.name.span);
 
         // Only a **bare** `rule` is a world (derivation) rule. `rule … over order`
         // and `rule … over season` route to the episode-ordering and season-ledger
@@ -683,13 +688,15 @@ impl LoadCtx {
         // a finding; a body-less rule likewise fails closed (koan 4).
         if !rule.body.clauses.is_empty() {
             for rc in &rule.body.clauses {
-                self.lower_or_flag_world_rule(&rule.name, rc, rc.clause.span);
+                self.lower_or_flag_world_rule(&rule.name, rc, rc.clause.span, &compiled.ann);
             }
             return;
         }
 
         match &rule.body.inline {
-            Some(rc) => self.lower_or_flag_world_rule(&rule.name, rc, rule.name.span),
+            Some(rc) => {
+                self.lower_or_flag_world_rule(&rule.name, rc, rule.name.span, &compiled.ann);
+            }
             None => self.findings.push(LoadFinding::MalformedWorldRule {
                 rule: rule.name.text.clone(),
                 body: String::new(),
@@ -706,10 +713,11 @@ impl LoadCtx {
         name: &Ident,
         rc: &dli_ast::rule::RuleClause,
         span: Span,
+        ann: &Ann,
     ) {
         match &rc.datalog {
             Some(datalog) => {
-                self.lower_world_rule(name, datalog.head.clone(), datalog.body.clone(), span);
+                self.lower_world_rule(name, datalog.head.clone(), datalog.body.clone(), span, ann);
             }
             None => self.findings.push(LoadFinding::MalformedWorldRule {
                 rule: name.text.clone(),
@@ -723,13 +731,18 @@ impl LoadCtx {
     /// range-restriction-checked intake, surfacing a range-restriction violation
     /// as a [`LoadFinding::UnboundHeadVariable`] and a stratification failure — a
     /// negative-dependency cycle across the whole rule set — from the
-    /// `dli_eval::stratify` seam in [`finish`](LoadCtx::finish).
+    /// `dli_eval::stratify` seam in [`finish`](LoadCtx::finish). Carries the
+    /// rule's own compiled annotation into
+    /// [`define_rule_annotated`](dli_eval::world::World::define_rule_annotated)
+    /// (WS-2): every derivation through this rule multiplies in `ann`, so a
+    /// rule is a defeasible claim rather than a standing axiom.
     fn lower_world_rule(
         &mut self,
         name: &Ident,
         head: AtomExpr,
         body: Vec<dli_ast::literal::BodyLiteral>,
         span: Span,
+        ann: &Ann,
     ) {
         if let Some(variable) = dli_eval::world::unbound_variable(&head, &body) {
             self.findings.push(LoadFinding::UnboundHeadVariable {
@@ -739,9 +752,15 @@ impl LoadCtx {
             });
             return;
         }
-        // define_rule only errs on range restriction (handled above); ignore the
-        // redundant error rather than double-report.
-        let _ = self.wm.world.define_rule(name.text.clone(), head, body);
+        // define_rule_annotated only errs on range restriction (handled above);
+        // ignore the redundant error rather than double-report.
+        let _ = self.wm.world.define_rule_annotated(
+            name.text.clone(),
+            head,
+            body,
+            ann.clone(),
+            Grade::Asserted,
+        );
     }
 
     fn process_cycle(&mut self, cycle: &CycleDecl, pack: &str) {
