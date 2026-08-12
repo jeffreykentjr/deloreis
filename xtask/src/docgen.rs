@@ -127,23 +127,28 @@ fn render_ops() -> String {
     let count = Op::ALL.len();
     let mut out = header(&format!(
         "The {count}-operation wire inventory, generated from dli_serve::Op::ALL: \
-         wire name and request/response payload schema files."
+         wire name, summary, version, and request/response payload schema files."
     ));
     out.push_str("# Wire operations\n\n");
     let _ = write!(
         out,
         "The closed operation set: {count} operations. The wire name is each op's \
          serde identifier; its request and response payload schemas live under \
-         `contracts/dli-worker/schemas/`. The batch `dli.*` family and the \
-         `author.*` Door-T tools are one closed set.\n\n"
+         `contracts/dli-worker/schemas/`. Summary is `Op::summary()` — the same \
+         tool-selection text an agent reads over MCP; Added in is \
+         `Op::introduced_in()` — the earliest accepted contract version the op is \
+         advertised at. The batch `dli.*` family and the `author.*` Door-T tools \
+         are one closed set.\n\n"
     );
-    out.push_str("| # | Wire name | Request schema | Response schema |\n");
-    out.push_str("|---|---|---|---|\n");
+    out.push_str("| # | Wire name | Summary | Added in | Request schema | Response schema |\n");
+    out.push_str("|---|---|---|---|---|---|\n");
     for (index, &op) in Op::ALL.iter().enumerate() {
         let wire = wire_name(op);
+        let summary = op.summary();
+        let added_in = op.introduced_in();
         let _ = writeln!(
             out,
-            "| {} | `{wire}` | `{wire}.request.json` | `{wire}.response.json` |",
+            "| {} | `{wire}` | {summary} | `{added_in}` | `{wire}.request.json` | `{wire}.response.json` |",
             index + 1
         );
     }

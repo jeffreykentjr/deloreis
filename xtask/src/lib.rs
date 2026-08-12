@@ -20,4 +20,5 @@ pub mod jsonval;
 pub mod retired_vocabulary;
 pub mod schema;
 pub mod syntax_free;
+pub mod teaching_coverage;
 pub mod util;

@@ -11,7 +11,7 @@ fn main() -> Result<()> {
 
     let Some((command, rest)) = args.split_first() else {
         eprintln!(
-            "usage: xtask <gate|authority|schema|fixtures|docgen|docs-oracle|docs-tokens|retired-vocabulary|book|boundary|syntax-free|hooks-check>"
+            "usage: xtask <gate|authority|schema|fixtures|docgen|docs-oracle|docs-tokens|retired-vocabulary|teaching-coverage|book|boundary|syntax-free|hooks-check>"
         );
         std::process::exit(2);
     };
@@ -38,6 +38,7 @@ fn main() -> Result<()> {
         "docs-oracle" => xtask::docs_oracle::run_docs_oracle(&root),
         "docs-tokens" => xtask::docs_tokens::run_docs_tokens(&root),
         "retired-vocabulary" => xtask::retired_vocabulary::run_retired_vocabulary(&root),
+        "teaching-coverage" => xtask::teaching_coverage::run_teaching_coverage(&root),
         "boundary" => xtask::boundary::run_boundary(&root),
         "syntax-free" => xtask::syntax_free::run_syntax_free(&root),
         "hooks-check" => xtask::hooks::run_hooks_check(),

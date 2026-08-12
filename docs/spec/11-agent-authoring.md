@@ -180,7 +180,7 @@ request is:
 
 ```json
 {
-  "dli": "1.0.0",
+  "dli": "1.6.0",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",
@@ -484,6 +484,42 @@ appear in the feedback contract's mutating-call shape (§4) — they return
 query-specific result shapes rather than `{ ok, workspace_digest, rendered,
 findings }`. An agent uses them to orient before mutating: query what exists,
 check the current state, understand a derivation, then act.
+
+### 3.13 Expert authoring tools (contract 1.3.0)
+
+Seven tools add the language lane and the continuity/ledger pair the expert
+card (`docs/cards/expert-card.md`) describes; each stages like any other add,
+returns the standard mutation envelope (§4), and requires provenance. All
+seven are advertised only from contract `1.3.0` and above (DL-0058).
+
+| Tool | Purpose |
+|---|---|
+| `author.add_dialect {id, label?, body[]}` | Declare a naming register — the phonology and name grammar a naming population draws on. |
+| `author.add_name_part {id, gloss?, head[]}` | Declare a name-part morpheme — the raw material composed names are built from. |
+| `author.add_name {id, label?, head[], composition[], bearer?}` | Compose a name from name-part morphemes, optionally binding it to the entity that bears it. |
+| `author.add_term {id, label?}` | Introduce a glossary term — a word the lore defines and reuses. |
+| `author.add_banned {word, reason?}` | Ban a word from the lore surface, with the reason. |
+| `author.add_state {id, value?, time?}` | Assert a time-varying state fluent — a value that holds over an interval, not forever; `time` is `{kind: after\|during\|since\|until, point}`. |
+| `author.add_attest {question}` | Request an attestation for an open question already in the workspace. |
+
+### 3.14 Branch and merge tools (contract 0.6.1)
+
+`author.branch {workspace, action: create|list, name?, from?}` creates a
+persistent, named ref into the workspace's lorestore at the source branch's
+head (`from`, default `main`), or lists every branch that exists.
+`author.merge {workspace, source, target?}` unions a branch's fact-set into the
+target branch (default `main`) as a new merge commit — the fact-set union is
+confluent, so the merge always commits — and reports valuation, exclusivity,
+and functional-dependency conflicts (`AuthorMergeResult`) rather than blocking
+on them.
+
+Both tools operate on durable lorestore refs, not the staged workspace layer.
+At contract `1.6.0`, every `author.add_*` write still lands on `main` — no wire
+op yet routes a staged addition onto a named branch — so branch and merge are
+today a durable checkpoint-and-comparison mechanism rather than a parallel
+authoring line: reach for `author.branch` to name a durable snapshot of the
+current state, and `author.merge` when two such snapshots' histories are ready
+to fold together.
 
 ## 4. The feedback contract
 
