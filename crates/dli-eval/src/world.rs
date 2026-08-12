@@ -418,10 +418,55 @@ impl World {
                         .functional_predicates
                         .insert(functional.pred.text.clone());
                 }
-                // Other constraint- and language-layer declarations carry no atom
-                // and no constraint the evaluable core reads, so they lower to
-                // nothing here.
-                _ => {}
+                // No atom here, each for a different reason:
+                // - `kind`/`rule` need the loader's provenance-gated
+                //   compilation (`dli_world::Loader::process_kind` /
+                //   `process_rule`, the latter via `World::define_rule`);
+                //   this direct document lowering has no equivalent pass.
+                // - Dialect/Word/NamePart/Name/Term/Banned/Practice/Proof/
+                //   Principle are language- and ledger-layer forms the full
+                //   pipeline compiles (`dli-world::Loader` for language
+                //   forms, `dli-ledger` for practice/proof/principle), not
+                //   this lowering.
+                // - `ratify` mints no atom either; it is consumed by the
+                //   `known_decisions` pre-pass above, not this per-decl
+                //   match.
+                // - `attest` carries no atom here either, but it is NOT
+                //   inert: `author.add_attest` (contract 1.3.0) is a live,
+                //   materializable wire capability, and the ledger's
+                //   attestation-sweep machinery reads it downstream of the
+                //   store. `load.inert-declaration` is error-severity and
+                //   blocks `author.materialize` (verified: flagging Attest
+                //   breaks the shipped `add_attest` -> materialize flow), so
+                //   it stays a plain no-op here.
+                // - Use/Draft/Export/Variant/Narration are carried to the
+                //   lorestore but carry no atom here either. Whether these
+                //   deprecated-only forms should raise
+                //   `load.inert-declaration` (koan 4 / DL-0029) is a per-form
+                //   disposition DEFERRED to the deprecation audit (PR-FINAL):
+                //   flagging them error-severity regresses the shipped
+                //   round-table/camelot reference corpus (`use language`,
+                //   `use chronology`, `narration`), so this stays
+                //   behavior-neutral and the audit rules per form + fixes the
+                //   corpus if a form turns out to be a genuine defect.
+                Decl::Kind(_)
+                | Decl::Rule(_)
+                | Decl::Dialect(_)
+                | Decl::Word(_)
+                | Decl::NamePart(_)
+                | Decl::Name(_)
+                | Decl::Term(_)
+                | Decl::Banned(_)
+                | Decl::Practice(_)
+                | Decl::Proof(_)
+                | Decl::Principle(_)
+                | Decl::Ratify(_)
+                | Decl::Attest(_)
+                | Decl::Use(_)
+                | Decl::Draft(_)
+                | Decl::Export(_)
+                | Decl::Variant(_)
+                | Decl::Narration(_) => {}
             }
         }
         Ok(world)

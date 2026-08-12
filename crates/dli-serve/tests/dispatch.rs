@@ -874,3 +874,28 @@ fn author_reads_see_the_base_pack_not_just_staged() {
         "the base pack's fact is visible to the read tool, not just staged decls: {rows:?}"
     );
 }
+
+/// Pinned regression (PR-0c red team, SEV-A): the exhaustive `Decl` lowering
+/// match must never turn a clean, shipped demo world red. `round-table`
+/// (`examples/camelot.dli`) declares `use language`, `use chronology`, and a
+/// `narration` — three of the deprecated-only forms whose finding
+/// disposition is deliberately deferred to the deprecation audit rather than
+/// flagged error-severity today (see `dli-world`'s
+/// `tests/decl_exhaustiveness.rs`). This closes the coverage gap that let a
+/// first pass regress `round-table` from zero findings to three before
+/// anything in the gate noticed.
+#[test]
+fn round_table_check_stays_clean() {
+    let mut sessions = Sessions::new();
+    let mut store = Store::default();
+    let response = send(
+        &serde_json::json!({"dli":"0.5.1","id":"1","op":"dli.check","params":{"document":"round-table"}}),
+        &mut sessions,
+        &mut store,
+    )
+    .unwrap();
+    assert!(response.ok, "dli.check itself must succeed: {response:?}");
+    let result = response.result.unwrap();
+    assert_eq!(result["ok"], serde_json::json!(true), "{result}");
+    assert_eq!(result["findings"], serde_json::json!([]), "{result}");
+}

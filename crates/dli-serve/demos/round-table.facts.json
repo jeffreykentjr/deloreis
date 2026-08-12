@@ -29,7 +29,7 @@
       "sha256:a0b87e97ebe4fa8ea13bf829d68d92b5352064f18324e92813a99aabd512360e",
       "sha256:caf1e8e747f693cc3ff899858ae0eb1397371f8e6435dd89152380a622e336ab",
       "sha256:cf043c9325f5ed821e6df05ae64c66c7f20ffb599e83ca14715baa0763086957",
-      "sha256:f3b5a78c642851b6896b8b8e43cb96443ea8144d2b04536f9447227182adf6ba",
+      "sha256:6f84c42ed54d383083f3f1797d21e4e0bbb2201090b0016e19875d4dc8522141",
       "sha256:ccc89c4eedc88ee828d5594589a770b3939afb1f29deb382e29adb8985594ecb",
       "sha256:03bd4bd41b3bdf81b187448bd649bef63e743398ad4e80bd6ed9d20b88743f3a",
       "sha256:1292e072342e46823dd7fa4ff202dc18248d2abf5f82b22d1551aeb58908e56d",
@@ -887,12 +887,12 @@
     {
       "schema_version": 4,
       "authority": null,
-      "claim_id": "sha256:93715950cf4b6f7212f11e7d8b80e0f35d00ed1a1848241fc6c2c3c32ed18608",
+      "claim_id": "sha256:c28e982c0f3c32160d9a86ab025ba86acb30f8c0f68082c973868c75900ad00c",
       "atom": {
         "pred": "__decl",
         "args": [
           "Narration",
-          ""
+          "vantage after-camlann"
         ]
       },
       "support": {
@@ -906,7 +906,7 @@
       "grade": "asserted",
       "expert_body": {
         "kind": "narration",
-        "name": "",
+        "name": "vantage after-camlann",
         "body": [
           "{\"Narration\":{\"head\":[\"vantage\",\"after-camlann\"],\"provenance\":null}}"
         ]
