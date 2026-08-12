@@ -70,7 +70,7 @@
       ]
     },
     "DiffConflict": {
-      "description": "A conflict carried by either a fork diff or a Door-T staged-world diff.",
+      "description": "A conflict carried by either a fork diff or an authoring-seam staged-world diff.",
       "type": "object",
       "properties": {
         "blame": {

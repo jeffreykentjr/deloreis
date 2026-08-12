@@ -15,6 +15,8 @@ const RETIRED: &[&str] = &[
     "sign-off is ratification",
     "only a human ruling",
     "door h",
+    "door t",
+    "two doors",
 ];
 
 const ALLOWED_FILES: &[&str] = &["docs/decisions.md", "docs/integration/migration.md"];
@@ -118,4 +120,13 @@ fn is_allowlisted_line(rel: &str, _line: usize, text: &str) -> bool {
         // the surrounding prose is scrubbed and spec/11 carries the teaching table.
         || (rel == "docs/reference-generated/finding-families.md"
             && text.starts_with("| `provenance.cited-refused` |"))
+        // The "two doors"/"Door T" retirement itself is history DL-0004/DL-0043
+        // narrate by name — spec/11's "Historical note" and spec/01's retired
+        // section heading are DESCRIBING the old vocabulary, not using it as
+        // live terminology, the same exemption decisions.md and design-notes
+        // get structurally.
+        || (rel == "docs/spec/11-agent-authoring.md" && text.contains("*Historical note.*"))
+        || (rel == "docs/spec/11-agent-authoring.md"
+            && text.contains("writing `.dli` surface) and Door T (these tools)"))
+        || (rel == "docs/spec/01-syntax.md" && text.contains("The two doors (retired:"))
 }

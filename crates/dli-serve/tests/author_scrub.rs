@@ -546,8 +546,8 @@ fn a_newline_in_a_time_anchor_cannot_forge_a_second_rendered_line() {
 /// The `field.control-char` census and the render sanitizer are both
 /// hand-maintained lists over a growing set of declaration kinds, and a
 /// hand-maintained list is exactly the thing that silently stops being complete:
-/// the time-clause gap above sat behind a catch-all whose comment said Door T
-/// never staged those kinds, which was true right up until these tools did.
+/// the time-clause gap above sat behind a catch-all whose comment said the authoring
+/// seam never staged those kinds, which was true right up until these tools did.
 ///
 /// So this does not enumerate fields. It takes one valid call per mutating tool,
 /// walks the params for **every string leaf**, and re-sends the call with a

@@ -1,4 +1,4 @@
-//! Door T (`AUTH-1`) end-to-end tests: the workspace engine and the fourteen
+//! The authoring seam (`AUTH-1`) end-to-end tests: the workspace engine and the fourteen
 //! `author.*` tools driven through the real [`dispatch`] seam.
 //!
 //! The oracle (PLAN `AUTH-1`): the author-session golden passes end to end
@@ -1343,7 +1343,7 @@ fn fixture(name: &str, note: Option<&str>, mut store: Store, requests: &[Request
     Value::Object(doc)
 }
 
-/// The engine-true fixture documents Door T contributes, keyed by relative
+/// The engine-true fixture documents the authoring seam contributes, keyed by relative
 /// fixture path. Sharing one builder keeps generation and replay in lockstep.
 fn author_fixtures() -> Vec<(String, Value)> {
     let session = fixture(
@@ -1460,7 +1460,7 @@ fn fixtures_replay_through_dispatch() {
     }
 }
 
-/// Mode is exercised indirectly; assert the two doors are distinct here so the
+/// Mode is exercised indirectly; assert the two modes are distinct here so the
 /// enum stays meaningful.
 #[test]
 fn modes_are_distinct() {

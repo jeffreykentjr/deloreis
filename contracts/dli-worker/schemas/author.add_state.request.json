@@ -43,7 +43,7 @@
   ],
   "$defs": {
     "Provenance": {
-      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for Door T (nothing an agent supplies\nmints authority).",
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for the authoring seam (nothing an agent supplies\nmints authority).",
       "oneOf": [
         {
           "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",

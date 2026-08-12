@@ -402,7 +402,7 @@ enum Frame {
 
 /// Run the newline-delimited JSON serve loop over stdio: read one frame per line,
 /// dispatch, write one response frame per line. Skipped noise lines produce no
-/// output. The session cache and the Door T store live for the life of the loop.
+/// output. The session cache and the authoring seam's store live for the life of the loop.
 pub fn serve_demo() -> io::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -491,7 +491,7 @@ pub fn respond(
 }
 
 /// Route a decoded request to its handler and build the response. `author.*` ops
-/// go through the frozen Door T seam; every `dli.*` op through the batch handlers.
+/// go through the frozen authoring seam; every `dli.*` op through the batch handlers.
 /// A frame declaring the wrong contract version is refused here.
 ///
 /// A **killed field** is refused here too, before either seam. It has to be:
@@ -536,7 +536,17 @@ pub fn dispatch(
     {
         return refuse_field(request, field, successor);
     }
-    if !request.op.accepts_author_fences() {
+    // `author.branch`/`author.merge` accept the envelope fences ONLY from
+    // contract 1.7.0 up (WS-3: they moved from the `read` wrapper to `mutate`,
+    // so idempotency-key replay now actually caches). This is a version-gated
+    // exception, not a change to `accepts_author_fences` itself — blanket-
+    // adding them there would flip a fence-refusal on every wire below 1.7.0,
+    // moving released bytes (the same C4 discipline every other capability
+    // gate here follows).
+    let fences_ok = request.op.accepts_author_fences()
+        || (matches!(request.op, Op::AuthorBranch | Op::AuthorMerge)
+            && crate::has_branch_writes(&request.dli));
+    if !fences_ok {
         if request.expected_digest.is_some() {
             return fence_schema_violation(request, "expected_digest");
         }
@@ -550,7 +560,7 @@ pub fn dispatch(
     handlers::handle(request, sessions)
 }
 
-/// Construct the explicit demo Door T store, so the author read
+/// Construct the explicit demo authoring-seam store, so the author read
 /// tools (`author.query`/`check`/`why`) evaluate `base + staged` — the base world
 /// the agent is authoring into, not the staged declarations alone (spec 11 §1). It
 /// resolves the pack through the same [`crate::session::builtin_pack`] the read
@@ -561,7 +571,7 @@ pub(crate) fn demo_author_store() -> io::Result<author::store::Store> {
     author::store::Store::with_pack(pack).map_err(io::Error::other)
 }
 
-/// Construct a strict Door T store over every manifest-declared document.
+/// Construct a strict authoring-seam store over every manifest-declared document.
 /// When possible, attaches a lorestore at `<project_root>/.dli-lorestore/` so
 /// `author.materialize` can commit staged fact objects durably (DL-0044, LS-4).
 #[allow(clippy::print_stderr)] // diagnostics for operator, not a wire response
@@ -677,7 +687,7 @@ fn is_known_op(op: &str) -> bool {
     serde_json::from_value::<Op>(Value::String(op.to_owned())).is_ok()
 }
 
-/// Whether an op is an `author.*` tool (routed through the Door T seam).
+/// Whether an op is an `author.*` tool (routed through the authoring seam).
 fn is_author_op(op: Op) -> bool {
     serde_json::to_value(op)
         .ok()

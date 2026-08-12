@@ -211,6 +211,16 @@ pub trait Storage: Send + Sync + std::fmt::Debug {
     /// them here. Temp files are skipped; order is unspecified.
     fn list_refs(&self) -> Result<Vec<String>, StoreError>;
 
+    /// Remove a ref (WS-3: `author.branch`'s `delete` action). Pointer removal
+    /// only — the objects a deleted branch's commits named stay in the
+    /// content-addressed store, reachable by hash even if no ref reaches them
+    /// (the content-addressed append-only design tolerates orphans; DL-0077
+    /// records GC as out of scope). Returns `Ok(())` whether or not the ref
+    /// existed — deleting an already-gone ref is not an error, matching
+    /// `cas_ref`'s "create if absent" symmetry rather than `load_ref`'s
+    /// `Option`-typed presence check.
+    fn delete_ref(&self, name: &str) -> Result<(), StoreError>;
+
     /// Acquire the store-wide advisory lock. The lock is released when the
     /// returned `File` is dropped.
     fn acquire_lock(&self) -> Result<File, StoreError>;
@@ -572,6 +582,18 @@ impl Storage for FilesystemStorage {
             }
         }
         Ok(out)
+    }
+
+    fn delete_ref(&self, name: &str) -> Result<(), StoreError> {
+        let path = self.ref_path(name);
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(StoreError::Io {
+                path: path.display().to_string(),
+                source: e,
+            }),
+        }
     }
 
     fn acquire_lock(&self) -> Result<File, StoreError> {

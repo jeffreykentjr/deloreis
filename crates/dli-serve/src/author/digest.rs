@@ -1,4 +1,4 @@
-//! Door T digest (`AUTH-1`): the workspace fence.
+//! The authoring seam's digest (`AUTH-1`): the workspace fence.
 //!
 //! Every mutating `author.*` call answers with a `workspace_digest`, and a
 //! caller may fence its next call with `expected_digest`; a mismatch is a

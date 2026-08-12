@@ -3637,3 +3637,134 @@ a reopen) — including a regression pin that the store refuses a commit
 attempting to durably un-declare an already-ratified decision, which is why
 defeat rides the valuation overlay rather than the append-only decisions
 ledger. The full gate (`cargo xtask gate`) is green.
+
+---
+
+## DL-0079 — The `.dli`-only forms audit rules the five inert declarations, and the doors vocabulary retires (the wire-surface 1.7.0 campaign: WS-6 close-out)
+
+*Date: 2026-08-12*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** This entry is the verdict of record for two WS-6 close-out items the
+campaign plan named: the deprecation-audit dispositions for the thirteen
+`.dli`-only `Decl` forms, and the retirement of "Door T" / "two doors" as active
+vocabulary. The evidence and reasoning behind both live in
+`docs/design-notes/dli-only-forms-audit.md`, which this entry cites rather than
+restates; per the tree's own discipline, design notes are evidence and this ledger
+entry is the authority.
+
+**1. The deprecation audit.** Of the thirteen `.dli`-only forms, twelve already had
+a DL-0058 tier (`Rule`, `Cycle`, `Practice`, `Proof` parked behind first consumer
+use; `Kind`, `Word`, `Principle`, `Use`, `Draft`, `Export`, `Narration`, `Variant`
+deferred indefinitely, "no proven need shown"). `Rule` is satisfied by this
+campaign's own WS-2 (bare world rules, contract 1.7.0) — recorded here for the
+audit's completeness; its own DL entry is the authority for the rule-authoring
+kernel itself. `Fork` (`Decl::Fork`, distinct from the batch `dli.fork.*` ops and
+`author.open`'s `fork` mode) had never been tiered at all; it is ruled here,
+alongside the other twelve, open and corpus-load-only. `Ratify` is ruled partial
+by design: minted only as a side effect of `author.set_standing`/`author.defeat`,
+with who-may-rule the consuming application's call (DL-0054) — a permanent
+architectural position, not a parked gap with a trigger.
+
+`over order` / `over season` — the domain-rule micro-grammars WS-2's bare-rules
+scope deliberately excludes — are ruled an **open gap with a named trigger** (user
+pin, campaign plan §2.4/§2.8): removing `.dli` text removes their only authoring
+path, two live consumer artifacts depend on it
+(`worlds/tpth/time/cycles.dli`, `worlds/tpth/practices/spoken-proof.dli`), and the
+trigger is the first consumer ask for typed order/season authoring — fantasy's
+FW-10 cutover is the likely real trigger.
+
+PR-0c left `Use`, `Draft`, `Export`, `Variant`, and `Narration` as behavior-neutral
+no-op arms and deferred their per-form finding disposition here, because an
+earlier pass that flagged all five error-severity regressed the shipped
+round-table/camelot reference corpus (`use language`, `use chronology`,
+`narration vantage after-camlann` all appear there), taking a clean `dli.check`
+from zero findings to three. This entry rules, per form, on the evidence
+`dli-only-forms-audit.md` §3 sets out in full:
+
+- **`Use`, `Draft`, `Export`** — ruled **intentionally inert**. `Use`'s import
+  semantics were never built and DL-0058 already recorded "no proven need shown";
+  `Draft` and `Export` are each confirmed, by direct code reading, to be reference/
+  anchor decls distinct from same-named live mechanisms (`Draft` from the real
+  `check-draft`/payload pipeline, which never reads `Decl::Draft`; `Export` from
+  both the `dli.corpus.export` wire op and the `deloreis export` CLI, neither of
+  which reads `Decl::Export`). No finding is raised; the no-op arms stay as
+  documentation of a settled position, not a placeholder for an unmade decision.
+- **`Narration`** — ruled **intentionally inert for its core vantage semantic**:
+  the vendored consumer canon already rules the narrator's era's own dynamics
+  abstract (D-0104, "inert by construction"). The surrounding machinery the spec
+  describes but that does not exist in code today — narrator-era event
+  type-checking, the `narration-frame` premise-exclusion guardrail — is recorded
+  as an **open, unbuilt gap**, distinct from the vantage's own settled inertness:
+  building it would not change `Decl::Narration`'s own lowering, since the
+  type-check and exclusion machinery belongs in the checker, not the loader. No
+  finding is raised on the declaration itself.
+- **`Variant`** — ruled a no-op, but **explicitly not** ruled inert-by-design, the
+  one form among the five where nothing in the design record argues its silence
+  is intentional (`syntax-reference.md` files it as "(ruleset delta)," language
+  implying real effect). Recorded as open rather than closed so a future reader
+  does not read "no finding today" as "ruled inert." Trigger: first consumer ask
+  for lore-variant deltas.
+
+No `Decl` variant's lowering changes as a result of this entry — every ruling
+above either confirms an existing no-op arm's correctness or names an open gap
+without building anything for it. `examples/camelot.dli` and the round-table
+corpus are untouched; the `decl_exhaustiveness` tests in both `dli-world` and
+`dli-eval`, which pin all five forms to zero findings and zero facts, remain
+correct and are not touched by this entry.
+
+**2. Text-on-wire remnants and dormant machinery, recorded so they are not
+rediscovered as bugs.** `KILLED_FIELDS` is covered by its own gate lane and
+DL-0050/DL-0051; nothing further to add. The DL-0051-deferred runtime-continuity
+string form (`dli.check-draft`'s `continuity` rows still carrying the legacy
+`predicate`/`subject`/`value` triple alongside the 0.6.4 typed successors) remains
+deferred, per DL-0051, to `EXT-F4`. `ForkStore::merge` (fork-vs-fork, including
+certain-FD detection) remains dormant **by choice**, not by gap: `dli.fork.*`
+stays the lightweight session-only overlay surface the branch-bundle ruling
+(campaign plan §2.5(a)) kept it as, and WS-3's durable `author.merge` `dry_run`
+mode now covers the durable analog this campaign needed. `.dli` phase-4 removal
+stays licensed-but-unscheduled, trigger fantasy FW-10 (campaign plan §2.6) —
+restated here because every open-gap form and micro-grammar this entry rules on
+depends on `.dli` text remaining the authoring path until that trigger fires.
+
+**3. Doors-vocabulary retirement.** The retired "Door T" / "two doors" terminology
+(DL-0004, retired in substance by DL-0041/DL-0043) is scrubbed from active
+internal comments and teaching surfaces across the crates and docs trees.
+Wire-visible strings are excepted by name and left byte-identical: the
+`author::dispatch` unknown-op message (`mod.rs`), the pre-scrub `provenance.
+cited-refused` finding message and its test pin (`tools.rs` / `author_scrub.rs`,
+which must stay in lockstep), the `dli.*`-handler misroute internal-error message
+(`handlers.rs`), and the committed AUTH-2 golden fixture's `note` field (paired
+with its constructing test) are all untouched. Historical mentions are excepted
+structurally the same way `docs/decisions.md` and `docs/design-notes/` already
+are: `docs/spec/11-agent-authoring.md`'s "Historical note" describing what
+DL-0004 originally named, and `docs/spec/01-syntax.md`'s "The two doors (retired:
+one interface)" section heading, both narrate the retired vocabulary by name
+rather than use it as live terminology, so both keep their wording.
+`xtask/src/retired_vocabulary.rs`'s `RETIRED` set gains `"door t"` and
+`"two doors"`, with line-level allowlist entries for the two spec passages above
+alongside the existing `docs/decisions.md`/`docs/integration/migration.md`/
+`docs/design-notes/` exemptions.
+
+**Rationale.** The audit's purpose is the one WS-6 named: converting "we did not
+build it" (which reads as debt) into an explicit "we decided not to build it, and
+here is the trigger that reopens the decision" wherever that is true, and into "we
+built it, but haven't wired the finding" only where the evidence actually supports
+that reading. Three of the five previously-parked forms (`Use`, `Draft`, `Export`)
+turn out, on direct reading, to be settled reference/anchor roles rather than
+unfinished evaluable content — the audit's job was to find that out, not to
+assume it. `Narration` and `Variant` split the same way the evidence splits them:
+one has an explicit consumer ruling behind its inertness, the other does not, and
+conflating them would either under-claim a settled position or over-claim an
+undecided one. The doors retirement is bookkeeping, not a design change — DL-0043
+already retired the concept; this entry is what finally moves the vocabulary that
+described it.
+
+**Verification.** `cargo xtask gate` is green, including the extended
+`retired-vocabulary` lane (which now fails on any live "Door T"/"two doors"
+mention outside the allowlisted set) and `docs-oracle`. No fixture, golden, or
+pinned wire byte moves as a result of this entry — it rules dispositions and
+retires prose, and touches no `Decl` lowering, no wire schema, and no captured
+response.

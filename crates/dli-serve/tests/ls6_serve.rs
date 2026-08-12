@@ -3,7 +3,7 @@
 //!
 //! The branch/merge conflict engine is proven exhaustively at the lorestore layer
 //! (`dli-lorestore/tests/merge.rs`); here we prove the *wire* plumbing: the ops
-//! dispatch through Door T, drive the workspace's durable lorestore, and answer
+//! dispatch through the authoring seam, drive the workspace's durable lorestore, and answer
 //! with the typed contract shape — including a real conflict report surfaced all
 //! the way to JSON.
 
@@ -152,8 +152,12 @@ fn merge_conflict_surfaces_through_the_wire() {
     let ws = open_workspace("canon", &mut sessions, &mut store);
 
     // Create a rival branch and commit an incompatible `home` for mara directly
-    // on the lorestore — the wire has no branch-scoped write yet, so this stands
-    // in for one; the merge itself goes through the full serve path.
+    // on the lorestore — a deliberate shortcut past the wire-only certain-conflict
+    // path (WS-3: defeat the base value citing a new decision, add the rival
+    // value cited, materialize on the branch — see
+    // `ls10_branch_writes::certain_conflict_constructible_wire_only`) so this
+    // test isolates just the merge-conflict-report shape; the merge itself still
+    // goes through the full serve path.
     {
         let lorestore = store.workspace_lorestore(&ws).expect("lorestore attached");
         lorestore.create_branch("rival", "main").expect("branch");
@@ -212,24 +216,30 @@ fn merge_conflict_surfaces_through_the_wire() {
 
 // ── why a conflict cannot be forced from the wire (structural finding) ──────
 
-/// A regression test pinning the LS-6 scope boundary: a merge **conflict cannot
-/// be driven through pure wire ops**. Two independent guards make it so.
+/// A regression test pinning what remains of the LS-6 scope boundary after
+/// WS-3. Originally this rested on TWO independent guards; WS-3 deliberately
+/// supersedes the first:
 ///
-/// 1. Door T never mints certain content — facts are always `proposed`
-///    (`refuse_cited` blocks citations, DL-0014/DL-0043) — and no wire op sets a
-///    branch valuation. Every conflict class needs one or the other.
-/// 2. Even the *attempt* is caught upstream: materializing a value that
-///    contradicts the canon functional slot is **blocked by the workspace's own
-///    continuity check** (`factcheck.contradicted`) before it can reach a
-///    branch, so the merge layer never sees a conflicting fact.
+/// 1. ~~The authoring seam never mints certain content, and no wire op sets a
+///    branch valuation.~~ **No longer true.** `author.defeat`, called on a
+///    branch workspace, rules the base's supporting decision false on that
+///    branch's OWN ref valuation — a wire op setting a branch valuation is now
+///    exactly how the certain-class conflict is wire-constructed (see
+///    `ls10_branch_writes::certain_conflict_constructible_wire_only`, the
+///    defeat → cited add → materialize-on-branch sequence WS-3 names as the
+///    resolution to "the authoring seam never mints certain content").
+/// 2. What still holds: a **`proposed`** value that contradicts the canon
+///    functional slot is still **blocked by the workspace's own continuity
+///    check** (`factcheck.contradicted`) before it can reach a branch at all —
+///    ordinary staged authoring, without the defeat/cited path above, still
+///    cannot construct a conflict this way. This test exercises exactly that
+///    residual guard, so it is renamed to name what it actually pins now.
 ///
-/// So the conflict-report shape is pinned by the digest-checked
+/// The conflict-report shape itself is pinned by the digest-checked
 /// `author.merge.response.json` schema and proven end-to-end by
-/// `merge_conflict_surfaces_through_the_wire` (which seeds divergence via the
-/// lorestore, a legitimate test affordance), not by a wire-only golden fixture —
-/// which is not constructible.
+/// `merge_conflict_surfaces_through_the_wire`.
 #[test]
-fn wire_added_contradiction_is_blocked_before_it_can_conflict() {
+fn proposed_contradiction_is_still_blocked_upstream() {
     let (_t, mut sessions, mut store) = functional_store();
     let ws = open_workspace("canon", &mut sessions, &mut store);
 

@@ -7,7 +7,7 @@ verdict: "The 60-operation wire inventory, generated from dli_serve::Op::ALL: wi
 
 # Wire operations
 
-The closed operation set: 60 operations. The wire name is each op's serde identifier; its request and response payload schemas live under `contracts/dli-worker/schemas/`. Summary is `Op::summary()` — the same tool-selection text an agent reads over MCP; Added in is `Op::introduced_in()` — the earliest accepted contract version the op is advertised at. The batch `dli.*` family and the `author.*` Door-T tools are one closed set.
+The closed operation set: 60 operations. The wire name is each op's serde identifier; its request and response payload schemas live under `contracts/dli-worker/schemas/`. Summary is `Op::summary()` — the same tool-selection text an agent reads over MCP; Added in is `Op::introduced_in()` — the earliest accepted contract version the op is advertised at. The batch `dli.*` family and the `author.*` authoring-seam tools are one closed set.
 
 | # | Wire name | Summary | Added in | Request schema | Response schema |
 |---|---|---|---|---|---|

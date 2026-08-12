@@ -3,8 +3,8 @@
 //! Every implemented golden fixture owned by SERVE-1 replays through the real
 //! `respond` path (framing + routing + engine), threading session state across a
 //! multi-step flow; every negative fixture yields its typed error code; the raw
-//! frames exercise the framing discipline. Fixtures owned by Door T, killed
-//! forms, and capability-gated runtimes are covered elsewhere.
+//! frames exercise the framing discipline. Fixtures owned by the authoring seam,
+//! killed forms, and capability-gated runtimes are covered elsewhere.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::fs;
@@ -22,7 +22,7 @@ fn fixtures_dir() -> PathBuf {
 }
 
 /// The ops whose implemented golden fixture replays in v0. Excluded:
-/// `author.*` (Door T), the killed `check-ledger` form, and fixtures explicitly
+/// `author.*` (the authoring seam), the killed `check-ledger` form, and fixtures explicitly
 /// marked as capability-gated.
 fn serve_owned(op: &str) -> bool {
     op.starts_with("dli.") && !["dli.check-ledger"].contains(&op)
@@ -91,7 +91,7 @@ fn negative_fixtures_yield_their_error_code() {
     for (name, fixture) in json_fixtures("negative") {
         // Single-frame negatives with a `send` + `expect_error`. Step-based
         // framing fixtures (author-framing-attack) are golden-shaped and owned
-        // by door-t.
+        // by the authoring seam.
         let (Some(request), Some(expect_error)) =
             (fixture.get("send"), fixture.get("expect_error"))
         else {
@@ -99,7 +99,7 @@ fn negative_fixtures_yield_their_error_code() {
         };
         let op = request["op"].as_str().unwrap_or_default();
         if op.starts_with("author.") {
-            continue; // door-t's Door T seam
+            continue; // the authoring seam's own fixtures
         }
         // This oracle drives a projectless session, so it can only reach
         // refusals that fire above the project seam. A fixture that declares
@@ -839,7 +839,7 @@ fn export_rejects_a_profile_for_the_wrong_target() {
 
 #[test]
 fn author_reads_see_the_base_pack_not_just_staged() {
-    // Item 1: the Door T store is built with_pack, so a read tool evaluates
+    // Item 1: the authoring seam's store is built with_pack, so a read tool evaluates
     // base + staged — an agent that has staged nothing still sees the BASE facts
     // of the pack it opened, which a staged-only (with_base/default) store would
     // hide.

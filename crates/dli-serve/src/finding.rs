@@ -75,7 +75,7 @@ where
 }
 
 /// Provenance supplied when adding authored material. Internally tagged on
-/// `kind`; origin tracking is load-bearing for Door T (nothing an agent supplies
+/// `kind`; origin tracking is load-bearing for the authoring seam (nothing an agent supplies
 /// mints authority).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]

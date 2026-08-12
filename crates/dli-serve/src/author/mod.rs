@@ -1,4 +1,4 @@
-//! Door T (`AUTH-1`): the authoring workspace engine and the `author.*` tools.
+//! The authoring seam (`AUTH-1`): the authoring workspace engine and the `author.*` tools.
 //!
 //! The frozen serve seam: `serve.rs` routes every `author.*` op through
 //! [`dispatch`] — one call, one store. The workspace digest is the wire fence
@@ -73,7 +73,16 @@ fn structural_keys(request: &Request) -> bool {
     crate::has_expert_authoring(&request.dli)
 }
 
-/// The Door T dispatch seam (frozen verbatim in the wave-3 sockets): route an
+/// Whether this request's negotiated version carries the campaign's
+/// branch-scoped write surface (WS-3, ≥ 1.7.0): `author.open`'s `branch`
+/// param, the `branch` field on its result and on `author.list_workspaces`
+/// rows, `author.branch`'s `heads`/`delete`/`expected_ref`, and
+/// `author.merge`'s `dry_run`/`expected_ref`.
+fn branch_writes(request: &Request) -> bool {
+    crate::has_branch_writes(&request.dli)
+}
+
+/// The authoring seam's dispatch (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
 // A flat routing table over the closed op set — one arm per tool, so it runs long
@@ -82,7 +91,7 @@ fn structural_keys(request: &Request) -> bool {
 pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
     match request.op {
         Op::AuthorOpen => match parse::<AuthorOpenParams>(request) {
-            Ok(params) => settle(request, tools::open(store, &params)),
+            Ok(params) => settle(request, tools::open(store, &params, branch_writes(request))),
             Err(response) => response,
         },
         Op::AuthorStatus => read(request, store, |store, request| {
@@ -294,20 +303,33 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         // No workspace param, so no precheck: a store-level read of the open set.
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
             let _params: AuthorListWorkspacesParams = parse(request)?;
-            Ok((String::new(), Ok(reads::list_workspaces(store))))
+            Ok((
+                String::new(),
+                Ok(reads::list_workspaces(store, branch_writes(request))),
+            ))
         }),
-        // Branch/merge operate on the workspace's durable lorestore (LS-6). They
-        // route through `read` (no workspace staging, no idempotency caching) but
-        // mutate the store's refs/commit DAG directly.
-        Op::AuthorBranch => read(request, store, |store, request| {
+        // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).
+        // Routed through `mutate`, not `read` (WS-3): `delete` removes a ref and
+        // a real merge can advance one, and idempotency-key replay only ever
+        // gets CACHED by the `mutate` wrapper — `precheck`'s replay lookup was
+        // already live here, but nothing populated it while these used `read`,
+        // so a retry re-ran the mutation instead of replaying (the gap WS-3
+        // closes; see the `ls10_branch_writes.rs` idempotent-replay test).
+        Op::AuthorBranch => mutate(request, store, |store, request| {
             let params: AuthorBranchParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::branch(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::branch(store, &params, branch_writes(request)),
+            ))
         }),
-        Op::AuthorMerge => read(request, store, |store, request| {
+        Op::AuthorMerge => mutate(request, store, |store, request| {
             let params: AuthorMergeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::merge(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::merge(store, &params, branch_writes(request)),
+            ))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
         // ever receives `author.*`, so anything else is an unknown op here.
@@ -500,7 +522,7 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
         ));
     }
     decoded.map_err(|err| {
-        // The Door T twin of the batch seam's check: a retired params field the
+        // The authoring seam's twin of the batch seam's check: a retired params field the
         // struct no longer declares fails `deny_unknown_fields` here, and the
         // killed-field registry renames the anonymous schema violation into a
         // refusal that names its successor (LS-7). Since LS-8 a retired field

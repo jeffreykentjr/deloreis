@@ -137,7 +137,7 @@ fn render_ops() -> String {
          `contracts/dli-worker/schemas/`. Summary is `Op::summary()` — the same \
          tool-selection text an agent reads over MCP; Added in is \
          `Op::introduced_in()` — the earliest accepted contract version the op is \
-         advertised at. The batch `dli.*` family and the `author.*` Door-T tools \
+         advertised at. The batch `dli.*` family and the `author.*` authoring-seam tools \
          are one closed set.\n\n"
     );
     out.push_str("| # | Wire name | Summary | Added in | Request schema | Response schema |\n");

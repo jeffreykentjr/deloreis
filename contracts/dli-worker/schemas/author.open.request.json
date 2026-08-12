@@ -4,6 +4,13 @@
   "description": "`author.open` params. Exactly one of `scope` or `fork` names the mode:\nstaging over an existing scope, or fork-scoped exploration.",
   "type": "object",
   "properties": {
+    "branch": {
+      "description": "Open against a named branch head instead of `main` (WS-3, ≥ contract\n1.7.0). Requires `scope` (branch + fork is refused); defined only from\n1.7.0 up — a schema violation below it.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "fork": {
       "description": "Open a fork-scoped workspace, named by its question.",
       "type": [

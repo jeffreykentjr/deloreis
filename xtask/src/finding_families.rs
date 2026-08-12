@@ -47,7 +47,7 @@ enum Scrape {
     /// code line — the enum `code()` match arms and the string-literal
     /// constructors. Covered strictly: the scraped set must equal the authored set.
     Prefixed(&'static str),
-    /// Door-T source that also maps another registered family. Scrape every
+    /// Authoring-seam source that also maps another registered family. Scrape every
     /// `code: "…"` field except the named prefixes, which that family owns.
     CodeFieldsExcept(&'static [&'static str]),
     /// A closed sub-code enum whose `as_str` returns bare tokens (no dotted
@@ -246,7 +246,7 @@ const FAMILIES: &[Family] = &[
         owner: "dli-world :: language/derivation.rs (LangFinding)",
         severity_note: "Mixed: structural, register, uniqueness, morphology, and banned-token \
             violations are errors; aural clashes, set clashes, sayability, and confusables are \
-            warnings. (Distinct from the Door-T `name.unvetted` finding below.)",
+            warnings. (Distinct from the authoring-seam `name.unvetted` finding below.)",
         sources: &["../crates/dli-world/src/language/derivation.rs"],
         scrape: Scrape::Prefixed("name"),
         codes: &[
@@ -607,7 +607,7 @@ const FAMILIES: &[Family] = &[
     Family {
         key: "factcheck",
         title: "factcheck — payload claim standing",
-        emitter: "the claim-relative certain-layer checks inside `check-draft` and Door T",
+        emitter: "the claim-relative certain-layer checks inside `check-draft` and the authoring seam",
         owner: "dli-world :: payload.rs + check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs",
         severity_note: "All error: supported claims are silent; only contradicted and unsupported claims emit findings.",
         sources: &[
@@ -706,8 +706,8 @@ const FAMILIES: &[Family] = &[
     },
     Family {
         key: "author",
-        title: "author — Door-T authoring findings",
-        emitter: "the `author.*` MCP tools (Door T)",
+        title: "author — authoring-seam findings",
+        emitter: "the `author.*` MCP tools (the authoring seam)",
         owner: "dli-serve :: author/tools.rs + author/reads.rs (Finding)",
         severity_note: "Per-code severity gates `author.materialize`: an `error` blocks it, a \
             `warn` passes. These are the findings that carry structured machine repairs.",
@@ -1527,7 +1527,7 @@ pub fn render() -> String {
          *errors are lore*). The code is the contract a benchmark, a repair tool, or a \
          downstream consumer matches on — it is stable across message wording. This page \
          catalogues every code the system emits: its family (the check or tool that raises \
-         it), its severity, the machine-repair kind it carries (Door-T authoring findings \
+         it), its severity, the machine-repair kind it carries (authoring-seam findings \
          only), and what it means.\n\n",
     );
     out.push_str(
@@ -1544,13 +1544,13 @@ pub fn render() -> String {
         "**{dotted} dotted codes** across **{family_count} families**, plus **{resource} \
          `proof.resource-violation` sub-codes**. A `family.item` code names its check battery in \
          the family and the specific violation in the item. Two codes can share a stem across \
-         families — the naming vet's `name.register-fit` (a kernel error) and Door T's \
-         `name.unvetted` (an authoring warn) are different findings from different surfaces.\n",
+         families — the naming vet's `name.register-fit` (a kernel error) and the authoring \
+         seam's `name.unvetted` (an authoring warn) are different findings from different surfaces.\n",
     );
     out.push_str(
         "\n> Note: severity is a property of the emitting site. Kernel check findings \
          (`load`, `continuity`, `proof`, `practice`, `attest`, `name`, `citation`) carry no \
-         machine repair — read the message. Only the Door-T `author.*` findings carry \
+         machine repair — read the message. Only the authoring seam's `author.*` findings carry \
          structured repairs, which is what makes `author.materialize` gateable.\n\n",
     );
 

@@ -48,6 +48,40 @@ The rows below record the current handoff state; older paragraphs later in this
 file are evidence logs and must not be read as a reversion to their old pins or
 version claims.
 
+### Contract 1.7.0 wire-surface campaign — in progress
+
+Independent of the Contract 1.6 cutover this file otherwise tracks, deloreis
+`main` opened contract `1.7.0` (DL-0077) and is landing the wire-surface
+campaign's PRs against it. **Nothing here changes fantasy's pinned `1.4.0`
+handshake** — every 1.7.0 addition is additive and floor-gated, so no CP row
+below moves and fantasy owes nothing new yet. Delivered so far:
+
+- **Branch-scoped wire writes (WS-3).** `author.open` gained a `branch` param
+  routing a workspace's reads and writes to a named branch instead of `main`;
+  `author.merge` gained `dry_run` (derived-layer conflict inspection, commits
+  nothing) and `expected_ref`; `author.branch` gained a `delete` action. Zero
+  new ops — params-only, all gated `≥ 1.7.0`. The certain-class conflict that
+  previously needed raw lorestore access to construct (`author.defeat` on a
+  branch, citing a new decision, then `author.merge`) is now wire-only.
+- **Retired authoring-door vocabulary scrubbed (WS-6).** The pre-DL-0043 naming
+  for the single authoring tool surface is scrubbed from active teaching
+  surfaces and internal comments (wire-visible strings and historical
+  ledger/design-note mentions excepted by name); `xtask/src/retired_vocabulary.rs`
+  now scans for it — see `decisions.md` DL-0079 §3 for the exact terms and the
+  allowlist.
+- **The `.dli`-only forms deprecation audit** (WS-6): `docs/design-notes/
+  dli-only-forms-audit.md` rules a disposition for each of the thirteen
+  `.dli`-only `Decl` forms, `over order`/`over season`, the remaining
+  DL-0051-deferred text-on-wire remnant, and `ForkStore::merge`'s dormant
+  status.
+
+**Not yet reflected here:** the identity/coreference (`author.assert_same_as`),
+rule-authoring (`author.add_rule`), and temporal-scaffolding work streams are
+landing via a separate, parallel PR. The op count and the audit's `Rule`
+disposition assume that PR has also landed; whichever of the two PRs merges
+second reconciles both. `docs/integration/fantasy-contract.md` §6 carries the
+authoritative, currently-accurate op-by-op changelog.
+
 The coordination points and what each side owes are defined in `migration.md`
 §7. This board tracks their state and links the evidence.
 

@@ -1,7 +1,7 @@
 //! `deloreis serve` / `deloreis mcp` — delegate to the worker's two transports.
 //!
 //! The worker lives in `dli-serve` (the SERVE-1 milestone, owned by the server
-//! lane) and exposes Door T over **both** transports the contract promises
+//! lane) and exposes the authoring seam over **both** transports the contract promises
 //! (`10-serving.md` §1, `11-agent-authoring.md` §1): [`run`] is the JSON-over-
 //! stdio worker loop, and [`run_mcp`] is the MCP JSON-RPC tool transport over
 //! stdio. Both require an explicit caller project or explicit demo mode and map
@@ -10,7 +10,7 @@
 //! ops, not a second protocol, so both reach identical kernel paths.
 //!
 //! The loop never panics on any traffic. All 19 `author.*` tools are fully
-//! implemented (`author::dispatch` routes through Door T). Batch operations
+//! implemented (`author::dispatch` routes through the authoring seam). Batch operations
 //! advertise only the capabilities implemented by this build; recognized
 //! reservation rows for unfinished durable evidence and job behavior return a
 //! typed `not-wired` fault.

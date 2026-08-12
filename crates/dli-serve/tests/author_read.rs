@@ -1,4 +1,4 @@
-//! Door T read/self-check tools (`AUTH-2`) end-to-end tests: the five `author.*`
+//! The authoring seam's read/self-check tools (`AUTH-2`) end-to-end tests: the five `author.*`
 //! reads driven through the real [`dispatch`] seam.
 //!
 //! The acceptance proof (the `end_to_end_self_check_session` test): an agent

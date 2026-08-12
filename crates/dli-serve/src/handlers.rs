@@ -65,7 +65,7 @@ use crate::session::{Scope, Sessions};
 type Fault = (ErrorCode, String);
 
 /// Route a `dli.*` request to its handler and build the response envelope. The
-/// serve loop routes `author.*` ops elsewhere (the Door T seam); a stray
+/// serve loop routes `author.*` ops elsewhere (the authoring seam); a stray
 /// `author.*` op reaching here is an internal routing bug, reported as such.
 #[must_use]
 pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
@@ -105,7 +105,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::TimelineKnows => handle_timeline_knows(request, sessions),
         Op::TimelineEpisodes => handle_timeline_episodes(request, sessions),
         Op::TimelinePhases => handle_timeline_phases(request, sessions),
-        // author.* is routed through the Door T seam before reaching here.
+        // author.* is routed through the authoring seam before reaching here.
         Op::AuthorOpen
         | Op::AuthorStatus
         | Op::AuthorDiff

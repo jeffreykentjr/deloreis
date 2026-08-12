@@ -73,7 +73,7 @@ pub struct DiffDelta {
     pub conflicts: Vec<DiffConflict>,
 }
 
-/// A conflict carried by either a fork diff or a Door-T staged-world diff.
+/// A conflict carried by either a fork diff or an authoring-seam staged-world diff.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DiffConflict {
     /// Stable finding code for machine routing.
@@ -1259,6 +1259,11 @@ pub struct AuthorOpenParams {
     /// Open a fork-scoped workspace, named by its question.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub fork: Option<String>,
+    /// Open against a named branch head instead of `main` (WS-3, ≥ contract
+    /// 1.7.0). Requires `scope` (branch + fork is refused); defined only from
+    /// 1.7.0 up — a schema violation below it.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub branch: Option<String>,
 }
 
 /// `author.open` result.
@@ -1268,6 +1273,11 @@ pub struct AuthorOpenResult {
     pub workspace: String,
     /// The initial workspace digest.
     pub workspace_digest: String,
+    /// The branch this workspace targets, echoed back (WS-3). Emitted only on
+    /// a ≥ 1.7.0 request; `None` below it, and `None` on a 1.7.0-or-above
+    /// request that did not supply `branch` either.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub branch: Option<String>,
 }
 
 // -- author.status -----------------------------------------------------------
@@ -1982,6 +1992,10 @@ pub struct WorkspaceDigest {
     pub staged: usize,
     /// The current workspace digest.
     pub workspace_digest: String,
+    /// The branch this workspace targets, if any (WS-3). Emitted only on a
+    /// ≥ 1.7.0 request.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub branch: Option<String>,
 }
 
 /// `author.list_workspaces` result: every open authoring workspace and its
@@ -1994,7 +2008,8 @@ pub struct AuthorListWorkspacesResult {
 
 // -- author.branch (LS-6, contract 0.6.1) ------------------------------------
 
-/// The branch action: create a new branch or list the existing ones.
+/// The branch action: create a new branch, list the existing ones, or delete
+/// one (`delete`, WS-3, ≥ contract 1.7.0).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum BranchAction {
@@ -2002,22 +2017,46 @@ pub enum BranchAction {
     Create,
     /// List every branch.
     List,
+    /// Delete a branch (WS-3, ≥ contract 1.7.0): pointer removal only, no
+    /// object GC. Refuses `main`, and refuses while any open workspace still
+    /// targets the branch.
+    Delete,
 }
 
-/// `author.branch` params. `name`/`from` apply to `create`; `list` ignores them.
+/// `author.branch` params. `name`/`from` apply to `create`; `name` alone
+/// applies to `delete`; `list` ignores both. `expected_ref` fences `create`'s
+/// FROM branch or `delete`'s target branch (WS-3, ≥ contract 1.7.0 — a schema
+/// violation below it).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorBranchParams {
     /// The workspace whose lorestore the branch lives in.
     pub workspace: String,
-    /// Create a branch or list branches.
+    /// Create, list, or delete.
     pub action: BranchAction,
-    /// The branch name to create (required for `create`).
+    /// The branch name to create or delete (required for `create`/`delete`).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub name: Option<String>,
     /// The source branch to create from (default `main`).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from: Option<String>,
+    /// Fence `create`'s FROM branch, or `delete`'s target branch, on its
+    /// current whole-ref digest (WS-3, ≥ contract 1.7.0). A mismatch is
+    /// `stale-fence`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub expected_ref: Option<String>,
+}
+
+/// One branch's head, in an `author.branch` result (WS-3, ≥ contract 1.7.0).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct BranchHead {
+    /// The branch name.
+    pub name: String,
+    /// The branch's head commit hash.
+    pub commit: String,
+    /// The branch ref's whole-ref digest — the fence `author.merge`'s and
+    /// `author.branch`'s `expected_ref` check against.
+    pub ref_digest: String,
 }
 
 /// `author.branch` result.
@@ -2028,6 +2067,11 @@ pub struct AuthorBranchResult {
     /// The branch just created (`create` only).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub created: Option<String>,
+    /// Every branch's head commit and ref digest (WS-3, ≥ contract 1.7.0) —
+    /// `expected_ref`'s source material for a subsequent `author.merge` or
+    /// `author.branch` `delete`/`create` fence.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub heads: Option<Vec<BranchHead>>,
 }
 
 // -- author.merge (LS-6, contract 0.6.1) -------------------------------------
@@ -2043,6 +2087,17 @@ pub struct AuthorMergeParams {
     /// The branch merged into (default `main`).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub target: Option<String>,
+    /// Inspect the merge without committing it (WS-3, ≥ contract 1.7.0): writes
+    /// the same content-addressed merge commit a real merge would (so a later
+    /// real merge of the same two heads produces the identical hash) and runs
+    /// the full conflict scan, but skips the target-ref CAS — nothing
+    /// observable moves. A schema violation below 1.7.0.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub dry_run: Option<bool>,
+    /// Fence the TARGET branch's whole-ref digest (WS-3, ≥ contract 1.7.0). A
+    /// mismatch is `stale-fence`. A schema violation below 1.7.0.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub expected_ref: Option<String>,
 }
 
 /// One atom whose standing changed downward in the merged world vs. a pre-merge
