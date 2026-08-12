@@ -270,6 +270,11 @@
           "description": "A `before` ordering declaration — carried because its ground atom is\nindistinguishable from an ordinary `before(a, b)` fact, and only the\ndeclaration form adds a chronology edge.",
           "type": "string",
           "const": "before"
+        },
+        {
+          "description": "A `same-as` identity declaration — carried because its ground atom is\nindistinguishable from an ordinary `same-as(a, b)` fact, and only the\ndeclaration form drives the identity-closure rule synthesis (WS-1).",
+          "type": "string",
+          "const": "sameas"
         }
       ]
     },

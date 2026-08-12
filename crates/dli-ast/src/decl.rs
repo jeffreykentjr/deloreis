@@ -49,6 +49,9 @@ pub enum Decl {
     Question(QuestionDecl),
     /// `before <earlier> -> <later>` — a timeline ordering.
     Before(BeforeDecl),
+    /// `same-as <left> = <right>` — an identity claim: `left` and `right` name
+    /// the same bearer.
+    SameAs(SameAsDecl),
     /// `hypothesis <name> "<statement>"` — a named speculative premise.
     Hypothesis(HypothesisDecl),
     /// `use <target>` — import another scope's surface.
@@ -240,6 +243,23 @@ pub struct BeforeDecl {
     pub earlier: Ident,
     /// The event that comes after.
     pub later: Ident,
+    /// Provenance annotation, if any.
+    pub provenance: Option<Annotation>,
+}
+
+/// `same-as <left> = <right>`.
+///
+/// An exact structural mirror of [`BeforeDecl`]: two entity names and an
+/// optional provenance annotation. Unlike `before`, the relation is undirected
+/// — `left`/`right` name the two sides of a claim, not an earlier/later pair —
+/// but the shape is kept parallel because the two declarations are carried,
+/// gated, and lowered through the identical pipeline stages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SameAsDecl {
+    /// One side of the identity claim.
+    pub left: Ident,
+    /// The other side of the identity claim.
+    pub right: Ident,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,
 }

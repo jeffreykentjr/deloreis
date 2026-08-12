@@ -126,6 +126,7 @@ fn decl_kind(decl: &Decl) -> &'static str {
         Decl::Fact(_) => "fact",
         Decl::Question(_) => "question",
         Decl::Before(_) => "before",
+        Decl::SameAs(_) => "same-as",
         Decl::Hypothesis(_) => "hypothesis",
         Decl::Use(_) => "use",
         Decl::Kind(_) => "kind",

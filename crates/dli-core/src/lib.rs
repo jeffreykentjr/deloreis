@@ -5,6 +5,7 @@
 //! hypotheses* a claim holds; grade tracks *how strongly* it is known. Both are
 //! the currency the evaluator and the wire contract move around.
 
+pub mod alias;
 pub mod ann;
 pub mod atom;
 pub mod derivation;
@@ -15,6 +16,7 @@ pub mod posbool;
 pub mod valuation;
 pub mod verdict;
 
+pub use alias::{canon, canon_map};
 pub use ann::{Ann, Status, Theory};
 pub use atom::{Atom, Interner, Lit, Rail};
 pub use derivation::{ClaimId, Derivation, GradeBasis, RuleId, SupportBasis};

@@ -405,3 +405,113 @@ inverts the fixpoint, and those inversions are enumerable (see
   with exactly the four honest residues of §3 carried outside the algebra —
   `C`, the conflict duty, V11 attachment, and the threaded episode fold
   (`03-time.md`, `06-craft-and-payloads.md`).
+
+---
+
+## 9. Identity: symmetric-transitive closure over `same-as`
+
+`same-as <left> = <right>` (`01-syntax.md §3`) is a **claim like any other**:
+compiled to a ground atom `same-as(left, right)` with a required annotation,
+gated exactly as `before` or `functional` is (DL-0078). Nothing about the
+annotation algebra of §§1–4 changes for it. What is new is what the engine
+*does* with the atom once it exists.
+
+**Closure is synthesized rules, never a rewrite.** No stored or authored layer
+is touched — not the loader's atom stream, not `ClaimId` minting, not the
+interner, not `wm.entities`. Instead, iff at least one `same-as` fact exists,
+the engine adds these rules to the evaluable world (`dli_eval::world::
+synthesize_alias_rules`):
+
+- **symmetry** — `same-as(Y, X) :- same-as(X, Y)`.
+- **transitivity** — `same-as(X, Z) :- same-as(X, Y), same-as(Y, Z)`.
+- **per-predicate rewrite** — for every `(pred, arity)` observed among
+  extensional facts and rule heads (excluding `same-as` itself), and for every
+  argument position `i`: `pred(.., Y, ..) :- pred(.., X, ..), same-as(X, Y)`
+  with `Y` at position `i`.
+
+All three shapes are positive and range-restricted, so they add no negative
+dependency and cannot make an already-stratifiable rule set unstratifiable. A
+world with **zero** `same-as` facts synthesizes **zero** rules — the guard is
+on the fact set, not on whether the synthesis function ran — so a corpus that
+never declares identity is byte-identical, rule for rule and digest for
+digest, to one built before this feature existed. §1's support algebra does
+the rest for free, with no case added anywhere for identity specifically:
+
+- **Support conjoins.** A merged copy's support multiplies the fact's support
+  by the identity link's (and the rewrite rule's own, unconditional, support)
+  — so `why` on a merged copy names the identity assertion's decision or
+  hypothesis variable alongside the fact's own. The identity ruling is not a
+  silent side channel; it is a first-class citation.
+- **Identity is defeasible.** A `same-as` is gated like any claim: a
+  `proposed` one yields only *possible* copies (never certain until ruled); a
+  `decided`/`ratified`/`provisional` one is certain once its citation is
+  ruled true. Defeating the citing decision — the existing standing machinery,
+  one valuation-variable flip — kills every consequence that passed through it
+  algebraically, with **no re-fixpoint**: the copies read dead on the very
+  next evaluation, because their support was always conditioned on that
+  variable. This is what makes `propose → suppose-in-a-fork → preview →
+  ratify` the identity-resolution workflow: a fork's `eval_under` sees the
+  merge or does not see it purely as a function of which variables it
+  valuates, over an unchanged symbolic saturation (§1, TQ-N3).
+- **Closure runs both directions, with no goal rewriting.** Symmetry means a
+  query for either name answers identically; a chain `a = b`, `b = c` closes
+  transitively to all six ordered pairs among `{a, b, c}` and every predicate
+  rewrite composes across them, in the same seminaive fixpoint every other
+  rule already uses. A cycle (`a = b`, `b = a`) is absorbed the way any
+  redundant derivation is — the fixpoint is a finite lattice (§1) — and a
+  self-merge (`a = a`) derives nothing beyond its own reflexive row.
+
+**The claim-vs-bearer distinction.** The stored `same-as` fact is one ordinary
+`FactObject`; two agents asserting the same proposition under different
+aliases (`same-as bob = robert` versus `same-as robert = bob`) mint two
+*distinct* claim objects (`ClaimId` is minted from the rendered atom text,
+never re-oriented) — intentionally, because they are two distinct assertions
+even though they close to the same equivalence class. The world unifies at the
+**bearer** level only: there is no canonical-name field anywhere, and nothing
+about the merge privileges whichever name a query happens to use. A
+canonical-bearer design was considered and rejected for exactly this reason —
+it degenerates to closure plus a designation table, and it puts normative
+weight on argument order, a trap for an agent author who cannot know which
+side of `=` a downstream reader will treat as canonical.
+
+**Checks that read the authored layer, not the derived one** (FD, intra-episode,
+fluent-interval reasoning) get a second, complementary mechanism: a
+union-find canon map (`dli_core::alias::canon_map`) built once per check run
+from the world's *certain* `same-as` pairs, with the lexicographically
+smallest member of each class as its representative — used only for grouping
+and for messages, never stored, never gating assertion. `certain_binary_slots`
+canonicalizes both the subject and the rendered value before the FD key is
+computed, so `spouse(x, a)` and `spouse(x, b)` under a certain `a = b` read as
+ONE value, not a functional-dependency break; a fluent-timeline group
+concatenates every class member's spans (each span keeps its own
+value/anchors/annotation, so intervals are never flattened) before the
+existing overlap sweep runs once over the merged timeline. A post-merge
+`continuity.fd-violation` is the SAME code a pre-existing break would raise
+(never a new one) — its citations are the union of the conflicting slot's own
+citations and the identity link's, so the finding names the assertion that
+caused the merge, not only the two facts it brought into conflict.
+
+**v1 refuses `same-as` over a declared era or event** (user-ruled, DL-0078):
+`continuity.identity-temporal-unsupported`, error, loud, at the world-internal
+layer regardless of the link's own standing (even a merely proposed link over
+two events is refused, so a later promotion cannot silently half-merge). Time
+points are structural — interned chronology indices, not valuation-gated facts
+— so a defeasible merge over them is not expressible (chronology, `as-of`, and
+`dli.timeline.*` would not see a derived-rule "copy" the way a query over an
+ordinary predicate does), and a non-defeasible merge would contradict
+identity's own defeasibility and could half-merge just as silently the other
+way. The refusal necessarily lives at the check layer, not synthesis
+(`dli_eval::world::synthesize_alias_rules` builds rules purely from ground
+predicate/arity shape — it has no entity-sort information and so cannot know
+that `avalon` names a place while `the-crowning` names an event; only the
+loader's compiled world, with its entity registry, can tell the two apart).
+This is a boundary with a named un-lift trigger, not a permanent wall:
+the DL-0078 entry records it. The un-lift direction, when the trigger fires,
+is **structural point unification at the chronology/interning layer** — two
+time-point table entries collapsing to one index, with every edge and span
+anchored at either re-pointed to the unified index — not a valuation-lazy
+mechanism layered on top the way the predicate-rewrite closure is; that is a
+different, larger piece of engineering than this feature, deliberately left
+undone until a consumer actually needs to merge two coreferent events or eras
+(e.g. one battle known under two names, each anchoring its own interval
+states).

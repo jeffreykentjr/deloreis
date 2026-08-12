@@ -19,8 +19,8 @@ use dli_ast::decl::{
     AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document, DraftDecl,
     EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, FunctionalDecl, HypothesisDecl,
     KindDecl, NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl,
-    ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl,
-    TimeClause, UseDecl, VariantDecl, WordDecl,
+    ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, SameAsDecl, ScopeHeader, StateDecl,
+    TermDecl, TimeClause, UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -174,6 +174,7 @@ fn check_origins(decls: &[Decl], diags: &mut Vec<Diagnostic>) {
             Decl::Attr(a) => (a.provenance.is_none(), a.subject.span),
             Decl::Fact(f) => (f.provenance.is_none(), f.atom.pred.span),
             Decl::Before(b) => (b.provenance.is_none(), b.earlier.span),
+            Decl::SameAs(s) => (s.provenance.is_none(), s.left.span),
             _ => continue,
         };
         if missing {
@@ -1105,6 +1106,7 @@ pub const LINE_OPEN_KEYWORDS: &[&str] = &[
     "question",
     "ratify",
     "rule",
+    "same-as",
     "scope",
     "state",
     "term",
@@ -1411,6 +1413,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         "before" => {
             if let Some(decl) = parse_before(&mut cur, diags, span) {
                 items.push(Item::Decl(Decl::Before(decl)));
+            }
+        }
+        "same-as" => {
+            if let Some(decl) = parse_same_as(&mut cur, diags, span) {
+                items.push(Item::Decl(Decl::SameAs(decl)));
             }
         }
         "hypothesis" => {
@@ -2618,6 +2625,37 @@ fn parse_before(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Op
     Some(BeforeDecl {
         earlier,
         later,
+        provenance,
+    })
+}
+
+/// `same-as <left> = <right> [origin]` — an exact structural mirror of
+/// [`parse_before`], with `=` in place of the `->` arrow (the relation is
+/// undirected, so there is no earlier/later asymmetry to spell).
+fn parse_same_as(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<SameAsDecl> {
+    const SHAPE: &str = "a `same-as` reads `same-as <left> = <right>`.";
+    let Some(left) = cur.eat_ident() else {
+        missing_name(diags, "same-as", span);
+        return None;
+    };
+    if cur.peek_kind() != Some(TokenKind::Equals) {
+        diags.push(Diagnostic::new(DiagClass::Malformed, SHAPE, span));
+        return None;
+    }
+    cur.bump();
+    let Some(right) = cur.eat_ident() else {
+        diags.push(Diagnostic::new(DiagClass::Malformed, SHAPE, span));
+        return None;
+    };
+    let provenance = parse_provenance(cur, diags);
+    expect_consumed(
+        cur,
+        diags,
+        "a `same-as` reads `same-as <left> = <right> [origin]`.",
+    );
+    Some(SameAsDecl {
+        left,
+        right,
         provenance,
     })
 }
