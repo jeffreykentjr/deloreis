@@ -1970,6 +1970,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let expert_authoring = crate::has_expert_authoring(dli);
     let standing_tools = crate::has_standing_tools(dli);
     let functional_decls = crate::has_functional_decls(dli);
+    let identity_assertions = crate::has_identity_assertions(dli);
     Op::ALL
         .iter()
         .copied()
@@ -1978,6 +1979,7 @@ fn capabilities(dli: &str) -> Vec<String> {
         .filter(|op| expert_authoring || !op.added_in_1_3_0())
         .filter(|op| standing_tools || !op.added_in_1_5_0())
         .filter(|op| functional_decls || !op.added_in_1_6_0())
+        .filter(|op| identity_assertions || !op.added_in_1_7_0())
         .map(wire_name)
         .collect()
 }

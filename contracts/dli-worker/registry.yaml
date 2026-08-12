@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.6.0
+contract_version: 1.7.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256

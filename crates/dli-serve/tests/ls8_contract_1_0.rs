@@ -817,6 +817,9 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 /// - `1.3.0` — that surface plus the DM-4 expert authoring tools.
 /// - `1.5.0` — that surface plus durable standing promotion and defeat.
 /// - `1.6.0` — that surface plus the `functional` single-valuedness declaration.
+/// - `1.7.0` — that surface, unchanged: the wire-surface-completion campaign
+///   window opens with zero new ops (scaffolding only), so its tier's op set
+///   is empty and its capability list is byte-identical to `1.6.0`'s.
 ///
 /// Asserting the *differences* rather than a frozen list keeps this honest as
 /// ops are added: a new op must land in a tier deliberately, and an op leaking
@@ -851,6 +854,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         ),
         ("1.5.0", &["author.set_standing", "author.defeat"]),
         ("1.6.0", &["author.declare_functional"]),
+        ("1.7.0", &[]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {
@@ -937,6 +941,13 @@ fn every_capability_gate_is_a_floor_not_an_exact_match() {
         ("standing tools", "1.5.0", dli_serve::has_standing_tools),
         ("functional decls", "1.6.0", dli_serve::has_functional_decls),
         ("citation recording", "1.3.0", dli_serve::records_citations),
+        (
+            "identity assertions",
+            "1.7.0",
+            dli_serve::has_identity_assertions,
+        ),
+        ("rule authoring", "1.7.0", dli_serve::has_rule_authoring),
+        ("branch writes", "1.7.0", dli_serve::has_branch_writes),
     ];
     for (name, floor, gate) in gates {
         let mut at_or_above = 0;

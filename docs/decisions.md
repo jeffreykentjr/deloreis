@@ -3365,3 +3365,123 @@ Fantasy parity digest, the four migrated-domain deletion proofs, and the
 projection-boundary check are the evidence chain for this ruling. A missing or
 malformed parity projection must now fail every production consumer loudly; no
 consumer may treat an empty projection as a valid world.
+
+---
+
+## DL-0077 — Campaign: wire-surface completion opens the contract `1.7.0` window
+
+*Date: 2026-08-12*
+
+**Attribution:** machine — an engineering decision by the implementing agents. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The wire-surface-completion campaign opens contract `1.7.0`:
+additive and dual-mode, exactly like every version bump before it (DL-0069,
+DL-0070, DL-0074). This entry mints at PR-0b, the scaffolding step —
+`CONTRACT_VERSION` moves to `1.7.0`, the version joins
+`ACCEPTED_CONTRACT_VERSIONS`, and three floor predicates
+(`has_identity_assertions`, `has_rule_authoring`, `has_branch_writes`) exist
+for the campaign's later PRs to gate on — but `Op::ALL` is untouched: zero
+new operations land in this commit, so a `1.7.0` handshake's capability list
+is byte-identical to `1.6.0`'s, and every wire byte below `1.7.0` is
+unchanged.
+
+The campaign scope is six work streams, each landing as its own PR with its
+own DL entry for implementation detail this entry does not carry:
+
+- **WS-1 Coreference** — `author.assert_same_as`, a new identity-assertion
+  op (PR-1a mints the kernel, PR-1b the wire op).
+- **WS-2 Rule authoring** — `author.add_rule`, wiring the rule provenance
+  the engine already carries into every derivation but the loader currently
+  discards (PR-2).
+- **WS-3 Branch-scoped writes** — params-only routing onto the branch/merge
+  plumbing that already exists below the wire; zero new ops (PR-3).
+- **WS-4 Temporal scaffolding close-out** — `state.anchor-kind` and
+  `continuity.fluent-order-undeclared` findings; no new op (PR-4).
+- **WS-5 Teaching/discoverability** — closing the drift between the shipped
+  60-op surface and what agents are taught (PR-0a; landed ahead of this
+  entry).
+- **WS-6 Doors retirement + Decl exhaustiveness + deprecation audit** —
+  vocabulary cleanup, an exhaustive 28-variant `Decl` match, and a
+  disposition table for the 13 `.dli`-only forms (PR-0c partially landed;
+  the audit doc lands with PR-FINAL).
+
+**User-ruled fork resolutions (2026-08-12, binding on the campaign, recorded
+here verbatim-in-substance so they are not re-litigated):**
+
+1. **Identity model.** `same-as` is a symmetric-transitive closure over an
+   undirected relation — no canonical bearer exists in the evaluable world,
+   only a deterministic lexicographic-min representative used inside the
+   check layer for grouping and messages. It is **defeasible**: a `same-as`
+   claim's provenance rides into every merged consequence's support, and
+   defeating it kills those consequences algebraically, un-merging the world
+   on the next read. **v1 refuses `same-as` over eras/events** — an
+   error-severity finding, loud, nothing half-merges — because time points
+   are structural (interned indices, chronology edges) and point
+   unification cannot be valuation-lazy the way fact merging can; a
+   non-defeasible temporal merge would half-merge instead. **Un-lift
+   trigger:** a consumer requirement to merge coreferent events/eras (for
+   example, one battle under two names anchoring interval states). **Lift
+   design direction, recorded now so the boundary does not become permanent
+   by default:** point unification would happen at the chronology/interning
+   layer as a structural, non-valuation operation; spans anchored at the
+   unified points would then combine through the existing timeline
+   machinery.
+2. **Rule expressivity: bare world rules only.** Typed datalog head/body;
+   recursion (including mutual) kept; stratified negation; range
+   restriction enforced. Excluded: `over order`/`over season` domain rules
+   (their micro-grammars stay text-only clauses owned by dli-time/
+   dli-ledger and never enter `World.rules`) and non-datalog `requires`
+   clauses (whose only lowering is a `MalformedWorldRule` finding).
+   **Un-lift trigger:** the first consumer ask for typed order/season
+   authoring — fantasy's FW-10 cutover is the likely real trigger, since
+   `worlds/tpth/time/cycles.dli` and `worlds/tpth/practices/spoken-proof.dli`
+   are live artifacts of these forms today.
+3. **Branch bundle, accepted whole.** Nesting allowed — the existing `from`
+   plus arbitrary merge targets already give a full branch DAG. Every
+   branch is materializable, no evaluation-only flag (`dli.fork.*` remains
+   the lightweight in-memory overlay surface). `delete` is pointer removal
+   only, no object GC (the store is content-addressed and append-only;
+   orphans are harmless). Branch refs are durable server-side state;
+   workspaces stay session state. **No `author.declare_decision` op** — the
+   existing defeat path already makes certain-class conflicts
+   wire-constructible on a branch, and who-may-rule belongs to the
+   consuming application, not this engine (DL-0054). **Merge semantics are
+   settled by the already-shipped `author.merge`** (confluent fact-set
+   union, merge always commits, conflicts reported never blocking,
+   target-wins-on-valuation-ties reported, base-advance handled by CAS) —
+   not reopened by this campaign.
+4. **`.dli` phase-4 removal stays unscheduled.** Licensed but not dated
+   against a consumer timeline this repo does not control; the named
+   trigger is fantasy's FW-10.
+5. **Structured-findings rider.** `Finding` gains `data:
+   Option<serde_json::Value>` (skip-serializing when absent, so every frozen
+   fixture byte holds), populated only on negotiations `≥ 1.7.0`, the
+   continuity finding family first.
+
+**Rationale.** Four of the six work streams close capability gaps the
+benchmark integration work exposed as product requirements independent of
+any benchmark: an agent memory layer that cannot merge coreferent entities,
+cannot accept rules through its supported surface, cannot write to a branch,
+and cannot resolve temporal points is not complete infrastructure — the
+unifying law (DL-0014 as restated by DL-0043) is that every capability must
+be reachable through the taught `author.*` wire surface, and issues #47/#48
+were exactly this failure class. The remaining two work streams close the
+teaching/vocabulary drift the same law names as a failure class. Opening the
+version now, empty, lets the closed fixture registry's dark-launch
+constraint work for the campaign rather than against it: `check_op_
+completeness` requires golden/negative/framing fixtures at op-append time,
+so a version cannot ship with a hidden op — opening `1.7.0` here means it is
+negotiable from this commit forward, and each feature PR adds its op onto an
+already-reviewed, already-accepted version instead of bundling a version
+bump with a feature under time pressure.
+
+**Verification.** `cargo xtask gate` green at this commit. `ls8_zero_x_
+parity`'s two intended `deviates_to` entries move — the version-mismatch
+refusal's accepted-list message, and the bad-frame/missing-id echo of the
+build's own version — reviewed, nothing else. `ls8_contract_1_0`'s
+capability-tier table carries a `1.7.0` row with an empty op set, and
+`every_capability_gate_is_a_floor_not_an_exact_match` covers the three new
+predicates against every accepted version. A `1.7.0` handshake and a `1.6.0`
+handshake return byte-identical 60-op capability lists; every `0.5.1`–`1.6.0`
+wire byte is unchanged.

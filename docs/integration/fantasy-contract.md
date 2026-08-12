@@ -24,7 +24,7 @@ either side disagrees with this document, this document wins.
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.7.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -393,7 +393,7 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.6.0`. A frame declaring
+  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.7.0`. A frame declaring
   anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
@@ -454,6 +454,18 @@ decoupled, and the compatibility window carries the consumer across.
   predicate, which precedent-based inference cannot. The op is advertised only
   from `1.6.0` up, so a `1.5.0`-or-earlier caller's capability list is
   byte-identical to what it was; nothing else on the wire moves.
+- **`1.7.0` — in progress.** The wire-surface-completion campaign window
+  (`decisions.md` DL-0077) opens the version. This scaffolding step adds
+  **zero new operations** — the inventory stays at 60, and a `1.7.0`
+  handshake's capability list is byte-identical to `1.6.0`'s — but the
+  version is now accepted, and the three floor predicates the campaign's
+  additions will gate on (`has_identity_assertions`, `has_rule_authoring`,
+  `has_branch_writes`) exist from this commit. Every pre-`1.7.0` wire stays
+  byte-identical. The campaign's actual surface — coreference
+  (`author.assert_same_as`), rule authoring (`author.add_rule`), and
+  branch-scoped write routing (params on the existing `author.open`,
+  `author.merge`, `author.branch`) — lands with each feature's own PR and
+  updates this section when it does.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that
