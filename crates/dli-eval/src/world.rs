@@ -305,6 +305,19 @@ pub struct World {
     /// loader; empty for worlds that declare none, so serialization is unchanged.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub functional_predicates: BTreeSet<String>,
+    /// The identity-declaration channel (WS-1): every `Decl::SameAs` pair with
+    /// its compiled annotation, populated ONLY by that declaration form — never
+    /// by a plain `fact same-as(x, y)`, which pushes an ordinary [`Fact`] (via
+    /// [`World::assert_same_as`]'s twin, [`World::lower`]'s `Decl::Fact` arm)
+    /// and nothing else. This is the one signal [`synthesize_alias_rules`]
+    /// reads to decide both *whether* to close identity at all and *which*
+    /// pairs to close over: a `same-as` atom that merely happens to share the
+    /// predicate name, with no entry here, never drives a merge — mirroring
+    /// how a plain `fact before(a, b)` never adds a `chronology` edge. Empty
+    /// for a world that declares no identity, so serialization is unchanged
+    /// (the behavior-neutrality pin).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub same_as_links: Vec<(String, String, Ann)>,
 }
 
 impl World {
@@ -418,6 +431,23 @@ impl World {
                         .functional_predicates
                         .insert(functional.pred.text.clone());
                 }
+                // `same-as <left> = <right>` (WS-1) lowers to the queryable
+                // ground fact `same-as(left, right)` — exactly like a `Fact`,
+                // never like `Before`'s chronology-edge-only treatment — AND,
+                // ONLY for this declaration form, registers the pair in the
+                // identity-declaration channel (`same_as_links`) that drives
+                // closure. A plain `fact same-as(x, y)` pushes the fact above
+                // through the ordinary `Decl::Fact` arm and nothing else, so
+                // it never merges anything (koan 3) — the channel, not the
+                // predicate name, is what `synthesize_alias_rules` reads.
+                Decl::SameAs(same_as) => {
+                    let ann = world.lower_fact_annotation(
+                        same_as.provenance.as_ref(),
+                        &mut proposal_seq,
+                        &known_decisions,
+                    );
+                    world.assert_same_as(&same_as.left.text, &same_as.right.text, ann);
+                }
                 // No atom here, each for a different reason:
                 // - `kind`/`rule` need the loader's provenance-gated
                 //   compilation (`dli_world::Loader::process_kind` /
@@ -469,6 +499,11 @@ impl World {
                 | Decl::Narration(_) => {}
             }
         }
+        // Identity closure (WS-1): synthesize the symmetric/transitive/rewrite
+        // rules over every `same-as` fact just lowered, so this path and the
+        // compiled loader's `finish()` call agree (three-path parity). A world
+        // with zero `same-as` facts synthesizes zero rules.
+        synthesize_alias_rules(&mut world);
         Ok(world)
     }
 
@@ -620,6 +655,30 @@ impl World {
             }
         }
         self.facts.push(Fact { atom, ann, grade });
+    }
+
+    /// Declare an identity link (WS-1) — the ONLY intake that registers a pair
+    /// in the identity-declaration channel `same_as_links`, which
+    /// [`synthesize_alias_rules`] reads to decide whether, and which pairs, to
+    /// close. Also pushes the ordinary queryable `same-as(left, right)` fact
+    /// with the same annotation, exactly as `Decl::Before` keeps its own
+    /// `before(a, b)` fact alongside its (separate) chronology edge. A caller
+    /// that wants a `same-as`-predicate fact with NO merge consequence should
+    /// call [`assert_fact`](World::assert_fact) directly instead — that is
+    /// precisely the plain-`Decl::Fact` path, and it is deliberately inert
+    /// here.
+    pub fn assert_same_as(&mut self, left: impl Into<String>, right: impl Into<String>, ann: Ann) {
+        let left = left.into();
+        let right = right.into();
+        self.facts.push(Fact {
+            atom: GroundAtom {
+                pred: "same-as".to_owned(),
+                args: vec![left.clone(), right.clone()],
+            },
+            ann: ann.clone(),
+            grade: Grade::Asserted,
+        });
+        self.same_as_links.push((left, right, ann));
     }
 
     /// Compute the dynamic grade of an atom under a specific valuation
@@ -893,6 +952,152 @@ impl World {
     fn knows_predicate(&self, pred: &str) -> bool {
         self.facts.iter().any(|f| f.atom.pred == pred)
             || self.rules.iter().any(|r| r.head.pred.text == pred)
+    }
+}
+
+/// Synthesize the identity-closure rules over a world's DECLARED identity
+/// links (WS-1, the identity kernel), iff `world.same_as_links` — the channel
+/// [`World::assert_same_as`] populates, and ONLY that method — is non-empty.
+/// A world with none synthesizes nothing, which is what makes a world with
+/// zero `same-as` declarations byte-identical to one with none of this
+/// machinery at all (the behavior-neutrality pin every existing golden and
+/// oracle relies on). Called from both lowering paths — [`World::lower`] and
+/// the compiled `dli-world` loader's `finish()` — so a corpus authored on the
+/// wire, through `.dli` text, or reconstructed from the durable store all
+/// synthesize the identical rule set (three-path parity).
+///
+/// **Declaration-only, by construction, not by a predicate-name filter.** The
+/// closure must never pick up a plain `fact same-as(x, y)` — DL-0078 rules
+/// identity a claim the declaration form alone makes (koan 3), the same
+/// asymmetry `Decl::Before`'s chronology edge already has against a plain
+/// `fact before(a, b)`. A predicate-name guard (“does ANY `same-as` atom
+/// exist”) is not enough: once ANY rule referencing the public `same-as`
+/// relation exists, it would join against every ground tuple under that
+/// predicate regardless of origin — including an unrelated plain fact sharing
+/// the name. So every rule below is defined over a **reserved, unauthorable**
+/// internal predicate, `same-as:link` (`:` cannot open an author-facing
+/// predicate name), extensionally seeded HERE, once per call, directly from
+/// the channel — never by reading `world.facts`. A plain `same-as`-predicate
+/// fact never enters `same-as:link` and therefore never reaches any of these
+/// rules, no matter what else in the world triggers synthesis.
+///
+/// The synthesized rules, in deterministic order:
+///
+/// - one **extensional `same-as:link` fact per declared pair**, seeded with
+///   THAT pair's own compiled annotation — this is where defeasibility rides:
+///   defeating the pair's citing decision (one valuation flip) makes this row
+///   (and everything derived through it) dead on the next read, with no
+///   re-fixpoint, exactly as the original queryable `same-as(left, right)`
+///   fact [`World::assert_same_as`] pushed alongside it already would.
+/// - **symmetry** — `same-as:link(Y, X) :- same-as:link(X, Y)`.
+/// - **transitivity** — `same-as:link(X, Z) :- same-as:link(X, Y),
+///   same-as:link(Y, Z)`.
+/// - **public exposure** — `same-as(X, Y) :- same-as:link(X, Y)`, so the
+///   full symmetric-transitive class (not only the originally-declared pairs)
+///   answers under the ordinary `same-as` predicate too — closure runs both
+///   directions with no goal rewriting needed anywhere, including here.
+/// - **per-predicate rewrite** — for every `(pred, arity)` observed among
+///   extensional facts and rule heads (EXCLUDING `same-as` AND `same-as:link`
+///   themselves, so this census never rewrites the identity relation through
+///   itself), and for every argument position `i` of that predicate:
+///   `pred(.., Y, ..) :- pred(.., X, ..), same-as:link(X, Y)` with `Y` at
+///   position `i`. This is the mechanism that makes a merged copy answer
+///   under every alias name — no query-side goal rewriting is needed, because
+///   the copy is a first-class derived row like any other.
+///
+/// Every rule is positive and range-restricted (every head variable is bound
+/// by a positive body atom) and touches no negated literal, so stratification
+/// is unaffected — the synthesized rules can join any existing stratum without
+/// the loader's `dli_eval::stratify` seam ever seeing a new cycle from them.
+/// Rule names are reserved: `same-as:sym`, `same-as:trans`, `same-as:public`,
+/// and `same-as:<pred>/<arity>@<pos>`.
+///
+/// A rule's own `Ann` multiplies into every derivation through it
+/// (`fire_rules`); `define_rule` mints `Ann::unconditional()` (the neutral
+/// element), so a synthesized rule never narrows a merged copy's support below
+/// the conjunction of the seeded `same-as:link` row's annotation — the
+/// declared pair's own — and the base fact(s) it rode in on. The merge is
+/// exactly as defeasible as the identity claim itself (spec 02: rules-as-claims).
+pub fn synthesize_alias_rules(world: &mut World) {
+    const SAME_AS: &str = "same-as";
+    const SAME_AS_LINK: &str = "same-as:link";
+    if world.same_as_links.is_empty() {
+        return;
+    }
+
+    // Seed the reserved link relation, ONE extensional fact per declared
+    // pair, each carrying that pair's own compiled annotation — never the
+    // public `same-as` relation, which may also hold unrelated plain facts.
+    for (left, right, ann) in world.same_as_links.clone() {
+        world.facts.push(Fact {
+            atom: GroundAtom {
+                pred: SAME_AS_LINK.to_owned(),
+                args: vec![left, right],
+            },
+            ann,
+            grade: Grade::Asserted,
+        });
+    }
+
+    let var = |name: &str| Term::Var(Ident::synthetic(name));
+    let link_atom = |left: &str, right: &str| AtomExpr {
+        pred: Ident::synthetic(SAME_AS_LINK),
+        args: vec![var(left), var(right)],
+    };
+
+    // Symmetry over the link relation: same-as:link(Y, X) :- same-as:link(X, Y).
+    let _ = world.define_rule(
+        "same-as:sym",
+        link_atom("Y", "X"),
+        vec![link_atom("X", "Y")],
+    );
+    // Transitivity over the link relation.
+    let _ = world.define_rule(
+        "same-as:trans",
+        link_atom("X", "Z"),
+        vec![link_atom("X", "Y"), link_atom("Y", "Z")],
+    );
+    // Public exposure: the full closure answers under the ordinary predicate.
+    let _ = world.define_rule(
+        "same-as:public",
+        AtomExpr {
+            pred: Ident::synthetic(SAME_AS),
+            args: vec![var("X"), var("Y")],
+        },
+        vec![link_atom("X", "Y")],
+    );
+
+    // Census: every (pred, arity) over facts ∪ rule heads, excluding same-as
+    // AND same-as:link themselves, in deterministic (BTreeSet) order.
+    let mut census: BTreeSet<(String, usize)> = BTreeSet::new();
+    for fact in &world.facts {
+        if fact.atom.pred != SAME_AS && fact.atom.pred != SAME_AS_LINK {
+            census.insert((fact.atom.pred.clone(), fact.atom.args.len()));
+        }
+    }
+    for rule in &world.rules {
+        if rule.head.pred.text != SAME_AS && rule.head.pred.text != SAME_AS_LINK {
+            census.insert((rule.head.pred.text.clone(), rule.head.args.len()));
+        }
+    }
+
+    for (pred, arity) in census {
+        for pos in 0..arity {
+            let arg_vars: Vec<String> = (0..arity).map(|i| format!("A{i}")).collect();
+            let body_atom = AtomExpr {
+                pred: Ident::synthetic(&pred),
+                args: arg_vars.iter().map(|v| var(v)).collect(),
+            };
+            let mut head_args: Vec<Term> = arg_vars.iter().map(|v| var(v)).collect();
+            head_args[pos] = var("Y");
+            let head = AtomExpr {
+                pred: Ident::synthetic(&pred),
+                args: head_args,
+            };
+            let body = vec![body_atom, link_atom(&arg_vars[pos], "Y")];
+            let name = format!("same-as:{pred}/{arity}@{pos}");
+            let _ = world.define_rule(name, head, body);
+        }
     }
 }
 

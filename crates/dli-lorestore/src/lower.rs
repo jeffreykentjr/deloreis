@@ -147,6 +147,7 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
         Decl::Entity(e) => (e.label.is_some() || e.time.is_some() || !e.slots.is_empty())
             .then(|| (K::Entity, e.name.text.clone())),
         Decl::Before(b) => Some((K::Before, format!("{}->{}", b.earlier.text, b.later.text))),
+        Decl::SameAs(s) => Some((K::SameAs, format!("{}={}", s.left.text, s.right.text))),
         Decl::Rule(d) => Some((K::Rule, d.name.text.clone())),
         Decl::Fork(d) => Some((K::Fork, d.question.text.clone())),
         Decl::Practice(d) => Some((K::Practice, d.name.text.clone())),
@@ -301,6 +302,13 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
             dli_eval::world::GroundAtom {
                 pred: "before".to_owned(),
                 args: vec![b.earlier.text.clone(), b.later.text.clone()],
+            }
+            .render(),
+        ],
+        Decl::SameAs(s) => vec![
+            dli_eval::world::GroundAtom {
+                pred: "same-as".to_owned(),
+                args: vec![s.left.text.clone(), s.right.text.clone()],
             }
             .render(),
         ],
@@ -506,6 +514,7 @@ fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
         Decl::Attr(d) => d.provenance.as_ref(),
         Decl::Fact(d) => d.provenance.as_ref(),
         Decl::Before(d) => d.provenance.as_ref(),
+        Decl::SameAs(d) => d.provenance.as_ref(),
         Decl::Kind(d) => d.provenance.as_ref(),
         Decl::Rule(d) => d.provenance.as_ref(),
         Decl::Cycle(d) => d.provenance.as_ref(),
@@ -533,6 +542,7 @@ fn decl_label(decl: &Decl) -> String {
         Decl::Attr(a) => format!("slot '{}.{}'", a.subject.text, a.attr.text),
         Decl::Fact(f) => format!("fact '{}'", f.atom.pred.text),
         Decl::Before(b) => format!("ordering '{} -> {}'", b.earlier.text, b.later.text),
+        Decl::SameAs(s) => format!("identity '{} = {}'", s.left.text, s.right.text),
         Decl::State(s) => format!("state '{}'", s.name.text),
         other => format!("{other:?}"),
     }
@@ -575,6 +585,17 @@ fn decl_to_atom(decl: &Decl) -> (Option<AtomExpr>, String) {
                 args: vec![Term::Sym(b.earlier.clone()), Term::Sym(b.later.clone())],
             };
             let label = format!("ordering '{} -> {}'", b.earlier.text, b.later.text);
+            (Some(atom), label)
+        }
+        Decl::SameAs(s) => {
+            let atom = AtomExpr {
+                pred: Ident {
+                    text: "same-as".to_owned(),
+                    span: s.left.span,
+                },
+                args: vec![Term::Sym(s.left.clone()), Term::Sym(s.right.clone())],
+            };
+            let label = format!("identity '{} = {}'", s.left.text, s.right.text);
             (Some(atom), label)
         }
         // A state mirrors an attribute so it becomes queryable (issues 47/48):

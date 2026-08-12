@@ -118,6 +118,10 @@ pub enum ExpertDeclKind {
     /// indistinguishable from an ordinary `before(a, b)` fact, and only the
     /// declaration form adds a chronology edge.
     Before,
+    /// A `same-as` identity declaration — carried because its ground atom is
+    /// indistinguishable from an ordinary `same-as(a, b)` fact, and only the
+    /// declaration form drives the identity-closure rule synthesis (WS-1).
+    SameAs,
 }
 
 /// A declaration carried as a marked string in v1 (the expert-tier debt rule,

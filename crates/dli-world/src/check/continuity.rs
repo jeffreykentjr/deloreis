@@ -61,9 +61,11 @@ use crate::model::{LoadFinding, LoadedAtom};
 /// the evaluator's lowering findings (a `citation.unknown-decision` forged-authority
 /// claim, `B1`) as [`WorldFinding`]s, and emits `continuity.rejected-lore` for
 /// every certain fact that realizes a killed token, `continuity.chronology-cycle`
-/// for a precedence loop, `continuity.fluent-contradiction` for an interval
-/// overlap (DL-0071), and `continuity.fd-violation` for a declared-`functional`
-/// slot canon holds two ways (DL-0073). Findings are sorted by `(code, message)`.
+/// for a precedence loop, `continuity.identity-temporal-unsupported` for a
+/// `same-as` naming a declared era/event (WS-1, v1 boundary),
+/// `continuity.fluent-contradiction` for an interval overlap (DL-0071), and
+/// `continuity.fd-violation` for a declared-`functional` slot canon holds two
+/// ways (DL-0073). Findings are sorted by `(code, message)`.
 #[must_use]
 pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     let mut out = Vec::new();
@@ -76,10 +78,15 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
             finding.message.clone(),
         ));
     }
+    // The identity-closure canon map is built ONCE per battery run, from the
+    // world's certain `same-as` links (WS-1) — every reader below
+    // canonicalizes through it rather than re-deriving the closure.
+    let canon = identity_canon(world);
     out.extend(certain_rejected_lore(world));
     out.extend(chronology_cycle(world));
-    out.extend(fluent_contradictions(world));
-    out.extend(fd_violations(world));
+    out.extend(identity_temporal_unsupported(world));
+    out.extend(fluent_contradictions(world, &canon));
+    out.extend(fd_violations(world, &canon));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -163,6 +170,149 @@ fn ann_citations(ann: &Ann, interner: &Interner) -> Vec<String> {
     out
 }
 
+// --- identity closure (WS-1) --------------------------------------------------
+
+/// `continuity.identity-temporal-unsupported` for every `same-as` link naming a
+/// declared era or event on either side — the v1 temporal boundary. Point
+/// unification is structural (interned chronology indices): a defeasible merge
+/// over time points is impossible without half-merging (derived `before`
+/// copies would exist while chronology, `as-of`, and timelines would not see
+/// them), and a non-defeasible merge would contradict the identity feature's
+/// own defeasibility. Fires regardless of the link's own standing — even a
+/// merely *proposed* `same-as` over events would half-merge silently if later
+/// promoted, so the refusal is loud at declaration time (koan 4), not deferred
+/// until promotion. The stage-time counterpart (`identity.temporal-unsupported`)
+/// belongs to the wire op, PR-1b; this catches every path, including a
+/// text-authored corpus.
+fn identity_temporal_unsupported(world: &CompiledWorld) -> Vec<WorldFinding> {
+    let sorts: BTreeMap<&str, &str> = world
+        .model
+        .entities()
+        .iter()
+        .filter_map(|e| e.sort.as_deref().map(|sort| (e.name.as_str(), sort)))
+        .collect();
+    let mut out = Vec::new();
+    for link in declared_links(world) {
+        for name in [link.left, link.right] {
+            let Some(sort @ ("era" | "event")) = sorts.get(name).copied() else {
+                continue;
+            };
+            out.push(
+                WorldFinding::error(
+                    "continuity.identity-temporal-unsupported",
+                    format!(
+                        "same-as {} = {} names {sort} '{name}'; identity over eras/events is not supported (v1 boundary) — point unification would half-merge the chronology",
+                        link.left, link.right
+                    ),
+                )
+                .with_citations(link.citations.clone()),
+            );
+            break; // one finding per link, even when both endpoints are temporal
+        }
+    }
+    out
+}
+
+/// One declared identity link (WS-1): the pair and its compiled annotation
+/// from the eval-layer declaration channel (`World::same_as_links` —
+/// [`World::assert_same_as`]'s intake, what drives closure and status),
+/// paired with its rendered citations, a load-time-only concern the eval
+/// layer does not carry.
+struct DeclaredLink<'a> {
+    left: &'a str,
+    right: &'a str,
+    ann: &'a Ann,
+    citations: Vec<String>,
+}
+
+/// Every declared identity link, in channel order. This — never a scan of
+/// `world.model.atoms()` by predicate name — is the one place a check reads
+/// "which `same-as` pairs are actual declarations": a plain `fact same-as(x,
+/// y)` never appears in `world.same_as_links` (only `Decl::SameAs` populates
+/// it, via [`World::assert_same_as`]), so it is invisible here even though
+/// its atom shares the predicate name (DL-0078, koan 3). Citations are
+/// recovered by an exact-pair cross-reference against the loaded-atom stream
+/// (both are populated by the same `Decl::SameAs` lowering call, so the
+/// lookup always finds its match); a miss degrades to no citations rather
+/// than panicking.
+fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
+    world
+        .model
+        .world
+        .same_as_links
+        .iter()
+        .map(|(left, right, ann)| {
+            let citations = world
+                .model
+                .atoms()
+                .iter()
+                .find(|atom| {
+                    atom.atom.pred.text == "same-as"
+                        && atom.atom.args.len() == 2
+                        && term_symbol(&atom.atom.args[0]) == Some(left.as_str())
+                        && term_symbol(&atom.atom.args[1]) == Some(right.as_str())
+                })
+                .map(|atom| atom.citations.clone())
+                .unwrap_or_default();
+            DeclaredLink {
+                left,
+                right,
+                ann,
+                citations,
+            }
+        })
+        .collect()
+}
+
+/// Build the identity-closure canon map from the compiled world's certain
+/// DECLARED `same-as` links (WS-1): union-find over pairs whose link is
+/// [`Status::Certain`] under the world's valuation and theory — consistent
+/// with the derived layer (a synthesized-rule copy is certain iff its
+/// underlying link chain is). Built ONCE per battery run by
+/// [`run`]/[`check_claims`]/`factcheck::factcheck` and threaded to every
+/// canon-aware reader below, so a world with zero `same-as` declarations gets
+/// an empty map and every [`dli_core::alias::canon`] call is the identity —
+/// byte-identical to a world with none of this machinery (the
+/// frozen-contract guard).
+pub(super) fn identity_canon(world: &CompiledWorld) -> BTreeMap<String, String> {
+    let pairs = declared_links(world)
+        .into_iter()
+        .filter(|link| {
+            link.ann
+                .status(&world.model.world.valuation, &world.model.world.theory)
+                == Status::Certain
+        })
+        .map(|link| (link.left.to_owned(), link.right.to_owned()));
+    dli_core::alias::canon_map(pairs)
+}
+
+/// Canonicalize a `(pred, subject)` slot's subject through the identity canon
+/// map. The predicate side never canonicalizes — `same-as` merges bearers, not
+/// relations.
+fn canon_slot(canon: &BTreeMap<String, String>, slot: &(String, String)) -> (String, String) {
+    (
+        slot.0.clone(),
+        dli_core::alias::canon(canon, &slot.1).to_owned(),
+    )
+}
+
+/// Whether ANY raw `(pred, subject)` key of the world's fluent-timeline table
+/// canonicalizes into `slot` (already canonical) — the "fluent-skip consults
+/// any class member" rule: an identity-merged class is interval-sensitive as a
+/// whole the moment any one of its members is, not only when the literal
+/// canonical spelling happens to carry a timeline.
+pub(super) fn fluent_class_member(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> bool {
+    world
+        .model
+        .fluents
+        .keys()
+        .any(|raw| &canon_slot(canon, raw) == slot)
+}
+
 /// The claim-relative continuity battery over a set of asserted claims — the
 /// structural classes the fact-checker's verdict does not itself report.
 ///
@@ -174,9 +324,10 @@ fn ann_citations(ann: &Ann, interner: &Interner) -> Vec<String> {
 #[must_use]
 pub fn check_claims(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFinding> {
     let mut out = Vec::new();
+    let canon = identity_canon(world);
     out.extend(unknown_claim_entities(world, claims));
-    out.extend(proposed_as_fact(world, claims));
-    out.extend(intra_contradictions(world, claims));
+    out.extend(proposed_as_fact(world, &canon, claims));
+    out.extend(intra_contradictions(world, &canon, claims));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
 }
@@ -306,17 +457,21 @@ fn unknown_claim_entities(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<Wor
 
 /// `continuity.proposed-as-fact` for a claim that states as settled a slot whose
 /// only canon basis is a possible-but-not-certain (shadow) fact.
-fn proposed_as_fact(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFinding> {
+fn proposed_as_fact(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    claims: &[AtomExpr],
+) -> Vec<WorldFinding> {
     let mut out = Vec::new();
     for claim in claims {
         let Some((slot, _value)) = slot_of(claim) else {
             continue;
         };
-        let certain = certain_values(world, &slot);
+        let certain = certain_values(world, canon, &slot);
         if !certain.is_empty() {
             continue; // a certain basis exists; this is a supported/contradicted case
         }
-        if slot_has_possible(world, &slot) {
+        if slot_has_possible(world, canon, &slot) {
             out.push(WorldFinding::error(
                 "continuity.proposed-as-fact",
                 format!(
@@ -341,13 +496,28 @@ fn proposed_as_fact(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFind
 /// it functional everywhere it appears; a predicate canon never records leaves the
 /// slot unprovable and is not flagged, so novel multi-valued lore never
 /// false-positives.
-fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<WorldFinding> {
+///
+/// Grouping is by **canon slot** (WS-1): two claims about the same predicate on
+/// two names a certain `same-as` merges are one slot, not two — `sibling(x, a)`
+/// and `sibling(y, b)` clash under `x = y` exactly as `sibling(x, a)` and
+/// `sibling(x, b)` would (two DIFFERENT values on one merged slot — `sibling(x,
+/// a)` and `sibling(y, a)` would instead be the SAME value restated, and would
+/// not clash). The claimed *value* is canonicalized too, so `spouse(x, a)` and
+/// `spouse(x, b)` under a certain `a = b` are one value, not an intra-episode
+/// break.
+fn intra_contradictions(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    claims: &[AtomExpr],
+) -> Vec<WorldFinding> {
     // Group each slot's claimed values by their normalized key, keeping the first
     // raw spelling for the message. Distinctness is judged on the key, so `gold`
     // and `Gold` are one value, not a phantom two (issue 49, sub-claim 1).
     let mut by_slot: BTreeMap<(String, String), BTreeMap<String, String>> = BTreeMap::new();
     for claim in claims {
         if let Some((slot, value)) = slot_of(claim) {
+            let slot = canon_slot(canon, &slot);
+            let value = dli_core::alias::canon(canon, &value).to_owned();
             by_slot
                 .entry(slot)
                 .or_default()
@@ -360,11 +530,12 @@ fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<World
         // A fluent slot's contradictions are interval-sensitive: two values over
         // disjoint spans (`commons until e` / `enclosed since e`) are not a clash.
         // Those slots are judged by `fluent_contradictions` over their timeline;
-        // the flat single-valued reader would false-fire, so skip them here.
+        // the flat single-valued reader would false-fire, so skip them here —
+        // consulting every class member, not only the literal canonical slot.
         .filter(|(slot, values)| {
             values.len() > 1
-                && !world.model.fluents.contains_key(slot)
-                && slot_is_single_valued(world, slot)
+                && !fluent_class_member(world, canon, slot)
+                && slot_is_single_valued(world, canon, slot)
         })
         .map(|(slot, values)| {
             let rendered: Vec<&str> = values.values().map(String::as_str).collect();
@@ -386,13 +557,17 @@ fn intra_contradictions(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<World
 /// silent here — the predicate is functional everywhere it appears. Mirrors the
 /// fact-checker's data-driven single-valuedness, plus the author-declared
 /// override that lets a *first-seen* predicate be judged (issue 49, sub-claim 4).
-fn slot_is_single_valued(world: &CompiledWorld, slot: &(String, String)) -> bool {
+fn slot_is_single_valued(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> bool {
     if world.model.functional_predicates.contains(&slot.0) {
         return true;
     }
-    match certain_value_keys(world, slot).len() {
+    match certain_value_keys(world, canon, slot).len() {
         1 => true,
-        0 => predicate_is_functional(world, &slot.0),
+        0 => predicate_is_functional(world, canon, &slot.0),
         _ => false,
     }
 }
@@ -402,9 +577,13 @@ fn slot_is_single_valued(world: &CompiledWorld, slot: &(String, String)) -> bool
 /// certain value for it. The shape inference is the shared
 /// [`inferred_functional`] primitive, so it cannot drift from the fork- and
 /// merge-side checks that also union declared functionality with it.
-fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
+fn predicate_is_functional(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    pred: &str,
+) -> bool {
     world.model.functional_predicates.contains(pred)
-        || inferred_functional(certain_binary_slots(world)).contains(pred)
+        || inferred_functional(certain_binary_slots(world, canon)).contains(pred)
 }
 
 // --- fluent (interval) reasoning ---------------------------------------------
@@ -416,20 +595,54 @@ fn predicate_is_functional(world: &CompiledWorld, pred: &str) -> bool {
 /// truthful fluent and raises nothing; two certain values whose intervals
 /// overlap is a genuine contradiction and raises exactly one finding. Slots with
 /// no timeline are not fluents and are untouched here.
-fn fluent_contradictions(world: &CompiledWorld) -> Vec<WorldFinding> {
+///
+/// **Identity-merged fluents (WS-1).** The world's raw `(pred, subject)`
+/// timeline keys are grouped by their canon slot first. A singleton group (the
+/// overwhelming common case, and the only case in a world with no `same-as`
+/// declarations) is checked exactly as before — same timeline reference, same
+/// result. A multi-member group — two or more raw slots a certain `same-as`
+/// merges — is checked as ONE fluent: a scratch timeline concatenating every
+/// member's spans (each span keeps its own value/anchors/`Ann`, so intervals
+/// are preserved, not flattened) is swept once. This is what lets a merged
+/// alias see a genuine overlap between spans authored under different names,
+/// while two spans that were always about one bearer under one name behave
+/// identically to today.
+fn fluent_contradictions(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+) -> Vec<WorldFinding> {
+    let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
+    for raw_slot in world.model.fluents.keys() {
+        by_canon
+            .entry(canon_slot(canon, raw_slot))
+            .or_default()
+            .push(raw_slot);
+    }
     let mut out = Vec::new();
-    for ((pred, subject), timeline) in &world.model.fluents {
-        if let Some(values) = fluent_clash(world, timeline) {
-            let slot = (pred.clone(), subject.clone());
+    for (slot, members) in by_canon {
+        let clash = if let [only] = members.as_slice() {
+            fluent_clash(world, &world.model.fluents[*only])
+        } else {
+            let mut scratch: FluentTimeline<String> = FluentTimeline::new();
+            for member in &members {
+                for span in &world.model.fluents[*member].spans {
+                    scratch.push(span.clone());
+                }
+            }
+            fluent_clash(world, &scratch)
+        };
+        if let Some(values) = clash {
             out.push(
                 WorldFinding::error(
                     "continuity.fluent-contradiction",
                     format!(
-                        "the fluent {subject}.{pred} holds distinct values [{}] at once over overlapping spans; one interval must give",
+                        "the fluent {}.{} holds distinct values [{}] at once over overlapping spans; one interval must give",
+                        slot.1,
+                        slot.0,
                         values.join(", ")
                     ),
                 )
-                .with_citations(slot_citations(world, &slot)),
+                .with_citations(slot_citations(world, canon, &slot)),
             );
         }
     }
@@ -492,7 +705,7 @@ fn fluent_clash(world: &CompiledWorld, timeline: &FluentTimeline<String>) -> Opt
 /// Fluent slots are interval-sensitive and judged by `fluent_contradictions`; a
 /// value held over disjoint spans is not a clash, so they are skipped here.
 /// Distinctness is judged on the normalized value key (sub-claim 1).
-fn fd_violations(world: &CompiledWorld) -> Vec<WorldFinding> {
+fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec<WorldFinding> {
     // The certain source slots this check reads: authored `attr`/`fact` values,
     // excluding fluents (interval-sensitive, judged by `fluent_contradictions` —
     // a value held over disjoint spans is not a clash). Only a predicate the
@@ -502,11 +715,10 @@ fn fd_violations(world: &CompiledWorld) -> Vec<WorldFinding> {
     // place with several neighbours, R2/B) just as readily as a functional-
     // dependency break — so the author rules on it (koan 3, DL-0074) and the
     // engine never guesses, passing only the *declared* set to the primitive.
-    let certain = certain_binary_slots(world).filter(|(pred, subject, _)| {
-        !world
-            .model
-            .fluents
-            .contains_key(&(pred.clone(), subject.clone()))
+    // Slots are canon-merged (WS-1): `rank(a, gold)`/`rank(b, silver)` under a
+    // certain `a = b` is one subject carrying two values, a real break.
+    let certain = certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
+        !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
     });
     fd_violations_over(certain, &world.model.functional_predicates)
         .into_iter()
@@ -522,27 +734,37 @@ fn fd_violations(world: &CompiledWorld) -> Vec<WorldFinding> {
                     violation.values.join(", ")
                 ),
             )
-            .with_citations(slot_citations(world, &slot))
+            // The class's slot citations, PLUS the same-as link atom(s) that
+            // merged it — so the finding names the identity assertion, not
+            // only the two facts it brought together.
+            .with_citations(slot_citations(world, canon, &slot))
         })
         .collect()
 }
 
 /// Every certain binary source slot `(pred, subject, value)` in the compiled
-/// world — the annotated authored facts, before rule saturation. This is the
-/// atom layer the *load* check reads; the fork- and merge-side FD checks read the
-/// saturated *derived* layer instead, an intentional split documented in DL-0075:
-/// the load check judges what canon **asserts**, a merge judges what it
-/// **derives** once re-evaluated.
-fn certain_binary_slots(
-    world: &CompiledWorld,
-) -> impl Iterator<Item = (String, String, String)> + '_ {
+/// world — the annotated authored facts, before rule saturation — with the
+/// subject AND value canonicalized through the identity map (canon before
+/// [`fd_value_key`], WS-1). This is the atom layer the *load* check reads; the
+/// fork- and merge-side FD checks read the saturated *derived* layer instead,
+/// an intentional split documented in DL-0075: the load check judges what
+/// canon **asserts**, a merge judges what it **derives** once re-evaluated.
+fn certain_binary_slots<'a>(
+    world: &'a CompiledWorld,
+    canon: &'a BTreeMap<String, String>,
+) -> impl Iterator<Item = (String, String, String)> + 'a {
     world
         .model
         .atoms()
         .iter()
         .filter(move |atom| atom_status(world, atom) == Status::Certain)
-        .filter_map(|atom| slot_of(&atom.atom))
-        .map(|((pred, subject), value)| (pred, subject, value))
+        .filter_map(move |atom| {
+            slot_of(&atom.atom).map(|(slot, value)| {
+                let (pred, subject) = canon_slot(canon, &slot);
+                let value = dli_core::alias::canon(canon, &value).to_owned();
+                (pred, subject, value)
+            })
+        })
 }
 
 // --- shared helpers ----------------------------------------------------------
@@ -554,17 +776,24 @@ pub(super) fn atom_status(world: &CompiledWorld, atom: &LoadedAtom) -> Status {
 }
 
 /// The distinct certain values a compiled world holds for a `(pred, subject)`
-/// slot.
-pub(super) fn certain_values(world: &CompiledWorld, slot: &(String, String)) -> BTreeSet<String> {
+/// slot, canonicalizing both the query slot and every candidate atom's slot
+/// through the identity map (WS-1) — so a caller may pass either an alias
+/// spelling or the canonical one and read the same class.
+pub(super) fn certain_values(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> BTreeSet<String> {
+    let slot = canon_slot(canon, slot);
     let mut out = BTreeSet::new();
     for atom in world.model.atoms() {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
         if let Some((atom_slot, value)) = slot_of(&atom.atom)
-            && &atom_slot == slot
+            && canon_slot(canon, &atom_slot) == slot
         {
-            out.insert(value);
+            out.insert(dli_core::alias::canon(canon, &value).to_owned());
         }
     }
     out
@@ -573,31 +802,74 @@ pub(super) fn certain_values(world: &CompiledWorld, slot: &(String, String)) -> 
 /// The certain values a slot holds, keyed by their normalized form — so `gold`
 /// and `Gold` count once. Cardinality here is what the FD check reads: two keys
 /// is two genuinely distinct values (issue 49, sub-claim 1).
-fn certain_value_keys(world: &CompiledWorld, slot: &(String, String)) -> BTreeSet<String> {
-    certain_values(world, slot)
+fn certain_value_keys(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> BTreeSet<String> {
+    certain_values(world, canon, slot)
         .iter()
         .map(|value| fd_value_key(value))
         .collect()
 }
 
 /// Whether the compiled world holds any *possible-but-not-certain* fact for a
-/// slot (the shadow layer).
-fn slot_has_possible(world: &CompiledWorld, slot: &(String, String)) -> bool {
+/// slot (the shadow layer), canon-aware like [`certain_values`].
+fn slot_has_possible(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> bool {
+    let slot = canon_slot(canon, slot);
     world.model.atoms().iter().any(|atom| {
         atom_status(world, atom) == Status::Possible
-            && slot_of(&atom.atom).is_some_and(|(atom_slot, _)| &atom_slot == slot)
+            && slot_of(&atom.atom)
+                .is_some_and(|(atom_slot, _)| canon_slot(canon, &atom_slot) == slot)
     })
 }
 
-/// The citations backing the certain fact(s) for a slot, deduplicated in order.
-pub(super) fn slot_citations(world: &CompiledWorld, slot: &(String, String)) -> Vec<String> {
+/// The citations backing the certain fact(s) for a slot, deduplicated in order
+/// — PLUS, when the slot's class was merged by one or more certain `same-as`
+/// links, those links' own citations (WS-1). This is what lets a post-merge
+/// `continuity.fd-violation` (or any other slot-citing finding) name the
+/// identity assertion alongside the facts it brought into conflict.
+pub(super) fn slot_citations(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> Vec<String> {
+    let slot = canon_slot(canon, slot);
     let mut out = Vec::new();
     for atom in world.model.atoms() {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
-        if slot_of(&atom.atom).is_some_and(|(atom_slot, _)| &atom_slot == slot) {
+        if slot_of(&atom.atom).is_some_and(|(atom_slot, _)| canon_slot(canon, &atom_slot) == slot) {
             for cite in &atom.citations {
+                if !out.contains(cite) {
+                    out.push(cite.clone());
+                }
+            }
+        }
+    }
+    // The certain DECLARED identity link(s) that merged this class — reading
+    // the declaration channel, never a predicate-name scan, so a plain
+    // `fact same-as(x, y)` never gets credited as the reason for a merge it
+    // took no part in.
+    for link in declared_links(world) {
+        if link
+            .ann
+            .status(&world.model.world.valuation, &world.model.world.theory)
+            != Status::Certain
+        {
+            continue;
+        }
+        let in_class = [link.left, link.right]
+            .into_iter()
+            .map(|name| dli_core::alias::canon(canon, name))
+            .any(|c| c == slot.1);
+        if in_class {
+            for cite in &link.citations {
                 if !out.contains(cite) {
                     out.push(cite.clone());
                 }

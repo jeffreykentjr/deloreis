@@ -530,6 +530,19 @@
           ]
         },
         {
+          "description": "`same-as <left> = <right>` — an identity claim: `left` and `right` name\nthe same bearer.",
+          "type": "object",
+          "properties": {
+            "SameAs": {
+              "$ref": "#/$defs/SameAsDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "SameAs"
+          ]
+        },
+        {
           "description": "`hypothesis <name> \"<statement>\"` — a named speculative premise.",
           "type": "object",
           "properties": {
@@ -2826,6 +2839,35 @@
           "type": "string",
           "const": "season"
         }
+      ]
+    },
+    "SameAsDecl": {
+      "description": "`same-as <left> = <right>`.\n\nAn exact structural mirror of [`BeforeDecl`]: two entity names and an\noptional provenance annotation. Unlike `before`, the relation is undirected\n— `left`/`right` name the two sides of a claim, not an earlier/later pair —\nbut the shape is kept parallel because the two declarations are carried,\ngated, and lowered through the identical pipeline stages.",
+      "type": "object",
+      "properties": {
+        "left": {
+          "description": "One side of the identity claim.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "description": "The other side of the identity claim.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "left",
+        "right"
       ]
     },
     "ScopeHeader": {

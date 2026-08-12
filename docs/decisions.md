@@ -3485,3 +3485,155 @@ capability-tier table carries a `1.7.0` row with an empty op set, and
 predicates against every accepted version. A `1.7.0` handshake and a `1.6.0`
 handshake return byte-identical 60-op capability lists; every `0.5.1`–`1.6.0`
 wire byte is unchanged.
+
+---
+
+## DL-0078 — Identity is symmetric-transitive closure, defeasible, and refuses eras/events in v1 (the wire-surface 1.7.0 campaign, item 1: the coreference kernel)
+
+*Date: 2026-08-12*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+restating a user ruling made 2026-08-12 on the design forks below. It is live
+and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `same-as <left> = <right>` (`01-syntax.md §3`) enters the surface
+as a `Decl::SameAs` mirroring `Decl::Before` structurally through every
+pipeline stage — loader, evaluator, lorestore carriage, `dli-syntax`
+parse/format — and lowers to the ground atom `same-as(left, right)` with
+mandatory provenance (fail-closed without one, koan 1). A plain `fact
+same-as(x, y)` does not merge anything; identity comes from the declaration
+form alone, the same asymmetry `before`-the-fact already has against
+`before`-the-ordering (koan 3). This is the kernel half of the identity
+feature — no wire operation, no contract-version change; the typed
+`author.assert_same_as` op is a following addition.
+
+Three design forks were resolved by the user and are recorded here verbatim in
+substance:
+
+1. **Identity model: symmetric-transitive closure, no canonical bearer.** The
+   engine closes `same-as` via synthesized Datalog rules over the existing
+   evaluator (`dli_eval::world::synthesize_alias_rules`) — symmetry,
+   transitivity, and a per-`(pred, arity, position)` rewrite rule projecting
+   every other predicate's tuples through the alias. No stored or authored
+   layer is rewritten; nothing is designated "the" name. A canonical-bearer
+   alternative (pick one side as normative, alias the other) was analyzed and
+   rejected: it degenerates to this same closure plus a designation table, and
+   it puts normative weight on argument order — a trap for an LLM author who
+   cannot know which side of `=` a downstream reader will treat as canonical.
+   A deterministic lexicographic-min representative is used only *inside the
+   check layer* (`dli_core::alias::canon_map`, mirroring `dli_core::fd`'s
+   role), for grouping and messages — never stored, never gating assertion.
+
+2. **Identity is defeasible.** A `same-as` claim's provenance rides into every
+   merged consequence's support exactly as any other rule-derived fact's does
+   (rules already multiply their own `Ann` into every derivation they
+   produce, `dli-eval/src/world.rs` `fire_rules`); defeating the citing
+   decision (the existing standing/defeat machinery — a single
+   valuation-variable flip) kills every merged consequence algebraically, with
+   **no re-fixpoint**: the next read simply evaluates the same symbolic
+   saturation under the new valuation and the copies are dead. This is what
+   makes `propose → suppose-in-a-fork → preview → ratify` a real
+   identity-resolution workflow, and is the intended replacement for the
+   pre-wire LLM coreference clustering the benchmark integration measured
+   (59.9% of contradiction pairs alignment-reachable but only 18.1% sharing a
+   slot literally — the single largest recoverable quantity measured anywhere
+   in that work).
+
+3. **v1 refuses `same-as` over a declared era or event.** Fires as an
+   error-severity, world-internal finding
+   (`continuity.identity-temporal-unsupported`) regardless of the link's own
+   standing — even a merely *proposed* same-as over two events is refused, so
+   a later promotion cannot silently half-merge. **Rationale for the
+   refusal, not a narrower rule:** time points are structural — interned
+   indices in the chronology/time-point table, not valuation-gated facts — so
+   a *defeasible* merge over them is not expressible the way a predicate
+   rewrite is (chronology, `as-of`, and `dli.timeline.*` read the interned
+   point table directly, not a derived-rule layer, so a "copy" produced the
+   way `same-as:<pred>/<arity>@<pos>` produces one would be invisible to
+   them); a *non-defeasible* merge would contradict identity's own
+   defeasibility promise and could half-merge just as silently in the other
+   direction — either way is the silent lie koan 4 exists to refuse, so the
+   engine refuses loudly instead of picking either broken shape.
+   **Un-lift condition (user pin, recorded per the ruling that this boundary
+   must carry its trigger, never become a silent permanent wall by default):**
+   the trigger is a consumer requirement to merge coreferent events or eras —
+   the example on record is one battle known under two names, each anchoring
+   its own interval states, which a consumer would need unified to reason
+   about the timeline as one event. **Lift design direction:** point
+   unification would happen at the chronology/interning layer as a
+   **structural** operation — two time-point table entries collapsing to one
+   index, with every chronology edge and fluent-span anchor at either
+   re-pointed to the unified index — not a valuation-lazy mechanism layered on
+   top the way the predicate-rewrite closure is. That is materially more
+   engineering than this feature (it touches the time-point interner's
+   identity guarantees, not just the evaluable world's rule set) and is
+   deliberately left undone until a real consumer ask names it.
+
+**What this does not do.** No wire operation is added (`author.assert_same_as`
+is a following PR); no contract-version bump; no schema-version bump on the
+lorestore fact-object shape (`ExpertDeclKind::SameAs` is purely additive —
+existing objects' canonical bytes are unaffected). `dli-serve` gains only the
+compiler-forced `decl_kind` arm (`"same-as"`, an exhaustive match) — the
+census arms (`free_text_fields`, `decl_annotation`, `decl_findings`,
+`sanitize_decl`) that a real wire op needs stay with that op, per the standard
+add-an-operation checklist, so nothing here half-wires a capability that is
+not yet reachable through the taught surface (DL-0014, DL-0043).
+
+**Behavior-neutrality (pinned by test).** A world with zero `same-as`
+declarations synthesizes zero rules — the guard in `synthesize_alias_rules`
+is on `World.same_as_links`, the identity-DECLARATION channel
+[`World::assert_same_as`] alone populates (never on whether any `same-as`-
+predicate atom exists in the world, and never on whether the function ran)
+— so it is byte-identical, rule for rule and digest for digest, to a world
+compiled before this feature existed. This channel is also what makes a
+plain `fact same-as(x, y)` structurally inert (the ruling above): every
+synthesized rule (symmetry, transitivity, the per-predicate rewrite, and the
+rule exposing the closure under the public `same-as` predicate) is defined
+over a reserved, unauthorable internal predicate (`same-as:link`, seeded
+extensionally from the channel, one fact per declared pair, each carrying
+that pair's own compiled annotation) rather than the public `same-as`
+predicate directly — a plain fact sharing that predicate name is therefore
+invisible to every rule regardless of what else in the world triggers
+synthesis. `dli-eval/tests/same_as_honesty.rs` pins this directly (including
+the case where an unrelated genuine declaration elsewhere DOES trigger
+synthesis and a plain fact still does not ride along); every pre-existing
+golden, oracle, and adversarial suite (`total_lowering`, `differential_
+parity`, `state_fold_invariant`, `adversarial_state_parity`, `interner_
+discipline`, `cross_platform_determinism`, `span_identity`, `ls8_zero_x_
+parity`, the 13 `adversarial_fluent` cases) stays green untouched,
+confirming it structurally.
+
+**Verification.** `dli-core/src/alias.rs` unit-tests the union-find
+(`canon_map`) directly: chain, cycle, self-merge, permutation-stability,
+disjoint classes. `dli-eval/tests/same_as_honesty.rs` (15 cases) covers
+closure both directions, a three-name chain, a two-fact cycle, self-merge,
+the why-names-the-assertion property, the defeat-algebra valuation flip with
+no recompile, propose/suppose, a rule joining across aliases, grade rollup
+(weakest-of-chain), the zero-links frozen-contract guard, conditioned-fact
+threading, negation honesty under a merge, and the declaration-only
+regression: a plain same-as fact never merges (alone, or alongside an
+unrelated genuine declaration that does trigger synthesis), contrasted with
+a positive guard that the declaration form still does.
+`dli-world/tests/identity_merge.rs` (12 cases) covers the headline
+post-merge `continuity.fd-violation` (naming both values and citing the
+identity link), no merge under a proposed or never-ratified identity, no
+merge under a plain same-as fact, value-side unification not itself being a
+violation, fluent-timeline combine (disjoint spans silent, overlapping spans
+one finding), the intra-episode fluent-skip consulting every class member,
+the era/event temporal refusal, a killed token inside a same-as argument,
+and the koan-4 permanent regression (missing and malformed provenance both
+fail closed with a finding, never a silent drop).
+`dli-lorestore/tests/same_as_decl_parity.rs` (9 cases) covers the carriage
+shape, the interner lock-step pin (a cited same-as staged between two bare
+proposals), the three-path byte-identity oracle (`lower_pack` vs
+`lower_atoms` vs per-declaration `lower_decl`), `expected_claim_id`
+re-derivation for both the carriage and atom objects, the carriage round
+trip through `reconstruct_pack` (identical fixpoint and findings — including
+that reconstruction repopulates the declaration channel, since recompiling
+the reconstructed pack re-runs the identical loader path), the full store
+round trip, and a durable defeat-and-refold exercised through the store's
+actual mechanism for it (a ref valuation overlay, `cas_main_ref`, surviving
+a reopen) — including a regression pin that the store refuses a commit
+attempting to durably un-declare an already-ratified decision, which is why
+defeat rides the valuation overlay rather than the append-only decisions
+ledger. The full gate (`cargo xtask gate`) is green.

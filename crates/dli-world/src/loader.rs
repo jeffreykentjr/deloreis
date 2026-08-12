@@ -67,7 +67,8 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl,
-    FunctionalDecl, KindDecl, OptionClause, RuleDecl, ScopeHeader, StateDecl, TimeClause,
+    FunctionalDecl, KindDecl, OptionClause, RuleDecl, SameAsDecl, ScopeHeader, StateDecl,
+    TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -245,6 +246,7 @@ impl LoadCtx {
             Decl::Functional(functional) => self.process_functional(functional),
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
+            Decl::SameAs(same_as) => self.process_same_as(same_as, pack),
             Decl::Kind(kind) => self.process_kind(kind, pack),
             Decl::Rule(rule) => self.process_rule(rule, pack),
             Decl::Cycle(cycle) => self.process_cycle(cycle, pack),
@@ -602,6 +604,52 @@ impl LoadCtx {
         self.push_atom(atom, compiled, pack, before.earlier.span);
     }
 
+    /// Lower `same-as <left> = <right>` (WS-1, the identity kernel): the ground
+    /// atom `same-as(left, right)` with mandatory provenance (fail-closed
+    /// without one — koan 1, exactly [`process_before`](LoadCtx::process_before)'s
+    /// discipline). A plain `fact same-as(x, y)` does NOT merge anything —
+    /// identity comes from *this* declaration only, the same asymmetry
+    /// `before`-the-fact has against `before`-the-ordering (koan 3). No
+    /// chronology edge: unlike `before`, a same-as link orders nothing. The v1
+    /// temporal boundary (an endpoint that is a declared era/event is refused)
+    /// is checked in `crate::check::continuity`, where entity sorts are
+    /// available — not here.
+    fn process_same_as(&mut self, same_as: &SameAsDecl, pack: &str) {
+        let atom = AtomExpr {
+            pred: Ident {
+                text: "same-as".to_owned(),
+                span: same_as.left.span,
+            },
+            args: vec![
+                Term::Sym(same_as.left.clone()),
+                Term::Sym(same_as.right.clone()),
+            ],
+        };
+        let label = format!("identity '{} = {}'", same_as.left.text, same_as.right.text);
+        let compiled = self.compile_ann(
+            same_as.provenance.as_ref(),
+            &label,
+            pack,
+            true,
+            same_as.left.span,
+        );
+        self.collect_entities(&atom);
+        // `World::assert_same_as` is the ONLY intake that registers the pair
+        // in the identity-declaration channel (`same_as_links`) — it also
+        // pushes the queryable `same-as(left, right)` fact, so this replaces
+        // the direct `wm.world.facts.push` a plain fact-producing decl would
+        // use. A plain `Decl::Fact(same-as(x, y))` still routes through
+        // `process_fact`, which never touches the channel — that asymmetry
+        // (mirroring `Decl::Before`'s chronology edge) is what keeps identity
+        // a declaration-only claim (koan 3, DL-0078).
+        self.wm.world.assert_same_as(
+            same_as.left.text.clone(),
+            same_as.right.text.clone(),
+            compiled.ann.clone(),
+        );
+        self.push_atom(atom, compiled, pack, same_as.left.span);
+    }
+
     fn process_kind(&mut self, kind: &KindDecl, pack: &str) {
         let label = format!("kind '{}'", kind.name.text);
         let compiled =
@@ -920,6 +968,15 @@ impl LoadCtx {
             }
         }
         self.findings.extend(collisions);
+
+        // Identity closure (WS-1): synthesize the symmetric/transitive/rewrite
+        // rules over every `same-as` fact BEFORE stratification, so the
+        // synthesized rules are checked (and, on a negative-dependency cycle,
+        // blamed) exactly like any other rule. A world with zero `same-as`
+        // facts synthesizes zero rules — this call is then a no-op and the
+        // compiled world is byte-identical to one that never called it (the
+        // frozen-contract guard).
+        dli_eval::world::synthesize_alias_rules(&mut self.wm.world);
 
         // The load-time stratification handoff: consume the evaluator seam and
         // surface a negative-dependency cycle as a finding (spec 08 §1).

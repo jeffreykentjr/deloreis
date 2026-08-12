@@ -216,6 +216,32 @@ declaration is how an author makes it. It lowers to no atom — there is no fact
 stored declaration. Agents declare it with `author.declare_functional`
 (`11-agent-authoring.md §3.11`; contract `1.6.0`, DL-0074).
 
+A **`same-as`** declaration states a claim about the world rather than a
+constraint on a predicate: `same-as <left> = <right>` says two names denote
+one bearer.
+
+```dli
+# grammar: v0 (unfrozen; AST normative)
+scope camelot
+
+same-as avalon = the-isle-of-glass    ratified d-0146
+```
+
+Unlike `before`, the relation is undirected — `left` and `right` name the two
+sides of one claim, not an earlier/later pair — so there is no canonical
+bearer and no normative weight on argument order (a deliberate rejection of a
+"canonical name" design: it would put a trap for an LLM author in the argument
+order it wrote). The engine closes it symmetric-transitively over synthesized
+rules, never by rewriting anything stored; `02-semantics.md §9` is the full
+identity semantics — closure, the claim-vs-bearer distinction, defeasibility,
+and the v1 temporal boundary (a `same-as` naming a declared era or event is
+refused, loud, rather than half-merging the chronology). Like every other
+world claim it needs provenance — a bare `same-as` with none is fail-closed,
+exactly as an unprovenanced `before` is. The kernel semantics land first
+(DL-0078); the typed wire op that lets an agent assert it through the taught
+`author.*` surface (DL-0014, DL-0043) is a following, separately-tracked
+addition.
+
 ---
 
 ## 4. Three stances at the surface

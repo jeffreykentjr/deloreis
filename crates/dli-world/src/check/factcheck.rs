@@ -24,10 +24,12 @@ use dli_core::fd::fd_value_key;
 use dli_core::grade::Grade;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::CompiledWorld;
-use super::continuity::{certain_values, render_term, slot_citations, slot_of};
+use super::continuity::{
+    certain_values, fluent_class_member, render_term, slot_citations, slot_of,
+};
 use crate::draft::DraftFinding;
 
 /// A claim's standing against the certain projection of the world.
@@ -80,14 +82,27 @@ impl ClaimReport {
 
 /// Fact-check a set of asserted claims against the compiled world's certain
 /// projection, one [`ClaimReport`] per claim in input order.
+///
+/// The identity-closure canon map (WS-1) is built ONCE for the whole call —
+/// `dli_world::check::continuity::identity_canon` — and threaded to every
+/// claim's slot resolution, so `spouse(x, a)` reads the same certain layer
+/// whether canon holds `x` or its certain alias.
 #[must_use]
 pub fn factcheck(world: &CompiledWorld, claims: &[AtomExpr]) -> Vec<ClaimReport> {
-    claims.iter().map(|claim| classify(world, claim)).collect()
+    let canon = super::continuity::identity_canon(world);
+    claims
+        .iter()
+        .map(|claim| classify(world, &canon, claim))
+        .collect()
 }
 
 /// Classify one claim.
 #[allow(clippy::too_many_lines)]
-fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
+fn classify(
+    world: &CompiledWorld,
+    alias: &BTreeMap<String, String>,
+    claim: &AtomExpr,
+) -> ClaimReport {
     let rendered = render_atom(claim);
 
     let slot = slot_of(claim);
@@ -180,7 +195,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         };
     };
 
-    let certain = certain_values(world, &slot);
+    let certain = certain_values(world, alias, &slot);
     // Compare on the normalized value key, so cosmetic drift (`gold` vs `Gold`,
     // `tide-bell` vs `tide bell`) is not read as a distinct value — neither a
     // false contradiction nor a phantom second value that would silently switch
@@ -193,13 +208,14 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
     // Genuine interval overlaps are surfaced by the world-internal
     // `fluent-contradiction` check, so the fact-checker never returns
     // `contradicted` on a fluent slot — only supported (canon holds the value) or
-    // unsupported.
-    if world.model.fluents.contains_key(&slot) {
+    // unsupported. Identity-aware (WS-1): a slot merged with a fluent-holding
+    // slot is judged as a fluent too, consulting every class member.
+    if fluent_class_member(world, alias, &slot) {
         return if certain_keys.contains(&value_key) {
             ClaimReport {
                 claim: rendered,
                 verdict: Verdict::Supported,
-                citations: slot_citations(world, &slot),
+                citations: slot_citations(world, alias, &slot),
                 reason: format!(
                     "{}.{} = {value} holds over a fluent span in canon",
                     slot.0, slot.1
@@ -221,7 +237,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         return ClaimReport {
             claim: rendered,
             verdict: Verdict::Supported,
-            citations: slot_citations(world, &slot),
+            citations: slot_citations(world, alias, &slot),
             reason: format!("{}.{} = {value} is asserted by canon", slot.0, slot.1),
         };
     }
@@ -230,7 +246,7 @@ fn classify(world: &CompiledWorld, claim: &AtomExpr) -> ClaimReport {
         return ClaimReport {
             claim: rendered,
             verdict: Verdict::Contradicted,
-            citations: slot_citations(world, &slot),
+            citations: slot_citations(world, alias, &slot),
             reason: format!(
                 "claims {}.{} = {value}, but canon asserts {canon}",
                 slot.0, slot.1

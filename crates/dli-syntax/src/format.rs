@@ -245,6 +245,11 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_provenance(&mut line, b.provenance.as_ref());
             vec![line.trim_end().to_owned()]
         }
+        Decl::SameAs(s) => {
+            let mut line = format!("same-as {} = {}", s.left.text, s.right.text);
+            append_provenance(&mut line, s.provenance.as_ref());
+            vec![line.trim_end().to_owned()]
+        }
         Decl::Hypothesis(h) => {
             let mut line = format!("hypothesis {}", h.name.text);
             if let Some(statement) = &h.statement {
