@@ -19,29 +19,30 @@ handshake — neither side edits the other's file, so there is no write race.
 - **verified** — both sides' fixtures/transcripts agree; the point holds.
 - **closed** — verified and no longer active work.
 
-## Current cutover snapshot — 2026-08-11
+## Current cutover snapshot — 2026-08-12
 
 The execution log below is retained as historical evidence. This snapshot is the
-active coordination truth after the Contract 1.5 cutover:
+active coordination truth after the Contract 1.6 cutover:
 
-- deloreis `main` is `47667a1` (PR #56, following PR #55), with the
-  status-board catch-up landed. Contract `1.5.0` is immutable at `8c0641ac`;
-  the corrective store/display-name hotfix is
-  `contract/1.5.0-hotfix.1` at `dd75afaa`.
-- Fantasy `main` is `de22b111` (PR #31, following PR #30). It pins the
-  corrective Contract 1.5 build, produces `parity.json` from the lorestore
-  export, carries the parity-chain check as a required offline path, and
-  records the bounded seeded canary and FW-8 authoring proof. The migrated
-  authority fallbacks are deleted on that main.
+- deloreis `main` is `a2b7279` (PR #62), with the status-board catch-up and
+  DL-0076's display-name authority successor landed. Contract `1.6.0` is
+  tagged at `a2b72791`; the immutable Contract 1.5 tags remain historical.
+- Fantasy `main` is `32817c8b` (PR #34, following PR #33). It pins and
+  vendors Contract 1.6.0, produces `parity.json` from the lorestore export,
+  carries the parity-chain check as a required offline path, and records the
+  bounded seeded canary and FW-8 authoring proof. The migrated authority
+  fallbacks are deleted on that main.
 - The current Fantasy projection is bound to tag
-  `contract/1.5.0-hotfix.1`, store head
+  `contract/1.6.0`, store head
   `sha256:9deb4d7b39fa5e5f6843519b7e3462448d5baf3aa0681bbe5429d51729677df2`,
   and projection digest `sha256:dfff1a9fdbbf846a1a9d778fb0b47a9d3094065446ed82f8bc2a714979b0db5d`.
 - FW-6's killed-token, facts, timeline, and character projection work, plus
   authority-fallback deletion, is complete. CP-5's bounded seeded canary and
-  CP-10's FW-8 authoring proof are committed on Fantasy main; the Contract 1.5
+  CP-10's FW-8 authoring proof are committed on Fantasy main; the Contract 1.6
   engine-side standing tests and the real MCP transcript cover cited-provisional
-  canon reach, promotion, defeat, and object retention.
+  canon reach, promotion, defeat, and object retention. The committed
+  transcript remains historical Contract 1.5 scratch-store evidence; the
+  replay script now requires an explicit engine binary.
 
 The rows below record the current handoff state; older paragraphs later in this
 file are evidence logs and must not be read as a reversion to their old pins or
@@ -52,16 +53,16 @@ The coordination points and what each side owes are defined in `migration.md`
 
 | CP | What deloreis provides | What fantasy provides | State | Evidence |
 |---|---|---|---|---|
-| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | provided | current deliverable tag `contract/1.5.0` at `8c0641ac`; corrective tag `contract/1.5.0-hotfix.1` at `dd75afaa` |
+| **CP-1** — contract freeze | v0 schemas + the closed fixture registry | the vendored copy + a parity run | provided | current deliverable tag `contract/1.6.0` at `a2b72791`; Contract 1.5 tags remain historical corrective releases |
 | **CP-2** — pinned oracles | the shadow-read harness slot | the pinned legacy gates (EXT-F1) | provided | `scripts/shadow-read.sh` and `scripts/pinned-oracles.sh` remain the lab-side slot; the historical oracle pin needs re-pin before this row can close |
-| **CP-3** — vendored corpus | the dual-run consumer | canon snapshots at a pinned commit (EXT-F2) | acknowledged | Fantasy `main` `de22b111` consumes the Contract 1.5 lorestore pack and projection; the current store head and tag are recorded above |
-| **CP-4** — detection corpus | detection proven separately | the seeded divergence corpus (EXT-F5) | acknowledged | Fantasy's 33-operator mutation corpus is present and exercised by its offline test gate; the post-projection harness repair is present on `de22b111` |
+| **CP-3** — vendored corpus | the dual-run consumer | canon snapshots at a pinned commit (EXT-F2) | acknowledged | Fantasy `main` `32817c8b` consumes the Contract 1.6 lorestore pack and projection; the current store head and tag are recorded above |
+| **CP-4** — detection corpus | detection proven separately | the seeded divergence corpus (EXT-F5) | acknowledged | Fantasy's 33-operator mutation corpus is present and exercised by its offline test gate; the post-projection harness repair is present on `32817c8b` |
 | **CP-5** — core shadow-read | dual-run parity (validator/continuity/factcheck) | the pinned oracles + corpus | verified | Fantasy's bounded seeded canary records clean parity, five own-tag mutation reds, and rollback rehearsal; the broad advisory predicate sweep remains non-gating |
-| **CP-6** — naming shadow-read | the LANG-2 kernel-half view | the legacy `name vet` + external screens | provided | Contract 1.5 character/name projection is live; the consumer retains its external naming screen, with full naming parity still a separate follow-up |
+| **CP-6** — naming shadow-read | the LANG-2 kernel-half view | the legacy `name vet` + external screens | provided | Contract 1.6 character/name projection is live; the consumer retains its external naming screen, with full naming parity still a separate follow-up |
 | **CP-7** — the batch RQ | the offset→before compiler + the draft RQ | the author's ruling | acknowledged | machine-attributed D-ledger entries are now permitted by the consuming governance ruling; the former synchronous author block is no longer a release blocker |
 | **CP-8** — source deletion | the conversion + the reviewed diff | the review + the deletion commit | verified | Fantasy PR #27 deleted the four migrated authority fallbacks after the projection producer flip; its required Python and Factory checks passed |
-| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | verified | Fantasy `main` `de22b111` pins `contract/1.5.0-hotfix.1`; contract pin, projection provenance, boundary checks, and the full local gate are green |
-| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | Fantasy PR #30's real Contract 1.5 MCP transcript proves structured diff, cited provisional canon reach, standing promotion, defeat, and append-only object retention |
+| **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | verified | Fantasy `main` `32817c8b` pins `contract/1.6.0`; contract pin, projection provenance, boundary checks, full local gate, and hosted real-binary lanes are green |
+| **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | Fantasy PR #30's real Contract 1.5 MCP transcript remains the committed scratch proof; the Contract 1.6 replay path requires an explicit tagged binary |
 
 The source tree currently implements contract `1.6.0`, served **multi-version
 dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0`,
@@ -82,10 +83,10 @@ nothing is owed by the consumer. The closed fixture registry is re-pinned at
 
 The original `contract/1.0.0` milestone at `76888052` remains historical
 evidence for the frozen AUTH-2 fixture. The active deliverable is the Contract
-1.5 tag pair recorded above; the consumer's current pin and projection digest
+1.6 tag recorded above; the consumer's current pin and projection digest
 are the evidence for the present handshake. CP-10's historical transcript is
 deliberately not re-run merely because the fixture remains frozen at `0.5.1`
-terms; the Contract 1.5 engine tests are the current standing-transition proof.
+terms; the Contract 1.6 engine tests are the current standing-transition proof.
 
 When a point advances, deloreis updates its **State** and fills **Evidence** with
 a link (a fixture path, a tagged build, a transcript). A point never advances
