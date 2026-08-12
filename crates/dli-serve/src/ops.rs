@@ -325,6 +325,28 @@ impl Op {
         matches!(self, Op::AuthorBranch | Op::AuthorMerge)
     }
 
+    /// The earliest accepted contract version this op is advertised at — the
+    /// compat baseline `0.5.1` for everything present since the beginning, or
+    /// the version named by whichever `added_in_*` gate above matches. Kept
+    /// immediately next to those gates so a new gate and this match cannot drift
+    /// apart; the unit test below asserts the agreement for every op.
+    #[must_use]
+    pub const fn introduced_in(self) -> &'static str {
+        if self.added_in_1_6_0() {
+            "1.6.0"
+        } else if self.added_in_1_5_0() {
+            "1.5.0"
+        } else if self.added_in_1_3_0() {
+            "1.3.0"
+        } else if self.added_in_1_2_0() {
+            "1.2.0"
+        } else if self.added_in_0_6_1() {
+            "0.6.1"
+        } else {
+            "0.5.1"
+        }
+    }
+
     /// Whether this workspace mutation accepts digest/idempotency fences.
     #[must_use]
     pub const fn accepts_author_fences(self) -> bool {
@@ -416,14 +438,14 @@ impl Op {
                 "Summarize a workspace: its staged canonical surface and current digest."
             }
             Op::AuthorDiff => {
-                "Render the workspace's staged change as canonical .dli, with its findings and derived consequences."
+                "Show the workspace's staged change as structured per-fact diff rows (before/after standing) with findings and derived consequences; the .dli rendering is empty unless a formatter is linked."
             }
             Op::AuthorDiscard => "Drop a whole workspace, or one staged declaration.",
             Op::AuthorMaterialize => {
-                "Return the workspace's .dli file bytes as data; refuses while any error-severity finding is open."
+                "Commit the workspace's staged fact objects to the lorestore — the accept decision — and return them as JSON (facts and root_hash), with .dli rendering behind rendered:true; refuses while any error-severity finding is open."
             }
             Op::AuthorAddEntity => {
-                "Introduce a person, place, thing, or era into the workspace, with provenance."
+                "Introduce a person, place, thing, or era into the workspace, with provenance (events use author.add_event)."
             }
             Op::AuthorAddFact => {
                 "Assert a keyed attribute value on an entity (entity.key = value), with provenance."
@@ -489,6 +511,35 @@ impl Op {
             }
             Op::AuthorDeclareFunctional => {
                 "Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject are a contradiction — even for a first-seen predicate canon has no precedent for."
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `introduced_in` must agree with every `added_in_*` gate: whenever a gate
+    /// says an op was added in version X, `introduced_in` must say X too. This
+    /// is the drift guard the doc comment promises.
+    #[test]
+    fn introduced_in_agrees_with_every_added_in_gate() {
+        for op in Op::ALL {
+            if op.added_in_1_6_0() {
+                assert_eq!(op.introduced_in(), "1.6.0", "{op:?}");
+            }
+            if op.added_in_1_5_0() {
+                assert_eq!(op.introduced_in(), "1.5.0", "{op:?}");
+            }
+            if op.added_in_1_3_0() {
+                assert_eq!(op.introduced_in(), "1.3.0", "{op:?}");
+            }
+            if op.added_in_1_2_0() {
+                assert_eq!(op.introduced_in(), "1.2.0", "{op:?}");
+            }
+            if op.added_in_0_6_1() {
+                assert_eq!(op.introduced_in(), "0.6.1", "{op:?}");
             }
         }
     }

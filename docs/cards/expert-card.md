@@ -21,14 +21,20 @@ expert forms are where people expect them to break:
   `expert_body`, not as captured source. That is why a `proof` is *checked as
   data* — structurally, over its typed premises and steps — instead of being
   formatted and re-read.
-- **The tool surface reaches part of this card today, and that is worth being
+- **The tool surface reaches most of this card today, and that is worth being
   precise about.** Forks, hypotheses, and suppositions are first-class calls
   (`author.open {fork}`, `author.add_hypothesis`, `author.suppose` — worked
-  below). The heavier declarations — `rule`, `state`, `cycle`, `practice`,
-  `proof`, `dialect` — have no per-declaration `author.*` tool yet; they enter a
-  world when its corpus is loaded. That is a missing tool, not a second
-  interface: there is still exactly one way in, and hand-edited text carries no
-  reliability claim (DL-0043).
+  below). `dialect`, `name-part`, `name`, `term`, `banned`, `state`, and
+  `attest` each have a per-declaration `author.*` tool since contract 1.3.0
+  (`author.add_dialect`, `author.add_name_part`, `author.add_name`,
+  `author.add_term`, `author.add_banned`, `author.add_state`,
+  `author.add_attest` — `SKILL.md` §2) — author them the ordinary way, not
+  by loading a corpus. Only `rule`, `cycle`, `practice`, and `proof` have no
+  per-declaration `author.*` tool yet; they remain **tier 3**, deliberately
+  parked until a consumer needs them (DL-0058), and enter a world when its
+  corpus is loaded. That is a missing tool, not a second interface: there is
+  still exactly one way in, and hand-edited text carries no reliability claim
+  (DL-0043).
 
 Nothing on this card is needed to build a world; the gentle card
 (`gentle-card.md`) is most of worldbuilding. Reach here when you want rules that

@@ -91,7 +91,7 @@ in its params.
   view for a human reviewer. The canonical result is the structured JSON above
   (findings plus the staged fact objects / rows and the digest); `rendered` is
   returned only when asked (`rendered: true`, from contract 0.6.0 / DL-0046;
-  the served contract is 1.3.0) and is **empty on a build with no formatter
+  the served contract is 1.6.0) and is **empty on a build with no formatter
   linked** — the default build links none
   (LS-7). It is never the authoring surface: you propose through the typed tool
   params, not by writing these lines.
@@ -101,13 +101,21 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 26 tools you author with)
+## 2. The tool surface (the 29 tools you author with)
 
-The contract's §3.2 table lists 28: it also carries `author.branch` and
-`author.merge`, which manage durable branches rather than stage lore, and are
-not part of the authoring loop below.
+The contract's §3.2 table lists 31 `author.*` tools. Two of them,
+`author.branch` and `author.merge`, manage durable branches rather than stage
+lore and sit outside the authoring loop below — reach for `author.branch` when
+you want a durable, named checkpoint of the current state, one that survives
+across sessions rather than living only in one workspace's staged layer,
+either to come back to later or to compare against; reach for `author.merge`
+when you are ready to fold a branch's fact-set back into another — it always
+commits a merge, reporting valuation, exclusivity, and functional-dependency
+conflicts rather than blocking on them, so a merge never leaves you stuck. Both
+operate on the durable lorestore's refs, not the staged workspace layer, and
+neither stages a declaration itself.
 
-**The nineteen mutating tools** (each returns `{findings, workspace_digest}`,
+**The twenty-two mutating tools** (each returns `{findings, workspace_digest}`,
 plus `rendered` when you ask for it) and **two read-only state ops** (status,
 diff). `author.materialize` is a mutation — it is the accept decision, and
 `author.discard` is the reject.
@@ -115,8 +123,15 @@ diff). `author.materialize` is a mutation — it is the accept decision, and
 The **core nine** (`add_entity` … `suppose`) cover people, places, things,
 eras, their attributes, relations, chronology, and tracked debt — most authoring
 never leaves them. The **expert seven** below them are the language and
-continuity lane, available from **contract 1.3.0** (DL-0058); ask
-`dli.version` if you are unsure what your negotiated wire carries.
+continuity lane, available from **contract 1.3.0** (DL-0058). The **standing
+pair** (`set_standing`, `defeat`) and **`declare_functional`** are the newest
+three — a promotion/defeat pair from **contract 1.5.0** and a single-valuedness
+declaration from **contract 1.6.0** (§3.10–§3.11 of spec `11-agent-authoring.md`
+give their full semantics). Ask `dli.version` if you are unsure what your
+negotiated wire carries — and negotiate the newest version your harness
+supports: capabilities are floor-gated (a version advertises everything at or
+below it), so an old negotiation is a permanent surface loss, not a
+compatibility mode.
 
 | Tool | Intent |
 |---|---|
@@ -141,6 +156,9 @@ continuity lane, available from **contract 1.3.0** (DL-0058); ask
 | `author.add_banned` | **1.3.0.** Ban a word `{word, reason?}` from the lore surface. Provenance required. |
 | `author.add_state` | **1.3.0.** Assert a time-varying fluent `{id, value?, time?}` — a state that holds over an interval, not forever. `id` may be dotted (`lancelot.oath-status`), and the subject before the dot must be a known entity. `time` is `{kind: after\|during\|since\|until, point}`. Provenance required. |
 | `author.add_attest` | **1.3.0.** Request an attestation `{question}` against a question already open in this workspace. Provenance required. |
+| `author.set_standing` | **1.5.0.** Promote a provisional stored claim `{claim_id, decision}` to ratified, by citing a decision that is declared and occurs in every support path. |
+| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. |
+| `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 
 **The five self-check read tools** let you interrogate the staged world *before*
 you materialize (§4). All are read-only and mutate nothing; each names a workspace
@@ -158,6 +176,11 @@ The whole loop closes through `author.*` alone: you never touch a `dli.*` batch 
 or a raw `.dli` file to author *or* self-check. (`author.diff` and `author.status`
 also return the full finding set and rendered surface, so any of them is a valid
 pre-flight.)
+
+A read-only `dli.*` family also lives on the same server — `dli.timeline.*`,
+`dli.fork.*`, `dli.check-draft`, `dli.corpus.export`, `dli.name.check`, and a
+few others — for inspection and export; authoring never needs it, but it is
+there if your harness wants to read canon a different way.
 
 ## 3. Reading the graded feedback
 
@@ -225,8 +248,9 @@ have not interrogated. The read path costs nothing and mutates nothing.
   human will review.
 - **`author.materialize`** is the last gate: it **refuses** with
   `materialize-blocked` if any error-severity finding is open, naming the blocking
-  finding codes. A clean materialize returns the `.dli` bytes and an empty
-  `findings` array.
+  finding codes. A clean materialize commits the staged facts to the lorestore
+  and returns them as JSON — `facts` and `root_hash` — with an empty `findings`
+  array; `.dli` rendering is the `rendered: true` opt-in (§1, DL-0046).
 
 ## 5. When you are stuck, the tools answer
 
@@ -318,7 +342,9 @@ request and response — is `docs/cards/authoring-loop.md`.
 - **Expert tier.** The language lane (dialects, name-parts, names, terms, bans)
   and the continuity/ledger pair (states, attestations) have tools from contract
   1.3.0 — they are in the §2 table, and you author them the same way as
-  everything else. Rules, cycles, practices (magic systems), and proofs do
+  everything else. The standing pair (`set_standing`, `defeat`, 1.5.0) and
+  `declare_functional` (1.6.0) are also in the §2 table. Rules, cycles,
+  practices (magic systems), and proofs do
   **not** have tools yet: they are deliberately parked until a consumer needs
   them (DL-0058), so for those the reference is the expert card
   (`docs/cards/expert-card.md`) and the lane specs under `docs/spec/`. Fork
