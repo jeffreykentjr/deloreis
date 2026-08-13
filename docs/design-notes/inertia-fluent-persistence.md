@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: DL-0081
+verdict: DL-0081, DL-0082
 ---
 
 # Inertia: derived fluent persistence
@@ -140,14 +140,23 @@ So the open spans are stored exactly as authored (byte-unaffected), a declared
 `inertial_predicates` map (predicate → the OR of its declaring provenance
 `Ann`s) is carried alongside them, and the effective boundary is derived at each
 projection from which competitors are live. `FluentTimeline::state_at_inertial`
-is the projection the **continuity check** consults. **Reads are intentionally
-NOT inertia-aware in v1**: a `dli.query` / `author.query` returns the raw
-extensional value(s), never the derived interval, preserving the invariant that
-derived intervals never leak into eval query answers. A silent transition
-therefore surfaces no finding and no inertia-aware read, so its derived boundary
-is observable **only** through the clash / contested `Finding.data`
-(`spans[].until`) — this is the **v1 read boundary** (trigger: a consumer
-needing an inertia-aware as-of read). **Capping is active only while both the
+is the projection the **continuity check** consults, and — since DL-0082,
+contract `1.9.0` — the projection `check::slot_state_at` (`crates/dli-world/
+src/check/continuity.rs`) also consults directly, dispatching the identical
+`state_at_inertial`/`state_at` choice over the same canon-grouped scratch
+timeline the check builds. **DL-0082 lifts the v1 read boundary this note
+originally recorded here**: `author.as_of {workspace, pred, subject, at}` is
+now the one inertia-aware read, answering with the value(s) live at a query
+point — including a capped value's **derived** `until` and its certain
+defeater — without waiting for a `continuity.fluent-*` finding to carry it. A
+`dli.query` / `author.query` are UNCHANGED by DL-0082: they still return the
+raw extensional value(s), never the derived interval, so the eval-path
+non-leak invariant below holds for them exactly as it always did — `author.as_of`
+is a new, separate, additive read, not a change to `query_with`'s own
+projection. The v1 boundary DL-0082 leaves in its place is narrower: **no
+`dli.*` mirror of this read over a materialized corpus without opening a
+workspace** (trigger: a consumer needing the as-of read without an authoring
+session). **Capping is active only while both the
 inertia declaration and the competing value are certain**: a defeated or merely
 proposed declaration — and a non-certain declaration never caps at all,
 consistent with the standing model that a non-certain claim takes no certain
@@ -160,12 +169,18 @@ defeat case then falls out of the ordinary standing read with **no recompile**:
 - defeat a defeater ⇒ it stops capping, the earlier value re-extends;
 - defeat the originating assertion ⇒ its span drops, others stand.
 
-**Hard invariant:** derived intervals never leak into eval query answers. A
-`dli.query` / `author.query` still returns the raw extensional value(s); the
-derived boundary is a continuity-check concept only (no read is inertia-aware in
-v1). This
-keeps the three lowering paths agreeing on the open spans plus the declared map,
-with no timeline synthesis forced onto the evaluator.
+**Hard invariant:** derived intervals never leak into the EVAL QUERY PATH. A
+`dli.query` / `author.query` still returns the raw extensional value(s) —
+`slot_state_at` never touches `dli_eval::world::World::query_with` or the
+saturated derived layer, it reads `world.model.fluents` and
+`inertial_predicates` directly, so a `(pred, subject)` with no fluent
+timeline answers empty `holdings` rather than falling back to the
+extensional fact. Since DL-0082 the derived boundary is no longer a
+continuity-check concept ONLY — `author.as_of` is the one inertia-aware
+read — but it is reachable through exactly that one op, never through the
+eval query path. This keeps the three lowering paths agreeing on the open
+spans plus the declared map, with no timeline synthesis forced onto the
+evaluator.
 
 ## A.4 Wire surface
 

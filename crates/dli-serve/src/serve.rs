@@ -564,6 +564,28 @@ pub fn dispatch(
             ),
         );
     }
+    if request.op.added_in_1_9_0() {
+        // Every 1.9.0 op gates on its OWN floor predicate (the same per-op-floor
+        // discipline the 1.7.0 block follows): `has_as_of_read` for the point
+        // read, `has_decisions` for the baseline recorder. Both are
+        // `at_or_above(dli, (1, 9, 0))` today, so a later divergent floor is a
+        // one-line change here, never a silent capability leak.
+        let available = match request.op {
+            Op::AuthorRecordDecision => crate::has_decisions(&request.dli),
+            _ => crate::has_as_of_read(&request.dli),
+        };
+        if !available {
+            return typed_error(
+                &request.dli,
+                &request.id,
+                ErrorCode::UnknownOp,
+                format!(
+                    "operation {:?} is not available before contract 1.9.0",
+                    request.op
+                ),
+            );
+        }
+    }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
     {

@@ -1089,15 +1089,27 @@ pub fn reconstruct_pack(
 ) -> Result<Pack, ReconstructError> {
     let mut decls: Vec<Decl> = Vec::new();
 
-    // Ratify prelude — only for carriage-free streams; carried packs replay
-    // their ratify declarations in original document order instead.
-    let has_ratify_carriage = fact_objects.iter().any(|fo| {
-        fo.expert_body
-            .as_ref()
-            .is_some_and(|b| b.kind == ExpertDeclKind::Ratify)
-    });
-    if !has_ratify_carriage {
-        for decision in known_decisions {
+    // Ratify prelude — one synthesized `ratify` per known decision that no
+    // carried `ratify` object already replays. A pure-prelude stream (no
+    // carriage at all) still gets a prelude for every decision, and a
+    // pure-carriage stream (every decision carried, e.g. a `defeat` chain) gets
+    // none — both unchanged. The load-bearing case is the MIX: a stream that
+    // carries one `ratify` (an `author.record_decision`/`defeat` carriage) over
+    // a base whose earlier decisions were only ever in the commit's `decisions`
+    // list. Under the old all-or-nothing rule the first carriage suppressed the
+    // whole prelude, silently un-declaring every list-only decision and turning
+    // every fact resting on one uncertain (DL-0083, the synthetic-prelude /
+    // carriage byte-identity risk). Covering exactly the uncarried decisions
+    // keeps all of them declared, byte-identically, whether by the list or by
+    // carriage.
+    let carried: BTreeSet<&str> = fact_objects
+        .iter()
+        .filter_map(|fo| fo.expert_body.as_ref())
+        .filter(|body| body.kind == ExpertDeclKind::Ratify)
+        .map(|body| body.name.as_str())
+        .collect();
+    for decision in known_decisions {
+        if !carried.contains(decision.as_str()) {
             decls.push(Decl::Ratify(RatifyDecl {
                 decision: Ident::synthetic(decision),
                 body: dli_ast::language::RatifyBody::default(),

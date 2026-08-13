@@ -1140,6 +1140,107 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
     );
 }
 
+// ── record_decision (DL-0083, 1.9.0) is branch-local ────────────────────────
+
+/// The contract window `author.record_decision` negotiates at (≥ 1.9.0).
+const V9: &str = "1.9.0";
+
+/// The finding codes on an `author.add_relation` response (ok-with-findings, not
+/// a refused frame — a bad citation is a finding, DL-0058).
+fn add_codes(response: &Value) -> Vec<String> {
+    response["result"]["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|finding| finding["code"].as_str().map(str::to_owned))
+        .collect()
+}
+
+/// A decision recorded on a branch is invisible to `main` and to a sibling
+/// branch (the red-team OBSERVATION). The branch that recorded `d-branch` can
+/// cite it cleanly, but neither main nor a sibling knows it: a fact citing it
+/// there raises `citation.unknown-decision` and can never read certain — the
+/// decision's variable is left open. Mirrors
+/// `inertial_declaration_is_branch_local`'s isolation shape.
+#[test]
+fn recorded_decision_is_branch_local() {
+    let (_t, mut sessions, mut store) = functional_store();
+    let seed_ws = open_workspace("canon", &mut sessions, &mut store);
+    // Seed the referenced place on main BEFORE branching, so every branch
+    // inherits it and the isolation we observe is the decision's, not the entity's.
+    seed_place(&seed_ws, "highlands", &mut sessions, &mut store);
+    create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
+    create_branch(&seed_ws, "other", "main", &mut sessions, &mut store);
+
+    // Record d-branch ONLY on rival.
+    let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    let rival_ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let recorded = drive(
+        &json!({ "dli": V9, "id": "rd", "op": "author.record_decision",
+                 "params": { "workspace": rival_ws, "decision": "d-branch" } }),
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        recorded["ok"].as_bool().unwrap(),
+        "record_decision on rival: {recorded}"
+    );
+
+    // Reopen rival: its head now carries the ratify, so citing d-branch is clean
+    // there — the recorded decision resolves on its own branch.
+    let reopened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    let rival_ws2 = reopened["result"]["workspace"].as_str().unwrap().to_owned();
+    let on_rival = add_cited_relation(
+        &rival_ws2,
+        "likes",
+        "mara",
+        "highlands",
+        "d-branch",
+        "ratified",
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        !add_codes(&on_rival).contains(&"citation.unknown-decision".to_owned()),
+        "the recorded decision resolves on its own branch: {on_rival}"
+    );
+
+    // A sibling branch never saw d-branch — citing it there is unknown.
+    let sibling = open_branch_workspace("canon", "other", &mut sessions, &mut store);
+    let sibling_ws = sibling["result"]["workspace"].as_str().unwrap().to_owned();
+    let on_sibling = add_cited_relation(
+        &sibling_ws,
+        "likes",
+        "mara",
+        "highlands",
+        "d-branch",
+        "ratified",
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        add_codes(&on_sibling).contains(&"citation.unknown-decision".to_owned()),
+        "a sibling branch never saw the branch-recorded decision: {on_sibling}"
+    );
+
+    // Nor did main — the branchless base is equally blind to it.
+    let main_ws = open_workspace("canon", &mut sessions, &mut store);
+    let on_main = add_cited_relation(
+        &main_ws,
+        "likes",
+        "mara",
+        "highlands",
+        "d-branch",
+        "ratified",
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        add_codes(&on_main).contains(&"citation.unknown-decision".to_owned()),
+        "main never saw the branch-recorded decision: {on_main}"
+    );
+}
+
 // ── inertia (DL-0081, 1.8.0) is branch-local ────────────────────────────────
 
 /// The contract window the inertia op negotiates at (≥ 1.8.0).

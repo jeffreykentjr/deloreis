@@ -512,6 +512,76 @@ impl Store {
             .map(|base| base.documents.as_slice())
     }
 
+    /// Reconstruct a workspace's base from its target-branch head and install it
+    /// as the workspace's own base (WS-3's `branch_bases` slot, consulted first),
+    /// so a durable write that grew the branch — an `author.record_decision`
+    /// `ratify`, DL-0083 — becomes visible to every subsequent staged read
+    /// (`workspace_decisions`, `staged_world`, `author.check`) on the same
+    /// workspace. Without it a recorded decision would sit in the lorestore but
+    /// stay invisible to the static scope base the workspace opened over, so a
+    /// fact citing it would read `citation.unknown-decision` rather than certain.
+    /// The workspace's interner and bundle counter are re-aligned to the new head
+    /// so subsequent staging mints byte-identical hashes. Idempotent.
+    ///
+    /// # Errors
+    ///
+    /// Returns the failure message if the workspace has no attached lorestore,
+    /// its target branch has no ref, or the reconstructed pack fails to
+    /// recompile.
+    pub fn reload_workspace_base(&mut self, ws_id: &str) -> Result<(), String> {
+        let base_key = self
+            .workspace_bases
+            .get(ws_id)
+            .cloned()
+            .ok_or_else(|| format!("no base is bound to workspace `{ws_id}`"))?;
+        let killed = self
+            .base_named(&base_key)
+            .map(|base| base.world.killed.clone())
+            .unwrap_or_default();
+        let target = self
+            .workspaces
+            .get(ws_id)
+            .and_then(|ws| ws.target_branch.clone())
+            .unwrap_or_else(|| dli_lorestore::MAIN_REF.to_owned());
+        let ls = self
+            .lorestores
+            .get(&base_key)
+            .ok_or_else(|| format!("workspace `{ws_id}` has no attached lorestore"))?;
+        let head = ls
+            .branch_ref(&target)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("branch `{target}` has no ref"))?
+            .commit;
+        let pack = ls
+            .reconstruct_at(&head)
+            .map_err(|error| error.to_string())?;
+        let interner = ls.interner_at(&head).map_err(|error| error.to_string())?;
+        let mut world = compile(&pack).map_err(|error| error.to_string())?;
+        world.killed = killed;
+        if let Some(ws) = self.workspaces.get_mut(ws_id) {
+            let prefix = format!("h.{}#", ws.base_name);
+            let mut bundle = 0u32;
+            for name in &interner {
+                if let Some(rest) = name.strip_prefix(&prefix)
+                    && let Ok(value) = rest.parse::<u32>()
+                {
+                    bundle = bundle.max(value + 1);
+                }
+            }
+            ws.interner_names = interner;
+            ws.bundle_counter = bundle;
+        }
+        self.branch_bases.insert(
+            ws_id.to_owned(),
+            Base {
+                world,
+                documents: pack.documents,
+                pack_name: pack.name,
+            },
+        );
+        Ok(())
+    }
+
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
     /// its own single-branch store — one store, one pack lineage.
     #[must_use]

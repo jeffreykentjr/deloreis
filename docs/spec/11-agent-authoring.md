@@ -549,7 +549,7 @@ Contract `1.8.0` adds one declaration over fluent predicates:
 
 ### 3.15 Read tools
 
-Five non-mutating tools let an agent inspect workspace and world state without
+Six non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
 are pure queries with no side effects.
 
@@ -560,6 +560,7 @@ are pure queries with no side effects.
 | `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
+| `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — the one inertia-aware read (DL-0082): `check::slot_state_at` kernel-side, never `author.query`'s eval path. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
 
 Read tools share the standard request envelope (`dli`, `id`, `op`, `params`
 with `workspace` where applicable) and return typed JSON responses. They do not
@@ -743,7 +744,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.6.0` enforces that rule for all 63 operations. Paired cases declare
+Contract `1.6.0` enforces that rule for all 65 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 32 tools you author with)
+## 2. The tool surface (the 34 tools you author with)
 
-The contract's §3.2 table lists 34 `author.*` tools. Two of them,
+The contract's §3.2 table lists 36 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -128,12 +128,16 @@ pair** (`set_standing`, `defeat`) and **`declare_functional`** are a
 promotion/defeat pair from **contract 1.5.0** and a single-valuedness
 declaration from **contract 1.6.0**; **`assert_same_as`** and **`add_rule`**
 are a coreference declaration and a datalog derivation rule, both from
-**contract 1.7.0**; **`declare_inertial`** is the newest, a fluent-persistence
+**contract 1.7.0**; **`declare_inertial`** is a fluent-persistence
 declaration from **contract 1.8.0** — it stages like `declare_functional` and
 carries provenance the same way; the continuity check then reads it, bounding
 an inertial value's forward persistence at the next distinct certain value
 (§3.10–§3.14 of spec `11-agent-authoring.md` give their full
-semantics). Ask `dli.version` if you are unsure what your
+semantics). **`author.as_of`** is the newest, at **contract 1.9.0** — a
+read, not a declaration: it projects the value(s) that inertial slot holds
+at a query point directly, the one inertia-aware read (§3.15, DL-0082);
+`author.query` still returns the raw extensional value(s) unmodified. Ask
+`dli.version` if you are unsure what your
 negotiated wire carries — and negotiate the newest version your harness
 supports: capabilities are floor-gated (a version advertises everything at or
 below it), so an old negotiation is a permanent surface loss, not a
@@ -145,7 +149,7 @@ compatibility mode.
 | `author.status` | The staged declarations + current digest (read-only). From 1.3.0 it also returns `staged`: one row per staged declaration with its structural `key`, its `kind`, and its rendered line where a formatter exists. That key is what `author.discard` takes. The key is a digest of the declaration's content, so it holds within a contract version — re-read `author.status` after negotiating a new one rather than carrying keys across. |
 | `author.diff` | The full rendered block of everything staged (read-only). |
 | `author.discard` | Drop one staged declaration or the whole workspace. From 1.3.0 a declaration is named by the **structural key** `author.status` lists for it (`jcs:sha256:…`), which exists on every build; below 1.3.0 it is named by its rendered `.dli` line, which a build with no formatter cannot produce — there, that form refuses by name. |
-| `author.materialize` | Commit the staged fact objects to the lorestore and return them as JSON (`facts` + `root_hash`); `.dli` rendering is the `rendered: true` opt-in (DL-0046). Refuses if any error-severity finding is open. |
+| `author.materialize` | Commit the staged fact objects to the lorestore and return them as JSON (`facts` + `root_hash`); `.dli` rendering is the `rendered: true` opt-in (DL-0046). Refuses if any error-severity finding is open. From **1.9.0** an optional `{decision}` accepts the whole committed set under a named, recorded, defeasible decision (stamping each committed fact `Ratified` under it) — the honest replacement for `fixture-authority ... true`, stamping only the facts this call commits. |
 | `author.add_entity` | Add a `person` / `place` / `thing` / `era`. Provenance required. |
 | `author.add_fact` | Set `entity.key = value`. Provenance required. |
 | `author.add_relation` | Assert `relation(from, to)`. Provenance required. |
@@ -168,8 +172,10 @@ compatibility mode.
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
 | `author.add_rule` | **1.7.0.** Declare one datalog rule `{name, head, body}` — a typed `head :- body` clause; every fact it derives carries this rule's own provenance, so defeating its citing decision kills every derivation through it. One clause per call — an N-clause rule is N calls under distinct names, for finer-grained defeat. Refuses to stage on its own bad shape (`rule.unbound-variable`, `rule.duplicate`) or on a stratification failure (`rule.unstratifiable`) — a bad rule never reaches the workspace, because staging one would brick every later read. Provenance required. |
 | `author.declare_inertial` | **1.8.0.** Declare a predicate `{pred}` inertial (fluent-persistent): a value asserted `since` a point is meant to hold forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `declare_functional`; the continuity check reads it to bound an inertial value's forward persistence at the next distinct certain value (silent transition, `continuity.fluent-order-undeclared` warn, or `continuity.fluent-contradiction`). Provenance required. |
+| `author.as_of` | **1.9.0.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; `author.query` still returns the raw extensional value(s) unmodified. Read-only, no provenance. |
+| `author.record_decision` | **1.9.0.** Record a baseline ratified decision `{decision, rationale?, provenance?}` on the workspace branch — the wire way to reach certainty. It writes a `ratify` for `decision`, so a fact that then cites it reads certain and contradiction checks (`fd-violation`, fluent, inertia) finally fire through `author.*` alone; caller-named id, idempotent on a known one, defeasible by `author.defeat`. This is the taught replacement for the `fixture-authority` hack — **do not** reach for that binary. Optional `provenance` lets the decision rest on prior decisions (integrity-gated). |
 
-**The five self-check read tools** let you interrogate the staged world *before*
+**The six self-check read tools** let you interrogate the staged world *before*
 you materialize (§4). All are read-only and mutate nothing; each names a workspace
 in its params (except `author.list_workspaces`):
 
@@ -178,8 +184,9 @@ in its params (except `author.list_workspaces`):
 | `author.findings` | `{workspace}` | `{errors, warnings, materializable}` — your pre-flight: `errors` bar materialize, `warnings` pass, `materializable` is the go/no-go boolean. |
 | `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
 | `author.query` | `{workspace, goal_atom, layer?, why?}` | `{rows}` — query the staged world. `goal_atom` is a **typed atom**, written `{"pred": "serves", "args": [{"Sym": "bedivere"}, {"Var": "who"}]}` — each name is plain text, and a `Var` argument is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). The rendered string `goal` is the retired predecessor: a registered killed form, refused from contract 1.0 naming `goal_atom`, and still answered on a `0.5.1`/`0.6.x` wire. |
-| `author.why` | `{workspace, atom}` | `{why_not, why?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. |
+| `author.why` | `{workspace, atom}` | `{why_not, why?, supporting_decisions?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. From **1.9.0** `supporting_decisions` names the recorded decisions a certain fact rests on — confirm you reached certainty the designed way, through recorded decisions, not a side channel. |
 | `author.list_workspaces` | `{}` | `{workspaces:[{workspace, base, mode, staged, workspace_digest}]}` — context recovery across your open workspaces. |
+| `author.as_of` | `{workspace, pred, subject, at}` | `{pred, subject, at, inertial, capping, contested, inertial_citations, holdings}` — the value(s) in force at `at`, each with its projection/temporal/support and, for a capped inertial value, the DERIVED `until` and the certain defeater that caps it. The one inertia-aware read (contract 1.9.0, DL-0082): unlike `author.query`, it never touches the eval query path — a `(pred, subject)` with no fluent timeline answers empty `holdings`. |
 
 The whole loop closes through `author.*` alone: you never touch a `dli.*` batch op
 or a raw `.dli` file to author *or* self-check. (`author.diff` and `author.status`

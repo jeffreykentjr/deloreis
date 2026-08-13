@@ -4364,3 +4364,282 @@ chain, and the authored-`until` override) and by the three-outcome and
 defeat-propagation tests in `crates/dli-world/tests/adversarial_fluent.rs`,
 with branch-local isolation pinned in
 `crates/dli-serve/tests/ls10_branch_writes.rs`.
+
+## DL-0082 — `author.as_of` is the one inertia-aware read, lifting DL-0081's v1 read boundary, and opens contract 1.9.0
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `author.as_of {workspace, pred, subject, at}`, workspace-scoped on
+`author.*`, opens contract **`1.9.0`**, `Op::ALL`'s 64th entry, appended at the
+end and gated on its own floor predicate, `has_as_of_read =
+at_or_above(dli, (1,9,0))` — the same append-only, floor-gated discipline
+every prior wire addition has kept, so every `1.8.0`-or-earlier negotiation's
+capability list, and its released fixtures, stays byte-identical. It is a
+**read**, routed through the authoring seam's `read` wrapper exactly as
+`author.query` is, never `mutate`: it stages nothing, carries no
+`expected_digest`/`idempotency_key` fence, and is absent from
+`Op::accepts_author_fences`.
+
+The op projects the inertially-current fluent value(s) of one `(pred,
+subject)` slot at a query point, over the staged world (base + staged
+declarations, via `staged_world`, the same reader `author.query`/`author.check`
+use). The projection is a new kernel function, `check::slot_state_at`
+(`crates/dli-world/src/check/continuity.rs`, re-exported from `check::mod`),
+that reuses — never re-derives — the exact machinery the continuity check
+already built for DL-0081: the canon-grouped scratch timeline
+`fluent_contradictions` builds (identity-merged slots read as one fluent), the
+`inertial_predicates` lookup, and the `state_at_inertial`/`state_at` dispatch
+`fluent_clash` uses (a predicate carrying a declaration dispatches to
+`state_at_inertial`, which itself reverts to plain `state_at` byte-for-byte
+when that declaration is not certain; a predicate that never declared inertial
+dispatches to `state_at` directly). The reported `until` and defeater identity
+come **strictly** from `inertial_derived_until` — extended to also return the
+defeater's own value and citations, so a consumer of the derived boundary can
+name what caps it without a second lookup — never recomputed independently, so
+the boundary this read reports and the one `continuity.fluent-contradiction`/
+`continuity.fluent-order-undeclared` report in their `Finding.data` can never
+disagree.
+
+**This is the ONE inertia-aware read** (the DL-0081/DL-0082 hard invariant):
+`reads::as_of` (`crates/dli-serve/src/author/reads.rs`) calls
+`check::slot_state_at` and nothing else for the projection — never
+`dli_eval::world::World::query_with`, never the saturated derived layer. A
+`(pred, subject)` with no entry in `world.model.fluents` answers empty
+`holdings`, with **no fallback** to the raw extensional fact a plain `attr`/
+`fact` might carry for the same name. `author.query` and `dli.query` are
+**unchanged**: they still answer the raw extensional value(s), unprojected,
+proven by extending `declare_inertial.rs`'s own
+`wire_inertial_query_returns_extensional_values` scenario with an
+`author.as_of` call alongside it in `as_of.rs`'s
+`wire_as_of_does_not_leak_into_author_query`.
+
+**This LIFTS DL-0081's v1 read boundary** — "a silent transition's derived
+boundary is not exposed through a read... there is deliberately no
+inertia-aware read in v1" — which is retired here, not merely relaxed:
+`author.as_of` is precisely that read. `docs/design-notes/
+inertia-fluent-persistence.md` A.3 is updated to record the lift and point
+here (design notes are reopened only by new ledger evidence, DL-0011; this
+entry is that evidence). In its place, DL-0082 records a narrower v1
+boundary: **no `dli.*` mirror of this read over a materialized corpus without
+opening a workspace** — `author.as_of` reads the staged world through an open
+authoring session (`author.open` → stage → `author.check`/`author.as_of`),
+consistent with why the op lives on `author.*` rather than `dli.*` in the
+first place: a workspace read sees base+staged via `staged_world` (relevant
+before materialize), where `dli.timeline.show` is session-scoped and would
+not. Trigger: a consumer needing the as-of read over a materialized corpus
+without opening a workspace.
+
+**Response shape** (`AuthorAsOfResult`, `crates/dli-serve/src/contract.rs`):
+`pred`, `subject` (canonicalized through the identity map), `at` (echoed),
+`inertial` (the predicate carries any `inertial` declaration), `capping`
+(that declaration is certain — the projection is actually inertia-shaped),
+`contested` (`FluentState::has_contradiction()` at `at`), `inertial_citations`,
+`holdings: Vec<AsOfHolding>`, and `root_hash` (v2 only, mirroring
+`author.query`). Each `AsOfHolding` carries `value`, `projection`
+(`dli_time::fluent::Projection`), `temporal` (`TemporalCover`), `support`
+(`dli_core::ann::Status`; dead spans are dropped, never reported), `since`,
+`until` (a capped inertial value's **derived** boundary; the authored
+`until` when one exists; `null` when unbounded), `citations`, and an optional
+`defeater: AsOfDefeater { value, since, citations }` present exactly when
+`until` is derived rather than authored. `Projection`/`TemporalCover`/`Status`
+are the `dli_time`/`dli_core` kernel enums reused directly on the wire — the
+same house pattern `QueryResultRow.status: Status` already uses — rather than
+re-declared mirror types.
+
+**Kernel struct.** `check::slot_state_at(world, pred, subject, at) ->
+SlotStateAt` returns `SlotStateAt { pred, subject, inertial, capping,
+contested, inertial_citations, holdings: Vec<SlotHolding> }`, each
+`SlotHolding { value, projection, temporal, support, since, until, citations,
+defeater: Option<SlotDefeater> }`. Each surviving `Holding<V>`
+`state_at`/`state_at_inertial` returns is paired back to the span that
+produced it by a greedy value-and-support match over the canon-grouped
+scratch timeline (documented at the call site): the inertia declaration
+exists precisely to keep at most one live certain value per point, so this is
+unambiguous on every corpus the wire and kernel tests exercise.
+
+**Verification.** `cargo xtask gate` is green. The wire op, its
+`AuthorAsOfParams`/`AuthorAsOfResult` schema pair, and its golden/negative/
+framing fixtures are registered in the closed fixture registry at
+`contract_version: 1.9.0` (new fixture paths only — no existing digest
+re-pinned); the op inventory (now 64), the `has_as_of_read` capability gate,
+and the version echo are gate-checked, with every pre-`1.9.0` capability list
+asserted unmoved (`ls8_contract_1_0.rs`'s tiered-surface test extended,
+`ls8_zero_x_parity.rs`'s recorded compatibility-corpus deviation re-recorded
+as `1.9.0` joined the accepted set — the same intentional deviation first
+recorded at `1.5.0`, re-recorded at `1.7.0`/`1.8.0`). `crates/dli-serve/tests/
+as_of.rs` pins reachability (refused before `1.9.0`, answered at `1.9.0`, the
+`1.9.0` capability list carries it and `1.8.0` does not), the three as-of
+cases (the capped value with its derived `until` and defeater identity, the
+unbounded successor, the contested/order-indeterminate pair), non-inertial
+byte-identity (no `declare_inertial` ⇒ `capping:false`, unbounded `until`
+exactly like plain `state_at`), defeat-safety (`author.defeat` the defeater's
+own citing decision ⇒ the earlier value re-extends in the same workspace, no
+recompile), and the eval-path non-leak invariant. `crates/dli-world/tests/
+adversarial_fluent.rs` pins the kernel projection directly: derived `until`
+and defeater identity, byte-identity against a direct `FluentTimeline::state_at`
+call when not inertial, an empty projection for a non-fluent slot, and
+defeat-without-recompile over the same compiled `World`.
+
+## DL-0083 — `author.record_decision` records a baseline supporting decision on the wire, `author.materialize {decision}` accepts a set under one, and `author.why` names the decisions a fact rests on
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `author.record_decision {workspace, decision, rationale?,
+provenance?}`, workspace-scoped on `author.*`, is contract **`1.9.0`**'s second
+addition, `Op::ALL`'s 65th entry, appended after `author.as_of` and gated on its
+own floor predicate, `has_decisions = at_or_above(dli, (1,9,0))` — the same
+append-only, floor-gated, per-op-floor discipline every prior wire addition kept
+(DL-0069, DL-0070, DL-0074, DL-0082), so every `1.8.0`-or-earlier negotiation's
+capability list, and its released fixtures, stays byte-identical. It is a
+**mutation**: it accepts author fences and returns graded findings, the
+structured result, and the workspace digest.
+
+**The bootstrap gap it closes.** The provenance triad was lopsided:
+`author.set_standing` and `cited` provenance *consume* a pre-existing decision;
+`author.defeat` *introduces* one only as the defeater of an existing decision;
+**nothing recorded the first, baseline, supporting decision.** The one path that
+ever did — `.dli`'s `ratify d-1` — is dead (DL-0014/DL-0043), so the only route
+to certainty a wire caller had ran entirely around the ledger: the
+`fixture-authority <store> main true` binary (in the *benchmark* repo), which
+force-flips every `h.*` proposal gate. The consequence was that **contradiction
+detection was unreachable through the taught surface**: FD, derived-FD, fluent,
+fluent-order, inertia-capping (DL-0081), and `same-as` identity-merge (WS-1) are
+all gated on *certain* facts, and two proposed conflicting values produce no
+finding — both read `possible`. `record_decision` fills that hole: it is the
+`adds_decision` half of `defeat`'s `durable_standing_change`, extracted minus the
+claim lookup, the support-cites-decision guard, the marker mutation, and the
+defeated-atom false-flip. It writes a `Decl::Ratify` carriage for `decision` via
+`dli_lorestore::lower::lower_decl`, grows the commit's known-decision list
+(idempotent on a known id), interns the id eagerly so a later `defeat` can target
+it, and commits via `commit_on_branch_at_ref`. There is **no** `Ref::with_valuation`
+write — the certain-bit is free: any fact that cites `decision` reads certain on
+the next compile through the ordinary `ledger_valuation`. It reuses `Ratify` — no
+new `Decl` kind.
+
+**This does NOT move the DL-0054 boundary — a restatement, because the op will
+look like it does.** DL-0054 draws the line that *who may rule* belongs to the
+consuming application; the engine records caller-supplied attribution and
+decision state as data and gates only referential integrity. `record_decision`
+does not decide *whether* a decision is legitimate, *who* was entitled to make
+it, or *whether the ruling is right* — it records the caller's claim that a
+ruling was made, exactly as `cited`/`set_standing`/`defeat` already record
+caller-supplied decision state as data. What it fills is the bootstrap hole: the
+surface let callers *consume* and *defeat* decisions but never *introduce a
+baseline supporting one*. Referential integrity is unchanged: a `provenance`
+citation of a decision no `record_decision` (or text `ratify`) introduced still
+raises the `citation.unknown-decision` error-severity finding and bars the
+record; recording a decision is what makes a subsequent citation *resolve*, not
+what makes it *authorized*. Below `1.9.0` nothing changed.
+
+**Caller-supplied ids; defeasible via `author.defeat`.** The caller names the id
+(`"d-1"`), matched by exact equality, exactly as `cited`/`defeat`/`set_standing`
+take ids today; re-recording a known id is idempotent. A recorded decision is a
+claim that a ruling was *made*, distinct from the ruling being *right*: `defeat`
+rules it false through the existing valuation-flip and every fact resting on it
+reverts to `possible` (not deleted).
+
+**`author.materialize {…, decision?}`** (floor-gated at `1.9.0`; supplying it on
+an earlier accepted version is a schema violation): when `decision` is supplied,
+materialize records it as a known supporting decision of the commit (appended to
+the decisions list) and rests each committed **fact**'s SUPPORT on it — an
+accepted proposed/uncited fact is rewritten to `cited d ratified`, its support
+polynomial replaced by the decision variable — so the WHOLE accepted staged set
+reads `certain` under the decision through the ordinary `ledger_valuation`
+algebra once `d`'s `Ratify` is recorded. Moving the support, not merely the
+marker, is the point: `derive_annotation` derives certainty from a fact's
+`support`, not from its marker, so a `Ratified` marker left over a proposal-gated
+support is inert — it round-trips back to `Proposed` and the fact stays possible.
+This is "**accept this whole staged set under decision D**," the honest
+replacement for `fixture-authority ... true`: the whole accepted set is made
+certain under `d`, so two conflicting accepted facts fire
+`continuity.fd-violation` on the next `author.check`. Two carve-outs keep it
+honest rather than a blanket flip — a declaration/carriage object (functional,
+inertial, `ratify`, `__decl`) is machinery, not a claim, and is never stamped or
+rested on a standing decision; and a fact that already cites a decision keeps its
+own deliberate citation. (The honest *subset* — accepting only some staged facts
+under `d` — is what `record_decision` + selective `cited`/`set_standing` gives;
+`materialize {decision}` is the whole-set accept.) A known gap: `author.why →
+supporting_decisions` is reachable today only in the `--features syntax` build
+(the benchmark consumer's build), because `author.why` parses its `atom` string
+through the front end; a syntax-free typed `goal_atom` successor for `author.why`
+is a follow-up, not implemented here.
+
+**`author.why → supporting_decisions: Vec<String>`.** `author.why` gains a
+field naming the recorded decisions in a certain fact's support antichain — the
+support monomials' claim ids filtered to the known-decision set (the same
+`ann_citations` filter the continuity findings use). It is the auditability
+affordance: it lets a caller confirm a fact reached certainty the designed way,
+through recorded decisions, not a side channel. Floor-gated with skip-serialize,
+so pre-`1.9.0` `author.why` responses stay byte-identical (the field is absent,
+not `null`, and is never populated below the floor).
+
+**Workspace visibility (a correctness requirement, not a boundary).**
+`record_decision` and materialize-stamping route to the workspace's target
+branch via `target_ref_name` and read the pre-image from `head_ref.commit`,
+never `root_hash()` (#68 SEV-A branch isolation). Unlike `defeat`, whose effect
+rides the reference valuation overlay, a recorded decision is a decl the static
+scope base never carried, so after committing, `record_decision` reconstructs the
+workspace's base from the new head (`Store::reload_workspace_base`) — without it a
+fact citing the decision would read `citation.unknown-decision` in the same
+workspace rather than certain. A decision recorded in a branch stays invisible to
+base and sibling branches.
+
+**The synthetic-prelude / carriage byte-identity fix.** `reconstruct_pack`
+(`dli-lorestore/src/lower.rs`) re-declares a commit's decisions two ways: a
+synthesized `ratify` prelude from the decisions list, or the carried `ratify`
+objects a `defeat`/`record_decision` write leaves in the stream. `record_decision`
+may write the FIRST carried `ratify` over a base whose earlier decisions were
+only ever in the decisions list — the exact commit shape that used to flip
+reconstruction from "prelude" to "carriage" mode. The old all-or-nothing rule
+(any carriage ⇒ no prelude) would then silently un-declare every list-only
+decision, turning every fact resting on one uncertain. Fixed: the prelude now
+covers exactly the known decisions no carriage already carries — a pure-prelude
+stream and a pure-carriage stream are both unchanged, and a mixed stream keeps
+all decisions declared, byte-identically, whether by the list or by carriage.
+
+**Guard census.** `record_decision` is the first op to stage a `Ratify` from
+untrusted wire input, so three per-declaration censuses that had a wildcard for
+`Ratify` grew an arm, each with a test that fails without it: `free_text_fields`
+(control-char / killed-token scan of the id and provenance citations),
+`citation_findings` (the `citation.unknown-decision` integrity over the ratify
+body's citations, which live in `body.citations`, not an `Annotation`, so
+`decl_annotation` cannot reach them), and `render::sanitize_decl` (display
+escaping of the id and citations).
+
+**v1 boundaries, each with its un-lift trigger.** (1) **Standalone batch-ratify
+is off** — `materialize {decision}` covers batch-accept; trigger: a consumer
+needing to bulk-ratify a large *already-materialized* set with no staging pass to
+stamp (a future `author.ratify_all {decision}`). (2) **Engine-minted /
+content-addressed ids are off** — ids are caller-supplied, exact-equality
+matched; trigger: a consumer needing collision-free machine-minted ids. (3)
+**`dli.*` (session-corpus) decision recording is off** — recording is `author.*`,
+workspace-scoped only; trigger: a consumer needing to record a decision over a
+materialized corpus with no workspace open over it. The `fixture-authority`
+binary and the `.dli ratify` form are the retired shortcuts; their wire
+replacements are `record_decision` (+ `cited`/`set_standing`) and
+`materialize {decision}` for the true-mode flip, and `author.defeat` for the
+targeted-supersession mode. The feature spec, bootstrap-gap diagnosis, and full
+deprecation-audit table are in
+`docs/design-notes/decision-recording-on-the-wire.md`.
+
+**Verification.** `cargo xtask gate` is green. The wire op, its
+`AuthorRecordDecisionParams`/`AuthorMutationResult` schema pair, the optional
+`decision` on `AuthorMaterializeParams`, and `supporting_decisions` on
+`AuthorWhyResult` are gate-checked; the op inventory (now 65), the `has_decisions`
+capability gate, and the version echo are asserted with every pre-`1.9.0`
+capability list unmoved (`ls8_contract_1_0.rs`). New golden/negative/framing
+fixtures are registered in the closed registry at `contract_version: 1.9.0` (new
+paths only — no existing digest re-pinned). `crates/dli-serve/tests/
+record_decision.rs` pins the headline (a recorded decision plus two cited facts
+on a `declare_functional` predicate fires `continuity.fd-violation` through
+`author.*` alone — no `fixture-authority`, no `.dli`), defeat-propagation,
+preserved `citation.unknown-decision`, materialize-stamping with
+`why → supporting_decisions`, and the three guard-census refusals;
+`crates/dli-lorestore/tests/record_decision_parity.rs` pins the
+synthetic-prelude / carriage byte-identity invariant.

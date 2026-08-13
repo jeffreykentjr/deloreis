@@ -146,6 +146,32 @@ value — composing into a silent transition, a
 `continuity.fluent-contradiction` error, with `continuity.inertia-unanchored`
 (warn) for a value that carries no `since` anchor (per DL-0081's full ruling).
 
+### Contract 1.9.0 — inertia-aware point read
+
+Independent of the Contract 1.6 cutover and the 1.7.0 campaign this file
+otherwise tracks: `main` opened contract `1.9.0` and landed `author.as_of`
+(`decisions.md` DL-0082), taking the operation inventory from 63 to 64.
+Additive and floor-gated (`has_as_of_read`, ≥ `1.9.0`), so every
+`1.8.0`-or-earlier capability list stays byte-identical — **nothing here
+changes fantasy's pinned handshake**, no CP row moves, and the consumer owes
+nothing new yet.
+
+The op is a read (`{workspace, pred, subject, at}`), routed through the
+read seam, never `mutate` — it stages nothing and carries no idempotency
+fence. It projects `check::slot_state_at`, a kernel function that reuses
+`FluentTimeline::state_at_inertial`/`state_at` and the continuity check's own
+canon-grouping and `inertial_derived_until` boundary derivation, so the
+boundary this read reports and the one `continuity.fluent-contradiction`/
+`continuity.fluent-order-undeclared` report in their `Finding.data` can never
+disagree. It never routes through `dli_eval::world::World::query_with` or the
+saturated derived layer — a `(pred, subject)` with no fluent timeline answers
+empty `holdings`, with no fallback to the raw extensional fact. This
+**lifts** DL-0081's v1 read boundary ("no read is inertia-aware"):
+`author.query`/`dli.query` are unchanged, so the eval-path non-leak
+invariant holds for them specifically, but a silent transition's derived
+boundary is no longer observable only through a `continuity.fluent-*`
+finding's `data` (per DL-0082's full ruling).
+
 ## Cutover execution log
 
 ### 2026-08-06 — Phase 0 closed (both lanes); §5 accrual proven on a real binary

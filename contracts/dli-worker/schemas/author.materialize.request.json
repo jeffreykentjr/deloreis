@@ -4,6 +4,13 @@
   "description": "`author.materialize` params.",
   "type": "object",
   "properties": {
+    "decision": {
+      "description": "Accept the whole committed set under a named, recorded, defeasible\ndecision (contract 1.9.0, DL-0083): materialize injects a synthetic\n`ratify` for it into the committed decls and marks every committed fact\nobject's provenance `Ratified` under it, so the accepted set reads\n`certain` by the ordinary algebra. The honest replacement for\n`fixture-authority ... true` — it stamps exactly the facts this call\ncommits, never the whole valuation overlay. Floor-gated at 1.9.0:\nsupplying it on an earlier accepted version is a schema violation.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "rendered": {
       "description": "Opt into the `.dli` rendering in the result. Contract 0.6.0 returns\nthe committed fact objects as JSON by default (the JSON-first return);\nthe rendered lines are produced only on request. Ignored (always\nrendered) on a `0.5.1` request.",
       "type": "boolean",

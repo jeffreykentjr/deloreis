@@ -821,6 +821,11 @@ fn a_wrong_typed_identifier_keeps_the_derives_wording_below_1_0() {
 ///   identity-closure kernel's wire surface) and `author.add_rule` (WS-2,
 ///   rule authoring) — the wire-surface-completion campaign's two appended
 ///   ops, in that order.
+/// - `1.8.0` — that surface plus `author.declare_inertial` (the inertia
+///   declaration, DL-0081).
+/// - `1.9.0` — that surface plus `author.as_of` (the inertia-aware point
+///   read, DL-0082) and `author.record_decision` (the baseline-decision
+///   recorder, DL-0083).
 ///
 /// Asserting the *differences* rather than a frozen list keeps this honest as
 /// ops are added: a new op must land in a tier deliberately, and an op leaking
@@ -857,6 +862,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         ("1.6.0", &["author.declare_functional"]),
         ("1.7.0", &["author.assert_same_as", "author.add_rule"]),
         ("1.8.0", &["author.declare_inertial"]),
+        ("1.9.0", &["author.as_of", "author.record_decision"]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {

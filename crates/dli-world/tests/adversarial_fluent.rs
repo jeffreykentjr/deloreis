@@ -15,6 +15,8 @@ use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 
+use dli_time::chronology::TimePoint;
+
 use dli_world::check::factcheck::{Verdict, factcheck};
 use dli_world::check::{self, CompiledWorld, WorldFinding};
 use dli_world::compile;
@@ -1246,4 +1248,214 @@ fn inertial_identity_merge_clashes_and_defeat_un_persists() {
         0,
         "defeating the merge un-persists the shared slot"
     );
+}
+
+// --- `check::slot_state_at` (`author.as_of`, contract 1.9.0, DL-0082) -------
+//
+// The kernel projection behind the wire's ONE inertia-aware read. Reuses the
+// exact same compiled worlds and builders the checks above already use, so
+// these tests sit right next to the `continuity.fluent-*` finding tests they
+// must never disagree with.
+
+/// The interned `TimePoint` for a declared era/event name, or a panic — the
+/// test-side twin of `author/reads.rs`'s `resolve_time_point`.
+fn point(world: &CompiledWorld, name: &str) -> TimePoint {
+    let index = world
+        .model
+        .world
+        .time_points
+        .names()
+        .iter()
+        .position(|candidate| candidate == name)
+        .unwrap_or_else(|| panic!("'{name}' is not an interned time point"));
+    TimePoint(u32::try_from(index).expect("time point index fits u32"))
+}
+
+/// The derived `until` and defeater identity (risk: boundary/cover
+/// disagreement): `commons since dawn`, `enclosed since noon` (dawn before
+/// noon) on an inertial slot. At `dawn`, `commons` is the sole holding,
+/// capped at `noon` by `enclosed`. At `noon`, `enclosed` holds unbounded — no
+/// defeater of its own.
+#[test]
+fn slot_state_at_reports_derived_until_and_defeater_identity() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let dawn = point(&world, "dawn");
+    let noon = point(&world, "noon");
+
+    let at_dawn = check::slot_state_at(&world, "status", "gwern", dawn);
+    assert_eq!(at_dawn.pred, "status");
+    assert_eq!(at_dawn.subject, "gwern");
+    assert!(at_dawn.inertial, "{at_dawn:?}");
+    assert!(at_dawn.capping, "{at_dawn:?}");
+    assert!(!at_dawn.contested, "{at_dawn:?}");
+    assert_eq!(at_dawn.holdings.len(), 1, "{:?}", at_dawn.holdings);
+    let holding = &at_dawn.holdings[0];
+    assert_eq!(holding.value, "commons");
+    assert_eq!(holding.since, Some(dawn));
+    assert_eq!(
+        holding.until,
+        Some(noon),
+        "the derived boundary is the defeater's own since"
+    );
+    let defeater = holding
+        .defeater
+        .as_ref()
+        .expect("a capped value carries its defeater");
+    assert_eq!(defeater.value, "enclosed");
+    assert_eq!(defeater.since, Some(noon));
+
+    let at_noon = check::slot_state_at(&world, "status", "gwern", noon);
+    assert_eq!(at_noon.holdings.len(), 1, "{:?}", at_noon.holdings);
+    let holding = &at_noon.holdings[0];
+    assert_eq!(holding.value, "enclosed");
+    assert_eq!(holding.until, None, "unbounded — no later certain defeater");
+    assert!(holding.defeater.is_none());
+}
+
+/// Non-inertial byte-identity (risk: non-inertial drift): the SAME two open
+/// spans, but on a predicate never declared inertial. `slot_state_at` must
+/// dispatch to plain `state_at` and produce holdings identical to a direct
+/// call against the fluent timeline itself.
+#[test]
+fn slot_state_at_is_byte_identical_to_state_at_when_not_inertial() {
+    let decls = vec![
+        ratify_decl("D-1"),
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+    ];
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let noon = point(&world, "noon");
+
+    let projected = check::slot_state_at(&world, "status", "gwern", noon);
+    assert!(!projected.inertial, "{projected:?}");
+    assert!(!projected.capping, "{projected:?}");
+
+    let timeline = &world.model.fluents[&("status".to_owned(), "gwern".to_owned())];
+    let expected = timeline.state_at(
+        &world.model.world.chronology,
+        &world.model.world.valuation,
+        &world.model.world.theory,
+        noon,
+    );
+    assert_eq!(
+        projected.holdings.len(),
+        expected.holdings.len(),
+        "{:?} vs {:?}",
+        projected.holdings,
+        expected.holdings
+    );
+    for (got, want) in projected.holdings.iter().zip(expected.holdings.iter()) {
+        assert_eq!(got.value, want.value);
+        assert_eq!(got.temporal, want.temporal);
+        assert_eq!(got.support, want.support);
+        assert_eq!(got.projection, want.projection());
+    }
+}
+
+/// No fallback to extensional facts (risk: eval-path leak): a `(pred,
+/// subject)` with no `state` declaration at all — an ordinary `attr` slot —
+/// has no fluent timeline, so `slot_state_at` answers empty holdings rather
+/// than reading the plain fact.
+#[test]
+fn slot_state_at_of_a_non_fluent_slot_is_empty() {
+    let decls = vec![
+        ratify_decl("D-1"),
+        attr("gwern", "rank", "gold", Some(ratified("D-1"))),
+    ];
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let projected = check::slot_state_at(&world, "rank", "gwern", TimePoint(0));
+    assert!(!projected.inertial);
+    assert!(!projected.capping);
+    assert!(!projected.contested);
+    assert!(
+        projected.holdings.is_empty(),
+        "a non-fluent slot has no holdings — no fallback to the extensional fact: {:?}",
+        projected.holdings
+    );
+}
+
+/// Defeat is a valuation flip, never a recompile (risk: defeat-safety):
+/// defeat the defeater's OWN decision over the SAME compiled `World` and
+/// re-project at the same point — the earlier value re-extends with no
+/// re-lowering.
+#[test]
+fn slot_state_at_reflects_defeat_without_recompile() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        ratify_decl("D-2"),
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-2")),
+        ),
+    ]);
+    let mut world = compile(&pack("weir", decls)).expect("compiles");
+    let noon = point(&world, "noon");
+
+    let before_defeat = check::slot_state_at(&world, "status", "gwern", noon);
+    assert_eq!(
+        before_defeat.holdings.len(),
+        1,
+        "{:?}",
+        before_defeat.holdings
+    );
+    assert_eq!(before_defeat.holdings[0].value, "enclosed");
+
+    let var = world.model.var_atom("D-2").expect("D-2 interned");
+    world.model.world.valuation.set(var, false);
+
+    let after_defeat = check::slot_state_at(&world, "status", "gwern", noon);
+    assert_eq!(
+        after_defeat.holdings.len(),
+        1,
+        "{:?}",
+        after_defeat.holdings
+    );
+    assert_eq!(
+        after_defeat.holdings[0].value, "commons",
+        "defeating the defeater re-extends the earlier value with no recompile"
+    );
+    assert_eq!(after_defeat.holdings[0].until, None);
+    assert!(after_defeat.holdings[0].defeater.is_none());
 }

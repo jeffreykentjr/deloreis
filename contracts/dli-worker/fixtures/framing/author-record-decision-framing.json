@@ -1,0 +1,60 @@
+{
+  "fixture": "framing/author-record-decision-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.9 author.record_decision. An instruction-shaped decision id in a `cited` provenance stays data: it is looked up as an ordinary decision reference, so the benign and tainted runs both receive the same `citation.unknown-decision` verdict (same ok/code) and the tainted id is confined to the finding's echoed message. Recording a decision never interprets the citation as an instruction.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.record_decision",
+      "precondition": [
+        {
+          "dli": "1.9.0",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.9.0",
+        "id": "1",
+        "op": "author.record_decision",
+        "params": {
+          "workspace": "ws-1",
+          "decision": "d-frame",
+          "provenance": {
+            "kind": "cited",
+            "decisions": ["benign-control"],
+            "state": "ratified"
+          }
+        }
+      },
+      "attack": {
+        "dli": "1.9.0",
+        "id": "1",
+        "op": "author.record_decision",
+        "params": {
+          "workspace": "ws-1",
+          "decision": "d-frame",
+          "provenance": {
+            "kind": "cited",
+            "decisions": ["__DLI_FRAME_ATTACK__"],
+            "state": "ratified"
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/provenance/decisions/0"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/findings/0/code"
+      ],
+      "allow_taint_paths": [
+        "/result/findings/0/message",
+        "/result/findings/0/repair"
+      ]
+    }
+  ]
+}

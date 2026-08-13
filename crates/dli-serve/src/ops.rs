@@ -212,6 +212,14 @@ pub enum Op {
     /// 1.8.0.
     #[serde(rename = "author.declare_inertial")]
     AuthorDeclareInertial,
+    /// Project the inertially-current fluent value(s) at a query point,
+    /// contract 1.9.0.
+    #[serde(rename = "author.as_of")]
+    AuthorAsOf,
+    /// Record a baseline ratified (supporting) decision on the workspace's
+    /// branch, so later facts that cite it read certain, contract 1.9.0.
+    #[serde(rename = "author.record_decision")]
+    AuthorRecordDecision,
 }
 
 impl Op {
@@ -223,7 +231,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 63] = [
+    pub const ALL: [Op; 65] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -287,6 +295,8 @@ impl Op {
         Op::AuthorAssertSameAs,
         Op::AuthorAddRule,
         Op::AuthorDeclareInertial,
+        Op::AuthorAsOf,
+        Op::AuthorRecordDecision,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -345,6 +355,16 @@ impl Op {
         matches!(self, Op::AuthorDeclareInertial)
     }
 
+    /// Whether this op was introduced in contract `1.9.0` (the inertia-aware
+    /// point read, `author.as_of`). Advertised only from `1.9.0` up, so a
+    /// `1.8.0`-or-earlier negotiation's capability list — and the golden
+    /// fixture recording it — stays byte-identical and needs no re-pin
+    /// (audit C4).
+    #[must_use]
+    pub const fn added_in_1_9_0(self) -> bool {
+        matches!(self, Op::AuthorAsOf | Op::AuthorRecordDecision)
+    }
+
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
     /// negotiation's capability list — and the golden fixture recording it —
@@ -369,7 +389,9 @@ impl Op {
     /// apart; the unit test below asserts the agreement for every op.
     #[must_use]
     pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_8_0() {
+        if self.added_in_1_9_0() {
+            "1.9.0"
+        } else if self.added_in_1_8_0() {
             "1.8.0"
         } else if self.added_in_1_7_0() {
             "1.7.0"
@@ -416,6 +438,7 @@ impl Op {
                 | Op::AuthorAssertSameAs
                 | Op::AuthorAddRule
                 | Op::AuthorDeclareInertial
+                | Op::AuthorRecordDecision
         )
     }
 
@@ -565,6 +588,12 @@ impl Op {
             Op::AuthorDeclareInertial => {
                 "Declare a predicate's fluent values persistent (inertial): a value asserted since a point holds forward until a later, distinct, live value defeats it."
             }
+            Op::AuthorAsOf => {
+                "Project the inertially-current fluent value(s) at a query point: what holds, and why, including a silent transition's derived boundary and defeater — the one inertia-aware read."
+            }
+            Op::AuthorRecordDecision => {
+                "Record a baseline ratified decision on the workspace branch so facts that cite it read certain — the wire way to reach certainty and make contradiction checks (fd-violation, fluent, inertia) fire, replacing the fixture-authority hack; defeasible by author.defeat."
+            }
         }
     }
 }
@@ -579,6 +608,9 @@ mod tests {
     #[test]
     fn introduced_in_agrees_with_every_added_in_gate() {
         for op in Op::ALL {
+            if op.added_in_1_9_0() {
+                assert_eq!(op.introduced_in(), "1.9.0", "{op:?}");
+            }
             if op.added_in_1_8_0() {
                 assert_eq!(op.introduced_in(), "1.8.0", "{op:?}");
             }
