@@ -140,7 +140,8 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorAssertSameAs
         | Op::AuthorAddRule
         | Op::AuthorDeclareInertial
-        | Op::AuthorAsOf => Err((
+        | Op::AuthorAsOf
+        | Op::AuthorRecordDecision => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1984,6 +1985,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let rule_authoring = crate::has_rule_authoring(dli);
     let inertia = crate::has_inertia(dli);
     let as_of = crate::has_as_of_read(dli);
+    let decisions = crate::has_decisions(dli);
     Op::ALL
         .iter()
         .copied()
@@ -2000,7 +2002,12 @@ fn capabilities(dli: &str) -> Vec<String> {
             other => identity_assertions || !other.added_in_1_7_0(),
         })
         .filter(|op| inertia || !op.added_in_1_8_0())
-        .filter(|op| as_of || !op.added_in_1_9_0())
+        // Every 1.9.0 op gates on its OWN floor predicate (per-op-floor
+        // discipline), so a later divergent floor moves only that op's row.
+        .filter(|op| match op {
+            Op::AuthorRecordDecision => decisions,
+            other => as_of || !other.added_in_1_9_0(),
+        })
         .map(wire_name)
         .collect()
 }

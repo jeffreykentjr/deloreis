@@ -1466,6 +1466,16 @@ pub struct AuthorMaterializeParams {
     /// rendered) on a `0.5.1` request.
     #[serde(default)]
     pub rendered: bool,
+    /// Accept the whole committed set under a named, recorded, defeasible
+    /// decision (contract 1.9.0, DL-0083): materialize injects a synthetic
+    /// `ratify` for it into the committed decls and marks every committed fact
+    /// object's provenance `Ratified` under it, so the accepted set reads
+    /// `certain` by the ordinary algebra. The honest replacement for
+    /// `fixture-authority ... true` — it stamps exactly the facts this call
+    /// commits, never the whole valuation overlay. Floor-gated at 1.9.0:
+    /// supplying it on an earlier accepted version is a schema violation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision: Option<String>,
 }
 
 // -- author.add_entity -------------------------------------------------------
@@ -1891,6 +1901,38 @@ pub struct AuthorSetStandingParams {
     pub decision: String,
 }
 
+/// `author.record_decision` records a baseline ratified (supporting) decision
+/// on the workspace's branch (contract 1.9.0, DL-0083).
+///
+/// It writes a `ratify` carriage object for `decision` and grows the commit's
+/// known-decision list, so a fact that cites `decision` reads `certain` on the
+/// next compile — the wire way to reach certainty and make contradiction checks
+/// (`continuity.fd-violation` and its kin) fire, closing the bootstrap gap the
+/// out-of-band `fixture-authority` binary used to fill. The id is
+/// caller-supplied and matched by exact equality (re-recording a known id is
+/// idempotent), the recorded decision is defeasible by `author.defeat`, and
+/// this does NOT move the DL-0054 boundary: it records the caller's claim that a
+/// ruling was made, exactly as `cited`/`set_standing`/`defeat` already record
+/// caller-supplied decision state as data — it never decides *who* may rule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorRecordDecisionParams {
+    /// The authoring workspace whose branch records the decision.
+    pub workspace: String,
+    /// The decision id to record (caller-supplied, exact-equality matched).
+    pub decision: String,
+    /// Optional human rationale for the ruling — recorded as review metadata,
+    /// scanned for control characters, never interpreted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rationale: Option<String>,
+    /// Optional provenance for a decision that itself rests on prior decisions:
+    /// its cited ids are integrity-gated (an unresolved citation raises
+    /// `citation.unknown-decision` and bars the record), exactly as a fact's
+    /// citation is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+}
+
 /// `author.defeat` records a defeating decision and rules the claim's existing
 /// supporting decision false without deleting the defeated fact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2115,6 +2157,15 @@ pub struct AuthorWhyResult {
     /// The positive support antichain, present when the world derives the atom.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub why: Option<Why>,
+    /// The recorded decisions in the atom's support antichain — the support
+    /// monomials' claim ids filtered to the known-decision set (contract 1.9.0,
+    /// DL-0083). The auditability affordance: it lets a caller confirm a fact
+    /// reached certainty the designed way, through recorded decisions, rather
+    /// than through a side channel. Floor-gated with skip-serialize, so pre-1.9.0
+    /// `author.why` responses stay byte-identical (the field is absent, not
+    /// `null`, and never populated below the floor).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub supporting_decisions: Vec<String>,
 }
 
 // -- author.findings (read) --------------------------------------------------

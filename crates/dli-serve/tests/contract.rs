@@ -70,6 +70,7 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorAddRule, "author.add_rule"),
     (Op::AuthorDeclareInertial, "author.declare_inertial"),
     (Op::AuthorAsOf, "author.as_of"),
+    (Op::AuthorRecordDecision, "author.record_decision"),
 ];
 
 #[test]

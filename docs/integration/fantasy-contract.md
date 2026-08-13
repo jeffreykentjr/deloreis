@@ -20,7 +20,7 @@ either side disagrees with this document, this document wins.
 
 > **Implementation status:** the contract is at `1.9.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
-> DL-0080, DL-0081, DL-0082). It carries typed responses for all 64 operations,
+> DL-0080, DL-0081, DL-0082). It carries typed responses for all 65 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
@@ -333,7 +333,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.9.0` enforces it for all 64 operations.
+today: contract `1.9.0` enforces it for all 65 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.

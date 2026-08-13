@@ -307,20 +307,50 @@ pub(super) fn workspace_report(
 /// certain / why dead / why possible), plus the support antichain when the world
 /// derives it. The agent asks "why can't this be certain yet?" and gets the exact
 /// blocker — an unruled hypothesis, an unknown entity, or a defeater.
-pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, ErrorBody> {
+pub(super) fn why(
+    store: &Store,
+    params: &AuthorWhyParams,
+    records_decisions: bool,
+) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let atom = parse_goal(&params.atom)?;
     let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
     let inner = &world.model.world;
     let why_not = compute_why_not(inner, &atom);
-    let why = GroundAtom::from_pattern(&atom).and_then(|ground| {
-        inner
-            .derived
-            .iter()
-            .find(|derived| derived.atom == ground)
-            .map(|derived| Why::of_support(&derived.support, &inner.interner))
-    });
-    Ok(value(&AuthorWhyResult { why_not, why }))
+    let derived = GroundAtom::from_pattern(&atom)
+        .and_then(|ground| inner.derived.iter().find(|derived| derived.atom == ground));
+    let why = derived.map(|derived| Why::of_support(&derived.support, &inner.interner));
+    // `supporting_decisions` (contract 1.9.0, DL-0083): the recorded decisions
+    // in the atom's support antichain — the support monomials' claim ids
+    // filtered to the workspace's known-decision set, the same filter the
+    // continuity findings' `ann_citations` uses. The auditability affordance:
+    // it names which recorded decisions a certain fact rests on, so a caller can
+    // confirm it reached certainty the designed way. Floor-gated: below 1.9.0
+    // the field stays empty and, being `skip_serializing_if = Vec::is_empty`,
+    // absent — so pre-1.9.0 `author.why` responses stay byte-identical.
+    let supporting_decisions = match (records_decisions, derived) {
+        (true, Some(derived)) => {
+            let known = super::tools::workspace_decisions(store, &params.workspace);
+            let mut out = Vec::new();
+            for monomial in derived.support.monomials() {
+                for lit in monomial.lits() {
+                    if let Some(name) = inner.interner.resolve(lit.atom) {
+                        let name = name.to_owned();
+                        if known.contains(&name) && !out.contains(&name) {
+                            out.push(name);
+                        }
+                    }
+                }
+            }
+            out
+        }
+        _ => Vec::new(),
+    };
+    Ok(value(&AuthorWhyResult {
+        why_not,
+        why,
+        supporting_decisions,
+    }))
 }
 
 // -- author.findings ---------------------------------------------------------

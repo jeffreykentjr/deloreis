@@ -57,6 +57,8 @@ fixtures:
   sha256: 144aa084aab5ec4afeacb0891c10d8b32931119b891fbd628325247d1f0e5534
 - path: framing/author-as-of-framing.json
   sha256: 33d1262c70b269510dcef04fb0882ca5b9d47b1f38a58bb6338a5f94dbbed076
+- path: framing/author-record-decision-framing.json
+  sha256: 659eddc4d57ac676b5d3198675facbd8b261a8bbc11beaea69ee62239ecd2f3f
 - path: framing/author-query-framing.json
   sha256: 7e2e89db564438529600edec66ac322f531293b19d33f5fd689ab4087868b4ad
 - path: framing/author-why-framing.json
@@ -115,6 +117,8 @@ fixtures:
   sha256: bbd0668bbb3fd26949a4b8e4187cd20a717fe868fe20dacba6c920fb1943ecba
 - path: golden/author-as-of-v1.json
   sha256: 0d88aca8269e63a3d618041a6e1423fa94a83a8f393b205739faeda83387a245
+- path: golden/author-record-decision-v1.json
+  sha256: 4e57f47e0d81bfffd83faa35f29bd9e3315cf4b721d21de53223409d43d7acce
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-typed-goal-v1.json
@@ -257,6 +261,8 @@ fixtures:
   sha256: cea5fc41fb9676c8a2d164f6a2577a64b64a078c48dace9dd54974fe6a8b201f
 - path: negative/author-as-of-schema-violation.json
   sha256: 4f3ca5d44c42cd36557961d899888277c5256fef818834f1ef40779b9ff38fb6
+- path: negative/author-record-decision-schema-violation.json
+  sha256: 305ef2f4f8398cb7fed8cbb92d40c8b3111bca881c8de6694888ca04aa1cc70a
 - path: negative/author-check-schema-violation.json
   sha256: 1b77089db82d2b7130e7e4806344f737260e864c10118d4d6d6355bde490d74e
 - path: negative/author-diff-schema-violation.json

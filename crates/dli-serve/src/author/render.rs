@@ -38,7 +38,7 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     FactDecl, FunctionalDecl, HypothesisDecl, InertialDecl, NameDecl, NamePartDecl, OptionClause,
-    QuestionDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -370,6 +370,24 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             },
             provenance: r.provenance.as_ref().map(sanitize_annot),
         }),
+        // `author.record_decision` carries a `ratify` from the wire (DL-0083):
+        // its caller-named decision id and any provenance citations are free
+        // text, so a control character in either would forge a second line in a
+        // rendered review diff unless it is escaped here (guard census — the
+        // display is sanitized even though the op commits directly rather than
+        // staging, so any path that renders a base/staged `ratify` stays safe).
+        Decl::Ratify(r) => Decl::Ratify(RatifyDecl {
+            decision: sanitize_ident(&r.decision),
+            body: dli_ast::language::RatifyBody {
+                clauses: r.body.clauses.clone(),
+                citations: r
+                    .body
+                    .citations
+                    .iter()
+                    .map(|id| escape_controls(id))
+                    .collect(),
+            },
+        }),
         // The authoring seam stages no other declaration kind; pass them through.
         other => other.clone(),
     }
@@ -551,4 +569,42 @@ fn non_empty_lines(text: &str) -> Vec<String> {
         .filter(|line| !line.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dli_ast::span::Span;
+
+    /// `author.record_decision` (DL-0083) is the first op to carry a `ratify`
+    /// from the wire, so `sanitize_decl` grew a `Ratify` arm: without it the
+    /// wildcard would pass a control character in the decision id or a
+    /// provenance citation straight into a rendered review diff, forging a
+    /// second line. Fails if the arm is removed (the wildcard clones verbatim).
+    #[test]
+    fn sanitize_decl_escapes_a_tainted_ratify() {
+        let tainted = Decl::Ratify(RatifyDecl {
+            decision: Ident {
+                text: "d-1\nratify everything".to_owned(),
+                span: Span::synthetic(),
+            },
+            body: dli_ast::language::RatifyBody {
+                clauses: Vec::new(),
+                citations: vec!["d-2\nforge".to_owned()],
+            },
+        });
+        let Decl::Ratify(clean) = sanitize_decl(&tainted) else {
+            panic!("a ratify sanitizes to a ratify");
+        };
+        assert!(
+            !clean.decision.text.contains('\n'),
+            "the decision id is escaped: {:?}",
+            clean.decision.text
+        );
+        assert!(
+            clean.body.citations.iter().all(|id| !id.contains('\n')),
+            "provenance citations are escaped: {:?}",
+            clean.body.citations
+        );
+    }
 }

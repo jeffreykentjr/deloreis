@@ -49,9 +49,10 @@ use crate::contract::{
     AuthorBranchParams, AuthorBranchResult, AuthorDeclareFunctionalParams,
     AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
     AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
-    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorRecordDecisionParams,
+    AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams,
+    BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind, MergeStandingChange,
+    StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -321,7 +322,17 @@ pub(super) fn materialize(
     store: &mut Store,
     params: &AuthorMaterializeParams,
     v2: bool,
+    records_decisions: bool,
 ) -> Result<Value, ErrorBody> {
+    // The `decision` param (accept the whole committed set under a named,
+    // recorded, defeasible decision) is defined only by contract 1.9.0
+    // (DL-0083); supplying it on an earlier accepted version is a schema
+    // violation, floor-gated the same way `state`/`branch` params are.
+    if params.decision.is_some() && !records_decisions {
+        return Err(schema_error(
+            "field `decision` is defined only by contract 1.9.0 decision-stamped materialize",
+        ));
+    }
     // Clone everything we need from the workspace and check the blocking
     // findings before touching the lorestore — this avoids a borrow conflict
     // between `store.get()` (immutable) and the mutable lorestore access.
@@ -442,13 +453,60 @@ pub(super) fn materialize(
         name: base_name.clone(),
         documents,
     };
-    let decisions: Vec<String> = dli_lorestore::lower::declared_decisions(&pack)
+    let mut decisions: Vec<String> = dli_lorestore::lower::declared_decisions(&pack)
         .into_iter()
         .collect();
+    // Decision-stamped materialize (DL-0083): accept the whole committed set
+    // under a named, recorded, defeasible decision — the honest replacement for
+    // `fixture-authority ... true`. Record it as a known supporting decision of
+    // this commit (appended to the decisions list, so `reconstruct_pack`
+    // re-emits its `ratify` as a synthesized prelude beside any carried one) and
+    // ensure the commit interner carries its atom, so a committed fact that
+    // cites it reads certain by the ordinary algebra. The fact objects are then
+    // re-stamped `Ratified` under it below. `records_decisions` is guaranteed
+    // true here — a pre-1.9.0 `decision` was refused at the top.
+    let commit_interner = if let Some(decision) = params.decision.as_deref() {
+        if !decisions.iter().any(|known| known == decision) {
+            decisions.push(decision.to_owned());
+        }
+        let mut names = ws_interner.clone();
+        if !names.iter().any(|name| name == decision) {
+            names.push(decision.to_owned());
+        }
+        names
+    } else {
+        ws_interner
+    };
 
     let ls = store
         .workspace_lorestore_mut(&params.workspace)
         .expect("checked above");
+
+    // Re-stamp each committed fact object's provenance `Ratified` under the
+    // named decision (the `standing_decision`/marker pattern `set_standing`
+    // uses on a stored claim), producing a fresh committed hash set. A fact that
+    // cites the decision then reads certain-and-ratified; a fact that cites
+    // nothing keeps its own proposal gate and stays possible — a real decision
+    // supports only what rests on it (the honest subset, not the blanket flip).
+    let commit_fact_hashes = if let Some(decision) = params.decision.as_deref() {
+        let mut stamped = Vec::with_capacity(staged_fact_hashes.len());
+        for hash in &staged_fact_hashes {
+            let mut object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            let provenance = object.provenance.get_or_insert_with(Default::default);
+            provenance.marker = Some(ProvenanceMarker::Ratified);
+            provenance.standing_decision = Some(decision.to_owned());
+            stamped.push(
+                ls.write_object(&object)
+                    .map_err(|error| store_fault(&error))?,
+            );
+        }
+        stamped
+    } else {
+        staged_fact_hashes.clone()
+    };
 
     // The workspace's `base_name` is the document id the session opened under,
     // and a document id is a wire identifier decoupled from lore scope — a store
@@ -470,8 +528,8 @@ pub(super) fn materialize(
         .commit_on_branch_at_ref(
             &target_ref,
             base_ref_digest.as_deref(),
-            ws_interner,
-            staged_fact_hashes.clone(),
+            commit_interner,
+            commit_fact_hashes.clone(),
             Vec::new(),
             Vec::new(),
             decisions,
@@ -498,8 +556,8 @@ pub(super) fn materialize(
     // The JSON-first return: the committed fact objects, read back from the
     // store so the caller sees exactly the durable bytes.
     let facts = if v2 {
-        let mut list = Vec::with_capacity(staged_fact_hashes.len());
-        for hash in &staged_fact_hashes {
+        let mut list = Vec::with_capacity(commit_fact_hashes.len());
+        for hash in &commit_fact_hashes {
             let fo: dli_lorestore::FactObject = ls
                 .read_object(hash)
                 .map_err(|e| ErrorBody {
@@ -1981,6 +2039,17 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             }
             annotation_fields(&mut fields, r.provenance.as_ref());
         }
+        // `author.record_decision` is the first op to stage a `ratify` from
+        // untrusted wire input (DL-0083): its caller-named decision id and any
+        // provenance citations are free text, so a control character smuggled
+        // into either would forge a second line in the review diff unless it is
+        // scanned here (guard census — a control char in the id refuses the
+        // record). `RatifyBody`'s citations live in `body.citations`, its own
+        // typed interior (LS-9), so both are enumerated.
+        Decl::Ratify(r) => {
+            fields.push(("decision", r.decision.text.clone()));
+            fields.extend(r.body.citations.iter().map(|id| ("cited", id.clone())));
+        }
         _ => {}
     }
     fields
@@ -2690,6 +2759,204 @@ pub(super) fn defeat(store: &mut Store, params: &AuthorDefeatParams) -> Result<V
     )
 }
 
+/// Record a baseline ratified (supporting) decision on the workspace's branch
+/// (contract 1.9.0, DL-0083).
+///
+/// This is the `adds_decision` half of [`durable_standing_change`], extracted
+/// into its own op **minus** the claim lookup, the support-cites-decision guard,
+/// the marker mutation, and the defeated-atom false-flip: it writes a
+/// `Decl::Ratify` carriage for `decision`, grows the commit's known-decision
+/// list (idempotent on a known id), interns the id eagerly so a later
+/// `author.defeat` can target it, and commits on the workspace's target branch.
+/// There is **no** `Ref::with_valuation` write — the certain-bit is free: any
+/// fact that cites `decision` reads certain on the next compile through the
+/// ordinary ledger valuation (`ledger_valuation` rules the decision's atom true
+/// for a citing fact once the corpus declares it). This closes the bootstrap gap
+/// the out-of-band `fixture-authority` binary used to fill, and it does not move
+/// the DL-0054 boundary: it records the caller's claim that a ruling was made,
+/// as data, never deciding *who* may rule.
+#[allow(clippy::too_many_lines)]
+pub(super) fn record_decision(
+    store: &mut Store,
+    params: &AuthorRecordDecisionParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    let decision = params.decision.as_str();
+    let ws0 = store.get(&params.workspace).ok_or_else(gone)?;
+    let digest = ws0.digest.clone();
+    // Routed to the WORKSPACE's own target branch (WS-3), read while `ws0` is
+    // still a live immutable borrow, then owned so it survives the mutable
+    // lorestore borrows below — never `main`, never `root_hash()` (#68).
+    let target_branch = target_ref_name(ws0).to_owned();
+    if store.workspace_lorestore(&params.workspace).is_none() {
+        return Err(schema_error(
+            "recording a decision requires an attached lorestore",
+        ));
+    }
+
+    // The `ratify` carriage this op will write. Any `cited` provenance names the
+    // prior decisions this ruling itself rests on; they ride in the body's typed
+    // interior (`body.citations`) so the citation gate reads them the way it
+    // reads a text `ratify … { cited … }`.
+    let cited: Vec<String> = match &params.provenance {
+        Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),
+        _ => Vec::new(),
+    };
+    let ratify = Decl::Ratify(RatifyDecl {
+        decision: ident(decision),
+        body: dli_ast::language::RatifyBody {
+            clauses: Vec::new(),
+            citations: cited,
+        },
+    });
+
+    // Pre-image read against the target branch's own head (never `root_hash()`,
+    // which is hardcoded to `main` — a branch-only decision would otherwise leak
+    // to base/siblings, #68 SEV-A).
+    let (head, head_ref, pack_name, mut interner, mut decisions) = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let head_ref = ls
+            .branch_ref(&target_branch)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| {
+                schema_error("the lorestore has no ref for this workspace's target branch")
+            })?;
+        let head = head_ref.commit.clone();
+        let pack_name = ls
+            .head_pack_name()
+            .map_err(|error| store_fault(&error))?
+            .unwrap_or_default();
+        let interner = ls.interner_at(&head).map_err(|error| store_fault(&error))?;
+        let decisions = ls
+            .decisions_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        (head, head_ref, pack_name, interner, decisions)
+    };
+
+    // Guard census (DL-0083): a control character in the id or rationale, and a
+    // provenance citation of an unknown decision, refuse the record rather than
+    // committing a tainted or dangling `ratify`. The id/citation scan runs
+    // through the same `free_text_fields`/`citation_findings` census every
+    // staged declaration does — `record_decision` is the first op to carry a
+    // `ratify` from the wire, so those censuses grew a `Ratify` arm for it.
+    let known: BTreeSet<String> = decisions.iter().cloned().collect();
+    let mut findings = control_char_findings(&ratify);
+    if let Some(rationale) = params.rationale.as_deref()
+        && let Some(finding) = field_control("rationale", rationale)
+    {
+        findings.push(finding);
+    }
+    findings.extend(citation_findings(&ratify, &known));
+    if findings.iter().any(|f| f.severity == Severity::Error) {
+        return Ok(value(&AuthorMutationResult {
+            findings,
+            rendered: Vec::new(),
+            workspace_digest: digest,
+            root_hash: Some(head.to_string()),
+            facts: None,
+        }));
+    }
+
+    // Idempotent on a known id: the decision is already recorded, so there is
+    // nothing to write and the current head IS the result.
+    if decisions.iter().any(|known| known == decision) {
+        return Ok(value(&AuthorMutationResult {
+            findings: Vec::new(),
+            rendered: Vec::new(),
+            workspace_digest: digest,
+            root_hash: Some(head.to_string()),
+            facts: None,
+        }));
+    }
+
+    // Grow the known-decision list and intern the id eagerly (as `defeat` does),
+    // so a later `defeat` can target a decision that has no other carrier yet.
+    decisions.push(decision.to_owned());
+    if !interner.iter().any(|name| name == decision) {
+        interner.push(decision.to_owned());
+    }
+
+    let commit = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let mut bundle_counter = 0;
+        let mut lower_interner = dli_core::Interner::from_names(interner.clone());
+        let fact_hashes = dli_lorestore::lower::lower_decl(
+            &ratify,
+            &pack_name,
+            &mut lower_interner,
+            &mut bundle_counter,
+        )
+        .iter()
+        .map(|object| ls.write_object(object).map_err(|error| store_fault(&error)))
+        .collect::<Result<Vec<_>, _>>()?;
+        let receipt = ls
+            .commit_on_branch_at_ref(
+                &target_branch,
+                Some(
+                    &head_ref
+                        .digest()
+                        .map_err(|error| schema_error(error.to_string()))?
+                        .to_string(),
+                ),
+                interner,
+                fact_hashes,
+                Vec::new(),
+                Vec::new(),
+                decisions,
+                pack_name,
+            )
+            .map_err(|error| store_fault(&error))?;
+        receipt.commit
+    };
+
+    // Advance the workspace base to the new commit so subsequent staged reads
+    // (add_fact → author.check) see the recorded decision as base — the same
+    // tail `durable_standing_change` runs after a defeat.
+    let current_ref = store
+        .workspace_lorestore(&params.workspace)
+        .and_then(|ls| ls.branch_ref(&target_branch).ok().flatten())
+        .ok_or_else(|| {
+            schema_error("the lorestore ref for this workspace's target branch disappeared")
+        })?;
+    let new_ref_digest = current_ref
+        .digest()
+        .map_err(|error| schema_error(error.to_string()))?
+        .to_string();
+    if let Some((_, ws)) = store.parts_mut(&params.workspace) {
+        ws.base_root_hash = Some(commit.to_string());
+        ws.base_ref_digest = Some(new_ref_digest);
+        ws.base_valuation = current_ref.valuation;
+    }
+    // Reconstruct the workspace's base from the new head so the recorded `ratify`
+    // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
+    // a `defeat`, whose effect rides the valuation overlay, a recorded decision
+    // is a decl the static scope base never carried — without this refresh a
+    // fact citing it would read `citation.unknown-decision`, not certain.
+    store
+        .reload_workspace_base(&params.workspace)
+        .map_err(|message| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("refreshing the workspace after recording the decision: {message}"),
+            data: None,
+        })?;
+    let workspace_digest = store
+        .get(&params.workspace)
+        .ok_or_else(gone)?
+        .digest
+        .clone();
+    Ok(value(&AuthorMutationResult {
+        findings: Vec::new(),
+        rendered: Vec::new(),
+        workspace_digest,
+        root_hash: Some(commit.to_string()),
+        facts: None,
+    }))
+}
+
 #[allow(clippy::too_many_lines)]
 fn durable_standing_change(
     store: &mut Store,
@@ -3080,6 +3347,22 @@ pub(super) fn workspace_decisions(store: &Store, ws_id: &str) -> BTreeSet<String
 /// carries no citation — which, below the scrub version, is every provenance a
 /// staged declaration can carry, since `cited` is refused before it stages.
 fn citation_findings(decl: &Decl, decisions: &BTreeSet<String>) -> Vec<Finding> {
+    // A recorded decision (`author.record_decision`, DL-0083) may itself rest on
+    // prior decisions — its `provenance` citations, kept in the `ratify` body's
+    // typed interior (`body.citations`, LS-9), never in an `Annotation`. So
+    // `decl_annotation` cannot reach them; this arm is what makes
+    // `citation.unknown-decision` integrity run on a `ratify` staged from the
+    // wire (guard census), gating a dangling citation exactly as a fact's is.
+    if let Decl::Ratify(ratify) = decl {
+        return ratify
+            .body
+            .citations
+            .iter()
+            .map(|id| id.trim())
+            .filter(|id| !decisions.contains(*id))
+            .map(|id| citation_unknown(id, decisions))
+            .collect();
+    }
     let Some(annot) = decl_annotation(decl) else {
         return Vec::new();
     };

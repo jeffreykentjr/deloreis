@@ -47,8 +47,8 @@ use crate::contract::{
     AuthorAssertSameAsParams, AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
     AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
     AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorRecordDecisionParams,
+    AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -87,6 +87,15 @@ fn branch_writes(request: &Request) -> bool {
 /// `Finding.data` on this request's negotiated version (≥ 1.7.0, WS-2).
 fn carries_finding_data(request: &Request) -> bool {
     crate::has_finding_data(&request.dli)
+}
+
+/// Whether this request's negotiated version carries the baseline-decision
+/// recorder and its friends (`author.record_decision`, the optional `decision`
+/// on `author.materialize`, and `author.why`'s `supporting_decisions`; ≥ 1.9.0,
+/// DL-0083). Read once at the seam and passed down, so materialize and why
+/// answer to the same version rather than each re-consulting the wire.
+fn records_decisions(request: &Request) -> bool {
+    crate::has_decisions(&request.dli)
 }
 
 /// The authoring seam's dispatch (frozen verbatim in the wave-3 sockets): route an
@@ -134,7 +143,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let v2 = wire_v2(request);
             Ok((
                 params.workspace.clone(),
-                tools::materialize(store, &params, v2),
+                tools::materialize(store, &params, v2, records_decisions(request)),
             ))
         }),
         Op::AuthorDiscard => mutate(request, store, |store, request| {
@@ -316,6 +325,19 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
                 tools::declare_inertial(store, &params, records_citations(request)),
             ))
         }),
+        // The baseline-decision recorder (contract 1.9.0, DL-0083): writes a
+        // `ratify` carriage to the workspace branch. A mutation like `defeat`,
+        // dispatched through `mutate` so idempotency-key replay works and no
+        // side channel reaches certainty (`_ => UnknownOp` in the batch seam is
+        // a runtime miss, so this arm is added by hand).
+        Op::AuthorRecordDecision => mutate(request, store, |store, request| {
+            let params: AuthorRecordDecisionParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::record_decision(store, &params, records_citations(request)),
+            ))
+        }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no
         // idempotency caching, only the tool's result or a typed error.
@@ -346,7 +368,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::why(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                reads::why(store, &params, records_decisions(request)),
+            ))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {
             let params: AuthorFindingsParams = parse(request)?;

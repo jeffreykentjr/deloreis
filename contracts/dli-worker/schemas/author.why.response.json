@@ -4,6 +4,13 @@
   "description": "`author.why` result: the actionable explanation of a staged atom's standing —\nthe blocking rulings and defeater (why certain / why dead / why possible),\nplus the support antichain when the atom is known.",
   "type": "object",
   "properties": {
+    "supporting_decisions": {
+      "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set (contract 1.9.0,\nDL-0083). The auditability affordance: it lets a caller confirm a fact\nreached certainty the designed way, through recorded decisions, rather\nthan through a side channel. Floor-gated with skip-serialize, so pre-1.9.0\n`author.why` responses stay byte-identical (the field is absent, not\n`null`, and never populated below the floor).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "why": {
       "description": "The positive support antichain, present when the world derives the atom.",
       "anyOf": [

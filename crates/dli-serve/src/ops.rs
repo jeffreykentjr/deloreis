@@ -216,6 +216,10 @@ pub enum Op {
     /// contract 1.9.0.
     #[serde(rename = "author.as_of")]
     AuthorAsOf,
+    /// Record a baseline ratified (supporting) decision on the workspace's
+    /// branch, so later facts that cite it read certain, contract 1.9.0.
+    #[serde(rename = "author.record_decision")]
+    AuthorRecordDecision,
 }
 
 impl Op {
@@ -227,7 +231,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 64] = [
+    pub const ALL: [Op; 65] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -292,6 +296,7 @@ impl Op {
         Op::AuthorAddRule,
         Op::AuthorDeclareInertial,
         Op::AuthorAsOf,
+        Op::AuthorRecordDecision,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -357,7 +362,7 @@ impl Op {
     /// (audit C4).
     #[must_use]
     pub const fn added_in_1_9_0(self) -> bool {
-        matches!(self, Op::AuthorAsOf)
+        matches!(self, Op::AuthorAsOf | Op::AuthorRecordDecision)
     }
 
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
@@ -433,6 +438,7 @@ impl Op {
                 | Op::AuthorAssertSameAs
                 | Op::AuthorAddRule
                 | Op::AuthorDeclareInertial
+                | Op::AuthorRecordDecision
         )
     }
 
@@ -584,6 +590,9 @@ impl Op {
             }
             Op::AuthorAsOf => {
                 "Project the inertially-current fluent value(s) at a query point: what holds, and why, including a silent transition's derived boundary and defeater — the one inertia-aware read."
+            }
+            Op::AuthorRecordDecision => {
+                "Record a baseline ratified decision on the workspace branch so facts that cite it read certain — the wire way to reach certainty and make contradiction checks (fd-violation, fluent, inertia) fire, replacing the fixture-authority hack; defeasible by author.defeat."
             }
         }
     }
