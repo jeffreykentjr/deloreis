@@ -312,3 +312,13 @@ expert vocabulary buys reach — checkable rules, cyclic time, forks, magic — 
 not a way past provenance. When you materialize, all of it commits as fact
 objects with their typed interiors; a reviewer reads the structured diff rows,
 and the rendered block is offered alongside for eyes that want a sentence.
+
+**Reaching and auditing certainty.** `author.materialize {decision}` batch-accepts
+the committed **facts** under a named, recorded decision so they read `certain` —
+but it is **facts-only**: the expert carriage claims on this card (rules, `same-as`
+links, inertial declarations) are never stamped and stay `possible`. Make *them*
+certain with `author.record_decision` plus a **cited declaration**, not
+`materialize {decision}`. To audit that a fact reached certainty the designed way,
+call `author.why` and read `supporting_decisions`; pass the atom as a typed
+`goal_atom` (the shape `author.query` takes) so the check works in a syntax-free
+build, where the rendered `atom` string has no `.dli` front end to parse it.

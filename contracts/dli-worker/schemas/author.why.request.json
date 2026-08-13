@@ -5,8 +5,20 @@
   "type": "object",
   "properties": {
     "atom": {
-      "description": "The atom to explain, rendered `pred(a, b)` (ground).",
-      "type": "string"
+      "description": "The atom to explain, rendered `pred(a, b)` (ground). The typed successor\nis [`Self::goal_atom`]; this string form is parsed through the `.dli`\nfront end, so it is inert in a syntax-free (default) build. `atom` is not\na killed form — it stays accepted on every wire — but `default` is what\nlets a caller send [`Self::goal_atom`] alone.",
+      "type": "string",
+      "default": ""
+    },
+    "goal_atom": {
+      "description": "The atom to explain as a typed atom — the successor to [`Self::atom`],\ncarried structurally instead of re-parsed from text, so `supporting_decisions`\nis reachable in a syntax-free build. When present it is used and `atom` is\nignored; when absent `atom` is parsed exactly as before. Mirrors the sibling\n`author.query`'s `goal_atom` verbatim.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AtomExpr"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "workspace": {
       "description": "The workspace id.",
@@ -15,7 +27,186 @@
   },
   "additionalProperties": false,
   "required": [
-    "workspace",
-    "atom"
-  ]
+    "workspace"
+  ],
+  "$defs": {
+    "AtomExpr": {
+      "description": "A predicate applied to a list of argument terms, e.g. `adjacent(a, b)`.",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "The argument terms, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Term"
+          }
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pred",
+        "args"
+      ]
+    },
+    "FileId": {
+      "description": "Identifier for a source file within a compilation.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Ident": {
+      "description": "A named identifier. Either the bare text, whose span is synthetic, or an object carrying the text and an optional span.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "span": {
+              "description": "A half-open byte range within a single source file.",
+              "type": "object",
+              "properties": {
+                "end": {
+                  "description": "End byte offset (exclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "file": {
+                  "description": "The file this span points into.",
+                  "$ref": "#/$defs/FileId"
+                },
+                "start": {
+                  "description": "Start byte offset (inclusive).",
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "start",
+                "end"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ]
+        }
+      ]
+    },
+    "Term": {
+      "description": "A term: a variable, symbol, literal, or time reference.",
+      "oneOf": [
+        {
+          "description": "A logic variable (unifies during evaluation).",
+          "type": "object",
+          "properties": {
+            "Var": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Var"
+          ]
+        },
+        {
+          "description": "A ground symbol naming an entity.",
+          "type": "object",
+          "properties": {
+            "Sym": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Sym"
+          ]
+        },
+        {
+          "description": "A string literal.",
+          "type": "object",
+          "properties": {
+            "Str": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Str"
+          ]
+        },
+        {
+          "description": "An integer literal.",
+          "type": "object",
+          "properties": {
+            "Int": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Int"
+          ]
+        },
+        {
+          "description": "A reference into the time domain.",
+          "type": "object",
+          "properties": {
+            "Time": {
+              "$ref": "#/$defs/TimeRef"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Time"
+          ]
+        }
+      ]
+    },
+    "TimeRef": {
+      "description": "A reference to a named era or event on the timeline.",
+      "oneOf": [
+        {
+          "description": "A named era (a span).",
+          "type": "object",
+          "properties": {
+            "Era": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Era"
+          ]
+        },
+        {
+          "description": "A named event (a point).",
+          "type": "object",
+          "properties": {
+            "Event": {
+              "$ref": "#/$defs/Ident"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Event"
+          ]
+        }
+      ]
+    }
+  }
 }

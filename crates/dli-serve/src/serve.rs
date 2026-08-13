@@ -67,7 +67,8 @@ const FIELD_RETIREMENT_MAJOR: u32 = 1;
 struct KilledField {
     /// The wire op the retirement applies to. A retirement is keyed on the
     /// `(op, field)` pair, never on the field name alone: `author.why` also
-    /// takes an `atom`, and it is not this one.
+    /// takes an `atom`, and it is a *different* registration — an optionalized
+    /// one (`refused_at_1_0: false`), not this `author.query` `goal` retirement.
     op: &'static str,
     /// The retired field, as a dotted path from `params` in the same shape
     /// [`handlers::first_unknown_field`] reports — an array is traversed
@@ -110,6 +111,15 @@ struct KilledField {
     ///   before the outer struct's end-of-map check: a submission missing
     ///   `document` AND a claim's `atom` named `atom`, not `document`.
     followed_by: &'static [&'static str],
+    /// Whether contract 1.0 also **refuses** this field (a true retirement), or
+    /// only makes it optional. `true` for every retired string form, whose typed
+    /// successor supersedes it at 1.0. `false` for an *optionalized* field like
+    /// `author.why`'s `atom`: its typed successor `goal_atom` may be sent alone
+    /// from 1.0, but `atom` itself is never refused (it is not a killed form), so
+    /// only the require-below-1.0 half of this registration applies — the pre-1.0
+    /// `missing field` verdict is preserved byte-for-byte while 1.0-and-up admits
+    /// `goal_atom` alone.
+    refused_at_1_0: bool,
 }
 
 /// The killed wire forms at *field* granularity. Where [`KILLED_OPS`] retires a
@@ -141,6 +151,7 @@ const KILLED_FIELDS: &[KilledField] = &[
         successor: "goal_atom",
         preceded_by: &["document"],
         followed_by: &["goal_atom", "layer", "as_of", "fork", "why"],
+        refused_at_1_0: true,
     },
     KilledField {
         op: "author.query",
@@ -148,6 +159,19 @@ const KILLED_FIELDS: &[KilledField] = &[
         successor: "goal_atom",
         preceded_by: &["workspace"],
         followed_by: &["goal_atom", "layer", "why"],
+        refused_at_1_0: true,
+    },
+    // `author.why`'s `atom` is **optionalized, not retired** (DL-0085). Its typed
+    // successor `goal_atom` mirrors `author.query`'s — sendable alone from 1.0 —
+    // but `atom` is never refused, so this entry is the require-below-1.0 half
+    // only, preserving the `0.x` `missing field \`atom\`` verdict byte-for-byte.
+    KilledField {
+        op: "author.why",
+        field: "atom",
+        successor: "goal_atom",
+        preceded_by: &["workspace"],
+        followed_by: &["goal_atom"],
+        refused_at_1_0: false,
     },
     KilledField {
         op: "dli.fork.add",
@@ -155,6 +179,7 @@ const KILLED_FIELDS: &[KilledField] = &[
         successor: "additions",
         preceded_by: &["fork"],
         followed_by: &["additions"],
+        refused_at_1_0: true,
     },
     KilledField {
         op: "dli.payload-submit",
@@ -171,6 +196,7 @@ const KILLED_FIELDS: &[KilledField] = &[
             "payload",
             "source",
         ],
+        refused_at_1_0: true,
     },
     KilledField {
         op: "dli.check-draft",
@@ -187,6 +213,7 @@ const KILLED_FIELDS: &[KilledField] = &[
             "source",
             "continuity",
         ],
+        refused_at_1_0: true,
     },
 ];
 
@@ -253,7 +280,9 @@ pub(crate) fn killed_field_successor(
     let op = handlers::wire_name(op);
     KILLED_FIELDS
         .iter()
-        .find(|killed| killed.op == op && field_present(params, killed.field))
+        .find(|killed| {
+            killed.refused_at_1_0 && killed.op == op && field_present(params, killed.field)
+        })
         .map(|killed| (killed.field, killed.successor))
 }
 

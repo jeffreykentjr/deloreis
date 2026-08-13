@@ -2246,8 +2246,20 @@ pub struct AuthorCheckResult {
 pub struct AuthorWhyParams {
     /// The workspace id.
     pub workspace: String,
-    /// The atom to explain, rendered `pred(a, b)` (ground).
+    /// The atom to explain, rendered `pred(a, b)` (ground). The typed successor
+    /// is [`Self::goal_atom`]; this string form is parsed through the `.dli`
+    /// front end, so it is inert in a syntax-free (default) build. `atom` is not
+    /// a killed form — it stays accepted on every wire — but `default` is what
+    /// lets a caller send [`Self::goal_atom`] alone.
+    #[serde(default)]
     pub atom: String,
+    /// The atom to explain as a typed atom — the successor to [`Self::atom`],
+    /// carried structurally instead of re-parsed from text, so `supporting_decisions`
+    /// is reachable in a syntax-free build. When present it is used and `atom` is
+    /// ignored; when absent `atom` is parsed exactly as before. Mirrors the sibling
+    /// `author.query`'s `goal_atom` verbatim.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub goal_atom: Option<AtomExpr>,
 }
 
 /// `author.why` result: the actionable explanation of a staged atom's standing —
