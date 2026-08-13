@@ -65,6 +65,10 @@ pub enum Decl {
     /// `functional <pred>` — declare a predicate single-valued (a functional
     /// dependency): each subject may carry at most one certain value for it.
     Functional(FunctionalDecl),
+    /// `inertial <pred>` — declare a predicate's fluent values persistent: a
+    /// value asserted `since t` holds forward until a later, distinct, live
+    /// value defeats it (contract 1.8.0).
+    Inertial(InertialDecl),
     /// `cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.
     Cycle(CycleDecl),
     /// `fork <question>` — an open creative fork.
@@ -383,6 +387,25 @@ impl StateDecl {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct FunctionalDecl {
     /// The predicate declared single-valued.
+    pub pred: Ident,
+    /// Provenance annotation, if any.
+    pub provenance: Option<Annotation>,
+}
+
+/// `inertial <pred>` — a predicate-level fluent-persistence declaration.
+///
+/// This declares that `pred` is **inertial**: a fluent value asserted `since
+/// t` with no authored `until` persists forward until a later, distinct,
+/// live value on the same slot defeats it (`docs/spec/03-time.md`, the
+/// inertia design note). Per-predicate, mirroring [`FunctionalDecl`]. It
+/// carries no ground atom — like `functional`, it is a carriage-only
+/// declaration whose provenance rides its serialized body, never the
+/// interner, so the three lowerings stay byte-identical. Declaring a
+/// predicate inertial is a defeasible claim: it can be cited, and it can be
+/// defeated, reverting the slot to plain open-interval projection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct InertialDecl {
+    /// The predicate declared inertial (fluent-persistent).
     pub pred: Ident,
     /// Provenance annotation, if any.
     pub provenance: Option<Annotation>,

@@ -1,0 +1,44 @@
+{
+  "fixture": "golden/author-declare-inertial-v1",
+  "version": 1,
+  "note": "Contract 1.8 inertia declaration: declare a predicate's fluent values persistent. The op stages a carriage-only Decl::Inertial and returns the mutation result with the new workspace digest. Phase 1: staging and materializing only — no behavioral assertion, since the projection change is a follow-up.",
+  "precondition": [
+    {
+      "dli": "1.8.0",
+      "id": "pre-1",
+      "op": "author.open",
+      "params": {
+        "scope": "saltmarket"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "send": {
+        "dli": "1.8.0",
+        "id": "1",
+        "op": "author.declare_inertial",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "water-status",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-inertia"
+          }
+        }
+      },
+      "expect": {
+        "dli": "1.8.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "rendered": [
+            "inertial water-status proposed session-inertia"
+          ],
+          "workspace_digest": "jcs:sha256:11d709cb2090feb152ad62c570b13c7fef70d976fbca7db9d39ec175f50cd4a0"
+        }
+      }
+    }
+  ]
+}

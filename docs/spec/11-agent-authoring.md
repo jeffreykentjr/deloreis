@@ -523,7 +523,31 @@ Contract `1.7.0` adds one declaration over derivation rules:
   `author.materialize` the same way. No separate wire mechanism: it is the
   same check battery, reading a second, saturated lens.
 
-### 3.14 Read tools
+### 3.14 Inertial persistence declarations
+
+Contract `1.8.0` adds one declaration over fluent predicates:
+
+- `author.declare_inertial {workspace, pred, provenance}` declares `pred`
+  inertial: a fluent value asserted `since t` with no authored `until` is
+  meant to persist forward until a later, distinct, live value on the same
+  slot defeats it. Mirrors `author.declare_functional` (§3.11) exactly — a
+  carriage-only declaration, no ground atom, provenance riding the stored
+  declaration.
+
+  **The projection.** The op stages and materializes the declaration and
+  carries it through every lowering (the compiled world, forks, merges, and
+  the durable lorestore), and the `continuity` check reads it: an open
+  inertial value's forward persistence is bounded at the next distinct certain
+  value on the slot. This composes into three outcomes — an ordered-distinct
+  pair is a **silent transition**; an undeclared order is a
+  `continuity.fluent-order-undeclared` **warn** (with a settling before-fact
+  repair); a certain co-hold (the same anchor, or authored overlap) is a
+  `continuity.fluent-contradiction` **error**. An inertial value with no
+  `since` anchor raises `continuity.inertia-unanchored` (warn). Capping is
+  active only while both the declaration and the competing value are certain
+  (`docs/decisions.md` DL-0081 records the full ruling).
+
+### 3.15 Read tools
 
 Five non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
@@ -544,7 +568,7 @@ query-specific result shapes rather than `{ ok, workspace_digest, rendered,
 findings }`. An agent uses them to orient before mutating: query what exists,
 check the current state, understand a derivation, then act.
 
-### 3.15 Expert authoring tools (contract 1.3.0)
+### 3.16 Expert authoring tools (contract 1.3.0)
 
 Seven tools add the language lane and the continuity/ledger pair the expert
 card (`docs/cards/expert-card.md`) describes; each stages like any other add,
@@ -561,7 +585,7 @@ seven are advertised only from contract `1.3.0` and above (DL-0058).
 | `author.add_state {id, value?, time?}` | Assert a time-varying state fluent — a value that holds over an interval, not forever; `time` is `{kind: after\|during\|since\|until, point}`. |
 | `author.add_attest {question}` | Request an attestation for an open question already in the workspace. |
 
-### 3.16 Branch and merge tools (contract 0.6.1)
+### 3.17 Branch and merge tools (contract 0.6.1)
 
 `author.branch {workspace, action: create|list, name?, from?}` creates a
 persistent, named ref into the workspace's lorestore at the source branch's
@@ -719,7 +743,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.6.0` enforces that rule for all 62 operations. Paired cases declare
+Contract `1.6.0` enforces that rule for all 63 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

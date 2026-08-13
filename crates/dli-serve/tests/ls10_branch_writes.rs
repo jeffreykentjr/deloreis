@@ -1139,3 +1139,122 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
         "set_standing cites the branch-only decision d-2, not citation.unknown-decision: {promoted}"
     );
 }
+
+// ── inertia (DL-0081, 1.8.0) is branch-local ────────────────────────────────
+
+/// The contract window the inertia op negotiates at (≥ 1.8.0).
+const V8: &str = "1.8.0";
+
+/// A base whose two open `status` values clash WITHOUT an inertial declaration
+/// (`commons since dawn`, `enclosed since noon`, dawn before noon): on `main`
+/// they certainly co-hold at noon, so `continuity.fluent-contradiction` fires.
+/// Declaring `status` inertial on a branch silences it — and that silencing
+/// must stay branch-local.
+fn inertia_branch_store() -> (tempfile::TempDir, Sessions, Store) {
+    let source = concat!(
+        "scope canon\n\n",
+        "ratify d-1\n",
+        "person river \"River\" decided d-1\n",
+        "event dawn decided d-1\n",
+        "event noon decided d-1\n",
+        "before dawn -> noon decided d-1\n",
+        "state river.status = commons since dawn decided d-1\n",
+        "state river.status = enclosed since noon decided d-1\n",
+    );
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "base parses clean: {diagnostics:?}"
+    );
+    let pack = Pack {
+        name: "canon".to_owned(),
+        documents: vec![document],
+    };
+    let mut store =
+        Store::with_packs([("canon".to_owned(), pack, KilledTokens::default())]).expect("compiles");
+    let temp = tempfile::tempdir().expect("temp");
+    store
+        .attach_lorestore(temp.path().join(".dli-lorestore"))
+        .expect("attach lorestore");
+    (temp, Sessions::new(), store)
+}
+
+/// The `author.check` finding codes on a workspace, at contract 1.8.0.
+fn check_codes(ws: &str, sessions: &mut Sessions, store: &mut Store) -> Vec<String> {
+    let resp = drive(
+        &json!({ "dli": V8, "id": "ck", "op": "author.check", "params": { "workspace": ws } }),
+        sessions,
+        store,
+    );
+    resp["result"]["findings"]
+        .as_array()
+        .map(|f| {
+            f.iter()
+                .filter_map(|x| x["code"].as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Inertia declared and materialized on a branch is invisible to `main` and to
+/// a sibling branch: the branch silences the base clash, but a fresh `main`
+/// (and a sibling) still sees the un-capped `continuity.fluent-contradiction`.
+#[test]
+fn inertial_declaration_is_branch_local() {
+    let (_t, mut sessions, mut store) = inertia_branch_store();
+
+    // Baseline: main itself sees the un-capped clash.
+    let main_ws = open_workspace_at(V8, "canon", &mut sessions, &mut store);
+    assert!(
+        check_codes(&main_ws, &mut sessions, &mut store)
+            .contains(&"continuity.fluent-contradiction".to_owned()),
+        "main's two open values clash without an inertial declaration"
+    );
+
+    // Branch off main, declare `status` inertial on the branch, materialize.
+    create_branch(&main_ws, "rival", "main", &mut sessions, &mut store);
+    create_branch(&main_ws, "other", "main", &mut sessions, &mut store);
+    let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    let branch_ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let declared = drive(
+        &json!({ "dli": V8, "id": "in", "op": "author.declare_inertial",
+                 "params": { "workspace": branch_ws, "pred": "status",
+                             "provenance": { "kind": "cited", "decisions": ["d-1"], "state": "ratified" } } }),
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        declared["ok"].as_bool().unwrap(),
+        "declare_inertial on branch: {declared}"
+    );
+    let mat = materialize(&branch_ws, &mut sessions, &mut store);
+    assert!(
+        mat["ok"].as_bool().unwrap(),
+        "the branch silences its own clash and materializes: {mat}"
+    );
+
+    // The branch's durable head no longer clashes (capping active).
+    let reopened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    let rival_ws = reopened["result"]["workspace"].as_str().unwrap().to_owned();
+    assert!(
+        !check_codes(&rival_ws, &mut sessions, &mut store)
+            .contains(&"continuity.fluent-contradiction".to_owned()),
+        "the branch's inertial declaration caps the transition"
+    );
+
+    // A fresh main workspace and a sibling branch still see the clash — the
+    // declaration never leaked off the branch it was made on (#68 lesson).
+    let fresh_main = open_workspace_at(V8, "canon", &mut sessions, &mut store);
+    assert!(
+        check_codes(&fresh_main, &mut sessions, &mut store)
+            .contains(&"continuity.fluent-contradiction".to_owned()),
+        "main never saw the branch's inertial declaration"
+    );
+    let sibling = open_branch_workspace("canon", "other", &mut sessions, &mut store);
+    let sibling_ws = sibling["result"]["workspace"].as_str().unwrap().to_owned();
+    assert!(
+        check_codes(&sibling_ws, &mut sessions, &mut store)
+            .contains(&"continuity.fluent-contradiction".to_owned()),
+        "a sibling branch never saw it either"
+    );
+}

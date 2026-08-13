@@ -281,6 +281,152 @@ impl<V> FluentTimeline<V> {
         }
         FluentState { holdings }
     }
+
+    /// The fluent's state at a query point on a predicate the author declared
+    /// **inertial** (`docs/design-notes/inertia-fluent-persistence.md`,
+    /// `docs/decisions.md` DL-0081): same return shape as [`Self::state_at`], but the
+    /// effective upper boundary of an open, forward-persisting value is
+    /// *derived* here — at projection time — from which competing assertions are
+    /// live under `valuation`, never baked into the stored span.
+    ///
+    /// This is the whole architecture of the feature (plan B.0): a defeated
+    /// defeater must let the earlier value re-extend, which a compile-time
+    /// `until` — expressible only in positive support — could never retract. So
+    /// the boundary is recomputed every projection, and every defeat case falls
+    /// out of the ordinary [`Ann::status`] read with no recompile.
+    ///
+    /// **Capping is active only while the inertia declaration itself is certain.**
+    /// If `decl_ann` is not [`Status::Certain`] under `(valuation, theory)` —
+    /// proposed, or its citing decision ruled false (defeated) — this behaves
+    /// **byte-identically to [`Self::state_at`]**: an inertial predicate whose
+    /// declaration does not hold reverts to plain open-interval projection, so no
+    /// value ever silently vanishes.
+    ///
+    /// With capping active, for each span `vᵢ` with `since = Some(tᵢ)` and **no
+    /// authored `until`**, a live, distinct, **certain** competitor `vⱼ since tⱼ`
+    /// (with `tⱼ` at-or-before the query point) shapes `vᵢ`'s cover:
+    /// - **no cover** (defeated) when `tᵢ` certainly precedes `tⱼ`: the successor
+    ///   has taken over by the query point;
+    /// - **[`TemporalCover::OrderIndeterminate`]** when `tⱼ ≠ tᵢ` and their order
+    ///   is undeclared (settleable by a `before`-fact either way);
+    /// - otherwise `vᵢ` keeps its own [`Span::cover`] — **including the
+    ///   same-point `tⱼ == tᵢ` case**, where both cover certainly and the pair is
+    ///   a genuine simultaneity clash, never an order-repair candidate.
+    ///
+    /// A span **with** an authored `until` overrides derivation (its own
+    /// [`Span::cover`] wins) but still counts as a competitor of the others. A
+    /// non-certain competitor never caps: a merely-proposed transition does not
+    /// retract a certain prior value.
+    pub fn state_at_inertial(
+        &self,
+        chronology: &Chronology,
+        valuation: &Valuation,
+        theory: &Theory,
+        at: TimePoint,
+        decl_ann: &Ann,
+    ) -> FluentState<V>
+    where
+        V: Clone + PartialEq,
+    {
+        // The declaration is a defeasible claim like any other: capping only
+        // applies while it is certain. Anything weaker reverts to the plain
+        // projection, byte-for-byte.
+        if decl_ann.status(valuation, theory) != Status::Certain {
+            return self.state_at(chronology, valuation, theory, at);
+        }
+        let mut holdings = Vec::new();
+        for (index, span) in self.spans.iter().enumerate() {
+            let support = span.ann.status(valuation, theory);
+            if support == Status::Dead {
+                continue;
+            }
+            // Only an open (no authored `until`), anchored (`since`) span has a
+            // derived boundary; everything else keeps its plain cover.
+            let temporal = match (span.since, span.until) {
+                (Some(_), None) => {
+                    self.inertial_cover(chronology, valuation, theory, index, span, at)
+                }
+                _ => span.cover(chronology, at),
+            };
+            let Some(temporal) = temporal else {
+                continue;
+            };
+            holdings.push(Holding {
+                value: span.value.clone(),
+                temporal,
+                support,
+            });
+        }
+        FluentState { holdings }
+    }
+
+    /// The derived cover of one open inertial span `vᵢ` (`since = tᵢ`, no
+    /// authored `until`) at a query point, consulting the live competitors that
+    /// cap it. Returns `None` when a certain successor has defeated it by the
+    /// query point (no cover at all), else the span's own cover degraded to
+    /// [`TemporalCover::OrderIndeterminate`] when a competitor's order is
+    /// undeclared.
+    fn inertial_cover(
+        &self,
+        chronology: &Chronology,
+        valuation: &Valuation,
+        theory: &Theory,
+        index: usize,
+        span: &Span<V>,
+        at: TimePoint,
+    ) -> Option<TemporalCover>
+    where
+        V: PartialEq,
+    {
+        // The caller only reaches this arm for an anchored span; an unanchored
+        // one has no `tᵢ` to cap against and keeps its plain cover.
+        let Some(since) = span.since else {
+            return span.cover(chronology, at);
+        };
+        // If the span certainly does not cover the point on its own terms, no
+        // competitor can revive it.
+        let own = span.cover(chronology, at)?;
+        let mut indeterminate = false;
+        for (other_index, other) in self.spans.iter().enumerate() {
+            if other_index == index || other.value == span.value {
+                continue;
+            }
+            // A non-certain competitor never caps a certain prior value.
+            if other.ann.status(valuation, theory) != Status::Certain {
+                continue;
+            }
+            // A competitor caps `vᵢ` only from its own anchor `tⱼ` onward, and
+            // only once `tⱼ` is at or before the query point.
+            let Some(other_since) = other.since else {
+                continue;
+            };
+            if !at_or_before(chronology, other_since, at) {
+                continue;
+            }
+            match chronology.precedes(since, other_since) {
+                // The successor certainly follows and has taken over: `vᵢ` is
+                // defeated at the query point. Certain, so it wins outright.
+                TemporalVerdict::Before => return None,
+                // Distinct anchors of undeclared order: neither is certainly
+                // current here. The same-point case (`tⱼ == tᵢ`) is excluded —
+                // that is a simultaneity clash, so `vᵢ` keeps its own cover.
+                TemporalVerdict::Unordered if other_since != since => indeterminate = true,
+                _ => {}
+            }
+        }
+        if indeterminate {
+            Some(TemporalCover::OrderIndeterminate)
+        } else {
+            Some(own)
+        }
+    }
+}
+
+/// Whether `earlier` is at or before `later` — the same interned point, or a
+/// proven `Before`. The half-open reading is not this helper's concern; it is
+/// the plain "has this competitor's anchor arrived by the query point" test.
+fn at_or_before(chronology: &Chronology, earlier: TimePoint, later: TimePoint) -> bool {
+    earlier == later || matches!(chronology.precedes(earlier, later), TemporalVerdict::Before)
 }
 
 /// A three-valued yes/no/maybe, the shape every anchor comparison collapses to.
@@ -300,6 +446,198 @@ impl Tri {
             TemporalVerdict::Before => Tri::Yes,
             TemporalVerdict::After => Tri::No,
             TemporalVerdict::Unordered => Tri::Maybe,
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod inertia_tests {
+    //! Unit tests for the valuation-lazy inertia projection
+    //! ([`FluentTimeline::state_at_inertial`], DL-0081). These pin the two
+    //! properties the check-level tests cannot see directly: the **derived
+    //! boundary** (a value capped at its successor, not open forever) and the
+    //! **defeat-without-recompile** discipline (flip a valuation over the SAME
+    //! compiled timeline and the boundary moves — no re-lowering).
+
+    use dli_core::ann::{Ann, Theory};
+    use dli_core::atom::Atom;
+    use dli_core::posbool::PosBool;
+    use dli_core::valuation::Valuation;
+
+    use crate::chronology::{Chronology, TimePoint};
+    use crate::fluent::{FluentTimeline, Span};
+
+    /// An annotation certain exactly when event variable `k` is ruled true.
+    fn on(k: u32) -> Ann {
+        Ann::supported(PosBool::pos(Atom(k)))
+    }
+
+    /// dawn(0) -> noon(1) -> dusk(2), a total order.
+    fn dawn_noon_dusk() -> Chronology {
+        Chronology {
+            edges: vec![(TimePoint(0), TimePoint(1)), (TimePoint(1), TimePoint(2))],
+        }
+    }
+
+    fn ruled(vars: &[u32]) -> Valuation {
+        let mut nu = Valuation::new();
+        for &v in vars {
+            nu.set(Atom(v), true);
+        }
+        nu
+    }
+
+    fn certain(state: &crate::fluent::FluentState<String>) -> Vec<String> {
+        let mut values: Vec<String> = state.certain_values().into_iter().cloned().collect();
+        values.sort();
+        values
+    }
+
+    /// The returning-value chain (A.1 pin): `commons@dawn`, `enclosed@noon`,
+    /// `commons@dusk`. Each point carries exactly one certain value, and the
+    /// FIRST `commons` never re-extends past `noon` — at dusk the certain value
+    /// is `enclosed` until the third span opens a fresh `commons`.
+    #[test]
+    fn returning_value_chain_caps_and_reopens() {
+        let chrono = dawn_noon_dusk();
+        let theory = Theory::new();
+        let nu = ruled(&[0, 1, 2, 10]);
+        let decl = on(10);
+
+        // Without the third span, the first `commons` is capped at noon and
+        // `enclosed` persists forward — at dusk it is `enclosed`, never a
+        // re-extended `commons`.
+        let mut two: FluentTimeline<String> = FluentTimeline::new();
+        two.push(Span::since("commons".to_owned(), TimePoint(0), on(0)));
+        two.push(Span::since("enclosed".to_owned(), TimePoint(1), on(1)));
+        assert_eq!(
+            certain(&two.state_at_inertial(&chrono, &nu, &theory, TimePoint(0), &decl)),
+            vec!["commons".to_owned()]
+        );
+        assert_eq!(
+            certain(&two.state_at_inertial(&chrono, &nu, &theory, TimePoint(1), &decl)),
+            vec!["enclosed".to_owned()],
+            "the first `commons` is capped at noon by `enclosed`"
+        );
+        assert_eq!(
+            certain(&two.state_at_inertial(&chrono, &nu, &theory, TimePoint(2), &decl)),
+            vec!["enclosed".to_owned()],
+            "the first `commons` does NOT re-extend to dusk"
+        );
+
+        // The full chain: the THIRD span reopens `commons` at dusk cleanly.
+        let mut three = two.clone();
+        three.push(Span::since("commons".to_owned(), TimePoint(2), on(2)));
+        for at in [TimePoint(0), TimePoint(1), TimePoint(2)] {
+            let state = three.state_at_inertial(&chrono, &nu, &theory, at, &decl);
+            assert!(!state.has_contradiction(), "chain is silent at {at:?}");
+        }
+        assert_eq!(
+            certain(&three.state_at_inertial(&chrono, &nu, &theory, TimePoint(2), &decl)),
+            vec!["commons".to_owned()],
+            "the third span reopens `commons` at dusk"
+        );
+    }
+
+    /// Two distinct values `since e` (the SAME point) certainly co-hold — a
+    /// clash, not a settleable order gap (B.1 pin). `precedes(e, e)` is
+    /// `Unordered`, but the `tⱼ != tᵢ` guard excludes it, so both keep their own
+    /// certain cover and `has_contradiction` fires.
+    #[test]
+    fn same_point_distinct_values_clash() {
+        let chrono = Chronology { edges: vec![] };
+        let theory = Theory::new();
+        let nu = ruled(&[0, 1, 10]);
+        let decl = on(10);
+        let mut tl: FluentTimeline<String> = FluentTimeline::new();
+        tl.push(Span::since("commons".to_owned(), TimePoint(0), on(0)));
+        tl.push(Span::since("enclosed".to_owned(), TimePoint(0), on(1)));
+        assert!(
+            tl.state_at_inertial(&chrono, &nu, &theory, TimePoint(0), &decl)
+                .has_contradiction(),
+            "same-point distinct values are a simultaneity clash"
+        );
+    }
+
+    /// THE critical property: defeat is a valuation flip over an already-built
+    /// timeline, never a recompile. The same `FluentTimeline` projects
+    /// differently as the valuation moves — the defeater's death re-extends the
+    /// earlier value; the declaration's death reverts to plain projection; the
+    /// originating assertion's death drops only its own span.
+    #[test]
+    fn defeat_is_a_valuation_flip_without_recompile() {
+        let chrono = dawn_noon_dusk();
+        let theory = Theory::new();
+        // commons since dawn (var 0), enclosed since noon (var 1); inertia decl
+        // is var 10. A clean transition when all are ruled.
+        let mut tl: FluentTimeline<String> = FluentTimeline::new();
+        tl.push(Span::since("commons".to_owned(), TimePoint(0), on(0)));
+        tl.push(Span::since("enclosed".to_owned(), TimePoint(1), on(1)));
+
+        // (i) all live: at dusk the successor `enclosed` holds, `commons` capped.
+        let all = ruled(&[0, 1, 10]);
+        assert_eq!(
+            certain(&tl.state_at_inertial(&chrono, &all, &theory, TimePoint(2), &on(10))),
+            vec!["enclosed".to_owned()]
+        );
+
+        // (ii) defeat the DEFEATER (var 1 false): `enclosed` goes dead, so
+        // `commons` re-extends and holds at dusk — no recompile, same timeline.
+        let no_defeater = ruled(&[0, 10]); // var 1 left false-by-absence? set explicitly:
+        let mut no_defeater = no_defeater;
+        no_defeater.set(Atom(1), false);
+        assert_eq!(
+            certain(&tl.state_at_inertial(&chrono, &no_defeater, &theory, TimePoint(2), &on(10))),
+            vec!["commons".to_owned()],
+            "defeating the defeater re-extends the earlier value"
+        );
+
+        // (iii) defeat the DECLARATION (var 10 false): capping off, reverts to
+        // plain `state_at` — the two open spans now both cover dusk and clash
+        // (the value never vanished, its open reading returned).
+        let mut no_decl = ruled(&[0, 1]);
+        no_decl.set(Atom(10), false);
+        let inertial = tl.state_at_inertial(&chrono, &no_decl, &theory, TimePoint(2), &on(10));
+        let plain = tl.state_at(&chrono, &no_decl, &theory, TimePoint(2));
+        assert_eq!(
+            inertial, plain,
+            "a defeated declaration projects byte-identically to plain state_at"
+        );
+        assert!(
+            inertial.has_contradiction(),
+            "the open spans clash exactly as they would with no inertia"
+        );
+
+        // (iv) defeat the ORIGINATING assertion (var 0 false): only `commons`
+        // drops; `enclosed` still stands.
+        let mut no_origin = ruled(&[1, 10]);
+        no_origin.set(Atom(0), false);
+        assert_eq!(
+            certain(&tl.state_at_inertial(&chrono, &no_origin, &theory, TimePoint(2), &on(10))),
+            vec!["enclosed".to_owned()],
+            "defeating the originating assertion drops only its span"
+        );
+    }
+
+    /// An authored `until` overrides derivation for its own span but the span
+    /// still counts as a competitor: `commons until noon` / `enclosed since
+    /// noon` is a clean disjoint transition, silent at every point.
+    #[test]
+    fn authored_until_overrides_but_still_competes() {
+        let chrono = dawn_noon_dusk();
+        let theory = Theory::new();
+        let nu = ruled(&[0, 1, 10]);
+        let decl = on(10);
+        let mut tl: FluentTimeline<String> = FluentTimeline::new();
+        tl.push(Span::until("commons".to_owned(), TimePoint(1), on(0)));
+        tl.push(Span::since("enclosed".to_owned(), TimePoint(1), on(1)));
+        for at in [TimePoint(0), TimePoint(1), TimePoint(2)] {
+            assert!(
+                !tl.state_at_inertial(&chrono, &nu, &theory, at, &decl)
+                    .has_contradiction(),
+                "authored-until transition is disjoint and silent at {at:?}"
+            );
         }
     }
 }

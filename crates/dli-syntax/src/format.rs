@@ -294,6 +294,11 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_provenance(&mut line, f.provenance.as_ref());
             vec![line.trim_end().to_owned()]
         }
+        Decl::Inertial(f) => {
+            let mut line = format!("inertial {}", f.pred.text);
+            append_provenance(&mut line, f.provenance.as_ref());
+            vec![line.trim_end().to_owned()]
+        }
         Decl::Cycle(w) => {
             let mut line = format!("cycle {}", w.name.text);
             if let Some(modulus) = w.modulus {

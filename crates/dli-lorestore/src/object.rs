@@ -89,6 +89,10 @@ pub enum ExpertDeclKind {
     /// `functional <pred>` — a predicate single-valuedness constraint. Carried
     /// whole; it regenerates no atom (issue 49).
     Functional,
+    /// `inertial <pred>` — a predicate fluent-persistence declaration. Carried
+    /// whole; it regenerates no atom, mirroring `Functional` exactly
+    /// (contract 1.8.0).
+    Inertial,
     /// `cycle <name> …` — a cycle declaration.
     Cycle,
     /// `question <name> { options }` — carried whole so option families and

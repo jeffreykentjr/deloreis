@@ -8,8 +8,8 @@
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::decl::{
-    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, RatifyDecl, ScopeHeader,
-    StateDecl, TimeClause,
+    AttrDecl, BeforeDecl, Decl, Document, EntityDecl, EntityKind, InertialDecl, RatifyDecl,
+    SameAsDecl, ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -85,6 +85,21 @@ fn attr(subject: &str, slot: &str, value: &str, prov: Option<Annotation>) -> Dec
         subject: id(subject),
         attr: id(slot),
         value: Term::Sym(id(value)),
+        provenance: prov,
+    })
+}
+
+fn inertial(pred: &str, prov: Option<Annotation>) -> Decl {
+    Decl::Inertial(InertialDecl {
+        pred: id(pred),
+        provenance: prov,
+    })
+}
+
+fn same_as(left: &str, right: &str, prov: Option<Annotation>) -> Decl {
+    Decl::SameAs(SameAsDecl {
+        left: id(left),
+        right: id(right),
         provenance: prov,
     })
 }
@@ -783,5 +798,452 @@ fn timeless_double_assertion_on_a_fluent_slot_is_not_a_contradiction() {
     assert_eq!(
         intra, 0,
         "intra is suppressed on fluent slots: {findings:?}"
+    );
+}
+
+// --- inertia (DL-0081): derived fluent persistence --------------------------
+
+/// Every `WorldFinding` of a given code from the world-internal battery.
+fn findings_of(world: &CompiledWorld, code: &str) -> Vec<WorldFinding> {
+    check::run(world)
+        .into_iter()
+        .filter(|f| f.code == code)
+        .collect()
+}
+
+/// The declaration set for an inertial world: `ratify D-1` and
+/// `inertial <pred> ratified D-1`, so capping is active (the decl reads
+/// certain).
+fn inertial_status_decls() -> Vec<Decl> {
+    vec![
+        ratify_decl("D-1"),
+        inertial("status", Some(ratified("D-1"))),
+    ]
+}
+
+/// Transition (silent): `commons since dawn`, `enclosed since noon`, with
+/// `dawn before noon`. On an inertial slot the earlier value is capped at the
+/// successor's anchor, so nothing clashes and nothing is contested.
+#[test]
+fn inertial_ordered_transition_is_silent() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    assert_eq!(
+        fluent_findings(&world).len(),
+        0,
+        "an ordered inertial transition is silent"
+    );
+    assert_eq!(
+        order_gap_findings(&world).len(),
+        0,
+        "declared order, no contest"
+    );
+}
+
+/// The SAME two open values on a predicate NOT declared inertial clash — the
+/// declaration-only contrast that proves inertia changes behavior and a
+/// non-inertial slot is provably untouched.
+#[test]
+fn non_inertial_open_transition_still_clashes() {
+    let world = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            event("dawn", "D-1"),
+            event("noon", "D-1"),
+            before("dawn", "noon", "D-1"),
+            state(
+                "gwern.status",
+                Some("commons"),
+                Some(TimeClause::Since(id("dawn"))),
+                Some(ratified("D-1")),
+            ),
+            state(
+                "gwern.status",
+                Some("enclosed"),
+                Some(TimeClause::Since(id("noon"))),
+                Some(ratified("D-1")),
+            ),
+        ],
+    ))
+    .expect("compiles");
+    assert_eq!(
+        fluent_findings(&world).len(),
+        1,
+        "without an `inertial` declaration the two open values clash forward, as ever"
+    );
+}
+
+/// Contested (warn): `commons since e1`, `enclosed since e2`, anchors
+/// unordered. Neither is certainly current downstream, so no clash — but a
+/// `continuity.fluent-order-undeclared` warn names the `e1`/`e2` pair, and the
+/// data carries `inertial: true` with unbounded (null) derived `until`s.
+#[test]
+fn inertial_unordered_transition_is_contested() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("e1", "D-1"),
+        event("e2", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("e1"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("e2"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    assert_eq!(
+        fluent_findings(&world).len(),
+        0,
+        "unordered anchors never clash"
+    );
+    let warns = order_gap_findings(&world);
+    assert_eq!(warns.len(), 1, "{warns:?}");
+    let data = warns[0].data.as_ref().expect("data");
+    assert_eq!(data["inertial"], serde_json::json!(true));
+    let candidates = data["repair"]["candidates"].as_array().expect("candidates");
+    assert!(
+        candidates.iter().any(|pair| {
+            let names: Vec<&str> = pair
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| p.as_str().unwrap())
+                .collect();
+            names.contains(&"e1") && names.contains(&"e2")
+        }),
+        "the repair names the since/since pair: {candidates:?}"
+    );
+    // Two open, unordered values persist unbounded — no certain Before-defeater.
+    for span in data["spans"].as_array().expect("spans") {
+        assert!(
+            span["until"].is_null(),
+            "unbounded until for an uncapped value: {span:?}"
+        );
+    }
+}
+
+/// Clash (error): two distinct values `since e` (the SAME point). They
+/// certainly co-hold and inertia cannot linearize them, so
+/// `continuity.fluent-contradiction` fires — and the order-undeclared warn
+/// never manufactures a `before(e, e)` candidate (B.1 pin).
+#[test]
+fn inertial_same_point_distinct_values_clash() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("e", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("e"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("e"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let clash = fluent_findings(&world);
+    assert_eq!(
+        clash.len(),
+        1,
+        "same-point distinct values are a clash: {clash:?}"
+    );
+    assert_eq!(
+        order_gap_findings(&world).len(),
+        0,
+        "a clash is never a settleable order gap"
+    );
+    // The clash finding carries the inertial marker in its data.
+    let finding = findings_of(&world, "continuity.fluent-contradiction");
+    assert_eq!(
+        finding[0].data.as_ref().expect("data")["inertial"],
+        serde_json::json!(true)
+    );
+}
+
+/// The returning-value chain (A.1 pin): `commons@dawn`, `enclosed@noon`,
+/// `commons@dusk` (dawn<noon<dusk) is SILENT — each point has exactly one
+/// certain value and the first `commons` never re-extends. The precise
+/// boundaries are pinned at the projection level in `dli-time`; here we hold
+/// the check-level silence.
+#[test]
+fn inertial_returning_value_chain_is_silent() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        event("dusk", "D-1"),
+        before("dawn", "noon", "D-1"),
+        before("noon", "dusk", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dusk"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    assert_eq!(fluent_findings(&world).len(), 0, "a clean return is silent");
+    assert_eq!(
+        order_gap_findings(&world).len(),
+        0,
+        "every anchor order is declared"
+    );
+}
+
+/// A same-point clash with a later certain defeater reports the DERIVED `until`
+/// (the defeater's `since`), not `null`: `commons@dawn` / `enclosed@dawn` clash,
+/// and both are capped at `mist@noon` (dawn before noon).
+#[test]
+fn inertial_finding_data_reports_derived_until() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("mist"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let finding = findings_of(&world, "continuity.fluent-contradiction");
+    assert_eq!(
+        finding.len(),
+        1,
+        "the same-point pair still clashes: {finding:?}"
+    );
+    let data = finding[0].data.as_ref().expect("data");
+    assert_eq!(data["inertial"], serde_json::json!(true));
+    for span in data["spans"].as_array().expect("spans") {
+        // Only the two clashing values (commons, enclosed) are reported; both
+        // are capped at noon by the later certain `mist`.
+        assert_eq!(
+            span["until"],
+            serde_json::json!("noon"),
+            "derived cap at the defeater: {span:?}"
+        );
+    }
+}
+
+/// An authored `until` overrides derivation: `commons until enclosure` /
+/// `enclosed since enclosure` is a clean disjoint transition even on an
+/// inertial slot — byte-unaffected from the non-inertial reading.
+#[test]
+fn inertial_authored_until_overrides() {
+    let mut decls = inertial_status_decls();
+    decls.extend([
+        event("enclosure", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Until(id("enclosure"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("enclosure"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    assert_eq!(
+        fluent_findings(&world).len(),
+        0,
+        "authored disjoint spans never clash"
+    );
+    assert_eq!(order_gap_findings(&world).len(), 0);
+}
+
+/// Koan 4: an inertial value with no `since` anchor cannot produce a
+/// persistence interval, so `continuity.inertia-unanchored` names the slot
+/// (warn). A predicate never declared inertial is untouched.
+#[test]
+fn inertial_unanchored_value_warns() {
+    let mut decls = inertial_status_decls();
+    decls.push(state(
+        "gwern.status",
+        Some("commons"),
+        None,
+        Some(ratified("D-1")),
+    ));
+    let world = compile(&pack("weir", decls)).expect("compiles");
+    let warns = findings_of(&world, "continuity.inertia-unanchored");
+    assert_eq!(
+        warns.len(),
+        1,
+        "an unanchored inertial value warns: {warns:?}"
+    );
+    assert!(warns[0].message.contains("commons"), "{}", warns[0].message);
+
+    // The same open value on a NON-inertial predicate is ordinary open lore.
+    let plain = compile(&pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+        ],
+    ))
+    .expect("compiles");
+    assert_eq!(
+        findings_of(&plain, "continuity.inertia-unanchored").len(),
+        0,
+        "declaration-only: a non-inertial predicate is untouched"
+    );
+}
+
+/// Defeat without recompile at the check level: a silent inertial transition,
+/// then flip the declaration's citing decision false over the SAME compiled
+/// world — capping reverts to plain projection and the open spans clash again
+/// (the value never vanished). Mirrors the fork-suppose "defeat is a valuation
+/// flip" pattern.
+#[test]
+fn defeating_the_inertia_declaration_reverts_to_plain_projection() {
+    let mut decls = vec![
+        ratify_decl("D-inertia"),
+        inertial("status", Some(ratified("D-inertia"))),
+    ];
+    decls.extend([
+        ratify_decl("D-1"),
+        event("dawn", "D-1"),
+        event("noon", "D-1"),
+        before("dawn", "noon", "D-1"),
+        state(
+            "gwern.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("dawn"))),
+            Some(ratified("D-1")),
+        ),
+        state(
+            "gwern.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("noon"))),
+            Some(ratified("D-1")),
+        ),
+    ]);
+    let mut world = compile(&pack("weir", decls)).expect("compiles");
+    assert_eq!(
+        fluent_findings(&world).len(),
+        0,
+        "capping active: transition is silent"
+    );
+
+    // Defeat the declaration — a valuation flip, no recompile.
+    let var = world
+        .model
+        .var_atom("D-inertia")
+        .expect("the decl's decision is interned");
+    world.model.world.valuation.set(var, false);
+    assert_eq!(
+        fluent_findings(&world).len(),
+        1,
+        "a defeated declaration reverts to plain open-interval projection: the spans clash again"
+    );
+}
+
+/// Identity interaction: two inertial values on different subjects, merged by a
+/// certain `same-as`, that certainly co-hold (`since e` each) clash — and the
+/// finding's citations name the identity assertion. Defeating the merge
+/// un-persists (un-merges), so the clash disappears.
+#[test]
+fn inertial_identity_merge_clashes_and_defeat_un_persists() {
+    let decls = vec![
+        ratify_decl("D-inertia"),
+        ratify_decl("D-a"),
+        ratify_decl("D-b"),
+        ratify_decl("D-merge"),
+        inertial("status", Some(ratified("D-inertia"))),
+        event("e", "D-a"),
+        state(
+            "a.status",
+            Some("commons"),
+            Some(TimeClause::Since(id("e"))),
+            Some(ratified("D-a")),
+        ),
+        state(
+            "b.status",
+            Some("enclosed"),
+            Some(TimeClause::Since(id("e"))),
+            Some(ratified("D-b")),
+        ),
+        same_as("a", "b", Some(ratified("D-merge"))),
+    ];
+    let mut world = compile(&pack("weir", decls)).expect("compiles");
+    let clash = findings_of(&world, "continuity.fluent-contradiction");
+    assert_eq!(
+        clash.len(),
+        1,
+        "merged inertial values co-holding at e clash: {clash:?}"
+    );
+    assert!(
+        clash[0].citations.contains(&"D-merge".to_owned()),
+        "the clash names the identity assertion: {:?}",
+        clash[0].citations
+    );
+
+    // Defeat the merge: a and b un-merge, so there is no shared slot to clash.
+    let var = world
+        .model
+        .var_atom("D-merge")
+        .expect("merge decision interned");
+    world.model.world.valuation.set(var, false);
+    assert_eq!(
+        findings_of(&world, "continuity.fluent-contradiction").len(),
+        0,
+        "defeating the merge un-persists the shared slot"
     );
 }

@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 31 tools you author with)
+## 2. The tool surface (the 32 tools you author with)
 
-The contract's §3.2 table lists 33 `author.*` tools. Two of them,
+The contract's §3.2 table lists 34 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -115,7 +115,7 @@ conflicts rather than blocking on them, so a merge never leaves you stuck. Both
 operate on the durable lorestore's refs, not the staged workspace layer, and
 neither stages a declaration itself.
 
-**The twenty-four mutating tools** (each returns `{findings, workspace_digest}`,
+**The twenty-five mutating tools** (each returns `{findings, workspace_digest}`,
 plus `rendered` when you ask for it) and **two read-only state ops** (status,
 diff). `author.materialize` is a mutation — it is the accept decision, and
 `author.discard` is the reject.
@@ -127,9 +127,13 @@ continuity lane, available from **contract 1.3.0** (DL-0058). The **standing
 pair** (`set_standing`, `defeat`) and **`declare_functional`** are a
 promotion/defeat pair from **contract 1.5.0** and a single-valuedness
 declaration from **contract 1.6.0**; **`assert_same_as`** and **`add_rule`**
-are the newest two — a coreference declaration and a datalog derivation rule,
-both from **contract 1.7.0** (§3.10–§3.13 of spec `11-agent-authoring.md`
-give their full semantics). Ask `dli.version` if you are unsure what your
+are a coreference declaration and a datalog derivation rule, both from
+**contract 1.7.0**; **`declare_inertial`** is the newest, a fluent-persistence
+declaration from **contract 1.8.0** — it stages like `declare_functional` and
+carries provenance the same way; the continuity check then reads it, bounding
+an inertial value's forward persistence at the next distinct certain value
+(§3.10–§3.14 of spec `11-agent-authoring.md` give their full
+semantics). Ask `dli.version` if you are unsure what your
 negotiated wire carries — and negotiate the newest version your harness
 supports: capabilities are floor-gated (a version advertises everything at or
 below it), so an old negotiation is a permanent surface loss, not a
@@ -163,6 +167,7 @@ compatibility mode.
 | `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
 | `author.add_rule` | **1.7.0.** Declare one datalog rule `{name, head, body}` — a typed `head :- body` clause; every fact it derives carries this rule's own provenance, so defeating its citing decision kills every derivation through it. One clause per call — an N-clause rule is N calls under distinct names, for finer-grained defeat. Refuses to stage on its own bad shape (`rule.unbound-variable`, `rule.duplicate`) or on a stratification failure (`rule.unstratifiable`) — a bad rule never reaches the workspace, because staging one would brick every later read. Provenance required. |
+| `author.declare_inertial` | **1.8.0.** Declare a predicate `{pred}` inertial (fluent-persistent): a value asserted `since` a point is meant to hold forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `declare_functional`; the continuity check reads it to bound an inertial value's forward persistence at the next distinct certain value (silent transition, `continuity.fluent-order-undeclared` warn, or `continuity.fluent-contradiction`). Provenance required. |
 
 **The five self-check read tools** let you interrogate the staged world *before*
 you materialize (§4). All are read-only and mutate nothing; each names a workspace

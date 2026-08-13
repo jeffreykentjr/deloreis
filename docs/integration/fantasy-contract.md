@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.7.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible coreference assertions, datalog rule authoring, temporal close-out findings, and complete paired framing replay are implemented across the accepted legacy window."
+verdict: "The generic worker contract at 1.8.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible coreference assertions, datalog rule authoring, temporal close-out findings, an inertial-persistence declaration (a value asserted `since` holds forward until a later distinct certain value defeats it, bounded by the continuity check), and complete paired framing replay are implemented across the accepted legacy window."
 ---
 
 # The dli-worker contract
@@ -18,14 +18,14 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.7.0` (`decisions.md` DL-0051,
+> **Implementation status:** the contract is at `1.8.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
-> DL-0080). It carries typed responses for all 62 operations,
+> DL-0080, DL-0081). It carries typed responses for all 63 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.7.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.8.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -167,7 +167,7 @@ rules and a consumer reading only this paragraph must not over-apply them.
   gap in wire completeness for a consumer with no other way to touch the
   filesystem, and it is recorded here rather than left to be discovered.
 
-All 62 operation names have request/response schemas, dispatch arms, and golden
+All 63 operation names have request/response schemas, dispatch arms, and golden
 + negative + paired-framing fixtures. The complete fixture oracle passes
 against the real front end and a digest-pinned replay project. This closes
 contract shape and replay coverage (`CON-1`) and the standalone worker runtime
@@ -308,6 +308,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.declare_functional` | **≥ `1.6.0`.** Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject raise `continuity.fd-violation` — including for a first-seen predicate canon has no precedent for. | yes |
 | `author.assert_same_as` | **≥ `1.7.0`.** Assert two entity ids name the same bearer; the evaluable world closes the merge symmetric-transitively, gated on the citing claim's own standing (defeasible: defeating the citation un-merges every derived consequence). | yes |
 | `author.add_rule` | **≥ `1.7.0`.** Declare one datalog derivation rule (a typed `head :- body` clause); every fact it derives carries this rule's own provenance, defeasible on the rule's own citation like any other claim. Refuses to stage on a bad rule shape or a stratification failure, so a bad rule never reaches the workspace. | yes |
+| `author.declare_inertial` | **≥ `1.8.0`.** Declare a predicate's fluent values persistent (inertial): a value asserted `since` a point holds forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `author.declare_functional`; the `continuity` check reads it to bound an inertial value's forward persistence at the next distinct certain value (a silent transition, a `continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction` error). | yes |
 
 **`author.materialize` is a mutation, and it is the accept decision**
 (DL-0046). It commits the workspace's staged delta to the lorestore and
@@ -331,7 +332,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.7.0` enforces it for all 62 operations.
+today: contract `1.8.0` enforces it for all 63 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -396,7 +397,7 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.7.0`. A frame declaring
+  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.8.0`. A frame declaring
   anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
@@ -521,6 +522,21 @@ decoupled, and the compatibility window carries the consumer across.
   contradiction check itself still never fires on undeclared order; this
   only names the gap. This closes the campaign: `1.7.0`'s surface is now
   complete at 62 operations.
+- **What `1.8.0` changes.** One additive operation, `author.declare_inertial`
+  (`decisions.md` DL-0081), taking the inventory to 63. It declares a
+  predicate's fluent values persistent (inertial) — a value asserted `since`
+  a point is meant to hold forward until a later, distinct, live value on
+  the same slot defeats it — mirroring `author.declare_functional`'s
+  carriage-only shape exactly. The op is advertised only from `1.8.0` up
+  (`has_inertia`), so a `1.7.0`-or-earlier caller's capability list stays
+  byte-identical. The declaration stages, materializes, and carries through
+  forks/merges/the lorestore, and the `continuity` check reads it: an open
+  inertial value's forward persistence is bounded at the next distinct certain
+  value, composing into a silent transition, a
+  `continuity.fluent-order-undeclared` warn, or a
+  `continuity.fluent-contradiction` error. The finding enrichment rides the
+  existing `has_finding_data` floor, so this adds no new wire surface beyond
+  the one op.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

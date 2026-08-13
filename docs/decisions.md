@@ -4188,3 +4188,179 @@ authoring) between §3.12 (coreference) and the renumbered §3.14–§3.16;
 `docs/integration/fantasy-contract.md`'s op counts, §3.2 table, and §6
 changelog cover both ops, the temporal findings, and the rider. The full
 gate (`cargo xtask gate`) is green.
+
+---
+
+## DL-0081 — Inertia: a later distinct value defeats a fluent's persistence, and `author.declare_inertial` opens contract 1.8.0
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** A fluent value asserted `since t` with **no authored `until`** on a
+predicate declared **inertial** persists forward until a later, distinct,
+**certain** value on the same slot defeats it — the standard event-calculus resolution to
+the frame problem, moved inside the engine instead of being decided by
+whoever picks a value's `since`/`until` bounds by hand. FlawedFictions Round 3
+measured that hand-picked bounding *was* the transition-vs-clash judgment in
+disguise (inter-LLM consistency 0.706 on that call), so the engine looked like
+it adjudicated overlap while the real judgment sat upstream, unexamined.
+
+The declaration is **`inertial <pred>`**, per-predicate — mirroring
+`functional`'s granularity (DL-0074) exactly, not per-slot — and, like every
+declaration, a **defeasible** claim: it carries provenance and standing, can be
+cited, and can be defeated. Declaring `pred`
+inertial declares it **single-valued-over-time** for every subject on it: "a
+later distinct value transitions the earlier one" is the declaration's
+*definition*, not an inference drawn from the shape of the data, so it stays
+koan-3 safe — the engine never rules on data alone; the author's
+`declare_inertial` is the one ruling, applied mechanically to every value on
+that predicate thereafter. Re-asserting the identical value never punches a
+boundary: a defeater must be distinct. A predicate never declared inertial
+keeps today's behavior exactly — `since t` with no `until` means open-ended
+forever, as it always has.
+
+**The three outcomes this composes into** (no fourth outcome; the existing
+three-valued temporal projection already has the shape): **transition**
+(silent) when the earlier value's defeat point is certain — provably disjoint
+spans raise nothing; **contested** (`continuity.fluent-order-undeclared`,
+warn, non-blocking) when two distinct live values' anchors have an undeclared
+order, with a repair naming the `before`-fact that would settle it; **clash**
+(`continuity.fluent-contradiction`, error) when two distinct values certainly
+co-hold — the same assertion point, or authored overlapping intervals. Two
+distinct points that are `Unordered` are always settleable (the chronology
+carries no constraint beyond reachability), so "unordered" only ever means
+"contested" for a genuinely distinct pair; the single exception is the *same*
+point, where `precedes` also answers `Unordered` but the true verdict is
+simultaneity — a clash, never a manufactured `before(e,e)` repair candidate.
+A **returning value** is a named case, not an emergent one: because a
+defeater must be distinct, `commons since dawn`, `enclosed since noon`,
+`commons since dusk` (dawn < noon < dusk) yields `commons [dawn,noon)`,
+`enclosed [noon,dusk)`, `commons [dusk,∞)` — the first `commons` span never
+re-extends past `enclosed`'s defeat; the third opens a clean new span. An
+inertial value with no `since` anchor cannot produce a persistence interval,
+so it raises `continuity.inertia-unanchored` (warn) rather than silently
+doing nothing (koan 4).
+
+**Architecture: inertia is a valuation-lazy projection, not compile-time
+span-clipping.** The derived boundary is computed at projection time by
+`FluentTimeline::state_at_inertial`, which reads each span's standing through
+`ann.status(valuation, theory)` lazily, and the support algebra is positive
+(PosBool DNF — no negation). A derived `until` baked in at compile time could never be
+*retracted* by defeating a defeater — positive support cannot express
+"re-extend when the defeater dies" — and would break the fork-suppose and
+differential-parity tests that flip valuation over an already-compiled world.
+So the open spans are stored exactly as authored (byte-unaffected), a
+declared `inertial_predicates` set is carried alongside them, and the
+effective boundary is derived at projection time from which competing
+assertions are live. **Capping is active only while both the inertia
+declaration's `Ann` and the competing value's `Ann` are `Certain`** under the
+valuation: a merely proposed or defeated declaration reverts projection
+byte-for-byte to plain `state_at`, and a non-certain competitor never caps a
+certain prior value. Every defeat case then falls out of the ordinary defeat
+mechanism with no recompile: defeating the inertia declaration reverts
+projection to plain `state_at` (the value never vanishes, its open clash
+returns exactly as before); defeating a defeater lets the earlier value
+re-extend; defeating the originating assertion drops its span, leaving others
+standing.
+
+**Wire surface.** `author.declare_inertial {workspace, pred, provenance}`
+opens contract **`1.8.0`**, `Op::ALL`'s 63rd entry, appended at the end and
+gated on its own floor predicate, `has_inertia = at_or_above(dli, (1,8,0))`
+— the same append-only, floor-gated discipline DL-0069/DL-0070/DL-0074/
+DL-0078/DL-0080 already set, so every `1.7.0`-or-earlier negotiation's
+capability list, and its released fixtures, stays byte-identical. The
+declaration is per-predicate, defeasible, and carriage-only, mirroring
+`Decl::Functional` exactly: it mints
+no ground atom, and its provenance rides the serialized carriage body rather
+than the interner, so the three lowerings (evaluator, compiled loader,
+lorestore) stay byte-identical to a world that declares none. It is guarded
+for control characters and killed tokens in its free-text fields, and for
+citation integrity in its provenance, exactly like every other declaration
+— a missing guard-census arm would compile clean (the four sites are
+`_`/`other`-wildcarded), so each of the four now carries a dedicated
+regression test.
+
+**The v1 scope boundaries, each with an un-lift trigger** (the
+temporal-identity / domain-rule precedent: a boundary recorded with no
+trigger becomes permanent by default, DL-0011):
+
+- **Backward persistence** — off. Trigger: a consumer requirement for
+  retro-persistence with stated semantics.
+- **Per-slot (per-subject) declaration** — off; per-predicate only. Trigger: a
+  consumer needing one subject inertial and another not, on the same
+  predicate.
+- **Inertia over *derived* (rule-produced) fluent values** — off; only
+  *asserted* `state` values persist. Trigger: a consumer authoring rules that
+  produce fluent values needing persistence.
+- **Explicit persistence-defeater op** — not added; the later-distinct-value
+  rule covers v1. Trigger: a consumer needing to end persistence without a
+  successor value.
+- **A silent transition's derived boundary is not exposed through a read** —
+  only the clash / contested / silent trichotomy is observable, via
+  `author.check` / `dli.check`; there is deliberately **no inertia-aware read**
+  in v1 (a `dli.query` / `author.query` still returns the raw extensional
+  value(s), preserving the invariant that derived intervals never leak into
+  eval query answers). For the clash and contested cases the boundary *is*
+  carried — `Finding.data.spans[].until` holds each open value's derived
+  boundary (its certain defeater's `since`, or `null` when unbounded) — but a
+  purely silent transition surfaces no finding, so its derived boundary is
+  unreadable. Trigger: a consumer (e.g. SubtleMemory) needing an inertia-aware
+  as-of value read (rt-features SEV-B).
+- **A non-`Certain` inertia declaration does not cap and emits no explanatory
+  finding** — a proposed (or defeated) declaration reverts to plain `state_at`
+  silently. This is consistent with the engine's standing model: a non-certain
+  claim takes no certain effect, so a proposed inertia declaration changes no
+  verdict and says nothing about why. Trigger: a proposed-declaration
+  explanatory finding is a candidate refinement, if the silence proves
+  confusing to an author staging an inertia declaration before ratifying it
+  (rt-features SEV-B).
+
+**The `Finding.data` floor.** Inertia's finding enrichment (each value's
+derived `since`/`until`, an `"inertial": true` tag) rides the existing
+`has_finding_data` floor DL-0080 opened at `1.7.0` — not a new one. A pre-`1.8.0` caller can never create an inertial slot (the
+declaration itself is gated at `1.8.0`), so there is nothing for a lower
+negotiation to see, and no new threading is needed: both `world_finding`
+seams keep keying on `has_finding_data` alone.
+
+**Rationale.** Without a declaration, persistence could only be *inferred*
+from how a caller happened to bound an interval — exactly the judgment
+FlawedFictions Round 3 found was silently doing the work the engine claimed
+to adjudicate. Declaring persistence, once, per predicate, is the same move
+DL-0074 made for single-valuedness: a ruling about the world (koan 3) that
+canon precedent alone cannot make on a *first* value, so the author states it
+and the checker enforces it from then on. Projection-time derivation over
+compile-time clipping is the same "defeat is a valuation flip, never a
+recompile" discipline every other defeasible mechanism in this engine
+already keeps (DL-0075's fork/merge FD primitive; DL-0078's identity
+closure); breaking it for inertia alone would have made this feature the one
+place in the engine where defeat quietly stopped working.
+
+**Verification.** `cargo xtask gate` is green. This entry records the whole
+feature as delivered: both the declaration plumbing and the projection that
+reads it. The wire op, its `AuthorDeclareInertialParams` schema pair, and its
+golden/negative/framing fixtures are registered in the closed fixture registry
+at `contract_version: 1.8.0`; the op inventory (now 63), the `has_inertia`
+capability gate, and the version echo are gate-checked, with every
+pre-`1.8.0` capability list asserted unmoved
+(`ls8_contract_1_0.rs`,`ls8_zero_x_parity.rs`). Four guard-census regression
+tests (`crates/dli-serve/tests/declare_inertial.rs`) pin the arms a missing
+wildcard match would silently skip: a control character in `pred` is
+refused, a cited unknown decision in the declaration's provenance raises
+`citation.unknown-decision`, the staged declaration reports kind
+`"inertial"`, and a tainted decl is scrubbed by `sanitize_decl`. The parser,
+formatter, and the three lowerings are covered by the round-trip and
+byte-identity oracles the same way DL-0074's `functional` was. The projection
+itself — `FluentTimeline::state_at_inertial` and its derived-boundary
+`inertial_cover`, the `continuity.rs` wiring in
+`fluent_contradictions`/`fluent_clash`/`fluent_order_gap`, the `Finding.data`
+enrichment (`inertial_derived_until`), the reused
+`continuity.fluent-order-undeclared` contested case, and the one genuinely new
+finding code `continuity.inertia-unanchored` — is exercised by the
+valuation-flip unit tests in `crates/dli-time/src/fluent.rs` (the derived
+boundary, defeat-without-recompile, the same-point clash, the returning-value
+chain, and the authored-`until` override) and by the three-outcome and
+defeat-propagation tests in `crates/dli-world/tests/adversarial_fluent.rs`,
+with branch-local isolation pinned in
+`crates/dli-serve/tests/ls10_branch_writes.rs`.

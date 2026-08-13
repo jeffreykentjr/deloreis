@@ -212,6 +212,11 @@
           "const": "functional"
         },
         {
+          "description": "`inertial <pred>` — a predicate fluent-persistence declaration. Carried\nwhole; it regenerates no atom, mirroring `Functional` exactly\n(contract 1.8.0).",
+          "type": "string",
+          "const": "inertial"
+        },
+        {
           "description": "`cycle <name> …` — a cycle declaration.",
           "type": "string",
           "const": "cycle"

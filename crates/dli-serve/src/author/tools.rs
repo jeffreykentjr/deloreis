@@ -21,9 +21,9 @@ use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
-    EntityKind as AstEntityKind, FactDecl, FunctionalDecl, HypothesisDecl, NameDecl, NamePartDecl,
-    OptionClause, QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl,
-    TimeClause,
+    EntityKind as AstEntityKind, FactDecl, FunctionalDecl, HypothesisDecl, InertialDecl, NameDecl,
+    NamePartDecl, OptionClause, QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader,
+    StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -46,12 +46,12 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
-    AuthorBranchParams, AuthorBranchResult, AuthorDeclareFunctionalParams, AuthorDefeatParams,
-    AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams, AuthorMergeParams,
-    AuthorMergeResult, AuthorMutationResult, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorOpenResult, AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult,
-    AuthorSupposeParams, BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind,
-    MergeStandingChange, StagedDecl, StateTimeKind,
+    AuthorBranchParams, AuthorBranchResult, AuthorDeclareFunctionalParams,
+    AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
+    AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
+    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -179,6 +179,7 @@ fn decl_kind(decl: &Decl) -> &'static str {
         Decl::Rule(_) => "rule",
         Decl::State(_) => "state",
         Decl::Functional(_) => "functional",
+        Decl::Inertial(_) => "inertial",
         Decl::Cycle(_) => "cycle",
         Decl::Fork(_) => "fork",
         Decl::Practice(_) => "practice",
@@ -1103,6 +1104,31 @@ pub(super) fn declare_functional(
     stage(store, &params.workspace, decl)
 }
 
+/// Declare a predicate's fluent values persistent (inertial): mirrors
+/// [`declare_functional`] exactly. Stages the carriage-only declaration and
+/// carries it through every lowering; the continuity check then reads it to
+/// bound an inertial value's forward persistence at the next distinct certain
+/// value (DL-0081).
+pub(super) fn declare_inertial(
+    store: &mut Store,
+    params: &AuthorDeclareInertialParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::Inertial(InertialDecl {
+        pred: ident(&params.pred),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
 /// Request an attestation for an open question — the ledger entry a later
 /// attestation sweep answers.
 pub(super) fn add_attest(
@@ -1933,6 +1959,10 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             annotation_fields(&mut fields, s.provenance.as_ref());
         }
         Decl::Functional(f) => {
+            fields.push(("pred", f.pred.text.clone()));
+            annotation_fields(&mut fields, f.provenance.as_ref());
+        }
+        Decl::Inertial(f) => {
             fields.push(("pred", f.pred.text.clone()));
             annotation_fields(&mut fields, f.provenance.as_ref());
         }
@@ -3077,6 +3107,7 @@ fn decl_annotation(decl: &Decl) -> Option<&Annotation> {
         Decl::Banned(b) => b.provenance.as_ref(),
         Decl::State(s) => s.provenance.as_ref(),
         Decl::Functional(f) => f.provenance.as_ref(),
+        Decl::Inertial(f) => f.provenance.as_ref(),
         Decl::Attest(a) => a.provenance.as_ref(),
         Decl::SameAs(s) => s.provenance.as_ref(),
         Decl::Rule(r) => r.provenance.as_ref(),

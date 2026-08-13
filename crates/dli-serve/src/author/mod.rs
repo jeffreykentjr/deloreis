@@ -44,11 +44,11 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
-    AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams, AuthorDefeatParams,
-    AuthorDiffParams, AuthorDiscardParams, AuthorFindingsParams, AuthorListWorkspacesParams,
-    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorQueryParams, AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams,
-    AuthorWhyParams,
+    AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
+    AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
+    AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -306,6 +306,14 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             Ok((
                 params.workspace.clone(),
                 tools::add_rule(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorDeclareInertial => mutate(request, store, |store, request| {
+            let params: AuthorDeclareInertialParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::declare_inertial(store, &params, records_citations(request)),
             ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world

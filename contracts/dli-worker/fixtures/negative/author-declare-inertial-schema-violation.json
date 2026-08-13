@@ -1,0 +1,20 @@
+{
+  "fixture": "negative/author-declare-inertial-schema-violation",
+  "version": 1,
+  "note": "author.declare_inertial params omit the required pred.",
+  "send": {
+    "dli": "1.8.0",
+    "id": "1",
+    "op": "author.declare_inertial",
+    "params": {
+      "workspace": "ws-1",
+      "provenance": {
+        "kind": "proposed",
+        "origin": "session-inertia"
+      }
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

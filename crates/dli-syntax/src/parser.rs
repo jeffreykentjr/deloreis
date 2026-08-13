@@ -18,9 +18,9 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document, DraftDecl,
     EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, FunctionalDecl, HypothesisDecl,
-    KindDecl, NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl,
-    ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, SameAsDecl, ScopeHeader, StateDecl,
-    TermDecl, TimeClause, UseDecl, VariantDecl, WordDecl,
+    InertialDecl, KindDecl, NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl,
+    PrincipleDecl, ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, SameAsDecl,
+    ScopeHeader, StateDecl, TermDecl, TimeClause, UseDecl, VariantDecl, WordDecl,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -1093,6 +1093,7 @@ pub const LINE_OPEN_KEYWORDS: &[&str] = &[
     "fork",
     "functional",
     "hypothesis",
+    "inertial",
     "kind",
     "name",
     "name-part",
@@ -1467,6 +1468,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         "functional" => {
             if let Some(decl) = parse_functional(&mut cur, diags, span) {
                 items.push(Item::Decl(Decl::Functional(decl)));
+            }
+        }
+        "inertial" => {
+            if let Some(decl) = parse_inertial(&mut cur, diags, span) {
+                items.push(Item::Decl(Decl::Inertial(decl)));
             }
         }
         "cycle" => {
@@ -2753,6 +2759,19 @@ fn parse_functional(
     };
     let provenance = parse_provenance(cur, diags);
     Some(FunctionalDecl { pred, provenance })
+}
+
+fn parse_inertial(
+    cur: &mut Cursor,
+    diags: &mut Vec<Diagnostic>,
+    span: Span,
+) -> Option<InertialDecl> {
+    let Some(pred) = cur.eat_ident() else {
+        missing_name(diags, "inertial", span);
+        return None;
+    };
+    let provenance = parse_provenance(cur, diags);
+    Some(InertialDecl { pred, provenance })
 }
 
 fn parse_cycle(cur: &mut Cursor, diags: &mut Vec<Diagnostic>, span: Span) -> Option<CycleDecl> {

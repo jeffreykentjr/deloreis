@@ -68,6 +68,7 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorDeclareFunctional, "author.declare_functional"),
     (Op::AuthorAssertSameAs, "author.assert_same_as"),
     (Op::AuthorAddRule, "author.add_rule"),
+    (Op::AuthorDeclareInertial, "author.declare_inertial"),
 ];
 
 #[test]

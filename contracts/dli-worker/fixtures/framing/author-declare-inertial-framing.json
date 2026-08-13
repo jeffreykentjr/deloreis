@@ -1,0 +1,70 @@
+{
+  "fixture": "framing/author-declare-inertial-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.8 author.declare_inertial. An instruction-shaped predicate name stays data: it is staged and materialized as an ordinary identifier, confined to the rendered/facts projection, and the benign and tainted runs produce the same ok/findings shape.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.declare_inertial",
+      "precondition": [
+        {
+          "dli": "1.8.0",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.8.0",
+        "id": "1",
+        "op": "author.declare_inertial",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "benign-control",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "framing"
+          }
+        }
+      },
+      "attack": {
+        "dli": "1.8.0",
+        "id": "1",
+        "op": "author.declare_inertial",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "__DLI_FRAME_ATTACK__",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "framing"
+          }
+        }
+      },
+      "changed_paths": [
+        "/params/pred"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/findings"
+      ],
+      "allow_taint_paths": [
+        "/result/rendered",
+        "/result/facts"
+      ],
+      "probe": {
+        "dli": "1.8.0",
+        "id": "probe",
+        "op": "author.materialize",
+        "params": {
+          "workspace": "ws-1"
+        }
+      },
+      "probe_compare_paths": [
+        "/ok",
+        "/result/findings"
+      ]
+    }
+  ]
+}
