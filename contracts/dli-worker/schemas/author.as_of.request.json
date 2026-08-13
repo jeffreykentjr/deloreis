@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAsOfParams",
+  "description": "`author.as_of` params: project the inertially-current fluent value(s) of\none `(pred, subject)` slot at a query point over the staged world (base +\nstaged declarations). This is the ONE inertia-aware read\n(`docs/design-notes/inertia-fluent-persistence.md` A.3, lifted by\nDL-0082): `author.query` still returns the raw extensional value(s)\nunmodified, so a silent inertial transition — otherwise unreadable\noutside a `continuity.fluent-*` finding — becomes directly observable.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "The query point's name — an era or event the staged world's chronology\ndeclares. An unknown name is a `schema-violation`, not a silent empty\nanswer.",
+      "type": "string"
+    },
+    "pred": {
+      "description": "The predicate.",
+      "type": "string"
+    },
+    "subject": {
+      "description": "The subject; may be any alias a certain `same-as` merges into the\ncanonical class.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "pred",
+    "subject",
+    "at"
+  ]
+}

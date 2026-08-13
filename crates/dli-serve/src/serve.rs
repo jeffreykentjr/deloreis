@@ -564,6 +564,17 @@ pub fn dispatch(
             ),
         );
     }
+    if request.op.added_in_1_9_0() && !crate::has_as_of_read(&request.dli) {
+        return typed_error(
+            &request.dli,
+            &request.id,
+            ErrorCode::UnknownOp,
+            format!(
+                "operation {:?} is not available before contract 1.9.0",
+                request.op
+            ),
+        );
+    }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
     {

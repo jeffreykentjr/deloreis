@@ -19,11 +19,13 @@
 pub mod continuity;
 pub mod factcheck;
 
+pub use continuity::{SlotDefeater, SlotHolding, SlotStateAt};
 pub use dli_core::fd::fd_value_key;
 
 use dli_core::grade::Grade;
 
 use dli_ast::span::Span;
+use dli_time::chronology::TimePoint;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -230,4 +232,21 @@ impl WorldFinding {
 #[must_use]
 pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     continuity::run(world)
+}
+
+/// The inertia-aware point-in-time projection of one `(pred, subject)` fluent
+/// slot (`author.as_of`, contract 1.9.0, DL-0082): what holds, and why, at a
+/// query point — including a silent inertial transition's derived boundary,
+/// which no other read exposes (`docs/design-notes/inertia-fluent-
+/// persistence.md`). Never touches the eval query path or the derived
+/// (saturated-rule) layer; see [`continuity::slot_state_at`] for the full
+/// projection discipline.
+#[must_use]
+pub fn slot_state_at(
+    world: &CompiledWorld,
+    pred: &str,
+    subject: &str,
+    at: TimePoint,
+) -> SlotStateAt {
+    continuity::slot_state_at(world, pred, subject, at)
 }

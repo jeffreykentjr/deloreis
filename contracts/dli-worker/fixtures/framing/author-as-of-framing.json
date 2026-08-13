@@ -1,0 +1,57 @@
+{
+  "fixture": "framing/author-as-of-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.9 author.as_of. An instruction-shaped subject stays data: it is canonicalized and looked up as an ordinary identity-canon subject with no fluent timeline, confined to the echoed `/result/subject` projection, and the benign and tainted runs produce the same safety-relevant verdict (holdings/inertial/capping/contested).",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.as_of",
+      "precondition": [
+        {
+          "dli": "1.9.0",
+          "id": "pre",
+          "op": "author.open",
+          "params": {
+            "scope": "saltmarket"
+          }
+        }
+      ],
+      "control": {
+        "dli": "1.9.0",
+        "id": "1",
+        "op": "author.as_of",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "status",
+          "subject": "benign-control",
+          "at": "first-tides"
+        }
+      },
+      "attack": {
+        "dli": "1.9.0",
+        "id": "1",
+        "op": "author.as_of",
+        "params": {
+          "workspace": "ws-1",
+          "pred": "status",
+          "subject": "__DLI_FRAME_ATTACK__",
+          "at": "first-tides"
+        }
+      },
+      "changed_paths": [
+        "/params/subject"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/inertial",
+        "/result/capping",
+        "/result/contested",
+        "/result/inertial_citations",
+        "/result/holdings"
+      ],
+      "allow_taint_paths": [
+        "/result/subject"
+      ]
+    }
+  ]
+}

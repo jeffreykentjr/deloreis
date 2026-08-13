@@ -139,7 +139,8 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorDeclareFunctional
         | Op::AuthorAssertSameAs
         | Op::AuthorAddRule
-        | Op::AuthorDeclareInertial => Err((
+        | Op::AuthorDeclareInertial
+        | Op::AuthorAsOf => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1982,6 +1983,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let identity_assertions = crate::has_identity_assertions(dli);
     let rule_authoring = crate::has_rule_authoring(dli);
     let inertia = crate::has_inertia(dli);
+    let as_of = crate::has_as_of_read(dli);
     Op::ALL
         .iter()
         .copied()
@@ -1998,6 +2000,7 @@ fn capabilities(dli: &str) -> Vec<String> {
             other => identity_assertions || !other.added_in_1_7_0(),
         })
         .filter(|op| inertia || !op.added_in_1_8_0())
+        .filter(|op| as_of || !op.added_in_1_9_0())
         .map(wire_name)
         .collect()
 }

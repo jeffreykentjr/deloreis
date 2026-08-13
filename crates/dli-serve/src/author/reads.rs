@@ -42,13 +42,15 @@ use dli_eval::fork::{AtomChange, Standing};
 use dli_eval::query::{Answer, Query, QueryOpts};
 use dli_eval::why::{Why, why_not as compute_why_not};
 use dli_eval::world::GroundAtom;
+use dli_time::chronology::TimePoint;
 use dli_world::check::factcheck::{ClaimReport, Verdict, factcheck};
 use dli_world::check::{self, Severity as WorldSeverity, WorldFinding};
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
 
 use crate::contract::{
-    AuthorCheckParams, AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorFindingsParams,
+    AsOfDefeater, AsOfHolding, AuthorAsOfParams, AuthorAsOfResult, AuthorCheckParams,
+    AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorFindingsParams,
     AuthorFindingsResult, AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult,
     AuthorWhyParams, AuthorWhyResult, DiffConflict, DiffDelta, ValuationEntry, WorkspaceDigest,
     WorkspaceMode,
@@ -110,6 +112,97 @@ pub(super) fn query(
         valuation,
         rows: answer.rows,
     }))
+}
+
+// -- author.as_of (contract 1.9.0, DL-0082) -----------------------------------
+
+/// Project the inertially-current fluent value(s) of one `(pred, subject)`
+/// slot at a query point over the staged world. The ONE inertia-aware read
+/// (`docs/design-notes/inertia-fluent-persistence.md` A.3, DL-0082): unlike
+/// [`query`], this NEVER calls `world.model.world.query_with` — it reads
+/// `world.model.fluents` and `world.model.inertial_predicates` directly
+/// through [`check::slot_state_at`], the same kernel projection the
+/// continuity check's `continuity.fluent-contradiction`/`continuity.fluent-
+/// order-undeclared` findings already derive their boundary from, so this
+/// read and those findings can never disagree.
+pub(super) fn as_of(
+    store: &Store,
+    params: &AuthorAsOfParams,
+    v2: bool,
+) -> Result<Value, ErrorBody> {
+    let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let at = resolve_time_point(&world, &params.at)?;
+    let projected = check::slot_state_at(&world, &params.pred, &params.subject, at);
+    let root_hash = v2.then(|| ws.digest.clone());
+    Ok(value(&AuthorAsOfResult {
+        pred: projected.pred,
+        subject: projected.subject,
+        at: params.at.clone(),
+        inertial: projected.inertial,
+        capping: projected.capping,
+        contested: projected.contested,
+        inertial_citations: projected.inertial_citations,
+        holdings: projected
+            .holdings
+            .iter()
+            .map(|holding| wire_holding(&world, holding))
+            .collect(),
+        root_hash,
+    }))
+}
+
+/// Map a kernel [`check::SlotHolding`] onto its wire [`AsOfHolding`], resolving
+/// every [`TimePoint`] to its interned name.
+fn wire_holding(world: &CompiledWorld, holding: &check::SlotHolding) -> AsOfHolding {
+    AsOfHolding {
+        value: holding.value.clone(),
+        projection: holding.projection,
+        temporal: holding.temporal,
+        support: holding.support,
+        since: holding.since.map(|point| point_name(world, point)),
+        until: holding.until.map(|point| point_name(world, point)),
+        citations: holding.citations.clone(),
+        defeater: holding.defeater.as_ref().map(|defeater| AsOfDefeater {
+            value: defeater.value.clone(),
+            since: defeater.since.map(|point| point_name(world, point)),
+            citations: defeater.citations.clone(),
+        }),
+    }
+}
+
+/// Resolve a rendered timeline point name to its interned [`TimePoint`], or a
+/// `schema-violation` naming the unknown point — mirrors
+/// `handlers::handle_timeline_show`'s `at` resolution (the batch seam's
+/// twin), so an unknown point is refused identically on both seams.
+fn resolve_time_point(world: &CompiledWorld, name: &str) -> Result<TimePoint, ErrorBody> {
+    world
+        .model
+        .world
+        .time_points
+        .names()
+        .iter()
+        .position(|point| point == name)
+        .and_then(|index| u32::try_from(index).ok())
+        .map(TimePoint)
+        .ok_or_else(|| ErrorBody {
+            code: ErrorCode::SchemaViolation,
+            message: format!("unknown timeline point '{name}'"),
+            data: None,
+        })
+}
+
+/// The name of a time point in the world's time-point table, or a stable
+/// fallback — the authoring seam's twin of `handlers::point_name`.
+fn point_name(world: &CompiledWorld, point: TimePoint) -> String {
+    world
+        .model
+        .world
+        .time_points
+        .names()
+        .get(point.0 as usize)
+        .cloned()
+        .unwrap_or_else(|| format!("point#{}", point.0))
 }
 
 // -- author.check ------------------------------------------------------------

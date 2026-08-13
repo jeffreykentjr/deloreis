@@ -26,6 +26,7 @@ use dli_game::export::{CardDeck, LudiiExport};
 use dli_ledger::ProofReport;
 use dli_sim::RunManifest;
 use dli_time::cycle::CyclePos;
+use dli_time::fluent::{Projection, TemporalCover};
 use dli_time::slack::EpisodeSlack;
 use dli_world::attest::{
     Attestation, ContentHash, ModelRef, Policy, PromptRef, Question, Sampling,
@@ -1958,6 +1959,113 @@ pub struct AuthorQueryResult {
     pub valuation: Option<Vec<ValuationEntry>>,
     /// The answer rows over the staged world.
     pub rows: Vec<QueryRow>,
+}
+
+// -- author.as_of (read, contract 1.9.0, DL-0082) -----------------------------
+
+/// `author.as_of` params: project the inertially-current fluent value(s) of
+/// one `(pred, subject)` slot at a query point over the staged world (base +
+/// staged declarations). This is the ONE inertia-aware read
+/// (`docs/design-notes/inertia-fluent-persistence.md` A.3, lifted by
+/// DL-0082): `author.query` still returns the raw extensional value(s)
+/// unmodified, so a silent inertial transition — otherwise unreadable
+/// outside a `continuity.fluent-*` finding — becomes directly observable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAsOfParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The predicate.
+    pub pred: String,
+    /// The subject; may be any alias a certain `same-as` merges into the
+    /// canonical class.
+    pub subject: String,
+    /// The query point's name — an era or event the staged world's chronology
+    /// declares. An unknown name is a `schema-violation`, not a silent empty
+    /// answer.
+    pub at: String,
+}
+
+/// `author.as_of` result: the point-in-time projection `check::slot_state_at`
+/// derives for one `(pred, subject)` fluent slot, kernel-side — never routed
+/// through `dli_eval::world::World::query_with` or the saturated derived
+/// layer (the DL-0081/DL-0082 hard invariant). A `(pred, subject)` with no
+/// fluent timeline answers with empty `holdings`, no fallback to the raw
+/// extensional facts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorAsOfResult {
+    /// The predicate, echoed back.
+    pub pred: String,
+    /// The subject, canonicalized through the identity map.
+    pub subject: String,
+    /// The query point's name, echoed back.
+    pub at: String,
+    /// Whether `pred` carries an `inertial` declaration (any standing).
+    pub inertial: bool,
+    /// Whether that declaration is certain under the staged world's
+    /// valuation, so the projection is actually inertia-shaped rather than
+    /// byte-identical to the plain open-interval projection.
+    pub capping: bool,
+    /// Whether two or more distinct values hold certainly at `at` at once —
+    /// [`dli_time::fluent::FluentState::has_contradiction`] over this same
+    /// projection.
+    pub contested: bool,
+    /// The inertia declaration's own decision citations; empty when `pred`
+    /// was never declared inertial.
+    pub inertial_citations: Vec<String>,
+    /// The values whose span could be in force at the query point, each with
+    /// its factorial verdict and, when capped, the defeater that bounds it.
+    pub holdings: Vec<AsOfHolding>,
+    /// The workspace digest the read was evaluated against (`jcs:sha256:`
+    /// regime — the staged world is workspace state, not a store commit).
+    /// v2 only, mirroring [`AuthorQueryResult::root_hash`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+}
+
+/// One [`AuthorAsOfResult`] value's standing at the query point: its
+/// factorial verdict, its temporal anchors, and — for a capped inertial value
+/// — the competitor that defeats it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AsOfHolding {
+    /// The value in force.
+    pub value: String,
+    /// The collapsed three-valued projection.
+    pub projection: Projection,
+    /// The temporal half: whether the span's interval covers the query
+    /// point.
+    pub temporal: TemporalCover,
+    /// The support half: the anchoring ruling's standing (dead spans are
+    /// dropped, never reported as a holding).
+    pub support: Status,
+    /// The originating span's authored `since` anchor.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub since: Option<String>,
+    /// The originating span's upper bound: its authored `until` when one
+    /// exists, else — for a capped inertial value — the DERIVED boundary;
+    /// `None` means unbounded.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub until: Option<String>,
+    /// The originating span's own decision citations.
+    pub citations: Vec<String>,
+    /// The certain, distinct competitor that caps this value (inertial only,
+    /// present exactly when [`Self::until`] is a derived rather than authored
+    /// boundary).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub defeater: Option<AsOfDefeater>,
+}
+
+/// The certain, distinct competitor that defeats a capped [`AsOfHolding`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AsOfDefeater {
+    /// The defeater's value.
+    pub value: String,
+    /// The defeater's `since` — the same point as the capped holding's
+    /// derived `until`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub since: Option<String>,
+    /// The defeater span's own decision citations.
+    pub citations: Vec<String>,
 }
 
 // -- author.check (read) -----------------------------------------------------

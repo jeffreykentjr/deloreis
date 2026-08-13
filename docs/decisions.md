@@ -4364,3 +4364,121 @@ chain, and the authored-`until` override) and by the three-outcome and
 defeat-propagation tests in `crates/dli-world/tests/adversarial_fluent.rs`,
 with branch-local isolation pinned in
 `crates/dli-serve/tests/ls10_branch_writes.rs`.
+
+## DL-0082 — `author.as_of` is the one inertia-aware read, lifting DL-0081's v1 read boundary, and opens contract 1.9.0
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** `author.as_of {workspace, pred, subject, at}`, workspace-scoped on
+`author.*`, opens contract **`1.9.0`**, `Op::ALL`'s 64th entry, appended at the
+end and gated on its own floor predicate, `has_as_of_read =
+at_or_above(dli, (1,9,0))` — the same append-only, floor-gated discipline
+every prior wire addition has kept, so every `1.8.0`-or-earlier negotiation's
+capability list, and its released fixtures, stays byte-identical. It is a
+**read**, routed through the authoring seam's `read` wrapper exactly as
+`author.query` is, never `mutate`: it stages nothing, carries no
+`expected_digest`/`idempotency_key` fence, and is absent from
+`Op::accepts_author_fences`.
+
+The op projects the inertially-current fluent value(s) of one `(pred,
+subject)` slot at a query point, over the staged world (base + staged
+declarations, via `staged_world`, the same reader `author.query`/`author.check`
+use). The projection is a new kernel function, `check::slot_state_at`
+(`crates/dli-world/src/check/continuity.rs`, re-exported from `check::mod`),
+that reuses — never re-derives — the exact machinery the continuity check
+already built for DL-0081: the canon-grouped scratch timeline
+`fluent_contradictions` builds (identity-merged slots read as one fluent), the
+`inertial_predicates` lookup, and the `state_at_inertial`/`state_at` dispatch
+`fluent_clash` uses (a predicate carrying a declaration dispatches to
+`state_at_inertial`, which itself reverts to plain `state_at` byte-for-byte
+when that declaration is not certain; a predicate that never declared inertial
+dispatches to `state_at` directly). The reported `until` and defeater identity
+come **strictly** from `inertial_derived_until` — extended to also return the
+defeater's own value and citations, so a consumer of the derived boundary can
+name what caps it without a second lookup — never recomputed independently, so
+the boundary this read reports and the one `continuity.fluent-contradiction`/
+`continuity.fluent-order-undeclared` report in their `Finding.data` can never
+disagree.
+
+**This is the ONE inertia-aware read** (the DL-0081/DL-0082 hard invariant):
+`reads::as_of` (`crates/dli-serve/src/author/reads.rs`) calls
+`check::slot_state_at` and nothing else for the projection — never
+`dli_eval::world::World::query_with`, never the saturated derived layer. A
+`(pred, subject)` with no entry in `world.model.fluents` answers empty
+`holdings`, with **no fallback** to the raw extensional fact a plain `attr`/
+`fact` might carry for the same name. `author.query` and `dli.query` are
+**unchanged**: they still answer the raw extensional value(s), unprojected,
+proven by extending `declare_inertial.rs`'s own
+`wire_inertial_query_returns_extensional_values` scenario with an
+`author.as_of` call alongside it in `as_of.rs`'s
+`wire_as_of_does_not_leak_into_author_query`.
+
+**This LIFTS DL-0081's v1 read boundary** — "a silent transition's derived
+boundary is not exposed through a read... there is deliberately no
+inertia-aware read in v1" — which is retired here, not merely relaxed:
+`author.as_of` is precisely that read. `docs/design-notes/
+inertia-fluent-persistence.md` A.3 is updated to record the lift and point
+here (design notes are reopened only by new ledger evidence, DL-0011; this
+entry is that evidence). In its place, DL-0082 records a narrower v1
+boundary: **no `dli.*` mirror of this read over a materialized corpus without
+opening a workspace** — `author.as_of` reads the staged world through an open
+authoring session (`author.open` → stage → `author.check`/`author.as_of`),
+consistent with why the op lives on `author.*` rather than `dli.*` in the
+first place: a workspace read sees base+staged via `staged_world` (relevant
+before materialize), where `dli.timeline.show` is session-scoped and would
+not. Trigger: a consumer needing the as-of read over a materialized corpus
+without opening a workspace.
+
+**Response shape** (`AuthorAsOfResult`, `crates/dli-serve/src/contract.rs`):
+`pred`, `subject` (canonicalized through the identity map), `at` (echoed),
+`inertial` (the predicate carries any `inertial` declaration), `capping`
+(that declaration is certain — the projection is actually inertia-shaped),
+`contested` (`FluentState::has_contradiction()` at `at`), `inertial_citations`,
+`holdings: Vec<AsOfHolding>`, and `root_hash` (v2 only, mirroring
+`author.query`). Each `AsOfHolding` carries `value`, `projection`
+(`dli_time::fluent::Projection`), `temporal` (`TemporalCover`), `support`
+(`dli_core::ann::Status`; dead spans are dropped, never reported), `since`,
+`until` (a capped inertial value's **derived** boundary; the authored
+`until` when one exists; `null` when unbounded), `citations`, and an optional
+`defeater: AsOfDefeater { value, since, citations }` present exactly when
+`until` is derived rather than authored. `Projection`/`TemporalCover`/`Status`
+are the `dli_time`/`dli_core` kernel enums reused directly on the wire — the
+same house pattern `QueryResultRow.status: Status` already uses — rather than
+re-declared mirror types.
+
+**Kernel struct.** `check::slot_state_at(world, pred, subject, at) ->
+SlotStateAt` returns `SlotStateAt { pred, subject, inertial, capping,
+contested, inertial_citations, holdings: Vec<SlotHolding> }`, each
+`SlotHolding { value, projection, temporal, support, since, until, citations,
+defeater: Option<SlotDefeater> }`. Each surviving `Holding<V>`
+`state_at`/`state_at_inertial` returns is paired back to the span that
+produced it by a greedy value-and-support match over the canon-grouped
+scratch timeline (documented at the call site): the inertia declaration
+exists precisely to keep at most one live certain value per point, so this is
+unambiguous on every corpus the wire and kernel tests exercise.
+
+**Verification.** `cargo xtask gate` is green. The wire op, its
+`AuthorAsOfParams`/`AuthorAsOfResult` schema pair, and its golden/negative/
+framing fixtures are registered in the closed fixture registry at
+`contract_version: 1.9.0` (new fixture paths only — no existing digest
+re-pinned); the op inventory (now 64), the `has_as_of_read` capability gate,
+and the version echo are gate-checked, with every pre-`1.9.0` capability list
+asserted unmoved (`ls8_contract_1_0.rs`'s tiered-surface test extended,
+`ls8_zero_x_parity.rs`'s recorded compatibility-corpus deviation re-recorded
+as `1.9.0` joined the accepted set — the same intentional deviation first
+recorded at `1.5.0`, re-recorded at `1.7.0`/`1.8.0`). `crates/dli-serve/tests/
+as_of.rs` pins reachability (refused before `1.9.0`, answered at `1.9.0`, the
+`1.9.0` capability list carries it and `1.8.0` does not), the three as-of
+cases (the capped value with its derived `until` and defeater identity, the
+unbounded successor, the contested/order-indeterminate pair), non-inertial
+byte-identity (no `declare_inertial` ⇒ `capping:false`, unbounded `until`
+exactly like plain `state_at`), defeat-safety (`author.defeat` the defeater's
+own citing decision ⇒ the earlier value re-extends in the same workspace, no
+recompile), and the eval-path non-leak invariant. `crates/dli-world/tests/
+adversarial_fluent.rs` pins the kernel projection directly: derived `until`
+and defeater identity, byte-identity against a direct `FluentTimeline::state_at`
+call when not inertial, an empty projection for a non-fluent slot, and
+defeat-without-recompile over the same compiled `World`.

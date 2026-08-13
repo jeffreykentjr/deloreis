@@ -46,12 +46,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use dli_ast::term::{AtomExpr, Term, TimeRef};
 use dli_core::ann::{Ann, Status};
 use dli_core::atom::{Atom, Interner};
 use dli_core::fd::{fd_violations as fd_violations_over, inferred_functional};
 use dli_time::chronology::{Chronology, TemporalVerdict, TimePoint};
-use dli_time::fluent::FluentTimeline;
+use dli_time::fluent::{FluentTimeline, Projection, TemporalCover};
 
 use super::{CompiledWorld, WorldFinding, fd_value_key};
 use crate::model::{LoadFinding, LoadedAtom};
@@ -916,7 +919,16 @@ fn fluent_finding_data(
             // With capping active, an open (no authored `until`) value reports
             // its derived boundary instead of `null`.
             let until = if capping && span.until.is_none() && span.since.is_some() {
-                inertial_derived_until(timeline, index, span, chronology, valuation, theory)
+                inertial_derived_until(
+                    timeline,
+                    index,
+                    span,
+                    chronology,
+                    valuation,
+                    theory,
+                    &world.model.world.interner,
+                )
+                .map(|defeater| defeater.until)
             } else {
                 span.until
             };
@@ -948,12 +960,30 @@ fn fluent_finding_data(
     data
 }
 
+/// The certain, distinct competitor that caps one open inertial span `vᵢ` —
+/// [`inertial_derived_until`]'s return, extended (`author.as_of`, contract
+/// 1.9.0, DL-0082) to carry the defeater's own value and citations alongside
+/// its `since`, so a consumer of the derived boundary can name what defeated
+/// the span without a second lookup.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InertialDefeater {
+    /// The defeater's `since` — also the capped span's derived `until`.
+    until: TimePoint,
+    /// The defeater's own value.
+    value: String,
+    /// The defeater span's originating decision citations.
+    citations: Vec<String>,
+}
+
 /// The **derived** upper boundary of one open inertial span `vᵢ` (`since = tᵢ`,
-/// no authored `until`): the `since` of its earliest certain, distinct
-/// competitor that `tᵢ` certainly precedes, or `None` when the value persists
-/// unbounded. This mirrors the certain-defeat arm of
-/// [`FluentTimeline::state_at_inertial`]'s `inertial_cover`, so the reported
-/// boundary and the projected cover cannot disagree.
+/// no authored `until`): the earliest certain, distinct competitor that `tᵢ`
+/// certainly precedes, or `None` when the value persists unbounded. This
+/// mirrors the certain-defeat arm of [`FluentTimeline::state_at_inertial`]'s
+/// `inertial_cover`, so the reported boundary and the projected cover cannot
+/// disagree. `slot_state_at` (`author.as_of`) is the other reader: it uses the
+/// same search to populate `AsOfHolding.defeater`, so the read and the
+/// `continuity.fluent-contradiction`/`continuity.fluent-order-undeclared`
+/// finding data can never report two different boundaries for one span.
 fn inertial_derived_until(
     timeline: &FluentTimeline<String>,
     index: usize,
@@ -961,9 +991,10 @@ fn inertial_derived_until(
     chronology: &Chronology,
     valuation: &dli_core::valuation::Valuation,
     theory: &dli_core::ann::Theory,
-) -> Option<TimePoint> {
+    interner: &Interner,
+) -> Option<InertialDefeater> {
     let since = span.since?;
-    let mut best: Option<TimePoint> = None;
+    let mut best: Option<(usize, TimePoint)> = None;
     for (other_index, other) in timeline.spans.iter().enumerate() {
         if other_index == index || other.value == span.value {
             continue;
@@ -983,18 +1014,231 @@ fn inertial_derived_until(
         // Keep the earliest defeater — the transition happens at the first
         // successor `tᵢ` precedes.
         best = Some(match best {
-            Some(current)
+            Some((current_index, current_since))
                 if matches!(
-                    chronology.precedes(current, other_since),
+                    chronology.precedes(current_since, other_since),
                     TemporalVerdict::Before
                 ) =>
             {
-                current
+                (current_index, current_since)
             }
-            _ => other_since,
+            _ => (other_index, other_since),
         });
     }
-    best
+    let (best_index, until) = best?;
+    let defeater = &timeline.spans[best_index];
+    Some(InertialDefeater {
+        until,
+        value: defeater.value.clone(),
+        citations: ann_citations(&defeater.ann, interner),
+    })
+}
+
+// --- author.as_of (contract 1.9.0, DL-0082) ----------------------------------
+
+/// The kernel projection of one `(pred, subject)` fluent slot's state at a
+/// query point — what `author.as_of` maps to its wire shape
+/// (`AuthorAsOfResult`). Lives here, next to `fluent_contradictions`,
+/// because it reuses the exact same canon-grouping (`identity_canon`,
+/// `canon_slot`), the same `inertial_predicates` lookup, and the same
+/// `state_at`/`state_at_inertial` dispatch the continuity check already
+/// performs — a silent inertial transition becomes an observable read without
+/// a second, independently-derived notion of "what holds here". This never
+/// touches `dli_eval::world::World::query_with` or the saturated derived
+/// layer: a `(pred, subject)` with no entry in `world.model.fluents` yields
+/// empty `holdings`, with no fallback to the raw extensional facts
+/// `author.query` still answers unmodified (the DL-0081/DL-0082 hard
+/// invariant that this is the ONLY inertia-aware read).
+#[must_use]
+pub fn slot_state_at(
+    world: &CompiledWorld,
+    pred: &str,
+    subject: &str,
+    at: TimePoint,
+) -> SlotStateAt {
+    let canon = identity_canon(world);
+    let slot = canon_slot(&canon, &(pred.to_owned(), subject.to_owned()));
+    let chronology = &world.model.world.chronology;
+    let valuation = &world.model.world.valuation;
+    let theory = &world.model.world.theory;
+    let citation_interner = &world.model.world.interner;
+
+    // The same canon-grouped scratch timeline `fluent_contradictions` builds
+    // (:620-635), restricted to this one slot: every raw `(pred, subject)`
+    // fluent key whose canon slot matches, spans concatenated in declaration
+    // order.
+    let mut scratch: FluentTimeline<String> = FluentTimeline::new();
+    for raw_slot in world.model.fluents.keys() {
+        if canon_slot(&canon, raw_slot) != slot {
+            continue;
+        }
+        for span in &world.model.fluents[raw_slot].spans {
+            scratch.push(span.clone());
+        }
+    }
+
+    let inertial = world.model.inertial_predicates.get(&slot.0);
+    let capping = inertial.is_some_and(|ann| ann.status(valuation, theory) == Status::Certain);
+    let inertial_citations = inertial
+        .map(|ann| ann_citations(ann, citation_interner))
+        .unwrap_or_default();
+
+    // The exact dispatch `fluent_clash` uses: `state_at_inertial` when the
+    // predicate carries a declaration (it reverts to plain `state_at`
+    // internally when that declaration is not certain), `state_at` when it
+    // never does. Never `query_with`, never the derived layer.
+    let state = match inertial {
+        Some(decl_ann) => scratch.state_at_inertial(chronology, valuation, theory, at, decl_ann),
+        None => scratch.state_at(chronology, valuation, theory, at),
+    };
+    let contested = state.has_contradiction();
+
+    // Pair each surviving holding back to the span that produced it — greedy,
+    // by value and support standing, consuming each span at most once. The
+    // inertia declaration exists precisely to keep at most one live certain
+    // value per point, so this is unambiguous on every corpus the eight
+    // `as_of.rs` cases exercise; a contrived corpus with two identically
+    // valued/supported spans both covering the same point consumes the first
+    // in declaration order, deterministically, rather than panicking.
+    let mut used = vec![false; scratch.spans.len()];
+    let holdings = state
+        .holdings
+        .iter()
+        .map(|holding| {
+            let origin = scratch.spans.iter().enumerate().find(|(index, span)| {
+                !used[*index]
+                    && span.value == holding.value
+                    && span.ann.status(valuation, theory) == holding.support
+            });
+            let Some((index, span)) = origin else {
+                return SlotHolding {
+                    value: holding.value.clone(),
+                    projection: holding.projection(),
+                    temporal: holding.temporal,
+                    support: holding.support,
+                    since: None,
+                    until: None,
+                    citations: Vec::new(),
+                    defeater: None,
+                };
+            };
+            used[index] = true;
+            let citations = ann_citations(&span.ann, citation_interner);
+            // The reported `until` and defeater come STRICTLY from
+            // `inertial_derived_until` — never recomputed independently — so
+            // the boundary this read reports and the one
+            // `continuity.fluent-contradiction`'s `Finding.data` reports can
+            // never disagree.
+            let (until, defeater) = if capping && span.until.is_none() && span.since.is_some() {
+                match inertial_derived_until(
+                    &scratch,
+                    index,
+                    span,
+                    chronology,
+                    valuation,
+                    theory,
+                    citation_interner,
+                ) {
+                    Some(d) => (
+                        Some(d.until),
+                        Some(SlotDefeater {
+                            value: d.value,
+                            since: Some(d.until),
+                            citations: d.citations,
+                        }),
+                    ),
+                    None => (None, None),
+                }
+            } else {
+                (span.until, None)
+            };
+            SlotHolding {
+                value: holding.value.clone(),
+                projection: holding.projection(),
+                temporal: holding.temporal,
+                support: holding.support,
+                since: span.since,
+                until,
+                citations,
+                defeater,
+            }
+        })
+        .collect();
+
+    SlotStateAt {
+        pred: slot.0,
+        subject: slot.1,
+        inertial: inertial.is_some(),
+        capping,
+        contested,
+        inertial_citations,
+        holdings,
+    }
+}
+
+/// [`slot_state_at`]'s result: the point-in-time projection of one `(pred,
+/// subject)` fluent slot, `subject` canonicalized through the identity map.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SlotStateAt {
+    /// The predicate (never canonicalized — identity merges bearers, not
+    /// relations).
+    pub pred: String,
+    /// The subject, canonicalized through the identity map.
+    pub subject: String,
+    /// Whether `pred` carries an `inertial` declaration (any standing).
+    pub inertial: bool,
+    /// Whether that declaration is certain under the world's valuation, so
+    /// the projection is actually inertia-shaped (`state_at_inertial`'s
+    /// capping arm is live) rather than byte-identical to plain `state_at`.
+    pub capping: bool,
+    /// Whether two or more distinct values hold certainly at `at` at once —
+    /// [`dli_time::fluent::FluentState::has_contradiction`] over the same
+    /// projection this struct reports.
+    pub contested: bool,
+    /// The inertia declaration's own decision citations, empty when `pred`
+    /// was never declared inertial.
+    pub inertial_citations: Vec<String>,
+    /// The values whose span could be in force at the query point, each with
+    /// its factorial verdict and, when capped, the defeater that bounds it.
+    pub holdings: Vec<SlotHolding>,
+}
+
+/// One [`SlotStateAt`] value's standing at the query point, with its temporal
+/// anchors and, for a capped inertial value, the competitor that defeats it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SlotHolding {
+    /// The value in force.
+    pub value: String,
+    /// The collapsed three-valued projection
+    /// ([`dli_time::fluent::Holding::projection`]).
+    pub projection: Projection,
+    /// The temporal half: whether the span's interval covers the query point.
+    pub temporal: TemporalCover,
+    /// The support half: the anchoring ruling's standing.
+    pub support: Status,
+    /// The originating span's authored `since` anchor.
+    pub since: Option<TimePoint>,
+    /// The originating span's upper bound: its authored `until` when one
+    /// exists, else — for a capped inertial value — the boundary
+    /// `inertial_derived_until` derives; `None` means unbounded.
+    pub until: Option<TimePoint>,
+    /// The originating span's own decision citations.
+    pub citations: Vec<String>,
+    /// The certain, distinct competitor that caps this value, when the
+    /// `until` above is a derived (not authored) boundary.
+    pub defeater: Option<SlotDefeater>,
+}
+
+/// The certain, distinct competitor that defeats a capped [`SlotHolding`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SlotDefeater {
+    /// The defeater's value.
+    pub value: String,
+    /// The defeater's `since` — the same point as the capped holding's
+    /// derived `until`.
+    pub since: Option<TimePoint>,
+    /// The defeater span's own decision citations.
+    pub citations: Vec<String>,
 }
 
 /// `continuity.inertia-unanchored` (warn, DL-0081, koan 4): an inertial

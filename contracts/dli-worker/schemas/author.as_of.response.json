@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAsOfResult",
+  "description": "`author.as_of` result: the point-in-time projection `check::slot_state_at`\nderives for one `(pred, subject)` fluent slot, kernel-side — never routed\nthrough `dli_eval::world::World::query_with` or the saturated derived\nlayer (the DL-0081/DL-0082 hard invariant). A `(pred, subject)` with no\nfluent timeline answers with empty `holdings`, no fallback to the raw\nextensional facts.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "The query point's name, echoed back.",
+      "type": "string"
+    },
+    "capping": {
+      "description": "Whether that declaration is certain under the staged world's\nvaluation, so the projection is actually inertia-shaped rather than\nbyte-identical to the plain open-interval projection.",
+      "type": "boolean"
+    },
+    "contested": {
+      "description": "Whether two or more distinct values hold certainly at `at` at once —\n[`dli_time::fluent::FluentState::has_contradiction`] over this same\nprojection.",
+      "type": "boolean"
+    },
+    "holdings": {
+      "description": "The values whose span could be in force at the query point, each with\nits factorial verdict and, when capped, the defeater that bounds it.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AsOfHolding"
+      }
+    },
+    "inertial": {
+      "description": "Whether `pred` carries an `inertial` declaration (any standing).",
+      "type": "boolean"
+    },
+    "inertial_citations": {
+      "description": "The inertia declaration's own decision citations; empty when `pred`\nwas never declared inertial.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pred": {
+      "description": "The predicate, echoed back.",
+      "type": "string"
+    },
+    "root_hash": {
+      "description": "The workspace digest the read was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).\nv2 only, mirroring [`AuthorQueryResult::root_hash`].",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "subject": {
+      "description": "The subject, canonicalized through the identity map.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pred",
+    "subject",
+    "at",
+    "inertial",
+    "capping",
+    "contested",
+    "inertial_citations",
+    "holdings"
+  ],
+  "$defs": {
+    "AsOfDefeater": {
+      "description": "The certain, distinct competitor that defeats a capped [`AsOfHolding`].",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "The defeater span's own decision citations.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "since": {
+          "description": "The defeater's `since` — the same point as the capped holding's\nderived `until`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The defeater's value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "citations"
+      ]
+    },
+    "AsOfHolding": {
+      "description": "One [`AuthorAsOfResult`] value's standing at the query point: its\nfactorial verdict, its temporal anchors, and — for a capped inertial value\n— the competitor that defeats it.",
+      "type": "object",
+      "properties": {
+        "citations": {
+          "description": "The originating span's own decision citations.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defeater": {
+          "description": "The certain, distinct competitor that caps this value (inertial only,\npresent exactly when [`Self::until`] is a derived rather than authored\nboundary).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AsOfDefeater"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection": {
+          "description": "The collapsed three-valued projection.",
+          "$ref": "#/$defs/Projection"
+        },
+        "since": {
+          "description": "The originating span's authored `since` anchor.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "support": {
+          "description": "The support half: the anchoring ruling's standing (dead spans are\ndropped, never reported as a holding).",
+          "$ref": "#/$defs/Status"
+        },
+        "temporal": {
+          "description": "The temporal half: whether the span's interval covers the query\npoint.",
+          "$ref": "#/$defs/TemporalCover"
+        },
+        "until": {
+          "description": "The originating span's upper bound: its authored `until` when one\nexists, else — for a capped inertial value — the DERIVED boundary;\n`None` means unbounded.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The value in force.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "projection",
+        "temporal",
+        "support",
+        "citations"
+      ]
+    },
+    "Projection": {
+      "description": "The cautious three-valued temporal projection of a fluent onto a query point\n(`docs/spec/03-time.md` §2). This is the *collapsed* reading of the factorial\nverdict; the authoritative form is the `(cover × support)` pair on a\n[`Holding`], which [`Holding::projection`] folds into one of these.",
+      "oneOf": [
+        {
+          "description": "An initiator certainly precedes the query point, no terminator possibly\nintervenes, and the anchoring ruling is certain.",
+          "type": "string",
+          "const": "holds-certainly"
+        },
+        {
+          "description": "It may hold — the anchoring ruling is merely possible (an unratified\norder or fact), though the temporal cover itself is settled.",
+          "type": "string",
+          "const": "holds-possibly"
+        },
+        {
+          "description": "The answer turns on an order no one has declared: the query point is\nunordered against one of the span's anchors. Repair by declaring a\n`before`-fact.",
+          "type": "string",
+          "const": "order-indeterminate"
+        }
+      ]
+    },
+    "Status": {
+      "description": "A claim's three-valued standing under `(ν, Θ)`, derived — never stored.",
+      "oneOf": [
+        {
+          "description": "Every monomial is `Θ`-unsatisfiable: the claim holds in no admissible\nworld. (Whether this is rejection or mere supersession is a `C`\nquestion, outside the algebra.)",
+          "type": "string",
+          "const": "dead"
+        },
+        {
+          "description": "Some monomial is `Θ`-satisfiable but none is resolved-and-undefeated: the\nshadow layer.",
+          "type": "string",
+          "const": "possible"
+        },
+        {
+          "description": "Some monomial holds on resolved events alone, with that monomial's own\ndefeater not fully ruled: assertable.",
+          "type": "string",
+          "const": "certain"
+        }
+      ]
+    },
+    "TemporalCover": {
+      "description": "The pure-order half of the factorial verdict: does the span's interval cover\nthe query point, reckoned by precedence alone? A span that certainly does not\ncover the point yields no cover at all (it is dropped from\n[`FluentState::holdings`]).",
+      "oneOf": [
+        {
+          "description": "The initiator certainly precedes the point and no terminator does: the\ninterval certainly contains it.",
+          "type": "string",
+          "const": "covers"
+        },
+        {
+          "description": "The query point is unordered against an anchor, so whether the interval\ncontains it depends on an undeclared order.",
+          "type": "string",
+          "const": "order-indeterminate"
+        }
+      ]
+    }
+  }
+}

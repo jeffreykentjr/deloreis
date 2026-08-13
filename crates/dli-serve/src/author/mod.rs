@@ -43,8 +43,8 @@ use crate::contract::{
     AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
-    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
-    AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
+    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAsOfParams,
+    AuthorAssertSameAsParams, AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
     AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
     AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
     AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorSetStandingParams,
@@ -324,6 +324,16 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             let v2 = wire_v2(request);
             Ok((params.workspace.clone(), reads::query(store, &params, v2)))
+        }),
+        // The one inertia-aware read (contract 1.9.0, DL-0082): a workspace
+        // read like `author.query`, never a mutation — it stages nothing, so
+        // it routes through `read`, not `mutate`, and carries no idempotency
+        // fence.
+        Op::AuthorAsOf => read(request, store, |store, request| {
+            let params: AuthorAsOfParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            let v2 = wire_v2(request);
+            Ok((params.workspace.clone(), reads::as_of(store, &params, v2)))
         }),
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;

@@ -89,7 +89,13 @@ mod simulation;
 /// distinct certain value (DL-0081) — additive and advertised only from
 /// `1.8.0` up, so `capabilities("1.7.0")` stays the byte-identical 62-op list
 /// it always was.
-pub const CONTRACT_VERSION: &str = "1.8.0";
+/// `1.9.0` adds `author.as_of` — the inertia-aware point read
+/// (DL-0082): projects the fluent value(s) `check::slot_state_at` derives at
+/// a query point, so a silent inertial transition is finally observable
+/// through a read, never through `dli_eval::world::World::query_with` or the
+/// derived layer — additive and advertised only from `1.9.0` up, so
+/// `capabilities("1.8.0")` stays the byte-identical 63-op list it always was.
+pub const CONTRACT_VERSION: &str = "1.9.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -134,7 +140,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -246,6 +252,18 @@ pub fn has_rule_authoring(dli: &str) -> bool {
 #[must_use]
 pub fn has_inertia(dli: &str) -> bool {
     at_or_above(dli, (1, 8, 0))
+}
+
+/// Whether the negotiated version carries the inertia-aware point read
+/// (`author.as_of`, ≥ `1.9.0`, DL-0082). A floor like every gate here, not an
+/// equality: this is what `serve::dispatch` gates `author.as_of` on, and what
+/// `capabilities()` filters the op's advertisement by, so a `1.8.0`-or-earlier
+/// negotiation's capability list stays byte-identical (audit C4). Read-only:
+/// `author.as_of` stages nothing and routes through `author::mod::read`, never
+/// `mutate`, so it never appears in `Op::accepts_author_fences`.
+#[must_use]
+pub fn has_as_of_read(dli: &str) -> bool {
+    at_or_above(dli, (1, 9, 0))
 }
 
 /// Whether the negotiated version carries the campaign's branch-scoped write

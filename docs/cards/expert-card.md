@@ -108,6 +108,13 @@ declaration: an open inertial value's forward persistence is bounded at the
 next distinct certain value on the slot, surfacing as a silent transition, a
 `continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction`.
 
+A silent transition's derived boundary is readable directly: `author.as_of
+{workspace, pred, subject, at}` (contract 1.9.0, `docs/decisions.md`
+DL-0082) projects the value(s) `pred(subject)` holds at `at` — the DERIVED
+`until` and the certain defeater that caps it, when one applies. It is the
+one inertia-aware read; `author.query` still returns the raw extensional
+value(s) unmodified.
+
 ## Cycles — cyclic time that refuses rank
 
 A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but
