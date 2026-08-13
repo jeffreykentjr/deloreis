@@ -83,7 +83,13 @@ mod simulation;
 /// additive-capability discipline (DL-0069, DL-0070, DL-0074) governs every
 /// op the campaign appends: each lands on the end of `Op::ALL`, gated on
 /// its own floor, so no released capability list ever moves.
-pub const CONTRACT_VERSION: &str = "1.7.0";
+/// `1.8.0` adds `author.declare_inertial` — the inertial-persistence
+/// declaration: declaring a predicate inertial reshapes its fluent
+/// projection, bounding an open value's forward persistence at the next
+/// distinct certain value (DL-0081) — additive and advertised only from
+/// `1.8.0` up, so `capabilities("1.7.0")` stays the byte-identical 62-op list
+/// it always was.
+pub const CONTRACT_VERSION: &str = "1.8.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -114,7 +120,12 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// both additive and each advertised only from `1.7.0` up on its own floor
 /// predicate, so `1.6.0`'s capability list stays byte-identical; the
 /// campaign's remaining feature PR appends its own floor-gated params the
-/// same way, with no third op).
+/// same way, with no third op), and `1.8.0` (the inertia declaration's wire
+/// surface, `author.declare_inertial`, DL-0081 — additive and advertised
+/// only from `1.8.0` up, so `1.7.0`'s 62-op capability list stays
+/// byte-identical; declaring a predicate inertial reshapes its fluent
+/// projection, bounding forward persistence at the next distinct certain
+/// value).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -123,7 +134,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -221,6 +232,20 @@ pub fn has_identity_assertions(dli: &str) -> bool {
 #[must_use]
 pub fn has_rule_authoring(dli: &str) -> bool {
     at_or_above(dli, (1, 7, 0))
+}
+
+/// Whether the negotiated version carries the inertia declaration's wire
+/// surface (`author.declare_inertial`, ≥ `1.8.0`, DL-0081). A floor like
+/// every gate here, not an equality: this is what `serve::dispatch` gates
+/// `author.declare_inertial` on, and what `capabilities()` filters the op's
+/// advertisement by, so a `1.7.0`-or-earlier negotiation's capability list
+/// stays byte-identical (audit C4). This floor gates the wire op that stages
+/// the declaration `inertial_predicates` carries; the continuity check reads
+/// that map to bound an inertial value's forward persistence at the next
+/// distinct certain value (DL-0081).
+#[must_use]
+pub fn has_inertia(dli: &str) -> bool {
+    at_or_above(dli, (1, 8, 0))
 }
 
 /// Whether the negotiated version carries the campaign's branch-scoped write

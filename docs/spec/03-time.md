@@ -149,6 +149,51 @@ undeclared order; the warn only names the gap. `dli.timeline.*` reflects
 `author.query`/`author.check`/`author.why` instead, by design (the review
 surface is the staged layer, not a premature timeline render).
 
+**Declared inertial persistence (contract 1.8.0).** Every fluent projected
+above is, by default, open-ended: a value `since t` with no authored `until`
+holds forever, and two open-ended values on the same slot are a plain
+`continuity.fluent-contradiction` — the engine never guesses which one a
+later value was meant to supersede. `author.declare_inertial {workspace,
+pred, provenance}` names a predicate whose values are meant to behave
+differently: a value asserted `since t` persists forward only until a
+*later, distinct* value on the same slot takes over — the standard
+event-calculus resolution to the frame problem, moved inside the engine
+instead of being decided by whoever chooses `since`/`until` bounds by hand
+(`docs/decisions.md` DL-0081 records the full ruling: later-distinct-value
+defeat, per-predicate granularity, and the v1 scope boundaries with their
+un-lift triggers).
+
+```dli
+scope camelot
+
+inertial water-status               proposed session-9c1
+```
+
+`inertial <pred>` is carriage-only — like `functional <pred>`, it mints no
+ground atom and rides its own provenance — and it is carried through the
+compiled world, forks, merges, and the durable lorestore exactly like
+`functional`. A predicate never declared inertial is **untouched**: its open
+values keep projecting through the plain open-interval reader above,
+byte-identically to before.
+
+On an inertial slot the effective upper boundary of an open value is
+**derived at projection time** from which competing assertions are live, never
+clipped into the stored span. This composes into the same three-valued
+projection with no fourth outcome: a later *distinct* value is a **transition**
+(silent) when its anchor certainly follows, a **contest**
+(`continuity.fluent-order-undeclared`, warn) when the two anchors' order is
+undeclared, and a **clash** (`continuity.fluent-contradiction`, error) only
+when two distinct values certainly co-hold (the same assertion point, or
+authored overlapping intervals). An inertial value with no `since` anchor
+raises `continuity.inertia-unanchored` (warn, koan 4). Because capping is read
+lazily through each span's standing — and applies only while the declaration
+itself is certain — defeat needs no recompile: defeating the declaration
+reverts the slot to the plain open-interval projection (the value never
+vanishes), defeating a defeater re-extends the earlier value, and defeating the
+originating assertion drops only its span. The full ruling, interactions, and
+v1 scope boundaries are `docs/decisions.md` DL-0081 and
+`docs/design-notes/inertia-fluent-persistence.md`.
+
 ---
 
 ## 3. Composition with the annotation algebra

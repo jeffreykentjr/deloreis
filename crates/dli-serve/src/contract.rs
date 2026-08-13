@@ -1747,6 +1747,26 @@ pub struct AuthorDeclareFunctionalParams {
     pub provenance: Provenance,
 }
 
+/// `author.declare_inertial` params: declare a predicate's fluent values
+/// persistent.
+///
+/// This stages a `Decl::Inertial`, marking `pred` inertial — a fluent value
+/// asserted `since t` with no authored `until` persists forward until a
+/// later, distinct, certain value on the same slot defeats it. The continuity
+/// check reads the staged declaration to reshape the fluent projection,
+/// bounding that persistence at the next distinct certain value (contract
+/// 1.8.0, DL-0081).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorDeclareInertialParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The predicate declared inertial (fluent-persistent).
+    pub pred: String,
+    /// The provenance of this declaration.
+    pub provenance: Provenance,
+}
+
 /// `author.assert_same_as` params: assert two entity ids name the same bearer
 /// (WS-1, contract 1.7.0).
 ///

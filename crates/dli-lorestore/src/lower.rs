@@ -162,6 +162,7 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
         Decl::Kind(d) => Some((K::Kind, d.name.text.clone())),
         Decl::State(d) => Some((K::State, d.name.text.clone())),
         Decl::Functional(d) => Some((K::Functional, d.pred.text.clone())),
+        Decl::Inertial(d) => Some((K::Inertial, d.pred.text.clone())),
         Decl::Cycle(d) => Some((K::Cycle, d.name.text.clone())),
         Decl::Question(d) => Some((K::Question, d.name.text.clone())),
         Decl::Hypothesis(d) => Some((K::Hypothesis, d.name.text.clone())),
@@ -523,6 +524,13 @@ fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
         // provenance here would mint a bundle variable the full compile never
         // does and desync every index after it.
         Decl::State(d) => d.atom().and(d.provenance.as_ref()),
+        // `inertial <pred>` (DL-0081) is carriage-only, but — unlike
+        // `functional` — the loader's `process_inertial` DOES call `compile_ann`
+        // (its declaration is a defeasible claim whose standing gates capping).
+        // So its provenance must be interned here too, or `import_pack` would
+        // see the walk mint fewer variables than the full compile and refuse the
+        // pack as `LoweringDiverged`.
+        Decl::Inertial(d) => d.provenance.as_ref(),
         // Carriage-only declarations intern no provenance here. A
         // `functional <pred>` declaration (issue 49) is one: the loader records
         // the predicate but never calls `compile_ann`, so returning its

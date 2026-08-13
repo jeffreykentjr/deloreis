@@ -409,6 +409,19 @@ pub struct WorldModel {
     /// `#[serde(default)]` so a world serialized before this field round-trips.
     #[serde(default)]
     pub functional_predicates: BTreeSet<String>,
+    /// Predicates an author has declared fluent-persistent via `inertial
+    /// <pred>`, each mapped to the **OR of its declaring provenance's [`Ann`]**
+    /// (a predicate may be declared inertial more than once). The continuity
+    /// check consults this to derive an open value's effective boundary from the
+    /// live competitors at projection time (`docs/decisions.md` DL-0081,
+    /// `docs/design-notes/inertia-fluent-persistence.md`): capping applies only
+    /// while the declaration's own `Ann` is certain, so defeating the
+    /// declaration — a valuation flip, no recompile — reverts the slot to plain
+    /// open-interval projection. `#[serde(default, skip_serializing_if)]` so a
+    /// world that declares none serializes byte-identically to one from before
+    /// this field existed.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub inertial_predicates: BTreeMap<String, Ann>,
 }
 
 impl WorldModel {

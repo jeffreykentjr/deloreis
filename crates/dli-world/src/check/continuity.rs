@@ -90,6 +90,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     out.extend(chronology_cycle(world));
     out.extend(identity_temporal_unsupported(world));
     out.extend(fluent_contradictions(world, &canon));
+    out.extend(inertia_unanchored(world, &canon));
     out.extend(fd_violations(world, &canon));
     out.extend(derived_fd_violations(world, &canon));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
@@ -631,7 +632,13 @@ fn fluent_contradictions(
                 scratch.push(span.clone());
             }
         }
-        if let Some((witness, values)) = fluent_clash(world, &scratch) {
+        // A canon slot is inertial iff its (canon) predicate carries an
+        // `inertial` declaration — the predicate is never aliased by canon
+        // (only subjects are), so `slot.0` keys the map directly. The
+        // declaration's own `Ann` decides whether capping is active (DL-0081);
+        // `None` for every non-inertial slot keeps `state_at` verbatim.
+        let inertial = world.model.inertial_predicates.get(&slot.0);
+        if let Some((witness, values)) = fluent_clash(world, &scratch, inertial) {
             out.push(
                 WorldFinding::error(
                     "continuity.fluent-contradiction",
@@ -643,9 +650,16 @@ fn fluent_contradictions(
                     ),
                 )
                 .with_citations(slot_citations(world, canon, &slot))
-                .with_data(fluent_finding_data(world, &slot, &scratch, &values, &[witness])),
+                .with_data(fluent_finding_data(
+                    world,
+                    &slot,
+                    &scratch,
+                    &values,
+                    &[witness],
+                    inertial,
+                )),
             );
-        } else if let Some(finding) = fluent_order_gap(world, canon, &slot, &scratch) {
+        } else if let Some(finding) = fluent_order_gap(world, canon, &slot, &scratch, inertial) {
             out.push(finding);
         }
     }
@@ -671,12 +685,21 @@ fn fluent_contradictions(
 fn fluent_clash(
     world: &CompiledWorld,
     timeline: &FluentTimeline<String>,
+    inertial: Option<&Ann>,
 ) -> Option<(TimePoint, Vec<String>)> {
     let chronology = &world.model.world.chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     for at in fluent_sweep_points(world) {
-        let state = timeline.state_at(chronology, valuation, theory, at);
+        // An inertial slot derives its effective boundaries from the live
+        // competitors at each point (DL-0081); every other slot projects
+        // through the plain open-interval reader, byte-identically.
+        let state = match inertial {
+            Some(decl_ann) => {
+                timeline.state_at_inertial(chronology, valuation, theory, at, decl_ann)
+            }
+            None => timeline.state_at(chronology, valuation, theory, at),
+        };
         if state.has_contradiction() {
             let mut values: Vec<String> = state.certain_values().into_iter().cloned().collect();
             values.sort();
@@ -726,6 +749,7 @@ fn fluent_order_gap(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
     timeline: &FluentTimeline<String>,
+    inertial: Option<&Ann>,
 ) -> Option<WorldFinding> {
     let chronology = &world.model.world.chronology;
     let valuation = &world.model.world.valuation;
@@ -765,7 +789,8 @@ fn fluent_order_gap(
                 .into_iter()
                 .flatten()
                 .collect();
-            let mut data = fluent_finding_data(world, slot, timeline, &values, &witnesses);
+            let mut data =
+                fluent_finding_data(world, slot, timeline, &values, &witnesses, inertial);
             if let serde_json::Value::Object(map) = &mut data {
                 map.insert(
                     "repair".to_owned(),
@@ -863,23 +888,42 @@ fn fluent_sweep_points(world: &CompiledWorld) -> Vec<TimePoint> {
 /// — enough to reconstruct a fluent verdict without parsing the message
 /// (WS-2's `Finding.data` rider, §2.9), shared by
 /// `continuity.fluent-contradiction` and `continuity.fluent-order-undeclared`.
+///
+/// For an **inertial** slot whose declaration is certain (capping active,
+/// DL-0081) the payload gains `"inertial": true` and each open value's `until`
+/// is the **derived** boundary — the `since` of its certain defeater, or `null`
+/// when the value persists unbounded — so a consumer reads the transition
+/// structure the message describes without re-deriving it.
 fn fluent_finding_data(
     world: &CompiledWorld,
     slot: &(String, String),
     timeline: &FluentTimeline<String>,
     values: &[String],
     witness_points: &[TimePoint],
+    inertial: Option<&Ann>,
 ) -> serde_json::Value {
     let interner = &world.model.world.time_points;
+    let chronology = &world.model.world.chronology;
+    let valuation = &world.model.world.valuation;
+    let theory = &world.model.world.theory;
+    let capping = inertial.is_some_and(|ann| ann.status(valuation, theory) == Status::Certain);
     let spans: Vec<serde_json::Value> = timeline
         .spans
         .iter()
-        .filter(|span| values.contains(&span.value))
-        .map(|span| {
+        .enumerate()
+        .filter(|(_, span)| values.contains(&span.value))
+        .map(|(index, span)| {
+            // With capping active, an open (no authored `until`) value reports
+            // its derived boundary instead of `null`.
+            let until = if capping && span.until.is_none() && span.since.is_some() {
+                inertial_derived_until(timeline, index, span, chronology, valuation, theory)
+            } else {
+                span.until
+            };
             serde_json::json!({
                 "value": span.value,
                 "since": span.since.map(|p| point_name(interner, p)),
-                "until": span.until.map(|p| point_name(interner, p)),
+                "until": until.map(|p| point_name(interner, p)),
             })
         })
         .collect();
@@ -889,13 +933,121 @@ fn fluent_finding_data(
         .collect();
     points.sort();
     points.dedup();
-    serde_json::json!({
+    let mut data = serde_json::json!({
         "pred": slot.0,
         "subject": slot.1,
         "values": values,
         "spans": spans,
         "witness_points": points,
-    })
+    });
+    if inertial.is_some()
+        && let serde_json::Value::Object(map) = &mut data
+    {
+        map.insert("inertial".to_owned(), serde_json::Value::Bool(true));
+    }
+    data
+}
+
+/// The **derived** upper boundary of one open inertial span `vᵢ` (`since = tᵢ`,
+/// no authored `until`): the `since` of its earliest certain, distinct
+/// competitor that `tᵢ` certainly precedes, or `None` when the value persists
+/// unbounded. This mirrors the certain-defeat arm of
+/// [`FluentTimeline::state_at_inertial`]'s `inertial_cover`, so the reported
+/// boundary and the projected cover cannot disagree.
+fn inertial_derived_until(
+    timeline: &FluentTimeline<String>,
+    index: usize,
+    span: &dli_time::fluent::Span<String>,
+    chronology: &Chronology,
+    valuation: &dli_core::valuation::Valuation,
+    theory: &dli_core::ann::Theory,
+) -> Option<TimePoint> {
+    let since = span.since?;
+    let mut best: Option<TimePoint> = None;
+    for (other_index, other) in timeline.spans.iter().enumerate() {
+        if other_index == index || other.value == span.value {
+            continue;
+        }
+        if other.ann.status(valuation, theory) != Status::Certain {
+            continue;
+        }
+        let Some(other_since) = other.since else {
+            continue;
+        };
+        if !matches!(
+            chronology.precedes(since, other_since),
+            TemporalVerdict::Before
+        ) {
+            continue;
+        }
+        // Keep the earliest defeater — the transition happens at the first
+        // successor `tᵢ` precedes.
+        best = Some(match best {
+            Some(current)
+                if matches!(
+                    chronology.precedes(current, other_since),
+                    TemporalVerdict::Before
+                ) =>
+            {
+                current
+            }
+            _ => other_since,
+        });
+    }
+    best
+}
+
+/// `continuity.inertia-unanchored` (warn, DL-0081, koan 4): an inertial
+/// predicate's value with **no `since` anchor** cannot produce a persistence
+/// interval, so the declaration would silently do nothing. Rather than drop it,
+/// name the slot. Declaration-only: a predicate never declared `inertial` is
+/// untouched (its open-start value is ordinary open-interval lore).
+///
+/// Grouped by canon slot exactly as [`fluent_contradictions`] is, so an
+/// identity-merged class is judged as one fluent. Non-blocking (a warn), and
+/// independent of the clash/contested sweep — an unanchored value can be the
+/// *only* thing wrong on a slot, or ride alongside a genuine overlap.
+fn inertia_unanchored(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+) -> Vec<WorldFinding> {
+    let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
+    for raw_slot in world.model.fluents.keys() {
+        by_canon
+            .entry(canon_slot(canon, raw_slot))
+            .or_default()
+            .push(raw_slot);
+    }
+    let mut out = Vec::new();
+    for (slot, members) in by_canon {
+        if !world.model.inertial_predicates.contains_key(&slot.0) {
+            continue;
+        }
+        let mut values: Vec<String> = members
+            .iter()
+            .flat_map(|member| &world.model.fluents[*member].spans)
+            .filter(|span| span.since.is_none())
+            .map(|span| span.value.clone())
+            .collect();
+        if values.is_empty() {
+            continue;
+        }
+        values.sort();
+        values.dedup();
+        out.push(
+            WorldFinding::warn(
+                "continuity.inertia-unanchored",
+                format!(
+                    "the inertial fluent {}.{} carries value(s) [{}] with no `since` anchor, so no persistence interval can be derived; give each a `since` point",
+                    slot.1,
+                    slot.0,
+                    values.join(", ")
+                ),
+            )
+            .with_citations(slot_citations(world, canon, &slot)),
+        );
+    }
+    out
 }
 
 // --- functional-dependency reasoning -----------------------------------------

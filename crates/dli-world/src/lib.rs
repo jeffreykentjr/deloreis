@@ -229,6 +229,29 @@ fn gate_language_citations(
                     );
                 }
             }
+            // `inertial <pred>` is carriage-only — like a rule, it never reaches
+            // `model.atoms()`, so the ordinary atom gate cannot see its
+            // citation. Gate it here so an `inertial pred ratified D-…` reads
+            // certain (capping active, DL-0081) when the decision is declared,
+            // and raises `citation.unknown-decision` when it is not — the load-
+            // path twin of the stage-time `decl_annotation` guard.
+            Decl::Inertial(inertial) => {
+                if let Some(annotation) = &inertial.provenance {
+                    let citations: Vec<String> = annotation
+                        .citations
+                        .iter()
+                        .map(|citation| citation.id.text.clone())
+                        .collect();
+                    gate_citations(
+                        nu,
+                        findings,
+                        model,
+                        known_decisions,
+                        Provenance::from_marker(annotation.marker),
+                        &citations,
+                    );
+                }
+            }
             _ => {}
         }
     }

@@ -621,6 +621,19 @@
           ]
         },
         {
+          "description": "`inertial <pred>` — declare a predicate's fluent values persistent: a\nvalue asserted `since t` holds forward until a later, distinct, live\nvalue defeats it (contract 1.8.0).",
+          "type": "object",
+          "properties": {
+            "Inertial": {
+              "$ref": "#/$defs/InertialDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Inertial"
+          ]
+        },
+        {
           "description": "`cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.",
           "type": "object",
           "properties": {
@@ -1510,6 +1523,30 @@
             "text"
           ]
         }
+      ]
+    },
+    "InertialDecl": {
+      "description": "`inertial <pred>` — a predicate-level fluent-persistence declaration.\n\nThis declares that `pred` is **inertial**: a fluent value asserted `since\nt` with no authored `until` persists forward until a later, distinct,\nlive value on the same slot defeats it (`docs/spec/03-time.md`, the\ninertia design note). Per-predicate, mirroring [`FunctionalDecl`]. It\ncarries no ground atom — like `functional`, it is a carriage-only\ndeclaration whose provenance rides its serialized body, never the\ninterner, so the three lowerings stay byte-identical. Declaring a\npredicate inertial is a defeasible claim: it can be cited, and it can be\ndefeated, reverting the slot to plain open-interval projection.",
+      "type": "object",
+      "properties": {
+        "pred": {
+          "description": "The predicate declared inertial (fluent-persistent).",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pred"
       ]
     },
     "KindDecl": {

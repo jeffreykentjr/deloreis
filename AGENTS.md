@@ -105,8 +105,11 @@ Discipline (`decisions.md` DL-0011):
   consuming audio-drama project.
 - `docs/integration/STATUS.md` is **single-writer, deloreis side**. Write only
   your own file; the fantasy mirror is theirs. The pair is the handshake.
-- **Never commit cross-repo.** deloreis does not write the fantasy tree, and
-  fantasy does not write this one.
+- **No single commit or PR spans repos.** A commit touches exactly one repo's
+  tree — a deloreis commit never writes the fantasy tree, and vice versa. The
+  same agent may open *separate* PRs to deloreis and to a consuming repo
+  (fantasy, dli-benchmarks) in one task; what is barred is one commit reaching
+  across trees.
 - **Three artifacts cross the boundary**, each with one owner: the contract
   (deloreis owns; fantasy vendors, digest-checked — DL-0010), the vendored corpus
   snapshots (fantasy owns the source; deloreis owns the pinned snapshot), and the
@@ -125,16 +128,21 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.6.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
-DL-0059, DL-0069, DL-0070, DL-0074), served multi-version dual-mode: `0.5.1`,
-`0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0` stay accepted — a `0.5.1` caller keeps
-the rendered-lines return. EXT-F4 is complete, which licenses the `0.x`
-retirement but has not performed it: that is DM-6's, at `2.0.0`, and it runs
-through the killed-form registry naming each version's successor, never
-silently. `1.3.0` added seven expert authoring tools; `1.5.0` adds
-`author.set_standing` and `author.defeat`, taking the surface to 59 operations.
-`1.6.0` adds `author.declare_functional`, taking the surface to 60 operations.
-`SKILL.md` governs the authoring session; supervision reviews
+The contract is **1.8.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
+DL-0059, DL-0069, DL-0070, DL-0074, DL-0077, DL-0078, DL-0080, DL-0081),
+served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.8.0`
+stay accepted — a `0.5.1` caller keeps the rendered-lines return. EXT-F4 is
+complete, which licenses the `0.x` retirement but has not performed it: that
+is DM-6's, at `2.0.0`, and it runs through the killed-form registry naming
+each version's successor, never silently. `1.3.0` added seven expert
+authoring tools; `1.5.0` adds `author.set_standing` and `author.defeat`,
+taking the surface to 59 operations. `1.6.0` adds `author.declare_functional`,
+taking the surface to 60 operations. `1.7.0` adds `author.assert_same_as` and
+`author.add_rule` (the wire-surface-completion campaign, DL-0077), taking the
+surface to 62 operations. `1.8.0` adds `author.declare_inertial`, taking the
+surface to 63 operations — declaring a predicate inertial reshapes its fluent
+projection, bounding an open value's forward persistence at the next distinct
+certain value. `SKILL.md` governs the authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
 editing is a measured fallback with no reliability claim, not the taught

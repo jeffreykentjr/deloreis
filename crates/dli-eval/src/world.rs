@@ -305,6 +305,19 @@ pub struct World {
     /// loader; empty for worlds that declare none, so serialization is unchanged.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub functional_predicates: BTreeSet<String>,
+    /// Predicates the author declared `inertial` (fluent values persist
+    /// forward until a later distinct value defeats them), each mapped to the
+    /// **OR of its declaring provenance's [`Ann`]** so the declaration is itself
+    /// a defeasible claim (defeating it reverts the slot to plain projection).
+    /// The load-side continuity check reads the twin on
+    /// [`WorldModel`](crate) — this evaluable-world copy is carried through
+    /// forks and the durable store the same way
+    /// [`functional_predicates`](World::functional_predicates) is. Populated from
+    /// `inertial` declarations by [`World::lower`] and, on the compiled path,
+    /// seeded by the `dli-world` loader; empty for worlds that declare none, so
+    /// serialization is unchanged.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub inertial_predicates: BTreeMap<String, Ann>,
     /// The identity-declaration channel (WS-1): every `Decl::SameAs` pair with
     /// its compiled annotation, populated ONLY by that declaration form — never
     /// by a plain `fact same-as(x, y)`, which pushes an ordinary [`Fact`] (via
@@ -338,6 +351,7 @@ impl World {
     /// (`dli_world`) parses bare world rules and routes them through it. Other
     /// non-deductive declarations (sorts, registers, drafts, …) are consumed by
     /// other subsystems and carry no fact.
+    #[expect(clippy::too_many_lines)]
     pub fn lower(document: &Document) -> Result<World, EvalError> {
         let mut world = World::new();
         let mut proposal_seq: u32 = 0;
@@ -430,6 +444,21 @@ impl World {
                     world
                         .functional_predicates
                         .insert(functional.pred.text.clone());
+                }
+                // `inertial <pred>` is carriage-only (it mints no ground atom),
+                // but — unlike `functional` — its standing is load-bearing: the
+                // continuity check caps only while the declaration is certain.
+                // So its provenance is compiled into an `Ann` and OR-ed into the
+                // predicate's entry, exactly as `Decl::SameAs` above compiles its
+                // link's provenance. This evaluable-world copy is carried for
+                // forks/merges; the load check reads the `WorldModel` twin.
+                Decl::Inertial(inertial) => {
+                    let ann = world.lower_fact_annotation(
+                        inertial.provenance.as_ref(),
+                        &mut proposal_seq,
+                        &known_decisions,
+                    );
+                    or_inertial(&mut world.inertial_predicates, &inertial.pred.text, ann);
                 }
                 // `same-as <left> = <right>` (WS-1) lowers to the queryable
                 // ground fact `same-as(left, right)` — exactly like a `Fact`,
@@ -1120,6 +1149,22 @@ pub fn synthesize_alias_rules(world: &mut World) {
             let body = vec![body_atom, link_atom(&arg_vars[pos], "Y")];
             let name = format!("same-as:{pred}/{arity}@{pos}");
             let _ = world.define_rule(name, head, body);
+        }
+    }
+}
+
+/// OR one declaring provenance's [`Ann`] into a predicate's inertia entry
+/// (`docs/decisions.md` DL-0081). A predicate declared `inertial` more than once
+/// is inertial under the **disjunction** of its declarations' supports, so
+/// defeating one declaration leaves the slot inertial while any other still
+/// stands. Both minting seams (`dli_world`'s `compile_ann`, this crate's
+/// `World::lower_fact_annotation`) produce positive-only annotations — no
+/// defeater conditions — so the join is exactly the disjunction of supports.
+pub fn or_inertial(map: &mut BTreeMap<String, Ann>, pred: &str, ann: Ann) {
+    match map.get_mut(pred) {
+        Some(existing) => *existing = Ann::supported(existing.support.or_(&ann.support)),
+        None => {
+            map.insert(pred.to_owned(), ann);
         }
     }
 }

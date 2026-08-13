@@ -126,6 +126,26 @@ When a point advances, deloreis updates its **State** and fills **Evidence** wit
 a link (a fixture path, a tagged build, a transcript). A point never advances
 without its evidence.
 
+### Contract 1.8.0 — inertia declaration
+
+Independent of the Contract 1.6 cutover and the 1.7.0 campaign this file
+otherwise tracks: `main` opened contract `1.8.0` and landed
+`author.declare_inertial` (`decisions.md` DL-0081), taking the operation
+inventory from 62 to 63. Additive and floor-gated (`has_inertia`, ≥ `1.8.0`),
+so every `1.7.0`-or-earlier capability list stays byte-identical — **nothing
+here changes fantasy's pinned handshake**, no CP row moves, and the consumer
+owes nothing new yet.
+
+The op stages the carriage-only `Decl::Inertial` declaration and carries it
+through the compiled world, forks, merges, and the durable lorestore,
+mirroring `functional`/`author.declare_functional` exactly. The `continuity`
+check reads it: declaring a predicate inertial reshapes its fluent projection,
+bounding an open value's forward persistence at the next distinct certain
+value — composing into a silent transition, a
+`continuity.fluent-order-undeclared` warn, or a
+`continuity.fluent-contradiction` error, with `continuity.inertia-unanchored`
+(warn) for a value that carries no `since` anchor (per DL-0081's full ruling).
+
 ## Cutover execution log
 
 ### 2026-08-06 — Phase 0 closed (both lanes); §5 accrual proven on a real binary

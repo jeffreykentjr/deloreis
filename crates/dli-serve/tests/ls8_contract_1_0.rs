@@ -856,6 +856,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         ("1.5.0", &["author.set_standing", "author.defeat"]),
         ("1.6.0", &["author.declare_functional"]),
         ("1.7.0", &["author.assert_same_as", "author.add_rule"]),
+        ("1.8.0", &["author.declare_inertial"]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {

@@ -88,6 +88,26 @@ judge a predicate's *first* use. Whether a relation admits one value or many is 
 ruling about the world (koan 3), so the author makes it. The declaration lowers
 to no atom; it is carried, with its provenance, on the stored declaration.
 
+## Inertial predicates — persistence declared
+
+`inertial <pred>` declares a predicate's fluent values persistent: a value
+asserted `since` a point is meant to hold forward until a later, distinct,
+live value on the same slot defeats it — the frame problem's standard
+resolution, moved inside the engine instead of being decided by whoever picks
+`since`/`until` bounds by hand.
+
+```dli
+scope camelot
+
+inertial water-status               proposed session-9c1
+```
+
+Like `functional`, it stages via `author.declare_inertial` and carries no
+ground atom (`docs/decisions.md` DL-0081). The continuity check reads the
+declaration: an open inertial value's forward persistence is bounded at the
+next distinct certain value on the slot, surfacing as a silent transition, a
+`continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction`.
+
 ## Cycles — cyclic time that refuses rank
 
 A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but

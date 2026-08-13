@@ -69,8 +69,8 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl,
-    FunctionalDecl, KindDecl, OptionClause, RuleDecl, SameAsDecl, ScopeHeader, StateDecl,
-    TimeClause,
+    FunctionalDecl, InertialDecl, KindDecl, OptionClause, RuleDecl, SameAsDecl, ScopeHeader,
+    StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -246,6 +246,7 @@ impl LoadCtx {
             Decl::Attr(attr) => self.process_attr(attr, pack, None),
             Decl::State(state) => self.process_state(state, pack),
             Decl::Functional(functional) => self.process_functional(functional),
+            Decl::Inertial(inertial) => self.process_inertial(inertial, pack),
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
             Decl::SameAs(same_as) => self.process_same_as(same_as, pack),
@@ -514,6 +515,41 @@ impl LoadCtx {
             .world
             .functional_predicates
             .insert(functional.pred.text.clone());
+    }
+
+    /// Record an `inertial <pred>` declaration (`docs/decisions.md` DL-0081).
+    /// Carriage-only — it mints no ground atom — but, unlike `functional`, its
+    /// provenance is **compiled into an `Ann`** and OR-ed into the predicate's
+    /// entry, because the continuity check caps only while the declaration is
+    /// certain (defeating it reverts the slot to plain projection). Both the
+    /// world-model map (the load check reads it) and the evaluable `World`'s own
+    /// map (carried through forks/merges) are seeded, mirroring
+    /// [`process_functional`](LoadCtx::process_functional)'s two-place seeding.
+    ///
+    /// Interning the provenance here is what keeps the load path in lock-step
+    /// with the lorestore walk (`dli_lorestore::lower::decl_provenance` routes
+    /// `Decl::Inertial` through its mirror `compile_ann`): both intern the same
+    /// variables in the same order, so `import_pack` never sees a
+    /// `LoweringDiverged`.
+    fn process_inertial(&mut self, inertial: &InertialDecl, pack: &str) {
+        let label = format!("inertial '{}'", inertial.pred.text);
+        let compiled = self.compile_ann(
+            inertial.provenance.as_ref(),
+            &label,
+            pack,
+            true,
+            inertial.pred.span,
+        );
+        dli_eval::world::or_inertial(
+            &mut self.wm.inertial_predicates,
+            &inertial.pred.text,
+            compiled.ann.clone(),
+        );
+        dli_eval::world::or_inertial(
+            &mut self.wm.world.inertial_predicates,
+            &inertial.pred.text,
+            compiled.ann,
+        );
     }
 
     /// The interval anchors a state's [`TimeClause`] bounds it to. `since`/`after`
