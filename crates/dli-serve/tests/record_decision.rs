@@ -118,6 +118,21 @@ fn add_fact_cited(
     )))
 }
 
+/// Stage a PROPOSED (uncited) attribute fact on `mara` — the shape
+/// `materialize {decision}` must lift to certain-under-`d`, and the shape that
+/// stays `possible` while merely staged.
+fn add_fact_proposed(store: &mut Store, ws: &str, key: &str, value: &str) -> Vec<String> {
+    codes(&result(dispatch(
+        &req(
+            "add",
+            Op::AuthorAddFact,
+            json!({ "workspace": ws, "entity": "mara", "key": key, "value": value,
+                    "provenance": { "kind": "proposed", "origin": "session-rd" } }),
+        ),
+        store,
+    )))
+}
+
 fn check_codes(store: &mut Store, ws: &str) -> Vec<String> {
     codes(&result(dispatch(
         &req("check", Op::AuthorCheck, json!({ "workspace": ws })),
@@ -233,6 +248,145 @@ fn materialize_stamps_and_why_names_the_supporting_decision() {
     assert!(
         stamped,
         "materialize stamped a committed fact Ratified under the decision: {materialized}"
+    );
+}
+
+// -- 4b. the pin: materialize {decision} CONFERS certainty on the accepted set
+
+/// The regression the cosmetic-marker bug would have slipped through. Two
+/// PROPOSED (uncited) values on a functional predicate read `possible` while
+/// staged — so nothing bars `materialize {decision: d-1}` — but the accept must
+/// rest each fact's SUPPORT on `d-1`, so the committed pair reads CERTAIN and a
+/// reopened `author.check` fires `continuity.fd-violation`. Under the old
+/// cosmetic stamp the facts kept their proposal gate, stayed possible, and the
+/// check fired nothing — a `possible` pair stored as "ratified under d-1".
+#[test]
+fn materialize_decision_confers_certainty_and_check_fires_the_fd_violation() {
+    let (_root, mut store) = store_with_mara();
+    let ws = open(&mut store);
+    declare_functional(&mut store, &ws, "rank");
+
+    // Two uncited proposals — possible while staged, so neither the FD check nor
+    // any other error-severity finding bars materialize.
+    assert!(
+        add_fact_proposed(&mut store, &ws, "rank", "captain").is_empty(),
+        "a proposed value stages clean"
+    );
+    assert!(
+        add_fact_proposed(&mut store, &ws, "rank", "admiral").is_empty(),
+        "the sibling proposed value stages clean too"
+    );
+
+    // Accept the whole set under d-1 — no prior record_decision needed:
+    // materialize records d-1 itself as the ratifying decision.
+    let materialized = result(dispatch(
+        &req(
+            "mat",
+            Op::AuthorMaterialize,
+            json!({ "workspace": ws, "rendered": false, "decision": "d-1" }),
+        ),
+        &mut store,
+    ));
+    assert!(
+        materialized["facts"]
+            .as_array()
+            .is_some_and(|facts| !facts.is_empty()),
+        "materialize committed the accepted set: {materialized}"
+    );
+
+    // Bring the committed head into the workspace base and check it: the two
+    // now-certain values on a functional predicate are a live FD violation.
+    store
+        .reload_workspace_base(&ws)
+        .expect("the workspace reloads after the accept");
+    assert!(
+        check_codes(&mut store, &ws).contains(&"continuity.fd-violation".to_owned()),
+        "the accepted-under-d-1 pair reads certain, so the FD break fires: {:?}",
+        check_codes(&mut store, &ws)
+    );
+
+    // author.why on one of them names d-1 in its support antichain — the fact
+    // rests on the recorded decision, the conferral the marker never made.
+    let why = result(dispatch(
+        &req(
+            "why",
+            Op::AuthorWhy,
+            json!({ "workspace": ws, "atom": "rank(mara, captain)" }),
+        ),
+        &mut store,
+    ));
+    let supporting: Vec<String> = why["supporting_decisions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|value| value.as_str().map(str::to_owned))
+        .collect();
+    assert!(
+        supporting.contains(&"d-1".to_owned()),
+        "author.why names the decision the accepted fact rests on: {why}"
+    );
+}
+
+// -- 4c. no declaration corruption: a carriage is never stamped ---------------
+
+/// `materialize {decision}` rests only FACTS on the decision. A declaration
+/// carriage (here the `functional` declaration) is machinery — it must come back
+/// with NO `standing_decision` and NO false `Ratified`, or a later
+/// reconstruction would read a declaration as a ratified claim. The fact staged
+/// alongside it is the positive control: it DID get accepted under d-1.
+#[test]
+fn materialize_decision_never_stamps_a_declaration_carriage() {
+    let (_root, mut store) = store_with_mara();
+    let ws = open(&mut store);
+    declare_functional(&mut store, &ws, "rank");
+    assert!(
+        add_fact_proposed(&mut store, &ws, "rank", "captain").is_empty(),
+        "a proposed value stages clean"
+    );
+
+    let materialized = result(dispatch(
+        &req(
+            "mat",
+            Op::AuthorMaterialize,
+            json!({ "workspace": ws, "rendered": false, "decision": "d-1" }),
+        ),
+        &mut store,
+    ));
+    let facts = materialized["facts"]
+        .as_array()
+        .expect("materialize returns committed facts");
+
+    // The carriage object is the one carrying an `expert_body`.
+    let carriage = facts
+        .iter()
+        .find(|fact| !fact["expert_body"].is_null())
+        .expect("the functional declaration was committed as a carriage");
+    assert_ne!(
+        carriage["provenance"]["standing_decision"],
+        json!("d-1"),
+        "a declaration carriage does not rest on a standing decision: {carriage}"
+    );
+    assert_ne!(
+        carriage["provenance"]["marker"],
+        json!("Ratified"),
+        "a declaration carriage is not falsely ratified under the decision: {carriage}"
+    );
+
+    // The fact itself DID get accepted under d-1 — the conferral applies to
+    // claims, not machinery.
+    let fact = facts
+        .iter()
+        .find(|fact| fact["expert_body"].is_null())
+        .expect("the proposed value was committed as a fact");
+    assert_eq!(
+        fact["provenance"]["standing_decision"],
+        json!("d-1"),
+        "the accepted fact records the promoting decision: {fact}"
+    );
+    assert_eq!(
+        fact["provenance"]["marker"],
+        json!("Ratified"),
+        "the accepted fact reads ratified under the decision: {fact}"
     );
 }
 

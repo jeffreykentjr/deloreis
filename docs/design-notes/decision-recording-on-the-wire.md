@@ -113,16 +113,26 @@ decision is a decl write, not a write of the reference's valuation overlay.
 ### 3.2 `author.materialize {…, decision?}`
 
 When `decision` is supplied, materialize injects a synthetic `Decl::Ratify` for
-it into the committed decl set **and** marks each committed fact object's
-provenance `Ratified` under that decision (the `standing_decision`/`marker`
-pattern `defeat` already uses). The accepted staged set then reads `certain`
-under the decision by the ordinary algebra.
+it into the committed decl set **and** rests each committed **fact**'s SUPPORT on
+that decision — an accepted proposed/uncited fact is rewritten to `cited d
+ratified`, its support polynomial replaced by the decision variable. The WHOLE
+accepted staged set then reads `certain` under the decision by the ordinary
+algebra. Moving the support, not merely the marker, is the whole point:
+`derive_annotation` derives certainty from a fact's `support`, so a `Ratified`
+marker left over a proposal-gated support is inert — it round-trips back to
+`Proposed` and the fact stays possible. Two carve-outs: a declaration/carriage
+object (functional, inertial, `ratify`, `__decl`) is machinery, not a claim, and
+is never stamped or rested on a decision; and a fact that already cites a
+decision keeps its own citation.
 
-This means "**accept this staged set under decision D**," which is the honest
-replacement for `fixture-authority ... true`. It is emphatically *not* "force
-every support variable true": it stamps exactly the facts this materialize
-commits, under a named, recorded, defeasible decision — not the whole valuation
-overlay. Floor-gated at 1.9.0; supplying `decision` on an earlier accepted
+This means "**accept this whole staged set under decision D**," which is the
+honest replacement for `fixture-authority ... true`. It is emphatically *not*
+"force every support variable true": it rests exactly the facts this materialize
+commits on a named, recorded, defeasible decision — not the whole valuation
+overlay — so two conflicting accepted facts fire `continuity.fd-violation` on the
+next check. (The honest *subset* — accepting only some staged facts under `d` —
+is `record_decision` + selective `cited`/`set_standing`, not `materialize
+{decision}`.) Floor-gated at 1.9.0; supplying `decision` on an earlier accepted
 version is a schema violation.
 
 ### 3.3 `author.why → supporting_decisions: Vec<String>`

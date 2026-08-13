@@ -4547,16 +4547,28 @@ reverts to `possible` (not deleted).
 **`author.materialize {…, decision?}`** (floor-gated at `1.9.0`; supplying it on
 an earlier accepted version is a schema violation): when `decision` is supplied,
 materialize records it as a known supporting decision of the commit (appended to
-the decisions list) and re-stamps each committed fact object's provenance
-`Ratified` under it (the `standing_decision`/marker pattern `set_standing` uses).
-The accepted set then reads `certain` under the decision by the ordinary
-algebra. This is "**accept this staged set under decision D**," the honest
-replacement for `fixture-authority ... true` — it stamps exactly the facts this
-call commits under a named, recorded, defeasible decision, never the whole
-valuation overlay: a fact that cites the decision reads certain-and-ratified; a
-fact that cites nothing keeps its own proposal gate and stays possible (a real
-decision supports only what rests on it — the honest subset, not the blanket
-flip).
+the decisions list) and rests each committed **fact**'s SUPPORT on it — an
+accepted proposed/uncited fact is rewritten to `cited d ratified`, its support
+polynomial replaced by the decision variable — so the WHOLE accepted staged set
+reads `certain` under the decision through the ordinary `ledger_valuation`
+algebra once `d`'s `Ratify` is recorded. Moving the support, not merely the
+marker, is the point: `derive_annotation` derives certainty from a fact's
+`support`, not from its marker, so a `Ratified` marker left over a proposal-gated
+support is inert — it round-trips back to `Proposed` and the fact stays possible.
+This is "**accept this whole staged set under decision D**," the honest
+replacement for `fixture-authority ... true`: the whole accepted set is made
+certain under `d`, so two conflicting accepted facts fire
+`continuity.fd-violation` on the next `author.check`. Two carve-outs keep it
+honest rather than a blanket flip — a declaration/carriage object (functional,
+inertial, `ratify`, `__decl`) is machinery, not a claim, and is never stamped or
+rested on a standing decision; and a fact that already cites a decision keeps its
+own deliberate citation. (The honest *subset* — accepting only some staged facts
+under `d` — is what `record_decision` + selective `cited`/`set_standing` gives;
+`materialize {decision}` is the whole-set accept.) A known gap: `author.why →
+supporting_decisions` is reachable today only in the `--features syntax` build
+(the benchmark consumer's build), because `author.why` parses its `atom` string
+through the front end; a syntax-free typed `goal_atom` successor for `author.why`
+is a follow-up, not implemented here.
 
 **`author.why → supporting_decisions: Vec<String>`.** `author.why` gains a
 field naming the recorded decisions in a certain fact's support antichain — the

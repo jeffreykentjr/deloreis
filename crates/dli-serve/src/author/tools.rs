@@ -482,19 +482,68 @@ pub(super) fn materialize(
         .workspace_lorestore_mut(&params.workspace)
         .expect("checked above");
 
-    // Re-stamp each committed fact object's provenance `Ratified` under the
-    // named decision (the `standing_decision`/marker pattern `set_standing`
-    // uses on a stored claim), producing a fresh committed hash set. A fact that
-    // cites the decision then reads certain-and-ratified; a fact that cites
-    // nothing keeps its own proposal gate and stays possible — a real decision
-    // supports only what rests on it (the honest subset, not the blanket flip).
+    // Accept the whole staged set under `d` (DL-0083): each committed **fact**
+    // has its SUPPORT rested on `d`, so it reads certain-and-ratified through the
+    // ordinary `ledger_valuation` algebra once `d`'s synthetic `Ratify` is
+    // recorded — the honest certainty-conferral, not a cosmetic marker the
+    // valuation ignores (`derive_annotation` reads certainty from `support`, not
+    // from the marker, so a marker with a proposal-gated support round-trips back
+    // to `Proposed` and never reads certain). Three rules:
+    //   * A declaration/carriage object (functional, inertial, ratify, `__decl`)
+    //     is machinery, not a claim — it does not rest on a standing decision, so
+    //     it is committed byte-identical, never stamped.
+    //   * A fact that already cites a decision keeps its own deliberate citation
+    //     and standing — the accept never clobbers a chosen provenance.
+    //   * A proposed/uncited fact becomes `cited d ratified`: its support is
+    //     replaced by `d` and the promoting decision recorded. This is the
+    //     batch-accept point — the honest replacement for `fixture-authority true`.
     let commit_fact_hashes = if let Some(decision) = params.decision.as_deref() {
+        // The decision's atom in the commit interner — the variable a fact's
+        // support must rest on to read certain. `decision` was appended to the
+        // commit interner just above, so the lookup cannot miss.
+        let decision_support = commit_interner
+            .iter()
+            .position(|name| name == decision)
+            .and_then(|index| u32::try_from(index).ok())
+            .map(|index| dli_core::PosBool::pos(dli_core::Atom(index)))
+            .expect("the decision is interned in the commit interner");
+        // Known decisions (base-declared plus `d`): a positive support literal
+        // naming one is a deliberate citation the accept must preserve.
+        let known: std::collections::BTreeSet<&str> =
+            decisions.iter().map(String::as_str).collect();
+        let cites_a_decision = |support: &dli_core::PosBool| {
+            support.monomials().any(|monomial| {
+                monomial.lits().any(|lit| {
+                    lit.rail == dli_core::Rail::Pos
+                        && commit_interner
+                            .get(lit.atom.0 as usize)
+                            .is_some_and(|name| known.contains(name.as_str()))
+                })
+            })
+        };
         let mut stamped = Vec::with_capacity(staged_fact_hashes.len());
         for hash in &staged_fact_hashes {
             let mut object: dli_lorestore::FactObject = ls
                 .read_object(hash)
                 .map_err(|error| store_fault(&error))?
                 .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            // A carriage/declaration does not rest on a standing decision — commit
+            // it unchanged, never stamped (its `standing_decision` stays absent).
+            if object.expert_body.is_some() {
+                stamped.push(hash.clone());
+                continue;
+            }
+            // A fact that already cites a decision keeps its own citation, so a
+            // deliberate provenance is never clobbered by the batch accept.
+            if cites_a_decision(&object.support) {
+                stamped.push(hash.clone());
+                continue;
+            }
+            // A proposed/uncited fact is accepted under `d`: rest its support on
+            // `d` (provenance-equivalent to a directly authored `cited d
+            // ratified`) and record the promoting decision. It now reads certain
+            // through the algebra — the conferral the cosmetic marker never made.
+            object.support = decision_support.clone();
             let provenance = object.provenance.get_or_insert_with(Default::default);
             provenance.marker = Some(ProvenanceMarker::Ratified);
             provenance.standing_decision = Some(decision.to_owned());
