@@ -4643,3 +4643,153 @@ preserved `citation.unknown-decision`, materialize-stamping with
 `why → supporting_decisions`, and the three guard-census refusals;
 `crates/dli-lorestore/tests/record_decision_parity.rs` pins the
 synthetic-prelude / carriage byte-identity invariant.
+
+## DL-0084 — Reads for incremental canonicalization: `author.predicates` and `author.entity_candidates` at contract 1.10.0
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The engine exposes two bounded reads over the staged world so a
+canonicalizing extractor can decide, *before minting a name*, whether a new
+predicate or entity mention is one the store already holds:
+**`author.predicates`** (the distinct predicates present, each with its arity and
+whether it was declared functional or inertial) and **`author.entity_candidates`**
+(the existing entities nearest a surface form by edit distance, bounded by a
+caller `limit`, folded to canonical representatives). Both are **pure reads** over
+`staged_world` — they stage nothing, mint no fact object, and add no stored field
+— appended to the end of `Op::ALL` and gated on one floor predicate,
+`has_incremental_canon = at_or_above(dli, (1,10,0))`, so every earlier
+negotiation's capability list and its released fixtures stay byte-identical. The
+third read the harnesses need — **merge-consequence preview** — is **already
+covered** by the existing wire surface and gets **no new op**.
+
+**Why this work exists.** Two benchmark campaigns produced zero engine findings
+against real ground-truth contradictions, and the engine was correct each time:
+it was handed a world with no conflicts. The harness lowers prose into claims one
+mention at a time with no fixed vocabulary, so the same property is named
+`current-job` on one mention and `current-work` on the next; the two contradicting
+values land in two single-valued slots and no `continuity.fd-violation` can fire.
+Measured: FlawedFictions extracted both sides of a contradiction in 78.0% of
+stories but shared a slot in only 18.1%; SubtleMemory's 14,357-claim corpus held
+574 multi-valued slots but zero on the six declared-functional predicates, and
+both live arms differed by 20 bytes of empty JSON. The fix under test is
+incremental canonicalization; the *decision* (what to merge) is language and stays
+with the LLM (FlawedFictions Round 3: routing merges through `author.assert_same_as`
+reproduced the LLM's coreference precision exactly and a gold oracle could not
+improve it). This work is the engine half: expose the candidates the harness needs
+to run that loop.
+
+**The audit (Task 1).** For each of the three reads a consuming harness needs:
+
+- **Read A — the predicate set for a world.** Did **not** exist on the wire, and
+  no engine primitive enumerated it. **Built** (`author.predicates`).
+- **Read B — bounded entity candidates.** Did **not** exist on the wire; the
+  similarity algorithm existed only as a private repair-suggestion helper
+  (`candidates`/`levenshtein`, distance ≤ 3, hard-coded top-5). **Built**
+  (`author.entity_candidates`), lifting the similarity core into one shared,
+  `limit`-parameterized helper (`nearest_by_edit_distance`) both the read and the
+  suggester now use.
+- **Read C — merge-consequence preview.** **Exists.** The staged branch/workspace
+  workflow already previews an `assert_same_as` merge without committing:
+  `assert_same_as` → `author.check` (a merge that puts two distinct certain values
+  on one functional slot surfaces as `continuity.fd-violation`) → `author.discard {decl}`.
+  Measured **3 wire calls per mention** (plus O(1) amortized `author.open` and a
+  one-time `author.status` to learn the same-as's stable structural key); nothing
+  is materialized, so the preview leaves nothing observable moved.
+
+The finding the audit records: both harnesses currently **reconstruct Reads A and
+B from their own LLM state** — FlawedFictions clusters coreferents from the payload
+and authors a local predicate taxonomy; SubtleMemory declares predicates from a
+reviewed local manifest — rather than asking the store. That reconstruction is the
+gap this closes, and it is exactly what made a prior benchmark phase a harness
+result rather than an engine result.
+
+**The scoped-read fork (Task 2).** The recorded gap is that `author.query` returns
+the full effective valuation with no scoped parameter. The fork was whether to
+deliver the bounded reads as a **scope parameter on `author.query`** or as
+**dedicated read ops**. Resolved (with the author) to **dedicated ops**: a
+predicate census and a similarity list are not "scoped valuations" — forcing them
+into `author.query`'s goal-row/full-valuation shape overloads a hot, fixtured op
+with two unrelated result shapes and leaves "bounded" a hope about caller input
+rather than a property of the type; dedicated ops make the bound structural
+(`author.entity_candidates`'s `limit` is a required param capped at a hard engine
+ceiling, so an over-large value can never become a full entity dump), give each
+read a fitting shape, and follow the settled `author.declare_inertial` append-only
+precedent. The genuinely-useful **scoped-valuation parameter on `author.query`**
+(the literal SubtleMemory ask) answers a *different* question — valuation scoping,
+not candidate retrieval — and is **left open**, not built here.
+
+**Agreement with the FD check is structural, not incidental.** Both reads key the
+way `continuity.fd-violation` does, by construction. `author.predicates` annotates
+`functional` from the **declared** `functional_predicates` set the load-check
+consults (koan 3 / DL-0074) — never canon's inferred-functional set, which would
+over-report. `author.entity_candidates` folds entity names through the **same**
+identity canon the check uses (`dli_world::check::identity_canon`, widened from
+`pub(super)` to `pub` for exactly this reuse) *before* scoring, so an aliased class
+collapses to its one lexicographic-min representative — the `limit` budget is never
+spent twice on one class, and a surfaced candidate keys the way the FD slot would.
+
+**Guard-census determination.** The four wildcarded guard-census arms (`decl_kind`,
+`free_text_fields`, `decl_annotation`, `sanitize_decl`) are per-`Decl`-kind. These
+ops are pure reads and stage no `Decl`, so **no arm is added**; a regression test
+per read pins that the read routes through the `read` wrapper and leaves the
+staged-decl set unchanged. When a predicate-identity declaration is built (below),
+the four arms and their four census tests become mandatory.
+
+**Predicate identity — recorded as a gap, not built.** There is no predicate
+analog of `assert_same_as`: the store cannot record that `current-work` and
+`current-job` name the same property. It is deliberately **not** built in this
+pass — the harnesses will test the canonicalization hypothesis with a harness-side
+alias table first, which needs no engine work. **Un-lift trigger** (a boundary
+recorded with no trigger becomes permanent by default, DL-0011): if shared-slot
+rates move materially against the 18.1% (FlawedFictions) / 30-of-377 (SubtleMemory
+offline audit) baselines under harness-side aliasing, `assert_predicate_same_as`
+has measured justification and gets specced then — mirroring the entity mechanism
+exactly: caller-declared, never inferred (koan 3), defeasible via the existing
+defeat path, closed at saturation, with merge consequences previewable through a
+branch.
+
+**Coordination.** This surface is additive at the current contract floor and was
+built to append cleanly behind the in-flight `author.as_of` temporal read: it
+takes the contract version and `Op::ALL` slots immediately after it, and holds no
+released wire byte. Every pre-existing wire is byte-identical, guaranteed by the
+capability-list and `0.x` parity oracles.
+
+**Rationale.** The reads live in the engine, not the harness, because holding the
+resulting alias decisions as defeasible claims with provenance, propagating their
+consequences, and previewing them before ratification is more than a memory system
+that silently overwrites — it is the part that belongs below the LLM. Exposing the
+*candidates* (not deciding the merge) keeps the koan-3 line intact: the engine
+never guesses what is coreferent; it reports what it holds and lets the caller
+declare.
+
+**Verification.** `cargo xtask gate` is green, with the parity and convergence
+oracles untouched. Each read is reachable **wire-only** and demonstrated end to
+end: `author.predicates` (`crates/dli-serve/tests/predicates.rs`) pins the
+declared-only `functional` authority and the no-stage determination;
+`author.entity_candidates` (`crates/dli-serve/tests/entity_candidates.rs`) pins
+nearest-first ranking, the canonical-representative fold, and the `usize::MAX`-limit
+clamp to the engine ceiling; Read C (`crates/dli-serve/tests/same_as_preview.rs`)
+pins the 3-calls-per-mention preview-then-rollback loop and that a non-colliding
+same-as previews clean. Both ops carry golden + negative + paired-framing fixtures
+in the closed registry at `contract_version: 1.10.0`; the op inventory, the
+`has_incremental_canon` gate, and the version echo are gate-checked, with every
+pre-`1.10.0` capability list asserted unmoved (`ls8_contract_1_0.rs`,
+`ls8_zero_x_parity.rs`) and every fixture cold-replayed (`fixture_replay.rs`). The
+`nearest_by_edit_distance` lift keeps the existing unknown-reference suggester
+byte-identical. Branch-scoped isolation of both reads — the failure mode this class
+has produced before — was probed by two fresh-context red teams on the committed diff, which could not
+break it and left permanent regression tests. `ls10_branch_writes.rs` carries a
+positive-control test where a branch workspace opened before `main` and a sibling
+advance sees neither their new predicates nor their new entities — while a branch
+cut fresh from the advanced `main` does, so a `root_hash()` leak would fail it. And
+`crates/dli-serve/tests/reads_loadbearing.rs` (nine tests) pins the reads as
+load-bearing, store-derived rather than side-channel-fed: two workspaces with a
+byte-identical request answer differently by their staged state, an empty world
+degrades to empty rather than fabricating, `deny_unknown_fields` refuses a smuggled
+census/candidate payload at the wire boundary, the `functional` flag agrees with
+`continuity.fd-violation` in both directions, and an `author.entity_candidates`
+canonical representative matches the fd-violation's `data.subject` under the aliased
+spelling.

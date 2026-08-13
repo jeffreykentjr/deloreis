@@ -283,7 +283,7 @@ fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
 /// an empty map and every [`dli_core::alias::canon`] call is the identity —
 /// byte-identical to a world with none of this machinery (the
 /// frozen-contract guard).
-pub(super) fn identity_canon(world: &CompiledWorld) -> BTreeMap<String, String> {
+pub fn identity_canon(world: &CompiledWorld) -> BTreeMap<String, String> {
     let pairs = declared_links(world)
         .into_iter()
         .filter(|link| {

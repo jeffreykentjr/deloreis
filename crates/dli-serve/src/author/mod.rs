@@ -46,9 +46,10 @@ use crate::contract::{
     AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAsOfParams,
     AuthorAssertSameAsParams, AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
     AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
-    AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorQueryParams, AuthorRecordDecisionParams,
-    AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorEntityCandidatesParams, AuthorFindingsParams, AuthorListWorkspacesParams,
+    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
+    AuthorPredicatesParams, AuthorQueryParams, AuthorRecordDecisionParams, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -387,6 +388,26 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             Ok((
                 String::new(),
                 Ok(reads::list_workspaces(store, branch_writes(request))),
+            ))
+        }),
+        // The incremental-canonicalization reads (contract 1.10.0): both answer
+        // over the STAGED world and stage nothing, so they route through `read`.
+        Op::AuthorPredicates => read(request, store, |store, request| {
+            let params: AuthorPredicatesParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            let v2 = wire_v2(request);
+            Ok((
+                params.workspace.clone(),
+                reads::predicates(store, &params, v2),
+            ))
+        }),
+        Op::AuthorEntityCandidates => read(request, store, |store, request| {
+            let params: AuthorEntityCandidatesParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            let v2 = wire_v2(request);
+            Ok((
+                params.workspace.clone(),
+                reads::entity_candidates(store, &params, v2),
             ))
         }),
         // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).

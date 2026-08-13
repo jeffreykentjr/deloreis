@@ -1860,17 +1860,35 @@ fn reachable(from: &str, to: &str, edges: &[(String, String)]) -> bool {
 /// Candidate ids an unknown reference most plausibly meant: known entities within
 /// a small edit distance, nearest first.
 fn candidates(target: &str, known: &BTreeSet<String>) -> Vec<String> {
-    let mut scored: Vec<(usize, &String)> = known
-        .iter()
-        .map(|name| (levenshtein(target, name), name))
-        .filter(|(distance, _)| *distance <= 3)
-        .collect();
-    scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
-    scored
+    // Sort the whole set then keep the closest five within distance 3. Filtering
+    // before or after the sort yields the same five in the same order — the
+    // `<= 3` subset's relative order is identical either way — so this is
+    // byte-identical to the pre-lift `filter → sort → take`.
+    nearest_by_edit_distance(target, known.iter().cloned(), known.len())
         .into_iter()
+        .filter(|(distance, _)| *distance <= 3)
         .take(5)
-        .map(|(_, name)| name.clone())
+        .map(|(_, name)| name)
         .collect()
+}
+
+/// Known `names` ranked by edit distance to `surface`, nearest first and lexical
+/// on ties, each paired with its distance, keeping at most `limit`. The shared
+/// core of the unknown-reference suggester ([`candidates`]) and the
+/// `author.entity_candidates` read (Read B); `limit` bounds the result so
+/// neither can turn into a full dump.
+pub(super) fn nearest_by_edit_distance(
+    surface: &str,
+    names: impl IntoIterator<Item = String>,
+    limit: usize,
+) -> Vec<(usize, String)> {
+    let mut scored: Vec<(usize, String)> = names
+        .into_iter()
+        .map(|name| (levenshtein(surface, &name), name))
+        .collect();
+    scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    scored.truncate(limit);
+    scored
 }
 
 /// The Levenshtein edit distance between two strings.

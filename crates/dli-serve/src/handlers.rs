@@ -141,7 +141,9 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorAddRule
         | Op::AuthorDeclareInertial
         | Op::AuthorAsOf
-        | Op::AuthorRecordDecision => Err((
+        | Op::AuthorRecordDecision
+        | Op::AuthorPredicates
+        | Op::AuthorEntityCandidates => Err((
             ErrorCode::Internal,
             "author.* op reached the dli handler; it should route through Door T".to_owned(),
         )),
@@ -1986,6 +1988,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let inertia = crate::has_inertia(dli);
     let as_of = crate::has_as_of_read(dli);
     let decisions = crate::has_decisions(dli);
+    let incremental_canon = crate::has_incremental_canon(dli);
     Op::ALL
         .iter()
         .copied()
@@ -2008,6 +2011,7 @@ fn capabilities(dli: &str) -> Vec<String> {
             Op::AuthorRecordDecision => decisions,
             other => as_of || !other.added_in_1_9_0(),
         })
+        .filter(|op| incremental_canon || !op.added_in_1_10_0())
         .map(wire_name)
         .collect()
 }

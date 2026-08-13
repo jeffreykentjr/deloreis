@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorPredicatesResult",
+  "description": "`author.predicates` result: every distinct predicate the staged world\ncarries, sorted by name, each annotated with its observed arity and whether\nthe author has declared it functional or inertial.",
+  "type": "object",
+  "properties": {
+    "predicates": {
+      "description": "Every distinct predicate present, sorted by `pred`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PredicateEntry"
+      }
+    },
+    "root_hash": {
+      "description": "The workspace digest the read was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit). v2\nonly, mirroring [`AuthorQueryResult::root_hash`].",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "predicates"
+  ],
+  "$defs": {
+    "PredicateEntry": {
+      "description": "One predicate in the staged world's census.",
+      "type": "object",
+      "properties": {
+        "arity": {
+          "description": "The arity observed at the predicate's first occurrence. The\nFD/continuity slot check keys only binary predicates (`arity == 2`), so\nthis lets a caller filter to the FD-eligible ones.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "functional": {
+          "description": "Whether the author has **declared** this predicate functional\n(`author.declare_functional`). This is the declared set the load-check\nconsults — never canon's inferred-functional set — so it agrees with\nwhat `continuity.fd-violation` fires on.",
+          "type": "boolean"
+        },
+        "inertial": {
+          "description": "Whether the author has declared this predicate inertial\n(`author.declare_inertial`).",
+          "type": "boolean"
+        },
+        "pred": {
+          "description": "The predicate name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pred",
+        "arity",
+        "functional",
+        "inertial"
+      ]
+    }
+  }
+}

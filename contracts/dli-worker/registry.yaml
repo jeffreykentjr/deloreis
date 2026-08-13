@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.9.0
+contract_version: 1.10.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -59,6 +59,10 @@ fixtures:
   sha256: 33d1262c70b269510dcef04fb0882ca5b9d47b1f38a58bb6338a5f94dbbed076
 - path: framing/author-record-decision-framing.json
   sha256: 659eddc4d57ac676b5d3198675facbd8b261a8bbc11beaea69ee62239ecd2f3f
+- path: framing/author-predicates-framing.json
+  sha256: 5bd38619a3563f3841983e1e66e5666bcfae33ccf1217cb59b8ae8916a90a3e1
+- path: framing/author-entity-candidates-framing.json
+  sha256: bd551bf8320700d713a5183c4792022efc83c2b46ac450b3da05a4bd10ba82fb
 - path: framing/author-query-framing.json
   sha256: 7e2e89db564438529600edec66ac322f531293b19d33f5fd689ab4087868b4ad
 - path: framing/author-why-framing.json
@@ -119,6 +123,10 @@ fixtures:
   sha256: 0d88aca8269e63a3d618041a6e1423fa94a83a8f393b205739faeda83387a245
 - path: golden/author-record-decision-v1.json
   sha256: 4e57f47e0d81bfffd83faa35f29bd9e3315cf4b721d21de53223409d43d7acce
+- path: golden/author-predicates-v1.json
+  sha256: 943bf02be3ade9a38862fdccd6aa9612c2246275fd936c9d68c54a074c3a01a8
+- path: golden/author-entity-candidates-v1.json
+  sha256: a35906b8e894bb6da5850b97652466bba8eef1032085f353e0af41bc73a69f0a
 - path: golden/author-open-question-v1.json
   sha256: 846bc6d5a579912651a0f382a97e33769d5be04e963843d2a5e70e725d5142dd
 - path: golden/author-query-typed-goal-v1.json
@@ -263,6 +271,10 @@ fixtures:
   sha256: 4f3ca5d44c42cd36557961d899888277c5256fef818834f1ef40779b9ff38fb6
 - path: negative/author-record-decision-schema-violation.json
   sha256: 305ef2f4f8398cb7fed8cbb92d40c8b3111bca881c8de6694888ca04aa1cc70a
+- path: negative/author-predicates-schema-violation.json
+  sha256: 2e9cbc75d441865826a913fe88d73089f2585f1187fd841bccff985ad8040830
+- path: negative/author-entity-candidates-schema-violation.json
+  sha256: 943eb42ec04034a0a1bc9ab4b134755e517eaa49b0526de3701bc3dd89b31b21
 - path: negative/author-check-schema-violation.json
   sha256: 1b77089db82d2b7130e7e4806344f737260e864c10118d4d6d6355bde490d74e
 - path: negative/author-diff-schema-violation.json

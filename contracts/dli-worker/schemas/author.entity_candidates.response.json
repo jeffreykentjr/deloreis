@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorEntityCandidatesResult",
+  "description": "`author.entity_candidates` result: the nearest existing entities to the\nsurface form, nearest first, each with its edit distance.",
+  "type": "object",
+  "properties": {
+    "candidates": {
+      "description": "The candidate entities, nearest first (lexical on ties), at most `limit`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EntityCandidate"
+      }
+    },
+    "root_hash": {
+      "description": "The workspace digest the read was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit). v2\nonly, mirroring [`AuthorQueryResult::root_hash`].",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "candidates"
+  ],
+  "$defs": {
+    "EntityCandidate": {
+      "description": "One coreference candidate: an existing entity close to the surface form.",
+      "type": "object",
+      "properties": {
+        "distance": {
+          "description": "The edit distance from the surface form to `name`, so the caller can\nthreshold.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "name": {
+          "description": "The candidate entity's id — its **canonical representative** under the\nidentity map, so a surfaced candidate keys the way the FD/continuity\ncheck would and aliases never spend the `limit` budget twice.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "The entity's sort, when it is a declared entity rather than a symbol only\nreferenced in a fact.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "distance"
+      ]
+    }
+  }
+}
