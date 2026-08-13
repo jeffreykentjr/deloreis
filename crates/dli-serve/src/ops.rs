@@ -532,7 +532,7 @@ impl Op {
             }
             Op::AuthorDiscard => "Drop a whole workspace, or one staged declaration.",
             Op::AuthorMaterialize => {
-                "Commit the workspace's staged fact objects to the lorestore — the accept decision — and return them as JSON (facts and root_hash), with .dli rendering behind rendered:true; refuses while any error-severity finding is open."
+                "Commit the workspace's staged fact objects to the lorestore — the accept decision — and return them as JSON (facts and root_hash), with .dli rendering behind rendered:true; an optional decision makes the accepted FACTS certain under it (not carriage claims like rules, same-as, or inertial declarations — those need record_decision plus a cited declaration); refuses while any error-severity finding is open."
             }
             Op::AuthorAddEntity => {
                 "Introduce a person, place, thing, or era into the workspace, with provenance (events use author.add_event)."

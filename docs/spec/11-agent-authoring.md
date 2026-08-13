@@ -119,6 +119,13 @@ The workspace supports:
   reject. The server never writes the consuming repository; what crosses the
   boundary is JSON, which the caller takes through its own review. A `0.5.1`
   caller instead receives the pre-`0.6.0` return, the rendered lines as data.
+  From contract `1.9.0` an optional `decision` accepts the committed **facts**
+  under a named, recorded, defeasible decision so they read `certain`. The
+  conferral is **facts-only**: carriage claims — rules, `same-as` links, and
+  inertial declarations — are never stamped and stay `possible`; their standing
+  comes from their embedded declaration provenance, so they reach certainty
+  through `author.record_decision` plus a **cited declaration**, not
+  `author.materialize {decision}`.
 
 A workspace mutation after `author.open` may carry the **workspace digest** it
 expects and returns the new digest. (`author.open` creates the first digest, so
@@ -557,7 +564,7 @@ are pure queries with no side effects.
 |---|---|
 | `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. |
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
-| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. |
+| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions a certain fact rests on), the auditability affordance. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes `supporting_decisions` reachable in a syntax-free build. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
 | `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — the one inertia-aware read (DL-0082): `check::slot_state_at` kernel-side, never `author.query`'s eval path. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |

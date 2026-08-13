@@ -408,7 +408,13 @@ pub(super) fn why(
     records_decisions: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let atom = parse_goal(&params.atom)?;
+    // The typed successor wins when the caller sent it; the rendered string is
+    // parsed only when it did not (parsing needs the `.dli` front end, so the
+    // typed form is what makes `supporting_decisions` reachable syntax-free).
+    let atom = match &params.goal_atom {
+        Some(a) => a.clone(),
+        None => parse_goal(&params.atom)?,
+    };
     let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
     let inner = &world.model.world;
     let why_not = compute_why_not(inner, &atom);

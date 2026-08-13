@@ -115,17 +115,23 @@ decision is a decl write, not a write of the reference's valuation overlay.
 When `decision` is supplied, materialize injects a synthetic `Decl::Ratify` for
 it into the committed decl set **and** rests each committed **fact**'s SUPPORT on
 that decision — an accepted proposed/uncited fact is rewritten to `cited d
-ratified`, its support polynomial replaced by the decision variable. The WHOLE
-accepted staged set then reads `certain` under the decision by the ordinary
-algebra. Moving the support, not merely the marker, is the whole point:
-`derive_annotation` derives certainty from a fact's `support`, so a `Ratified`
-marker left over a proposal-gated support is inert — it round-trips back to
-`Proposed` and the fact stays possible. Two carve-outs: a declaration/carriage
-object (functional, inertial, `ratify`, `__decl`) is machinery, not a claim, and
-is never stamped or rested on a decision; and a fact that already cites a
+ratified`, its support polynomial replaced by the decision variable. The accepted
+**facts** then read `certain` under the decision by the ordinary algebra — and
+**only** the facts. The conferral is facts-only: the code carve-out is
+`object.expert_body.is_some()`, which skips every carriage claim. Moving the
+support, not merely the marker, is the whole point: `derive_annotation` derives
+certainty from a fact's `support`, so a `Ratified` marker left over a
+proposal-gated support is inert — it round-trips back to `Proposed` and the fact
+stays possible. Two carve-outs: a declaration/carriage object — anything with an
+`expert_body` (functional, inertial, `same-as`, a rule, `ratify`, `__decl`) — is
+never stamped or rested on a decision, so a `same-as` link, a rule, and an
+inertial declaration each stay `possible` under `materialize {decision}`. Their
+verdict-affecting standing comes from their embedded decl provenance, not from
+fact support, so it is `record_decision` + a **cited declaration** that makes
+them certain, never `materialize {decision}`. And a fact that already cites a
 decision keeps its own citation.
 
-This means "**accept this whole staged set under decision D**," which is the
+This means "**accept this staged set's facts under decision D**," which is the
 honest replacement for `fixture-authority ... true`. It is emphatically *not*
 "force every support variable true": it rests exactly the facts this materialize
 commits on a named, recorded, defeasible decision — not the whole valuation
@@ -151,18 +157,22 @@ Every certainty-gated check below is, on `origin/main` `9b28866` (contract
 1.8.0), reachable through the wire **only** by running `fixture-authority ...
 true` — force-flipping every proposal gate out-of-band. After this feature each
 is reachable through the taught surface: record the supporting decision, then
-either author/cite the facts to it (`record_decision` + `cited`/`set_standing`)
-or accept the staged set under it (`materialize {decision}`). Certain-gate sites
-are cited against `crates/dli-world/src/check/` at `9b28866`.
+author/cite the claims to it (`record_decision` + `cited`/`set_standing`) — and,
+for the **facts** in the set, `materialize {decision}` accepts them under it in
+one call. `materialize {decision}` confers certainty on facts only: a `same-as`
+link, a rule, and an inertial declaration are carriage claims it never stamps, so
+their rows below reach certainty via `record_decision` + a cited declaration, not
+`materialize`. Certain-gate sites are cited against `crates/dli-world/src/check/`
+at `9b28866`.
 
 | Check (finding) | Certain-gate site (verified @ 9b28866) | Certain facts today only via | Reachable wire-only post-feature via |
 |---|---|---|---|
 | `continuity.fd-violation` | `continuity.rs` `fd_violations` → `certain_binary_slots` filter `atom_status == Status::Certain`; claim side `factcheck.rs` `certain_values` → `continuity.rs certain_values` (`atom_status == Certain`) | `fixture-authority true` | `record_decision d` + cite the two facts, or `materialize {decision: d}` |
-| `continuity.derived-fd-violation` | `continuity.rs` `derived_fd_violations` → `certain_derived_binary_slots` filter `derived.ann().status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite the base facts and the rule, or `materialize {decision: d}` |
+| `continuity.derived-fd-violation` | `continuity.rs` `derived_fd_violations` → `certain_derived_binary_slots` filter `derived.ann().status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite the base facts and the rule — the rule is a carriage claim, so `materialize {decision}` (facts-only) cannot confer its certainty |
 | `continuity.fluent-contradiction` | `continuity.rs` `fluent_contradictions` → `fluent_clash` sweep over `state.certain_values()`; certain-span basis (`status == Certain`) | `fixture-authority true` | `record_decision d` + cite (or `materialize {decision: d}`) the competing fluent states |
 | `continuity.fluent-order-undeclared` | `continuity.rs` `fluent_order_gap` certain-span filter `span.ann.status == Status::Certain` | `fixture-authority true` | same as fluent-contradiction; the ordering edge is staged at check-only as today |
-| inertia capping (DL-0081) | `continuity.rs` `fluent_finding_data`/`state_at_inertial` `capping = inertial.status == Status::Certain`; `inertial_derived_until` competitor filter `status == Certain` | `fixture-authority true` (declaration **and** states must read certain) | `record_decision d` + cite (or `materialize {decision: d}`) the `declare_inertial` decl and the point states |
-| `same-as` identity merge (WS-1) | `continuity.rs` `identity_canon` union-find over links with `link.ann.status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite (or `materialize {decision: d}`) the `assert_same_as` link |
+| inertia capping (DL-0081) | `continuity.rs` `fluent_finding_data`/`state_at_inertial` `capping = inertial.status == Status::Certain`; `inertial_derived_until` competitor filter `status == Certain` | `fixture-authority true` (declaration **and** states must read certain) | `record_decision d` + cite the `declare_inertial` decl and the point states — the inertial decl is a carriage claim, so `materialize {decision}` stamps the states but not the decl; cite it |
+| `same-as` identity merge (WS-1) | `continuity.rs` `identity_canon` union-find over links with `link.ann.status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite the `assert_same_as` link — a carriage claim `materialize {decision}` (facts-only) never stamps |
 | `continuity.world-contradiction` | `factcheck.rs` `Verdict::Contradicted` requires one certain value differing from the claim, via `certain_values` | `fixture-authority true` (a certain canon value) | `record_decision d` + cite (or `materialize {decision: d}`) the canon fact; the contradicting claim then reads contradicted |
 | `continuity.rejected-lore` | `continuity.rs` `certain_rejected_lore` filter `atom_status == Status::Certain` | `fixture-authority true` (a certain fact realizing a killed token) | `record_decision d` + cite (or `materialize {decision: d}`) the offending fact |
 | `continuity.identity-temporal-unsupported` | `continuity.rs` `identity_temporal_unsupported` — **NOT certainty-gated**; fires on any declared `same-as` naming an era/event *regardless of the link's standing* | already reachable via `assert_same_as` (proposed) — no flip needed | already wire-reachable today; **unchanged** by this feature |
@@ -194,10 +204,20 @@ Each is deliberately off for v1; each names the concrete consumer need that
 would justify lifting it.
 
 - **Standalone batch-ratify** — off. `materialize {decision}` already accepts a
-  whole staged set under one decision, which covers batch-accept.
+  whole staged set's **facts** under one decision, which covers batch-accept of
+  facts.
   **Un-lift trigger:** a consumer needing to bulk-ratify a large set that is
   *already materialized* (so no staging pass is available to stamp), e.g. via a
   future `author.ratify_all {decision}`.
+- **Carriage-claim stamping by `materialize {decision}`** — off. The
+  `object.expert_body.is_some()` carve-out means `materialize {decision}` confers
+  certainty on **facts** only; `same-as` links, rules, and inertial declarations
+  keep their embedded decl provenance and stay `possible`, made certain by
+  `record_decision` + a cited declaration.
+  **Un-lift trigger:** a consumer needing a one-call batch-accept of a staged set
+  that *contains* `same-as`/rule/inertial declarations under a single decision —
+  extend the carve-out to stamp carriage claims (e.g. by resting an
+  `expert_body`'s standing on the decision) rather than only facts.
 - **Engine-minted / content-addressed ids** — off; ids are caller-supplied and
   matched by exact equality.
   **Un-lift trigger:** a consumer that needs collision-free machine-minted ids

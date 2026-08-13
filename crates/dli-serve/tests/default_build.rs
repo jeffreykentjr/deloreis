@@ -1025,3 +1025,129 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
         "the key on the wire is recomputable from the declaration: {status}"
     );
 }
+
+// -- author.why's typed `goal_atom`: supporting_decisions, reachable syntax-free
+
+/// `author.why`'s `supporting_decisions` (contract 1.9.0, DL-0083) was dead in a
+/// syntax-free build: the op only accepted a rendered `atom` string, and parsing
+/// it needs the `.dli` front end this build does not link. The typed `goal_atom`
+/// successor (DL-0085) mirrors the sibling `author.query`'s `goal_atom` verbatim
+/// and carries the atom structurally, so the auditability affordance — confirm a
+/// fact reached certainty through a recorded decision — is finally reachable with
+/// no parser in the process.
+///
+/// The walk is the whole taught recipe, wire-only: record a baseline decision,
+/// cite it from a fact, then ask `author.why` with the TYPED goal and read the
+/// decision back out of `supporting_decisions`. Every call is a typed `author.*`
+/// mutation or read — no rendered string is parsed anywhere. It runs in both
+/// lanes; the point is that it passes in the default one.
+#[test]
+fn author_why_typed_goal_atom_names_the_supporting_decision_syntax_free() {
+    let (mut sessions, mut store) = demo();
+    // `record_decision` writes a durable `ratify`, so its base needs a branch.
+    // Attaching to the camelot demo imports the already-compiled fact objects —
+    // no parser is involved in the import, so this holds on the default build.
+    let root = tempfile::tempdir().expect("temporary lorestore root");
+    store
+        .attach_lorestore(root.path().join("lorestore"))
+        .expect("attach a lorestore to the camelot demo");
+
+    let at = |id: &str, op: &str, params: &Value| json!({ "dli": "1.10.0", "id": id, "op": op, "params": params });
+
+    let opened = drive(
+        &at("open", "author.open", &json!({ "scope": "camelot" })),
+        &mut sessions,
+        &mut store,
+    );
+    let workspace = result(&opened)["workspace"].as_str().unwrap().to_owned();
+
+    // The wire way to certainty: record the baseline decision, no `.dli ratify`.
+    // Recorded first — it reloads the workspace base from the new head — so all
+    // staging below happens over the post-record base.
+    let recorded = drive(
+        &at(
+            "record",
+            "author.record_decision",
+            &json!({ "workspace": workspace, "decision": "d-1" }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        result(&recorded)["findings"].as_array().unwrap().is_empty(),
+        "recording a fresh decision is clean: {recorded}"
+    );
+
+    // A typed entity declaration — the `knight` this fact will hang on.
+    drive(
+        &at(
+            "add-entity",
+            "author.add_entity",
+            &json!({
+                "workspace": workspace,
+                "kind": "person",
+                "id": "knight",
+                "name": "Knight",
+                "provenance": { "kind": "proposed", "origin": "dl0085-default-build" },
+            }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+
+    // A single fact citing the recorded decision — cited + ratified reads certain,
+    // so the atom is derived and its support carries the decision literal.
+    let added = drive(
+        &at(
+            "add-fact",
+            "author.add_fact",
+            &json!({
+                "workspace": workspace,
+                "entity": "knight",
+                "key": "rank",
+                "value": "captain",
+                "provenance": { "kind": "cited", "decisions": ["d-1"], "state": "ratified" },
+            }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let add_codes: Vec<String> = result(&added)["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|finding| finding["code"].as_str().map(str::to_owned))
+        .collect();
+    assert!(
+        !add_codes.contains(&"citation.unknown-decision".to_owned()),
+        "the cited decision resolves — it was recorded on the wire: {added}"
+    );
+
+    // The affordance: ask `author.why` with the TYPED goal — no rendered `atom`,
+    // so nothing to parse — and read the recorded decision back out.
+    let why = drive(
+        &at(
+            "why",
+            "author.why",
+            &json!({
+                "workspace": workspace,
+                "goal_atom": {
+                    "pred": ident("rank"),
+                    "args": [{ "Sym": ident("knight") }, { "Sym": ident("captain") }],
+                },
+            }),
+        ),
+        &mut sessions,
+        &mut store,
+    );
+    let supporting: Vec<String> = result(&why)["supporting_decisions"]
+        .as_array()
+        .unwrap_or_else(|| panic!("author.why answers with supporting_decisions: {why}"))
+        .iter()
+        .filter_map(|value| value.as_str().map(str::to_owned))
+        .collect();
+    assert!(
+        supporting.contains(&"d-1".to_owned()),
+        "the typed goal_atom reaches supporting_decisions with no parser: {why}"
+    );
+}

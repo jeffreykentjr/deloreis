@@ -4793,3 +4793,78 @@ census/candidate payload at the wire boundary, the `functional` flag agrees with
 `continuity.fd-violation` in both directions, and an `author.entity_candidates`
 canonical representative matches the fd-violation's `data.subject` under the aliased
 spelling.
+
+## DL-0085 — `author.why` gains a typed `goal_atom` successor (default-build auditability), and `author.materialize {decision}` is corrected to a facts-only scope
+
+*Date: 2026-08-13*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Two changes, one commit, no contract bump.
+
+**1. `author.why` gains a typed `goal_atom`, mirroring `author.query`.** DL-0083
+shipped `author.why → supporting_decisions` (the auditability affordance: confirm
+a fact reached certainty through recorded decisions, not a side channel), but the
+op accepted only a rendered `atom` string, parsed through the `.dli` front end. In
+the **default (syntax-free) build** — the consuming authoring server's build,
+which links no formatter — that parse is dead, so `supporting_decisions` was
+**unreachable**: an affordance present in the type and absent in practice. This
+adds `AuthorWhyParams.goal_atom: Option<AtomExpr>` and makes `atom` `#[serde(default)]`,
+mirroring the sibling `author.query`'s `goal_atom` **verbatim** — the handler
+prefers the typed atom when sent (`match &params.goal_atom { Some(a) => a.clone(),
+None => parse_goal(&params.atom)? }`) and everything downstream is unchanged. It
+is **additive**: no `CONTRACT_VERSION`/`ACCEPTED`/floor change. `atom` is **not**
+a killed form — it stays accepted on every wire and is never refused — but making
+it `#[serde(default)]` moved a frozen `0.x` verdict: on the captured `0.5.1` wire
+`author.why` with no `atom` answered a schema violation naming the missing `atom`
+field, and the default silently turns that into a `parse_goal("")` error instead.
+So `atom` is registered as an **optionalized** field — a new `KILLED_FIELDS` arm
+carrying `refused_at_1_0: false` (`crates/dli-serve/src/serve.rs`): the
+require-below-`1.0` half runs and restores that exact missing-`atom` verdict
+byte-for-byte (via the existing `required_retired_field` seam that `author.*`
+params already route through), while the refuse-at-`1.0` half is skipped so `atom`
+is never rejected. This reuses the sibling `author.query` boundary precisely —
+whose `author-query/typed-only@0.5.1` case likewise answers a missing-`goal`
+violation on `0.x` — and keeps every `0.x` wire byte-exact (DL-0058), proven by
+`ls8_zero_x_parity`. The schema is regenerated (`author.why.request.json`) and the
+drift guard enforces it. A default-lane test proves the whole recipe with no parser in the
+process: `author.record_decision` → `author.add_fact` cited to it → `author.why
+{workspace, goal_atom}` names the decision in `supporting_decisions`
+(`crates/dli-serve/tests/default_build.rs`, runs without `--features syntax`).
+
+**2. `author.materialize {decision}` is facts-only — a correction to DL-0083 and
+its design note.** DL-0083 and `docs/design-notes/decision-recording-on-the-wire.md`
+both state that the "**whole** accepted staged set reads `certain` under `d`."
+That overstates the code: the stamping loop carries an `object.expert_body.is_some()`
+carve-out (`crates/dli-serve/src/author/tools.rs`) that commits every carriage
+claim byte-identical and **never** rests it on the decision. So `materialize
+{decision}` confers certainty on **facts only**; `same-as` links, rules, and
+inertial declarations keep the verdict-affecting standing of their embedded decl
+provenance and stay `possible`. Their certainty is reached the other taught way —
+`author.record_decision` + a **cited declaration** — never `materialize {decision}`.
+The ledger is append-only (DL-0011), so DL-0083's merged bytes are **not** edited;
+this entry supersedes its "whole staged set" wording and is the authority. The
+design note (a `docs/design-notes/` note, reopened only by ledger evidence —
+this) is corrected in place: §3.2, the §4 deprecation-audit intro, and the
+`same-as`/rule/inertial audit rows drop their `(or materialize {decision: d})`
+paths, and §5 records the deferred **un-lift trigger** — extend the
+`expert_body.is_some()` carve-out to stamp carriage claims when a consumer needs a
+one-call batch-accept of a staged set that *contains* `same-as`/rule/inertial
+declarations under a single decision.
+
+**Teaching surfaces.** `Op::summary()` for `author.materialize` now states the
+`decision` param makes the accepted **facts** certain (not carriage claims), so an
+agent reading `tools/list` does not think it covers rules/`same-as`; the generated
+`docs/reference-generated/ops.md` follows. `SKILL.md`, `docs/spec/11-agent-authoring.md`,
+and `docs/cards/expert-card.md` teach the facts-only scope, the
+`record_decision` + cited-declaration path for carriage claims, and the typed
+`author.why {goal_atom}` → `supporting_decisions` auditability check for the
+syntax-free build. No op is added, so all teaching-coverage counts are unchanged.
+
+**Scoped follow-up.** Retiring the `fixture-authority` binary in favor of this
+wire surface is tracked at GH issue **#73** and is out of scope here.
+
+**Verification.** `cargo xtask gate` is green; the schema drift guard, the docgen
+drift check, the `0.x`/capability parity oracles, and teaching-coverage all pass
+with every pre-existing wire byte unmoved.
