@@ -1359,3 +1359,231 @@ fn inertial_declaration_is_branch_local() {
         "a sibling branch never saw it either"
     );
 }
+
+// ── 1.10.0 reads (author.predicates / author.entity_candidates) are
+//    branch-scoped: they draw from base(as-of-open) ∪ staged ONLY ───────────
+
+/// The contract window the two new read ops negotiate at (≥ 1.10.0).
+const V10: &str = "1.10.0";
+
+/// Stage (do NOT materialize) a place entity on `ws` — the "workspace's own
+/// staged" half of the isolation union.
+fn stage_place(ws: &str, id: &str, sessions: &mut Sessions, store: &mut Store) -> Value {
+    drive(
+        &json!({ "dli": V, "id": "stage-ent", "op": "author.add_entity",
+                 "params": { "workspace": ws, "kind": "place", "id": id, "name": id,
+                             "provenance": { "kind": "proposed", "origin": "demo" } } }),
+        sessions,
+        store,
+    )
+}
+
+/// The distinct predicate names `author.predicates` reports for `ws`, driven at
+/// 1.10.0 over the real wire path.
+fn predicate_names(ws: &str, sessions: &mut Sessions, store: &mut Store) -> Vec<String> {
+    let resp = drive(
+        &json!({ "dli": V10, "id": "pr", "op": "author.predicates", "params": { "workspace": ws } }),
+        sessions,
+        store,
+    );
+    assert!(resp["ok"].as_bool().unwrap(), "predicates ok: {resp}");
+    resp["result"]["predicates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["pred"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// The candidate entity names `author.entity_candidates` reports for `ws` at a
+/// given surface/limit, driven at 1.10.0 over the real wire path. A `limit`
+/// larger than the entity set turns the read into "every canonical entity",
+/// which is exactly the membership question isolation cares about.
+fn candidate_names(
+    ws: &str,
+    surface: &str,
+    limit: u64,
+    sessions: &mut Sessions,
+    store: &mut Store,
+) -> Vec<String> {
+    let resp = drive(
+        &json!({ "dli": V10, "id": "ec", "op": "author.entity_candidates",
+                 "params": { "workspace": ws, "surface": surface, "limit": limit } }),
+        sessions,
+        store,
+    );
+    assert!(
+        resp["ok"].as_bool().unwrap(),
+        "entity_candidates ok: {resp}"
+    );
+    resp["result"]["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["name"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// The 1.10.0 census/candidate reads inside a BRANCH workspace must see the
+/// branch head as-of-open plus the workspace's own staged declarations, and
+/// NOTHING that landed on `main` or a sibling branch AFTER the workspace was
+/// opened. Both reads consume only `staged_world` (branch-pinned `base_docs` +
+/// `base_valuation` + the staged decls), so a leak here would mean the read
+/// reached past the pin to a live/global entity-or-predicate set — the failure
+/// class WS-3 exists to prevent, and which shipped twice before.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn predicates_and_candidates_are_branch_scoped_reads() {
+    let (_t, mut sessions, mut store) = functional_store();
+
+    // Base B on main: an explicit place entity, materialized so both branches
+    // inherit it. Base predicate `home` comes from the fixture itself.
+    let seed_ws = open_workspace("canon", &mut sessions, &mut store);
+    seed_place(&seed_ws, "baseplace", &mut sessions, &mut store);
+
+    // Two branches off the SAME base commit — X's `rival` and sibling `sib`.
+    create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
+    create_branch(&seed_ws, "sib", "main", &mut sessions, &mut store);
+
+    // Open X against `rival`. Its base is now pinned at the branch head
+    // (mara/shallows/home + baseplace); everything below happens AFTER.
+    let opened_x = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    let x = opened_x["result"]["workspace"].as_str().unwrap().to_owned();
+
+    // X's own staged (uncommitted) layer: a staged entity and a staged
+    // predicate. These are the "∪ staged" half — they MUST surface.
+    let staged_ent = stage_place(&x, "xanadu", &mut sessions, &mut store);
+    assert!(
+        staged_ent["ok"].as_bool().unwrap(),
+        "stage xanadu: {staged_ent}"
+    );
+    let staged_rel =
+        add_proposed_relation(&x, "guards", "mara", "baseplace", &mut sessions, &mut store);
+    assert!(
+        staged_rel["ok"].as_bool().unwrap(),
+        "stage guards: {staged_rel}"
+    );
+
+    // ── AFTER X is open, advance `main`'s durable head with a NEW entity and a
+    // NEW predicate. The relation's endpoints must be entities the STATIC base
+    // already knows (`mara`/`shallows`, from the fixture's `home` fact), because
+    // a scope-mode workspace validates against the in-memory base, not the
+    // durable head. `mainplace` lands via `seed_place` (a self-contained
+    // add-entity + materialize).
+    let main2 = open_workspace("canon", &mut sessions, &mut store);
+    seed_place(&main2, "mainplace", &mut sessions, &mut store);
+    let main3 = open_workspace("canon", &mut sessions, &mut store);
+    let betrays = add_proposed_relation(
+        &main3,
+        "betrays",
+        "mara",
+        "shallows",
+        &mut sessions,
+        &mut store,
+    );
+    assert!(
+        betrays["ok"].as_bool().unwrap(),
+        "stage betrays on main: {betrays}"
+    );
+    let mat_main = materialize(&main3, &mut sessions, &mut store);
+    assert!(
+        mat_main["ok"].as_bool().unwrap(),
+        "advance main: {mat_main}"
+    );
+
+    // ── AFTER X is open, advance sibling `sib` with a NEW entity and predicate.
+    let opened_y = open_branch_workspace("canon", "sib", &mut sessions, &mut store);
+    let y = opened_y["result"]["workspace"].as_str().unwrap().to_owned();
+    let sib_ent = stage_place(&y, "sibplace", &mut sessions, &mut store);
+    assert!(
+        sib_ent["ok"].as_bool().unwrap(),
+        "stage sibplace: {sib_ent}"
+    );
+    let envies = add_proposed_relation(&y, "envies", "mara", "sibplace", &mut sessions, &mut store);
+    assert!(
+        envies["ok"].as_bool().unwrap(),
+        "stage envies on sib: {envies}"
+    );
+    let mat_sib = materialize(&y, &mut sessions, &mut store);
+    assert!(mat_sib["ok"].as_bool().unwrap(), "advance sib: {mat_sib}");
+
+    // ── The reads inside X.
+    let preds_x = predicate_names(&x, &mut sessions, &mut store);
+    assert!(
+        preds_x.contains(&"home".to_owned()),
+        "X sees the base predicate: {preds_x:?}"
+    );
+    assert!(
+        preds_x.contains(&"guards".to_owned()),
+        "X sees its own staged predicate: {preds_x:?}"
+    );
+    assert!(
+        !preds_x.contains(&"betrays".to_owned()),
+        "LEAK: X's predicate census shows a post-open MAIN predicate: {preds_x:?}"
+    );
+    assert!(
+        !preds_x.contains(&"envies".to_owned()),
+        "LEAK: X's predicate census shows a post-open SIBLING predicate: {preds_x:?}"
+    );
+
+    // Surface exactly the forbidden name so a leak would be a distance-0 first
+    // hit; limit 100 returns every canonical entity, so this is a full
+    // membership check over X's visible entity set.
+    let cands_x = candidate_names(&x, "mainplace", 100, &mut sessions, &mut store);
+    assert!(
+        cands_x.contains(&"baseplace".to_owned()),
+        "X sees the base entity: {cands_x:?}"
+    );
+    assert!(
+        cands_x.contains(&"xanadu".to_owned()),
+        "X sees its own staged entity: {cands_x:?}"
+    );
+    assert!(
+        !cands_x.contains(&"mainplace".to_owned()),
+        "LEAK: X's candidate set shows a post-open MAIN entity: {cands_x:?}"
+    );
+    assert!(
+        !cands_x.contains(&"sibplace".to_owned()),
+        "LEAK: X's candidate set shows a post-open SIBLING entity: {cands_x:?}"
+    );
+
+    // ── Positive control: the forbidden items genuinely exist post-open, so
+    // the negatives above are isolation working — not a scenario that never
+    // created the leak source. A branch cut fresh from the ADVANCED `main`
+    // reconstructs main's durable head, and DOES see `mainplace`/`betrays`; the
+    // reopened sibling DOES see its own. (A plain scope reopen would not —
+    // scope workspaces read the static in-memory base — so the control is
+    // deliberately taken through branch reconstruction, exactly the path a
+    // `root_hash()` leak would expose.)
+    create_branch(&seed_ws, "checkmain", "main", &mut sessions, &mut store);
+    let opened_cm = open_branch_workspace("canon", "checkmain", &mut sessions, &mut store);
+    let cm = opened_cm["result"]["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let preds_main = predicate_names(&cm, &mut sessions, &mut store);
+    assert!(
+        preds_main.contains(&"betrays".to_owned()),
+        "control: main really did gain `betrays` on its durable head post-open: {preds_main:?}"
+    );
+    let cands_main = candidate_names(&cm, "mainplace", 100, &mut sessions, &mut store);
+    assert!(
+        cands_main.contains(&"mainplace".to_owned()),
+        "control: main really did gain `mainplace` on its durable head post-open: {cands_main:?}"
+    );
+    let reopened_y = open_branch_workspace("canon", "sib", &mut sessions, &mut store);
+    let y2 = reopened_y["result"]["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let preds_sib = predicate_names(&y2, &mut sessions, &mut store);
+    assert!(
+        preds_sib.contains(&"envies".to_owned()),
+        "control: sibling really did gain `envies`: {preds_sib:?}"
+    );
+    let cands_sib = candidate_names(&y2, "sibplace", 100, &mut sessions, &mut store);
+    assert!(
+        cands_sib.contains(&"sibplace".to_owned()),
+        "control: sibling really did gain `sibplace`: {cands_sib:?}"
+    );
+}

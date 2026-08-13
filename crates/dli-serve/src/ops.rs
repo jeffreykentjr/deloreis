@@ -220,6 +220,14 @@ pub enum Op {
     /// branch, so later facts that cite it read certain, contract 1.9.0.
     #[serde(rename = "author.record_decision")]
     AuthorRecordDecision,
+    /// List the distinct predicates present in a workspace — the predicate
+    /// census for incremental canonicalization, contract 1.10.0.
+    #[serde(rename = "author.predicates")]
+    AuthorPredicates,
+    /// Bounded coreference candidates: existing entities near a surface form —
+    /// the entity half of incremental canonicalization, contract 1.10.0.
+    #[serde(rename = "author.entity_candidates")]
+    AuthorEntityCandidates,
 }
 
 impl Op {
@@ -231,7 +239,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 65] = [
+    pub const ALL: [Op; 67] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -297,6 +305,8 @@ impl Op {
         Op::AuthorDeclareInertial,
         Op::AuthorAsOf,
         Op::AuthorRecordDecision,
+        Op::AuthorPredicates,
+        Op::AuthorEntityCandidates,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -365,6 +375,17 @@ impl Op {
         matches!(self, Op::AuthorAsOf | Op::AuthorRecordDecision)
     }
 
+    /// Whether this op was introduced in contract `1.10.0` (the
+    /// incremental-canonicalization reads: `author.predicates` and
+    /// `author.entity_candidates`). Advertised only from `1.10.0` up, so a
+    /// `1.9.0`-or-earlier negotiation's capability list — and the golden
+    /// fixture recording it — stays byte-identical and needs no re-pin
+    /// (audit C4).
+    #[must_use]
+    pub const fn added_in_1_10_0(self) -> bool {
+        matches!(self, Op::AuthorPredicates | Op::AuthorEntityCandidates)
+    }
+
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
     /// negotiation's capability list — and the golden fixture recording it —
@@ -389,7 +410,9 @@ impl Op {
     /// apart; the unit test below asserts the agreement for every op.
     #[must_use]
     pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_9_0() {
+        if self.added_in_1_10_0() {
+            "1.10.0"
+        } else if self.added_in_1_9_0() {
             "1.9.0"
         } else if self.added_in_1_8_0() {
             "1.8.0"
@@ -594,6 +617,12 @@ impl Op {
             Op::AuthorRecordDecision => {
                 "Record a baseline ratified decision on the workspace branch so facts that cite it read certain — the wire way to reach certainty and make contradiction checks (fd-violation, fluent, inertia) fire, replacing the fixture-authority hack; defeasible by author.defeat."
             }
+            Op::AuthorPredicates => {
+                "List the distinct predicates present in the staged world, each with its arity and whether you declared it functional or inertial — the predicate census to reuse an existing name before minting a new one."
+            }
+            Op::AuthorEntityCandidates => {
+                "Find existing entities whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id."
+            }
         }
     }
 }
@@ -608,6 +637,9 @@ mod tests {
     #[test]
     fn introduced_in_agrees_with_every_added_in_gate() {
         for op in Op::ALL {
+            if op.added_in_1_10_0() {
+                assert_eq!(op.introduced_in(), "1.10.0", "{op:?}");
+            }
             if op.added_in_1_9_0() {
                 assert_eq!(op.introduced_in(), "1.9.0", "{op:?}");
             }

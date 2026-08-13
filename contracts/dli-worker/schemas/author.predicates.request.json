@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorPredicatesParams",
+  "description": "`author.predicates` params: the distinct predicates present in the staged\nworld (base + staged declarations).\n\nThe predicate census a canonicalizing extractor reads before minting a new\npredicate name, so a fresh mention can be matched against what the store\nalready holds rather than lowered to a novel slot the FD/continuity check\ncan never pair with an existing one (the incremental-canonicalization\nreads). The set is small, bounded, and stabilizes quickly, so a full list\nis the whole answer — completeness over precision.",
+  "type": "object",
+  "properties": {
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace"
+  ]
+}

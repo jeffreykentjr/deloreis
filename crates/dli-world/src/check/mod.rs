@@ -19,7 +19,7 @@
 pub mod continuity;
 pub mod factcheck;
 
-pub use continuity::{SlotDefeater, SlotHolding, SlotStateAt};
+pub use continuity::{SlotDefeater, SlotHolding, SlotStateAt, identity_canon};
 pub use dli_core::fd::fd_value_key;
 
 use dli_core::grade::Grade;

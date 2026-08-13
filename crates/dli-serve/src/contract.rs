@@ -2110,6 +2110,110 @@ pub struct AsOfDefeater {
     pub citations: Vec<String>,
 }
 
+// -- author.predicates (read, contract 1.10.0) --------------------------------
+
+/// `author.predicates` params: the distinct predicates present in the staged
+/// world (base + staged declarations).
+///
+/// The predicate census a canonicalizing extractor reads before minting a new
+/// predicate name, so a fresh mention can be matched against what the store
+/// already holds rather than lowered to a novel slot the FD/continuity check
+/// can never pair with an existing one (the incremental-canonicalization
+/// reads). The set is small, bounded, and stabilizes quickly, so a full list
+/// is the whole answer — completeness over precision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorPredicatesParams {
+    /// The workspace id.
+    pub workspace: String,
+}
+
+/// `author.predicates` result: every distinct predicate the staged world
+/// carries, sorted by name, each annotated with its observed arity and whether
+/// the author has declared it functional or inertial.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorPredicatesResult {
+    /// Every distinct predicate present, sorted by `pred`.
+    pub predicates: Vec<PredicateEntry>,
+    /// The workspace digest the read was evaluated against (`jcs:sha256:`
+    /// regime — the staged world is workspace state, not a store commit). v2
+    /// only, mirroring [`AuthorQueryResult::root_hash`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+}
+
+/// One predicate in the staged world's census.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PredicateEntry {
+    /// The predicate name.
+    pub pred: String,
+    /// The arity observed at the predicate's first occurrence. The
+    /// FD/continuity slot check keys only binary predicates (`arity == 2`), so
+    /// this lets a caller filter to the FD-eligible ones.
+    pub arity: usize,
+    /// Whether the author has **declared** this predicate functional
+    /// (`author.declare_functional`). This is the declared set the load-check
+    /// consults — never canon's inferred-functional set — so it agrees with
+    /// what `continuity.fd-violation` fires on.
+    pub functional: bool,
+    /// Whether the author has declared this predicate inertial
+    /// (`author.declare_inertial`).
+    pub inertial: bool,
+}
+
+// -- author.entity_candidates (read, contract 1.10.0) -------------------------
+
+/// `author.entity_candidates` params: entities in the staged world whose id is
+/// close to a surface form, by edit distance.
+///
+/// The bounded coreference candidate read a canonicalizing extractor runs once
+/// per mention: given the surface form it is about to mint, return the existing
+/// entities it most plausibly names, so the merge decision (`assert_same_as`)
+/// is made against what the store already holds. `limit` is caller-specified
+/// and bounds the result — this read must never dump the full entity set, which
+/// grows without bound — and the engine caps it at a hard ceiling so an
+/// over-large `limit` cannot degenerate into that dump.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorEntityCandidatesParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// The surface form to match existing entities against.
+    pub surface: String,
+    /// The maximum number of candidates to return. Capped at the engine's
+    /// ceiling so the read stays bounded regardless of the value.
+    pub limit: usize,
+}
+
+/// `author.entity_candidates` result: the nearest existing entities to the
+/// surface form, nearest first, each with its edit distance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorEntityCandidatesResult {
+    /// The candidate entities, nearest first (lexical on ties), at most `limit`.
+    pub candidates: Vec<EntityCandidate>,
+    /// The workspace digest the read was evaluated against (`jcs:sha256:`
+    /// regime — the staged world is workspace state, not a store commit). v2
+    /// only, mirroring [`AuthorQueryResult::root_hash`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub root_hash: Option<String>,
+}
+
+/// One coreference candidate: an existing entity close to the surface form.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EntityCandidate {
+    /// The candidate entity's id — its **canonical representative** under the
+    /// identity map, so a surfaced candidate keys the way the FD/continuity
+    /// check would and aliases never spend the `limit` budget twice.
+    pub name: String,
+    /// The entity's sort, when it is a declared entity rather than a symbol only
+    /// referenced in a fact.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sort: Option<String>,
+    /// The edit distance from the surface form to `name`, so the caller can
+    /// threshold.
+    pub distance: usize,
+}
+
 // -- author.check (read) -----------------------------------------------------
 
 /// `author.check` params.

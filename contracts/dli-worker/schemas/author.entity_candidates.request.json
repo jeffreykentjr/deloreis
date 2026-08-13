@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorEntityCandidatesParams",
+  "description": "`author.entity_candidates` params: entities in the staged world whose id is\nclose to a surface form, by edit distance.\n\nThe bounded coreference candidate read a canonicalizing extractor runs once\nper mention: given the surface form it is about to mint, return the existing\nentities it most plausibly names, so the merge decision (`assert_same_as`)\nis made against what the store already holds. `limit` is caller-specified\nand bounds the result — this read must never dump the full entity set, which\ngrows without bound — and the engine caps it at a hard ceiling so an\nover-large `limit` cannot degenerate into that dump.",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "description": "The maximum number of candidates to return. Capped at the engine's\nceiling so the read stays bounded regardless of the value.",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "surface": {
+      "description": "The surface form to match existing entities against.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "surface",
+    "limit"
+  ]
+}

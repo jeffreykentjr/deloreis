@@ -1,0 +1,37 @@
+{
+  "fixture": "framing/author-predicates-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.9 author.predicates. The read has no free-text parameter that flows to output; an injection-shaped workspace id is looked up as an opaque id and misses, so the benign and tainted runs fail identically (same ok/error code) with the marker confined to the error message.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.predicates",
+      "control": {
+        "dli": "1.10.0",
+        "id": "1",
+        "op": "author.predicates",
+        "params": {
+          "workspace": "missing-control"
+        }
+      },
+      "attack": {
+        "dli": "1.10.0",
+        "id": "1",
+        "op": "author.predicates",
+        "params": {
+          "workspace": "__DLI_FRAME_ATTACK__"
+        }
+      },
+      "changed_paths": [
+        "/params/workspace"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    }
+  ]
+}

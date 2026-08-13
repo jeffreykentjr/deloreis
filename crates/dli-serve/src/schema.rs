@@ -525,6 +525,22 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             "author.declare_inertial.response".to_owned(),
             schema_for!(AuthorMutationResult),
         ),
+        (
+            "author.predicates.request".to_owned(),
+            schema_for!(AuthorPredicatesParams),
+        ),
+        (
+            "author.predicates.response".to_owned(),
+            schema_for!(AuthorPredicatesResult),
+        ),
+        (
+            "author.entity_candidates.request".to_owned(),
+            schema_for!(AuthorEntityCandidatesParams),
+        ),
+        (
+            "author.entity_candidates.response".to_owned(),
+            schema_for!(AuthorEntityCandidatesResult),
+        ),
     ];
     for (name, schema) in &mut schemas {
         if name.ends_with(".request") {

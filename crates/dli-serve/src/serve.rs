@@ -501,6 +501,7 @@ pub fn respond(
 /// check is a no-op on every `0.x` request and covers `author.*` and `dli.*`
 /// alike by sitting above the routing fork.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn dispatch(
     request: &Request,
     sessions: &mut Sessions,
@@ -585,6 +586,17 @@ pub fn dispatch(
                 ),
             );
         }
+    }
+    if request.op.added_in_1_10_0() && !crate::has_incremental_canon(&request.dli) {
+        return typed_error(
+            &request.dli,
+            &request.id,
+            ErrorCode::UnknownOp,
+            format!(
+                "operation {:?} is not available before contract 1.10.0",
+                request.op
+            ),
+        );
     }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)

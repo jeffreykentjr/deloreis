@@ -50,16 +50,17 @@ use dli_world::{CompiledWorld, compile};
 
 use crate::contract::{
     AsOfDefeater, AsOfHolding, AuthorAsOfParams, AuthorAsOfResult, AuthorCheckParams,
-    AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorFindingsParams,
-    AuthorFindingsResult, AuthorListWorkspacesResult, AuthorQueryParams, AuthorQueryResult,
-    AuthorWhyParams, AuthorWhyResult, DiffConflict, DiffDelta, ValuationEntry, WorkspaceDigest,
-    WorkspaceMode,
+    AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorEntityCandidatesParams,
+    AuthorEntityCandidatesResult, AuthorFindingsParams, AuthorFindingsResult,
+    AuthorListWorkspacesResult, AuthorPredicatesParams, AuthorPredicatesResult, AuthorQueryParams,
+    AuthorQueryResult, AuthorWhyParams, AuthorWhyResult, DiffConflict, DiffDelta, EntityCandidate,
+    PredicateEntry, ValuationEntry, WorkspaceDigest, WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
 
 use super::store::Store;
-use super::tools::workspace_findings;
+use super::tools::{nearest_by_edit_distance, workspace_findings};
 use super::workspace::{Mode, Workspace};
 
 // -- author.query ------------------------------------------------------------
@@ -203,6 +204,100 @@ fn point_name(world: &CompiledWorld, point: TimePoint) -> String {
         .get(point.0 as usize)
         .cloned()
         .unwrap_or_else(|| format!("point#{}", point.0))
+}
+
+// -- author.predicates -------------------------------------------------------
+
+/// The distinct predicates present in the staged world (base + staged), each
+/// annotated with its observed arity and whether it was **declared** functional
+/// or inertial. Enumerates the source atoms and rule heads over the same staged
+/// [`CompiledWorld`] [`query`] reads. The `functional` flag reads the declared
+/// `functional_predicates` set the load-check consults (never canon's inferred
+/// set), so the census agrees with `continuity.fd-violation` by construction. A
+/// `BTreeMap` keys the census by predicate, so the answer is deterministically
+/// name-sorted.
+pub(super) fn predicates(
+    store: &Store,
+    params: &AuthorPredicatesParams,
+    v2: bool,
+) -> Result<Value, ErrorBody> {
+    let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    // pred -> arity at first occurrence; source atoms then rule heads.
+    let mut arity: BTreeMap<String, usize> = BTreeMap::new();
+    for atom in world.model.atoms() {
+        arity
+            .entry(atom.atom.pred.text.clone())
+            .or_insert(atom.atom.args.len());
+    }
+    for rule in &world.model.world.rules {
+        arity
+            .entry(rule.head.pred.text.clone())
+            .or_insert(rule.head.args.len());
+    }
+    let predicates = arity
+        .into_iter()
+        .map(|(pred, arity)| PredicateEntry {
+            functional: world.model.functional_predicates.contains(&pred),
+            inertial: world.model.inertial_predicates.contains_key(&pred),
+            pred,
+            arity,
+        })
+        .collect();
+    let root_hash = v2.then(|| ws.digest.clone());
+    Ok(value(&AuthorPredicatesResult {
+        predicates,
+        root_hash,
+    }))
+}
+
+// -- author.entity_candidates ------------------------------------------------
+
+/// The hard ceiling on `author.entity_candidates` results: a caller's `limit` is
+/// capped here so an over-large value can never turn the read into a full entity
+/// dump (the entity set grows without bound). Bounded-by-design is a property of
+/// the engine, not a hope about caller input.
+const ENTITY_CANDIDATE_CEILING: usize = 100;
+
+/// Existing entities near a surface form, nearest first, bounded by the caller's
+/// `limit` (capped at [`ENTITY_CANDIDATE_CEILING`]). Entities are folded through
+/// the SAME identity canon the FD/continuity check uses ([`check::identity_canon`],
+/// exposed for exactly this) BEFORE scoring, so an aliased class collapses to its
+/// one canonical representative — the budget is never spent twice on one class,
+/// and a surfaced candidate keys the way `continuity.fd-violation` would.
+pub(super) fn entity_candidates(
+    store: &Store,
+    params: &AuthorEntityCandidatesParams,
+    v2: bool,
+) -> Result<Value, ErrorBody> {
+    let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let canon = check::identity_canon(&world);
+    // Each declared entity's sort, and the canonical-representative set folded
+    // through the identity map so aliases dedupe to one candidate before scoring.
+    let mut sort_of: BTreeMap<String, Option<String>> = BTreeMap::new();
+    let mut reps: BTreeSet<String> = BTreeSet::new();
+    for entity in world.model.entities() {
+        sort_of.insert(entity.name.clone(), entity.sort.clone());
+        reps.insert(dli_core::alias::canon(&canon, &entity.name).to_owned());
+    }
+    let limit = params.limit.min(ENTITY_CANDIDATE_CEILING);
+    let candidates = nearest_by_edit_distance(&params.surface, reps, limit)
+        .into_iter()
+        .map(|(distance, name)| {
+            let sort = sort_of.get(&name).cloned().flatten();
+            EntityCandidate {
+                name,
+                sort,
+                distance,
+            }
+        })
+        .collect();
+    let root_hash = v2.then(|| ws.digest.clone());
+    Ok(value(&AuthorEntityCandidatesResult {
+        candidates,
+        root_hash,
+    }))
 }
 
 // -- author.check ------------------------------------------------------------

@@ -102,7 +102,12 @@ mod simulation;
 /// the bootstrap gap the out-of-band `fixture-authority` hack used to fill.
 /// It appends after `author.as_of`, so `capabilities("1.8.0")` still stays the
 /// byte-identical 63-op list, and both ops advertise only from `1.9.0` up.
-pub const CONTRACT_VERSION: &str = "1.9.0";
+/// `1.10.0` adds the incremental-canonicalization reads
+/// (`author.predicates`, `author.entity_candidates`, DL-0084) — pure reads over
+/// the staged world that let an extractor reuse an existing predicate or entity
+/// name before minting a novel one; additive and advertised only from `1.10.0`
+/// up, so every earlier capability list stays byte-identical.
+pub const CONTRACT_VERSION: &str = "1.10.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -147,7 +152,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -287,6 +292,21 @@ pub fn has_as_of_read(dli: &str) -> bool {
 #[must_use]
 pub fn has_decisions(dli: &str) -> bool {
     at_or_above(dli, (1, 9, 0))
+}
+
+/// Whether the negotiated version carries the incremental-canonicalization
+/// reads (`author.predicates`, `author.entity_candidates`, ≥ `1.10.0`). A floor
+/// like every gate here, not an equality: this is what `serve::dispatch` gates
+/// the reads on, and what `capabilities()` filters their advertisement by, so a
+/// `1.9.0`-or-earlier negotiation's capability list stays byte-identical
+/// (audit C4). Both are pure reads over the staged world — they stage nothing,
+/// mint no fact objects, and their candidates key through the same identity
+/// canon and declared-functional set the FD/continuity check reads, so what a
+/// read surfaces can never disagree with what `continuity.fd-violation` fires
+/// on.
+#[must_use]
+pub fn has_incremental_canon(dli: &str) -> bool {
+    at_or_above(dli, (1, 10, 0))
 }
 
 /// Whether the negotiated version carries the campaign's branch-scoped write

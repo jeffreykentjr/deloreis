@@ -1,0 +1,17 @@
+{
+  "fixture": "negative/author-entity-candidates-schema-violation",
+  "version": 1,
+  "note": "author.entity_candidates params omit the required limit.",
+  "send": {
+    "dli": "1.10.0",
+    "id": "1",
+    "op": "author.entity_candidates",
+    "params": {
+      "workspace": "ws-1",
+      "surface": "mara"
+    }
+  },
+  "expect_error": {
+    "code": "schema-violation"
+  }
+}

@@ -71,6 +71,8 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorDeclareInertial, "author.declare_inertial"),
     (Op::AuthorAsOf, "author.as_of"),
     (Op::AuthorRecordDecision, "author.record_decision"),
+    (Op::AuthorPredicates, "author.predicates"),
+    (Op::AuthorEntityCandidates, "author.entity_candidates"),
 ];
 
 #[test]

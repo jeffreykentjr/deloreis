@@ -1,0 +1,41 @@
+{
+  "fixture": "framing/author-entity-candidates-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.9 author.entity_candidates. The surface form is matched against existing entity ids as data and never echoed to output; here an injection-shaped workspace id is looked up as an opaque id and misses, so the benign and tainted runs fail identically (same ok/error code) with the marker confined to the error message.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [
+    {
+      "op": "author.entity_candidates",
+      "control": {
+        "dli": "1.10.0",
+        "id": "1",
+        "op": "author.entity_candidates",
+        "params": {
+          "workspace": "missing-control",
+          "surface": "mara",
+          "limit": 5
+        }
+      },
+      "attack": {
+        "dli": "1.10.0",
+        "id": "1",
+        "op": "author.entity_candidates",
+        "params": {
+          "workspace": "__DLI_FRAME_ATTACK__",
+          "surface": "mara",
+          "limit": 5
+        }
+      },
+      "changed_paths": [
+        "/params/workspace"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/error/code"
+      ],
+      "allow_taint_paths": [
+        "/error/message"
+      ]
+    }
+  ]
+}

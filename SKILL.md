@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 34 tools you author with)
+## 2. The tool surface (the 36 tools you author with)
 
-The contract's §3.2 table lists 36 `author.*` tools. Two of them,
+The contract's §3.2 table lists 38 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -175,13 +175,17 @@ compatibility mode.
 | `author.as_of` | **1.9.0.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; `author.query` still returns the raw extensional value(s) unmodified. Read-only, no provenance. |
 | `author.record_decision` | **1.9.0.** Record a baseline ratified decision `{decision, rationale?, provenance?}` on the workspace branch — the wire way to reach certainty. It writes a `ratify` for `decision`, so a fact that then cites it reads certain and contradiction checks (`fd-violation`, fluent, inertia) finally fire through `author.*` alone; caller-named id, idempotent on a known one, defeasible by `author.defeat`. This is the taught replacement for the `fixture-authority` hack — **do not** reach for that binary. Optional `provenance` lets the decision rest on prior decisions (integrity-gated). |
 
-**The six self-check read tools** let you interrogate the staged world *before*
-you materialize (§4). All are read-only and mutate nothing; each names a workspace
+**The seven read tools** let you interrogate the staged world — five to
+self-check *before* you materialize (§4), plus `author.predicates` and
+`author.entity_candidates` to reuse an existing predicate or entity name before
+minting a new one. All are read-only and mutate nothing; each names a workspace
 in its params (except `author.list_workspaces`):
 
 | Tool | Params | Answers |
 |---|---|---|
 | `author.findings` | `{workspace}` | `{errors, warnings, materializable}` — your pre-flight: `errors` bar materialize, `warnings` pass, `materializable` is the go/no-go boolean. |
+| `author.predicates` | `{workspace}` | `{predicates:[{pred, arity, functional, inertial}]}` — the distinct predicates present in the staged world, each flagged if you declared it functional or inertial. Read it before minting a new predicate name so a fresh mention reuses an existing slot instead of landing in a novel one the FD check can never pair (contract 1.10.0). |
+| `author.entity_candidates` | `{workspace, surface, limit}` | `{candidates:[{name, sort, distance}]}` — the existing entities whose id is closest to `surface`, nearest first, at most `limit` (capped by the engine). Candidates are folded to their canonical representative, so an already-merged class appears once. Read it before minting a new entity id to find the coreference candidates worth `assert_same_as`-ing into (contract 1.10.0). |
 | `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
 | `author.query` | `{workspace, goal_atom, layer?, why?}` | `{rows}` — query the staged world. `goal_atom` is a **typed atom**, written `{"pred": "serves", "args": [{"Sym": "bedivere"}, {"Var": "who"}]}` — each name is plain text, and a `Var` argument is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). The rendered string `goal` is the retired predecessor: a registered killed form, refused from contract 1.0 naming `goal_atom`, and still answered on a `0.5.1`/`0.6.x` wire. |
 | `author.why` | `{workspace, atom}` | `{why_not, why?, supporting_decisions?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. From **1.9.0** `supporting_decisions` names the recorded decisions a certain fact rests on — confirm you reached certainty the designed way, through recorded decisions, not a side channel. |
