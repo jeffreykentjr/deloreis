@@ -83,6 +83,14 @@ pub struct MergeReport {
     pub stratifies: bool,
     /// Atoms whose standing changed downward vs. either pre-merge branch.
     pub standing_changes: Vec<StandingChange>,
+    /// Diagnostic accounting (not wire-surfaced): how many pre-merge full-world
+    /// recompiles the coincident-head memoization avoided while scanning this
+    /// merge. It is ≥1 exactly when the merge base coincides with a branch head —
+    /// the fast-forward shape of the identity-authoring workload — and 0
+    /// otherwise. Lets a workload measure how often that coincidence actually
+    /// holds (the stopgap's applicability, DL-0086); it never affects the merge
+    /// verdict, the findings, or the written commit.
+    pub recompiles_saved: usize,
 }
 
 /// The detection result (everything except the commit hash and merge base, which
@@ -92,6 +100,10 @@ pub(crate) struct ConflictScan {
     pub findings: Vec<WorldFinding>,
     pub stratifies: bool,
     pub standing_changes: Vec<StandingChange>,
+    /// Diagnostic: how many pre-merge full-world recompiles the coincident-head
+    /// memoization avoided this scan (0 when base is distinct from both heads,
+    /// ≥1 when it coincides). See [`MergeReport::recompiles_saved`].
+    pub recompiles_saved: usize,
 }
 
 /// Reconcile two parents' interners into the merged commit's interner.
@@ -213,6 +225,9 @@ pub(crate) fn scan(
                 findings: vec![finding],
                 stratifies: false,
                 standing_changes: Vec::new(),
+                // The unstratifiable merge bails before the pre-merge recompiles,
+                // so none were saved.
+                recompiles_saved: 0,
             });
         }
         Err(other) => {
@@ -232,27 +247,52 @@ pub(crate) fn scan(
     let mut findings = dli_world::check::run(&merged_world);
 
     let exclusivity = exclusivity_conflicts(&merged_world, &merged_eff);
-    let base_world = match base {
-        Some(b) => Some(store.compile_at(b)?),
-        None => None,
-    };
-    let certain_layer = certain_layer_conflicts(base_world.as_ref(), &merged_world, &merged_eff);
+
+    // Memoize the pre-merge recompiles by commit hash. In the identity-authoring
+    // workload the merge base *is* the target head (a branch forked from an
+    // unmoved `main`), so `base`, `target`, and `source` are not three distinct
+    // commits — deduplicating collapses that redundant full-world recompile.
+    // `merged_world` stays compiled inline above: its hash is unique (a fresh
+    // two-parent commit) and its `Unstratifiable` handling differs from
+    // `compile_at`'s.
+    //
+    // Stopgap scope (DL-0086): this helps only while the base coincides with a
+    // head. Once identity matches accumulate concurrently and `main` advances
+    // between fork and merge, base stops coinciding and all three recompiles run
+    // again — the durable cure is incremental compilation (roadmap §6 Phase 3),
+    // not this cache. `recompiles_saved` counts the collapses so the workload can
+    // measure how often the coincidence actually holds.
+    let mut world_cache: BTreeMap<ContentHash, CompiledWorld> = BTreeMap::new();
+    let mut recompiles_saved: usize = 0;
+    for head in [Some(target_head), Some(source_head), base]
+        .into_iter()
+        .flatten()
+    {
+        if world_cache.contains_key(head) {
+            recompiles_saved += 1;
+        } else {
+            world_cache.insert(head.clone(), store.compile_at(head)?);
+        }
+    }
+    let target_world = &world_cache[target_head];
+    let source_world = &world_cache[source_head];
+    let base_world = base.map(|b| &world_cache[b]);
+
+    let certain_layer = certain_layer_conflicts(base_world, &merged_world, &merged_eff);
     for conflict in exclusivity.iter().chain(&certain_layer) {
         findings.push(constraint_finding(conflict));
     }
     conflicts.extend(exclusivity);
     conflicts.extend(certain_layer);
 
-    // Class 3 — stratified-negation / non-monotone standing flips. Compile each
-    // pre-merge branch under its own overlay and name atoms the merge downgraded.
-    let target_world = store.compile_at(target_head)?;
-    let source_world = store.compile_at(source_head)?;
-    let target_eff = effective(&target_world, &target_named);
-    let source_eff = effective(&source_world, &source_named);
+    // Class 3 — stratified-negation / non-monotone standing flips. Name atoms the
+    // merge downgraded, reusing the pre-merge worlds compiled above.
+    let target_eff = effective(target_world, &target_named);
+    let source_eff = effective(source_world, &source_named);
     let standing_changes = standing_downgrades(
         &[
-            ("target", &target_world, &target_eff),
-            ("source", &source_world, &source_eff),
+            ("target", target_world, &target_eff),
+            ("source", source_world, &source_eff),
         ],
         &merged_world,
         &merged_eff,
@@ -272,6 +312,7 @@ pub(crate) fn scan(
         findings,
         stratifies: true,
         standing_changes,
+        recompiles_saved,
     })
 }
 
