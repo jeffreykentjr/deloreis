@@ -858,3 +858,480 @@ fn branch_create_list_head() {
         "a fresh branch starts at its source head"
     );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// GH #75 — merge_base is O(M + E), the dry-run stall is gone, and a dry-run
+// advances no ref. (DL-0086.)
+// ════════════════════════════════════════════════════════════════════════════
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use dli_lorestore::Storage;
+
+/// The fast-forward shape the identity-authoring workload hits nearly every
+/// merge: the branch is forked from an unmoved `main`, so the target head is an
+/// (inclusive) ancestor of the source head. `merge_base` returns that head
+/// directly — the ancestor short-circuit — for both argument orders.
+#[test]
+fn merge_base_short_circuits_when_one_head_is_an_ancestor() {
+    let (store, _dir) = open_store();
+    seed_main(&store, &[certain_fact("seed", "place", &["camelot"])]);
+    let main_head = store.branch_head("main").expect("head").expect("main");
+    store.create_branch("id", "main").expect("id");
+    commit_facts(&store, "id", &[certain_fact("c1", "note", &["a"])]);
+    commit_facts(&store, "id", &[certain_fact("c2", "note", &["b"])]);
+    let id_head = store.branch_head("id").expect("head").expect("id");
+
+    assert_eq!(
+        store.merge_base(&main_head, &id_head).expect("mb"),
+        Some(main_head.clone()),
+        "target-as-ancestor: the LCA is the ancestor head itself"
+    );
+    assert_eq!(
+        store.merge_base(&id_head, &main_head).expect("mb"),
+        Some(main_head),
+        "symmetric in the argument order"
+    );
+}
+
+/// Genuine divergence — two branches each advance past the base, so **neither
+/// head is an ancestor of the other** and the short-circuit provably cannot
+/// fire. The result therefore exercises the topological domination pass, whose
+/// correctness the near-always-firing short-circuit would otherwise mask
+/// (reviewer note 1).
+#[test]
+fn merge_base_takes_the_topological_pass_on_genuine_divergence() {
+    let (store, _dir) = open_store();
+    seed_main(&store, &[certain_fact("seed", "place", &["camelot"])]);
+    let base_head = store.branch_head("main").expect("head").expect("main");
+    store.create_branch("a", "main").expect("a");
+    store.create_branch("b", "main").expect("b");
+    commit_facts(&store, "a", &[certain_fact("a1", "note", &["a1"])]);
+    commit_facts(&store, "a", &[certain_fact("a2", "note", &["a2"])]);
+    commit_facts(&store, "b", &[certain_fact("b1", "note", &["b1"])]);
+    let a_head = store.branch_head("a").expect("head").expect("a");
+    let b_head = store.branch_head("b").expect("head").expect("b");
+
+    // Precondition: the short-circuit cannot apply — neither head reaches the
+    // other — so the topological pass is what computes the answer below.
+    assert!(!store.ancestors(&a_head).expect("anc").contains(&b_head));
+    assert!(!store.ancestors(&b_head).expect("anc").contains(&a_head));
+
+    assert_eq!(
+        store.merge_base(&a_head, &b_head).expect("mb"),
+        Some(base_head),
+        "the divergence LCA is the shared branch point"
+    );
+}
+
+/// Criss-cross: two independent merges of the same two branch tips leave **two**
+/// lowest common ancestors. `merge_base` must pick the smallest hash
+/// deterministically (the documented tie-break), unchanged from the prior
+/// formulation.
+#[test]
+fn merge_base_criss_cross_returns_the_smallest_hash() {
+    let (store, _dir) = open_store();
+    seed_main(&store, &[certain_fact("seed", "place", &["camelot"])]);
+    store.create_branch("p", "main").expect("p");
+    store.create_branch("q", "main").expect("q");
+    commit_facts(&store, "p", &[certain_fact("p1", "note", &["alpha"])]);
+    commit_facts(&store, "q", &[certain_fact("q1", "note", &["beta"])]);
+    let p1 = store.branch_head("p").expect("head").expect("p");
+    let q1 = store.branch_head("q").expect("head").expect("q");
+    assert_ne!(p1, q1);
+
+    // Snapshot p at P1, then merge the two tips in *opposite directions*:
+    // M1 = merge(p<-q) has parent P1 / merge_parent Q1; M2 = merge(q<-p2) has
+    // parent Q1 / merge_parent P1. The swapped parent order makes the two merge
+    // commits distinct objects (a same-direction pair would be byte-identical
+    // under content addressing), while both still reach exactly {P1, Q1}.
+    store.create_branch("p2", "p").expect("p2");
+    store.merge("p", "q").expect("p<-q");
+    store.merge("q", "p2").expect("q<-p2");
+    let m1 = store.branch_head("p").expect("head").expect("p");
+    let m2 = store.branch_head("q").expect("head").expect("q");
+    assert_ne!(m1, m2, "the two merge commits are distinct");
+
+    let base = store.merge_base(&m1, &m2).expect("mb");
+    assert!(
+        base == Some(p1.clone()) || base == Some(q1.clone()),
+        "an LCA is one of the two divergence tips: {base:?}"
+    );
+    assert_eq!(
+        base,
+        Some(std::cmp::min(p1, q1)),
+        "with two LCAs the smallest hash is the deterministic pick"
+    );
+}
+
+/// The GH #75 regression: on a deep, incrementally grown history — the shape the
+/// `SubtleMemory` identity pilot produces — a dry-run merge of a freshly forked
+/// identity branch must still answer. The stall was in `merge_base`, whose cost
+/// grew with the *shared history* (|common|), so the guard grows that history
+/// deep with cheap linear commits and threads in real identity branch-merges so
+/// merge commits sit in the ancestry too. Under the prior O(M³) `merge_base` a
+/// late preview over this DAG stalled past the client's 120s deadline; here it
+/// returns within the ordinary harness. No wall-clock assertion — "the dry-run
+/// returns at all" is the deterministic signal, and an O(M²⁺) regression would
+/// blow the CI timeout instead of passing.
+///
+/// (The scan's own full-world recompiles are left O(world) by design — the
+/// durable cure is incremental compilation, roadmap §6 Phase 3 — so this guard
+/// keeps the *number of full merges* small and the linear spine large, isolating
+/// the `merge_base` fix rather than the recompile slope.)
+#[test]
+fn merge_dry_run_stays_fast_on_a_deep_identity_history() {
+    // A deep shared spine (cheap: linear commits, no merges → no recompiles) is
+    // what stresses merge_base's |common|.
+    const DEPTH: usize = 200;
+
+    let (store, _dir) = open_store();
+    seed_main(&store, &[certain_fact("seed", "place", &["camelot"])]);
+
+    for i in 0..DEPTH {
+        commit_facts(
+            &store,
+            "main",
+            &[certain_fact(&format!("m{i}"), "note", &[&format!("v{i}")])],
+        );
+    }
+
+    // A few real identity branch-merges, so merge commits also sit in the
+    // ancestry (kept small — each real merge pays the O(world) recompile).
+    for i in 0..3 {
+        let branch = format!("id-{i}");
+        store
+            .create_branch(&branch, "main")
+            .expect("fork identity branch");
+        commit_facts(
+            &store,
+            &branch,
+            &[certain_fact(&format!("c{i}"), "note", &[&format!("e{i}")])],
+        );
+        let preview = store
+            .merge_with("main", &branch, false, None)
+            .expect("dry-run preview must answer");
+        assert!(preview.stratifies, "round {i} preview stratifies");
+        store.merge("main", &branch).expect("accept: real merge");
+    }
+
+    // The #75 call: a dry-run preview over the fully-grown, deep DAG.
+    store.create_branch("id-final", "main").expect("final fork");
+    commit_facts(&store, "id-final", &[certain_fact("cf", "note", &["ef"])]);
+    let preview = store
+        .merge_with("main", "id-final", false, None)
+        .expect("final preview must answer");
+    assert!(preview.stratifies);
+    // Fork-off-unmoved-main means base == target head, so the scan memoization
+    // collapses a recompile — reviewer note 3's measurable signal.
+    assert!(
+        preview.recompiles_saved >= 1,
+        "the coincident-head memoization fires on the fast-forward shape"
+    );
+}
+
+// ── Q4: a dry-run advances no ref, even though it writes the merge object ─────
+
+#[derive(Default)]
+struct RefCounters {
+    writes: AtomicUsize,
+    cas: AtomicUsize,
+}
+
+/// A `Storage` that tallies object writes and ref CASes and delegates everything
+/// to a real filesystem backend, so a test can prove exactly what a dry-run
+/// touches on disk.
+struct CountingStorage {
+    inner: dli_lorestore::FilesystemStorage,
+    counters: Arc<RefCounters>,
+}
+
+impl std::fmt::Debug for CountingStorage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CountingStorage").finish()
+    }
+}
+
+impl Storage for CountingStorage {
+    fn read_object(
+        &self,
+        hash: &ContentHash,
+    ) -> Result<Option<Vec<u8>>, dli_lorestore::StoreError> {
+        self.inner.read_object(hash)
+    }
+    fn write_object(&self, bytes: &[u8]) -> Result<ContentHash, dli_lorestore::StoreError> {
+        self.counters.writes.fetch_add(1, Ordering::SeqCst);
+        self.inner.write_object(bytes)
+    }
+    fn cas_ref(
+        &self,
+        name: &str,
+        expected: Option<&str>,
+        new: &dli_lorestore::Ref,
+    ) -> Result<bool, dli_lorestore::StoreError> {
+        self.counters.cas.fetch_add(1, Ordering::SeqCst);
+        self.inner.cas_ref(name, expected, new)
+    }
+    fn load_ref(
+        &self,
+        name: &str,
+    ) -> Result<Option<dli_lorestore::Ref>, dli_lorestore::StoreError> {
+        self.inner.load_ref(name)
+    }
+    fn list_refs(&self) -> Result<Vec<String>, dli_lorestore::StoreError> {
+        self.inner.list_refs()
+    }
+    fn delete_ref(&self, name: &str) -> Result<(), dli_lorestore::StoreError> {
+        self.inner.delete_ref(name)
+    }
+    fn acquire_lock(&self) -> Result<std::fs::File, dli_lorestore::StoreError> {
+        self.inner.acquire_lock()
+    }
+    fn walk_dag(
+        &self,
+        tip: &ContentHash,
+        base: Option<&ContentHash>,
+    ) -> Result<Vec<dli_lorestore::Commit>, dli_lorestore::StoreError> {
+        self.inner.walk_dag(tip, base)
+    }
+    fn cleanup_orphans(&self) -> Result<usize, dli_lorestore::StoreError> {
+        self.inner.cleanup_orphans()
+    }
+}
+
+fn open_counting_store() -> (Lorestore, TempDir, Arc<RefCounters>) {
+    let dir = TempDir::new().expect("tempdir");
+    // Bootstrap the genesis commit without the wrapper, then re-open over it.
+    let _ = Lorestore::open(dir.path().to_path_buf()).expect("bootstrap genesis");
+    let counters = Arc::new(RefCounters::default());
+    let inner = dli_lorestore::FilesystemStorage::new(dir.path().to_path_buf());
+    let store = Lorestore::from_storage(Box::new(CountingStorage {
+        inner,
+        counters: Arc::clone(&counters),
+    }));
+    (store, dir, counters)
+}
+
+/// Q4: a `dry_run` merge writes the (content-addressed, unreferenced) merge
+/// commit object but performs **no** ref-advancing CAS — so a worker killed
+/// mid-scan leaves every ref byte-identical. A conflict-surfacing corpus proves
+/// the scan does real work before the guarantee is checked. The following real
+/// merge moves the target ref exactly once.
+#[test]
+fn dry_run_merge_writes_an_orphan_but_advances_no_ref() {
+    let (store, _dir, counters) = open_counting_store();
+
+    // An exclusivity corpus: one question, two options, ruled differently on the
+    // two branches, so the dry-run's scan surfaces a real conflict.
+    let source =
+        "scope canon\n\nquestion q-keeper \"Who keeps it?\"\n  option opt-fen\n  option opt-mara\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "base parses clean: {diagnostics:?}");
+    let pack = dli_world::Pack {
+        name: "canon".to_owned(),
+        documents: vec![document],
+    };
+    store.import_pack(&pack).expect("import base with question");
+    store.create_branch("a", "main").expect("a");
+    store.create_branch("b", "main").expect("b");
+    set_branch_valuation(&store, "a", &[("opt-fen", true)]);
+    set_branch_valuation(&store, "b", &[("opt-mara", true)]);
+
+    let target_before = store
+        .branch_ref("a")
+        .expect("ref")
+        .expect("branch a")
+        .digest()
+        .expect("digest");
+    let writes_before = counters.writes.load(Ordering::SeqCst);
+    let cas_before = counters.cas.load(Ordering::SeqCst);
+
+    let report = store
+        .merge_with("a", "b", false, None)
+        .expect("dry-run preview");
+    assert!(
+        !report.conflicts.is_empty(),
+        "the dry-run scan surfaced the exclusivity conflict"
+    );
+    assert_eq!(
+        counters.cas.load(Ordering::SeqCst),
+        cas_before,
+        "a dry-run performs no ref-advancing CAS"
+    );
+    assert!(
+        counters.writes.load(Ordering::SeqCst) > writes_before,
+        "a dry-run still writes the unreferenced merge-commit object"
+    );
+    assert_eq!(
+        store
+            .branch_ref("a")
+            .expect("ref")
+            .expect("branch a")
+            .digest()
+            .expect("digest"),
+        target_before,
+        "the target ref is byte-identical after a dry-run"
+    );
+
+    // The accept decision — a real merge — moves the target ref exactly once.
+    let cas_before_real = counters.cas.load(Ordering::SeqCst);
+    store.merge("a", "b").expect("real merge");
+    assert_eq!(
+        counters.cas.load(Ordering::SeqCst),
+        cas_before_real + 1,
+        "the real merge CASes the target exactly once"
+    );
+    assert_ne!(
+        store
+            .branch_ref("a")
+            .expect("ref")
+            .expect("branch a")
+            .digest()
+            .expect("digest"),
+        target_before,
+        "the real merge moved the target ref"
+    );
+}
+
+// ── Differential guard: the O(M+E) merge_base matches the O(M³) definition ────
+
+/// A deterministic index in `0..len` drawn from the LCG, `as`-cast-free (the
+/// crate denies truncating casts).
+fn pick_index(rng: &mut Lcg, len: usize) -> usize {
+    let n = u64::try_from(len).expect("len fits u64");
+    usize::try_from(rng.next() % n).expect("index fits usize")
+}
+
+/// The reference lowest common ancestor — the pre-fix definition, computed with
+/// `ancestors()` only: `common = anc(a) ∩ anc(b)`; the lowest common ancestors
+/// are the common nodes that no *other* common node has as a proper ancestor;
+/// the smallest hash wins (`None` when the histories are disjoint). This is the
+/// exact behaviour the O(M+E) rewrite must reproduce.
+fn brute_force_merge_base(
+    store: &Lorestore,
+    a: &ContentHash,
+    b: &ContentHash,
+) -> Option<ContentHash> {
+    let anc_a = store.ancestors(a).expect("anc a");
+    let anc_b = store.ancestors(b).expect("anc b");
+    let common: Vec<ContentHash> = anc_a.intersection(&anc_b).cloned().collect();
+    let mut lowest: Vec<ContentHash> = common
+        .iter()
+        .filter(|c| {
+            !common
+                .iter()
+                .any(|c2| c2 != *c && store.ancestors(c2).expect("anc c2").contains(c))
+        })
+        .cloned()
+        .collect();
+    lowest.sort();
+    lowest.into_iter().next()
+}
+
+/// Differential property test: over many randomized commit DAGs — linear
+/// commits, forks, and merges in both parent orders — `Lorestore::merge_base`
+/// must agree with the brute-force reference on every pair of heads, be
+/// symmetric, and return a node in `anc(a) ∩ anc(b)`. The coverage counters
+/// assert the corpus actually built merge commits and actually exercised the
+/// topological pass (pairs where neither head is an ancestor of the other, so
+/// the short-circuit provably cannot fire): a differential test that quietly
+/// stopped building merges — or only hit the short-circuit — would false-pass,
+/// so this guard refuses to be vacuous.
+#[test]
+fn merge_base_matches_the_reference_over_random_dags() {
+    let mut merges_built = 0usize;
+    let mut pairs_checked = 0usize;
+    let mut topo_pass_pairs = 0usize;
+
+    for seed in 0..8u64 {
+        let (store, _dir) = open_store();
+        seed_main(&store, &[certain_fact("seed", "note", &["root"])]);
+        let mut rng = Lcg(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1));
+        let mut branches: Vec<String> = vec!["main".to_owned()];
+        let mut fresh = 0usize;
+
+        for _ in 0..18 {
+            // Fork (action 1) is always possible — even off `main` alone; only a
+            // merge (action 2) needs two branches, else it falls back to a commit.
+            let action = rng.next() % 3;
+            if action == 1 {
+                let idx = pick_index(&mut rng, branches.len());
+                let src = branches[idx].clone();
+                let name = format!("b{}-{}", seed, branches.len());
+                store.create_branch(&name, &src).expect("create_branch");
+                branches.push(name);
+            } else if action == 2 && branches.len() >= 2 {
+                let t = pick_index(&mut rng, branches.len());
+                let s = pick_index(&mut rng, branches.len());
+                if t != s {
+                    // Interners are identical (the facts add no event variables),
+                    // so a merge always reconciles.
+                    store.merge(&branches[t], &branches[s]).expect("merge");
+                    merges_built += 1;
+                }
+            } else {
+                let idx = pick_index(&mut rng, branches.len());
+                let b = branches[idx].clone();
+                fresh += 1;
+                commit_facts(
+                    &store,
+                    &b,
+                    &[certain_fact(
+                        &format!("c{fresh}"),
+                        "note",
+                        &[&format!("v{fresh}")],
+                    )],
+                );
+            }
+        }
+
+        let heads: Vec<ContentHash> = branches
+            .iter()
+            .map(|b| store.branch_head(b).expect("head").expect("branch"))
+            .collect();
+        for i in 0..heads.len() {
+            for j in i..heads.len() {
+                let (a, b) = (&heads[i], &heads[j]);
+                let got = store.merge_base(a, b).expect("merge_base");
+                assert_eq!(
+                    got,
+                    brute_force_merge_base(&store, a, b),
+                    "seed {seed}: merge_base disagrees with the O(M³) reference"
+                );
+                assert_eq!(
+                    store.merge_base(b, a).expect("merge_base"),
+                    got,
+                    "seed {seed}: merge_base is not symmetric"
+                );
+                let anc_a = store.ancestors(a).expect("anc");
+                let anc_b = store.ancestors(b).expect("anc");
+                if let Some(m) = &got {
+                    assert!(
+                        anc_a.contains(m) && anc_b.contains(m),
+                        "the LCA must be a common ancestor"
+                    );
+                }
+                if !anc_a.contains(b) && !anc_b.contains(a) {
+                    topo_pass_pairs += 1;
+                }
+                pairs_checked += 1;
+            }
+        }
+    }
+
+    // The guard must not be vacuous: the corpus built merges and exercised the
+    // domination pass, not only the ancestor short-circuit.
+    assert!(
+        merges_built >= 10,
+        "the corpus must build merge commits (built {merges_built})"
+    );
+    assert!(
+        topo_pass_pairs > 0,
+        "some pair must take the topological pass, not the short-circuit (got {topo_pass_pairs})"
+    );
+    assert!(
+        pairs_checked > 150,
+        "sanity: enough pairs checked (checked {pairs_checked})"
+    );
+}

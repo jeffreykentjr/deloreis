@@ -586,32 +586,122 @@ impl Lorestore {
     /// ancestor. A criss-cross history can leave several; the smallest hash is
     /// chosen deterministically (an honest limitation for the first cut — simple
     /// branch-and-merge topologies have exactly one).
+    ///
+    /// **Cost: O(M + E) over the two heads' reachable histories** (M commits, E
+    /// parent edges) — two DAG walks plus one linear domination pass. This
+    /// replaces an earlier formulation that recomputed `ancestors(c2)` — a fresh
+    /// walk — for every pair of common nodes, i.e. O(M³) when the two heads
+    /// share nearly all of their history (a branch forked off an unmoved `main`,
+    /// the identity-authoring workload). That cubic term was the `author.merge`
+    /// stall of GH #75; the walk count here is bounded and independent of how
+    /// many identity branches have accumulated.
+    ///
+    /// Two paths, identical results:
+    /// - **Ancestor short-circuit** — if one head is (inclusively) an ancestor of
+    ///   the other, that head *is* the unique lowest common ancestor (every other
+    ///   common node is one of its ancestors), so it is returned directly. This is
+    ///   the fast-forward shape the identity workflow hits nearly every merge.
+    /// - **Genuine divergence** — neither head reaches the other. The lowest
+    ///   common ancestors are the common nodes with no common node among their
+    ///   *proper descendants*; that "has a common proper descendant" flag is
+    ///   propagated child→parent in one pass over a topological (children-first)
+    ///   order of the union DAG. The smallest surviving hash is the deterministic
+    ///   pick, exactly as before.
     pub fn merge_base(
         &self,
         a: &ContentHash,
         b: &ContentHash,
     ) -> Result<Option<ContentHash>, StoreError> {
-        let anc_a = self.ancestors(a)?;
-        let anc_b = self.ancestors(b)?;
-        let common: Vec<ContentHash> = anc_a.intersection(&anc_b).cloned().collect();
+        use std::collections::{BTreeMap, BTreeSet};
+
+        // One walk per head (each returns HEAD → … → ROOT). Collect both the
+        // reachable-hash sets and the commit objects — the objects carry the
+        // parent edges the domination pass needs, so no further walks are taken.
+        let mut nodes: BTreeMap<ContentHash, Commit> = BTreeMap::new();
+        let mut anc_a: BTreeSet<ContentHash> = BTreeSet::new();
+        for commit in self.storage.walk_dag(a, None)? {
+            let hash = commit.content_hash()?;
+            anc_a.insert(hash.clone());
+            nodes.entry(hash).or_insert(commit);
+        }
+        let mut anc_b: BTreeSet<ContentHash> = BTreeSet::new();
+        for commit in self.storage.walk_dag(b, None)? {
+            let hash = commit.content_hash()?;
+            anc_b.insert(hash.clone());
+            nodes.entry(hash).or_insert(commit);
+        }
+
+        // Short-circuit: one head is an ancestor of the other (fast-forward).
+        // `ancestors` is inclusive (a walk includes its tip), so this also covers
+        // `a == b`.
+        if anc_a.contains(b) {
+            return Ok(Some(b.clone()));
+        }
+        if anc_b.contains(a) {
+            return Ok(Some(a.clone()));
+        }
+
+        let common: BTreeSet<ContentHash> = anc_a.intersection(&anc_b).cloned().collect();
         if common.is_empty() {
             return Ok(None);
         }
-        // Precompute each common node's ancestor set, then keep only nodes that
-        // no *other* common node has as a proper ancestor (the lowest ones).
-        let mut lowest: Vec<ContentHash> = Vec::new();
-        for c in &common {
-            let dominated = common.iter().try_fold(false, |acc, c2| {
-                if acc || c2 == c {
-                    return Ok::<bool, StoreError>(acc);
+
+        // Topological order over the union DAG, children before parents: a
+        // post-order over the parent edges (which emits a node only after all its
+        // ancestors) reversed. Seeded from both heads over one shared visited set.
+        let mut visited: BTreeSet<ContentHash> = BTreeSet::new();
+        let mut order: Vec<ContentHash> = Vec::new();
+        let mut stack: Vec<(ContentHash, bool)> = vec![(b.clone(), false), (a.clone(), false)];
+        while let Some((hash, emit)) = stack.pop() {
+            if emit {
+                order.push(hash);
+                continue;
+            }
+            if !visited.insert(hash.clone()) {
+                continue;
+            }
+            stack.push((hash.clone(), true));
+            if let Some(commit) = nodes.get(&hash) {
+                for parent in [commit.parent.as_ref(), commit.merge_parent.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
+                    if !visited.contains(parent) && nodes.contains_key(parent) {
+                        stack.push((parent.clone(), false));
+                    }
                 }
-                // c is dominated if c2 is a descendant of c, i.e. c ∈ ancestors(c2).
-                Ok(self.ancestors(c2)?.contains(c))
-            })?;
-            if !dominated {
-                lowest.push(c.clone());
             }
         }
+        order.reverse(); // children before parents
+
+        // A node is *dominated* (not lowest) iff it has a common node among its
+        // proper descendants. Propagate that flag up the parent edges: a child
+        // that is common, or already carries the flag, marks each of its parents.
+        // Processing children before parents makes each node's flag final before
+        // it is read.
+        let mut has_common_desc: BTreeMap<ContentHash, bool> =
+            nodes.keys().map(|hash| (hash.clone(), false)).collect();
+        for hash in &order {
+            let contributes = common.contains(hash) || has_common_desc[hash];
+            if !contributes {
+                continue;
+            }
+            if let Some(commit) = nodes.get(hash) {
+                for parent in [commit.parent.as_ref(), commit.merge_parent.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
+                    if let Some(flag) = has_common_desc.get_mut(parent) {
+                        *flag = true;
+                    }
+                }
+            }
+        }
+
+        let mut lowest: Vec<ContentHash> = common
+            .into_iter()
+            .filter(|hash| !has_common_desc[hash])
+            .collect();
         lowest.sort();
         Ok(lowest.into_iter().next())
     }
@@ -1025,6 +1115,7 @@ impl Lorestore {
             findings: scan.findings,
             stratifies: scan.stratifies,
             standing_changes: scan.standing_changes,
+            recompiles_saved: scan.recompiles_saved,
         })
     }
 }

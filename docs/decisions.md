@@ -4868,3 +4868,91 @@ wire surface is tracked at GH issue **#73** and is out of scope here.
 **Verification.** `cargo xtask gate` is green; the schema drift guard, the docgen
 drift check, the `0.x`/capability parity oracles, and teaching-coverage all pass
 with every pre-existing wire byte unmoved.
+
+## DL-0086 — `author.merge`'s stall (GH #75) is an accidental O(M³) merge base, not a scale trigger: fix it to O(M+E), keep the dry-run ref-safe, and log the pilot against the archive-track triggers
+
+*Date: 2026-08-14*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** A behavior-preserving performance fix, one commit, **no contract
+bump** (no `CONTRACT_VERSION`/`ACCEPTED` change, no new op, no wire field). GH
+**#75** reported an `author.merge` dry-run failing to answer within the client's
+120s deadline as the SubtleMemory incremental-canonicalization pilot (persona 0,
+58 of 225 sessions sealed) grew an identity world. It is a DL-0062 evidence
+trace, and under that entry a trace may inform engine work but not change
+semantics by itself; this ruling is a bug fix and a logged data point, nothing
+more.
+
+**1. Root cause — accidental cubic, not the recompile.** `Lorestore::merge_base`
+(the lowest-common-ancestor over the two-parent commit DAG, taken by both the
+dry-run and the real merge) computed `ancestors(a)` and `ancestors(b)` and then,
+for **every** common node, called `ancestors(c2)` — a fresh full DAG walk — for
+potentially every other common node. An identity branch forked off an unmoved
+`main` shares ~all of `main`'s history, so the common set ≈ M and the cost was
+**O(M³)** commit reads. Each accepted match adds ~2–4 commits to `main`'s
+reachable set, so M grew with sessions and a single late merge crossed 120s near
+M≈300 — exactly "superlinear with accumulated identity branches," and fine
+earlier. This is separable from the merge scan's full-world recompiles: at ~58
+claims a recompile is sub-second, so the recompiles are **not** what blew the
+deadline. The engine worker is single-threaded and synchronous, so a slow
+handler blocks the loop and the client kills it after the deadline; nothing on
+the server observed the stall.
+
+**2. The fix — O(M+E), plus a bounded stopgap for the recompiles.**
+`merge_base` is rewritten to two DAG walks plus one linear domination pass over a
+topological order of the union, with a fast **ancestor short-circuit** (if one
+head is an inclusive ancestor of the other — the fork-off-unmoved-`main`
+fast-forward the identity workload hits nearly every merge — that head *is* the
+LCA, returned directly). The deterministic "smallest hash among several LCAs"
+tie-break is preserved byte-for-byte; the LS-6 confluence/associativity oracles
+and the existing `merge_base` test are unchanged. Separately, `merge::scan`'s
+pre-merge recompiles are **memoized by commit hash**, collapsing the redundant
+recompile the identity workflow always incurs (its merge base *is* the target
+head). That memoization is a **stopgap, explicitly not** the durable cure: it
+helps only while the base coincides with a head, and once matches accumulate
+concurrently and `main` advances between fork and merge the coincidence stops
+holding. `MergeReport.recompiles_saved` (a diagnostic count, never wire-surfaced,
+never verdict-affecting) records when it fired so the workload can measure how
+often the coincidence holds.
+
+**3. Q4 — dry-run ref safety, as a tested guarantee.** A `dry_run` merge
+(`advance = false`) writes the content-addressed merge-commit **object** — inert,
+unreferenced, and it makes a later real merge of the same two heads idempotent —
+but performs **no** ref-advancing CAS. So a worker killed mid-scan leaves every
+ref byte-identical; the real merge, by contrast, CASes the target exactly once.
+This is proven by a counting-`Storage` test (`tests/merge.rs`:
+`dry_run_merge_writes_an_orphan_but_advances_no_ref`) over a conflict-surfacing
+corpus, not merely asserted.
+
+**4. Q2 — no server-side progress/timeout, named not silently deferred.** The
+synchronous worker cannot today return progress or a bounded/streaming diagnostic
+instead of stalling, and the offline-gate law bars the kernel from reading a
+clock, so a real cancellation/deadline is an architectural change out of scope
+here. The perf fix removes the practical need *for #75*, but the failure mode — a
+client-side deadline against a synchronous handler presenting as an undiagnosed
+stall — will recur on the next genuinely slow path. It is therefore logged as
+**parked work with its own trigger** in `design-notes/lorestore-roadmap.md` §6
+(the ledger evidence that reopens that accepted note), so the next occurrence is
+recognized rather than rediscovered.
+
+**5. #75 as a measured-trigger data point, not a license to index.** #75's world
+is atelier-tier (10³–10⁵ facts), where the design mandates millisecond in-memory
+saturation and states persistent indexes "buy nothing." So the stall is
+accidental complexity, and building the archive-track indexes to paper over it
+would be the premature optimization roadmap §6 warns against. The two patterns
+#75 *does* exercise — the scan's whole-world recompiles (Phase 3 incremental
+compile; the pilot is continuous ingestion) and merge-consequence/ancestry work
+over the commit DAG (Phase 4 cross-branch + branch-ancestry indexes, the
+archive-tier form of `merge_base`) — are logged against those triggers in roadmap
+§6, built by nobody now.
+
+**Verification.** `cargo xtask gate` is green. New tests in
+`crates/dli-lorestore/tests/merge.rs` cover both `merge_base` paths (the
+short-circuit, a forced genuine-divergence case that provably takes the
+topological pass, and a criss-cross asserting the smallest-hash tie-break), the
+#75 stall regression over a deep identity history (the dry-run must still answer;
+an O(M²⁺) regression trips the CI timeout), and the Q4 ref-safety guarantee. The
+existing merge oracles and the serve-side `same_as_preview` / `ls10_branch_writes`
+suites pass unchanged; no wire byte moves.

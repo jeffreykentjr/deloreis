@@ -672,8 +672,22 @@ Parked work, PLAN idiom — named, owned by a trigger, not built before it:
 | Peer/service loopback, then remote backends | A benchmark trace or archive deployment needs bounded remote retrieval (DL-0062) |
 | `.dli` full removal (deprecation phase 4) | The pretty-printer crate's maintenance cost exceeds its use |
 | Review rendering | None — consumer-owned by design (LS-5); deloreis ships the JSON contract, never a UI |
+| Worker cancellation + bounded diagnostic | A second captured trace shows any handler exceed an interactive budget for a reason other than an accidental-complexity bug (DL-0086). The `serve` worker is synchronous with no cancellation and the gate law bars the kernel from reading a clock, so a client-side deadline against a slow handler presents as an undiagnosed stall; a genuine slow path (not a fixable blunder) is the trigger to design a bounded/streaming answer |
 | Multi-authority valuations (DEF-4) | The first real second-authority corpus; the archive tier's authority model builds on the `authority` field and per-authority valuations |
 | Argumentation / uncertainty / fuzzy-ER (indexing note Phases 5–7) | Exploring, not committed; a ledger entry is the only way in |
+
+**Logged data points toward the triggers.** GH **#75** (SubtleMemory
+incremental-canonicalization pilot, a DL-0062 evidence trace) surfaced an
+`author.merge` dry-run stalling past the client's deadline on a growing identity
+world. Its dominant cause was an **accidental** O(M³) merge base, fixed in place
+to O(M+E) and orthogonal to this track (DL-0086) — a bug, not a threshold. But it
+also exercised two patterns this section owns, at a scale far below their
+thresholds, and is logged here so the aggregate is visible when the real
+threshold arrives: the merge scan's whole-world recompiles (**Phase 3**
+incremental compile — the pilot is *continuous ingestion*, the named condition)
+and merge-consequence/ancestry work over the commit DAG (**Phase 4** cross-branch
++ branch-ancestry indexes, the archive-tier form of the `merge_base` the fix
+computes by hand). Neither is built now; #75 does not trip a size trigger.
 
 ## 7. Effect on standing documents
 
