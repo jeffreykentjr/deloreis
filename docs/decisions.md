@@ -4956,3 +4956,80 @@ topological pass, and a criss-cross asserting the smallest-hash tie-break), the
 an O(M²⁺) regression trips the CI timeout), and the Q4 ref-safety guarantee. The
 existing merge oracles and the serve-side `same_as_preview` / `ls10_branch_writes`
 suites pass unchanged; no wire byte moves.
+
+## DL-0087 — Incremental compilation (indexing-note Phase 3) is sequenced next, ahead of Phase 2, on the continuous-ingestion trigger; a permanent byte-identical oracle is the safety contract
+
+*Date: 2026-08-14*
+
+**Attribution:** machine — an engineering decision by the implementing agent. It
+is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** The archive-index track's **Phase 3 (incremental compilation)** enters
+the critical path **now**, **ahead of Phase 2 (secondary indexes)**. This
+**supersedes** the sequencing recommendation in
+`design-notes/lorestore-indexing-strategy.md` ("Start with Phase 2"); that note is
+a design note, reopened only by ledger evidence, and this entry is that evidence.
+The work is internal — **no contract change, no wire byte moves, no new op.**
+
+**1. The trigger is live; #75 is the evidence.** Roadmap §6 gates Phase 3 on
+"whole-corpus recompile hurts *or continuous ingestion*." The SubtleMemory
+canonicalization pilot (a DL-0062 evidence trace) is continuous ingestion **by
+construction** — every mention forks a branch, asserts, checks, merges — so
+recompiles scale with **mentions, not facts**. GH #75 is the first surfacing:
+`author.merge`'s scan recompiles the whole world 3–8× per call. DL-0086's
+`recompiles_saved` memoization is a **stopgap whose useful life is bounded by the
+pilot's own progress** — it helps only while `base == target_head`, and the moment
+`main` advances between forks (as soon as matches accumulate) it stops helping.
+Persona 0 was 58 claims at 58/225 sessions; a full persona is ~1,400 claims, and
+ten personas is where this bites. Phase 3 is the only archive-track item with a
+near-term benchmarking payoff, which is why it and not Phase 2 goes first.
+
+**2. The algorithm (roadmap §4/§6).** Facts are append-only (no retraction) and a
+valuation flip never touches the symbolic fixpoint, so the **only** incremental case
+is **addition**: reuse the prior saturated relation, seed the seminaive worklist
+from the delta, and **recompute above the affected stratum** as the sole negation
+correction — **no DRed machinery**. A named real bug this must fix, not merely test:
+`merge_into` re-enqueues on strict **support** growth, so a delta that only grows a
+**defeater/poison** (support monomials unchanged) would not propagate — the
+re-enqueue gate is widened to support-**or**-conditions growth (or the affected
+strata are re-saturated wholesale).
+
+**3. Scope.** An **in-process, rebuildable compiled-world cache** keyed by commit
+hash — a derived reader (`state ≡ fold(log)`), a **bounded LRU with a size cap**
+(eviction is safe because a miss just recompiles). **Deferred, trigger-owned:** the
+**persistent on-disk** dependency/stratification/dirty indexes (the indexing note's
+"persistent" half) and a **sliced check battery** (chronology-cycle / FD grouping /
+fluent sweep stay whole-world in v1). Instrumenting the SubtleMemory pilot to
+capture recompile-time-vs-claim-count is **dli-benchmarks-owned** (never a cross-repo
+commit).
+
+**4. The correctness contract is a *permanent* oracle, not a one-time check.** For
+every world `W`, addition delta `Δ`, and **every ordering** of `Δ`,
+`incremental(compile(W), Δ)` must equal `compile(W ∪ Δ)` **byte-identical** (derived
+support/defeaters/conditions/monomial-grades/grade, findings, interner, valuation,
+and head-commit hash). The failure mode is an incremental fixpoint that **diverges
+under some ordering** and surfaces as a benchmark anomaly months later rather than a
+red test. So the differential + **confluence** check is a **gate-resident regression**
+over a **nontrivial world across many orderings**, with anti-vacuous **coverage
+counters asserted against thresholds** (not `> 0`, to survive generator drift) for
+negation-across-strata re-poisoning, defeater-only growth, same-as closure, and
+multi-stratum deltas; the **full recompile stays the reference and the runtime
+fallback**, cross-checked on every compile in CI/debug builds. The reusable equality
+kernel is `differential_parity.rs`'s `render_*` helpers plus the root-hash oracle.
+
+**5. Sequencing.** Staged, sequential, one green PR each, each red-teamed on its
+committed branch: dli-eval incremental fixpoint (rewires `ForkStore::saturated`,
+ships value alone) → dli-world `compile_incremental` (incremental loader + full
+checks) → dli-lorestore cache + wired recompile sites (the #75/SM payoff). A
+before/after micro-measurement lands as a **commit-pinned committed artifact** (the
+baseline the SubtleMemory instrumentation will be measured against).
+
+**Effect on standing documents.** `docs/PLAN.md` gains a `store`-lane node
+(`LS-10`, state `open`); roadmap §6 records Phase 3 as entered ahead of Phase 2;
+`design-notes/lorestore-indexing-strategy.md`'s "Start with Phase 2" is annotated as
+superseded for the continuous-ingestion trigger; GH #77 records the
+mentions-not-facts scaling and the memoization-stopgap-bounded-life point.
+
+**Verification.** This PR is docs-only: `cargo xtask authority` and
+`cargo xtask docs-oracle` are green; DL-0087 is sequential and dated; the PLAN node
+registry and status matrix stay in one-to-one correspondence.
