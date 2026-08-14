@@ -126,6 +126,13 @@ operations.
 
 ### Phase 3: Incremental Compilation Indexes
 
+> **Status: entered (DL-0087), ahead of Phase 2, on the continuous-ingestion
+> trigger.** v1 is an in-process rebuildable compiled-world cache + an incremental
+> fixpoint reusing the prior saturation (recompute above the affected stratum); the
+> **persistent on-disk** indexes below and a **sliced check battery** are deferred.
+> Safety is a permanent gate-resident oracle: incremental compile equals full
+> recompile byte-identically under every addition ordering.
+
 **Goal:** Avoid recomputing the entire fixpoint when new facts are added or
 decision variables change.
 
@@ -274,6 +281,13 @@ Despite evolving the indexing strategy, three principles remain:
    analytical queries over fact attributes (predicate, grade, status)
 
 ## Recommendation: Start with Phase 2
+
+> **Superseded for the continuous-ingestion trigger (DL-0087).** This recommendation
+> assumed a full-scan-query pressure (Phase 2's trigger) would arrive first. The
+> SubtleMemory pilot's continuous ingestion made Phase 3's trigger live *first* — the
+> real-world usage pattern this section asked to wait for — so **Phase 3 is entered
+> ahead of Phase 2**. Phase 2 remains the next item after it. The rest of this
+> section stands for the general case.
 
 Phase 2 (essential secondary indexes) delivers the most value for the least
 complexity. It makes lorestore viable as a persistent store and enables

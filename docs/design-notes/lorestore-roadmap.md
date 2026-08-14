@@ -655,7 +655,7 @@ What breaks at archive scale, and the committed remedy for each:
 | What breaks | At roughly | Committed remedy |
 |---|---|---|
 | Full-scan query | ~10⁵ facts | Indexing note Phase 2: entity/predicate/citation/variable posting lists — sorted runs and bitmap-style structures, because appearance-heavy relations are IR/OLAP-shaped, not B-tree-shaped |
-| Whole-corpus recompile | ~10⁵–10⁶ facts, or continuous ingestion | Phase 3 incremental compile, kept simple by §4's no-retraction property: semi-naive deltas for additions, recompute above the affected stratum, no DRed machinery |
+| Whole-corpus recompile | ~10⁵–10⁶ facts, or continuous ingestion | Phase 3 incremental compile, kept simple by §4's no-retraction property: semi-naive deltas for additions, recompute above the affected stratum, no DRed machinery. **Entered now, ahead of Phase 2, on the continuous-ingestion condition (DL-0087).** |
 | Eager full saturation | ~10⁶–10⁷ facts | Hot-core saturation + goal-directed evaluation (magic sets / SIP) for the long tail; partition by authority and scope, composing with branches (§4, "Archive scale") |
 | Cross-authority query and conflict scan | archive multi-authority work | Phase 4 cross-branch indexes as per-authority visibility maps, bitmap-composable over the one shared fact store |
 
@@ -687,7 +687,21 @@ threshold arrives: the merge scan's whole-world recompiles (**Phase 3**
 incremental compile — the pilot is *continuous ingestion*, the named condition)
 and merge-consequence/ancestry work over the commit DAG (**Phase 4** cross-branch
 + branch-ancestry indexes, the archive-tier form of the `merge_base` the fix
-computes by hand). Neither is built now; #75 does not trip a size trigger.
+computes by hand). #75 does not trip a *size* trigger — but it does satisfy the
+*continuous-ingestion* condition, which is what moves Phase 3.
+
+**Phase 3 is now entered — ahead of Phase 2 (DL-0087).** The SubtleMemory pilot is
+continuous ingestion by construction (recompiles scale with mentions, not facts),
+so incremental compilation is the one archive-track item with a live trigger and a
+near-term benchmarking payoff; secondary indexes (Phase 2) wait. The v1 scope is an
+in-process, rebuildable compiled-world cache (a bounded LRU; `state ≡ fold(log)`
+makes eviction safe) plus an incremental fixpoint that reuses the prior saturation
+and recomputes above the affected stratum — **not** the persistent on-disk indexes
+(deferred) and **not** a sliced check battery (deferred). Its safety contract is a
+permanent gate-resident oracle: incremental compile must equal full recompile
+byte-identically under every addition ordering, with the full recompile kept as the
+runtime fallback. This supersedes the indexing note's "start with Phase 2"
+recommendation for the continuous-ingestion trigger.
 
 ## 7. Effect on standing documents
 
