@@ -40,6 +40,18 @@ pub fn fixpoint(world: &World, strata: &Strata) -> Result<World, EvalError> {
     world.saturate_with(strata)
 }
 
+/// Compute the least fixpoint of a program that **extends** an already-saturated
+/// `prior`, reusing every stratum the additions cannot reach (DL-0087). Byte-
+/// identical to [`fixpoint`] on the same program; falls back to it whenever
+/// `prior` is not a reusable base.
+pub fn fixpoint_incremental(
+    world: &World,
+    prior: &World,
+    strata: &Strata,
+) -> Result<World, EvalError> {
+    world.saturate_incremental(prior, strata)
+}
+
 /// Answer a query against a saturated world under its ambient valuation.
 pub fn query(world: &World, query: &Query) -> Result<Answer, EvalError> {
     world.query(query)

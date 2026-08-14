@@ -797,7 +797,17 @@ impl ForkStore {
 
     /// The saturated world a fork evaluates against. With no additions this *is*
     /// the base world (borrowed, zero-copy); additions layer onto the base
-    /// program and run the fixpoint once.
+    /// program and re-saturate **incrementally** against the already-saturated
+    /// base (DL-0087), so only the strata the additions can reach are recomputed.
+    /// [`World::saturate_incremental`] falls back to the full fixpoint on its own
+    /// when the base is not a reusable prior, and is byte-identical to it either
+    /// way — the fork's answers do not depend on which path ran.
+    ///
+    /// Under `debug_assertions` this takes the **verifying** wrapper instead, so
+    /// every debug run and every test that reads a fork consequence re-checks the
+    /// reuse against a full recompute of the same program. That puts the shipped
+    /// corpora behind the same guarantee the generated oracle covers, at a cost
+    /// (both fixpoints, every time) no release build pays.
     fn saturated(&self, fork: &Fork) -> Result<Cow<'_, World>, EvalError> {
         if fork.additions.is_empty() {
             return Ok(Cow::Borrowed(&self.base));
@@ -812,7 +822,12 @@ impl ForkStore {
                 grade: addition.grade,
             });
         }
-        Ok(Cow::Owned(program.fixpoint()?))
+        let strata = program.stratify()?;
+        #[cfg(debug_assertions)]
+        let saturated = program.saturate_incremental_verified(&self.base, &strata)?;
+        #[cfg(not(debug_assertions))]
+        let saturated = program.saturate_incremental(&self.base, &strata)?;
+        Ok(Cow::Owned(saturated))
     }
 
     /// Scan a fork's candidate valuation for conflicts: a supposition overriding
