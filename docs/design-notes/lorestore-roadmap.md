@@ -703,6 +703,18 @@ byte-identically under every addition ordering, with the full recompile kept as 
 runtime fallback. This supersedes the indexing note's "start with Phase 2"
 recommendation for the continuous-ingestion trigger.
 
+**Corrected payoff (DL-0088).** PR 1 established that the sound reuse unit is the
+dependency-closed stratum (atom-level reuse is unsound under the defeater-conjoining
+`or_`), so the fixpoint win is delta-position dependent and **~1.0× for `same-as`
+deltas** — identity assertions synthesize alias rules over every predicate, marking
+the whole world affected. The fixpoint was never the SubtleMemory cost driver,
+though: the dominant term is `merge::scan`'s 3–8× whole-world recompiles per
+`author.merge` (× ~7 harness workers per mention), which the compiled-world cache and
+incremental loader attack directly. So Phase 3's SubtleMemory payoff is a
+**several-fold constant factor, not O(delta)**; beating ~1.0× for `same-as` needs
+per-derivation provenance (its own research lever), and the whole-world check battery
+is the predicted next bottleneck (instrumented in PR 3, sliced later).
+
 ## 7. Effect on standing documents
 
 - `docs/PLAN.md` — gains the `store` lane (LS-0..LS-8); SURF-4/BENCH-1/
