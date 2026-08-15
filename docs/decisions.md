@@ -5163,3 +5163,64 @@ SubtleMemory instrumentation will be compared against.
 byte-identical over randomized commit DAGs and is mutation-verified non-vacuous
 (bypassing the cache lookup reddens it); the Stage B block is pinned by asserting
 tests; the baseline is non-gating (`#[ignore]`d, never run in a gate lane).
+
+## DL-0090 — Correction to DL-0089 §1: the cache win is 10.7×–124.6× (four whole-world compiles → 0), not 3.2×–4.0×; the scan's own detection work is a newly-measured residual term
+
+*Date: 2026-08-15*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+correcting a magnitude the ledger recorded before the measurement it rests on was
+finished. It is live and binding on the tree, pending the author's async review
+(DL-0052).
+
+**Ruling.** This **corrects the numbers in DL-0089 §1** (the ledger is append-only,
+so DL-0089's merged bytes stand and this entry supersedes its §1 figures). The
+**direction of every DL-0089 conclusion is unchanged** — this is a magnitude
+correction, not a reversal.
+
+**1. Why the numbers were wrong.** DL-0089 §1 and the first baseline note were
+committed while a gap in the Stage A wiring was still being closed **in the same
+commit**: `merge::scan` *memoized* the merged world but did not *read* the memo — it
+recomputed the whole merged world on every scan, invisibly to the miss counter — so
+the measurement then in the note (3.2×–4.0×, "three compiles → 0") reflected a scan
+that served the pre-merge worlds but not the merged one. `d130b22` fixes it
+(`cached_world`, a peek that never computes, read before the inline compile; the
+inline path is kept only because the scan must tell `Unstratifiable` apart to report
+it as a class-3 conflict, so `compile_at_shared` cannot serve here). The oracle now
+pins it with a per-merge hit floor and a dry-run-rescan-recompiles-nothing test.
+
+**2. The corrected figures** (`docs/design-notes/incremental-compile-baseline.md`,
+reproduced by `tests/compile_cost_baseline.rs`, non-gating, `--release`, median of 5,
+same machine/rule set as DL-0089): the warm `author.merge` scan is **10.70× at 8
+personas rising to 124.60× at 128** (not 3.2×–4.0×), and **four** whole-world
+compiles collapse to **0** (target, source, base, **and the merge commit** — not
+three). The WS-3 dry-run-then-real-merge sequence now pays for **one** compile, not
+two.
+
+**3. A residual term nothing in the campaign had measured.** With the redundant
+recompiles gone, the merge scan's **own detection work** (exclusivity, FD grouping,
+the standing-downgrade sweep) is **~26% of a small (8-persona) merge's residual**,
+its share falling as the fixpoint outgrows it. The fixpoint remains the dominant
+residual (49% → ~100%), and **DL-0089 §3 is only reinforced**: `check::run` is
+**0–1% of the residual** per merge and falling — the check battery is refuted as the
+next bottleneck more sharply than DL-0089 stated. DL-0089 §2 also holds
+(`compile_incremental` 0.97×–0.98×, a small net loss on the identity workload).
+
+**4. Caveats unchanged and one added.** One workload, one machine, a rule set with a
+deliberate self-join — as DL-0089 §4. Added: `fixpoint+seal` and `scan detection` are
+**differences of independently-timed quantities**, so at 128 personas the ~2.5 s
+compile being subtracted carries variance exceeding the small quantity measured (the
+note prints a signed `−91.6 ms` rather than clamping a noise floor to zero, and says
+to read those two columns only where large and positive); `check::run` is timed
+directly and carries no such caveat.
+
+**Process note.** The understatement entered because the ledger entry and the note
+were committed **while the measurement was still being corrected** — the
+orchestrator committed a concurrently-edited tree. Recorded here as a pinned fact
+rather than a silent note-overwrite, and as a reminder that a decision entry is
+minted only over a frozen tree. The baseline note is updated to the accurate
+single-invocation version, so ledger and note now agree.
+
+**Verification.** `cargo xtask gate` green; the corrected figures are reproduced by
+`compile_cost_baseline.rs::baseline_merge_residual_split`; the accurate note is
+committed alongside this entry so no doc is left disagreeing with the ledger.
