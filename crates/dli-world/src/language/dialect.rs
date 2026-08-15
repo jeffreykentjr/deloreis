@@ -370,7 +370,7 @@ pub struct LanguageOutcome {
 ///
 /// It owns the interner and valuation the finished [`LanguageModel`] carries, so
 /// support polynomials and their satisfying valuation are built together.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Compiler {
     model: LanguageModel,
     findings: Vec<super::LangFinding>,
@@ -378,7 +378,11 @@ pub(crate) struct Compiler {
 }
 
 impl Compiler {
-    fn process(&mut self, decl: &Decl, pack: &str) {
+    /// Compile one declaration into the registry. `pub(crate)` so the loader's
+    /// resumable [`IncrementalLoad`](crate::loader::IncrementalLoad) can drive
+    /// the language half declaration-by-declaration alongside the world half,
+    /// rather than re-running a whole second pass over the documents.
+    pub(crate) fn process(&mut self, decl: &Decl, pack: &str) {
         match decl {
             Decl::Dialect(reg) => self.register(reg, pack),
             Decl::NamePart(morph) => {
@@ -634,7 +638,9 @@ impl Compiler {
         acc
     }
 
-    fn finish(self) -> LanguageOutcome {
+    /// The compiled registry and its findings. `pub(crate)` for the same reason
+    /// [`process`](Compiler::process) is.
+    pub(crate) fn finish(self) -> LanguageOutcome {
         LanguageOutcome {
             model: self.model,
             findings: self.findings,

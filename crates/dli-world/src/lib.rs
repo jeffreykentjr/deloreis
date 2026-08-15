@@ -14,6 +14,7 @@ pub mod craft;
 pub mod draft;
 pub mod episode;
 pub mod episode_order;
+pub mod incremental;
 pub mod language;
 pub mod loader;
 pub mod model;
@@ -28,6 +29,10 @@ pub use check::{
     factcheck::{ClaimReport, KilledToken, KilledTokens, MatchMode, RejectedClaim},
 };
 pub use draft::{DraftFinding, DraftMeta, DraftPayload};
+pub use incremental::{
+    CompileReuse, IncrementalWorld, compile_incremental, compile_incremental_verified,
+    compile_resumable, compile_reusing_fixpoint,
+};
 pub use language::{
     DialectDef, LangFinding, LanguageModel, LanguageOutcome, NameDef, RatifiedName,
 };
@@ -68,21 +73,23 @@ use crate::model::Provenance;
 /// a citation alone would otherwise assert a ruling into existence (charter
 /// koan 1).
 ///
+/// This is the **whole-pack** compile: every declaration is lowered afresh. The
+/// incremental seam that reuses a prior compile instead — byte-identically —
+/// is [`compile_incremental`]. Both
+/// route through one shared tail (`incremental::seal`), so the ledger valuation
+/// and the stratify-then-saturate handoff cannot drift between them.
+///
 /// # Errors
 ///
 /// Returns [`EvalError::Unstratifiable`] if the world's rules admit no valid
 /// stratification. Malformed inputs are never errors — they are load
 /// [`findings`](WorldModel::findings) held fail-closed.
 pub fn compile(pack: &Pack) -> Result<CompiledWorld, EvalError> {
-    let known_decisions = declared_decisions(pack);
-    let mut model = Loader::load(&pack.documents).world;
-    let (valuation, findings) = ledger_valuation(&model, pack, &known_decisions);
-    model.world.valuation = valuation;
-    model.world.findings.extend(findings);
-    // Saturate the loader's status-gated facts; the clone in `fixpoint` carries
-    // the valuation and findings through, so the compiled world evaluates under
-    // the ledger.
-    model.world = model.world.fixpoint()?;
+    let model = Loader::load(&pack.documents).world;
+    // Saturate the loader's status-gated facts; the clone inside the saturation
+    // carries the valuation and findings through, so the compiled world
+    // evaluates under the ledger.
+    let (model, _) = incremental::seal(model, pack, None)?;
     Ok(CompiledWorld::new(model))
 }
 
@@ -90,7 +97,7 @@ pub fn compile(pack: &Pack) -> Result<CompiledWorld, EvalError> {
 /// authoritative decision set a citation must land in to carry authority
 /// (`B1`). This is the tightest authoritative source available in a pack today;
 /// the ledger mirror of `decisions.md` is exactly such a set of `ratify` decls.
-fn declared_decisions(pack: &Pack) -> BTreeSet<&str> {
+pub(crate) fn declared_decisions(pack: &Pack) -> BTreeSet<&str> {
     pack.documents
         .iter()
         .flat_map(|document| &document.decls)
@@ -117,7 +124,7 @@ fn declared_decisions(pack: &Pack) -> BTreeSet<&str> {
 /// hole over the raw declarations. Without it, a forged decision id on any of
 /// these would mint authority the corpus never declared (`B1`) and escape the
 /// invariant.
-fn ledger_valuation(
+pub(crate) fn ledger_valuation(
     model: &WorldModel,
     pack: &Pack,
     known_decisions: &BTreeSet<&str>,
