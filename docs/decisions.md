@@ -5090,3 +5090,76 @@ change; no PLAN node state change (LS-10 stays `open`).
 
 **Verification.** Carried in PR 1's branch alongside the finding it records;
 `cargo xtask gate` green.
+
+## DL-0089 — Phase 3 close: the exact-hit compiled-world cache is the lorestore win; the fixpoint, not `check::run`, is the residual term (correcting DL-0088 §3); `compile_incremental` buys nothing on the identity workload
+
+*Date: 2026-08-15*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording a measured outcome that contradicts a prior prediction, while it is
+inconvenient. It is live and binding on the tree, pending the author's async
+review (DL-0052).
+
+**Ruling.** Phase 3 (incremental compilation) closes. The measured outcome
+differs from what DL-0087/DL-0088 advertised, and the honest record is this.
+
+**1. The exact-hit compiled-world cache is the lorestore lever, and it delivers.**
+`Lorestore` gains an in-process, bounded-LRU cache keyed by commit `ContentHash`
+(entry = lazily-filled `{pack, world}` `Arc`s; `Mutex` so the store stays
+`Send + Sync`, the lock never held across a compile; default capacity 64). It is a
+**rebuildable derived reader** (`state ≡ fold(log)`); eviction is safe because a
+miss just recompiles. Its soundness rests on one load-bearing claim —
+`compile_at` is a pure function of the commit hash — which holds by content
+addressing (the hash fixes the whole immutable reachable object set) and the
+purity of `read_typed`'s upcast within a build; the cache is per-session, so no
+cross-build schema staleness. Measured, it fixes **DL-0087 §1's named problem**
+(`author.merge` recompiling the world 3–8× per call) **directly**: 3.2×–4.0× on
+the merge scan (rising with world size), 3 cold compiles → 0, and — unlike
+DL-0086's `recompiles_saved` stopgap — it does **not** depend on
+`base == target_head`. The #76 memoization is subsumed.
+
+**2. `compile_incremental` (PR 2) could not be wired into the lorestore, and buys
+nothing on the identity workload anyway — honestly measured.** The parent-delta
+path (compute a child from its cached parent + the delta via `compile_incremental`)
+is byte-identity-blocked by construction: `reconstruct_pack` emits one `Document`,
+`compile_incremental` appends a second, so `PackProvenance::documents` diverges
+2-vs-1 even in the most favourable case. Deferred to **GH #92** (needs an
+append-to-the-last-document loader entry point and a byte-identical reconstruct-delta
+primitive), pinned by permanent asserting tests. And on the identity workload the
+incremental compile measures **0.94×–0.96× — a small net loss**: fixpoint reuse is
+refused at every delta size (`same-as` re-synthesizes alias rules over every
+predicate, so no stratum is skippable — exactly DL-0088 §1), and loader reuse saves
+0.4 ms of a 280 ms compile. PR 1 and PR 2 remain **correct, byte-identical,
+permanently-guarded primitives** (and PR 1's `saturate_incremental` still serves the
+in-memory `ForkStore` fork-with-additions path) — but the lorestore/SubtleMemory win
+is the cache, not the incremental compile.
+
+**3. `check::run` is NOT the next bottleneck — correcting DL-0088 §3.** DL-0088 §3
+predicted the whole-world check battery would dominate once compiles were cached and
+scheduled it for instrumentation-not-slicing. The instrumentation
+(`docs/design-notes/incremental-compile-baseline.md`, reproduced by
+`tests/compile_cost_baseline.rs`, non-gating) shows the opposite: `check::run` is
+**0–2% of a cold compile and its share falls as the world grows** (2% at 8 personas,
+0% at 128). The **symbolic fixpoint** is the residual O(world) term (69% → 99%,
+≈`O(n^2.9)`). So the sliced-checks trigger should **not** fire — now on a
+measurement, not a guess. The next lever for this workload is the fixpoint itself,
+i.e. the **provenance-for-`same-as`** research of GH #89, not the checks.
+
+**4. Caveat, stated not buried.** One workload, one machine (`--release`, median of
+5), and a rule set with a deliberate self-join (`co-mentioned($p,$q) :- appears($p,$s),
+appears($q,$s)`), so the fixpoint's dominance is partly a property of this rule set.
+The baseline note is `status: reference` — **data, not a ruling** — and asks for a
+second corpus shape before any of it hardens into a decision. This entry records the
+measurement and its direct implications (§1–§3); it does not over-generalize from one
+shape.
+
+**Effect on standing documents.** No contract change; no PLAN node state change
+(LS-10 stays `open` — the cache landed; the parent-delta wiring is #92). GH #77
+gets the close-out; the baseline note is the committed, commit-pinned artifact the
+SubtleMemory instrumentation will be compared against.
+
+**Verification.** `cargo xtask gate` green; the Stage C differential oracle
+(`incremental_compile_at_parity.rs`) proves cached `compile_at == full recompute`
+byte-identical over randomized commit DAGs and is mutation-verified non-vacuous
+(bypassing the cache lookup reddens it); the Stage B block is pinned by asserting
+tests; the baseline is non-gating (`#[ignore]`d, never run in a gate lane).
