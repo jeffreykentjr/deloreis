@@ -928,8 +928,36 @@ impl World {
     // under negation. Until then the reuse unit is the dependency-closed
     // stratum, which is what the byte-identity argument above rests on.
     pub fn saturate_incremental(&self, prior: &World, strata: &Strata) -> Result<World, EvalError> {
+        Ok(self.saturate_incremental_reported(prior, strata)?.0)
+    }
+
+    /// [`saturate_incremental`](World::saturate_incremental), returning a
+    /// [`ReuseReport`] alongside the world: what was reused, what was
+    /// recomputed, and whether reuse ran at all.
+    ///
+    /// # This exists so a parity test cannot go vacuous
+    ///
+    /// Reuse falls back to a full [`saturate_with`](World::saturate_with)
+    /// whenever the prior is not a sound base, which is the right behaviour and a
+    /// trap for anything that *checks* it: an oracle comparing
+    /// `saturate_incremental` against `saturate_with` passes trivially if every
+    /// case fell back, because then it is comparing a full recompute against
+    /// itself. That failure is invisible — the suite is green and tests nothing.
+    /// The report makes reuse observable, so the oracle can put a floor on how
+    /// many trials genuinely reused something and go red when the answer is
+    /// none.
+    pub fn saturate_incremental_reported(
+        &self,
+        prior: &World,
+        strata: &Strata,
+    ) -> Result<(World, ReuseReport), EvalError> {
         let Some(affected) = reusable_delta(self, prior, strata) else {
-            return self.saturate_with(strata);
+            return Ok((self.saturate_with(strata)?, ReuseReport::fallback()));
+        };
+        let mut report = ReuseReport {
+            reused: true,
+            affected: affected.clone(),
+            ..ReuseReport::default()
         };
         let mut relation = self.seed_relation();
         // Reuse: an unaffected predicate's prior row already folds its facts and
@@ -939,15 +967,26 @@ impl World {
         for row in &prior.derived {
             if !affected.contains(&row.atom.pred) {
                 relation.insert(row.atom.clone(), row.clone());
+                report.reused_rows += 1;
             }
         }
+        // Every level runs in stratification order, and the rows reused above
+        // include predicates from levels *later* than the one being saturated —
+        // they are preloaded before level 0 rather than derived in turn. That is
+        // sound only because `stratify_rules` guarantees no rule at level k names
+        // a predicate from a later level in its body: the relation being a
+        // superset is invisible to level k, because `fire_rules` and `join_body`
+        // match body atoms by predicate name and no such name is present. If that
+        // guarantee ever weakens, this preload becomes a silent divergence.
         for level in &strata.levels {
-            if !level.iter().any(|pred| affected.contains(pred)) {
-                continue;
+            if level.iter().any(|pred| affected.contains(pred)) {
+                saturate_stratum(&mut relation, &self.level_rules(level), &self.theory)?;
+                report.recomputed_strata += 1;
+            } else {
+                report.skipped_strata += 1;
             }
-            saturate_stratum(&mut relation, &self.level_rules(level), &self.theory)?;
         }
-        Ok(self.finish_saturation(relation))
+        Ok((self.finish_saturation(relation), report))
     }
 
     /// [`saturate_incremental`](World::saturate_incremental), cross-checked
@@ -1296,6 +1335,86 @@ pub fn or_inertial(map: &mut BTreeMap<String, Ann>, pred: &str, ann: Ann) {
     }
 }
 
+/// Whether a world's `derived` is consistent with having been saturated from its
+/// own facts and rules — the cheap necessary conditions a reuse base must meet.
+///
+/// This is a **screen, not a proof**. The type system does not distinguish a
+/// saturated `World` from a program, so a prior that merely *looks* saturated —
+/// saturated once and then appended to, most of all — passes every structural
+/// precondition (`derived` is non-empty, the facts extend cleanly) while
+/// carrying rows that no longer reflect its own program. Reuse would then copy
+/// stale rows forward and produce a world a full recompute disagrees with, in
+/// release, with nothing to notice. So this checks the two invariants a genuine
+/// saturation cannot violate:
+///
+/// - **every fact's atom has a row.** [`World::seed_relation`] inserts one per
+///   fact and saturation never removes rows, so a missing row means the fact was
+///   appended after the fixpoint ran.
+/// - **every fact's support is entailed by its atom's row.** Support only grows
+///   through saturation, so a fact whose own support its row does not carry is a
+///   fact the fixpoint never saw — the case where the appended fact's atom
+///   already had a row from an earlier fact and the presence check alone passes.
+///
+/// It also refuses a world with rules and no rows at all: a pure-negative-body
+/// rule with a ground head derives without any fact, so an empty `derived` there
+/// is indistinguishable from a fixpoint that never ran.
+///
+/// Every failure mode is a **refusal**, never a wrong answer: the caller falls
+/// back to the full fixpoint, costing time and nothing else. What remains
+/// uncovered is a prior stale in a way these invariants cannot see. The durable
+/// fix is a saturated-world newtype that cannot be forged — an unforgeable
+/// contract rather than a screen — scheduled for PR3, where the lorestore cache
+/// makes a stale prior load-bearing rather than hypothetical.
+fn looks_saturated(prior: &World) -> bool {
+    if prior.derived.is_empty() {
+        return prior.facts.is_empty() && prior.rules.is_empty();
+    }
+    let rows: BTreeMap<&GroundAtom, &Derived> =
+        prior.derived.iter().map(|row| (&row.atom, row)).collect();
+    prior.facts.iter().all(|fact| {
+        rows.get(&fact.atom)
+            .is_some_and(|row| fact.ann.support.implies(&row.support))
+    })
+}
+
+/// What one call to [`World::saturate_incremental_reported`] actually did.
+///
+/// Reuse is best-effort by design — it falls back to a full fixpoint whenever
+/// the prior is not a sound base — so "the answer was right" says nothing about
+/// whether any reuse happened. This is the channel that does.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReuseReport {
+    /// Whether reuse ran at all. `false` means the preconditions were refused
+    /// and the result came from a plain full fixpoint.
+    pub reused: bool,
+    /// The predicates the delta can disturb, whose prior rows were dropped and
+    /// re-derived. Empty on a fallback.
+    pub affected: BTreeSet<String>,
+    /// Prior rows copied forward verbatim.
+    pub reused_rows: usize,
+    /// Stratum levels skipped whole because nothing in them was affected.
+    pub skipped_strata: usize,
+    /// Stratum levels re-saturated.
+    pub recomputed_strata: usize,
+}
+
+impl ReuseReport {
+    /// The report for a call that refused reuse and ran the full fixpoint.
+    #[must_use]
+    pub fn fallback() -> Self {
+        Self::default()
+    }
+
+    /// Whether this call genuinely reused work: it took the reuse path *and*
+    /// skipped at least one stratum. A call that reused the path but recomputed
+    /// every level did the full job with extra bookkeeping, and a test counting
+    /// it as coverage would be fooling itself.
+    #[must_use]
+    pub fn is_live(&self) -> bool {
+        self.reused && self.skipped_strata > 0
+    }
+}
+
 /// Describe the first disagreement between an incremental saturation and the
 /// full recompute it is supposed to reproduce, or `None` when they are
 /// identical — the value-level half of the verify-against-full mode.
@@ -1375,9 +1494,10 @@ fn divergence_detail(incremental: &World, full: &World) -> String {
 /// Reuse is **append-only**: `new`'s facts, rules and interned names must extend
 /// `prior`'s, and the constraint theory must be unchanged (it feeds
 /// [`negative_poison`], so a new exclusivity family can move any defeater in the
-/// world). A `prior` that was never saturated is likewise refused — it would
-/// contribute no rows to reuse and silently look like a world where nothing is
-/// derivable.
+/// world). `prior` must additionally pass [`looks_saturated`], which screens out
+/// the priors whose rows do not reflect their own program — read that function's
+/// note for what the screen does and does not cover, and for why the durable fix
+/// is a saturated-world newtype in PR3 rather than more checks here.
 ///
 /// The affected set is the least set containing
 ///
@@ -1394,13 +1514,16 @@ fn divergence_detail(incremental: &World, full: &World) -> String {
 /// and every rule deriving it reads only unaffected predicates — so its prior
 /// rows are reused and the levels that build them are skipped.
 ///
-/// The clause is **redundant today** and kept deliberately. [`stratify_rules`]
-/// makes each level exactly one strongly-connected component, and the head-from-
-/// body closure above already walks the dependency edges in reverse, so a cycle
-/// carries affectedness to every member of its own component: the widening never
-/// adds anything (removing it leaves the oracle green). It is the guard on the
-/// invariant, not the mechanism — if a level ever stops being a single SCC, the
-/// byte-identity argument needs this clause and would otherwise fail silently.
+/// The clause has **no known reachable case that justifies it**, and is kept as
+/// a cheap guard rather than as a live mechanism — stated plainly so nobody
+/// mistakes it for load-bearing. It is not merely shadowed by
+/// [`stratify_rules`] putting one strongly-connected component per level: it is
+/// *subsumed* by the head-from-body closure above, which walks the dependency
+/// edges in reverse and therefore already carries affectedness around any cycle
+/// to every member of its own component. Removing it leaves the oracle green,
+/// and a red-team pass could not construct a program where it changes the
+/// answer. It costs one pass over the levels, so it stays — but if it ever needs
+/// deleting, delete it, and do not reason as though something was protecting it.
 ///
 /// [`stratify_rules`]: crate::strata::stratify_rules
 fn reusable_delta(new: &World, prior: &World, strata: &Strata) -> Option<BTreeSet<String>> {
@@ -1411,10 +1534,7 @@ fn reusable_delta(new: &World, prior: &World, strata: &Strata) -> Option<BTreeSe
     {
         return None;
     }
-    // `seed_relation` yields a row per fact atom, so a saturated world has rows
-    // whenever it has facts. No rows with facts present means `prior` never ran
-    // its fixpoint, and reusing it would drop every derivation it should carry.
-    if prior.derived.is_empty() && !prior.facts.is_empty() {
+    if !looks_saturated(prior) {
         return None;
     }
     let mut affected: BTreeSet<String> = BTreeSet::new();

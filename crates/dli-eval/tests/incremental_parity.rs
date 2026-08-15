@@ -36,7 +36,9 @@ use dli_core::grade::Grade;
 use dli_core::posbool::{Monomial, PosBool};
 
 use dli_eval::Strata;
-use dli_eval::world::{Derived, GroundAtom, World, incremental_divergence, synthesize_alias_rules};
+use dli_eval::world::{
+    Derived, GroundAtom, ReuseReport, World, incremental_divergence, synthesize_alias_rules,
+};
 
 // ---------------------------------------------------------------------------
 // Deterministic generation
@@ -344,7 +346,31 @@ fn atom_universe() -> Vec<GroundAtom> {
         for j in 0..ENTITIES {
             atoms.push(ground("reach", &[ent(i), ent(j)]));
         }
+    }
+    atoms.extend(high_atom_universe());
+    atoms
+}
+
+/// The atoms whose predicates sit **high in the dependency order** — little or
+/// nothing reads them, so adding one leaves most strata untouched.
+///
+/// This split exists because of a measurement, not a hunch. Drawing deltas
+/// uniformly from the full universe put 148 of 192 ordering-checks on
+/// predicates at the *bottom* of the order (`edge`, `tie`, `mark`), and a delta
+/// there transitively affects every level: reuse takes its path, skips nothing,
+/// and degenerates into a full recompute with extra bookkeeping. The parity
+/// assertions still passed — which is the point, and the danger. The oracle was
+/// exercising the reuse *machinery* while barely exercising reuse. Biasing half
+/// the delta draws here is what keeps `live_reuse` meaningful; the other half
+/// still comes from the bottom, because that is where the negation-repoisoning
+/// and defeater-growth coverage comes from.
+fn high_atom_universe() -> Vec<GroundAtom> {
+    let mut atoms = Vec::new();
+    for i in 0..ENTITIES {
         atoms.push(ground("safe", &[ent(i)]));
+        atoms.push(ground("rival", &[ent(i)]));
+        atoms.push(ground("crown", &[ent(i)]));
+        atoms.push(ground("heir", &[ent(i)]));
     }
     atoms
 }
@@ -396,6 +422,7 @@ fn generate(seed: u64) -> Trial {
     // Base facts: a random subset of the universe, each with its own annotation
     // and grade. `owner` is kept single-valued here so the FD holds in the base.
     let universe = atom_universe();
+    let high = high_atom_universe();
     let mut used: BTreeSet<GroundAtom> = BTreeSet::new();
     let mut owned: BTreeSet<String> = BTreeSet::new();
     for atom in &universe {
@@ -441,7 +468,7 @@ fn generate(seed: u64) -> Trial {
         }
         // A new `same-as:link` row: the delta changes the identity closure
         // itself. Only meaningful once the closure rules exist.
-        if aliased && rng.chance(7) {
+        if aliased && rng.chance(10) {
             let left = ent(rng.below(ENTITIES));
             let right = ent(rng.below(ENTITIES));
             let atom = ground("same-as:link", &[left, right]);
@@ -454,8 +481,13 @@ fn generate(seed: u64) -> Trial {
                 continue;
             }
         }
+        // Half the draws come from high in the dependency order, so reuse has
+        // strata left to skip; the rest from the whole universe, so the delta
+        // still lands at the bottom often enough to drive poison across strata.
+        // See `high_atom_universe` for why this split is not cosmetic.
+        let pool: &[GroundAtom] = if rng.chance(8) { &high } else { &universe };
         for _ in 0..8 {
-            let atom = universe[rng.below(universe.len())].clone();
+            let atom = pool[rng.below(pool.len())].clone();
             if used.insert(atom.clone()) {
                 delta.push(Addition::Fact {
                     atom,
@@ -496,6 +528,63 @@ fn rows(world: &World) -> BTreeMap<GroundAtom, Derived> {
         .iter()
         .map(|row| (row.atom.clone(), row.clone()))
         .collect()
+}
+
+/// A copy of `prior` with one **reused** row falsified — a row whose predicate
+/// the delta does not affect, so the incremental path copies it forward verbatim
+/// instead of re-deriving it. `None` when the delta affects everything and there
+/// is nothing to reuse.
+///
+/// The falsification is a grade change, chosen because it survives
+/// `looks_saturated`: that screen checks fact-atom presence and support
+/// entailment, neither of which grade touches. A corruption the preconditions
+/// rejected would prove nothing — the call would fall back and the result would
+/// match for the wrong reason.
+fn corrupt_a_reused_row(prior: &World, report: &ReuseReport) -> Option<World> {
+    let mut corrupt = prior.clone();
+    let victim = corrupt
+        .derived
+        .iter_mut()
+        .find(|row| !report.affected.contains(&row.atom.pred))?;
+    victim.grade = if victim.grade == Grade::Checked {
+        Grade::Asserted
+    } else {
+        Grade::Checked
+    };
+    Some(corrupt)
+}
+
+/// The positive control for one ordering-check: prove the reuse path actually
+/// **reused** something, rather than quietly falling back.
+///
+/// Every equality assertion in the oracle passes trivially if
+/// `saturate_incremental` fell back to `saturate_with` on every case — it would
+/// then be comparing a full recompute against itself, green and worthless, with
+/// nothing in the output to say so. This falsifies a row the delta does not
+/// affect and demands the result change. If the row was reused, it must; if the
+/// call had fallen back, the corruption is ignored and this fires.
+///
+/// Returns whether a control was actually run (there is nothing to corrupt when
+/// the delta affects every predicate).
+fn prove_reuse_was_live(
+    program: &World,
+    prior: &World,
+    strata: &Strata,
+    full: &World,
+    report: &ReuseReport,
+    seed: u64,
+    index: usize,
+) -> bool {
+    let Some(corrupt) = corrupt_a_reused_row(prior, report) else {
+        return false;
+    };
+    let poisoned = program.saturate_incremental(&corrupt, strata).unwrap();
+    assert_ne!(
+        &poisoned, full,
+        "seed {seed} ordering {index}: corrupting a reused prior row changed nothing — \
+         the reuse path did not actually reuse it"
+    );
+    true
 }
 
 /// Apply a delta ordering to the base program and return the program.
@@ -583,92 +672,50 @@ fn score(coverage: &mut Coverage, before: &World, after: &World, strata: &Strata
 // The oracle
 // ---------------------------------------------------------------------------
 
-/// How many generated programs the oracle runs.
-const SEEDS: u64 = 48;
-/// How many orderings of each delta are checked. The failure mode is divergence
-/// under *some* ordering, so one is never enough.
-const ORDERINGS: usize = 4;
-
-#[test]
-fn incremental_saturation_is_byte_identical_to_full_recompute() {
-    let mut coverage = Coverage::default();
-    let mut checked_orderings = 0usize;
-
-    for seed in 0..SEEDS {
-        let trial = generate(seed);
-        assert!(
-            !trial.delta.is_empty(),
-            "seed {seed}: generated an empty delta"
-        );
-        let base_saturated = trial.base.fixpoint().unwrap();
-
-        let mut rng = Lcg::new(seed ^ 0xDEAD_BEEF);
-        let mut orderings: Vec<Vec<Addition>> = Vec::new();
-        orderings.push(trial.delta.clone());
-        for _ in 1..ORDERINGS {
-            let mut permuted = trial.delta.clone();
-            rng.shuffle(&mut permuted);
-            orderings.push(permuted);
-        }
-
-        let mut reference: Option<(BTreeMap<GroundAtom, Derived>, World)> = None;
-        for (index, ordering) in orderings.iter().enumerate() {
-            let program = program_with(&trial.base, ordering);
-            let strata = program.stratify().unwrap();
-            let full = program.saturate_with(&strata).unwrap();
-            let incremental = program
-                .saturate_incremental(&base_saturated, &strata)
-                .unwrap();
-
-            assert_eq!(
-                incremental, full,
-                "seed {seed} ordering {index}: incremental saturation diverged from full recompute"
-            );
-            assert_eq!(
-                canonical(&incremental),
-                canonical(&full),
-                "seed {seed} ordering {index}: incremental saturation is not byte-identical to full recompute"
-            );
-            checked_orderings += 1;
-
-            // Confluence: every ordering of the same delta reaches the same
-            // saturation. Only the saturation is compared — the `facts` vector
-            // legitimately differs, since its order is the permutation itself.
-            match &reference {
-                None => {
-                    score(&mut coverage, &base_saturated, &full, &strata);
-                    reference = Some((rows(&full), full));
-                }
-                Some((reference_rows, reference_world)) => {
-                    assert_eq!(
-                        rows(&full),
-                        *reference_rows,
-                        "seed {seed} ordering {index}: full recompute is not confluent across delta orderings"
-                    );
-                    assert_eq!(
-                        full.support_index, reference_world.support_index,
-                        "seed {seed} ordering {index}: support index diverged across delta orderings"
-                    );
-                    assert_eq!(
-                        full.var_grades, reference_world.var_grades,
-                        "seed {seed} ordering {index}: var grades diverged across delta orderings"
-                    );
-                }
-            }
-        }
-    }
-
+/// The floors that keep this file from going quietly vacuous, in one place:
+/// how much of the delta space was covered, and how much reuse was genuinely
+/// live. Split out from the oracle body so the assertions read as a checklist
+/// rather than as a tail on a long loop.
+fn assert_floors(
+    coverage: &Coverage,
+    checked_orderings: usize,
+    live_reuse: usize,
+    positive_controls: usize,
+) {
     assert_eq!(
         checked_orderings,
         usize::try_from(SEEDS).unwrap() * ORDERINGS,
         "every seed must contribute every ordering"
     );
 
+    // THE ANTI-VACUITY FLOOR. Every parity assertion above is satisfiable by a
+    // reuse path that never reuses anything, so this is the assertion that makes
+    // the rest of the file mean something. `live_reuse` counts ordering-checks
+    // where reuse ran AND skipped at least one stratum; `positive_controls`
+    // counts those where corrupting a reused row provably changed the result.
+    // Observed for this generator: **112 live of 192** ordering-checks, all 112
+    // with a passing positive control. The floor sits well under that but far
+    // above the 44 the generator produced before its delta draws were rebalanced
+    // (see `high_atom_universe`), so it discriminates both failures: reuse
+    // silently ceasing to engage, and the generator drifting back to deltas at
+    // the bottom of the dependency order that leave nothing to skip. Either way
+    // this goes red while every equality assertion in the file still passes.
+    assert!(
+        live_reuse >= 70,
+        "anti-vacuity floor: only {live_reuse} of {checked_orderings} ordering-checks actually \
+         reused a stratum — a parity oracle that always falls back proves nothing"
+    );
+    assert_eq!(
+        positive_controls, live_reuse,
+        "every live reuse must be provable by corrupting a reused row: {positive_controls} of \
+         {live_reuse} were"
+    );
+
     // Floors, tied to the generator config above: `SEEDS = 48` programs over
     // `ENTITIES = 3` entities, half of them (`rng.chance(8)`) declaring identity
     // links, each with a 1..4 addition delta drawn from `atom_universe()`. The
-    // counts this configuration actually produces are repoison 28, defeater-only
-    // 14, same-as 14, multi-stratum 39 of 48 trials. The floors sit at roughly
+    // counts this configuration actually produces are repoison 32, defeater-only
+    // 16, same-as 14, multi-stratum 42 of 48 trials. The floors sit at roughly
     // two thirds of those: low enough that benign churn in the generator does not
     // fail the build, high enough that a case going uncovered does. A count under
     // a floor means the generator drifted off the behaviour it exists to
@@ -698,6 +745,98 @@ fn incremental_saturation_is_byte_identical_to_full_recompute() {
         coverage.multi_stratum,
         coverage.trials
     );
+}
+
+/// How many generated programs the oracle runs.
+const SEEDS: u64 = 48;
+/// How many orderings of each delta are checked. The failure mode is divergence
+/// under *some* ordering, so one is never enough.
+const ORDERINGS: usize = 4;
+
+#[test]
+fn incremental_saturation_is_byte_identical_to_full_recompute() {
+    let mut coverage = Coverage::default();
+    let mut checked_orderings = 0usize;
+    let mut live_reuse = 0usize;
+    let mut positive_controls = 0usize;
+
+    for seed in 0..SEEDS {
+        let trial = generate(seed);
+        assert!(
+            !trial.delta.is_empty(),
+            "seed {seed}: generated an empty delta"
+        );
+        let base_saturated = trial.base.fixpoint().unwrap();
+
+        let mut rng = Lcg::new(seed ^ 0xDEAD_BEEF);
+        let mut orderings: Vec<Vec<Addition>> = Vec::new();
+        orderings.push(trial.delta.clone());
+        for _ in 1..ORDERINGS {
+            let mut permuted = trial.delta.clone();
+            rng.shuffle(&mut permuted);
+            orderings.push(permuted);
+        }
+
+        let mut reference: Option<(BTreeMap<GroundAtom, Derived>, World)> = None;
+        for (index, ordering) in orderings.iter().enumerate() {
+            let program = program_with(&trial.base, ordering);
+            let strata = program.stratify().unwrap();
+            let full = program.saturate_with(&strata).unwrap();
+            let (incremental, report) = program
+                .saturate_incremental_reported(&base_saturated, &strata)
+                .unwrap();
+
+            assert_eq!(
+                incremental, full,
+                "seed {seed} ordering {index}: incremental saturation diverged from full recompute"
+            );
+            assert_eq!(
+                canonical(&incremental),
+                canonical(&full),
+                "seed {seed} ordering {index}: incremental saturation is not byte-identical to full recompute"
+            );
+            checked_orderings += 1;
+            if report.is_live() {
+                live_reuse += 1;
+                positive_controls += usize::from(prove_reuse_was_live(
+                    &program,
+                    &base_saturated,
+                    &strata,
+                    &full,
+                    &report,
+                    seed,
+                    index,
+                ));
+            }
+
+            // Confluence: every ordering of the same delta reaches the same
+            // saturation. Only the saturation is compared — the `facts` vector
+            // legitimately differs, since its order is the permutation itself.
+            match &reference {
+                None => {
+                    score(&mut coverage, &base_saturated, &full, &strata);
+                    reference = Some((rows(&full), full));
+                }
+                Some((reference_rows, reference_world)) => {
+                    assert_eq!(
+                        rows(&full),
+                        *reference_rows,
+                        "seed {seed} ordering {index}: full recompute is not confluent across delta orderings"
+                    );
+                    assert_eq!(
+                        full.support_index, reference_world.support_index,
+                        "seed {seed} ordering {index}: support index diverged across delta orderings"
+                    );
+                    assert_eq!(
+                        full.var_grades, reference_world.var_grades,
+                        "seed {seed} ordering {index}: var grades diverged across delta orderings"
+                    );
+                }
+            }
+        }
+    }
+
+    assert_floors(&coverage, checked_orderings, live_reuse, positive_controls);
 }
 
 /// The generator must actually build the world it claims to: at least three
@@ -925,8 +1064,15 @@ fn a_delta_poisons_the_stratum_above_it() {
 }
 
 /// The reuse preconditions are refusals, not silent wrong answers: a prior that
-/// does not extend into `self`, or that was never saturated, falls back to the
-/// full fixpoint and still returns the right world.
+/// does not extend into `self`, whose theory differs, or that was never
+/// saturated, falls back to the full fixpoint and still returns the right world.
+///
+/// **Scope:** these are the three refusals exercised here, on one generated
+/// program — not a general claim that every unusable prior is caught. The
+/// preconditions are a screen with known gaps; `looks_saturated`'s note states
+/// them, and `a_saturated_then_appended_prior_is_refused` /
+/// `a_never_saturated_prior_with_a_ground_rule_is_refused` cover the two that
+/// were reachable in release.
 #[test]
 fn an_unusable_prior_falls_back_to_the_full_fixpoint() {
     let trial = generate(7);
@@ -958,22 +1104,237 @@ fn an_unusable_prior_falls_back_to_the_full_fixpoint() {
     );
 }
 
-/// A prior that is structurally a legitimate reuse base — same facts, rules,
-/// interner and theory — but whose *saturation* is wrong. Reuse copies its rows
+/// One generated case set up for the corruption control: the program, its
+/// strata, an honest prior, and the same prior with a **reused** row falsified.
+struct CorruptionCase {
+    program: World,
+    strata: Strata,
+    honest: World,
+    corrupt: World,
+}
+
+/// Build a corruption control from the first seed that leaves anything reusable
+/// — a prior that is a legitimate reuse base by every structural precondition,
+/// with one row the delta does not affect falsified. Reuse copies that row
 /// forward verbatim, exactly as designed, so this is the shape the
 /// verify-against-full mode exists to catch.
-fn corrupted_prior(seed: u64) -> (World, Strata, World) {
-    let trial = generate(seed);
-    let program = program_with(&trial.base, &trial.delta);
-    let strata = program.stratify().unwrap();
-    let mut corrupt = trial.base.fixpoint().unwrap();
-    // Corrupt every row: which predicates a given seed leaves reusable depends
-    // on its delta, so widening the injection keeps this about the verifier
-    // rather than about the generator's shape.
-    for row in &mut corrupt.derived {
-        row.support = row.support.or_(&hyp(0)).or_(&hyp(1));
+///
+/// **Not seed-pinned, deliberately.** An earlier version hard-coded a seed and
+/// corrupted every row; rebalancing the generator's delta draws then made that
+/// seed's delta affect every predicate, so the corruption was dropped along with
+/// the rows and the control silently stopped controlling anything. Scanning for
+/// a seed with a genuinely reused row keeps the test about the verifier rather
+/// than about one seed's shape — and the `panic!` at the end means "no seed
+/// reuses anything" fails loudly instead of passing vacuously.
+fn corruption_case() -> CorruptionCase {
+    for seed in 0..SEEDS {
+        let trial = generate(seed);
+        let program = program_with(&trial.base, &trial.delta);
+        let strata = program.stratify().unwrap();
+        let honest = trial.base.fixpoint().unwrap();
+        let (_, report) = program
+            .saturate_incremental_reported(&honest, &strata)
+            .unwrap();
+        if let Some(corrupt) = corrupt_a_reused_row(&honest, &report) {
+            return CorruptionCase {
+                program,
+                strata,
+                honest,
+                corrupt,
+            };
+        }
     }
-    (program, strata, corrupt)
+    panic!("no generated seed leaves a row reusable — the corruption control cannot be built");
+}
+
+/// A prior that was saturated and then **appended to** passes every structural
+/// precondition — its `derived` is non-empty, its facts extend cleanly into the
+/// new program — while carrying rows that no longer reflect its own facts. It is
+/// not a hypothetical shape: it is what a cache holds the moment something adds
+/// a fact without re-running the fixpoint, which is precisely what PR3 builds.
+///
+/// Here `a(e1)` is appended after saturation, so the prior has no `p(e1)` row.
+/// The delta then touches only `b`, leaving `p`'s stratum unaffected and
+/// therefore **skipped** — so without a screen the reused saturation silently
+/// lacks `p(e1)` that a full recompute derives. `looks_saturated` must refuse
+/// this prior and fall back.
+#[test]
+fn a_saturated_then_appended_prior_is_refused() {
+    let mut base = World::new();
+    base.assert_fact(ground("a", &[ent(0)]), Ann::unconditional());
+    base.define_rule(
+        "p-a",
+        pattern("p", &["X"]),
+        vec![BodyLiteral::pos(pattern("a", &["X"]))],
+    )
+    .unwrap();
+    base.define_rule(
+        "q-b",
+        pattern("q", &["X"]),
+        vec![BodyLiteral::pos(pattern("b", &["X"]))],
+    )
+    .unwrap();
+
+    // Saturate, THEN append — the row for `a(e1)` (and so `p(e1)`) never exists.
+    let mut stale = base.fixpoint().unwrap();
+    stale.assert_fact(ground("a", &[ent(1)]), Ann::unconditional());
+    assert!(
+        !stale
+            .derived
+            .iter()
+            .any(|row| row.atom.pred == "p" && row.atom.args == vec![ent(1)]),
+        "the stale prior must be missing p(e1) — that is the whole shape"
+    );
+
+    // The delta touches `b` only, so `p`'s stratum is unaffected and skippable.
+    let mut program = stale.clone();
+    program.derived.clear();
+    program.support_index.clear();
+    program.assert_fact(ground("b", &[ent(0)]), Ann::unconditional());
+
+    let strata = program.stratify().unwrap();
+    let full = program.saturate_with(&strata).unwrap();
+    let (incremental, report) = program
+        .saturate_incremental_reported(&stale, &strata)
+        .unwrap();
+
+    assert!(
+        !report.reused,
+        "a saturated-then-appended prior must be refused, not reused: {report:?}"
+    );
+    assert_eq!(
+        incremental, full,
+        "the refusal must fall back to a correct full recompute"
+    );
+    assert!(
+        full.derived
+            .iter()
+            .any(|row| row.atom.pred == "p" && row.atom.args == vec![ent(1)]),
+        "the full recompute derives p(e1) — the row the stale prior would have dropped"
+    );
+}
+
+/// A prior with rules but no rows at all is refused too. A pure-negative-body
+/// rule with a ground head derives without any fact, so an empty `derived` is
+/// indistinguishable from a fixpoint that never ran, and reuse would skip the
+/// stratum that should have produced the row.
+#[test]
+fn a_never_saturated_prior_with_a_ground_rule_is_refused() {
+    let mut base = World::new();
+    base.define_rule(
+        "p-unless-q",
+        AtomExpr {
+            pred: Ident::synthetic("p"),
+            args: vec![Term::Sym(Ident::synthetic("e0"))],
+        },
+        vec![BodyLiteral::not(AtomExpr {
+            pred: Ident::synthetic("q"),
+            args: vec![Term::Sym(Ident::synthetic("e0"))],
+        })],
+    )
+    .unwrap();
+
+    let never_saturated = base.clone(); // no `derived`, no facts, but a live rule
+    let mut program = base.clone();
+    program.assert_fact(ground("r", &[ent(0)]), Ann::unconditional());
+
+    let strata = program.stratify().unwrap();
+    let full = program.saturate_with(&strata).unwrap();
+    let (incremental, report) = program
+        .saturate_incremental_reported(&never_saturated, &strata)
+        .unwrap();
+
+    assert!(
+        !report.reused,
+        "a rules-but-no-rows prior must be refused: {report:?}"
+    );
+    assert_eq!(incremental, full, "the refusal must fall back correctly");
+    assert!(
+        full.derived.iter().any(|row| row.atom.pred == "p"),
+        "the ground pure-negative rule really does derive p(e0) from nothing"
+    );
+}
+
+/// An added rule that **merges two previously separate strongly-connected
+/// components** into one. The affected-set closure and the level skipping are
+/// both computed against the *new* stratification, so a delta that reshapes the
+/// component graph is the case where reusing rows computed under the old shape
+/// could go wrong.
+#[test]
+fn a_delta_rule_that_merges_two_sccs_stays_byte_identical() {
+    let mut base = World::new();
+    base.assert_fact(ground("a", &[ent(0)]), Ann::unconditional());
+    base.assert_fact(ground("b", &[ent(1)]), Ann::supported(hyp(0)));
+    base.interner.intern("v0");
+    base.define_rule(
+        "p-a",
+        pattern("p", &["X"]),
+        vec![BodyLiteral::pos(pattern("a", &["X"]))],
+    )
+    .unwrap();
+    base.define_rule(
+        "q-b",
+        pattern("q", &["X"]),
+        vec![BodyLiteral::pos(pattern("b", &["X"]))],
+    )
+    .unwrap();
+    base.define_rule(
+        "p-q",
+        pattern("p", &["X"]),
+        vec![BodyLiteral::pos(pattern("q", &["X"]))],
+    )
+    .unwrap();
+
+    let before = base.stratify().unwrap();
+    let level_of_p = before
+        .levels
+        .iter()
+        .position(|level| level.contains(&"p".to_owned()));
+    let level_of_q = before
+        .levels
+        .iter()
+        .position(|level| level.contains(&"q".to_owned()));
+    assert_ne!(
+        level_of_p, level_of_q,
+        "p and q must start in separate components for this to be the merging case"
+    );
+
+    let base_saturated = base.fixpoint().unwrap();
+
+    // `q(X) :- p(X)` closes the cycle: {p} and {q} become one component.
+    let mut program = base.clone();
+    program.derived.clear();
+    program.support_index.clear();
+    program
+        .define_rule(
+            "q-p",
+            pattern("q", &["X"]),
+            vec![BodyLiteral::pos(pattern("p", &["X"]))],
+        )
+        .unwrap();
+
+    let strata = program.stratify().unwrap();
+    assert!(
+        strata
+            .levels
+            .iter()
+            .any(|level| level.contains(&"p".to_owned()) && level.contains(&"q".to_owned())),
+        "the added rule must have merged p and q into one component: {strata:?}"
+    );
+
+    let full = program.saturate_with(&strata).unwrap();
+    let incremental = program
+        .saturate_incremental(&base_saturated, &strata)
+        .unwrap();
+    assert_eq!(
+        incremental, full,
+        "a delta that merges two SCCs must still reproduce the full recompute"
+    );
+    assert_eq!(
+        canonical(&incremental),
+        canonical(&full),
+        "SCC-merging delta is not byte-identical"
+    );
 }
 
 /// The verify-against-full mode has to be able to **fail**, or it is decoration:
@@ -985,28 +1346,30 @@ fn corrupted_prior(seed: u64) -> (World, Strata, World) {
 /// catching it would prove nothing).
 #[test]
 fn the_verifier_reports_a_prior_whose_saturation_is_wrong() {
-    let trial = generate(11);
-    let program = program_with(&trial.base, &trial.delta);
-    let strata = program.stratify().unwrap();
-    let honest = trial.base.fixpoint().unwrap();
-    let full = program.saturate_with(&strata).unwrap();
+    let case = corruption_case();
+    let full = case.program.saturate_with(&case.strata).unwrap();
 
-    let reused = program.saturate_incremental(&honest, &strata).unwrap();
+    let reused = case
+        .program
+        .saturate_incremental(&case.honest, &case.strata)
+        .unwrap();
     assert_eq!(
         incremental_divergence(&reused, &full),
         None,
         "an honest prior must report no divergence"
     );
     assert_eq!(
-        program
-            .saturate_incremental_verified(&honest, &strata)
+        case.program
+            .saturate_incremental_verified(&case.honest, &case.strata)
             .unwrap(),
         full,
         "an honest prior must survive the asserting form"
     );
 
-    let (program, strata, corrupt) = corrupted_prior(11);
-    let corrupted_reuse = program.saturate_incremental(&corrupt, &strata).unwrap();
+    let corrupted_reuse = case
+        .program
+        .saturate_incremental(&case.corrupt, &case.strata)
+        .unwrap();
     assert_ne!(
         corrupted_reuse, full,
         "the corruption must actually reach the reused saturation"
@@ -1028,6 +1391,8 @@ fn the_verifier_reports_a_prior_whose_saturation_is_wrong() {
 #[test]
 #[should_panic(expected = "incremental saturation diverged from a full recompute")]
 fn the_verifier_panics_on_a_prior_whose_saturation_is_wrong() {
-    let (program, strata, corrupt) = corrupted_prior(11);
-    let _ = program.saturate_incremental_verified(&corrupt, &strata);
+    let case = corruption_case();
+    let _ = case
+        .program
+        .saturate_incremental_verified(&case.corrupt, &case.strata);
 }
