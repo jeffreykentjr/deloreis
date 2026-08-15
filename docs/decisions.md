@@ -5033,3 +5033,60 @@ mentions-not-facts scaling and the memoization-stopgap-bounded-life point.
 **Verification.** This PR is docs-only: `cargo xtask authority` and
 `cargo xtask docs-oracle` are green; DL-0087 is sequential and dated; the PLAN node
 registry and status matrix stay in one-to-one correspondence.
+
+## DL-0088 — Incremental compilation's SubtleMemory payoff is a several-fold constant factor, not O(delta): the fixpoint is ~1.0× for same-as deltas; the cache and incremental loader are the levers (refines DL-0087)
+
+*Date: 2026-08-15*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording an implementation finding while it is inconvenient rather than after a
+benchmark measures it. It is live and binding on the tree, pending the author's
+async review (DL-0052).
+
+**Ruling.** This **refines the expected payoff** of DL-0087 (it does not reverse the
+decision to build incremental compilation). DL-0087 was minted on the
+continuous-ingestion trigger with an implied **O(delta)** outcome; the honest
+outcome, established by PR 1, is a **several-fold constant-factor** improvement with
+the **fixpoint pinned at ~1.0×** for the SubtleMemory workload.
+
+**1. Why the fixpoint is ~1.0× for same-as.** PR 1 established that the atom-level
+delta (retain prior rows, re-propagate only the delta) is **unsound under negation**:
+`CondSupport::or_` conjoins the defeaters of a monomial reached two ways, so folding
+a re-derivation into a retained row computes `d ∧ (d ∨ poison) = d` and the delta's
+poison silently vanishes. The sound reuse unit is therefore the **dependency-closed
+stratum** (drop and re-derive every predicate the delta can reach; reuse the rest),
+which is byte-identical to a full recompute by construction. Its win is
+**delta-position dependent**: ~4.75–8.87× (growing with world size) for a delta high
+in the dependency order, but **~1.0×** for a delta low in it. **Identity assertions
+are the worst case**: `same-as` synthesizes alias-rewrite rules over *every*
+predicate, so any identity assertion marks the whole world affected. Beating ~1.0×
+for same-as needs per-derivation provenance (heavier than the DRed DL-0087 rules
+out) — logged as its own research lever (GH issue) — not this campaign.
+
+**2. The fixpoint was never the SubtleMemory cost driver.** The measured problem is
+`merge::scan` recompiling the whole world **3–8× per `author.merge`**, plus the
+benchmark harness launching ~7 workers per matched mention, each doing
+`reconstruct_at` + a full `compile`. **PR 2** (incremental loader — lower only the
+delta decls, never re-read/re-lower the whole pack) and **PR 3** (an in-process
+compiled-world cache keyed by commit hash — eliminate the *redundant* recompiles of
+already-computed commits) attack that dominant term **directly, independent of the
+fixpoint being incremental**. A constant-factor win on the dominant term beats an
+asymptotic win on a term that is not dominant. So the campaign continues as DL-0087
+scoped; only the advertised outcome is corrected.
+
+**3. The check battery is the predicted next bottleneck — instrument, do not slice.**
+Once the fixpoint is cached, the whole-world check battery (chronology-cycle, FD /
+derived-FD grouping, the O(slots×points×spans) fluent sweep — recomputed fully, the
+sliced-checks deferral of DL-0087) becomes the residual O(world) term. Slicing it now
+is refused for the reason DL-0087 refused it: three whole-world check classes with
+silent-miss failure modes are the wrong correctness surface to open under time
+pressure. Instead **PR 3 instruments the check-battery cost** so its slicing trigger
+fires on a measurement rather than a guess.
+
+**Effect on standing documents.** Roadmap §6 records the corrected constant-factor
+expectation and the same-as structural note; GH #77 is updated with the corrected
+payoff; a new GH issue logs the same-as / provenance research lever. No contract
+change; no PLAN node state change (LS-10 stays `open`).
+
+**Verification.** Carried in PR 1's branch alongside the finding it records;
+`cargo xtask gate` green.
