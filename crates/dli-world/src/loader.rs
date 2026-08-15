@@ -120,47 +120,144 @@ impl Loader {
     /// ```
     #[must_use]
     pub fn load(docs: &[Document]) -> LoadOutcome {
-        let mut ctx = LoadCtx::default();
+        let mut load = IncrementalLoad::new();
+        load.extend(docs);
+        load.finish()
+    }
+}
+
+/// A load **in progress**: every document lowered declaration-by-declaration,
+/// with the whole-pack aggregation ([`finish`](IncrementalLoad::finish)) not yet
+/// applied.
+///
+/// [`Loader::load`] is this type used once — `new`, `extend`, `finish` — so the
+/// two paths cannot drift: there is only one per-declaration lowering and only
+/// one aggregation, and an incremental compile runs the identical operations in
+/// the identical order over a longer document run (DL-0087/DL-0088). What the
+/// split buys is that the *lowering* half is append-only and therefore reusable:
+/// `extend` may be called again with more documents and only those documents are
+/// lowered, while everything the earlier documents produced — the atoms, sorts,
+/// facts, rules, chronology edges, fluent spans, the shared interner and
+/// time-point table, the pack provenance, the duplicate/cross-pack bookkeeping,
+/// the temporal references still to resolve, the anonymous-proposal bundle
+/// counter, and the language layer's own compiler state — is carried forward
+/// verbatim.
+///
+/// [`finish`](IncrementalLoad::finish) does **not** consume the load: the
+/// aggregation runs against a snapshot, so the pre-aggregation state survives for
+/// the next `extend`. That is what makes the aggregation's whole-pack steps
+/// (cross-pack collision, `synthesize_alias_rules`, stratification) recompute
+/// from the same starting point a full load would reach, which is what byte-
+/// identity rests on.
+#[derive(Debug, Clone, Default)]
+pub struct IncrementalLoad {
+    ctx: LoadCtx,
+    language: crate::language::dialect::Compiler,
+}
+
+impl IncrementalLoad {
+    /// A load with nothing lowered yet.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Lower a further run of documents onto this load, append-only.
+    ///
+    /// Every table this touches grows at the end and nothing is renumbered — most
+    /// of all the shared interner, whose indices every already-compiled support
+    /// polynomial points into.
+    pub fn extend(&mut self, docs: &[Document]) {
         for doc in docs {
             let pack = doc
                 .scope
                 .as_ref()
                 .map_or_else(String::new, |header| header.name.text.clone());
             {
-                let entry = ctx
-                    .wm
-                    .packs
-                    .entry(pack.clone())
-                    .or_insert_with(|| PackProvenance {
-                        pack: pack.clone(),
-                        documents: 0,
-                        decls: 0,
-                    });
+                let entry =
+                    self.ctx
+                        .wm
+                        .packs
+                        .entry(pack.clone())
+                        .or_insert_with(|| PackProvenance {
+                            pack: pack.clone(),
+                            documents: 0,
+                            decls: 0,
+                        });
                 entry.documents += 1;
                 entry.decls += doc.decls.len();
             }
             for decl in &doc.decls {
                 if let Some((kind, name, span)) = decl_identity(decl) {
                     let key = (pack.clone(), kind.to_owned(), name.clone());
-                    if !ctx.declared.insert(key) {
-                        ctx.findings.push(LoadFinding::DuplicateDeclaration {
+                    if !self.ctx.declared.insert(key) {
+                        self.ctx.findings.push(LoadFinding::DuplicateDeclaration {
                             pack: pack.clone(),
                             kind: kind.to_owned(),
                             name: name.clone(),
                             span,
                         });
                     }
-                    ctx.cross
+                    self.ctx
+                        .cross
                         .entry((kind.to_owned(), name))
                         .or_default()
                         .insert(pack.clone());
                 }
-                ctx.process_decl(decl, &pack);
+                self.ctx.process_decl(decl, &pack);
+                // The language layer compiles the same declaration stream into
+                // its own registry. Interleaving it here rather than running a
+                // second pass over the documents (as `Loader::load` once did)
+                // is order-identical — the two compilers share no state — and it
+                // is what lets the language half be resumed too.
+                self.language.process(decl, &pack);
             }
         }
-        let mut outcome = ctx.finish();
-        outcome.world.language = crate::language::LanguageModel::from_documents(docs).model;
+    }
+
+    /// Run the whole-pack aggregation over everything lowered so far and return
+    /// the [`LoadOutcome`], leaving this load extendable.
+    ///
+    /// The aggregation is a snapshot: it clones the in-progress state, so the
+    /// steps that are whole-pack by nature — temporal-reference resolution,
+    /// cross-pack collision, identity-closure synthesis, stratification, entity
+    /// materialization — always run over the *complete* document set from an
+    /// unsynthesized starting point, exactly as a single full load would.
+    #[must_use]
+    pub fn finish(&self) -> LoadOutcome {
+        let mut outcome = self.ctx.clone().finish();
+        outcome.world.language = self.language.clone().finish().model;
         outcome
+    }
+
+    /// How many declarations have been lowered into this load.
+    #[must_use]
+    pub fn lowered_decls(&self) -> usize {
+        self.ctx.wm.packs.values().map(|pack| pack.decls).sum()
+    }
+
+    /// Falsify one artifact this load carries **forward** from an earlier
+    /// `extend` — the positive control for the incremental-compile oracle.
+    ///
+    /// Renames the pack recorded on the first already-lowered atom. That field is
+    /// copied verbatim into the compiled model and is never recomputed by
+    /// [`finish`](IncrementalLoad::finish), so a compile that genuinely reuses
+    /// this state must carry the falsification into its output and a compile that
+    /// silently re-lowered everything must not. Returns whether there was
+    /// anything to falsify.
+    ///
+    /// Test-only in intent (it deliberately produces a wrong world); it is not
+    /// `cfg(test)` because the oracle is an integration test in another crate
+    /// root.
+    #[doc(hidden)]
+    pub fn falsify_carried_state(&mut self) -> bool {
+        match self.ctx.wm.atoms.first_mut() {
+            Some(atom) => {
+                atom.pack = format!("{}~falsified", atom.pack);
+                true
+            }
+            None => false,
+        }
     }
 }
 
@@ -184,7 +281,7 @@ impl Compiled {
 }
 
 /// The mutable state threaded through one load.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct LoadCtx {
     wm: WorldModel,
     findings: Vec<LoadFinding>,
@@ -205,7 +302,7 @@ struct LoadCtx {
     bundle_counter: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TemporalReference {
     decl: String,
     expected_kind: String,
