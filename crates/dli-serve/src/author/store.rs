@@ -350,10 +350,16 @@ impl Store {
                 .map_err(|error| OpenError::BranchCompile(error.to_string()))?
                 .ok_or_else(|| OpenError::UnknownBranch(branch_name.clone()))?;
             let head = branch_ref.commit.clone();
+            // Both halves go through the store's session cache (Phase 3 PR 3):
+            // opening the same branch head twice — the common shape when a
+            // session opens, materializes, and reopens — reconstructs and
+            // compiles once. The answers are identical either way; a commit hash
+            // names immutable content.
             let pack = ls
                 .reconstruct_at(&head)
                 .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
-            let mut world = dli_world::compile(&pack)
+            let mut world = ls
+                .compile_at(&head)
                 .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
             world.killed = killed;
             let branch_names = ls
@@ -552,11 +558,15 @@ impl Store {
             .map_err(|error| error.to_string())?
             .ok_or_else(|| format!("branch `{target}` has no ref"))?
             .commit;
+        // Through the session cache, as branch-open above: a reload after a
+        // materialize that did not advance the target branch is a pure repeat,
+        // and the reload that follows one that did lands on a commit the merge
+        // scan or the materialize itself has usually already compiled.
         let pack = ls
             .reconstruct_at(&head)
             .map_err(|error| error.to_string())?;
         let interner = ls.interner_at(&head).map_err(|error| error.to_string())?;
-        let mut world = compile(&pack).map_err(|error| error.to_string())?;
+        let mut world = ls.compile_at(&head).map_err(|error| error.to_string())?;
         world.killed = killed;
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
             let prefix = format!("h.{}#", ws.base_name);

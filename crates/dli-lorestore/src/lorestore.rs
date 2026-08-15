@@ -29,10 +29,12 @@
 //! system.
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::cache::{CacheStats, CompileCache};
 use crate::identity::ContentHash;
 use crate::storage::{self, Storage, StoreError};
 use crate::store::{Commit, Ref};
@@ -60,9 +62,24 @@ pub fn branch_ref_name(branch: &str) -> String {
 /// A durable lorestore: the append-only commit log over a [`Storage`] backend.
 ///
 /// Construct with [`Lorestore::open`].
+///
+/// A store also carries a **session compile cache** ([`crate::cache`]) — a
+/// bounded, in-process memo of [`reconstruct_at`](Lorestore::reconstruct_at) and
+/// [`compile_at`](Lorestore::compile_at), keyed by commit hash. It is a derived
+/// reader over the log and never a source of truth: because a commit hash names
+/// immutable content, a memoized answer and a fresh one are equal by
+/// construction, and evicting an entry costs only a recompute. Nothing about the
+/// store's observable behaviour changes when the cache is empty, full, or
+/// cleared.
 #[derive(Debug)]
 pub struct Lorestore {
     storage: Box<dyn Storage>,
+    /// Interior mutability because the read path is `&self` — `merge::scan`
+    /// holds a shared `&Lorestore`, and `dli-serve` hands out `&Lorestore` from
+    /// a long-lived map. A `Mutex` rather than a `RefCell` so `Lorestore` keeps
+    /// the `Send + Sync` it inherits from `Storage: Send + Sync`; the lock is
+    /// never held across a compile, so it cannot serialize the expensive half.
+    cache: Mutex<CompileCache>,
 }
 
 /// The durable result of a commit: the new commit and the whole ref that now
@@ -115,7 +132,7 @@ impl Lorestore {
             }
         }
 
-        Ok(Self { storage })
+        Ok(Self::from_storage(storage))
     }
 
     /// Construct a `Lorestore` from an already-opened `Storage` backend, without
@@ -127,7 +144,69 @@ impl Lorestore {
     /// fault-injection wrappers for crash-safety testing).
     #[doc(hidden)]
     pub fn from_storage(storage: Box<dyn Storage>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            cache: Mutex::new(CompileCache::default()),
+        }
+    }
+
+    /// What the session compile cache has done so far — hits, misses, and
+    /// evictions across both halves of the read path.
+    ///
+    /// Diagnostic only. No verdict depends on it; it exists so a workload (or an
+    /// oracle) can tell a cache that is working from one that silently never
+    /// hits.
+    #[must_use]
+    pub fn cache_stats(&self) -> CacheStats {
+        self.lock_cache().stats()
+    }
+
+    /// Resize the session cache's entry bound (default
+    /// [`DEFAULT_CACHE_CAPACITY`](crate::cache::DEFAULT_CACHE_CAPACITY)),
+    /// evicting immediately when the new cap is smaller. A cap of 0 turns the
+    /// cache off.
+    ///
+    /// Safe at any moment and in any direction: every entry is a rebuildable
+    /// derived reader, so shrinking the cache can only cost recomputes.
+    pub fn set_cache_capacity(&self, capacity: usize) {
+        self.lock_cache().set_capacity(capacity);
+    }
+
+    /// Drop everything the session cache holds, keeping the capacity.
+    ///
+    /// Observationally a no-op — the next read recomputes the identical answer —
+    /// which is exactly what makes it useful to an oracle that wants a cold
+    /// recompute to compare a warm one against.
+    pub fn clear_cache(&self) {
+        self.lock_cache().clear();
+    }
+
+    /// Corrupt the world memoized at `head`, returning whether there was one to
+    /// corrupt — the positive control for a cache-parity oracle.
+    ///
+    /// Deliberately makes the store answer wrongly at that commit, so a test can
+    /// prove its warm path genuinely reads the cache instead of quietly
+    /// recomputing and matching for the wrong reason. Not `cfg(test)` because
+    /// the oracle is an integration test outside this crate.
+    #[doc(hidden)]
+    pub fn falsify_cached_world(&self, head: &ContentHash) -> bool {
+        self.lock_cache().falsify_world(head)
+    }
+
+    /// The cache guard, recovering a poisoned lock by emptying it.
+    ///
+    /// Refusing every later read because some unrelated thread unwound while
+    /// holding this lock would turn a derived reader into a failure mode, which
+    /// it must never be — the store can always recompute. Emptying rather than
+    /// continuing is belt-and-braces: no mutation here is a multi-step edit that
+    /// a panic could leave half-applied, but the cost of being wrong about that
+    /// is a wrong answer and the cost of dropping the entries is a recompute.
+    fn lock_cache(&self) -> std::sync::MutexGuard<'_, CompileCache> {
+        self.cache.lock().unwrap_or_else(|poisoned| {
+            let mut guard = poisoned.into_inner();
+            guard.clear();
+            guard
+        })
     }
 
     /// Write a typed object to the store. Returns its content hash.
@@ -888,7 +967,42 @@ impl Lorestore {
     /// every reachable fact object, and rebuild the pack. Shared by
     /// [`compile_at`](Lorestore::compile_at) and the merge engine, which needs to
     /// reconstruct branch heads and the merge commit that are not `main`.
+    ///
+    /// Served from the session cache when the same commit has been reconstructed
+    /// before (see [`crate::cache`]); the answer is identical either way, since
+    /// a commit hash names immutable content.
     pub fn reconstruct_at(&self, head: &ContentHash) -> Result<dli_world::Pack, StoreError> {
+        self.reconstruct_at_shared(head).map(|pack| (*pack).clone())
+    }
+
+    /// [`reconstruct_at`](Lorestore::reconstruct_at) without the clone — for
+    /// callers that only need to read the pack.
+    ///
+    /// The `Arc` is the cache's own handle: a hit hands back a second pointer to
+    /// the memoized reconstruction rather than copying every document.
+    pub fn reconstruct_at_shared(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Arc<dli_world::Pack>, StoreError> {
+        if let Some(pack) = self.lock_cache().get_pack(head) {
+            return Ok(pack);
+        }
+        // Computed with the cache lock released: the read path is pure, so a
+        // racing second computation of the same commit is wasted work at worst,
+        // never a different answer — and holding the lock across it would
+        // serialize the very thing the cache exists to avoid.
+        let pack = Arc::new(self.reconstruct_at_uncached(head)?);
+        self.lock_cache().put_pack(head, Arc::clone(&pack));
+        Ok(pack)
+    }
+
+    /// The reconstruction itself, always doing the full work — the cache's
+    /// fallback, and the reference a parity oracle compares the cached path
+    /// against.
+    pub fn reconstruct_at_uncached(
+        &self,
+        head: &ContentHash,
+    ) -> Result<dli_world::Pack, StoreError> {
         let chain = self.storage.walk_dag(head, None)?;
         // walk_dag returns commits tip-first; the head carries the current
         // interner, decisions, and pack name (the most recent state).
@@ -925,9 +1039,104 @@ impl Lorestore {
     /// This is the **`.dli → lorestore → .dli` round-trip**: the oracle for
     /// LS-3 is differential parity — the same corpus loaded from `.dli` and
     /// from its lorestore import compiles to identical results.
+    ///
+    /// Served from the session cache on a repeat of the same commit
+    /// (see [`crate::cache`]).
+    ///
+    /// Returning by value means a clone out of the cache — on the miss path too,
+    /// which the uncached version did not pay. Measured against a cold compile
+    /// that clone is a fraction of a percent
+    /// (`design-notes/incremental-compile-baseline.md`), and it keeps this
+    /// signature unchanged for every existing caller. A caller that only borrows
+    /// the world should take [`compile_at_shared`](Lorestore::compile_at_shared)
+    /// and skip it.
     pub fn compile_at(&self, head: &ContentHash) -> Result<dli_world::CompiledWorld, StoreError> {
-        let pack = self.reconstruct_at(head)?;
-        dli_world::compile(&pack).map_err(|e| StoreError::Io {
+        self.compile_at_shared(head).map(|world| (*world).clone())
+    }
+
+    /// [`compile_at`](Lorestore::compile_at) without the clone — for callers that
+    /// only read the compiled world.
+    ///
+    /// This is the form the merge scan and the author read paths take: a merge
+    /// compiles three pre-merge worlds and only borrows them, so cloning each out
+    /// of the cache would hand back the cost the cache just saved.
+    pub fn compile_at_shared(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Arc<dli_world::CompiledWorld>, StoreError> {
+        if let Some(world) = self.lock_cache().get_world(head) {
+            return Ok(world);
+        }
+        // A miss is a FULL compile, deliberately. Reusing the parent's
+        // `IncrementalWorld` through `dli_world::compile_incremental` was Phase
+        // 3's Stage B and is **not wired**, because it cannot currently be
+        // byte-identical: `reconstruct_pack` emits one `Document` per commit and
+        // `compile_incremental` appends the delta as a second, so
+        // `PackProvenance::documents` diverges (2 vs 1) even in the best case —
+        // single linear parent, no new decisions, live loader reuse, the parent's
+        // declarations a genuine prefix. `tests/incremental_compile_at_parity.rs`
+        // pins that case and goes red the day it stops being true.
+        //
+        // Wiring it needs two things this crate cannot supply alone:
+        //   (i) a byte-identical reconstruct-delta primitive here, guarded on
+        //       `child.decisions == parent.decisions` and an unchanged pack name
+        //       (a new decision synthesizes its `ratify` at prelude position 0,
+        //       shifting every parent declaration, so the delta is not a suffix),
+        //       falling back to this full path otherwise; and
+        //  (ii) an append-decls-to-the-**last**-document entry point in
+        //       `dli-world`, so the loader's per-document bookkeeping sees one
+        //       document — as a construction, not a post-hoc correction of the
+        //       counter, or the incremental path buys its speed with a different
+        //       answer.
+        // Until both exist, a full recompute on a miss is the only honest answer.
+        let pack = self.reconstruct_at_shared(head)?;
+        let world = Arc::new(Self::compile_pack(&pack)?);
+        self.lock_cache().put_world(head, Arc::clone(&world));
+        Ok(world)
+    }
+
+    /// Compile at `head` doing the full work, consulting nothing and memoizing
+    /// nothing — the reference a parity oracle compares the cached path against.
+    pub fn compile_at_uncached(
+        &self,
+        head: &ContentHash,
+    ) -> Result<dli_world::CompiledWorld, StoreError> {
+        let pack = self.reconstruct_at_uncached(head)?;
+        Self::compile_pack(&pack)
+    }
+
+    /// The world memoized at `head`, if there is one — a peek that never
+    /// computes. Counts as a hit or a miss, so a caller reading the cache this
+    /// way is visible in [`cache_stats`](Lorestore::cache_stats) exactly as
+    /// `compile_at` is.
+    ///
+    /// For the merge scan, which cannot call
+    /// [`compile_at_shared`](Lorestore::compile_at_shared) because it needs to
+    /// tell an `Unstratifiable` merge apart from any other compile failure, and
+    /// so would otherwise recompile a commit it had already memoized.
+    pub(crate) fn cached_world(&self, head: &ContentHash) -> Option<Arc<dli_world::CompiledWorld>> {
+        self.lock_cache().get_world(head)
+    }
+
+    /// Memoize an already-compiled world at `head`.
+    ///
+    /// Crate-internal on purpose: the cache's soundness rests on every entry
+    /// being what `compile_at` would have produced for that commit, and a public
+    /// setter would make that a caller's promise instead of a construction. The
+    /// one caller is the merge scan, which compiles the merge commit inline (it
+    /// handles `Unstratifiable` differently from `compile_at`) and would
+    /// otherwise leave the freshest, most-likely-to-be-read commit uncached.
+    pub(crate) fn memoize_compiled(
+        &self,
+        head: &ContentHash,
+        world: Arc<dli_world::CompiledWorld>,
+    ) {
+        self.lock_cache().put_world(head, world);
+    }
+
+    /// The shared `compile`-and-map-the-error tail.
+    fn compile_pack(pack: &dli_world::Pack) -> Result<dli_world::CompiledWorld, StoreError> {
+        dli_world::compile(pack).map_err(|e| StoreError::Io {
             path: "compile".to_owned(),
             source: std::io::Error::other(e.to_string()),
         })

@@ -22,6 +22,7 @@
 //! Only the bare parent pointer stays out of the content hash: it belongs to the
 //! commit DAG (as in git), not to the fact.
 
+pub mod cache;
 pub mod canonical;
 pub mod evidence;
 pub mod identity;
@@ -33,6 +34,7 @@ pub mod storage;
 pub mod store;
 pub mod upcast;
 
+pub use cache::{CacheStats, DEFAULT_CACHE_CAPACITY};
 pub use canonical::{
     CanonicalError, canonical_bytes, content_hash, digest_bytes, validate_content_address,
 };

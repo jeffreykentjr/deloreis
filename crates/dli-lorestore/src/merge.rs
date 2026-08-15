@@ -31,6 +31,7 @@
 //! is [`Lorestore::merge`](crate::Lorestore::merge).
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use dli_core::ann::Status;
 use dli_core::atom::Atom;
@@ -83,13 +84,20 @@ pub struct MergeReport {
     pub stratifies: bool,
     /// Atoms whose standing changed downward vs. either pre-merge branch.
     pub standing_changes: Vec<StandingChange>,
-    /// Diagnostic accounting (not wire-surfaced): how many pre-merge full-world
-    /// recompiles the coincident-head memoization avoided while scanning this
-    /// merge. It is ≥1 exactly when the merge base coincides with a branch head —
-    /// the fast-forward shape of the identity-authoring workload — and 0
-    /// otherwise. Lets a workload measure how often that coincidence actually
-    /// holds (the stopgap's applicability, DL-0086); it never affects the merge
-    /// verdict, the findings, or the written commit.
+    /// Diagnostic accounting (not wire-surfaced): how many of the three pre-merge
+    /// commits this scan asked for coincided with one it had already asked for.
+    /// It is ≥1 exactly when the merge base coincides with a branch head — the
+    /// fast-forward shape of the identity-authoring workload — and 0 otherwise.
+    /// Lets a workload measure how often that coincidence actually holds
+    /// (DL-0086); it never affects the merge verdict, the findings, or the
+    /// written commit.
+    ///
+    /// Since Phase 3 PR 3 this is a statement about the **DAG's shape**, not
+    /// about a cache: the recompiles are served by the store's session cache
+    /// ([`crate::cache`]), which also spans scans, so the work actually saved is
+    /// at least this and usually more.
+    /// [`Lorestore::cache_stats`](crate::Lorestore::cache_stats) is the honest
+    /// total.
     pub recompiles_saved: usize,
 }
 
@@ -100,9 +108,9 @@ pub(crate) struct ConflictScan {
     pub findings: Vec<WorldFinding>,
     pub stratifies: bool,
     pub standing_changes: Vec<StandingChange>,
-    /// Diagnostic: how many pre-merge full-world recompiles the coincident-head
-    /// memoization avoided this scan (0 when base is distinct from both heads,
-    /// ≥1 when it coincides). See [`MergeReport::recompiles_saved`].
+    /// Diagnostic: how many of the three pre-merge commits coincided with one
+    /// already requested this scan (0 when base is distinct from both heads, ≥1
+    /// when it coincides). See [`MergeReport::recompiles_saved`].
     pub recompiles_saved: usize,
 }
 
@@ -201,41 +209,67 @@ pub(crate) fn scan(
     let target_named = overlay_to_named(target_val, merged_interner);
     let source_named = overlay_to_named(source_val, merged_interner);
 
-    // Recompile the union. The stratify seam surfaces `Unstratifiable` here — a
-    // negative-dependency cycle the merge introduced (class 3, extreme form).
-    let merged_pack = store.reconstruct_at(merge_hash)?;
-    let merged_world = match dli_world::compile(&merged_pack) {
-        Ok(world) => world,
-        Err(EvalError::Unstratifiable { reason }) => {
-            let conflict = Conflict {
-                kind: ConflictKind::Certain,
-                blame: (
-                    "merged rule set".to_owned(),
-                    format!("negative-dependency cycle: {reason}"),
-                ),
-                rendered: format!(
-                    "merging introduced a stratified-negation failure — the merged \
-                     world is not stratifiable: {reason}"
-                ),
-            };
-            let finding = WorldFinding::error("merge.unstratifiable", conflict.rendered.clone());
-            conflicts.push(conflict);
-            return Ok(ConflictScan {
-                conflicts,
-                findings: vec![finding],
-                stratifies: false,
-                standing_changes: Vec::new(),
-                // The unstratifiable merge bails before the pre-merge recompiles,
-                // so none were saved.
-                recompiles_saved: 0,
-            });
-        }
-        Err(other) => {
-            return Err(StoreError::Io {
-                path: "merge-compile".to_owned(),
-                source: std::io::Error::other(other.to_string()),
-            });
-        }
+    // The union's compiled world, through the session cache in both directions.
+    //
+    // Read: a world already memoized at this hash is, by construction, what
+    // compiling this commit produces — including the fact that it compiles at
+    // all, so the `Unstratifiable` arm below cannot apply to it. This is what
+    // makes the WS-3 sequence a dry run *then* the real merge of the same two
+    // heads pay for one compile rather than two: both write the identical
+    // content-addressed merge commit, so the second scan hits.
+    //
+    // Write: on a miss, the freshly compiled world is memoized, because it is
+    // exactly what `compile_at(merge_hash)` would produce and it is the commit
+    // most likely to be read next — a merge report is normally followed by
+    // opening the merged head.
+    //
+    // `compile_at_shared` cannot serve here: it flattens every compile failure
+    // into `StoreError`, and this scan has to tell an unstratifiable merge apart
+    // from any other failure in order to report it as a class-3 conflict.
+    let merged_world = if let Some(world) = store.cached_world(merge_hash) {
+        world
+    } else {
+        // The stratify seam surfaces `Unstratifiable` here — a
+        // negative-dependency cycle the merge introduced (class 3, extreme
+        // form).
+        let merged_pack = store.reconstruct_at_shared(merge_hash)?;
+        let compiled = match dli_world::compile(&merged_pack) {
+            Ok(world) => world,
+            Err(EvalError::Unstratifiable { reason }) => {
+                let conflict = Conflict {
+                    kind: ConflictKind::Certain,
+                    blame: (
+                        "merged rule set".to_owned(),
+                        format!("negative-dependency cycle: {reason}"),
+                    ),
+                    rendered: format!(
+                        "merging introduced a stratified-negation failure — the merged \
+                             world is not stratifiable: {reason}"
+                    ),
+                };
+                let finding =
+                    WorldFinding::error("merge.unstratifiable", conflict.rendered.clone());
+                conflicts.push(conflict);
+                return Ok(ConflictScan {
+                    conflicts,
+                    findings: vec![finding],
+                    stratifies: false,
+                    standing_changes: Vec::new(),
+                    // The unstratifiable merge bails before the pre-merge
+                    // recompiles, so none were saved.
+                    recompiles_saved: 0,
+                });
+            }
+            Err(other) => {
+                return Err(StoreError::Io {
+                    path: "merge-compile".to_owned(),
+                    source: std::io::Error::other(other.to_string()),
+                });
+            }
+        };
+        let compiled = Arc::new(compiled);
+        store.memoize_compiled(merge_hash, Arc::clone(&compiled));
+        compiled
     };
 
     let merged_eff = effective(&merged_world, &merged_named);
@@ -248,37 +282,31 @@ pub(crate) fn scan(
 
     let exclusivity = exclusivity_conflicts(&merged_world, &merged_eff);
 
-    // Memoize the pre-merge recompiles by commit hash. In the identity-authoring
-    // workload the merge base *is* the target head (a branch forked from an
-    // unmoved `main`), so `base`, `target`, and `source` are not three distinct
-    // commits — deduplicating collapses that redundant full-world recompile.
-    // `merged_world` stays compiled inline above: its hash is unique (a fresh
-    // two-parent commit) and its `Unstratifiable` handling differs from
-    // `compile_at`'s.
+    // The three pre-merge worlds, through the store's session cache (Phase 3
+    // PR 3). The transient per-scan memo this replaced (DL-0086) only ever
+    // collapsed the *within-scan* coincidence where the merge base is one of the
+    // heads; the session cache also spans scans, so a branch merged twice, or a
+    // head already opened for authoring, costs nothing the second time.
     //
-    // Stopgap scope (DL-0086): this helps only while the base coincides with a
-    // head. Once identity matches accumulate concurrently and `main` advances
-    // between fork and merge, base stops coinciding and all three recompiles run
-    // again — the durable cure is incremental compilation (roadmap §6 Phase 3),
-    // not this cache. `recompiles_saved` counts the collapses so the workload can
-    // measure how often the coincidence actually holds.
-    let mut world_cache: BTreeMap<ContentHash, CompiledWorld> = BTreeMap::new();
+    // `recompiles_saved` keeps its original meaning — how many of the three
+    // requested commits coincided *within this scan* — so a workload can still
+    // measure how often the fast-forward shape holds. It is now a diagnostic
+    // about the DAG's shape rather than about a cache, and it undercounts what
+    // the session cache actually saves; `Lorestore::cache_stats` is the honest
+    // total.
+    let mut seen: std::collections::BTreeSet<ContentHash> = std::collections::BTreeSet::new();
     let mut recompiles_saved: usize = 0;
-    for head in [Some(target_head), Some(source_head), base]
-        .into_iter()
-        .flatten()
-    {
-        if world_cache.contains_key(head) {
+    let mut world_at = |head: &ContentHash| -> Result<Arc<CompiledWorld>, StoreError> {
+        if !seen.insert(head.clone()) {
             recompiles_saved += 1;
-        } else {
-            world_cache.insert(head.clone(), store.compile_at(head)?);
         }
-    }
-    let target_world = &world_cache[target_head];
-    let source_world = &world_cache[source_head];
-    let base_world = base.map(|b| &world_cache[b]);
+        store.compile_at_shared(head)
+    };
+    let target_world = world_at(target_head)?;
+    let source_world = world_at(source_head)?;
+    let base_world = base.map(&mut world_at).transpose()?;
 
-    let certain_layer = certain_layer_conflicts(base_world, &merged_world, &merged_eff);
+    let certain_layer = certain_layer_conflicts(base_world.as_deref(), &merged_world, &merged_eff);
     for conflict in exclusivity.iter().chain(&certain_layer) {
         findings.push(constraint_finding(conflict));
     }
@@ -287,12 +315,12 @@ pub(crate) fn scan(
 
     // Class 3 — stratified-negation / non-monotone standing flips. Name atoms the
     // merge downgraded, reusing the pre-merge worlds compiled above.
-    let target_eff = effective(target_world, &target_named);
-    let source_eff = effective(source_world, &source_named);
+    let target_eff = effective(&target_world, &target_named);
+    let source_eff = effective(&source_world, &source_named);
     let standing_changes = standing_downgrades(
         &[
-            ("target", target_world, &target_eff),
-            ("source", source_world, &source_eff),
+            ("target", &target_world, &target_eff),
+            ("source", &source_world, &source_eff),
         ],
         &merged_world,
         &merged_eff,
