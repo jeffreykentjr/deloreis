@@ -5224,3 +5224,41 @@ single-invocation version, so ledger and note now agree.
 **Verification.** `cargo xtask gate` green; the corrected figures are reproduced by
 `compile_cost_baseline.rs::baseline_merge_residual_split`; the accurate note is
 committed alongside this entry so no doc is left disagreeing with the ledger.
+
+## DL-0091 — Correct `author.entity_candidates` to rank declared entities only, with exact bounded ranking (GH #88)
+
+*Date: 2026-08-15*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the correctness and complexity boundary for the entity-candidate
+read. It is live and binding on the tree, pending the author's async review
+(DL-0052).
+
+**Ruling.** Contract `1.11.0` corrects `author.entity_candidates` in two
+independent ways. First, its candidate universe is the set of declared entities
+in the staged world, folded through the existing identity canon before scoring;
+symbols that occur only as fact values cannot consume the caller's limit or be
+offered as merge targets. Second, the exact ranking path retains only the
+caller-bounded best candidates in a deterministic max-heap and uses a
+cutoff-aware Levenshtein calculation once the heap is full. The heap changes the
+ranking work from `O(n log n)` to `O(n log k)` for result bound `k`; cutoff rows
+are pruned only when they cannot tie the current cutoff, so lexical tie ordering
+remains exact.
+
+The released `1.10.0` behavior and fixture bytes remain available for callers
+negotiating that version. The corrected declared-only behavior is a separate
+`1.11.0` floor rather than a silent semantic rewrite of an accepted wire. The
+unknown-reference repair suggester uses the same bounded helper and remains
+byte-identical for its existing distance-three/top-five behavior. No stored
+structural index is added: the surface-name index proposed in GH #88 remains
+deferred until a SubtleMemory measurement shows that the exact scan is still a
+material residual after this constant-factor reduction.
+
+**Verification.** The entity-candidate tests cover declared-only filtering,
+same-as representative deduplication, engine-limit clamping, no staging, and
+the preserved pre-1.10 operation boundary. A golden `1.11.0` replay proves that
+the fact-only `baseline` symbol no longer displaces `first-tides`, while the
+released `1.10.0` golden remains unchanged. Unit tests compare heap results with
+exhaustive deterministic ordering across limits and Unicode names, and test the
+cutoff equality boundary. The schema, docs, fixture registry, and full offline
+gate are the acceptance checks for the new contract floor.

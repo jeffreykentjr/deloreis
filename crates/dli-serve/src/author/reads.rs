@@ -259,16 +259,20 @@ pub(super) fn predicates(
 /// the engine, not a hope about caller input.
 const ENTITY_CANDIDATE_CEILING: usize = 100;
 
-/// Existing entities near a surface form, nearest first, bounded by the caller's
-/// `limit` (capped at [`ENTITY_CANDIDATE_CEILING`]). Entities are folded through
-/// the SAME identity canon the FD/continuity check uses ([`check::identity_canon`],
-/// exposed for exactly this) BEFORE scoring, so an aliased class collapses to its
-/// one canonical representative — the budget is never spent twice on one class,
-/// and a surfaced candidate keys the way `continuity.fd-violation` would.
+/// Entities near a surface form, nearest first, bounded by the caller's `limit`
+/// (capped at [`ENTITY_CANDIDATE_CEILING`]). Contract 1.11.0 and later filter
+/// fact-only symbols before ranking (GH #88); the released 1.10.0 path retains
+/// its original all-symbol result semantics for replay compatibility. The
+/// selected universe is then folded through the SAME identity canon the
+/// FD/continuity check uses ([`check::identity_canon`]) BEFORE scoring, so an
+/// aliased class collapses to its one canonical representative — the budget is
+/// never spent twice on one class, and a surfaced candidate keys the way
+/// `continuity.fd-violation` would.
 pub(super) fn entity_candidates(
     store: &Store,
     params: &AuthorEntityCandidatesParams,
     v2: bool,
+    declared_only: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
@@ -277,7 +281,12 @@ pub(super) fn entity_candidates(
     // through the identity map so aliases dedupe to one candidate before scoring.
     let mut sort_of: BTreeMap<String, Option<String>> = BTreeMap::new();
     let mut reps: BTreeSet<String> = BTreeSet::new();
-    for entity in world.model.entities() {
+    for entity in world
+        .model
+        .entities()
+        .iter()
+        .filter(|entity| !declared_only || entity.sort.is_some())
+    {
         sort_of.insert(entity.name.clone(), entity.sort.clone());
         reps.insert(dli_core::alias::canon(&canon, &entity.name).to_owned());
     }

@@ -2164,7 +2164,10 @@ pub struct PredicateEntry {
 // -- author.entity_candidates (read, contract 1.10.0) -------------------------
 
 /// `author.entity_candidates` params: entities in the staged world whose id is
-/// close to a surface form, by edit distance.
+/// close to a surface form, by edit distance. From contract 1.11.0, the
+/// candidate universe contains declared entities only; symbols referenced only
+/// by facts are not candidates. Contract 1.10.0 retains its released result
+/// semantics.
 ///
 /// The bounded coreference candidate read a canonicalizing extractor runs once
 /// per mention: given the surface form it is about to mint, return the existing
@@ -2185,8 +2188,9 @@ pub struct AuthorEntityCandidatesParams {
     pub limit: usize,
 }
 
-/// `author.entity_candidates` result: the nearest existing entities to the
-/// surface form, nearest first, each with its edit distance.
+/// `author.entity_candidates` result: the nearest candidate entities to the
+/// surface form, nearest first, each with its edit distance. Contract 1.11.0
+/// returns declared entities only.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorEntityCandidatesResult {
     /// The candidate entities, nearest first (lexical on ties), at most `limit`.
@@ -2205,8 +2209,8 @@ pub struct EntityCandidate {
     /// identity map, so a surfaced candidate keys the way the FD/continuity
     /// check would and aliases never spend the `limit` budget twice.
     pub name: String,
-    /// The entity's sort, when it is a declared entity rather than a symbol only
-    /// referenced in a fact.
+    /// The declared entity's sort when the negotiated contract uses the
+    /// declared-only candidate universe.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub sort: Option<String>,
     /// The edit distance from the surface form to `name`, so the caller can

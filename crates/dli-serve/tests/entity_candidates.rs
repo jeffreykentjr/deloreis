@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Contract 1.10's `author.entity_candidates` — bounded coreference candidates
+//! Contract 1.11's `author.entity_candidates` — bounded coreference candidates
 //! (Read B). Mirrors `crates/dli-serve/tests/predicates.rs`'s harness.
 //!
 //! Coverage: op reachability (advertised and answered only from `1.10.0` up),
@@ -15,6 +15,8 @@ use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
 use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
+
+const V11: &str = "1.11.0";
 
 // -- harness -----------------------------------------------------------------
 
@@ -136,8 +138,8 @@ fn candidates_are_nearest_first_with_distances() {
         "place mira \"Mira\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
-    let out = candidates(&mut store, "1.10.0", &ws, "mara", 5);
+    let ws = open_scope(&mut store, V11, "tpth");
+    let out = candidates(&mut store, V11, &ws, "mara", 5);
     let out = result(&out);
     let names = names(out);
     assert_eq!(names.first().map(String::as_str), Some("mara"), "{names:?}");
@@ -151,6 +153,46 @@ fn candidates_are_nearest_first_with_distances() {
         distances.windows(2).all(|w| w[0] <= w[1]),
         "distances are non-decreasing (nearest first): {distances:?}"
     );
+}
+
+/// Fact values are symbols in the compiled world's entity census, but they are
+/// not declared entities. They must not consume the caller's candidate bound or
+/// become false coreference targets merely because they are a closer string.
+#[test]
+fn candidates_exclude_fact_only_symbols_before_applying_the_limit() {
+    let mut store = base(concat!(
+        "scope tpth\n",
+        "ratify D-0001\n",
+        "thing alice-123 \"Alice\"  ratified D-0001\n",
+        "alice-123.color = blue  ratified D-0001\n",
+    ));
+    let ws = open_scope(&mut store, V11, "tpth");
+    let out = candidates(&mut store, V11, &ws, "blue", 1);
+    let result = result(&out);
+    let rows = result["candidates"].as_array().expect("candidates");
+
+    assert_eq!(rows.len(), 1, "the entity bound is applied after filtering");
+    assert_eq!(rows[0]["name"], json!("alice-123"));
+    assert_eq!(rows[0]["sort"], json!("thing"));
+    assert_ne!(names(result), vec!["blue".to_owned()]);
+}
+
+#[test]
+fn contract_1_10_retains_the_released_symbol_result() {
+    let mut store = base(concat!(
+        "scope tpth\n",
+        "ratify D-0001\n",
+        "thing alice-123 \"Alice\"  ratified D-0001\n",
+        "alice-123.color = blue  ratified D-0001\n",
+    ));
+    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let out = candidates(&mut store, "1.10.0", &ws, "blue", 1);
+    let rows = result(&out)["candidates"].as_array().expect("candidates");
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["name"], json!("blue"));
+    assert_eq!(rows[0]["distance"], json!(0));
+    assert!(rows[0].get("sort").is_none());
 }
 
 /// The canonical-representative fold: an aliased class collapses to one
@@ -167,8 +209,8 @@ fn an_aliased_class_collapses_to_one_representative() {
         "place mira \"Mira\"  ratified D-0001\n",
         "same-as mara = mira decided D-0001\n",
     ));
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
-    let out = candidates(&mut store, "1.10.0", &ws, "mira", 5);
+    let ws = open_scope(&mut store, V11, "tpth");
+    let out = candidates(&mut store, V11, &ws, "mira", 5);
     let names = names(result(&out));
     assert!(
         names.contains(&"mara".to_owned()),
@@ -192,8 +234,8 @@ fn an_over_large_limit_is_clamped_to_the_ceiling() {
         let _ = writeln!(source, "place e{i:03} \"E{i:03}\"  ratified D-0001");
     }
     let mut store = base(&source);
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
-    let out = candidates(&mut store, "1.10.0", &ws, "e000", u64::MAX);
+    let ws = open_scope(&mut store, V11, "tpth");
+    let out = candidates(&mut store, V11, &ws, "e000", u64::MAX);
     let count = result(&out)["candidates"]
         .as_array()
         .expect("candidates")
@@ -213,10 +255,10 @@ fn the_read_stages_nothing() {
         "ratify D-0001\n",
         "place mara \"Mara\"  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let ws = open_scope(&mut store, V11, "tpth");
     let declared = dispatch(
         &req(
-            "1.10.0",
+            V11,
             "df",
             Op::AuthorDeclareFunctional,
             json!({ "workspace": ws, "pred": "current-role",
@@ -227,7 +269,7 @@ fn the_read_stages_nothing() {
     assert!(declared.ok, "stage a baseline decl: {declared:?}");
     let staged_before = store.get(&ws).expect("workspace open").decls.len();
 
-    let read = candidates(&mut store, "1.10.0", &ws, "mara", 5);
+    let read = candidates(&mut store, V11, &ws, "mara", 5);
     assert!(read.ok, "the read answers: {read:?}");
 
     let staged_after = store.get(&ws).expect("workspace open").decls.len();

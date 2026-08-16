@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorEntityCandidatesResult",
-  "description": "`author.entity_candidates` result: the nearest existing entities to the\nsurface form, nearest first, each with its edit distance.",
+  "description": "`author.entity_candidates` result: the nearest candidate entities to the\nsurface form, nearest first, each with its edit distance. Contract 1.11.0\nreturns declared entities only.",
   "type": "object",
   "properties": {
     "candidates": {
@@ -38,7 +38,7 @@
           "type": "string"
         },
         "sort": {
-          "description": "The entity's sort, when it is a declared entity rather than a symbol only\nreferenced in a fact.",
+          "description": "The declared entity's sort when the negotiated contract uses the\ndeclared-only candidate universe.",
           "type": [
             "string",
             "null"

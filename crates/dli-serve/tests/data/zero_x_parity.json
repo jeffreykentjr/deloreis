@@ -16473,12 +16473,12 @@
         "dli": "9.9.9",
         "error": {
           "code": "version-mismatch",
-          "message": "this worker speaks contracts [\"0.5.1\", \"0.6.0\", \"0.6.1\", \"0.6.2\", \"0.6.3\", \"0.6.4\", \"1.0.0\", \"1.1.0\", \"1.2.0\", \"1.3.0\", \"1.4.0\", \"1.5.0\", \"1.6.0\", \"1.7.0\", \"1.8.0\", \"1.9.0\", \"1.10.0\"], not '9.9.9'; pin the vendored contract"
+          "message": "this worker speaks contracts [\"0.5.1\", \"0.6.0\", \"0.6.1\", \"0.6.2\", \"0.6.3\", \"0.6.4\", \"1.0.0\", \"1.1.0\", \"1.2.0\", \"1.3.0\", \"1.4.0\", \"1.5.0\", \"1.6.0\", \"1.7.0\", \"1.8.0\", \"1.9.0\", \"1.10.0\", \"1.11.0\"], not '9.9.9'; pin the vendored contract"
         },
         "id": "1",
         "ok": false
       },
-      "why": "The refusal lists the versions this worker speaks, and it now speaks 1.0.0 through 1.10.0. Naming every accepted version is the point of the message, so the list grows with each one; the refusal itself is unchanged in code, class, and shape. This is the same intentional compatibility-corpus deviation first recorded at 1.5.0, re-recorded as 1.7.0, 1.8.0, 1.9.0, and 1.10.0 joined the accepted set; all frames below 1.7.0 remain byte-identical."
+      "why": "The refusal lists the versions this worker speaks, and it now speaks 1.0.0 through 1.11.0. Naming every accepted version is the point of the message, so the list grows with each one; the refusal itself is unchanged in code, class, and shape. This is the same intentional compatibility-corpus deviation first recorded at 1.5.0, re-recorded as 1.7.0, 1.8.0, 1.9.0, 1.10.0, and 1.11.0 joined the accepted set; all frames below 1.7.0 remain byte-identical."
     },
     {
       "label": "raw/missing-id",
@@ -16499,7 +16499,7 @@
         "ok": false
       },
       "deviates_to": {
-        "dli": "1.10.0",
+        "dli": "1.11.0",
         "error": {
           "code": "bad-frame",
           "message": "the line is not a well-formed request frame"
@@ -16507,7 +16507,7 @@
         "id": "",
         "ok": false
       },
-      "why": "A frame whose envelope did not decode has no version to echo, so a bad-frame keeps the build's own \u2014 which is now 1.10.0, and tracks the build at every bump. Nothing else can be honest here: the caller's declared version was never read."
+      "why": "A frame whose envelope did not decode has no version to echo, so a bad-frame keeps the build's own \u2014 which is now 1.11.0, and tracks the build at every bump. Nothing else can be honest here: the caller's declared version was never read."
     }
   ]
 }

@@ -224,8 +224,9 @@ pub enum Op {
     /// census for incremental canonicalization, contract 1.10.0.
     #[serde(rename = "author.predicates")]
     AuthorPredicates,
-    /// Bounded coreference candidates: existing entities near a surface form —
-    /// the entity half of incremental canonicalization, contract 1.10.0.
+    /// Bounded coreference candidates near a surface form — the entity half of
+    /// incremental canonicalization, introduced in contract 1.10.0 and
+    /// corrected to declared entities in 1.11.0.
     #[serde(rename = "author.entity_candidates")]
     AuthorEntityCandidates,
 }
@@ -621,7 +622,7 @@ impl Op {
                 "List the distinct predicates present in the staged world, each with its arity and whether you declared it functional or inertial — the predicate census to reuse an existing name before minting a new one."
             }
             Op::AuthorEntityCandidates => {
-                "Find existing entities whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id."
+                "Find entity candidates whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id. Contract 1.11.0 and later restrict the universe to declared entities."
             }
         }
     }

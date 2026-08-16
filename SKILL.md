@@ -133,9 +133,13 @@ declaration from **contract 1.8.0** — it stages like `declare_functional` and
 carries provenance the same way; the continuity check then reads it, bounding
 an inertial value's forward persistence at the next distinct certain value
 (§3.10–§3.14 of spec `11-agent-authoring.md` give their full
-semantics). **`author.as_of`** is the newest, at **contract 1.9.0** — a
-read, not a declaration: it projects the value(s) that inertial slot holds
-at a query point directly, the one inertia-aware read (§3.15, DL-0082);
+semantics). **`author.as_of`** is the historical inertia-aware read from
+**contract 1.9.0**; the newest authoring reads are **`author.predicates`** and
+**`author.entity_candidates`** from **contract 1.10.0**, with the latter's
+declared-entity filtering corrected in **contract 1.11.0** (DL-0091). The
+read projects the value(s) that inertial slot holds at a query point directly,
+and the candidate tool searches declared entities only at 1.11.0; the legacy
+1.10.0 result shape and fixture remain frozen.
 `author.query` still returns the raw extensional value(s) unmodified. Ask
 `dli.version` if you are unsure what your
 negotiated wire carries — and negotiate the newest version your harness
@@ -185,7 +189,7 @@ in its params (except `author.list_workspaces`):
 |---|---|---|
 | `author.findings` | `{workspace}` | `{errors, warnings, materializable}` — your pre-flight: `errors` bar materialize, `warnings` pass, `materializable` is the go/no-go boolean. |
 | `author.predicates` | `{workspace}` | `{predicates:[{pred, arity, functional, inertial}]}` — the distinct predicates present in the staged world, each flagged if you declared it functional or inertial. Read it before minting a new predicate name so a fresh mention reuses an existing slot instead of landing in a novel one the FD check can never pair (contract 1.10.0). |
-| `author.entity_candidates` | `{workspace, surface, limit}` | `{candidates:[{name, sort, distance}]}` — the existing entities whose id is closest to `surface`, nearest first, at most `limit` (capped by the engine). Candidates are folded to their canonical representative, so an already-merged class appears once. Read it before minting a new entity id to find the coreference candidates worth `assert_same_as`-ing into (contract 1.10.0). |
+| `author.entity_candidates` | `{workspace, surface, limit}` | `{candidates:[{name, sort, distance}]}` — from **1.11.0**, declared entities whose id is closest to `surface`, nearest first, at most `limit` (capped by the engine); fact-only symbols are excluded before canonicalization and ranking. Candidates are folded to their canonical representative, so an already-merged class appears once. The 1.10.0 wire remains available with its released legacy candidate set. Read it before minting a new entity id to find the coreference candidates worth `assert_same_as`-ing into (contract 1.11.0). |
 | `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
 | `author.query` | `{workspace, goal_atom, layer?, why?}` | `{rows}` — query the staged world. `goal_atom` is a **typed atom**, written `{"pred": "serves", "args": [{"Sym": "bedivere"}, {"Var": "who"}]}` — each name is plain text, and a `Var` argument is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). The rendered string `goal` is the retired predecessor: a registered killed form, refused from contract 1.0 naming `goal_atom`, and still answered on a `0.5.1`/`0.6.x` wire. |
 | `author.why` | `{workspace, goal_atom}` (or the rendered `{atom}` string) | `{why_not, why?, supporting_decisions?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. From **1.9.0** `supporting_decisions` names the recorded decisions a certain fact rests on — confirm you reached certainty the designed way, through recorded decisions, not a side channel. `goal_atom` is the **typed atom** (same shape as `author.query`'s, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`), and is what makes `supporting_decisions` reachable in a **syntax-free** build — the rendered `atom` string needs the `.dli` front end to parse, so use `goal_atom` for the auditability check when no formatter is linked. |
