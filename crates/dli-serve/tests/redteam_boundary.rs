@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! RED-TEAM: the 1.9.0/1.10.0 additive boundary across the wire.
+//! RED-TEAM: the 1.9.0/1.10.0/1.11.0 additive boundary across the wire.
 //!
 //! From the rebase red team (RT#3): `author.as_of`/`author.record_decision`
 //! (contract 1.9.0) and `author.predicates`/`author.entity_candidates` (contract
@@ -61,10 +61,11 @@ const PRED: &str = "author.predicates";
 const CAND: &str = "author.entity_candidates";
 
 #[test]
-fn capability_matrix_across_the_1_9_1_10_boundary() {
+fn capability_matrix_across_the_1_9_1_10_1_11_boundary() {
     let c18 = caps("1.8.0");
     let c19 = caps("1.9.0");
     let c110 = caps("1.10.0");
+    let c111 = caps("1.11.0");
     for op in [ASOF, RECDEC, PRED, CAND] {
         assert!(
             !c18.contains(&op.to_owned()),
@@ -99,6 +100,10 @@ fn capability_matrix_across_the_1_9_1_10_boundary() {
     assert_eq!(
         c110, expected,
         "1.10.0 caps == 1.9.0 caps ++ [predicates, entity_candidates]"
+    );
+    assert_eq!(
+        c111, c110,
+        "1.11.0 changes entity-candidate semantics without changing capabilities"
     );
 }
 

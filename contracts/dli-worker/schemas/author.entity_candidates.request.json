@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorEntityCandidatesParams",
-  "description": "`author.entity_candidates` params: entities in the staged world whose id is\nclose to a surface form, by edit distance.\n\nThe bounded coreference candidate read a canonicalizing extractor runs once\nper mention: given the surface form it is about to mint, return the existing\nentities it most plausibly names, so the merge decision (`assert_same_as`)\nis made against what the store already holds. `limit` is caller-specified\nand bounds the result — this read must never dump the full entity set, which\ngrows without bound — and the engine caps it at a hard ceiling so an\nover-large `limit` cannot degenerate into that dump.",
+  "description": "`author.entity_candidates` params: entities in the staged world whose id is\nclose to a surface form, by edit distance. From contract 1.11.0, the\ncandidate universe contains declared entities only; symbols referenced only\nby facts are not candidates. Contract 1.10.0 retains its released result\nsemantics.\n\nThe bounded coreference candidate read a canonicalizing extractor runs once\nper mention: given the surface form it is about to mint, return the existing\nentities it most plausibly names, so the merge decision (`assert_same_as`)\nis made against what the store already holds. `limit` is caller-specified\nand bounds the result — this read must never dump the full entity set, which\ngrows without bound — and the engine caps it at a hard ceiling so an\nover-large `limit` cannot degenerate into that dump.",
   "type": "object",
   "properties": {
     "limit": {

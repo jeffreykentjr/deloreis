@@ -13,7 +13,7 @@
 //! error, staging nothing); an **error-severity finding** stages the claim but
 //! bars `author.materialize` until the world is made consistent again.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BinaryHeap};
 
 use serde_json::{Value, json};
 
@@ -1860,14 +1860,13 @@ fn reachable(from: &str, to: &str, edges: &[(String, String)]) -> bool {
 /// Candidate ids an unknown reference most plausibly meant: known entities within
 /// a small edit distance, nearest first.
 fn candidates(target: &str, known: &BTreeSet<String>) -> Vec<String> {
-    // Sort the whole set then keep the closest five within distance 3. Filtering
-    // before or after the sort yields the same five in the same order — the
-    // `<= 3` subset's relative order is identical either way — so this is
-    // byte-identical to the pre-lift `filter → sort → take`.
-    nearest_by_edit_distance(target, known.iter().cloned(), known.len())
+    // The five best results contain every name within distance 3 that the old
+    // full sort could have returned: all closer names precede every farther
+    // name, and ties are lexical. Filtering after the bounded ranking is
+    // therefore byte-identical to the old `filter → sort → take` path.
+    nearest_by_edit_distance(target, known.iter().cloned(), 5)
         .into_iter()
         .filter(|(distance, _)| *distance <= 3)
-        .take(5)
         .map(|(_, name)| name)
         .collect()
 }
@@ -1882,18 +1881,51 @@ pub(super) fn nearest_by_edit_distance(
     names: impl IntoIterator<Item = String>,
     limit: usize,
 ) -> Vec<(usize, String)> {
-    let mut scored: Vec<(usize, String)> = names
-        .into_iter()
-        .map(|name| (levenshtein(surface, &name), name))
-        .collect();
-    scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
-    scored.truncate(limit);
+    if limit == 0 {
+        return Vec::new();
+    }
+
+    let surface: Vec<char> = surface.chars().collect();
+    // `BinaryHeap` keeps the largest tuple at the top. Since the final order
+    // is ascending by `(distance, name)`, the top entry is exactly the worst
+    // retained candidate and can be evicted when a better one arrives.
+    let mut best: BinaryHeap<(usize, String)> = BinaryHeap::with_capacity(limit);
+    for name in names {
+        let cutoff = (best.len() == limit).then(|| {
+            best.peek()
+                .expect("a full candidate heap has a worst entry")
+                .0
+        });
+        let Some(distance) = levenshtein_bounded(&surface, &name, cutoff) else {
+            continue;
+        };
+        let candidate = (distance, name);
+        if best.len() < limit {
+            best.push(candidate);
+        } else if candidate
+            < *best
+                .peek()
+                .expect("a full candidate heap has a worst entry")
+        {
+            best.pop();
+            best.push(candidate);
+        }
+    }
+
+    let mut scored = best.into_vec();
+    scored.sort_unstable();
     scored
 }
 
-/// The Levenshtein edit distance between two strings.
-fn levenshtein(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
+/// The exact Levenshtein distance, optionally stopping once a candidate is
+/// provably worse than the current heap cutoff.
+///
+/// The minimum value in each dynamic-programming row is non-decreasing. Once
+/// every cell exceeds `cutoff`, no later row can recover a distance at or below
+/// it, so returning `None` cannot discard a candidate that belongs in the
+/// deterministic top-k result. Equality is retained so lexical tie-breaking
+/// remains exact.
+fn levenshtein_bounded(a: &[char], b: &str, cutoff: Option<usize>) -> Option<usize> {
     let b: Vec<char> = b.chars().collect();
     let mut prev: Vec<usize> = (0..=b.len()).collect();
     let mut cur = vec![0usize; b.len() + 1];
@@ -1903,9 +1935,13 @@ fn levenshtein(a: &str, b: &str) -> usize {
             let cost = usize::from(ca != cb);
             cur[j + 1] = (prev[j + 1] + 1).min(cur[j] + 1).min(prev[j] + cost);
         }
+        if cutoff.is_some_and(|max| cur.iter().all(|distance| *distance > max)) {
+            return None;
+        }
         std::mem::swap(&mut prev, &mut cur);
     }
-    prev[b.len()]
+    let distance = prev[b.len()];
+    cutoff.is_none_or(|max| distance <= max).then_some(distance)
 }
 
 // -- control-character defense (R3/C1) ---------------------------------------
@@ -3789,7 +3825,7 @@ fn to_value<T: serde::Serialize>(value: &T) -> Result<Value, ErrorBody> {
 mod tests {
     use dli_ast::term::Term;
 
-    use super::author_value;
+    use super::{author_value, levenshtein_bounded, nearest_by_edit_distance};
 
     #[test]
     fn author_values_preserve_their_term_kind_when_reparsed() {
@@ -3798,6 +3834,44 @@ mod tests {
             assert!(
                 matches!(author_value(value), Term::Str(_)),
                 "{value:?} must render as a string"
+            );
+        }
+    }
+
+    #[test]
+    fn bounded_levenshtein_keeps_cutoff_ties_and_rejects_worse_distances() {
+        let source: Vec<char> = "kitten".chars().collect();
+        assert_eq!(levenshtein_bounded(&source, "sitting", Some(3)), Some(3));
+        assert_eq!(levenshtein_bounded(&source, "sitting", Some(2)), None);
+        assert_eq!(levenshtein_bounded(&source, "kitten", Some(0)), Some(0));
+        assert_eq!(levenshtein_bounded(&source, "sitting", None), Some(3));
+    }
+
+    #[test]
+    fn heap_ranking_matches_exhaustive_distance_ordering() {
+        let names = ["mara", "marc", "mira", "moor", "zzzzzz", "Mára", "河守"];
+        let surface = "mara";
+        let chars: Vec<char> = surface.chars().collect();
+        let mut expected: Vec<(usize, String)> = names
+            .iter()
+            .map(|name| {
+                (
+                    levenshtein_bounded(&chars, name, None).expect("uncut distance"),
+                    (*name).to_owned(),
+                )
+            })
+            .collect();
+        expected.sort_unstable();
+
+        for limit in 0..=names.len() + 2 {
+            let actual = nearest_by_edit_distance(
+                surface,
+                names.iter().map(|name| (*name).to_owned()),
+                limit,
+            );
+            assert_eq!(
+                actual,
+                expected.iter().take(limit).cloned().collect::<Vec<_>>()
             );
         }
     }

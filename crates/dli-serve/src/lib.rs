@@ -107,7 +107,10 @@ mod simulation;
 /// the staged world that let an extractor reuse an existing predicate or entity
 /// name before minting a novel one; additive and advertised only from `1.10.0`
 /// up, so every earlier capability list stays byte-identical.
-pub const CONTRACT_VERSION: &str = "1.10.0";
+/// `1.11.0` corrects `author.entity_candidates` to rank only declared entities
+/// before applying the caller limit (GH #88). The 1.10.0 behavior remains
+/// available to callers negotiating that released version.
+pub const CONTRACT_VERSION: &str = "1.11.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -143,7 +146,10 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// only from `1.8.0` up, so `1.7.0`'s 62-op capability list stays
 /// byte-identical; declaring a predicate inertial reshapes its fluent
 /// projection, bounding forward persistence at the next distinct certain
-/// value).
+/// value), and `1.9.0` (the as-of and decision reads), `1.10.0` (the
+/// incremental-canonicalization reads), and `1.11.0` (the GH #88
+/// declared-entity candidate correction, with the 1.10.0 result semantics
+/// retained for that negotiation).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -152,7 +158,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -307,6 +313,15 @@ pub fn has_decisions(dli: &str) -> bool {
 #[must_use]
 pub fn has_incremental_canon(dli: &str) -> bool {
     at_or_above(dli, (1, 10, 0))
+}
+
+/// Whether the negotiated version gets the corrected declared-entity universe
+/// for `author.entity_candidates` (GH #88, ≥ `1.11.0`). The operation itself
+/// remains available from `1.10.0`; this separate floor preserves the released
+/// 1.10.0 result semantics while making the corrected ranking explicit.
+#[must_use]
+pub fn has_declared_entity_candidates(dli: &str) -> bool {
+    at_or_above(dli, (1, 11, 0))
 }
 
 /// Whether the negotiated version carries the campaign's branch-scoped write

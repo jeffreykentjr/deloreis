@@ -99,6 +99,13 @@ fn records_decisions(request: &Request) -> bool {
     crate::has_decisions(&request.dli)
 }
 
+/// Whether `author.entity_candidates` uses the corrected declared-entity
+/// universe introduced by contract 1.11.0 (GH #88). The 1.10.0 path remains
+/// available for replay compatibility.
+fn declared_entity_candidates(request: &Request) -> bool {
+    crate::has_declared_entity_candidates(&request.dli)
+}
+
 /// The authoring seam's dispatch (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
@@ -407,7 +414,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let v2 = wire_v2(request);
             Ok((
                 params.workspace.clone(),
-                reads::entity_candidates(store, &params, v2),
+                reads::entity_candidates(store, &params, v2, declared_entity_candidates(request)),
             ))
         }),
         // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).
