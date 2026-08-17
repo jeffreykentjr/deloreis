@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.11.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible coreference assertions, datalog rule authoring, temporal close-out findings, an inertial-persistence declaration (a value asserted `since` holds forward until a later distinct certain value defeats it, bounded by the continuity check), the inertia-aware read (`author.as_of`), declared-only entity candidates, and complete paired framing replay are implemented across the accepted legacy window."
+verdict: "The generic worker contract at 1.11.0, with the additive 1.12.0 predicate-identity lane specified below. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible entity identity, datalog rule authoring, temporal close-out findings, inertial persistence, the inertia-aware read, declared-only entity candidates, and complete paired framing replay are implemented across the accepted legacy window."
 ---
 
 # The dli-worker contract
@@ -32,6 +32,12 @@ either side disagrees with this document, this document wins.
 > verified against the deloreis-owned AUTH-2 fixture, so `CP-10` stands
 > `verified` on the STATUS board. What remains is the consumer's own corpus
 > pivot, not a deloreis deliverable.
+
+> **Predicate-identity documentation lane:** this document specifies the
+> additive `1.12.0` surface for the separate wire implementation. Until that
+> lane lands its source, generated schemas, and fixtures, the checked-out
+> `1.11.0` binary remains the implemented contract. No prior-version fixture or
+> capability bytes may change when the new floor is released.
 
 ## 1. Parties
 
@@ -307,6 +313,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.defeat` | **≥ `1.5.0`.** Record a new defeating decision and rule the named old supporting decision false; the claim remains stored but evaluates dead. | yes (commits) |
 | `author.declare_functional` | **≥ `1.6.0`.** Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject raise `continuity.fd-violation` — including for a first-seen predicate canon has no precedent for. | yes |
 | `author.assert_same_as` | **≥ `1.7.0`.** Assert two entity ids name the same bearer; the evaluable world closes the merge symmetric-transitively, gated on the citing claim's own standing (defeasible: defeating the citation un-merges every derived consequence). | yes |
+| `author.assert_predicate_same_as` | **≥ `1.12.0`.** Assert two predicate names denote one property; certain identity closes symmetric-transitively, rewrites facts and rule heads/bodies, and carries the assertion into FD/fluent findings and every derived support. Union-promotes functionality or inertia with a structured warning; defeating the assertion restores the original predicate slots. | yes |
 | `author.add_rule` | **≥ `1.7.0`.** Declare one datalog derivation rule (a typed `head :- body` clause); every fact it derives carries this rule's own provenance, defeasible on the rule's own citation like any other claim. Refuses to stage on a bad rule shape or a stratification failure, so a bad rule never reaches the workspace. | yes |
 | `author.declare_inertial` | **≥ `1.8.0`.** Declare a predicate's fluent values persistent (inertial): a value asserted `since` a point holds forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `author.declare_functional`; the `continuity` check reads it to bound an inertial value's forward persistence at the next distinct certain value (a silent transition, a `continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction` error). | yes |
 | `author.as_of` | **≥ `1.9.0`.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; kernel-side via `check::slot_state_at`, never the eval query path `author.query` answers over (`author.query` still returns the raw extensional value(s) unmodified). | read |
@@ -575,6 +582,30 @@ decoupled, and the compatibility window carries the consumer across.
   semantic correction behind the same additive read surface; 1.10.0 callers
   continue to receive their frozen legacy result, and no structural index is
   introduced without measured evidence.
+- **What `1.12.0` changes (predicate-identity lane).** One additive authoring
+  operation, `author.assert_predicate_same_as`, takes the inventory from 67 to
+  68 operations. The operation is floor-gated and capability-negotiated; all
+  pre-`1.12.0` accepted versions retain their exact capability lists and wire
+  bytes. A certain declaration closes predicate identity symmetrically and
+  transitively, rewrites rule heads and bodies, and makes the identity support
+  visible in FD, fluent, query, derivation, and `author.why` results. A
+  proposed declaration remains possible rather than creating a certain merge.
+  Functionality and inertia use union semantics and emit a structured,
+  non-blocking promotion warning. Known incompatible observed arities block
+  materialization; rechecks are scoped to identity components touched by the
+  changed predicate. The existing defeat path un-merges the derived layer
+  without deleting source facts.
+
+  The wire lane must prove both authoring orders — facts first then identity,
+  and identity first then facts — with identical structured rows, findings,
+  support, and three-path bytes. It must also prove entity/predicate merge
+  confluence, branch isolation, rule rewriting, fluent/FD defeat propagation,
+  declaration-only behavior, and loader/evaluator/lorestore convergence. No
+  consumer requires a predicate-identity `.dli` round trip, so this operation
+  adds no textual form; the structured JSON result, fact objects, and
+  consumer-rendered diff are the supported surfaces. Release requires the new
+  operation's schema, golden, negative, and framing fixtures; no prior fixture
+  may be rewritten.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

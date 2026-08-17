@@ -210,3 +210,19 @@ Removing `.dli` text removes the only authoring path for every open-gap form in
 this audit (§1's open rows, §2's `over order`/`over season`) — that dependency is
 exactly why phase-4 stays gated on a real consumer signal rather than an internal
 schedule.
+
+## 7. Predicate identity adds no text form
+
+The contract `1.12.0` predicate-identity declaration is deliberately a typed
+wire-only addition: `author.assert_predicate_same_as` has no new parser keyword,
+formatter line, or `.dli`-only `Decl` form. This is a concrete deprecation-audit
+data point, not an omission. No current consumer requires predicate identity to
+round-trip through `.dli`; the supported interchange and review surfaces are
+the structured authoring result, fact-object JSON, staged diff, and query/why
+data.
+
+The engine still records the caller's identity decision, evaluates its certain
+consequences, and carries its support through FD/fluent/rule derivations. If a
+consumer later demonstrates a need for textual round-trip, FW-10 is the trigger
+to reopen this audit and add a typed consumer-owned rendering requirement; it
+does not authorize adding a retiring `.dli` form now.
