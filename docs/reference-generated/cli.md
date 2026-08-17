@@ -7,13 +7,43 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 
 # CLI commands
 
-`deloreis` exposes **5** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
+`deloreis` exposes **17** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
 
 | Command | Description |
 |---|---|
+| `deloreis check` | Validate documents against the world model |
+| `deloreis query` | Query a saturated world |
+| `deloreis fmt` | Format documents into the one canonical surface |
+| `deloreis fork` | Inspect and evaluate forks over a workspace store |
+| `deloreis fork new` | Create a new fork over a corpus |
+| `deloreis fork list` | List the open forks and their base corpus |
+| `deloreis fork diff` | Show a fork's derived-consequence diff against the base |
+| `deloreis fork suppose` | Suppose an option or event value in a fork |
+| `deloreis fork add` | Add a proposed ground fact to a fork |
+| `deloreis fork suppress` | Retract a supposition from a fork |
+| `deloreis fork restrict` | Restrict a fork's presented consequences with a keep-stamp |
+| `deloreis fork preflight` | Ratification pre-flight of a fork |
+| `deloreis fork promote` | Emit a ruling-request draft from a fork |
+| `deloreis fork help` | Print this message or the help of the given subcommand(s) |
+| `deloreis preflight` | Run the ratification pre-flight over a fork |
+| `deloreis timeline` | Read the timeline: chronology and the episode fold |
+| `deloreis timeline show` | Render the era/event partial order (optionally around a cursor) |
+| `deloreis timeline order` | The partial-order report: cycles and unordered pairs |
+| `deloreis timeline knows` | What a knower knows once the listener reaches a production slot |
+| `deloreis timeline episodes` | Fold the season and check its production-order layout and open loops |
+| `deloreis timeline phases` | The cyclic phases an episode pins |
+| `deloreis timeline help` | Print this message or the help of the given subcommand(s) |
 | `deloreis craft` | Explain the craft principles behind findings |
 | `deloreis craft why` | Explain the principles that govern a craft or outline finding |
 | `deloreis craft help` | Print this message or the help of the given subcommand(s) |
+| `deloreis check-proof` | Check a diegetic proof block against a practice |
+| `deloreis check-draft` | Run the merged battery over a fat draft payload |
+| `deloreis simulate` | Simulate a practice or game |
+| `deloreis name` | Vet a name — the kernel, world-true half |
+| `deloreis name check` | Vet a candidate name against the settled name-space |
+| `deloreis name help` | Print this message or the help of the given subcommand(s) |
+| `deloreis export` | Export under a profile |
+| `deloreis report` | Render the findings report |
 | `deloreis validate-repo` | Validate a Markdown canon repository against the eleven contract checks |
 | `deloreis serve` | Run JSON-over-stdio with `--project <path>` or explicit `--demo` |
 | `deloreis mcp` | Run MCP over stdio with `--project <path>` or explicit `--demo` |
