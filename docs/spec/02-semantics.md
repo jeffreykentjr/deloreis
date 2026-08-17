@@ -563,7 +563,7 @@ inertial declaration. A promotion emits a structured
 `predicate-identity.policy-promoted` warning naming the identity assertion,
 policy kind, affected members, and policy declaration support. The warning is
 non-blocking; it records that merging changed the effective policy rather than
-silently turning a check on or off. A proposed identity does not promote either
+silently changing whether a check runs. A proposed identity does not promote either
 policy in the certain layer.
 
 V1 validates observed positional arity only. The workspace keeps an arity index
