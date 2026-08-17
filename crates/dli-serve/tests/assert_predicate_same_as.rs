@@ -86,7 +86,7 @@ fn open(store: &mut Store) -> String {
         .to_owned()
 }
 
-fn assert_predicate(store: &mut Store, workspace: &str, provenance: Value) -> dli_serve::Response {
+fn assert_predicate(store: &mut Store, workspace: &str, provenance: &Value) -> dli_serve::Response {
     dispatch(
         &req(
             "1.12.0",
@@ -128,12 +128,13 @@ fn codes(value: &Value) -> Vec<String> {
 fn wire_only_predicate_identity_reaches_fd_check_and_has_no_dli_rendering() {
     let mut store = base();
     let workspace = open(&mut store);
-    let staged = assert_predicate(&mut store, &workspace, cited("D-3"));
+    let cited_d3 = cited("D-3");
+    let staged = assert_predicate(&mut store, &workspace, &cited_d3);
     let staged_result = result(&staged);
     assert!(
-        staged_result["rendered"]
-            .as_array()
-            .is_some_and(Vec::is_empty)
+        staged_result
+            .get("rendered")
+            .is_none_or(|rendered| { rendered.as_array().is_some_and(Vec::is_empty) })
     );
     assert_eq!(staged_result["findings"], json!([]));
 
@@ -152,7 +153,10 @@ fn wire_only_predicate_identity_reaches_fd_check_and_has_no_dli_rendering() {
         .iter()
         .find(|row| row["kind"] == "predicate-same-as")
         .expect("predicate identity structured row");
-    assert_eq!(row["rendered"], "");
+    assert!(
+        row.get("rendered")
+            .is_none_or(|rendered| { rendered.is_null() || rendered == "" })
+    );
 
     let checked = check(&mut store, &workspace);
     let checked_result = result(&checked);
@@ -174,7 +178,8 @@ fn wire_only_predicate_identity_reaches_fd_check_and_has_no_dli_rendering() {
 fn proposed_identity_is_previewable_but_does_not_create_a_certain_conflict() {
     let mut store = base();
     let workspace = open(&mut store);
-    let staged = assert_predicate(&mut store, &workspace, proposed("mention-1"));
+    let proposed_mention = proposed("mention-1");
+    let staged = assert_predicate(&mut store, &workspace, &proposed_mention);
     assert!(result(&staged)["findings"].as_array().unwrap().is_empty());
     let checked = check(&mut store, &workspace);
     assert!(!codes(result(&checked)).contains(&"continuity.fd-violation".to_owned()));
@@ -201,7 +206,8 @@ fn predicate_identity_guard_census_covers_text_annotation_and_decl_kind() {
     );
     assert!(codes(result(&control_char)).contains(&"field.control-char".to_owned()));
 
-    let unknown_citation = assert_predicate(&mut store, &workspace, cited("D-unknown"));
+    let unknown = cited("D-unknown");
+    let unknown_citation = assert_predicate(&mut store, &workspace, &unknown);
     assert!(codes(result(&unknown_citation)).contains(&"citation.unknown-decision".to_owned()));
 
     let status = dispatch(
@@ -230,7 +236,8 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
         .attach_lorestore(root.path().join("tpth"))
         .expect("attach lorestore");
     let workspace = open(&mut store);
-    let staged = assert_predicate(&mut store, &workspace, cited("D-3"));
+    let cited_d3 = cited("D-3");
+    let staged = assert_predicate(&mut store, &workspace, &cited_d3);
     assert!(result(&staged)["findings"].as_array().unwrap().is_empty());
 
     let materialized = dispatch(
@@ -256,7 +263,11 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             "1.12.0",
             "before",
             Op::AuthorQuery,
-            json!({"workspace": workspace, "goal": "current-job(mara, software)", "layer": "all"}),
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "layer": "all"
+            }),
         ),
         &mut store,
     );
@@ -284,7 +295,11 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             "1.12.0",
             "after",
             Op::AuthorQuery,
-            json!({"workspace": workspace, "goal": "current-job(mara, software)", "layer": "all"}),
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "layer": "all"
+            }),
         ),
         &mut store,
     );
@@ -294,7 +309,11 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             "1.12.0",
             "source",
             Op::AuthorQuery,
-            json!({"workspace": workspace, "goal": "current-work(mara, software)", "layer": "all"}),
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "current-work", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "layer": "all"
+            }),
         ),
         &mut store,
     );

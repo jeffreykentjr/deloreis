@@ -349,7 +349,7 @@ impl LoadCtx {
             Decl::Before(before) => self.process_before(before, pack),
             Decl::SameAs(same_as) => self.process_same_as(same_as, pack),
             Decl::PredicateSameAs(predicate_same_as) => {
-                self.process_predicate_same_as(predicate_same_as, pack)
+                self.process_predicate_same_as(predicate_same_as, pack);
             }
             Decl::Kind(kind) => self.process_kind(kind, pack),
             Decl::Rule(rule) => self.process_rule(rule, pack),

@@ -127,6 +127,12 @@ impl PredicateIdentityState {
     #[must_use]
     pub fn validate_touched(&self, predicate: &str) -> Option<PredicateArityMismatch> {
         let predicates = self.component(predicate);
+        if !self.links.iter().any(|link| {
+            !link.is_self_merge()
+                && (predicates.contains(&link.left) || predicates.contains(&link.right))
+        }) {
+            return None;
+        }
         let mut arities = BTreeSet::new();
         for member in &predicates {
             arities.extend(

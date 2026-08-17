@@ -642,7 +642,7 @@ impl Op {
                 "Find entity candidates whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id. Contract 1.11.0 and later restrict the universe to declared entities."
             }
             Op::AuthorAssertPredicateSameAs => {
-                "Assert two predicate names denote the same property; the evaluator records a defeasible symmetric-transitive identity claim and exposes its consequences once the predicate-identity kernel is wired."
+                "Assert two predicate names denote the same property; the evaluator records a defeasible symmetric-transitive identity claim and exposes its consequences through checks, queries, derivations, and the durable store."
             }
         }
     }

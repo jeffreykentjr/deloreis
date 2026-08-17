@@ -580,7 +580,7 @@ decoupled, and the compatibility window carries the consumer across.
   semantic correction behind the same additive read surface; 1.10.0 callers
   continue to receive their frozen legacy result, and no structural index is
   introduced without measured evidence.
-- **What `1.12.0` changes (predicate-identity lane).** One additive authoring
+- **What `1.12.0` changes (predicate identity).** One additive authoring
   operation, `author.assert_predicate_same_as`, takes the inventory from 67 to
   68 operations. The operation is floor-gated and capability-negotiated; all
   pre-`1.12.0` accepted versions retain their exact capability lists and wire

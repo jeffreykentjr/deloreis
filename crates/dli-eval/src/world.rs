@@ -1381,9 +1381,62 @@ pub fn synthesize_alias_rules(world: &mut World) {
 /// The rule plan is deterministic: direct edges, predicate names, and arities
 /// are all ordered by `BTree*` collections. Calling this function repeatedly is
 /// safe; reserved link facts and generated rule names are not duplicated.
-pub fn synthesize_predicate_alias_rules(world: &mut World) {
-    const LINK: &str = "predicate-same-as:link";
+const PREDICATE_ALIAS_LINK: &str = "predicate-same-as:link";
 
+fn seed_predicate_alias_links(world: &mut World) {
+    let seeded: BTreeSet<(String, String)> = world
+        .facts
+        .iter()
+        .filter(|fact| fact.atom.pred == PREDICATE_ALIAS_LINK && fact.atom.args.len() == 2)
+        .map(|fact| (fact.atom.args[0].clone(), fact.atom.args[1].clone()))
+        .collect();
+    for (left, right, ann) in &world.predicate_same_as_links {
+        if left == right || seeded.contains(&(left.clone(), right.clone())) {
+            continue;
+        }
+        world.facts.push(Fact {
+            atom: GroundAtom {
+                pred: PREDICATE_ALIAS_LINK.to_owned(),
+                args: vec![left.clone(), right.clone()],
+            },
+            ann: ann.clone(),
+            grade: Grade::Asserted,
+        });
+    }
+}
+
+fn predicate_alias_arities(world: &World) -> BTreeMap<String, BTreeSet<usize>> {
+    let mut arities: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
+    for fact in &world.facts {
+        if fact.atom.pred != PREDICATE_ALIAS_LINK {
+            arities
+                .entry(fact.atom.pred.clone())
+                .or_default()
+                .insert(fact.atom.args.len());
+        }
+    }
+    for rule in &world.rules {
+        if rule.head.pred.text != PREDICATE_ALIAS_LINK {
+            arities
+                .entry(rule.head.pred.text.clone())
+                .or_default()
+                .insert(rule.head.args.len());
+        }
+        for literal in &rule.body {
+            if literal.atom.pred.text != PREDICATE_ALIAS_LINK {
+                arities
+                    .entry(literal.atom.pred.text.clone())
+                    .or_default()
+                    .insert(literal.atom.args.len());
+            }
+        }
+    }
+    arities
+}
+
+/// Synthesize deterministic symmetric predicate-identity rewrite rules for the
+/// observed arities in each declared identity component.
+pub fn synthesize_predicate_alias_rules(world: &mut World) {
     let direct: BTreeSet<(String, String)> = world
         .predicate_same_as_links
         .iter()
@@ -1396,54 +1449,12 @@ pub fn synthesize_predicate_alias_rules(world: &mut World) {
 
     // Seed one internal link fact per declaration, preserving every
     // provenance alternative for duplicate declarations of the same pair.
-    let seeded: BTreeSet<(String, String)> = world
-        .facts
-        .iter()
-        .filter(|fact| fact.atom.pred == LINK && fact.atom.args.len() == 2)
-        .map(|fact| (fact.atom.args[0].clone(), fact.atom.args[1].clone()))
-        .collect();
-    for (left, right, ann) in &world.predicate_same_as_links {
-        if left == right || seeded.contains(&(left.clone(), right.clone())) {
-            continue;
-        }
-        world.facts.push(Fact {
-            atom: GroundAtom {
-                pred: LINK.to_owned(),
-                args: vec![left.clone(), right.clone()],
-            },
-            ann: ann.clone(),
-            grade: Grade::Asserted,
-        });
-    }
+    seed_predicate_alias_links(world);
 
     // Census every predicate occurrence, including rule bodies. A body-only
     // predicate is still a real input to an identity rewrite and must not be
     // missed just because it has no head of its own.
-    let mut arities: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
-    for fact in &world.facts {
-        if fact.atom.pred != LINK {
-            arities
-                .entry(fact.atom.pred.clone())
-                .or_default()
-                .insert(fact.atom.args.len());
-        }
-    }
-    for rule in &world.rules {
-        if rule.head.pred.text != LINK {
-            arities
-                .entry(rule.head.pred.text.clone())
-                .or_default()
-                .insert(rule.head.args.len());
-        }
-        for literal in &rule.body {
-            if literal.atom.pred.text != LINK {
-                arities
-                    .entry(literal.atom.pred.text.clone())
-                    .or_default()
-                    .insert(literal.atom.args.len());
-            }
-        }
-    }
+    let arities = predicate_alias_arities(world);
 
     // A connected component's observed shapes are the available rewrite
     // shapes for every edge in that component. A richer declared shape system
@@ -1461,7 +1472,7 @@ pub fn synthesize_predicate_alias_rules(world: &mut World) {
 
     let var = |name: &str| Term::Var(Ident::synthetic(name));
     let link_atom = |left: &str, right: &str| AtomExpr {
-        pred: Ident::synthetic(LINK),
+        pred: Ident::synthetic(PREDICATE_ALIAS_LINK),
         args: vec![
             Term::Sym(Ident::synthetic(left)),
             Term::Sym(Ident::synthetic(right)),

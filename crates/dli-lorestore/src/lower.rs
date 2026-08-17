@@ -276,6 +276,7 @@ fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject 
 /// object in the stream. Identity-based (not count-based) because commit-chain
 /// deduplication can elide an atom that already exists in an earlier commit.
 #[must_use]
+#[allow(clippy::match_same_arms)]
 pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
     let implies_renders = |options: &[dli_ast::decl::OptionClause]| {
         options

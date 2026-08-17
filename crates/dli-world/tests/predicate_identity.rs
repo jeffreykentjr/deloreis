@@ -292,6 +292,26 @@ fn incompatible_observed_arity_is_reported_and_does_not_partially_merge() {
 }
 
 #[test]
+fn unrelated_multiple_observed_arities_do_not_raise_identity_findings() {
+    let world = compile(&pack(vec![
+        ratify("D-1"),
+        fact("marker", "mara", "one", ProvenanceMarker::Ratified),
+        Decl::Fact(FactDecl {
+            atom: AtomExpr {
+                pred: id("marker"),
+                args: vec![Term::Sym(id("mara")), Term::Sym(id("two"))],
+            },
+            triple: false,
+            provenance: Some(annotation(ProvenanceMarker::Ratified, Some("D-1"))),
+        }),
+    ]))
+    .expect("unrelated arities compile");
+    assert!(
+        findings_with_code(&check::run(&world), "predicate-identity.arity-mismatch").is_empty()
+    );
+}
+
+#[test]
 fn entity_and_predicate_identity_are_confluent_in_arrival_order() {
     let mut common = vec![
         ratify("D-1"),

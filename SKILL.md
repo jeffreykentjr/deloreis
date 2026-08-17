@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 36 tools you author with)
+## 2. The tool surface (the 37 tools you author with)
 
-The contract's §3.2 table lists 38 `author.*` tools. Two of them,
+The contract's §3.2 table lists 39 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -174,6 +174,7 @@ compatibility mode.
 | `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. |
 | `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
+| `author.assert_predicate_same_as` | **1.12.0.** Assert `{left, right}` name the same property: the world closes the claim symmetrically and transitively, carries it into FD/fluent/rule/query consequences, and un-merges those consequences when its support is defeated. Declaration only; no name or value similarity infers identity, and no new `.dli` form is added. Provenance required. |
 | `author.add_rule` | **1.7.0.** Declare one datalog rule `{name, head, body}` — a typed `head :- body` clause; every fact it derives carries this rule's own provenance, so defeating its citing decision kills every derivation through it. One clause per call — an N-clause rule is N calls under distinct names, for finer-grained defeat. Refuses to stage on its own bad shape (`rule.unbound-variable`, `rule.duplicate`) or on a stratification failure (`rule.unstratifiable`) — a bad rule never reaches the workspace, because staging one would brick every later read. Provenance required. |
 | `author.declare_inertial` | **1.8.0.** Declare a predicate `{pred}` inertial (fluent-persistent): a value asserted `since` a point is meant to hold forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `declare_functional`; the continuity check reads it to bound an inertial value's forward persistence at the next distinct certain value (silent transition, `continuity.fluent-order-undeclared` warn, or `continuity.fluent-contradiction`). Provenance required. |
 | `author.as_of` | **1.9.0.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; `author.query` still returns the raw extensional value(s) unmodified. Read-only, no provenance. |
