@@ -516,7 +516,7 @@ undone until a consumer actually needs to merge two coreferent events or eras
 (e.g. one battle known under two names, each anchoring its own interval
 states).
 
-## 10. Predicate identity on the wire
+## 10. Predicate identity on the wire (DL-0092)
 
 Contract `1.12.0` adds `author.assert_predicate_same_as`, a typed declaration
 that two predicate names denote one property. This is the predicate analogue of

@@ -28,8 +28,7 @@ pub use decl::{
     DraftDecl, EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, HypothesisDecl, KindDecl,
     NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PredicateSameAsDecl,
     PrincipleDecl, ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader,
-    StateDecl, TermDecl, TimeClause,
-    UseDecl, VariantDecl, WordDecl,
+    StateDecl, TermDecl, TimeClause, UseDecl, VariantDecl, WordDecl,
 };
 pub use doc::Doc;
 pub use ident::Ident;

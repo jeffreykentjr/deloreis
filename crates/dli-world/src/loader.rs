@@ -69,8 +69,8 @@ use serde::{Deserialize, Serialize};
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{
     AttrDecl, BeforeDecl, CycleDecl, Decl, Document, EntityDecl, EntityKind, FactDecl,
-    FunctionalDecl, InertialDecl, KindDecl, OptionClause, RuleDecl, SameAsDecl, ScopeHeader,
-    StateDecl, TimeClause,
+    FunctionalDecl, InertialDecl, KindDecl, OptionClause, PredicateSameAsDecl, RuleDecl,
+    SameAsDecl, ScopeHeader, StateDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
@@ -88,6 +88,7 @@ use dli_time::fluent::Span as FluentSpan;
 use crate::model::{
     EntityEntry, LoadFinding, LoadedAtom, PackProvenance, Provenance, SortEntry, WorldModel,
 };
+use crate::predicate_identity::PredicateIdentityLink;
 
 /// The outcome of loading a set of documents: the compiled world and the
 /// findings raised while compiling it.
@@ -347,6 +348,9 @@ impl LoadCtx {
             Decl::Fact(fact) => self.process_fact(fact, pack),
             Decl::Before(before) => self.process_before(before, pack),
             Decl::SameAs(same_as) => self.process_same_as(same_as, pack),
+            Decl::PredicateSameAs(predicate_same_as) => {
+                self.process_predicate_same_as(predicate_same_as, pack)
+            }
             Decl::Kind(kind) => self.process_kind(kind, pack),
             Decl::Rule(rule) => self.process_rule(rule, pack),
             Decl::Cycle(cycle) => self.process_cycle(cycle, pack),
@@ -418,6 +422,12 @@ impl LoadCtx {
             let var = self.intern(&option.name.text);
             family.push(var);
             if let Some(implied) = &option.implies {
+                self.observe_predicate_arity(
+                    &implied.pred.text,
+                    implied.args.len(),
+                    pack,
+                    implied.pred.span,
+                );
                 let ann = Ann::supported(PosBool::pos(var));
                 self.wm.world.facts.push(Fact {
                     atom: ground_atom(implied),
@@ -522,6 +532,7 @@ impl LoadCtx {
             pred: attr.attr.clone(),
             args: vec![Term::Sym(attr.subject.clone()), attr.value.clone()],
         };
+        self.observe_predicate_arity(&atom.pred.text, atom.args.len(), pack, atom.pred.span);
         let provenance = attr.provenance.clone().or_else(|| inherit.cloned());
         let label = format!("slot '{}.{}'", attr.subject.text, attr.attr.text);
         let compiled = self.compile_ann(provenance.as_ref(), &label, pack, true, attr.subject.span);
@@ -569,6 +580,7 @@ impl LoadCtx {
             true,
             state.name.span,
         );
+        self.observe_predicate_arity(&atom.pred.text, atom.args.len(), pack, atom.pred.span);
         self.collect_entities(&atom);
         // Thread the temporal clause so an undeclared anchor surfaces, exactly as
         // an entity's does: `since`/`until` name events, `after`/`during` eras.
@@ -612,6 +624,69 @@ impl LoadCtx {
             .world
             .functional_predicates
             .insert(functional.pred.text.clone());
+    }
+
+    /// Lower the structured predicate-identity carriage.  It is deliberately
+    /// not an ordinary atom: the evaluator's separate declaration channel is
+    /// the only input that can merge predicate names.
+    fn process_predicate_same_as(&mut self, identity: &PredicateSameAsDecl, pack: &str) {
+        let label = format!(
+            "predicate identity '{} = {}'",
+            identity.left.text, identity.right.text
+        );
+        let compiled = self.compile_ann(
+            identity.provenance.as_ref(),
+            &label,
+            pack,
+            true,
+            identity.left.span,
+        );
+        let link = PredicateIdentityLink::new(
+            identity.left.text.clone(),
+            identity.right.text.clone(),
+            compiled.ann.clone(),
+        )
+        .with_citations(compiled.citations.clone());
+        if let Some(mismatch) = self.wm.predicate_identity.add_link(link) {
+            self.record_predicate_arity_mismatch(mismatch, pack, identity.left.span);
+        }
+        self.wm.world.assert_predicate_same_as(
+            identity.left.text.clone(),
+            identity.right.text.clone(),
+            compiled.ann,
+        );
+    }
+
+    /// Record one observed predicate arity and retain only the first finding
+    /// for an identical affected component.  The state cache itself is
+    /// component-local: unrelated predicate mutations do not rescan this
+    /// component or any other component.
+    fn observe_predicate_arity(&mut self, predicate: &str, arity: usize, pack: &str, span: Span) {
+        if let Some(mismatch) = self
+            .wm
+            .predicate_identity
+            .observe_arity(predicate.to_owned(), arity)
+        {
+            self.record_predicate_arity_mismatch(mismatch, pack, span);
+        }
+    }
+
+    fn record_predicate_arity_mismatch(
+        &mut self,
+        mismatch: crate::predicate_identity::PredicateArityMismatch,
+        pack: &str,
+        span: Span,
+    ) {
+        let finding = LoadFinding::PredicateIdentityArityMismatch {
+            touched_predicate: mismatch.touched_predicate,
+            predicates: mismatch.predicates,
+            arities: mismatch.arities,
+            pack: pack.to_owned(),
+            span,
+        };
+        if !self.findings.contains(&finding) {
+            self.findings.push(finding);
+        }
     }
 
     /// Record an `inertial <pred>` declaration (`docs/decisions.md` DL-0081).
@@ -688,6 +763,12 @@ impl LoadCtx {
 
     fn process_fact(&mut self, fact: &FactDecl, pack: &str) {
         let label = format!("fact '{}'", fact.atom.pred.text);
+        self.observe_predicate_arity(
+            &fact.atom.pred.text,
+            fact.atom.args.len(),
+            pack,
+            fact.atom.pred.span,
+        );
         let compiled = self.compile_ann(
             fact.provenance.as_ref(),
             &label,
@@ -821,14 +902,14 @@ impl LoadCtx {
         // a finding; a body-less rule likewise fails closed (koan 4).
         if !rule.body.clauses.is_empty() {
             for rc in &rule.body.clauses {
-                self.lower_or_flag_world_rule(&rule.name, rc, rc.clause.span, &compiled.ann);
+                self.lower_or_flag_world_rule(&rule.name, rc, rc.clause.span, &compiled.ann, pack);
             }
             return;
         }
 
         match &rule.body.inline {
             Some(rc) => {
-                self.lower_or_flag_world_rule(&rule.name, rc, rule.name.span, &compiled.ann);
+                self.lower_or_flag_world_rule(&rule.name, rc, rule.name.span, &compiled.ann, pack);
             }
             None => self.findings.push(LoadFinding::MalformedWorldRule {
                 rule: rule.name.text.clone(),
@@ -847,10 +928,18 @@ impl LoadCtx {
         rc: &dli_ast::rule::RuleClause,
         span: Span,
         ann: &Ann,
+        pack: &str,
     ) {
         match &rc.datalog {
             Some(datalog) => {
-                self.lower_world_rule(name, datalog.head.clone(), datalog.body.clone(), span, ann);
+                self.lower_world_rule(
+                    name,
+                    datalog.head.clone(),
+                    datalog.body.clone(),
+                    span,
+                    ann,
+                    pack,
+                );
             }
             None => self.findings.push(LoadFinding::MalformedWorldRule {
                 rule: name.text.clone(),
@@ -876,7 +965,17 @@ impl LoadCtx {
         body: Vec<dli_ast::literal::BodyLiteral>,
         span: Span,
         ann: &Ann,
+        pack: &str,
     ) {
+        self.observe_predicate_arity(&head.pred.text, head.args.len(), pack, span);
+        for literal in &body {
+            self.observe_predicate_arity(
+                &literal.atom.pred.text,
+                literal.atom.args.len(),
+                pack,
+                literal.atom.pred.span,
+            );
+        }
         if let Some(variable) = dli_eval::world::unbound_variable(&head, &body) {
             self.findings.push(LoadFinding::UnboundHeadVariable {
                 rule: name.text.clone(),
@@ -1129,6 +1228,12 @@ impl LoadCtx {
         // compiled world is byte-identical to one that never called it (the
         // frozen-contract guard).
         dli_eval::world::synthesize_alias_rules(&mut self.wm.world);
+        // Predicate identity has the same compiled-world reachability contract
+        // as entity identity.  Keep this after all facts and typed rules have
+        // loaded so the arity census sees rule heads and bodies as well as
+        // extensional rows, and before stratification/saturation so every
+        // three-path compile observes the same generated rewrite program.
+        dli_eval::world::synthesize_predicate_alias_rules(&mut self.wm.world);
 
         // The load-time stratification handoff: consume the evaluator seam and
         // surface a negative-dependency cycle as a finding (spec 08 §1).

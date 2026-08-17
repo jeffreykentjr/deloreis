@@ -461,7 +461,10 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             lines
         }
         // Entity / Attr / Fact are handled as rows, never raw.
-        Decl::Entity(_) | Decl::Attr(_) | Decl::Fact(_) => Vec::new(),
+        // Predicate identity is structured wire carriage only. It has no
+        // .dli rendering; keep the formatter exhaustive without reopening the
+        // retiring text surface.
+        Decl::PredicateSameAs(_) | Decl::Entity(_) | Decl::Attr(_) | Decl::Fact(_) => Vec::new(),
     }
 }
 

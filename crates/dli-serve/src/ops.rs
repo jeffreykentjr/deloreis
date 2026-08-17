@@ -229,6 +229,11 @@ pub enum Op {
     /// corrected to declared entities in 1.11.0.
     #[serde(rename = "author.entity_candidates")]
     AuthorEntityCandidates,
+    /// Assert two predicate names denote the same property, contract 1.12.0.
+    /// This uses a dedicated AST/evaluator channel and never aliases through
+    /// entity identity. No `.dli` syntax or rendering form exists for it.
+    #[serde(rename = "author.assert_predicate_same_as")]
+    AuthorAssertPredicateSameAs,
 }
 
 impl Op {
@@ -240,7 +245,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 67] = [
+    pub const ALL: [Op; 68] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -308,6 +313,7 @@ impl Op {
         Op::AuthorRecordDecision,
         Op::AuthorPredicates,
         Op::AuthorEntityCandidates,
+        Op::AuthorAssertPredicateSameAs,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -387,6 +393,14 @@ impl Op {
         matches!(self, Op::AuthorPredicates | Op::AuthorEntityCandidates)
     }
 
+    /// Whether this op was introduced in contract 1.12.0 (predicate identity).
+    /// It is appended at the end so every earlier capability list stays
+    /// byte-identical.
+    #[must_use]
+    pub const fn added_in_1_12_0(self) -> bool {
+        matches!(self, Op::AuthorAssertPredicateSameAs)
+    }
+
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
     /// negotiation's capability list — and the golden fixture recording it —
@@ -411,7 +425,9 @@ impl Op {
     /// apart; the unit test below asserts the agreement for every op.
     #[must_use]
     pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_10_0() {
+        if self.added_in_1_12_0() {
+            "1.12.0"
+        } else if self.added_in_1_10_0() {
             "1.10.0"
         } else if self.added_in_1_9_0() {
             "1.9.0"
@@ -463,6 +479,7 @@ impl Op {
                 | Op::AuthorAddRule
                 | Op::AuthorDeclareInertial
                 | Op::AuthorRecordDecision
+                | Op::AuthorAssertPredicateSameAs
         )
     }
 
@@ -624,6 +641,9 @@ impl Op {
             Op::AuthorEntityCandidates => {
                 "Find entity candidates whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id. Contract 1.11.0 and later restrict the universe to declared entities."
             }
+            Op::AuthorAssertPredicateSameAs => {
+                "Assert two predicate names denote the same property; the evaluator records a defeasible symmetric-transitive identity claim and exposes its consequences once the predicate-identity kernel is wired."
+            }
         }
     }
 }
@@ -640,6 +660,9 @@ mod tests {
         for op in Op::ALL {
             if op.added_in_1_10_0() {
                 assert_eq!(op.introduced_in(), "1.10.0", "{op:?}");
+            }
+            if op.added_in_1_12_0() {
+                assert_eq!(op.introduced_in(), "1.12.0", "{op:?}");
             }
             if op.added_in_1_9_0() {
                 assert_eq!(op.introduced_in(), "1.9.0", "{op:?}");

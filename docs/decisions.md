@@ -5262,3 +5262,70 @@ released `1.10.0` golden remains unchanged. Unit tests compare heap results with
 exhaustive deterministic ordering across limits and Unicode names, and test the
 cutoff equality boundary. The schema, docs, fixture registry, and full offline
 gate are the acceptance checks for the new contract floor.
+
+## DL-0092 — Record predicate identity as a defeasible, symmetric-transitive wire claim
+
+*Date: 2026-08-17*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the predicate-identity gap and the v1 boundaries chosen for its wire
+implementation. It is live and binding on the tree, pending the author's async
+review (DL-0052).
+
+**Ruling.** Contract `1.12.0` adds the typed authoring operation
+`author.assert_predicate_same_as`. It records the caller's claim that two
+predicate names denote one property; the engine does not decide that claim from
+name similarity, string distance, overlapping values, shared subjects, or data
+shape. The operation has no new `.dli` form: no current consumer needs textual
+predicate-identity round-trip, and structured JSON, fact objects, staged diffs,
+queries, and `author.why` are the supported review surfaces. The un-lift trigger
+for that boundary is FW-10 or an actual consumer requirement for a textual
+round-trip, at which point the consumer-owned rendering contract is reopened.
+
+Identity is a certain, defeasible claim with the same certainty and preview
+semantics as entity identity. A proposed or unresolved claim remains possible;
+to preview certain consequences a caller stages a resolving citation (or the
+equivalent fork valuation) before reading `author.check` or `author.diff`.
+Defeat uses the ordinary `author.defeat` valuation flip: derived copies,
+findings, and persistence consequences disappear while source facts remain
+under their authored predicate names. Certain links close symmetrically and
+transitively using a deterministic lexical representative; self-merge is a
+warning and a no-op. Rule heads and bodies, FD checks, fluent timelines,
+queries, derivations, and `author.why` all see that closure, and the identity
+support is conjoined into every dependent support polynomial.
+
+Functionality and inertia use union semantics within a certain identity
+component: either declaration promotes the merged property, and the engine
+emits the structured non-blocking warning
+`predicate-identity.policy-promoted` naming the assertion and policy support.
+V1 validates observed positional arity only. Unknown arity remains open;
+rechecks are limited to components touched by the changed predicate. A known
+incompatible arity emits structured error
+`predicate-identity.arity-mismatch`, blocks materialization, and fails closed
+without a partial rewrite. The explicit un-lift trigger for this boundary is a
+declared predicate-shape or type system. FD collisions remain
+`continuity.fd-violation`, fluent overlap remains
+`continuity.fluent-contradiction`, and both structured findings name the
+identity assertion in their support data.
+
+The fact-before-identity and identity-before-fact paths, entity/predicate
+arrival permutations, and chained predicate links are required to be
+byte-identical. Loader, evaluator, and durable lorestore paths must converge;
+the declaration is carried as typed JSON and reconstructs without a ground
+atom. Branch-scoped pre-images read `head_ref.commit`, never `root_hash()`;
+assertions in a branch cannot leak into its base or siblings. These are v1
+invariants, and their un-lift trigger is a measured consumer requirement for a
+different storage or indexing model, not an inference-based shortcut.
+
+**Scope boundary.** The resolution that two names denote one property remains
+outside the engine. The engine records the caller's decision, propagates its
+consequences, and makes them inspectable and retractable; it never chooses the
+identity itself.
+
+**Verification.** The acceptance, defeat, confluence, declaration-only,
+arity-refusal, rule, fluent, wire, durable-carriage, fixture-replay, and
+three-path tests are part of the same change. Pre-`1.12.0` contract bytes and
+worlds without predicate-identity declarations remain byte-identical. Fresh
+red teams must execute branch-isolation, inference-creep, order-dependence,
+and live-wire-reachability probes on the committed diff; a report without
+executed commands is not a red-team result.

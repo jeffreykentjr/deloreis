@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface, offline and deterministic. Contract 1.11.0 is current while accepted earlier wires retain their specified behavior; the additive 1.12.0 predicate-identity documentation lane is specified separately."
+verdict: "One project-backed JSON/MCP worker surface, offline and deterministic. Contract 1.12.0 is current while accepted earlier wires retain their specified behavior; predicate identity is a typed authoring operation with no new .dli form."
 ---
 
 # Serving
@@ -43,13 +43,13 @@ and `integration/fantasy-contract.md` §3; this document specifies the `dli.*`
 batch surface. The split is noted here so the process model is complete; the
 authoring tools are not re-specified.
 
-The next additive authoring floor is contract `1.12.0`:
+Contract `1.12.0` adds:
 `author.assert_predicate_same_as` is a typed, capability-negotiated declaration
 that reaches the same evaluator, check, and lorestore paths as the other
-authoring tools. It adds no batch operation and no textual `.dli` form. Until
-the separate wire implementation and generated fixtures land, this serving
-description does not advertise `1.12.0` as a capability; earlier negotiated
-responses remain unchanged.
+authoring tools. It adds no batch operation and no textual `.dli` form because
+no current consumer needs predicate identity to round-trip through that
+deprecated rendering; structured JSON and fact objects are the supported
+surfaces. Earlier negotiated responses remain unchanged (DL-0092).
 
 ### 1.1 Caller projects
 
@@ -168,7 +168,7 @@ The version handshake rides `dli.version`, not the envelope: a consumer calls
 `dli.version` and reads the `contract`, `contract_version`, `server`, and
 `capabilities` the running build reports (the consumer pins the contract vendored
 and digest-checked, DL-0010). This build speaks `0.5.1`, `0.6.0`–`0.6.4`,
-and `1.0.0` through `1.11.0`, and answers every call in the version that call
+and `1.0.0` through `1.12.0`, and answers every call in the version that call
 declared, so a
 consumer vendored at an older version sees byte-identical responses until it
 chooses to move (`integration/fantasy-contract.md` §6). A frame that declares a

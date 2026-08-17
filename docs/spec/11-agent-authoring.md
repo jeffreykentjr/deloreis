@@ -796,8 +796,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-The implemented `1.11.0` surface enforces that rule for all 67 operations.
-The additive `1.12.0` predicate-identity floor will enforce it for 68. Paired cases declare
+The implemented `1.12.0` surface enforces that rule for all 68 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

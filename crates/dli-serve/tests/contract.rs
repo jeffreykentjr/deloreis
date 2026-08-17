@@ -73,6 +73,10 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::AuthorRecordDecision, "author.record_decision"),
     (Op::AuthorPredicates, "author.predicates"),
     (Op::AuthorEntityCandidates, "author.entity_candidates"),
+    (
+        Op::AuthorAssertPredicateSameAs,
+        "author.assert_predicate_same_as",
+    ),
 ];
 
 #[test]

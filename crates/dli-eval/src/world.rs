@@ -1449,9 +1449,7 @@ pub fn synthesize_predicate_alias_rules(world: &mut World) {
     // shapes for every edge in that component. A richer declared shape system
     // can tighten this boundary later; the kernel itself stays deterministic
     // and does not infer identity from the observed data.
-    let identity_map = dli_core::predicate_alias::predicate_canon_map(
-        direct.iter().cloned(),
-    );
+    let identity_map = dli_core::predicate_alias::predicate_canon_map(direct.iter().cloned());
     let mut component_arities: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
     for (pred, pred_arities) in &arities {
         let root = dli_core::alias::canon(&identity_map, pred).to_owned();
@@ -1469,7 +1467,8 @@ pub fn synthesize_predicate_alias_rules(world: &mut World) {
             Term::Sym(Ident::synthetic(right)),
         ],
     };
-    let existing_names: BTreeSet<String> = world.rules.iter().map(|rule| rule.name.clone()).collect();
+    let existing_names: BTreeSet<String> =
+        world.rules.iter().map(|rule| rule.name.clone()).collect();
     let mut generated_names = existing_names;
 
     for (left, right) in direct {
@@ -1477,6 +1476,13 @@ pub fn synthesize_predicate_alias_rules(world: &mut World) {
         let Some(component_shapes) = component_arities.get(&root) else {
             continue;
         };
+        // A declaration that joins incompatible observed shapes is a loud,
+        // graded refusal, not a partial merge. The loader reports the exact
+        // component mismatch; the evaluator also fails closed here so no
+        // arity-specific rewrite can leak through before materialization.
+        if component_shapes.len() > 1 {
+            continue;
+        }
         for arity in component_shapes {
             let args: Vec<String> = (0..*arity).map(|index| format!("P{index}")).collect();
             let source = |pred: &str| AtomExpr {

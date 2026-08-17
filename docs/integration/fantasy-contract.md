@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.11.0, with the additive 1.12.0 predicate-identity lane specified below. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible entity identity, datalog rule authoring, temporal close-out findings, inertial persistence, the inertia-aware read, declared-only entity candidates, and complete paired framing replay are implemented across the accepted legacy window."
+verdict: "The generic worker contract at 1.12.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible entity and predicate identity, datalog rule authoring, temporal close-out findings, inertial persistence, the inertia-aware read, declared-only entity candidates, and complete paired framing replay are implemented across the accepted window."
 ---
 
 # The dli-worker contract
@@ -18,14 +18,14 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.11.0` (`decisions.md` DL-0051,
+> **Implementation status:** the contract is at `1.12.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
-> DL-0080, DL-0081, DL-0082, DL-0084, DL-0091). It carries typed responses for all 67 operations,
+> DL-0080, DL-0081, DL-0082, DL-0084, DL-0091, DL-0092). It carries typed responses for all 68 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.11.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.12.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -33,11 +33,9 @@ either side disagrees with this document, this document wins.
 > `verified` on the STATUS board. What remains is the consumer's own corpus
 > pivot, not a deloreis deliverable.
 
-> **Predicate-identity documentation lane:** this document specifies the
-> additive `1.12.0` surface for the separate wire implementation. Until that
-> lane lands its source, generated schemas, and fixtures, the checked-out
-> `1.11.0` binary remains the implemented contract. No prior-version fixture or
-> capability bytes may change when the new floor is released.
+> Predicate identity is live at `1.12.0`. It is a typed authoring operation
+> with generated schemas and golden/negative/framing fixtures; no prior-version
+> fixture or capability bytes change.
 
 ## 1. Parties
 
@@ -343,7 +341,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.11.0` enforces it for all 67 operations.
+today: contract `1.12.0` enforces it for all 68 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.

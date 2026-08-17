@@ -42,8 +42,7 @@ pub fn predicate_closure_pairs<I: IntoIterator<Item = (String, String)>>(
     let members: Vec<String> = members.into_iter().collect();
     for left in &members {
         for right in &members {
-            if left != right
-                && crate::alias::canon(&map, left) == crate::alias::canon(&map, right)
+            if left != right && crate::alias::canon(&map, left) == crate::alias::canon(&map, right)
             {
                 closure.insert((left.clone(), right.clone()));
             }

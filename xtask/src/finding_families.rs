@@ -173,6 +173,22 @@ const FAMILIES: &[Family] = &[
         ],
     },
     Family {
+        key: "predicate-identity",
+        title: "predicate-identity — declared property-identity validation",
+        emitter: "predicate-identity validation and policy projection in the world loader/check seam",
+        owner: "dli-world :: model.rs (LoadFinding)",
+        severity_note: "Mixed: an observed-shape mismatch is an error that blocks
+            materialization; a union-policy promotion is a non-blocking warning.",
+        sources: &["../crates/dli-world/src/model.rs"],
+        scrape: Scrape::Prefixed("predicate-identity"),
+        codes: &[Code {
+            code: "predicate-identity.arity-mismatch",
+            severity: "error",
+            repair: "—",
+            meaning: "a certain predicate-identity component contains incompatible observed positional arities; materialization is refused rather than performing a partial merge.",
+        }],
+    },
+    Family {
         key: "continuity",
         title: "continuity — the world-consistency battery",
         emitter: "the continuity checks, run by `dli.check` (world-internal) and `check-draft` (claim-relative)",
@@ -825,6 +841,12 @@ const FAMILIES: &[Family] = &[
                 severity: "warn",
                 repair: "—",
                 meaning: "a `same-as` claim names the same id on both sides; it is a no-op merge.",
+            },
+            Code {
+                code: "predicate-identity.self-merge",
+                severity: "warn",
+                repair: "—",
+                meaning: "a predicate-identity claim names the same predicate on both sides; it is retained for provenance but has no semantic effect.",
             },
             Code {
                 code: "identity.temporal-unsupported",

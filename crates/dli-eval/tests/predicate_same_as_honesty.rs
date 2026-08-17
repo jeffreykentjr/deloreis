@@ -119,13 +119,21 @@ fn predicate_identity_is_declaration_only_and_symmetric_transitive() {
     for predicate in ["current-work", "current-job", "occupation"] {
         assert_eq!(status(&world, predicate, &["mara"]), Status::Certain);
     }
-    assert_eq!(status(&world, "current-workshop", &["mara"]), Status::Certain);
-    assert_eq!(status(&world, "current-job", &["someone-else"]), Status::Dead);
+    assert_eq!(
+        status(&world, "current-workshop", &["mara"]),
+        Status::Certain
+    );
+    assert_eq!(
+        status(&world, "current-job", &["someone-else"]),
+        Status::Dead
+    );
     assert!(world.predicate_same_as_links.len() == 2);
-    assert!(world
-        .facts
-        .iter()
-        .all(|fact| fact.atom.pred != "predicate-same-as"));
+    assert!(
+        world
+            .facts
+            .iter()
+            .all(|fact| fact.atom.pred != "predicate-same-as")
+    );
 }
 
 #[test]
@@ -134,11 +142,7 @@ fn identity_supports_copies_and_defeat_unmerges_without_deleting_source() {
         ratify("D-fact"),
         ratify("D-identity"),
         fact("current-work", &["mara"], Some(ratified("D-fact"))),
-        predicate_same_as(
-            "current-work",
-            "current-job",
-            Some(ratified("D-identity")),
-        ),
+        predicate_same_as("current-work", "current-job", Some(ratified("D-identity"))),
     ]))
     .expect("lowers")
     .fixpoint()
@@ -158,12 +162,17 @@ fn identity_supports_copies_and_defeat_unmerges_without_deleting_source() {
     let mut defeated = world.clone();
     let identity = defeated.interner.intern("D-identity");
     defeated.valuation.set(identity, false);
-    assert_eq!(status(&defeated, "current-work", &["mara"]), Status::Certain);
+    assert_eq!(
+        status(&defeated, "current-work", &["mara"]),
+        Status::Certain
+    );
     assert_eq!(status(&defeated, "current-job", &["mara"]), Status::Dead);
-    assert!(defeated
-        .facts
-        .iter()
-        .any(|fact| fact.atom == source_fact("current-work", "mara")));
+    assert!(
+        defeated
+            .facts
+            .iter()
+            .any(|fact| fact.atom == source_fact("current-work", "mara"))
+    );
 }
 
 #[test]
@@ -195,7 +204,10 @@ fn proposed_identity_is_possible_until_its_support_is_ruled() {
 #[test]
 fn rules_use_identity_for_bodies_and_heads() {
     let mut world = World::new();
-    world.assert_fact(source_fact("current-work", "mara"), dli_core::ann::Ann::unconditional());
+    world.assert_fact(
+        source_fact("current-work", "mara"),
+        dli_core::ann::Ann::unconditional(),
+    );
     world.assert_predicate_same_as(
         "current-work",
         "current-job",
@@ -246,17 +258,19 @@ fn self_merge_and_identity_free_world_are_behavior_neutral() {
         predicate_same_as("rank", "rank", Some(ratified("D-1"))),
         fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
     ]))
-        .expect("lowers");
+    .expect("lowers");
     let same = World::lower(&document(vec![
         ratify("D-1"),
         fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     assert!(self_merge.rules.is_empty());
-    assert!(self_merge
-        .facts
-        .iter()
-        .all(|fact| fact.atom.pred != "predicate-same-as:link"));
+    assert!(
+        self_merge
+            .facts
+            .iter()
+            .all(|fact| fact.atom.pred != "predicate-same-as:link")
+    );
     assert_eq!(
         serde_json::to_string(&base).expect("serializes"),
         serde_json::to_string(&same).expect("serializes")
@@ -275,21 +289,29 @@ fn self_merge_and_identity_free_world_are_behavior_neutral() {
 fn ordinary_predicate_same_as_fact_never_activates_identity() {
     let world = World::lower(&document(vec![
         ratify("D-1"),
-        fact("predicate-same-as", &["current-work", "current-job"], Some(ratified("D-1"))),
+        fact(
+            "predicate-same-as",
+            &["current-work", "current-job"],
+            Some(ratified("D-1")),
+        ),
         fact("current-work", &["mara"], Some(ratified("D-1"))),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
     assert_eq!(status(&world, "current-work", &["mara"]), Status::Certain);
-    assert!(world
-        .facts
-        .iter()
-        .all(|fact| fact.atom.pred != "current-job"));
-    assert!(world
-        .derived
-        .iter()
-        .all(|row| row.atom.pred != "current-job"));
+    assert!(
+        world
+            .facts
+            .iter()
+            .all(|fact| fact.atom.pred != "current-job")
+    );
+    assert!(
+        world
+            .derived
+            .iter()
+            .all(|row| row.atom.pred != "current-job")
+    );
     assert!(world.predicate_same_as_links.is_empty());
 }
 
@@ -302,7 +324,9 @@ fn zero_predicate_identity_preserves_serialized_world() {
     let lowered = World::lower(&document).expect("lowers");
     assert!(lowered.predicate_same_as_links.is_empty());
     assert!(lowered.rules.is_empty());
-    assert!(!serde_json::to_string(&lowered)
-        .expect("serializes")
-        .contains("predicate_same_as_links"));
+    assert!(
+        !serde_json::to_string(&lowered)
+            .expect("serializes")
+            .contains("predicate_same_as_links")
+    );
 }

@@ -411,9 +411,11 @@ mod tests {
         let bytes = serde_json::to_vec(&declaration).expect("serializes");
         let round_trip: Decl = serde_json::from_slice(&bytes).expect("deserializes");
         assert_eq!(declaration, round_trip);
-        assert!(String::from_utf8(bytes)
-            .expect("utf8")
-            .contains("PredicateSameAs"));
+        assert!(
+            String::from_utf8(bytes)
+                .expect("utf8")
+                .contains("PredicateSameAs")
+        );
     }
 }
 
