@@ -543,6 +543,19 @@
           ]
         },
         {
+          "description": "A predicate identity claim: `left` and `right` name the same property.\n\nThis is structured carriage for the semantic authoring door. It has no\nparser or formatter representation; callers construct it through the\ntyped wire surface and the evaluator records it as a defeasible claim.",
+          "type": "object",
+          "properties": {
+            "PredicateSameAs": {
+              "$ref": "#/$defs/PredicateSameAsDecl"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "PredicateSameAs"
+          ]
+        },
+        {
           "description": "`hypothesis <name> \"<statement>\"` — a named speculative premise.",
           "type": "object",
           "properties": {
@@ -2036,6 +2049,35 @@
         "costs",
         "cycles_in_scope",
         "span"
+      ]
+    },
+    "PredicateSameAsDecl": {
+      "description": "A predicate identity claim carried by the typed authoring surface.\n\nThe declaration is deliberately a structural mirror of [`SameAsDecl`], but\nit lives in its own enum variant and evaluator channel. Predicate identity\nis never inferred from names, values, or data shape: this declaration is\nthe only input that can assert it.",
+      "type": "object",
+      "properties": {
+        "left": {
+          "description": "One predicate name in the identity claim.",
+          "$ref": "#/$defs/Ident"
+        },
+        "provenance": {
+          "description": "Provenance annotation, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Annotation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "description": "The other predicate name in the identity claim.",
+          "$ref": "#/$defs/Ident"
+        }
+      },
+      "required": [
+        "left",
+        "right"
       ]
     },
     "PrincipleDecl": {

@@ -148,6 +148,10 @@ fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
             .then(|| (K::Entity, e.name.text.clone())),
         Decl::Before(b) => Some((K::Before, format!("{}->{}", b.earlier.text, b.later.text))),
         Decl::SameAs(s) => Some((K::SameAs, format!("{}={}", s.left.text, s.right.text))),
+        Decl::PredicateSameAs(s) => Some((
+            K::PredicateSameAs,
+            format!("{}={}", s.left.text, s.right.text),
+        )),
         Decl::Rule(d) => Some((K::Rule, d.name.text.clone())),
         Decl::Fork(d) => Some((K::Fork, d.question.text.clone())),
         Decl::Practice(d) => Some((K::Practice, d.name.text.clone())),
@@ -272,6 +276,7 @@ fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject 
 /// object in the stream. Identity-based (not count-based) because commit-chain
 /// deduplication can elide an atom that already exists in an earlier commit.
 #[must_use]
+#[allow(clippy::match_same_arms)]
 pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
     let implies_renders = |options: &[dli_ast::decl::OptionClause]| {
         options
@@ -313,6 +318,7 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
             }
             .render(),
         ],
+        Decl::PredicateSameAs(_) => Vec::new(),
         Decl::Question(q) => implies_renders(&q.options),
         Decl::Fork(f) => implies_renders(&f.options),
         // A state is carried whole *and* regenerates its mirrored attribute
@@ -516,6 +522,7 @@ fn decl_provenance(decl: &Decl) -> Option<&Annotation> {
         Decl::Fact(d) => d.provenance.as_ref(),
         Decl::Before(d) => d.provenance.as_ref(),
         Decl::SameAs(d) => d.provenance.as_ref(),
+        Decl::PredicateSameAs(d) => d.provenance.as_ref(),
         Decl::Kind(d) => d.provenance.as_ref(),
         Decl::Rule(d) => d.provenance.as_ref(),
         Decl::Cycle(d) => d.provenance.as_ref(),
@@ -551,6 +558,9 @@ fn decl_label(decl: &Decl) -> String {
         Decl::Fact(f) => format!("fact '{}'", f.atom.pred.text),
         Decl::Before(b) => format!("ordering '{} -> {}'", b.earlier.text, b.later.text),
         Decl::SameAs(s) => format!("identity '{} = {}'", s.left.text, s.right.text),
+        Decl::PredicateSameAs(s) => {
+            format!("predicate identity '{} = {}'", s.left.text, s.right.text)
+        }
         Decl::State(s) => format!("state '{}'", s.name.text),
         other => format!("{other:?}"),
     }

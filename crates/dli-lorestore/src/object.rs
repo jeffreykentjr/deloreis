@@ -126,6 +126,9 @@ pub enum ExpertDeclKind {
     /// indistinguishable from an ordinary `same-as(a, b)` fact, and only the
     /// declaration form drives the identity-closure rule synthesis (WS-1).
     SameAs,
+    /// A structured predicate identity declaration. It has no `.dli` form;
+    /// the carriage preserves the typed wire declaration for reconstruction.
+    PredicateSameAs,
 }
 
 /// A declaration carried as a marked string in v1 (the expert-tier debt rule,

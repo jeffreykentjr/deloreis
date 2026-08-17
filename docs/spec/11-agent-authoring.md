@@ -554,7 +554,52 @@ Contract `1.8.0` adds one declaration over fluent predicates:
   active only while both the declaration and the competing value are certain
   (`docs/decisions.md` DL-0081 records the full ruling).
 
-### 3.15 Read tools
+### 3.15 Predicate identity declarations
+
+Contract `1.12.0` adds one typed declaration over predicate names:
+
+- `author.assert_predicate_same_as {workspace, left, right, provenance}` records
+  that `left` and `right` name the same property. It closes symmetrically and
+  transitively over certain identity claims, with a deterministic
+  lexicographically smallest representative used only for evaluation and
+  checks. It never infers identity from names, values, shared subjects, or
+  observed shape. A self-identity is a warning and a no-op.
+
+The certainty and preview path is deliberately the entity-identity path's
+path. A proposed identity may appear as a possible staged consequence, but it
+does not create a certain merge or a certain FD/fluent finding. A caller
+previews certain effects by supplying a resolving citation (or the equivalent
+fork valuation) before reading `author.check` or `author.diff`. Defeat uses the
+existing `author.defeat` path: support conditioned on the identity flips dead,
+derived facts and findings revert, and source facts remain under their
+original predicate names.
+
+The declaration is visible to authored facts, queries, rules, FD checks, fluent
+checks, and durable lowering. Functionality and inertia combine by union within
+a certain identity component and emit the non-blocking structured warning
+`predicate-identity.policy-promoted` when a member declaration promotes the
+merged property. A known positional-arity conflict in facts or rule
+heads/bodies raises the error `predicate-identity.arity-mismatch`; unknown
+arity is allowed until evidence for the affected identity component arrives.
+Rechecking is component-scoped: a new fact or rule touches only identity claims
+whose component contains that predicate, and an unrelated workspace mutation
+does not rescan the world.
+
+Rules match and derive through the predicate closure, and the identity claim is
+included in every affected support polynomial. A functional collision remains
+`continuity.fd-violation`; a fluent overlap remains
+`continuity.fluent-contradiction`; both findings carry structured data naming
+the identity assertion. Entity and predicate identity must commute regardless
+of arrival order, as must the two orderings in which facts and predicate
+identity are authored. Loader, evaluator, and lorestore outputs must be
+byte-identical, and branch pre-images must read the branch head commit rather
+than the store root.
+
+This operation has no new `.dli` rendering. No consumer requires a predicate
+identity textual round trip; structured JSON, fact objects, and the consumer's
+rendered diff are the supported wire and review surfaces.
+
+### 3.16 Read tools
 
 Six non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
@@ -576,7 +621,7 @@ query-specific result shapes rather than `{ ok, workspace_digest, rendered,
 findings }`. An agent uses them to orient before mutating: query what exists,
 check the current state, understand a derivation, then act.
 
-### 3.16 Expert authoring tools (contract 1.3.0)
+### 3.17 Expert authoring tools (contract 1.3.0)
 
 Seven tools add the language lane and the continuity/ledger pair the expert
 card (`docs/cards/expert-card.md`) describes; each stages like any other add,
@@ -593,7 +638,7 @@ seven are advertised only from contract `1.3.0` and above (DL-0058).
 | `author.add_state {id, value?, time?}` | Assert a time-varying state fluent — a value that holds over an interval, not forever; `time` is `{kind: after\|during\|since\|until, point}`. |
 | `author.add_attest {question}` | Request an attestation for an open question already in the workspace. |
 
-### 3.17 Branch and merge tools (contract 0.6.1)
+### 3.18 Branch and merge tools (contract 0.6.1)
 
 `author.branch {workspace, action: create|list, name?, from?}` creates a
 persistent, named ref into the workspace's lorestore at the source branch's
@@ -751,7 +796,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-Contract `1.6.0` enforces that rule for all 67 operations. Paired cases declare
+The implemented `1.12.0` surface enforces that rule for all 68 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

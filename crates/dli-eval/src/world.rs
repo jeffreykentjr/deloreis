@@ -331,6 +331,12 @@ pub struct World {
     /// (the behavior-neutrality pin).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub same_as_links: Vec<(String, String, Ann)>,
+    /// The separate predicate-identity declaration channel. Plain facts never
+    /// populate this field; only `Decl::PredicateSameAs` and
+    /// [`World::assert_predicate_same_as`] do. Empty for identity-free worlds,
+    /// preserving their serialized form.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub predicate_same_as_links: Vec<(String, String, Ann)>,
 }
 
 impl World {
@@ -477,6 +483,21 @@ impl World {
                     );
                     world.assert_same_as(&same_as.left.text, &same_as.right.text, ann);
                 }
+                // Predicate identity is structured carriage only. It has its
+                // own declaration channel and never becomes an ordinary fact
+                // or an entity-identity link.
+                Decl::PredicateSameAs(predicate_same_as) => {
+                    let ann = world.lower_fact_annotation(
+                        predicate_same_as.provenance.as_ref(),
+                        &mut proposal_seq,
+                        &known_decisions,
+                    );
+                    world.assert_predicate_same_as(
+                        &predicate_same_as.left.text,
+                        &predicate_same_as.right.text,
+                        ann,
+                    );
+                }
                 // No atom here, each for a different reason:
                 // - `kind`/`rule` need the loader's provenance-gated
                 //   compilation (`dli_world::Loader::process_kind` /
@@ -533,6 +554,7 @@ impl World {
         // compiled loader's `finish()` call agree (three-path parity). A world
         // with zero `same-as` facts synthesizes zero rules.
         synthesize_alias_rules(&mut world);
+        synthesize_predicate_alias_rules(&mut world);
         Ok(world)
     }
 
@@ -731,6 +753,22 @@ impl World {
             grade: Grade::Asserted,
         });
         self.same_as_links.push((left, right, ann));
+    }
+
+    /// Declare a predicate identity link, the predicate-identity kernel's only
+    /// evaluator intake. The pair retains its support annotation;
+    /// [`synthesize_predicate_alias_rules`] turns it into symmetric rewrite
+    /// rules after facts and typed rules are present. Unlike entity identity,
+    /// this does not create a public ground fact: the declaration is structured
+    /// carriage, not an authorable predicate relation.
+    pub fn assert_predicate_same_as(
+        &mut self,
+        left: impl Into<String>,
+        right: impl Into<String>,
+        ann: Ann,
+    ) {
+        self.predicate_same_as_links
+            .push((left.into(), right.into(), ann));
     }
 
     /// Compute the dynamic grade of an atom under a specific valuation
@@ -1315,6 +1353,177 @@ pub fn synthesize_alias_rules(world: &mut World) {
             let body = vec![body_atom, link_atom(&arg_vars[pos], "Y")];
             let name = format!("same-as:{pred}/{arity}@{pos}");
             let _ = world.define_rule(name, head, body);
+        }
+    }
+}
+
+/// Synthesize predicate-identity rewrite rules over the separate declared
+/// predicate links.
+///
+/// Predicate names cannot be variables in ordinary Datalog, so predicate
+/// identity is compiled into one pair of ordinary positive rules for each
+/// direct declaration edge and each observed arity in that edge's connected
+/// component:
+///
+/// ```text
+/// current_job(A0, ...) :- current_work(A0, ...),
+///     predicate-same-as:link("current-work", "current-job")
+/// current_work(A0, ...) :- current_job(A0, ...),
+///     predicate-same-as:link("current-work", "current-job")
+/// ```
+///
+/// Chaining those rules supplies symmetric-transitive closure. The internal
+/// link fact carries the declaration's [`Ann`], so every copied or derived row
+/// carries the identity support polynomial. A proposed link therefore yields a
+/// possible copy; defeating its citation kills the copy on the next valuation
+/// read while leaving the source fact untouched.
+///
+/// The rule plan is deterministic: direct edges, predicate names, and arities
+/// are all ordered by `BTree*` collections. Calling this function repeatedly is
+/// safe; reserved link facts and generated rule names are not duplicated.
+const PREDICATE_ALIAS_LINK: &str = "predicate-same-as:link";
+
+fn seed_predicate_alias_links(world: &mut World) {
+    let seeded: BTreeSet<(String, String)> = world
+        .facts
+        .iter()
+        .filter(|fact| fact.atom.pred == PREDICATE_ALIAS_LINK && fact.atom.args.len() == 2)
+        .map(|fact| (fact.atom.args[0].clone(), fact.atom.args[1].clone()))
+        .collect();
+    for (left, right, ann) in &world.predicate_same_as_links {
+        if left == right || seeded.contains(&(left.clone(), right.clone())) {
+            continue;
+        }
+        world.facts.push(Fact {
+            atom: GroundAtom {
+                pred: PREDICATE_ALIAS_LINK.to_owned(),
+                args: vec![left.clone(), right.clone()],
+            },
+            ann: ann.clone(),
+            grade: Grade::Asserted,
+        });
+    }
+}
+
+fn predicate_alias_arities(world: &World) -> BTreeMap<String, BTreeSet<usize>> {
+    let mut arities: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
+    for fact in &world.facts {
+        if fact.atom.pred != PREDICATE_ALIAS_LINK {
+            arities
+                .entry(fact.atom.pred.clone())
+                .or_default()
+                .insert(fact.atom.args.len());
+        }
+    }
+    for rule in &world.rules {
+        if rule.head.pred.text != PREDICATE_ALIAS_LINK {
+            arities
+                .entry(rule.head.pred.text.clone())
+                .or_default()
+                .insert(rule.head.args.len());
+        }
+        for literal in &rule.body {
+            if literal.atom.pred.text != PREDICATE_ALIAS_LINK {
+                arities
+                    .entry(literal.atom.pred.text.clone())
+                    .or_default()
+                    .insert(literal.atom.args.len());
+            }
+        }
+    }
+    arities
+}
+
+/// Synthesize deterministic symmetric predicate-identity rewrite rules for the
+/// observed arities in each declared identity component.
+pub fn synthesize_predicate_alias_rules(world: &mut World) {
+    let direct: BTreeSet<(String, String)> = world
+        .predicate_same_as_links
+        .iter()
+        .map(|(left, right, _)| (left.clone(), right.clone()))
+        .filter(|(left, right)| left != right)
+        .collect();
+    if direct.is_empty() {
+        return;
+    }
+
+    // Seed one internal link fact per declaration, preserving every
+    // provenance alternative for duplicate declarations of the same pair.
+    seed_predicate_alias_links(world);
+
+    // Census every predicate occurrence, including rule bodies. A body-only
+    // predicate is still a real input to an identity rewrite and must not be
+    // missed just because it has no head of its own.
+    let arities = predicate_alias_arities(world);
+
+    // A connected component's observed shapes are the available rewrite
+    // shapes for every edge in that component. A richer declared shape system
+    // can tighten this boundary later; the kernel itself stays deterministic
+    // and does not infer identity from the observed data.
+    let identity_map = dli_core::predicate_alias::predicate_canon_map(direct.iter().cloned());
+    let mut component_arities: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
+    for (pred, pred_arities) in &arities {
+        let root = dli_core::alias::canon(&identity_map, pred).to_owned();
+        component_arities
+            .entry(root)
+            .or_default()
+            .extend(pred_arities);
+    }
+
+    let var = |name: &str| Term::Var(Ident::synthetic(name));
+    let link_atom = |left: &str, right: &str| AtomExpr {
+        pred: Ident::synthetic(PREDICATE_ALIAS_LINK),
+        args: vec![
+            Term::Sym(Ident::synthetic(left)),
+            Term::Sym(Ident::synthetic(right)),
+        ],
+    };
+    let existing_names: BTreeSet<String> =
+        world.rules.iter().map(|rule| rule.name.clone()).collect();
+    let mut generated_names = existing_names;
+
+    for (left, right) in direct {
+        let root = dli_core::alias::canon(&identity_map, &left).to_owned();
+        let Some(component_shapes) = component_arities.get(&root) else {
+            continue;
+        };
+        // A declaration that joins incompatible observed shapes is a loud,
+        // graded refusal, not a partial merge. The loader reports the exact
+        // component mismatch; the evaluator also fails closed here so no
+        // arity-specific rewrite can leak through before materialization.
+        if component_shapes.len() > 1 {
+            continue;
+        }
+        for arity in component_shapes {
+            let args: Vec<String> = (0..*arity).map(|index| format!("P{index}")).collect();
+            let source = |pred: &str| AtomExpr {
+                pred: Ident::synthetic(pred),
+                args: args.iter().map(|name| var(name)).collect(),
+            };
+
+            let forward_name = format!("predicate-same-as:{left}->{right}/{arity}");
+            if generated_names.insert(forward_name.clone()) {
+                let _ = world.define_rule(
+                    forward_name,
+                    source(&right),
+                    vec![
+                        BodyLiteral::pos(source(&left)),
+                        BodyLiteral::pos(link_atom(&left, &right)),
+                    ],
+                );
+            }
+
+            let reverse_name = format!("predicate-same-as:{right}->{left}/{arity}");
+            if generated_names.insert(reverse_name.clone()) {
+                let _ = world.define_rule(
+                    reverse_name,
+                    source(&left),
+                    vec![
+                        BodyLiteral::pos(source(&right)),
+                        BodyLiteral::pos(link_atom(&left, &right)),
+                    ],
+                );
+            }
         }
     }
 }

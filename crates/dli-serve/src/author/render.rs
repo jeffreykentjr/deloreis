@@ -38,7 +38,8 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     FactDecl, FunctionalDecl, HypothesisDecl, InertialDecl, NameDecl, NamePartDecl, OptionClause,
-    QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    PredicateSameAsDecl, QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader, StateDecl,
+    TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -356,6 +357,13 @@ fn sanitize_decl(decl: &Decl) -> Decl {
             provenance: a.provenance.as_ref().map(sanitize_annot),
         }),
         Decl::SameAs(s) => Decl::SameAs(SameAsDecl {
+            left: sanitize_ident(&s.left),
+            right: sanitize_ident(&s.right),
+            provenance: s.provenance.as_ref().map(sanitize_annot),
+        }),
+        // Structured wire carriage only: sanitize the fields for any generic
+        // display path, but do not invent a `.dli` rendering form.
+        Decl::PredicateSameAs(s) => Decl::PredicateSameAs(PredicateSameAsDecl {
             left: sanitize_ident(&s.left),
             right: sanitize_ident(&s.right),
             provenance: s.provenance.as_ref().map(sanitize_annot),

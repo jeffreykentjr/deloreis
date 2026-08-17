@@ -44,12 +44,13 @@ use crate::contract::{
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
     AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAsOfParams,
-    AuthorAssertSameAsParams, AuthorBranchParams, AuthorCheckParams, AuthorDeclareFunctionalParams,
-    AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams,
-    AuthorEntityCandidatesParams, AuthorFindingsParams, AuthorListWorkspacesParams,
-    AuthorMaterializeParams, AuthorMergeParams, AuthorOpenParams, AuthorOpenQuestionParams,
-    AuthorPredicatesParams, AuthorQueryParams, AuthorRecordDecisionParams, AuthorSetStandingParams,
-    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
+    AuthorAssertPredicateSameAsParams, AuthorAssertSameAsParams, AuthorBranchParams,
+    AuthorCheckParams, AuthorDeclareFunctionalParams, AuthorDeclareInertialParams,
+    AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams, AuthorEntityCandidatesParams,
+    AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
+    AuthorOpenParams, AuthorOpenQuestionParams, AuthorPredicatesParams, AuthorQueryParams,
+    AuthorRecordDecisionParams, AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams,
+    AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -315,6 +316,14 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             Ok((
                 params.workspace.clone(),
                 tools::assert_same_as(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorAssertPredicateSameAs => mutate(request, store, |store, request| {
+            let params: AuthorAssertPredicateSameAsParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::assert_predicate_same_as(store, &params, records_citations(request)),
             ))
         }),
         Op::AuthorAddRule => mutate(request, store, |store, request| {

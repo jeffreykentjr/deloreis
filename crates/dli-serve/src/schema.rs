@@ -510,6 +510,14 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             schema_for!(AuthorMutationResult),
         ),
         (
+            "author.assert_predicate_same_as.request".to_owned(),
+            schema_for!(AuthorAssertPredicateSameAsParams),
+        ),
+        (
+            "author.assert_predicate_same_as.response".to_owned(),
+            schema_for!(AuthorMutationResult),
+        ),
+        (
             "author.add_rule.request".to_owned(),
             schema_for!(AuthorAddRuleParams),
         ),

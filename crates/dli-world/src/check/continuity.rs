@@ -92,6 +92,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     out.extend(certain_rejected_lore(world));
     out.extend(chronology_cycle(world));
     out.extend(identity_temporal_unsupported(world));
+    out.extend(predicate_identity_policy_promotions(world));
     out.extend(fluent_contradictions(world, &canon));
     out.extend(inertia_unanchored(world, &canon));
     out.extend(fd_violations(world, &canon));
@@ -103,7 +104,20 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// Lift a loader fail-closed finding into a world-check finding, keeping its
 /// stable code and domain-spoken message (the two-channel error model).
 fn load_finding_to_world(finding: &LoadFinding) -> WorldFinding {
-    WorldFinding::error(finding.code(), finding.message())
+    let world_finding = WorldFinding::error(finding.code(), finding.message());
+    match finding {
+        LoadFinding::PredicateIdentityArityMismatch {
+            touched_predicate,
+            predicates,
+            arities,
+            ..
+        } => world_finding.with_data(serde_json::json!({
+            "touched_predicate": touched_predicate,
+            "predicates": predicates,
+            "arities": arities,
+        })),
+        _ => world_finding,
+    }
 }
 
 /// `continuity.chronology-cycle` when the era spine or the `before`-facts close
@@ -298,9 +312,17 @@ pub fn identity_canon(world: &CompiledWorld) -> BTreeMap<String, String> {
 /// Canonicalize a `(pred, subject)` slot's subject through the identity canon
 /// map. The predicate side never canonicalizes — `same-as` merges bearers, not
 /// relations.
-fn canon_slot(canon: &BTreeMap<String, String>, slot: &(String, String)) -> (String, String) {
+fn canon_slot(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    slot: &(String, String),
+) -> (String, String) {
+    let predicate_canon = world
+        .model
+        .predicate_identity
+        .certain_canon(&world.model.world.valuation, &world.model.world.theory);
     (
-        slot.0.clone(),
+        dli_core::alias::canon(&predicate_canon, &slot.0).to_owned(),
         dli_core::alias::canon(canon, &slot.1).to_owned(),
     )
 }
@@ -319,7 +341,7 @@ pub(super) fn fluent_class_member(
         .model
         .fluents
         .keys()
-        .any(|raw| &canon_slot(canon, raw) == slot)
+        .any(|raw| &canon_slot(world, canon, raw) == slot)
 }
 
 /// The claim-relative continuity battery over a set of asserted claims — the
@@ -525,7 +547,7 @@ fn intra_contradictions(
     let mut by_slot: BTreeMap<(String, String), BTreeMap<String, String>> = BTreeMap::new();
     for claim in claims {
         if let Some((slot, value)) = slot_of(claim) {
-            let slot = canon_slot(canon, &slot);
+            let slot = canon_slot(world, canon, &slot);
             let value = dli_core::alias::canon(canon, &value).to_owned();
             by_slot
                 .entry(slot)
@@ -571,7 +593,7 @@ fn slot_is_single_valued(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
 ) -> bool {
-    if world.model.functional_predicates.contains(&slot.0) {
+    if effective_functional_predicates(world).contains(&slot.0) {
         return true;
     }
     match certain_value_keys(world, canon, slot).len() {
@@ -591,8 +613,97 @@ fn predicate_is_functional(
     canon: &BTreeMap<String, String>,
     pred: &str,
 ) -> bool {
-    world.model.functional_predicates.contains(pred)
+    effective_functional_predicates(world).contains(pred)
         || inferred_functional(certain_binary_slots(world, canon)).contains(pred)
+}
+
+/// Union functionality across a certain predicate-identity class.  The
+/// canonical representative is the only key the FD primitive sees, so a
+/// declaration on either alias remains active after the merge.
+fn effective_functional_predicates(world: &CompiledWorld) -> BTreeSet<String> {
+    let predicate_canon = predicate_canon(world);
+    world
+        .model
+        .predicate_identity
+        .effective_functional(&world.model.functional_predicates, &predicate_canon)
+}
+
+/// Report the explicit policy consequence of union semantics when an identity
+/// component promotes a declaration from one member onto another. The engine
+/// does not infer the policy; it only makes the caller-declared merge's effect
+/// visible. One warning is emitted per certain identity link and policy kind
+/// whose component contains a declaration on some, but not all, members.
+fn predicate_identity_policy_promotions(world: &CompiledWorld) -> Vec<WorldFinding> {
+    let mut out = Vec::new();
+    let functional = &world.model.functional_predicates;
+    let inertial = &world.model.inertial_predicates;
+    for link in world
+        .model
+        .predicate_identity
+        .certain_links(&world.model.world.valuation, &world.model.world.theory)
+    {
+        let members = world.model.predicate_identity.component(&link.left);
+        let functional_count = members
+            .iter()
+            .filter(|member| functional.contains(*member))
+            .count();
+        let inertial_count = members
+            .iter()
+            .filter(|member| {
+                inertial.get(*member).is_some_and(|ann| {
+                    ann.status(&world.model.world.valuation, &world.model.world.theory)
+                        == Status::Certain
+                })
+            })
+            .count();
+        let mut policies = Vec::new();
+        if functional_count > 0 && functional_count < members.len() {
+            policies.push("functional");
+        }
+        if inertial_count > 0 && inertial_count < members.len() {
+            policies.push("inertial");
+        }
+        if policies.is_empty() {
+            continue;
+        }
+        out.push(
+            WorldFinding::warn(
+                crate::model::PREDICATE_IDENTITY_POLICY_PROMOTED,
+                format!(
+                    "predicate identity '{} = {}' promotes [{}] across the merged property by union semantics",
+                    link.left,
+                    link.right,
+                    policies.join(", ")
+                ),
+            )
+            .with_citations(link.citations.clone())
+            .with_data(serde_json::json!({
+                "left": link.left,
+                "right": link.right,
+                "members": members,
+                "policies": policies,
+                "semantics": "union",
+            })),
+        );
+    }
+    out
+}
+
+/// The certain predicate-identity closure, kept separate from entity identity
+/// because the two namespaces are allowed to reuse spellings.
+fn predicate_canon(world: &CompiledWorld) -> BTreeMap<String, String> {
+    world
+        .model
+        .predicate_identity
+        .certain_canon(&world.model.world.valuation, &world.model.world.theory)
+}
+
+/// Union inertia declarations across a certain predicate-identity class.
+fn effective_inertial_predicates(world: &CompiledWorld) -> BTreeMap<String, Ann> {
+    world
+        .model
+        .predicate_identity
+        .effective_inertial(&world.model.inertial_predicates, &predicate_canon(world))
 }
 
 // --- fluent (interval) reasoning ---------------------------------------------
@@ -623,7 +734,7 @@ fn fluent_contradictions(
     let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
     for raw_slot in world.model.fluents.keys() {
         by_canon
-            .entry(canon_slot(canon, raw_slot))
+            .entry(canon_slot(world, canon, raw_slot))
             .or_default()
             .push(raw_slot);
     }
@@ -640,7 +751,8 @@ fn fluent_contradictions(
         // (only subjects are), so `slot.0` keys the map directly. The
         // declaration's own `Ann` decides whether capping is active (DL-0081);
         // `None` for every non-inertial slot keeps `state_at` verbatim.
-        let inertial = world.model.inertial_predicates.get(&slot.0);
+        let inertial_predicates = effective_inertial_predicates(world);
+        let inertial = inertial_predicates.get(&slot.0);
         if let Some((witness, values)) = fluent_clash(world, &scratch, inertial) {
             out.push(
                 WorldFinding::error(
@@ -952,6 +1064,15 @@ fn fluent_finding_data(
         "spans": spans,
         "witness_points": points,
     });
+    let predicate_identity = predicate_identity_data(world, &slot.0);
+    if !predicate_identity.is_empty()
+        && let serde_json::Value::Object(map) = &mut data
+    {
+        map.insert(
+            "predicate_identity".to_owned(),
+            serde_json::Value::Array(predicate_identity),
+        );
+    }
     if inertial.is_some()
         && let serde_json::Value::Object(map) = &mut data
     {
@@ -1057,7 +1178,7 @@ pub fn slot_state_at(
     at: TimePoint,
 ) -> SlotStateAt {
     let canon = identity_canon(world);
-    let slot = canon_slot(&canon, &(pred.to_owned(), subject.to_owned()));
+    let slot = canon_slot(world, &canon, &(pred.to_owned(), subject.to_owned()));
     let chronology = &world.model.world.chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
@@ -1069,7 +1190,7 @@ pub fn slot_state_at(
     // order.
     let mut scratch: FluentTimeline<String> = FluentTimeline::new();
     for raw_slot in world.model.fluents.keys() {
-        if canon_slot(&canon, raw_slot) != slot {
+        if canon_slot(world, &canon, raw_slot) != slot {
             continue;
         }
         for span in &world.model.fluents[raw_slot].spans {
@@ -1077,7 +1198,8 @@ pub fn slot_state_at(
         }
     }
 
-    let inertial = world.model.inertial_predicates.get(&slot.0);
+    let inertial_predicates = effective_inertial_predicates(world);
+    let inertial = inertial_predicates.get(&slot.0);
     let capping = inertial.is_some_and(|ann| ann.status(valuation, theory) == Status::Certain);
     let inertial_citations = inertial
         .map(|ann| ann_citations(ann, citation_interner))
@@ -1258,13 +1380,13 @@ fn inertia_unanchored(
     let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
     for raw_slot in world.model.fluents.keys() {
         by_canon
-            .entry(canon_slot(canon, raw_slot))
+            .entry(canon_slot(world, canon, raw_slot))
             .or_default()
             .push(raw_slot);
     }
     let mut out = Vec::new();
     for (slot, members) in by_canon {
-        if !world.model.inertial_predicates.contains_key(&slot.0) {
+        if !effective_inertial_predicates(world).contains_key(&slot.0) {
             continue;
         }
         let mut values: Vec<String> = members
@@ -1328,7 +1450,8 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
     let certain = certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
         !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
     });
-    fd_violations_over(certain, &world.model.functional_predicates)
+    let functional_predicates = effective_functional_predicates(world);
+    fd_violations_over(certain, &functional_predicates)
         .into_iter()
         .map(|violation| {
             let slot = (violation.pred.clone(), violation.subject.clone());
@@ -1346,7 +1469,7 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
             // merged it — so the finding names the identity assertion, not
             // only the two facts it brought together.
             .with_citations(slot_citations(world, canon, &slot))
-            .with_data(fd_violation_data(&violation))
+            .with_data(fd_violation_data(world, &violation))
         })
         .collect()
 }
@@ -1356,13 +1479,50 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
 /// `slot_key` is `pred/subject`, a stable compound id for the slot a consumer
 /// can correlate multiple findings (or a repair) against without re-deriving
 /// it from `pred` and `subject` separately.
-fn fd_violation_data(violation: &dli_core::fd::FdViolation) -> serde_json::Value {
-    serde_json::json!({
+fn fd_violation_data(
+    world: &CompiledWorld,
+    violation: &dli_core::fd::FdViolation,
+) -> serde_json::Value {
+    let mut data = serde_json::json!({
         "pred": violation.pred,
         "subject": violation.subject,
         "values": violation.values,
         "slot_key": format!("{}/{}", violation.pred, violation.subject),
-    })
+    });
+    let predicate_identity = predicate_identity_data(world, &violation.pred);
+    if !predicate_identity.is_empty()
+        && let serde_json::Value::Object(map) = &mut data
+    {
+        map.insert(
+            "predicate_identity".to_owned(),
+            serde_json::Value::Array(predicate_identity),
+        );
+    }
+    data
+}
+
+/// Structured support naming for certain predicate-identity links that
+/// participate in a canonical predicate class.
+fn predicate_identity_data(world: &CompiledWorld, predicate: &str) -> Vec<serde_json::Value> {
+    let predicate_canon = predicate_canon(world);
+    let representative = dli_core::alias::canon(&predicate_canon, predicate);
+    world
+        .model
+        .predicate_identity
+        .certain_links(&world.model.world.valuation, &world.model.world.theory)
+        .filter(|link| {
+            dli_core::alias::canon(&predicate_canon, &link.left) == representative
+                || dli_core::alias::canon(&predicate_canon, &link.right) == representative
+        })
+        .map(|link| {
+            serde_json::json!({
+                "left": link.left,
+                "right": link.right,
+                "citations": link.citations,
+                "support": link.ann.support,
+            })
+        })
+        .collect()
 }
 
 /// `continuity.derived-fd-violation` (WS-2, amending DL-0075): a functional-
@@ -1392,11 +1552,12 @@ fn derived_fd_violations(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
 ) -> Vec<WorldFinding> {
+    let functional_predicates = effective_functional_predicates(world);
     let source_breaks: BTreeSet<(String, String)> = fd_violations_over(
         certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
             !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
         }),
-        &world.model.functional_predicates,
+        &functional_predicates,
     )
     .into_iter()
     .map(|violation| (violation.pred, violation.subject))
@@ -1406,7 +1567,7 @@ fn derived_fd_violations(
         !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
     });
 
-    fd_violations_over(derived, &world.model.functional_predicates)
+    fd_violations_over(derived, &functional_predicates)
         .into_iter()
         .filter(|violation| {
             !source_breaks.contains(&(violation.pred.clone(), violation.subject.clone()))
@@ -1424,7 +1585,7 @@ fn derived_fd_violations(
                 ),
             )
             .with_citations(derived_slot_citations(world, canon, &slot))
-            .with_data(fd_violation_data(&violation))
+            .with_data(fd_violation_data(world, &violation))
         })
         .collect()
 }
@@ -1447,7 +1608,7 @@ fn certain_binary_slots<'a>(
         .filter(move |atom| atom_status(world, atom) == Status::Certain)
         .filter_map(move |atom| {
             slot_of(&atom.atom).map(|(slot, value)| {
-                let (pred, subject) = canon_slot(canon, &slot);
+                let (pred, subject) = canon_slot(world, canon, &slot);
                 let value = dli_core::alias::canon(canon, &value).to_owned();
                 (pred, subject, value)
             })
@@ -1478,7 +1639,7 @@ fn certain_derived_binary_slots<'a>(
         })
         .filter_map(move |derived| {
             ground_binary_slot(&derived.atom).map(|(slot, value)| {
-                let (pred, subject) = canon_slot(canon, &slot);
+                let (pred, subject) = canon_slot(world, canon, &slot);
                 let value = dli_core::alias::canon(canon, &value).to_owned();
                 (pred, subject, value)
             })
@@ -1511,7 +1672,7 @@ fn derived_slot_citations(
     slot: &(String, String),
 ) -> Vec<String> {
     let mut out = slot_citations(world, canon, slot);
-    let slot = canon_slot(canon, slot);
+    let slot = canon_slot(world, canon, slot);
     let interner = &world.model.world.interner;
     for derived in &world.model.world.derived {
         if derived
@@ -1524,7 +1685,7 @@ fn derived_slot_citations(
         let Some((atom_slot, _)) = ground_binary_slot(&derived.atom) else {
             continue;
         };
-        if canon_slot(canon, &atom_slot) != slot {
+        if canon_slot(world, canon, &atom_slot) != slot {
             continue;
         }
         for citation in ann_citations(&derived.ann(), interner) {
@@ -1553,14 +1714,14 @@ pub(super) fn certain_values(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
 ) -> BTreeSet<String> {
-    let slot = canon_slot(canon, slot);
+    let slot = canon_slot(world, canon, slot);
     let mut out = BTreeSet::new();
     for atom in world.model.atoms() {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
         if let Some((atom_slot, value)) = slot_of(&atom.atom)
-            && canon_slot(canon, &atom_slot) == slot
+            && canon_slot(world, canon, &atom_slot) == slot
         {
             out.insert(dli_core::alias::canon(canon, &value).to_owned());
         }
@@ -1589,11 +1750,11 @@ fn slot_has_possible(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
 ) -> bool {
-    let slot = canon_slot(canon, slot);
+    let slot = canon_slot(world, canon, slot);
     world.model.atoms().iter().any(|atom| {
         atom_status(world, atom) == Status::Possible
             && slot_of(&atom.atom)
-                .is_some_and(|(atom_slot, _)| canon_slot(canon, &atom_slot) == slot)
+                .is_some_and(|(atom_slot, _)| canon_slot(world, canon, &atom_slot) == slot)
     })
 }
 
@@ -1607,13 +1768,15 @@ pub(super) fn slot_citations(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
 ) -> Vec<String> {
-    let slot = canon_slot(canon, slot);
+    let slot = canon_slot(world, canon, slot);
     let mut out = Vec::new();
     for atom in world.model.atoms() {
         if atom_status(world, atom) != Status::Certain {
             continue;
         }
-        if slot_of(&atom.atom).is_some_and(|(atom_slot, _)| canon_slot(canon, &atom_slot) == slot) {
+        if slot_of(&atom.atom)
+            .is_some_and(|(atom_slot, _)| canon_slot(world, canon, &atom_slot) == slot)
+        {
             for cite in &atom.citations {
                 if !out.contains(cite) {
                     out.push(cite.clone());
@@ -1643,6 +1806,16 @@ pub(super) fn slot_citations(
                     out.push(cite.clone());
                 }
             }
+        }
+    }
+    for citation in world.model.predicate_identity.citations_for(
+        &slot.0,
+        &predicate_canon(world),
+        &world.model.world.valuation,
+        &world.model.world.theory,
+    ) {
+        if !out.contains(&citation) {
+            out.push(citation);
         }
     }
     out

@@ -138,6 +138,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorDefeat
         | Op::AuthorDeclareFunctional
         | Op::AuthorAssertSameAs
+        | Op::AuthorAssertPredicateSameAs
         | Op::AuthorAddRule
         | Op::AuthorDeclareInertial
         | Op::AuthorAsOf
@@ -1989,6 +1990,8 @@ fn capabilities(dli: &str) -> Vec<String> {
     let as_of = crate::has_as_of_read(dli);
     let decisions = crate::has_decisions(dli);
     let incremental_canon = crate::has_incremental_canon(dli);
+    let predicate_identity =
+        crate::has_predicate_identity(dli) && crate::predicate_identity_wired();
     Op::ALL
         .iter()
         .copied()
@@ -2012,6 +2015,7 @@ fn capabilities(dli: &str) -> Vec<String> {
             other => as_of || !other.added_in_1_9_0(),
         })
         .filter(|op| incremental_canon || !op.added_in_1_10_0())
+        .filter(|op| predicate_identity || !op.added_in_1_12_0())
         .map(wire_name)
         .collect()
 }

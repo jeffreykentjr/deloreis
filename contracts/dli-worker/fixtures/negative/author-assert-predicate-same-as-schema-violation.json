@@ -1,0 +1,12 @@
+{
+  "fixture": "negative/author-assert-predicate-same-as-schema-violation",
+  "version": 1,
+  "note": "author.assert_predicate_same_as requires both predicate names and provenance.",
+  "send": {
+    "dli": "1.12.0",
+    "id": "1",
+    "op": "author.assert_predicate_same_as",
+    "params": {"workspace": "ws-1", "left": "current-work"}
+  },
+  "expect_error": {"code": "schema-violation"}
+}

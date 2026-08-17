@@ -1801,6 +1801,25 @@ pub struct AuthorAssertSameAsParams {
     pub provenance: Provenance,
 }
 
+/// `author.assert_predicate_same_as` params: assert two predicate names denote
+/// one property (contract 1.12.0).
+///
+/// This is deliberately a typed wire carriage only. No `.dli` spelling is
+/// added; the evaluator receives the dedicated `Decl::PredicateSameAs`
+/// variant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorAssertPredicateSameAsParams {
+    /// The workspace id.
+    pub workspace: String,
+    /// One predicate name in the identity claim.
+    pub left: String,
+    /// The other predicate name in the identity claim.
+    pub right: String,
+    /// The provenance and requested standing of this claim.
+    pub provenance: Provenance,
+}
+
 /// `author.add_rule` params: declare one datalog derivation rule (WS-2,
 /// contract 1.7.0).
 ///

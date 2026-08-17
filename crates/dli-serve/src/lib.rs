@@ -109,8 +109,10 @@ mod simulation;
 /// up, so every earlier capability list stays byte-identical.
 /// `1.11.0` corrects `author.entity_candidates` to rank only declared entities
 /// before applying the caller limit (GH #88). The 1.10.0 behavior remains
-/// available to callers negotiating that released version.
-pub const CONTRACT_VERSION: &str = "1.11.0";
+/// available to callers negotiating that released version. `1.12.0` adds the
+/// predicate-identity wire socket; its evaluator/lorestore carriage remains a
+/// separate kernel integration.
+pub const CONTRACT_VERSION: &str = "1.12.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -158,7 +160,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -322,6 +324,23 @@ pub fn has_incremental_canon(dli: &str) -> bool {
 #[must_use]
 pub fn has_declared_entity_candidates(dli: &str) -> bool {
     at_or_above(dli, (1, 11, 0))
+}
+
+/// Whether the negotiated version carries the predicate-identity wire socket
+/// (contract 1.12.0). The operation is advertised at this floor because the
+/// dedicated AST/evaluator carriage is present; durable lorestore lowering is
+/// a separate integration hook checked by that lane.
+#[must_use]
+pub fn has_predicate_identity(dli: &str) -> bool {
+    at_or_above(dli, (1, 12, 0))
+}
+
+/// Whether predicate identity is ready to advertise as a capability. The wire
+/// lane owns this explicit seam so a future durable-store regression cannot
+/// silently turn a partial implementation into a live promise.
+#[must_use]
+pub const fn predicate_identity_wired() -> bool {
+    true
 }
 
 /// Whether the negotiated version carries the campaign's branch-scoped write

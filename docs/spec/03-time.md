@@ -194,6 +194,17 @@ originating assertion drops only its span. The full ruling, interactions, and
 v1 scope boundaries are `docs/decisions.md` DL-0081 and
 `docs/design-notes/inertia-fluent-persistence.md`.
 
+When contract `1.12.0` joins two predicate names, this projection reads the
+same certain predicate-identity component as the ordinary fluent check. Inertia
+uses union semantics: one certain inertial declaration promotes the merged
+property, and a structured `predicate-identity.policy-promoted` warning records
+that promotion. A proposed identity remains possible only and does not combine
+certain timelines. Once the identity is certain, spans from both names enter
+one overlap sweep; an overlap is the existing
+`continuity.fluent-contradiction`, carrying the identity assertion in its
+support. Defeating the identity restores the separate timelines and removes
+only the derived persistence and contradiction that depended on it.
+
 ---
 
 ## 3. Composition with the annotation algebra

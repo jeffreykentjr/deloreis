@@ -28,6 +28,12 @@ use dli_ledger::{LedgerEntry, PracticeDef};
 use dli_time::cycle::Cycle;
 use dli_time::fluent::FluentTimeline;
 
+/// Stable code for the non-blocking union-policy promotion finding.  Keeping
+/// the literal beside the load finding catalogue lets the finding-family
+/// census assign this predicate-identity code to its own family while the
+/// continuity check remains the emitter.
+pub const PREDICATE_IDENTITY_POLICY_PROMOTED: &str = "predicate-identity.policy-promoted";
+
 /// A craft rule binding a principle to a register.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CraftRule {
@@ -269,6 +275,20 @@ pub enum LoadFinding {
         /// Source location.
         span: Span,
     },
+    /// Two predicates in one declared identity component have incompatible
+    /// observed arities.  The component is refused rather than half-merged.
+    PredicateIdentityArityMismatch {
+        /// The predicate mutation that caused the component-local check.
+        touched_predicate: String,
+        /// The predicates in the affected identity component.
+        predicates: Vec<String>,
+        /// The incompatible observed arities.
+        arities: Vec<usize>,
+        /// The pack containing the mutation.
+        pack: String,
+        /// The source location of the mutation.
+        span: Span,
+    },
 }
 
 impl LoadFinding {
@@ -287,6 +307,7 @@ impl LoadFinding {
             Self::CrossPackCollision { .. } => "load.cross-pack-collision",
             Self::Unstratifiable { .. } => "load.unstratifiable",
             Self::InertDeclaration { .. } => "load.inert-declaration",
+            Self::PredicateIdentityArityMismatch { .. } => "predicate-identity.arity-mismatch",
         }
     }
 
@@ -352,6 +373,21 @@ impl LoadFinding {
                     "{decl} in pack '{pack}' names nothing evaluable, so it would lower to no fact; give it a value (and a dotted subject) so it can be asserted"
                 )
             }
+            Self::PredicateIdentityArityMismatch {
+                touched_predicate,
+                predicates,
+                arities,
+                pack,
+                ..
+            } => format!(
+                "predicate identity touched by '{touched_predicate}' in pack '{pack}' joins predicates [{}] with incompatible observed arities [{}]; the merge is refused",
+                predicates.join(", "),
+                arities
+                    .iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -422,6 +458,13 @@ pub struct WorldModel {
     /// this field existed.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub inertial_predicates: BTreeMap<String, Ann>,
+    /// Predicate identity declarations and the incremental observed-arity
+    /// cache used to validate only affected identity components.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::predicate_identity::PredicateIdentityState::is_empty"
+    )]
+    pub predicate_identity: crate::predicate_identity::PredicateIdentityState,
 }
 
 impl WorldModel {

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorAssertPredicateSameAsParams",
+  "description": "`author.assert_predicate_same_as` params: assert two predicate names denote\none property (contract 1.12.0).\n\nThis is deliberately a typed wire carriage only. No `.dli` spelling is\nadded; the evaluator receives the dedicated `Decl::PredicateSameAs`\nvariant.",
+  "type": "object",
+  "properties": {
+    "left": {
+      "description": "One predicate name in the identity claim.",
+      "type": "string"
+    },
+    "provenance": {
+      "description": "The provenance and requested standing of this claim.",
+      "$ref": "#/$defs/Provenance"
+    },
+    "right": {
+      "description": "The other predicate name in the identity claim.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "The workspace id.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "left",
+    "right",
+    "provenance"
+  ],
+  "$defs": {
+    "Provenance": {
+      "description": "Provenance supplied when adding authored material. Internally tagged on\n`kind`; origin tracking is load-bearing for the authoring seam (nothing an agent supplies\nmints authority).",
+      "oneOf": [
+        {
+          "description": "Cited to one or more decisions: `{\"kind\":\"cited\",\"decisions\":[\"D-0104\"]}`.",
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "description": "The cited decision identifiers in the consuming repo's ledger.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "cited"
+            },
+            "state": {
+              "description": "The requested standing on contract 1.5 and above.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProvenanceState"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "decisions"
+          ]
+        },
+        {
+          "description": "Proposed (not yet ratified): `{\"kind\":\"proposed\",\"origin\":\"session-7c9\"}`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "proposed"
+            },
+            "origin": {
+              "description": "The origin token of the proposal (e.g. an agent session id).",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "origin"
+          ]
+        },
+        {
+          "description": "Conditional on a hypothesis: `{\"kind\":\"hypothesis\",\"hyp\":\"coast-runs-north\"}`.",
+          "type": "object",
+          "properties": {
+            "hyp": {
+              "description": "The hypothesis the material is conditioned on.",
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "hypothesis"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hyp"
+          ]
+        }
+      ]
+    },
+    "ProvenanceState": {
+      "description": "The stored standing requested for a cited authoring operation.\n\nThe field is optional here so pre-1.5 wire frames remain decodable. The\n1.5 request boundary requires it for `kind: cited`.",
+      "oneOf": [
+        {
+          "description": "Open to later revision.",
+          "type": "string",
+          "const": "provisional"
+        },
+        {
+          "description": "A settled ruling.",
+          "type": "string",
+          "const": "ratified"
+        }
+      ]
+    }
+  }
+}

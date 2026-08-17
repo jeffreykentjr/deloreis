@@ -52,6 +52,12 @@ pub enum Decl {
     /// `same-as <left> = <right>` — an identity claim: `left` and `right` name
     /// the same bearer.
     SameAs(SameAsDecl),
+    /// A predicate identity claim: `left` and `right` name the same property.
+    ///
+    /// This is structured carriage for the semantic authoring door. It has no
+    /// parser or formatter representation; callers construct it through the
+    /// typed wire surface and the evaluator records it as a defeasible claim.
+    PredicateSameAs(PredicateSameAsDecl),
     /// `hypothesis <name> "<statement>"` — a named speculative premise.
     Hypothesis(HypothesisDecl),
     /// `use <target>` — import another scope's surface.
@@ -268,6 +274,22 @@ pub struct SameAsDecl {
     pub provenance: Option<Annotation>,
 }
 
+/// A predicate identity claim carried by the typed authoring surface.
+///
+/// The declaration is deliberately a structural mirror of [`SameAsDecl`], but
+/// it lives in its own enum variant and evaluator channel. Predicate identity
+/// is never inferred from names, values, or data shape: this declaration is
+/// the only input that can assert it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PredicateSameAsDecl {
+    /// One predicate name in the identity claim.
+    pub left: Ident,
+    /// The other predicate name in the identity claim.
+    pub right: Ident,
+    /// Provenance annotation, if any.
+    pub provenance: Option<Annotation>,
+}
+
 /// `hypothesis <name> "<statement>"`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct HypothesisDecl {
@@ -372,6 +394,28 @@ impl StateDecl {
                 args: vec![self.value.clone()?],
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn predicate_identity_is_structured_carriage_only() {
+        let declaration = Decl::PredicateSameAs(PredicateSameAsDecl {
+            left: Ident::synthetic("current-work"),
+            right: Ident::synthetic("current-job"),
+            provenance: None,
+        });
+        let bytes = serde_json::to_vec(&declaration).expect("serializes");
+        let round_trip: Decl = serde_json::from_slice(&bytes).expect("deserializes");
+        assert_eq!(declaration, round_trip);
+        assert!(
+            String::from_utf8(bytes)
+                .expect("utf8")
+                .contains("PredicateSameAs")
+        );
     }
 }
 

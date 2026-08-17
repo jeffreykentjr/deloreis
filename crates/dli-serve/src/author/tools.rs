@@ -22,8 +22,8 @@ use dli_ast::clause::Clause;
 use dli_ast::decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, Decl, DialectDecl, Document, EntityDecl,
     EntityKind as AstEntityKind, FactDecl, FunctionalDecl, HypothesisDecl, InertialDecl, NameDecl,
-    NamePartDecl, OptionClause, QuestionDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader,
-    StateDecl, TermDecl, TimeClause,
+    NamePartDecl, OptionClause, PredicateSameAsDecl, QuestionDecl, RatifyDecl, RuleDecl,
+    SameAsDecl, ScopeHeader, StateDecl, TermDecl, TimeClause,
 };
 use dli_ast::ident::Ident;
 use dli_ast::language::{
@@ -45,11 +45,12 @@ use crate::contract::{
     AuthorAddAttestParams, AuthorAddBannedParams, AuthorAddBeforeParams, AuthorAddDialectParams,
     AuthorAddEntityParams, AuthorAddEventParams, AuthorAddFactParams, AuthorAddHypothesisParams,
     AuthorAddNameParams, AuthorAddNamePartParams, AuthorAddOptionParams, AuthorAddRelationParams,
-    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams, AuthorAssertSameAsParams,
-    AuthorBranchParams, AuthorBranchResult, AuthorDeclareFunctionalParams,
-    AuthorDeclareInertialParams, AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult,
-    AuthorMaterializeParams, AuthorMergeParams, AuthorMergeResult, AuthorMutationResult,
-    AuthorOpenParams, AuthorOpenQuestionParams, AuthorOpenResult, AuthorRecordDecisionParams,
+    AuthorAddRuleParams, AuthorAddStateParams, AuthorAddTermParams,
+    AuthorAssertPredicateSameAsParams, AuthorAssertSameAsParams, AuthorBranchParams,
+    AuthorBranchResult, AuthorDeclareFunctionalParams, AuthorDeclareInertialParams,
+    AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
+    AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
+    AuthorOpenQuestionParams, AuthorOpenResult, AuthorRecordDecisionParams,
     AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams,
     BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind, MergeStandingChange,
     StagedDecl, StateTimeKind,
@@ -174,6 +175,7 @@ fn decl_kind(decl: &Decl) -> &'static str {
         Decl::Question(_) => "question",
         Decl::Before(_) => "before",
         Decl::SameAs(_) => "same-as",
+        Decl::PredicateSameAs(_) => "predicate-same-as",
         Decl::Hypothesis(_) => "hypothesis",
         Decl::Use(_) => "use",
         Decl::Kind(_) => "kind",
@@ -793,6 +795,30 @@ pub(super) fn assert_same_as(
         return refusal;
     }
     let decl = Decl::SameAs(SameAsDecl {
+        left: ident(&params.left),
+        right: ident(&params.right),
+        provenance: Some(annotation(&params.provenance, records_citations)),
+    });
+    stage(store, &params.workspace, decl)
+}
+
+/// Assert two predicate names denote the same property (contract 1.12.0).
+/// This constructs the dedicated structured AST declaration. It must never be
+/// lowered through `Decl::SameAs`: that channel merges entity bearers.
+pub(super) fn assert_predicate_same_as(
+    store: &mut Store,
+    params: &AuthorAssertPredicateSameAsParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if let Some(refusal) = refuse_cited(
+        store,
+        &params.workspace,
+        &params.provenance,
+        records_citations,
+    ) {
+        return refusal;
+    }
+    let decl = Decl::PredicateSameAs(PredicateSameAsDecl {
         left: ident(&params.left),
         right: ident(&params.right),
         provenance: Some(annotation(&params.provenance, records_citations)),
@@ -1430,6 +1456,7 @@ fn decl_findings(
         Decl::Attest(a) => out.extend(attest_findings(a, ws)),
         Decl::Name(n) => out.extend(name_findings(n, ws, base)),
         Decl::SameAs(s) => out.extend(same_as_findings(s, ws, base)),
+        Decl::PredicateSameAs(s) => out.extend(predicate_same_as_findings(s)),
         Decl::Rule(r) => out.extend(rule_findings(r, ws, base)),
         _ => {}
     }
@@ -1617,6 +1644,17 @@ fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace, base: &CompiledWorld) 
         ));
     }
     out
+}
+
+/// Predicate identity has no entity endpoint lookup: predicate names are open
+/// vocabulary and their declaration is the sole source of merge authority.
+/// A self-merge is retained for provenance but is a harmless no-op, matching
+/// the entity identity contract while keeping the finding data structured.
+fn predicate_same_as_findings(identity: &PredicateSameAsDecl) -> Vec<Finding> {
+    (identity.left.text == identity.right.text)
+        .then(|| predicate_identity_self_merge(&identity.left.text))
+        .into_iter()
+        .collect()
 }
 
 /// `add_state` findings: the subject the dotted state name is about must be a
@@ -2014,6 +2052,11 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
             annotation_fields(&mut fields, b.provenance.as_ref());
         }
         Decl::SameAs(s) => {
+            fields.push(("left", s.left.text.clone()));
+            fields.push(("right", s.right.text.clone()));
+            annotation_fields(&mut fields, s.provenance.as_ref());
+        }
+        Decl::PredicateSameAs(s) => {
             fields.push(("left", s.left.text.clone()));
             fields.push(("right", s.right.text.clone()));
             annotation_fields(&mut fields, s.provenance.as_ref());
@@ -2457,6 +2500,20 @@ fn identity_self_merge(id: &str) -> Finding {
         repair: None,
         citations: Vec::new(),
         data: None,
+    }
+}
+
+fn predicate_identity_self_merge(id: &str) -> Finding {
+    Finding {
+        severity: Severity::Warn,
+        code: "predicate-identity.self-merge".to_owned(),
+        message: format!(
+            "predicate identity {id} = {id} names one property twice; staged anyway as a harmless no-op."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: Some(json!({"left": id, "right": id, "effect": "no-op"})),
     }
 }
 
@@ -3320,26 +3377,23 @@ fn durable_standing_change(
 
 /// Whether `decision` supports every path of a stored object's claim.
 ///
-/// A **rule** carriage (WS-2) is the one case that cannot answer this the
-/// ordinary way: `carriage_object` stores every expert-carried declaration's
-/// `support` as `PosBool::truth()` — a structural constant, hashed content,
-/// never touched — so a rule's actual citation lives only in its carried
-/// `Decl::Rule`, not in the polynomial. `object.expert_body.body` holds that
-/// whole declaration as span-normalized canonical JSON (`carriage_object`'s
-/// `decl_json_pair`); deserializing it and reading `decl_annotation`'s
-/// citations directly is the only way to ask a rule's OWN provenance whether
-/// it cites `decision`, and it needs no `dli_syntax` — a `Decl` round-trips
-/// through plain `serde_json`. Every other stored claim keeps reading its
-/// gated `support` polynomial exactly as before.
+/// **Expert carriage** is the class that cannot answer this the ordinary way:
+/// `carriage_object` stores every carried declaration's `support` as
+/// `PosBool::truth()` — a structural constant, hashed content, never touched —
+/// so the declaration's actual citation lives only in its carried `Decl`, not
+/// in the polynomial. `object.expert_body.body` holds that whole declaration
+/// as span-normalized canonical JSON (`carriage_object`'s `decl_json_pair`);
+/// deserializing it and reading `decl_annotation`'s citations directly is the
+/// only way to ask whether it cites `decision`, and it needs no `dli_syntax` —
+/// a `Decl` round-trips through plain `serde_json`. Plain atom claims keep
+/// reading their gated `support` polynomial exactly as before.
 fn support_cites_decision(
     object: &dli_lorestore::FactObject,
     interner: &[String],
     decision: &str,
 ) -> bool {
-    if let Some(body) = &object.expert_body
-        && body.kind == dli_lorestore::object::ExpertDeclKind::Rule
-    {
-        return rule_carriage_cites_decision(body, decision);
+    if let Some(body) = &object.expert_body {
+        return declaration_carriage_cites_decision(body, decision);
     }
     let Some(index) = interner.iter().position(|name| name == decision) else {
         return false;
@@ -3357,12 +3411,15 @@ fn support_cites_decision(
         })
 }
 
-/// Whether a rule's carried `Decl::Rule` cites `decision`. A malformed or
+/// Whether a carried declaration cites `decision`. A malformed or
 /// legacy carriage (a v1 store predating LS-9's typed body, say) falls
 /// closed to `false` rather than panicking — `support_cites_decision`'s
 /// caller then reports the ordinary "does not support" refusal, never a
 /// crash on a stored object this build cannot parse.
-fn rule_carriage_cites_decision(body: &dli_lorestore::object::ExpertBody, decision: &str) -> bool {
+fn declaration_carriage_cites_decision(
+    body: &dli_lorestore::object::ExpertBody,
+    decision: &str,
+) -> bool {
     let Some(text) = body.body.first() else {
         return false;
     };
@@ -3496,6 +3553,7 @@ fn decl_annotation(decl: &Decl) -> Option<&Annotation> {
         Decl::Inertial(f) => f.provenance.as_ref(),
         Decl::Attest(a) => a.provenance.as_ref(),
         Decl::SameAs(s) => s.provenance.as_ref(),
+        Decl::PredicateSameAs(s) => s.provenance.as_ref(),
         Decl::Rule(r) => r.provenance.as_ref(),
         _ => None,
     }

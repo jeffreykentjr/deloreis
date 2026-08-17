@@ -20,6 +20,7 @@ pub mod loader;
 pub mod model;
 pub mod pack;
 pub mod payload;
+pub mod predicate_identity;
 pub mod repository;
 pub mod scene_projection;
 
@@ -39,6 +40,9 @@ pub use language::{
 pub use model::{CraftRule, SeasonLedger, WorldModel};
 pub use pack::Pack;
 pub use payload::{Payload, PayloadFinding};
+pub use predicate_identity::{
+    PredicateArityMismatch, PredicateIdentityLink, PredicateIdentityState,
+};
 pub use repository::{RepositoryFinding, validate_repository};
 
 use std::collections::BTreeSet;
@@ -244,6 +248,27 @@ fn gate_language_citations(
             // path twin of the stage-time `decl_annotation` guard.
             Decl::Inertial(inertial) => {
                 if let Some(annotation) = &inertial.provenance {
+                    let citations: Vec<String> = annotation
+                        .citations
+                        .iter()
+                        .map(|citation| citation.id.text.clone())
+                        .collect();
+                    gate_citations(
+                        nu,
+                        findings,
+                        model,
+                        known_decisions,
+                        Provenance::from_marker(annotation.marker),
+                        &citations,
+                    );
+                }
+            }
+            // Predicate identity is structured carriage-only, like `inertial`:
+            // its citation never reaches `model.atoms()`, but it still gates
+            // the identity link's evaluator support and must rule its decision
+            // variable true (or surface the unknown citation) here.
+            Decl::PredicateSameAs(identity) => {
+                if let Some(annotation) = &identity.provenance {
                     let citations: Vec<String> = annotation
                         .citations
                         .iter()

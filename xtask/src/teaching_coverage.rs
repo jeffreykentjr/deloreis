@@ -217,7 +217,9 @@ fn check_stated_tool_counts(root: &Path) -> Result<Vec<String>> {
         &mut problems,
         "docs/spec/11-agent-authoring.md",
         &spec,
-        &format!("Contract `1.6.0` enforces that rule for all {total_op_count} operations."),
+        &format!(
+            "The implemented `1.12.0` surface enforces that rule for all {total_op_count} operations."
+        ),
     );
 
     Ok(problems)

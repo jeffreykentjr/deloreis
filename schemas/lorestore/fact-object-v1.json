@@ -280,6 +280,11 @@
           "description": "A `same-as` identity declaration — carried because its ground atom is\nindistinguishable from an ordinary `same-as(a, b)` fact, and only the\ndeclaration form drives the identity-closure rule synthesis (WS-1).",
           "type": "string",
           "const": "sameas"
+        },
+        {
+          "description": "A structured predicate identity declaration. It has no `.dli` form;\nthe carriage preserves the typed wire declaration for reconstruction.",
+          "type": "string",
+          "const": "predicatesameas"
         }
       ]
     },

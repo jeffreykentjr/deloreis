@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.11.0
+contract_version: 1.12.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -51,6 +51,8 @@ fixtures:
   sha256: 2ae047e97bacc11c209574418ef38f2e5f0bcbdfe9d070a303cf17ff8e5fb662
 - path: framing/author-assert-same-as-framing.json
   sha256: d13198fa6fc21c1e9206327c47ee87ab66c1cb5c923ce1f55b7838686d6e1764
+- path: framing/author-assert-predicate-same-as-framing.json
+  sha256: 233110637f44509ce4fddb899d66d9e2ff15ce09cdc77623b2ed65f17c06682e
 - path: framing/author-add-rule-framing.json
   sha256: 133a06750e3c0fd1efec9d31a26320a4885a703072e9272c81abff8cf8ff7df3
 - path: framing/author-declare-inertial-framing.json
@@ -115,6 +117,8 @@ fixtures:
   sha256: 0606a5860192b790a7bc5d4430ba486a38de23cc7297c8d24f00937594457ceb
 - path: golden/author-assert-same-as-v1.json
   sha256: 84774f529d62ee69883460aa9a2c194742e4f11f28d448e0df173e4d2966d716
+- path: golden/author-assert-predicate-same-as-v1.json
+  sha256: ae3e0a5546e4a0320cb2612ebdb7032841d470607ec634ebe1169a0337c364c7
 - path: golden/author-add-rule-v1.json
   sha256: 5d0383f872e5196112810a7a1ee076d9639711eb7b2289692e76d46237395269
 - path: golden/author-declare-inertial-v1.json
@@ -265,6 +269,8 @@ fixtures:
   sha256: f72323274e750a28fa0a54b2b5fc59cfb2470230e14d2e7b1bf4097fda75f513
 - path: negative/author-assert-same-as-schema-violation.json
   sha256: 864f2850bbb93b1e2afdb73a4392b29bf669d2114441cae855eea513056c7c9f
+- path: negative/author-assert-predicate-same-as-schema-violation.json
+  sha256: 6e98f8d04fab333984a73605177d2c20d83760ca92c01207eb91863c29c183e7
 - path: negative/author-add-rule-schema-violation.json
   sha256: b2e60b3418b2750744def3f0f647de3615dd0400c13d4794d3be6f1ec1645b73
 - path: negative/author-declare-inertial-schema-violation.json

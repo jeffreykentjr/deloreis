@@ -515,3 +515,97 @@ different, larger piece of engineering than this feature, deliberately left
 undone until a consumer actually needs to merge two coreferent events or eras
 (e.g. one battle known under two names, each anchoring its own interval
 states).
+
+## 10. Predicate identity on the wire (DL-0092)
+
+Contract `1.12.0` adds `author.assert_predicate_same_as`, a typed declaration
+that two predicate names denote one property. This is the predicate analogue of
+entity `same-as`, not a name-normalization facility: the caller supplies the
+claim and its provenance, while the engine records it, evaluates its
+consequences, and explains or retracts those consequences. Name similarity,
+string distance, shared subjects, overlapping values, and observed data shape
+never create predicate identity.
+
+The declaration has its own identity-link channel. It is not an entity
+`same-as` atom, and an ordinary fact or rule cannot activate it accidentally.
+When the link is certain, the evaluator and the authored-layer checks use one
+deterministic, lexicographically smallest representative for its
+**symmetric-transitive** component. A chain of links therefore closes without
+choosing a normative canonical name; a self-link is a warning and a semantic
+no-op. Source facts, declarations, and rules retain their authored predicate
+names, so the canonical view is reversible when the link is defeated.
+
+### 10.1 Certainty, preview, and defeat
+
+Predicate identity uses the same certainty gate as entity identity. A proposed
+link may be visible as a possible staged consequence in `author.diff`, but it
+does not create a certain merged slot, a certain FD violation, or a certain
+fluent contradiction. To preview those certain consequences, the workspace
+must stage the identity with a citation whose decision resolves (or use the
+equivalent fork valuation) before `author.check`/`author.diff` is read. There is
+no predicate-specific preview shortcut and no stronger authority requirement
+than the entity path.
+
+Every copied or derived consequence multiplies the identity link's support into
+its own support polynomial. `author.why` therefore names the identity claim as
+well as the fact, policy, or rule that supplied the other support. Defeating the
+identity through `author.defeat` flips that support variable: the FD or fluent
+consequence clears, derived copies become dead, and the original facts remain
+under their original predicate names. No fact is deleted and no special
+re-fixpoint is needed to make the valuation change visible.
+
+### 10.2 Policy and shape interactions
+
+Functionality and inertia use **union semantics** within a certain predicate
+identity component: the merged property is functional if any member has a
+certain functional declaration, and inertial if any member has a certain
+inertial declaration. A promotion emits a structured
+`predicate-identity.policy-promoted` warning naming the identity assertion,
+policy kind, affected members, and policy declaration support. The warning is
+non-blocking; it records that merging changed the effective policy rather than
+silently changing whether a check runs. A proposed identity does not promote either
+policy in the certain layer.
+
+V1 validates observed positional arity only. The workspace keeps an arity index
+for facts and rule heads/bodies, and an identity claim rechecks only the
+identity component touched by its endpoints. Adding a fact or rule rechecks
+only claims whose component contains that predicate; an unrelated predicate
+does not trigger a world-wide scan. Unknown arity remains open until relevant
+evidence arrives. A known incompatible arity raises the structured error
+`predicate-identity.arity-mismatch` and blocks materialization rather than
+performing a partial merge. A declared predicate-shape/type system is the
+explicit trigger for lifting this observed-arity boundary.
+
+### 10.3 Checks, rules, and convergence
+
+FD grouping uses the predicate representative as part of the `(entity,
+predicate)` slot key. If identity puts two distinct certain values into a
+functional slot, the existing `continuity.fd-violation` finding is emitted;
+its structured data and support name the predicate-identity assertion, the
+canonical slot, and both conflicting values. No new human-message parsing
+contract is introduced.
+
+Fluent timelines are grouped by the same representative before the existing
+overlap sweep. Overlapping certain spans produce the existing
+`continuity.fluent-contradiction`, with the identity assertion in its
+structured support. Defeating the link separates the timelines again and
+removes only the contradiction and persistence consequences that depended on
+that link.
+
+Rule bodies and heads are matched through the predicate closure. A body written
+over either member can match facts under the other; a head written over either
+member derives in the merged property. Rule support and identity support are
+conjoined, and defeating the identity therefore removes the dependent
+derivation without removing the authored rule or its source facts.
+
+Entity and predicate identity are independent closure channels. Applying both
+in either arrival order must produce byte-identical certain rows, findings,
+support, and `author.why` results. The loader, evaluator, and durable lorestore
+must likewise agree on the declaration and its consequences byte-for-byte.
+Branch-scoped reads use the branch head commit (`head_ref.commit`) for the
+pre-image; they never fall back to `root_hash()`. An identity staged or
+materialized in one branch cannot affect its base or a sibling branch.
+
+This declaration remains wire-only. The structured authoring result, staged
+diff, fact-object store, and query/why data are the supported review and
+round-trip surfaces; no new `.dli` predicate-identity form is added.
