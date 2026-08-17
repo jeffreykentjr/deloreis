@@ -26,8 +26,9 @@ pub use clause::Clause;
 pub use decl::{
     AttestDecl, AttrDecl, BannedDecl, BeforeDecl, CycleDecl, Decl, DialectDecl, Document,
     DraftDecl, EntityDecl, EntityKind, ExportDecl, FactDecl, ForkDecl, HypothesisDecl, KindDecl,
-    NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PrincipleDecl, ProofDecl,
-    QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader, StateDecl, TermDecl, TimeClause,
+    NameDecl, NamePartDecl, NarrationDecl, OptionClause, PracticeDecl, PredicateSameAsDecl,
+    PrincipleDecl, ProofDecl, QuestionDecl, RatifyDecl, RuleDecl, RuleDomain, ScopeHeader,
+    StateDecl, TermDecl, TimeClause,
     UseDecl, VariantDecl, WordDecl,
 };
 pub use doc::Doc;

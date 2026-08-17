@@ -13,6 +13,7 @@ pub mod fd;
 pub mod grade;
 pub mod judgment;
 pub mod posbool;
+pub mod predicate_alias;
 pub mod valuation;
 pub mod verdict;
 
