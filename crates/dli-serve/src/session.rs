@@ -131,12 +131,23 @@ impl Sessions {
                 && let Some(loaded) = project.document(document)
             {
                 world.killed = loaded.killed.clone();
-                for (atom, value) in &loaded.store_valuation.0 {
-                    world.model.world.valuation.0.insert(*atom, *value);
+                for name in loaded
+                    .store_valuation
+                    .0
+                    .keys()
+                    .chain(loaded.store_unassigned.0.iter())
+                {
+                    world.model.world.interner.intern(name);
                 }
-                for atom in &loaded.store_unassigned {
-                    world.model.world.valuation.0.remove(atom);
-                }
+                let target_interner = world.model.interner().clone();
+                loaded
+                    .store_valuation
+                    .apply_to(&target_interner, &mut world.model.world.valuation)
+                    .map_err(|_| ErrorCode::EvidenceCorrupt)?;
+                loaded
+                    .store_unassigned
+                    .remove_from(&target_interner, &mut world.model.world.valuation)
+                    .map_err(|_| ErrorCode::EvidenceCorrupt)?;
             }
             let forks = ForkStore::new(world.model.world.clone());
             self.scopes

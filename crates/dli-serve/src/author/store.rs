@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::Valuation;
+use dli_core::valuation::{NamedAtomSet, NamedValuation, ValuationRemapError};
 use dli_eval::error::EvalError;
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
@@ -83,8 +83,8 @@ struct Base {
 #[derive(Debug, Clone)]
 struct StoreSnapshot {
     commit: dli_lorestore::ContentHash,
-    valuation: Valuation,
-    unassigned: BTreeSet<dli_core::Atom>,
+    valuation: NamedValuation,
+    unassigned: NamedAtomSet,
     ref_digest: Option<String>,
 }
 
@@ -107,6 +107,9 @@ pub enum StoreError {
         /// The second owning document.
         second: String,
     },
+    /// A store ref valuation could not be resolved into its compiled document.
+    #[error("store ref valuation is corrupt: {0}")]
+    ValuationRemap(#[from] ValuationRemapError),
 }
 
 /// Why [`Store::open`] refused to open a workspace — distinct wire error codes
@@ -133,6 +136,10 @@ pub enum OpenError {
     /// compilable when created.
     #[error("reconstructing branch head: {0}")]
     BranchCompile(String),
+    /// The branch ref's numeric valuation cannot be resolved through its
+    /// durable source names or into the freshly compiled receiving world.
+    #[error("branch ref valuation is corrupt: {0}")]
+    ValuationRemap(#[from] ValuationRemapError),
 }
 
 impl Default for Store {
@@ -311,6 +318,8 @@ impl Store {
     /// that name exists. [`OpenError::BranchCompile`] if the branch head fails
     /// to reconstruct or compile (a store-integrity failure, not a caller
     /// mistake — every branch was, by construction, compilable when created).
+    /// [`OpenError::ValuationRemap`] if the branch ref's persisted valuation
+    /// cannot be resolved by name into the reconstructed receiving world.
     #[allow(clippy::too_many_lines)]
     pub fn open(
         &mut self,
@@ -380,14 +389,47 @@ impl Store {
                     bundle_counter = bundle_counter.max(n + 1);
                 }
             }
+            let effective = ls
+                .effective_valuation_at(&head, &branch_ref.valuation)
+                .map_err(|error| match error {
+                    dli_lorestore::StoreError::ValuationRemap(error) => {
+                        OpenError::ValuationRemap(error)
+                    }
+                    other => OpenError::BranchCompile(other.to_string()),
+                })?;
+            let named_valuation = NamedValuation::from_indexed(&effective.valuation, &branch_names)
+                .map_err(OpenError::ValuationRemap)?;
+            let named_unassigned = NamedAtomSet::from_indexed(&effective.unassigned, &branch_names)
+                .map_err(OpenError::ValuationRemap)?;
+            let declared_decisions: BTreeSet<&str> = pack
+                .documents
+                .iter()
+                .flat_map(|document| &document.decls)
+                .filter_map(|decl| match decl {
+                    Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
+                    _ => None,
+                })
+                .collect();
+            for name in named_valuation
+                .0
+                .keys()
+                .chain(named_unassigned.0.iter())
+                .filter(|name| declared_decisions.contains(name.as_str()))
+            {
+                world.model.world.interner.intern(name);
+            }
+            let target_interner = world.model.interner().clone();
+            named_valuation
+                .apply_to(&target_interner, &mut world.model.world.valuation)
+                .map_err(OpenError::ValuationRemap)?;
+            named_unassigned
+                .remove_from(&target_interner, &mut world.model.world.valuation)
+                .map_err(OpenError::ValuationRemap)?;
+            workspace.base_valuation = named_valuation;
+            workspace.base_unassigned = named_unassigned;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
-            let effective = ls
-                .effective_valuation_at(&head, &branch_ref.valuation)
-                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
-            workspace.base_valuation = effective.valuation;
-            workspace.base_unassigned = effective.unassigned;
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = Some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
@@ -578,7 +620,23 @@ impl Store {
             .reconstruct_at(&head)
             .map_err(|error| error.to_string())?;
         let interner = ls.interner_at(&head).map_err(|error| error.to_string())?;
+        let named_valuation =
+            NamedValuation::from_indexed(&effective_valuation.valuation, &interner)
+                .map_err(|error| error.to_string())?;
+        let named_unassigned =
+            NamedAtomSet::from_indexed(&effective_valuation.unassigned, &interner)
+                .map_err(|error| error.to_string())?;
         let mut world = ls.compile_at(&head).map_err(|error| error.to_string())?;
+        for name in named_valuation.0.keys().chain(named_unassigned.0.iter()) {
+            world.model.world.interner.intern(name);
+        }
+        let target_interner = world.model.interner().clone();
+        named_valuation
+            .apply_to(&target_interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        named_unassigned
+            .remove_from(&target_interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
         world.killed = killed;
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
             let prefix = format!("h.{}#", ws.base_name);
@@ -594,8 +652,8 @@ impl Store {
             ws.bundle_counter = bundle;
             ws.base_root_hash = Some(head.to_string());
             ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
-            ws.base_valuation = effective_valuation.valuation;
-            ws.base_unassigned = effective_valuation.unassigned;
+            ws.base_valuation = named_valuation;
+            ws.base_unassigned = named_unassigned;
         }
         let refreshed = Base {
             world,
@@ -604,6 +662,72 @@ impl Store {
         };
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
             ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        }
+        self.branch_bases.insert(ws_id.to_owned(), refreshed);
+        Ok(())
+    }
+
+    /// Refresh only a workspace's durable valuation overlay and resolution
+    /// index, keeping its current base documents intact. Standing changes use
+    /// this path because already-materialized declarations remain in the
+    /// workspace's staged document set until its ordinary session lifecycle
+    /// clears them; reconstructing the new durable head here would therefore
+    /// install a second copy beside those staged declarations.
+    pub fn refresh_workspace_valuation(&mut self, ws_id: &str) -> Result<(), String> {
+        let base_key = self
+            .workspace_bases
+            .get(ws_id)
+            .cloned()
+            .ok_or_else(|| format!("no base is bound to workspace `{ws_id}`"))?;
+        let named = self
+            .workspaces
+            .get(ws_id)
+            .map(|workspace| workspace.base_valuation.clone())
+            .ok_or_else(|| format!("workspace `{ws_id}` is not open"))?;
+        let unassigned = self
+            .workspaces
+            .get(ws_id)
+            .map(|workspace| workspace.base_unassigned.clone())
+            .ok_or_else(|| format!("workspace `{ws_id}` is not open"))?;
+        let current = self
+            .branch_bases
+            .get(ws_id)
+            .or_else(|| self.base_named(&base_key))
+            .ok_or_else(|| format!("workspace `{ws_id}` has no compiled base"))?;
+        let mut refreshed = Base {
+            world: current.world.clone(),
+            documents: current.documents.clone(),
+            pack_name: current.pack_name.clone(),
+        };
+        let target_interner = refreshed.world.model.interner().clone();
+        // This is a projection onto the base half, not the fail-closed
+        // full-world boundary: a decision introduced only by a staged
+        // declaration is absent here but present when `staged_world` applies
+        // the complete overlay. Such a name cannot affect any base atom.
+        let target_names: BTreeSet<&str> =
+            target_interner.names().iter().map(String::as_str).collect();
+        let base_named = NamedValuation(
+            named
+                .0
+                .into_iter()
+                .filter(|(name, _)| target_names.contains(name.as_str()))
+                .collect(),
+        );
+        let base_unassigned = NamedAtomSet(
+            unassigned
+                .0
+                .into_iter()
+                .filter(|name| target_names.contains(name.as_str()))
+                .collect(),
+        );
+        base_named
+            .apply_to(&target_interner, &mut refreshed.world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        base_unassigned
+            .remove_from(&target_interner, &mut refreshed.world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        if let Some(workspace) = self.workspaces.get_mut(ws_id) {
+            workspace.refresh_resolution(&refreshed.world, &refreshed.documents);
         }
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
@@ -686,18 +810,18 @@ impl Store {
         origin: std::path::PathBuf,
         pinned: bool,
         commit: dli_lorestore::ContentHash,
-        valuation: Valuation,
-        unassigned: BTreeSet<dli_core::Atom>,
+        valuation: NamedValuation,
+        unassigned: NamedAtomSet,
         ref_digest: Option<String>,
-    ) {
+    ) -> Result<(), StoreError> {
         self.origins.insert(key.clone(), origin);
         if let Some(base) = self.bases.get_mut(&key) {
-            for (atom, value) in &valuation.0 {
-                base.world.model.world.valuation.0.insert(*atom, *value);
+            for name in valuation.0.keys().chain(unassigned.0.iter()) {
+                base.world.model.world.interner.intern(name);
             }
-            for atom in &unassigned {
-                base.world.model.world.valuation.0.remove(atom);
-            }
+            let target_interner = base.world.model.interner().clone();
+            valuation.apply_to(&target_interner, &mut base.world.model.world.valuation)?;
+            unassigned.remove_from(&target_interner, &mut base.world.model.world.valuation)?;
         }
         self.snapshots.insert(
             key.clone(),
@@ -711,6 +835,7 @@ impl Store {
         if pinned {
             self.pinned_bases.insert(key);
         }
+        Ok(())
     }
 
     /// Whether this base is served at a manifest-pinned commit.

@@ -14,7 +14,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use dli_lorestore::{ContentHash, FactObject};
+use dli_core::atom::Atom;
+use dli_lorestore::{ContentHash, FactObject, Ref};
 use dli_serve::author::store::Store;
 use dli_serve::project::Project;
 use dli_serve::serve::respond;
@@ -209,6 +210,68 @@ fn branch_ref_digest(store: &Store, ws_for_lorestore: &str, branch: &str) -> Str
         .digest()
         .expect("digest")
         .0
+}
+
+/// Install an impossible numeric atom in a branch ref, preserving its commit.
+/// This is deliberately below the author surface: it simulates corrupt
+/// durable evidence so the live wire can prove its typed refusal.
+fn corrupt_branch_valuation(store: &Store, ws: &str, branch: &str) {
+    let lorestore = store.workspace_lorestore(ws).expect("lorestore attached");
+    let current = lorestore
+        .branch_ref(branch)
+        .expect("read branch ref")
+        .expect("branch exists");
+    let expected = current.digest().expect("ref digest").0;
+    let mut valuation = current.valuation.clone();
+    valuation.set(Atom(u32::MAX), false);
+    let corrupt = Ref::with_valuation(current.name, current.commit, valuation);
+    assert!(
+        lorestore
+            .cas_branch_ref(branch, Some(&expected), &corrupt)
+            .expect("write corrupt test ref")
+    );
+}
+
+/// Add a source-table name that no declaration in the commit can reconstruct,
+/// then value it. Unlike [`corrupt_branch_valuation`], this passes source
+/// decoding and fails only while applying the name to the receiving compile.
+fn corrupt_branch_with_unresolvable_name(store: &Store, ws: &str, branch: &str) {
+    let lorestore = store.workspace_lorestore(ws).expect("lorestore attached");
+    let current = lorestore
+        .branch_ref(branch)
+        .expect("read branch ref")
+        .expect("branch exists");
+    let commit: dli_lorestore::Commit = lorestore
+        .read_object(&current.commit)
+        .expect("read commit")
+        .expect("commit exists");
+    let mut names = commit.interner;
+    let missing = Atom(u32::try_from(names.len()).expect("fixture interner fits u32"));
+    names.push("h.uncommitted-carriage".to_owned());
+    lorestore
+        .commit_on_branch(
+            branch,
+            names,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            commit.decisions,
+            commit.pack_name,
+        )
+        .expect("advance branch with corrupt source name");
+    let advanced = lorestore
+        .branch_ref(branch)
+        .expect("read advanced ref")
+        .expect("branch exists");
+    let expected = advanced.digest().expect("ref digest").0;
+    let mut valuation = advanced.valuation.clone();
+    valuation.set(missing, false);
+    let corrupt = Ref::with_valuation(advanced.name, advanced.commit, valuation);
+    assert!(
+        lorestore
+            .cas_branch_ref(branch, Some(&expected), &corrupt)
+            .expect("write unresolvable named ref")
+    );
 }
 
 /// Find a stored fact's `claim_id` by its ground atom — a legitimate test
@@ -446,6 +509,25 @@ fn certain_conflict_constructible_wire_only() {
         );
         assert!(defeat["ok"].as_bool().unwrap(), "{branch}: {defeat}");
 
+        // The standing operation refreshes this already-open workspace. Its
+        // resolution index must immediately see d-1=false, before any reopen.
+        let after_reload = drive(
+            &json!({ "dli": V, "id": "add-after-reload", "op": "author.add_fact",
+                         "params": { "workspace": ws_1, "entity": "mara", "key": "home", "value": dest,
+                                     "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
+            sessions,
+            store,
+        );
+        assert!(
+            after_reload["ok"].as_bool().unwrap()
+                && after_reload["result"]["findings"]
+                    .as_array()
+                    .expect("reload findings")
+                    .iter()
+                    .all(|finding| finding["code"] != "fact.contradiction"),
+            "{branch}: the reloaded world excludes the defeated value: {after_reload}"
+        );
+
         // Re-open: the reconstructed branch head now carries the
         // `Decl::Ratify(d-2)` the defeat minted, so a FRESH workspace can
         // cite it (a workspace's own `workspace_decisions` reads its base
@@ -454,8 +536,8 @@ fn certain_conflict_constructible_wire_only() {
         let opened_2 = open_branch_workspace("canon", branch, sessions, store);
         let ws_2 = opened_2["result"]["workspace"].as_str().unwrap().to_owned();
         let added = drive(
-            &json!({ "dli": V, "id": "add", "op": "author.add_relation",
-                         "params": { "workspace": ws_2, "relation": "home", "from": "mara", "to": dest,
+            &json!({ "dli": V, "id": "add", "op": "author.add_fact",
+                         "params": { "workspace": ws_2, "entity": "mara", "key": "home", "value": dest,
                                      "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
             sessions,
             store,
@@ -463,6 +545,14 @@ fn certain_conflict_constructible_wire_only() {
         assert!(
             added["ok"].as_bool().unwrap(),
             "{branch}: citing the freshly-minted d-2: {added}"
+        );
+        assert!(
+            added["result"]["findings"]
+                .as_array()
+                .expect("add findings")
+                .iter()
+                .all(|finding| finding["code"] != "fact.contradiction"),
+            "{branch}: the defeated base value is absent from stage-time resolution: {added}"
         );
 
         let mat = materialize(&ws_2, sessions, store);
@@ -738,6 +828,47 @@ fn merge_expected_ref_stale_fence() {
         &mut store,
     );
     assert_eq!(merged["error"]["code"], "stale-fence", "{merged}");
+}
+
+#[test]
+fn branch_open_maps_corrupt_ref_valuation_to_evidence_corrupt() {
+    let (_t, mut sessions, mut store) = functional_store();
+    let seed_ws = open_workspace("canon", &mut sessions, &mut store);
+    create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
+    corrupt_branch_valuation(&store, &seed_ws, "rival");
+
+    let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    assert!(!opened["ok"].as_bool().unwrap(), "{opened}");
+    assert_eq!(opened["error"]["code"], "evidence-corrupt", "{opened}");
+}
+
+#[test]
+fn branch_open_maps_missing_receiving_name_to_evidence_corrupt() {
+    let (_t, mut sessions, mut store) = functional_store();
+    let seed_ws = open_workspace("canon", &mut sessions, &mut store);
+    create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
+    corrupt_branch_with_unresolvable_name(&store, &seed_ws, "rival");
+
+    let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
+    assert!(!opened["ok"].as_bool().unwrap(), "{opened}");
+    assert_eq!(opened["error"]["code"], "evidence-corrupt", "{opened}");
+}
+
+#[test]
+fn merge_maps_corrupt_ref_valuation_to_evidence_corrupt() {
+    let (_t, mut sessions, mut store) = functional_store();
+    let seed_ws = open_workspace("canon", &mut sessions, &mut store);
+    create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
+    corrupt_branch_valuation(&store, &seed_ws, "rival");
+
+    let merged = drive(
+        &json!({ "dli": V, "id": "merge-corrupt", "op": "author.merge",
+                 "params": { "workspace": seed_ws, "source": "rival" } }),
+        &mut sessions,
+        &mut store,
+    );
+    assert!(!merged["ok"].as_bool().unwrap(), "{merged}");
+    assert_eq!(merged["error"]["code"], "evidence-corrupt", "{merged}");
 }
 
 // ── 12. every new param is a schema violation below 1.7.0 ───────────────────

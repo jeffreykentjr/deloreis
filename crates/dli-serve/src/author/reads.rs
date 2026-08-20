@@ -29,6 +29,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
+use thiserror::Error;
 
 use dli_ast::decl::{Decl, Document, ScopeHeader};
 use dli_ast::ident::Ident;
@@ -82,7 +83,7 @@ pub(super) fn query(
         Some(atom) => atom.clone(),
         None => parse_goal(&params.goal)?,
     };
-    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let opts = QueryOpts {
         layer: params.layer.unwrap_or_default(),
         as_of: None,
@@ -132,7 +133,7 @@ pub(super) fn as_of(
     v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let at = resolve_time_point(&world, &params.at)?;
     let projected = check::slot_state_at(&world, &params.pred, &params.subject, at);
     let root_hash = v2.then(|| ws.digest.clone());
@@ -222,7 +223,7 @@ pub(super) fn predicates(
     v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     // pred -> arity at first occurrence; source atoms then rule heads.
     let mut arity: BTreeMap<String, usize> = BTreeMap::new();
     for atom in world.model.atoms() {
@@ -275,7 +276,7 @@ pub(super) fn entity_candidates(
     declared_only: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let canon = check::identity_canon(&world);
     // Each declared entity's sort, and the canonical-representative set folded
     // through the identity map so aliases dedupe to one candidate before scoring.
@@ -423,7 +424,7 @@ pub(super) fn why(
         Some(a) => a.clone(),
         None => parse_goal(&params.atom)?,
     };
-    let world = staged_world(store, ws).map_err(|err| eval_error(&err))?;
+    let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let inner = &world.model.world;
     let why_not = compute_why_not(inner, &atom);
     let derived = GroundAtom::from_pattern(&atom)
@@ -518,7 +519,15 @@ pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
 /// base's killed-token guardrail store re-attached (compile alone leaves it
 /// empty). The staged declarations enter under the workspace's own scope header so
 /// they merge into the base pack and entity references resolve across both.
-fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalError> {
+#[derive(Debug, Error)]
+enum StagedWorldError {
+    #[error(transparent)]
+    Eval(#[from] EvalError),
+    #[error("persisted valuation is corrupt: {0}")]
+    Valuation(#[from] dli_core::valuation::ValuationRemapError),
+}
+
+fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, StagedWorldError> {
     let mut documents = store
         .workspace_base_docs(&ws.id)
         .unwrap_or_default()
@@ -537,68 +546,24 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
     // The workspace is anchored to the store ref selected during project load.
     // Apply that complete overlay before its local suppositions; explicit falses
     // are as meaningful as trues and must not be reconstructed as absence.
-    for (source_atom, value) in &ws.base_valuation.0 {
-        let name = ws
-            .interner
-            .resolve(*source_atom)
-            .ok_or_else(|| EvalError::Contradiction {
-                detail: format!(
-                    "stored valuation atom {} is outside the workspace interner",
-                    source_atom.0
-                ),
-            })?;
-        let mut matches = world
-            .model
-            .world
-            .interner
-            .names()
-            .iter()
-            .enumerate()
-            .filter(|(_, candidate)| candidate.as_str() == name);
-        let target = match matches.next() {
-            Some((index, _)) => {
-                if matches.next().is_some() {
-                    return Err(EvalError::Contradiction {
-                        detail: format!(
-                            "stored valuation name `{name}` is ambiguous in the staged world"
-                        ),
-                    });
-                }
-                let index = u32::try_from(index).map_err(|_| EvalError::Contradiction {
-                    detail: format!("stored valuation name `{name}` exceeds the atom index space"),
-                })?;
-                dli_core::atom::Atom(index)
-            }
-            // A recorded decision can participate in the attack graph before
-            // any fact cites it. The compiler then has no reason to intern it;
-            // append the exact name so the projected standing remains visible
-            // without changing any existing atom identity.
-            None => world.model.world.interner.intern(name),
-        };
-        world.model.world.valuation.set(target, *value);
+    // Recorded attack-only decisions need not occur in any compiled support.
+    // Append their stable names without disturbing existing positions, then
+    // apply both assignments and explicit open states through exact names.
+    let effective_names = ws
+        .base_valuation
+        .0
+        .keys()
+        .chain(ws.base_unassigned.0.iter())
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    for name in effective_names {
+        world.model.world.interner.intern(&name);
     }
-    for source_atom in &ws.base_unassigned {
-        let name = ws
-            .interner
-            .resolve(*source_atom)
-            .ok_or_else(|| EvalError::Contradiction {
-                detail: format!(
-                    "stored unassignment atom {} is outside the workspace interner",
-                    source_atom.0
-                ),
-            })?;
-        if let Some(index) = world
-            .model
-            .world
-            .interner
-            .names()
-            .iter()
-            .position(|candidate| candidate == name)
-            .and_then(|index| u32::try_from(index).ok())
-        {
-            world.model.world.valuation.0.remove(&dli_core::Atom(index));
-        }
-    }
+    let target_interner = world.model.interner().clone();
+    ws.base_valuation
+        .apply_to(&target_interner, &mut world.model.world.valuation)?;
+    ws.base_unassigned
+        .remove_from(&target_interner, &mut world.model.world.valuation)?;
     for hypothesis in &ws.suppositions {
         if let Some(index) = world
             .model
@@ -917,7 +882,7 @@ fn contradiction_finding(report: &ClaimReport) -> Finding {
 
 /// An error-severity finding for a staged world that does not compile — a
 /// self-contained defect the agent must resolve before materialize.
-fn uncompilable(err: &EvalError) -> Finding {
+fn uncompilable(err: &StagedWorldError) -> Finding {
     Finding {
         severity: Severity::Error,
         code: "world.uncompilable".to_owned(),
@@ -926,6 +891,17 @@ fn uncompilable(err: &EvalError) -> Finding {
         repair: None,
         citations: Vec::new(),
         data: None,
+    }
+}
+
+fn staged_error(err: &StagedWorldError) -> ErrorBody {
+    match err {
+        StagedWorldError::Eval(error) => eval_error(error),
+        StagedWorldError::Valuation(_) => ErrorBody {
+            code: ErrorCode::EvidenceCorrupt,
+            message: err.to_string(),
+            data: None,
+        },
     }
 }
 

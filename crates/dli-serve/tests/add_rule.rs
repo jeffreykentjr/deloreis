@@ -809,18 +809,20 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
     let mut import_store = Store::with_packs(packs).expect("compile the imported corpus");
     for (id, document) in reread.documents() {
         if let Some(origin) = &document.store_origin {
-            import_store.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                document
-                    .store_commit
-                    .clone()
-                    .expect("a store-backed document carries its selected commit"),
-                document.store_valuation.clone(),
-                document.store_unassigned.clone(),
-                document.store_ref_digest.clone(),
-            );
+            import_store
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    document
+                        .store_commit
+                        .clone()
+                        .expect("a store-backed document carries its selected commit"),
+                    document.store_valuation.clone(),
+                    document.store_unassigned.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .expect("store valuation maps by name");
         }
     }
     import_store

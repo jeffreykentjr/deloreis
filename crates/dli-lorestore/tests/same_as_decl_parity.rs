@@ -32,8 +32,8 @@ use dli_lorestore::lower::{
 };
 use dli_lorestore::object::ExpertDeclKind;
 
-use dli_world::compile;
 use dli_world::pack::Pack;
+use dli_world::{CompiledWorld, compile};
 
 use tempfile::TempDir;
 
@@ -424,6 +424,101 @@ fn same_as_pack_round_trips_through_the_lorestore() {
 
 // ── durable defeat, refold, un-merge ───────────────────────────────
 
+fn defeat_gauntlet() -> Pack {
+    pack(
+        "weir",
+        vec![
+            ratify_decl("D-1"),
+            ratify_decl("D-9"),
+            functional("rank", Some(ratified("D-1"))),
+            fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
+            fact("rank", &["moira", "silver"], Some(ratified("D-1"))),
+            same_as("mara", "moira", Some(ratified("D-9"))),
+        ],
+    )
+}
+
+fn assert_decision_regression_refused(store: &Lorestore, gauntlet: &Pack) {
+    let (objects, interner) = lower_pack(gauntlet);
+    let fact_hashes = objects
+        .iter()
+        .map(|object| store.write_object(object).expect("write"))
+        .collect();
+    let regression = store.commit(
+        interner,
+        fact_hashes,
+        Vec::new(),
+        Vec::new(),
+        vec!["D-1".to_owned()],
+        gauntlet.name.clone(),
+    );
+    assert!(
+        regression.is_err(),
+        "the store must refuse an attempt to durably un-declare a decision"
+    );
+}
+
+fn install_defeat(store: &Lorestore, compiled: &CompiledWorld) -> dli_core::Atom {
+    let d9 = compiled
+        .model()
+        .var_atom("D-9")
+        .expect("D-9 is interned by the same-as citation");
+    let mut defeat = dli_core::valuation::Valuation::new();
+    defeat.set(d9, false);
+    let head_commit = store.root_hash().expect("root hash").expect("head exists");
+    let current = store.head_ref().expect("head ref").expect("main exists");
+    let token = current.digest().expect("digest").0;
+    let new_ref = dli_lorestore::Ref::with_valuation("main", head_commit, defeat);
+    assert!(
+        store
+            .cas_main_ref(Some(&token), &new_ref)
+            .expect("cas main ref"),
+        "the defeating valuation overlay must land on main"
+    );
+    d9
+}
+
+fn apply_stored_overlay(store: &Lorestore, mut compiled: CompiledWorld) -> CompiledWorld {
+    let stored_ref = store.head_ref().expect("head ref").expect("main exists");
+    let source_names = store
+        .interner_at(&stored_ref.commit)
+        .expect("source commit interner");
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&stored_ref.valuation, &source_names)
+            .expect("persisted valuation resolves");
+    let target_interner = compiled.model.interner().clone();
+    named
+        .apply_to(&target_interner, &mut compiled.model.world.valuation)
+        .expect("all persisted names exist in the receiving world");
+    compiled
+}
+
+fn assert_unmerged_and_control_certain(refolded: &CompiledWorld) {
+    let fd_after: Vec<_> = dli_world::check::run(refolded)
+        .into_iter()
+        .filter(|finding| finding.code == "continuity.fd-violation")
+        .collect();
+    assert!(
+        fd_after.is_empty(),
+        "the durable defeat must un-merge the slot on the next read: {fd_after:?}"
+    );
+    let mara_rank_status = refolded.model().atoms().iter().find_map(|atom| {
+        (atom.atom.pred.text == "rank"
+            && matches!(&atom.atom.args[0], Term::Sym(subj) if subj.text == "mara"))
+        .then(|| {
+            atom.ann.status(
+                &refolded.model().world.valuation,
+                &refolded.model().world.theory,
+            )
+        })
+    });
+    assert_eq!(
+        mara_rank_status,
+        Some(Status::Certain),
+        "D-1's own fact is untouched by defeating D-9"
+    );
+}
+
 /// A durable "defeat and refold". The append-only `decisions` ledger on a
 /// commit cannot un-declare D-9 (the store refuses a commit whose decisions
 /// list regresses — verified below), so a real durable defeat rides the OTHER
@@ -438,22 +533,10 @@ fn same_as_pack_round_trips_through_the_lorestore() {
 /// stored fact object changes; only the ref's overlay does.
 #[test]
 fn durable_defeat_refolds_to_an_un_merged_world() {
-    let gauntlet = pack(
-        "weir",
-        vec![
-            ratify_decl("D-1"),
-            ratify_decl("D-9"),
-            functional("rank", Some(ratified("D-1"))),
-            fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
-            fact("rank", &["moira", "silver"], Some(ratified("D-1"))),
-            same_as("mara", "moira", Some(ratified("D-9"))),
-        ],
-    );
-
+    let gauntlet = defeat_gauntlet();
     let tmp = TempDir::new().expect("tempdir");
     let store = Lorestore::open(tmp.path().to_path_buf()).expect("open");
     store.import_pack(&gauntlet).expect("import");
-
     let compiled = store.compile().expect("compiles");
     let fd_before: Vec<_> = dli_world::check::run(&compiled)
         .into_iter()
@@ -464,44 +547,8 @@ fn durable_defeat_refolds_to_an_un_merged_world() {
         1,
         "the merge creates one FD violation: {fd_before:?}"
     );
-
-    // The append-only guard: a commit cannot durably drop a declared decision.
-    let (objects, interner) = dli_lorestore::lower::lower_pack(&gauntlet);
-    let mut fact_hashes = Vec::with_capacity(objects.len());
-    for obj in &objects {
-        fact_hashes.push(store.write_object(obj).expect("write"));
-    }
-    let regressed_decisions = vec!["D-1".to_owned()]; // drops D-9
-    let regression = store.commit(
-        interner,
-        fact_hashes,
-        Vec::new(),
-        Vec::new(),
-        regressed_decisions,
-        gauntlet.name.clone(),
-    );
-    assert!(
-        regression.is_err(),
-        "the store must refuse an attempt to durably un-declare a decision"
-    );
-
-    // The real mechanism: a ref valuation overlay, CAS-written and read back.
-    let d9 = compiled
-        .model()
-        .var_atom("D-9")
-        .expect("D-9 is interned by the same-as citation");
-    let mut defeat = dli_core::valuation::Valuation::new();
-    defeat.set(d9, false);
-    let head_commit = store.root_hash().expect("root hash").expect("head exists");
-    let current = store.head_ref().expect("head ref").expect("main exists");
-    let token = current.digest().expect("digest").0;
-    let new_ref = dli_lorestore::Ref::with_valuation("main", head_commit, defeat);
-    let landed = store
-        .cas_main_ref(Some(&token), &new_ref)
-        .expect("cas main ref");
-    assert!(landed, "the defeating valuation overlay must land on main");
-
-    // Durable round trip: re-open and read the overlay back.
+    assert_decision_regression_refused(&store, &gauntlet);
+    let d9 = install_defeat(&store, &compiled);
     let reopened = Lorestore::open(tmp.path().to_path_buf()).expect("reopen");
     let stored_ref = reopened.head_ref().expect("head ref").expect("main exists");
     assert_eq!(
@@ -509,39 +556,6 @@ fn durable_defeat_refolds_to_an_un_merged_world() {
         Some(false),
         "the defeating bit survives a store reopen"
     );
-
-    // Apply it exactly as a consumer would: one valuation flip over the
-    // ALREADY-compiled world, no re-fixpoint (spec 02 §2 — supersession
-    // revaluates a variable; the symbolic fixpoint stands).
-    let mut refolded = compiled;
-    for (atom, value) in &stored_ref.valuation.0 {
-        refolded.model.world.valuation.set(*atom, *value);
-    }
-    let fd_after: Vec<_> = dli_world::check::run(&refolded)
-        .into_iter()
-        .filter(|f| f.code == "continuity.fd-violation")
-        .collect();
-    assert!(
-        fd_after.is_empty(),
-        "the durable defeat must un-merge the slot on the next read: {fd_after:?}"
-    );
-    let mara_rank_status = refolded
-        .model()
-        .atoms()
-        .iter()
-        .find(|a| {
-            a.atom.pred.text == "rank"
-                && matches!(&a.atom.args[0], Term::Sym(subj) if subj.text == "mara")
-        })
-        .map(|a| {
-            a.ann.status(
-                &refolded.model().world.valuation,
-                &refolded.model().world.theory,
-            )
-        });
-    assert_eq!(
-        mara_rank_status,
-        Some(Status::Certain),
-        "D-1's own fact is untouched by defeating D-9"
-    );
+    let refolded = apply_stored_overlay(&reopened, compiled);
+    assert_unmerged_and_control_certain(&refolded);
 }

@@ -11,7 +11,7 @@ use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::Valuation;
+use dli_core::valuation::{NamedAtomSet, NamedValuation, Valuation};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
@@ -89,9 +89,10 @@ pub struct ProjectDocument {
     /// This is empty for a manifest-pinned commit: a pin is a replay of that
     /// commit, not an instruction to borrow the valuation of whatever ref happens
     /// to point elsewhere when the project starts.
-    pub store_valuation: Valuation,
-    /// Store atoms explicitly left unassigned by grounded attack cycles.
-    pub store_unassigned: BTreeSet<dli_core::Atom>,
+    pub store_valuation: NamedValuation,
+    /// Store decisions explicitly left unassigned by grounded attack cycles,
+    /// carried by exact name across independent compilation interners.
+    pub store_unassigned: NamedAtomSet,
     /// Digest of the selected branch ref, including its valuation overlay.
     ///
     /// Only branch mode has a selected ref. The authoring write path uses this
@@ -579,6 +580,48 @@ fn file_identity(path: &Path, field: &str) -> Result<FileIdentity, ProjectError>
     Ok(FileIdentity::Path(path.to_path_buf()))
 }
 
+fn validate_store_standing(
+    id: &str,
+    pack: &Pack,
+    valuation: &NamedValuation,
+    unassigned: &NamedAtomSet,
+) -> Result<(), ProjectError> {
+    let mut compiled = compile(pack).map_err(|error| ProjectError::Compile {
+        document: id.to_owned(),
+        message: error.to_string(),
+    })?;
+    let declared_decisions: BTreeSet<&str> = pack
+        .documents
+        .iter()
+        .flat_map(|document| &document.decls)
+        .filter_map(|decl| match decl {
+            Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
+            _ => None,
+        })
+        .collect();
+    for name in valuation
+        .0
+        .keys()
+        .chain(unassigned.0.iter())
+        .filter(|name| declared_decisions.contains(name.as_str()))
+    {
+        compiled.model.world.interner.intern(name);
+    }
+    valuation
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store ref valuation does not map to its compiled document: {error}"),
+        })?;
+    unassigned
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store open decisions do not map to the compiled document: {error}"),
+        })?;
+    Ok(())
+}
+
 fn load_document(
     root: &Path,
     id: &str,
@@ -594,10 +637,7 @@ fn load_document(
         store_unassigned,
         store_ref_digest,
     ) = load_source(root, id, entry)?;
-    compile(&pack).map_err(|error| ProjectError::Compile {
-        document: id.to_owned(),
-        message: error.to_string(),
-    })?;
+    validate_store_standing(id, &pack, &store_valuation, &store_unassigned)?;
     let episodes = entry
         .episodes
         .as_deref()
@@ -743,8 +783,8 @@ fn load_source(
         String,
         Option<PathBuf>,
         Option<dli_lorestore::ContentHash>,
-        Valuation,
-        BTreeSet<dli_core::Atom>,
+        NamedValuation,
+        NamedAtomSet,
         Option<String>,
     ),
     ProjectError,
@@ -786,8 +826,8 @@ fn load_source(
                 digest,
                 None,
                 None,
-                Valuation::new(),
-                BTreeSet::new(),
+                NamedValuation::default(),
+                NamedAtomSet::default(),
                 None,
             ))
         }
@@ -816,8 +856,8 @@ fn load_pack_from_store(
         Vec<PathBuf>,
         String,
         dli_lorestore::ContentHash,
-        Valuation,
-        BTreeSet<dli_core::Atom>,
+        NamedValuation,
+        NamedAtomSet,
         Option<String>,
     ),
     ProjectError,
@@ -878,6 +918,26 @@ fn load_pack_from_store(
             document: id.to_owned(),
             message: format!("store head `{resolved}` has invalid decision standing: {error}"),
         })?;
+    let source_names = lorestore
+        .interner_at(&resolved)
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store head `{resolved}` has no valid interner: {error}"),
+        })?;
+    let valuation =
+        NamedValuation::from_indexed(&effective.valuation, &source_names).map_err(|error| {
+            ProjectError::Compile {
+                document: id.to_owned(),
+                message: format!("store ref valuation cannot be resolved: {error}"),
+            }
+        })?;
+    let unassigned =
+        NamedAtomSet::from_indexed(&effective.unassigned, &source_names).map_err(|error| {
+            ProjectError::Compile {
+                document: id.to_owned(),
+                message: format!("store open decisions cannot be resolved: {error}"),
+            }
+        })?;
 
     let pack = lorestore
         .reconstruct_at(&resolved)
@@ -894,8 +954,8 @@ fn load_pack_from_store(
         vec![dir],
         resolved.as_str().to_owned(),
         resolved,
-        effective.valuation,
-        effective.unassigned,
+        valuation,
+        unassigned,
         ref_digest,
     ))
 }

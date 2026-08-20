@@ -5389,3 +5389,78 @@ counter rollback, while a success-path differential test proves fact hashes and
 interner names byte-identical to reconstruction. The ignored scale harness is
 the reproducible wall-clock evidence; `cargo xtask gate` remains the acceptance
 verdict.
+
+## DL-0094 — Persisted valuations cross compilation boundaries by exact name, never by atom position (GH #103)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+making the self-describing-interner invariant explicit after the defeat-horizon
+benchmark exposed a released positional aliasing defect. It is live and binding
+on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** An `Atom` index has meaning only under the `Interner` that produced
+it. A persisted `Ref::valuation`, merge-side valuation, project snapshot, or
+other durable overlay may enter a separately compiled world only through the
+source commit's exact name table: validate the source index, resolve it to a
+name, then resolve that name in the receiving interner. Duplicate source or
+target names, an out-of-range source atom, or a name absent from the receiving
+world is `EvidenceCorrupt`; the engine must never silently drop, retarget, or
+guess an assignment.
+
+The stored representation remains the schema-v4 numeric valuation paired with
+its commit interner. Changing those canonical bytes is unnecessary: the defect
+was every consumer that detached the numbers from their name table. The one
+typed name-remapping boundary therefore governs author staged reads, branch and
+pinned opens/reloads, project sessions, canon/refold, and merge union/conflict
+analysis. Merge resolves each parent through its own interner before combining
+assignments by name.
+
+This is a semantic correction across every accepted contract version, not a
+new capability or response field, so there is no contract or storage-schema
+bump. Already-aligned worlds and all released request/response shapes remain
+byte-identical; only the skewed case stops falsifying an unrelated decision.
+
+**Verification.** Pure tests cover exact mapping plus out-of-range, duplicate,
+and missing-name refusals. The public regression first proves that durable and
+recompiled atom positions differ, then checks the intended defeated claim and
+an independent control through live authoring, reopen/session, branch, merge,
+and canon paths. A mutation tooth that reuses raw indices must redden the suite;
+`cargo xtask gate` remains the acceptance verdict.
+
+## DL-0095 — Corrigendum to DL-0094 verification: real declaration skew, independent recompilation, and exact corruption codes
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+correcting DL-0094's verification paragraph after clean-context red teams found
+that its first acceptance oracle manufactured skew and reused its subject as the
+reference. It is live and binding on the tree, pending the author's async review
+(DL-0052).
+
+**Ruling.** This corrects DL-0094's verification evidence; its semantic ruling
+is unchanged. The final verification
+is stronger and narrower than the paragraph originally recorded. The permanent
+oracle lowers real Ratify, Fact, Rule, and Hypothesis declarations; an earlier
+written carriage produces the durable/compiled order skew, while a control
+without that real declaration proves the positions align. The subject store is
+closed, reopened, reconstructed, and compiled afresh. A separately constructed
+Pack and interner receive the same named overlay as the independent reference —
+no cloned subject world, positional flip, padding name, or synthetic annotation
+can satisfy the test.
+
+That oracle covers six legal ingestion orders and real derivation depths
+1/2/4/8 with 1/2/5 distinct shared conclusions, plus independent and redundant
+controls. Separate public regressions cover live authoring, branch open/reload,
+session reopen, skewed merge checks, and skewed canon evaluation. Every invalid
+source or receiving name on branch open and merge surfaces as
+`evidence-corrupt`, matching DL-0094 rather than collapsing to `internal`.
+
+**Process correction.** DL-0094 was temporarily amended on the feature branch
+while its evidence was still being repaired. Its minted bytes have been restored;
+this append-only corrigendum records the corrected evidence instead (DL-0027).
+
+**Verification.** The declaration oracle, public corruption-code tests, both
+canonical Clippy lanes, and all 23 `cargo xtask gate` steps are green. Mutation
+controls remove the real skew-producing declaration, reuse a raw index, or reuse
+the subject as its own reference; each must redden the suite.

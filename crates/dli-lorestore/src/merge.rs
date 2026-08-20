@@ -36,7 +36,7 @@ use std::sync::Arc;
 use dli_core::ann::Status;
 use dli_core::atom::Atom;
 use dli_core::fd::{fd_violations, inferred_functional};
-use dli_core::valuation::Valuation;
+use dli_core::valuation::{NamedAtomSet, NamedValuation, Valuation};
 use dli_eval::error::EvalError;
 use dli_eval::fork::{Conflict, ConflictKind};
 use dli_world::CompiledWorld;
@@ -150,12 +150,23 @@ pub fn reconcile_interners(a: &[String], b: &[String]) -> Result<Vec<String>, St
 /// Union two branch valuation overlays. Where both rule the same variable the
 /// **target** value is kept — deterministic, and any disagreement is reported as
 /// a [`ConflictKind::Valuation`] conflict, never silently reconciled.
-pub fn union_valuations(target: &Valuation, source: &Valuation) -> Valuation {
-    let mut merged = target.clone();
-    for (&atom, &value) in &source.0 {
-        merged.0.entry(atom).or_insert(value);
+pub fn union_valuations(
+    target: &Valuation,
+    target_names: &[String],
+    source: &Valuation,
+    source_names: &[String],
+    merged_names: &[String],
+) -> Result<Valuation, StoreError> {
+    let target = NamedValuation::from_indexed(target, target_names)?;
+    let source = NamedValuation::from_indexed(source, source_names)?;
+    let mut merged = target.0;
+    for (name, value) in source.0 {
+        merged.entry(name).or_insert(value);
     }
-    merged
+    Ok(
+        NamedValuation(merged)
+            .to_indexed(&dli_core::Interner::from_names(merged_names.to_vec()))?,
+    )
 }
 
 /// Valuation-disagreement conflicts (class 1): a variable both branches ruled,
@@ -198,18 +209,27 @@ pub(crate) fn scan(
     source_head: &ContentHash,
     base: Option<&ContentHash>,
     target_val: &Valuation,
+    target_interner: &[String],
     source_val: &Valuation,
+    source_interner: &[String],
     target_effective: &crate::EffectiveValuation,
     source_effective: &crate::EffectiveValuation,
     merged_effective: &crate::EffectiveValuation,
     merged_interner: &[String],
 ) -> Result<ConflictScan, StoreError> {
     // Class 1 — valuation disagreement, straight off the two overlays.
-    let mut conflicts = valuation_conflicts(target_val, source_val, merged_interner);
+    let target_named = NamedValuation::from_indexed(target_val, target_interner)?;
+    let source_named = NamedValuation::from_indexed(source_val, source_interner)?;
+    let target_for_merged =
+        target_named.to_indexed(&dli_core::Interner::from_names(merged_interner.to_vec()))?;
+    let source_for_merged =
+        source_named.to_indexed(&dli_core::Interner::from_names(merged_interner.to_vec()))?;
+    let mut conflicts =
+        valuation_conflicts(&target_for_merged, &source_for_merged, merged_interner);
 
-    let merged_named = overlay_to_named(merged_effective, merged_interner);
-    let target_named = overlay_to_named(target_effective, merged_interner);
-    let source_named = overlay_to_named(source_effective, merged_interner);
+    let merged_named = overlay_to_named(merged_effective, merged_interner)?;
+    let target_named = overlay_to_named(target_effective, target_interner)?;
+    let source_named = overlay_to_named(source_effective, source_interner)?;
 
     // The union's compiled world, through the session cache in both directions.
     //
@@ -274,13 +294,15 @@ pub(crate) fn scan(
         compiled
     };
 
-    let merged_eff = effective(&merged_world, &merged_named);
+    let merged_eff = effective(&merged_world, &merged_named)?;
 
     // Class 2 — constraint violations in the merged world. The recompile's own
     // check battery is graded findings with repair data already; exclusivity and
     // functional-dependency are detected structurally and surfaced as both a
     // typed `Conflict` and a graded finding.
-    let mut findings = dli_world::check::run(&merged_world);
+    let mut checked_world = merged_world.as_ref().clone();
+    checked_world.model.world.valuation.clone_from(&merged_eff);
+    let mut findings = dli_world::check::run(&checked_world);
 
     let exclusivity = exclusivity_conflicts(&merged_world, &merged_eff);
 
@@ -317,8 +339,8 @@ pub(crate) fn scan(
 
     // Class 3 — stratified-negation / non-monotone standing flips. Name atoms the
     // merge downgraded, reusing the pre-merge worlds compiled above.
-    let target_eff = effective(&target_world, &target_named);
-    let source_eff = effective(&source_world, &source_named);
+    let target_eff = effective(&target_world, &target_named)?;
+    let source_eff = effective(&source_world, &source_named)?;
     let standing_changes = standing_downgrades(
         &[
             ("target", &target_world, &target_eff),
@@ -523,47 +545,56 @@ fn constraint_finding(conflict: &Conflict) -> WorldFinding {
 fn overlay_to_named(
     overlay: &crate::EffectiveValuation,
     interner_names: &[String],
-) -> BTreeMap<String, Option<bool>> {
-    let mut named: BTreeMap<_, _> = overlay
-        .valuation
-        .0
-        .iter()
-        .filter_map(|(atom, &value)| {
-            interner_names
-                .get(atom.0 as usize)
-                .map(|name| (name.clone(), Some(value)))
-        })
-        .collect();
-    for atom in &overlay.unassigned {
-        if let Some(name) = interner_names.get(atom.0 as usize) {
-            named.insert(name.clone(), None);
-        }
+) -> Result<BTreeMap<String, Option<bool>>, StoreError> {
+    let mut named: BTreeMap<_, _> =
+        NamedValuation::from_indexed(&overlay.valuation, interner_names)?
+            .0
+            .into_iter()
+            .map(|(name, value)| (name, Some(value)))
+            .collect();
+    for name in NamedAtomSet::from_indexed(&overlay.unassigned, interner_names)?.0 {
+        named.insert(name, None);
     }
-    named
+    Ok(named)
 }
 
 /// The compiled world's base valuation with a name-keyed overlay applied — robust
 /// to any interner-index remapping between the stored commit and the recompiled
 /// world (names are the stable key).
-fn effective(world: &CompiledWorld, named: &BTreeMap<String, Option<bool>>) -> Valuation {
+fn effective(
+    world: &CompiledWorld,
+    named: &BTreeMap<String, Option<bool>>,
+) -> Result<Valuation, StoreError> {
     let mut eff = world.model.world.valuation.clone();
-    let table = world.model.world.interner.names();
-    let by_name: BTreeMap<&str, u32> = table
+    let target_names: std::collections::BTreeSet<&str> = world
+        .model
+        .world
+        .interner
+        .names()
         .iter()
-        .enumerate()
-        .map(|(pos, n)| (n.as_str(), u32::try_from(pos).unwrap_or(u32::MAX)))
+        .map(String::as_str)
         .collect();
-    for (name, value) in named {
-        if let Some(&pos) = by_name.get(name.as_str()) {
-            match value {
-                Some(value) => eff.set(Atom(pos), *value),
-                None => {
-                    eff.0.remove(&Atom(pos));
-                }
-            }
-        }
-    }
-    eff
+    // Attack-only recorded decisions legitimately have no atom in a compiled
+    // fact/rule world. They cannot affect this world's constraint or standing
+    // scan, so project only the exact names that the receiver represents.
+    let assignments = NamedValuation(
+        named
+            .iter()
+            .filter(|(name, _)| target_names.contains(name.as_str()))
+            .filter_map(|(name, value)| value.map(|value| (name.clone(), value)))
+            .collect(),
+    );
+    let unassigned = NamedAtomSet(
+        named
+            .iter()
+            .filter(|(name, _)| target_names.contains(name.as_str()))
+            .filter(|(_, value)| value.is_none())
+            .map(|(name, _)| name.clone())
+            .collect(),
+    );
+    assignments.apply_to(&world.model.world.interner, &mut eff)?;
+    unassigned.remove_from(&world.model.world.interner, &mut eff)?;
+    Ok(eff)
 }
 
 fn name_at(interner_names: &[String], atom: Atom) -> String {
@@ -586,5 +617,35 @@ const fn status_word(status: Status) -> &'static str {
         Status::Certain => "certain",
         Status::Possible => "possible",
         Status::Dead => "dead",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::union_valuations;
+    use dli_core::atom::Atom;
+    use dli_core::valuation::Valuation;
+
+    #[test]
+    fn valuation_union_resolves_each_branch_through_its_own_interner() {
+        let mut target = Valuation::new();
+        target.set(Atom(1), false); // target-decision
+        let mut source = Valuation::new();
+        source.set(Atom(0), true); // source-decision
+        let merged = union_valuations(
+            &target,
+            &["padding".to_owned(), "target-decision".to_owned()],
+            &source,
+            &["source-decision".to_owned(), "padding".to_owned()],
+            &[
+                "source-decision".to_owned(),
+                "target-decision".to_owned(),
+                "padding".to_owned(),
+            ],
+        )
+        .expect("both named assignments map");
+        assert_eq!(merged.get(Atom(0)), Some(true));
+        assert_eq!(merged.get(Atom(1)), Some(false));
+        assert_eq!(merged.get(Atom(2)), None);
     }
 }

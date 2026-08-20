@@ -93,6 +93,13 @@ pub struct CommitReceipt {
     pub ref_digest: ContentHash,
 }
 
+struct MergeInputs {
+    target_ref: Ref,
+    source_ref: Ref,
+    target_commit: Commit,
+    source_commit: Commit,
+}
+
 impl Lorestore {
     /// Open (or initialise) a store at `root`.
     ///
@@ -879,17 +886,7 @@ impl Lorestore {
         legacy: &dli_core::valuation::Valuation,
     ) -> Result<crate::EffectiveValuation, StoreError> {
         let commit = self.commit_at(head)?;
-        let mut fixed = std::collections::BTreeMap::new();
-        for (atom, value) in &legacy.0 {
-            let name = commit.interner.get(atom.0 as usize).ok_or_else(|| {
-                StoreError::NotFound(format!(
-                    "legacy valuation atom {} is outside the commit interner ({} names)",
-                    atom.0,
-                    commit.interner.len()
-                ))
-            })?;
-            fixed.insert(name.clone(), *value);
-        }
+        let fixed = dli_core::valuation::NamedValuation::from_indexed(legacy, &commit.interner)?.0;
         let attacks = self.decision_attacks_from(head)?;
         let labels = crate::grounded_labels(&commit.decisions, &attacks, &fixed);
         let mut effective = legacy.clone();
@@ -1475,22 +1472,12 @@ impl Lorestore {
         self.merge_impl(target, source, advance, expected_ref)
     }
 
-    /// The shared merge body behind [`merge`](Self::merge) and
-    /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
-    /// the fact-hash union, the merge-commit write, and the conflict scan —
-    /// runs identically regardless of `advance`, so a dry run and its later
-    /// real merge (same two heads) write the same merge commit and report the
-    /// same conflicts.
-    #[allow(clippy::too_many_lines)]
-    fn merge_impl(
+    fn read_merge_inputs(
         &self,
         target: &str,
         source: &str,
-        advance: bool,
         expected_ref: Option<&str>,
-    ) -> Result<crate::merge::MergeReport, StoreError> {
-        let _lock = self.storage.acquire_lock()?;
-
+    ) -> Result<MergeInputs, StoreError> {
         let target_ref = self
             .storage
             .load_ref(&branch_ref_name(target))?
@@ -1509,13 +1496,121 @@ impl Lorestore {
             .storage
             .load_ref(&branch_ref_name(source))?
             .ok_or_else(|| StoreError::NotFound(format!("branch `{source}` does not exist")))?;
+        let target_commit =
+            storage::read_typed(&*self.storage, &target_ref.commit)?.ok_or_else(|| {
+                StoreError::NotFound(format!("target head missing: {}", target_ref.commit))
+            })?;
+        let source_commit =
+            storage::read_typed(&*self.storage, &source_ref.commit)?.ok_or_else(|| {
+                StoreError::NotFound(format!("source head missing: {}", source_ref.commit))
+            })?;
+        Ok(MergeInputs {
+            target_ref,
+            source_ref,
+            target_commit,
+            source_commit,
+        })
+    }
+
+    fn advance_merge_ref(
+        &self,
+        target: &str,
+        target_ref: &Ref,
+        merge_hash: &ContentHash,
+        merged_valuation: dli_core::valuation::Valuation,
+    ) -> Result<(), StoreError> {
+        let new_ref = Ref::with_valuation(
+            branch_ref_name(target),
+            merge_hash.clone(),
+            merged_valuation,
+        );
+        let expected_token = Some(target_ref.digest()?.0);
+        if self.storage.cas_ref(
+            &branch_ref_name(target),
+            expected_token.as_deref(),
+            &new_ref,
+        )? {
+            return Ok(());
+        }
+        Err(StoreError::CasConflict {
+            name: branch_ref_name(target),
+            expected: Some(target_ref.commit.0.clone()),
+            found: self
+                .storage
+                .load_ref(&branch_ref_name(target))?
+                .map(|reference| reference.commit.0),
+        })
+    }
+
+    fn merge_attack_hashes(
+        &self,
+        target_head: &ContentHash,
+        source_head: &ContentHash,
+        merged_interner: &[String],
+        merged_decisions: &[String],
+        union: &[ContentHash],
+    ) -> Result<Vec<ContentHash>, StoreError> {
+        let mut merged = self.decision_attack_hashes_from(target_head)?;
+        let mut seen: std::collections::BTreeSet<ContentHash> = merged.iter().cloned().collect();
+        for hash in self.decision_attack_hashes_from(source_head)? {
+            if seen.insert(hash.clone()) {
+                merged.push(hash);
+            }
+        }
+        let mut ordered = Vec::with_capacity(merged.len());
+        for hash in merged {
+            let attack: crate::DecisionAttack = self
+                .read_object(&hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))?;
+            ordered.push((attack, hash));
+        }
+        ordered.sort_by(|(left, _), (right, _)| left.cmp(right));
+        let merged: Vec<_> = ordered.into_iter().map(|(_, hash)| hash).collect();
+
+        let mut live_facts = Vec::new();
+        let mut identities = std::collections::BTreeMap::new();
+        for fact_hash in union {
+            let object: crate::FactObject = self
+                .read_object(fact_hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {fact_hash}")))?;
+            let identity = object.content_hash()?;
+            if let Some(index) = identities.get(&identity) {
+                live_facts[*index] = fact_hash.clone();
+            } else {
+                identities.insert(identity, live_facts.len());
+                live_facts.push(fact_hash.clone());
+            }
+        }
+        self.validate_decision_attack_hashes(
+            &merged,
+            merged_interner,
+            merged_decisions,
+            &live_facts,
+        )?;
+        Ok(merged)
+    }
+
+    /// The shared merge body behind [`merge`](Self::merge) and
+    /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
+    /// the fact-hash union, the merge-commit write, and the conflict scan —
+    /// runs identically regardless of `advance`, so a dry run and its later
+    /// real merge (same two heads) write the same merge commit and report the
+    /// same conflicts.
+    fn merge_impl(
+        &self,
+        target: &str,
+        source: &str,
+        advance: bool,
+        expected_ref: Option<&str>,
+    ) -> Result<crate::merge::MergeReport, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        let inputs = self.read_merge_inputs(target, source, expected_ref)?;
+        let target_ref = inputs.target_ref;
+        let source_ref = inputs.source_ref;
+        let target_commit = inputs.target_commit;
+        let source_commit = inputs.source_commit;
         let target_head = target_ref.commit.clone();
         let source_head = source_ref.commit.clone();
-
-        let target_commit: Commit = storage::read_typed(&*self.storage, &target_head)?
-            .ok_or_else(|| StoreError::NotFound(format!("target head missing: {target_head}")))?;
-        let source_commit: Commit = storage::read_typed(&*self.storage, &source_head)?
-            .ok_or_else(|| StoreError::NotFound(format!("source head missing: {source_head}")))?;
 
         // Parent validity is not something the union may heal. In particular,
         // a sibling can supply an interner name missing from a corrupt attack
@@ -1523,7 +1618,6 @@ impl Lorestore {
         // pre-merge worlds before constructing or writing that candidate.
         let target_effective = self.effective_valuation_at(&target_head, &target_ref.valuation)?;
         let source_effective = self.effective_valuation_at(&source_head, &source_ref.valuation)?;
-
         // Interner reconciliation — prefix-preservation against BOTH parents.
         let merged_interner =
             crate::merge::reconcile_interners(&target_commit.interner, &source_commit.interner)?;
@@ -1548,51 +1642,14 @@ impl Lorestore {
             }
         }
 
-        // Conditional attacks are append-only semantic objects, so merge is
-        // their deterministic set union just like facts. The graph is labelled
-        // only after the union, allowing a merge to introduce a cycle without
-        // making the result depend on parent order.
-        let mut merged_attacks = self.decision_attack_hashes_from(&target_head)?;
-        let mut aseen: std::collections::BTreeSet<ContentHash> =
-            merged_attacks.iter().cloned().collect();
-        for hash in self.decision_attack_hashes_from(&source_head)? {
-            if aseen.insert(hash.clone()) {
-                merged_attacks.push(hash);
-            }
-        }
-        let mut ordered_attacks = Vec::with_capacity(merged_attacks.len());
-        for hash in merged_attacks {
-            let attack: crate::DecisionAttack = self
-                .read_object(&hash)?
-                .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))?;
-            ordered_attacks.push((attack, hash));
-        }
-        ordered_attacks.sort_by(|(left, _), (right, _)| left.cmp(right));
-        let merged_attacks: Vec<_> = ordered_attacks.into_iter().map(|(_, hash)| hash).collect();
-
-        // A merge is also a ref-advancing commit seam. Revalidate the union
-        // against its own exact folded facts because two branches can carry
-        // metadata revisions of one fact identity, making one storage hash no
-        // longer live in the merged candidate.
-        let mut live_facts = Vec::new();
-        let mut identities = std::collections::BTreeMap::new();
-        for fact_hash in &union {
-            let object: crate::FactObject = self
-                .read_object(fact_hash)?
-                .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {fact_hash}")))?;
-            let identity = object.content_hash()?;
-            if let Some(index) = identities.get(&identity) {
-                live_facts[*index] = fact_hash.clone();
-            } else {
-                identities.insert(identity, live_facts.len());
-                live_facts.push(fact_hash.clone());
-            }
-        }
-        self.validate_decision_attack_hashes(
-            &merged_attacks,
+        // Attacks are a canonical append-only union, validated against the
+        // exact merged fact fold before any ref can advance.
+        let merged_attacks = self.merge_attack_hashes(
+            &target_head,
+            &source_head,
             &merged_interner,
             &merged_decisions,
-            &live_facts,
+            &union,
         )?;
 
         let base = self.merge_base(&target_head, &source_head)?;
@@ -1616,8 +1673,13 @@ impl Lorestore {
         // step before the target ref can move. Writing the content-addressed
         // commit above is harmless preparation; the CAS below is the only
         // authoritative state transition.
-        let merged_valuation =
-            crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
+        let merged_valuation = crate::merge::union_valuations(
+            &target_ref.valuation,
+            &target_commit.interner,
+            &source_ref.valuation,
+            &source_commit.interner,
+            &merged_interner,
+        )?;
         let merged_effective = self.effective_valuation_at(&merge_hash, &merged_valuation)?;
         let scan = crate::merge::scan(
             self,
@@ -1626,7 +1688,9 @@ impl Lorestore {
             &source_head,
             base.as_ref(),
             &target_ref.valuation,
+            &target_commit.interner,
             &source_ref.valuation,
+            &source_commit.interner,
             &target_effective,
             &source_effective,
             &merged_effective,
@@ -1637,28 +1701,8 @@ impl Lorestore {
         // and the complete conflict scan have succeeded. A dry run skips this
         // sole authority transition while retaining the identical analysis.
         if advance {
-            let new_ref = Ref::with_valuation(
-                branch_ref_name(target),
-                merge_hash.clone(),
-                merged_valuation,
-            );
-            let expected_token = Some(target_ref.digest()?.0);
-            if !self.storage.cas_ref(
-                &branch_ref_name(target),
-                expected_token.as_deref(),
-                &new_ref,
-            )? {
-                return Err(StoreError::CasConflict {
-                    name: branch_ref_name(target),
-                    expected: Some(target_head.0.clone()),
-                    found: self
-                        .storage
-                        .load_ref(&branch_ref_name(target))?
-                        .map(|r| r.commit.0),
-                });
-            }
+            self.advance_merge_ref(target, &target_ref, &merge_hash, merged_valuation)?;
         }
-
         Ok(crate::merge::MergeReport {
             merge_commit: merge_hash,
             merge_base: base,
