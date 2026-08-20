@@ -33,7 +33,6 @@ use dli_ast::language::{
 use dli_ast::rule::{Datalog, RuleBody, RuleClause};
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
-use dli_core::ann::Status;
 use dli_core::grade::Grade;
 use dli_eval::EvalError;
 use dli_world::CompiledWorld;
@@ -410,7 +409,7 @@ pub(super) fn materialize(
                 .iter()
                 .flat_map(|(_, hashes)| hashes.iter().cloned())
                 .collect::<Vec<_>>(),
-            ws.interner_names.clone(),
+            ws.interner.names().to_vec(),
             store
                 .workspace_base_docs(&params.workspace)
                 .map(<[Document]>::to_vec)
@@ -886,10 +885,9 @@ pub(super) fn add_rule(
         provenance: Some(annotation(&params.provenance, records_citations)),
     });
 
-    let decisions = workspace_decisions(store, &params.workspace);
     let findings = {
         let (base, ws) = parts_mut(store, &params.workspace)?;
-        decl_findings(&decl, ws, base, &decisions)
+        decl_findings(&decl, ws, base)
     };
     if findings
         .iter()
@@ -1400,12 +1398,11 @@ fn composition_text(steps: &[CompositionStep]) -> String {
 /// `FactObject` and written immediately, with the hash tracked in the
 /// workspace for `materialize` to commit.
 fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody> {
-    // Read the in-scope decision set before taking the mutable borrow: the
-    // citation check needs the base documents, which `parts_mut` does not reach.
-    let decisions = workspace_decisions(store, ws_id);
+    // Findings read the workspace's derived base-plus-staged resolution index;
+    // no historical declaration or base-atom census belongs on this hot path.
     let (findings, rendered) = {
         let (base, ws) = parts_mut(store, ws_id)?;
-        let findings = decl_findings(&decl, ws, base, &decisions);
+        let findings = decl_findings(&decl, ws, base);
         let rendered = render_decls(std::slice::from_ref(&decl));
         (findings, rendered)
     };
@@ -1428,34 +1425,29 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
 /// The findings a declaration raises against the staged state and the base.
 /// Every declaration is first scanned for control characters in its free-text
 /// fields (R3/C1); the world declarations then add their resolution findings.
-fn decl_findings(
-    decl: &Decl,
-    ws: &Workspace,
-    base: &CompiledWorld,
-    decisions: &BTreeSet<String>,
-) -> Vec<Finding> {
+fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = control_char_findings(decl);
     out.extend(declaration_rejected_lore_findings(base, decl));
-    out.extend(citation_findings(decl, decisions));
+    out.extend(citation_findings(decl, ws.known_decisions()));
     match decl {
         Decl::Entity(e) => {
             if e.kind == AstEntityKind::Event {
-                out.extend(event_findings(e, ws, base));
+                out.extend(event_findings(e, ws));
             } else {
                 out.push(name_unvetted(&e.name.text));
             }
         }
-        Decl::Attr(a) => out.extend(attr_findings(a, ws, base)),
-        Decl::Fact(f) => out.extend(relation_findings(f, ws, base)),
+        Decl::Attr(a) => out.extend(attr_findings(a, ws)),
+        Decl::Fact(f) => out.extend(relation_findings(f, ws)),
         Decl::Before(b) => out.extend(before_findings(b, ws, base)),
         // The DM-4 expert declarations resolve nothing beyond their own text:
         // a dialect, morpheme, term, or banned word introduces a name rather
         // than referring to one. The two that *do* refer get their reference
         // checked, on the same footing as `add_before`'s endpoints.
-        Decl::State(s) => out.extend(state_findings(s, ws, base)),
+        Decl::State(s) => out.extend(state_findings(s, ws)),
         Decl::Attest(a) => out.extend(attest_findings(a, ws)),
-        Decl::Name(n) => out.extend(name_findings(n, ws, base)),
-        Decl::SameAs(s) => out.extend(same_as_findings(s, ws, base)),
+        Decl::Name(n) => out.extend(name_findings(n, ws)),
+        Decl::SameAs(s) => out.extend(same_as_findings(s, ws)),
         Decl::PredicateSameAs(s) => out.extend(predicate_same_as_findings(s)),
         Decl::Rule(r) => out.extend(rule_findings(r, ws, base)),
         _ => {}
@@ -1519,15 +1511,15 @@ fn rejected_lore_findings(base: &CompiledWorld, claim: AtomExpr) -> Vec<Finding>
         .collect()
 }
 
-fn event_findings(entity: &EntityDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+fn event_findings(entity: &EntityDecl, ws: &Workspace) -> Vec<Finding> {
     let Some(TimeClause::During(era)) = &entity.time else {
         return vec![event_era_missing(&entity.name.text)];
     };
-    let known = known_entities(base, &ws.decls);
+    let known = ws.known_entities();
     if !known.contains(&era.text) {
-        return vec![entity_unknown(&era.text, &known)];
+        return vec![entity_unknown(&era.text, known)];
     }
-    match entity_sort(base, &ws.decls, &era.text) {
+    match ws.entity_sort(&era.text) {
         Some("era") => Vec::new(),
         Some(sort) => vec![event_era_kind(&entity.name.text, &era.text, sort)],
         None => vec![event_era_kind(&entity.name.text, &era.text, "untyped")],
@@ -1536,11 +1528,11 @@ fn event_findings(entity: &EntityDecl, ws: &Workspace, base: &CompiledWorld) -> 
 
 /// `add_fact` findings: an unknown subject (error) and a slot that contradicts a
 /// certain base value (error).
-fn attr_findings(attr: &AttrDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
-    let known = known_entities(base, &ws.decls);
+fn attr_findings(attr: &AttrDecl, ws: &Workspace) -> Vec<Finding> {
+    let known = ws.known_entities();
     let mut out = Vec::new();
     if !known.contains(&attr.subject.text) {
-        out.push(entity_unknown(&attr.subject.text, &known));
+        out.push(entity_unknown(&attr.subject.text, known));
     }
     // Compare the staged value against the base's certain value on the normalized
     // key, for any ground value — a `Term::Str` slot contradicts just as a
@@ -1549,18 +1541,19 @@ fn attr_findings(attr: &AttrDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<F
     if !matches!(attr.value, Term::Var(_)) {
         let value_text = term_text(&attr.value);
         let value_key = fd_value_key(&value_text);
-        let certain = base_certain_values(base, &attr.attr.text, &attr.subject.text);
-        let certain_keys: BTreeSet<String> = certain.iter().map(|v| fd_value_key(v)).collect();
-        if certain_keys.len() == 1
-            && !certain_keys.contains(&value_key)
-            && let Some(canon) = certain.iter().next()
-        {
-            out.push(contradiction(
-                &attr.subject.text,
-                &attr.attr.text,
-                &value_text,
-                canon,
-            ));
+        if let Some(certain) = ws.certain_base_values(&attr.attr.text, &attr.subject.text) {
+            let certain_keys: BTreeSet<String> = certain.iter().map(|v| fd_value_key(v)).collect();
+            if certain_keys.len() == 1
+                && !certain_keys.contains(&value_key)
+                && let Some(canon) = certain.iter().next()
+            {
+                out.push(contradiction(
+                    &attr.subject.text,
+                    &attr.attr.text,
+                    &value_text,
+                    canon,
+                ));
+            }
         }
     }
     out
@@ -1568,13 +1561,13 @@ fn attr_findings(attr: &AttrDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<F
 
 /// `add_relation` findings: each argument that names no known entity is an error,
 /// carrying candidate ids (§3.3).
-fn relation_findings(fact: &FactDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
-    let known = known_entities(base, &ws.decls);
+fn relation_findings(fact: &FactDecl, ws: &Workspace) -> Vec<Finding> {
+    let known = ws.known_entities();
     fact.atom
         .args
         .iter()
         .filter_map(|arg| match arg {
-            Term::Sym(id) if !known.contains(&id.text) => Some(entity_unknown(&id.text, &known)),
+            Term::Sym(id) if !known.contains(&id.text) => Some(entity_unknown(&id.text, known)),
             _ => None,
         })
         .collect()
@@ -1583,13 +1576,13 @@ fn relation_findings(fact: &FactDecl, ws: &Workspace, base: &CompiledWorld) -> V
 /// `add_before` findings: an unknown endpoint (error) and an order that closes a
 /// cycle against existing orderings (error; §3.5).
 fn before_findings(before: &BeforeDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
-    let known = known_entities(base, &ws.decls);
+    let known = ws.known_entities();
     let mut out = Vec::new();
     if !known.contains(&before.earlier.text) {
-        out.push(entity_unknown(&before.earlier.text, &known));
+        out.push(entity_unknown(&before.earlier.text, known));
     }
     if !known.contains(&before.later.text) {
-        out.push(entity_unknown(&before.later.text, &known));
+        out.push(entity_unknown(&before.later.text, known));
     }
     if closes_cycle(&before.earlier.text, &before.later.text, ws, base) {
         out.push(order_cycle(&before.earlier.text, &before.later.text));
@@ -1605,14 +1598,14 @@ fn before_findings(before: &BeforeDecl, ws: &Workspace, base: &CompiledWorld) ->
 /// `continuity.identity-temporal-unsupported`, DL-0078's v1 boundary); and a
 /// sort mismatch between the two declared entity kinds (warn — an honest
 /// signal an author may still mean, never a block).
-fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
-    let known = known_entities(base, &ws.decls);
+fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace) -> Vec<Finding> {
+    let known = ws.known_entities();
     let mut out = Vec::new();
     if !known.contains(&same_as.left.text) {
-        out.push(entity_unknown(&same_as.left.text, &known));
+        out.push(entity_unknown(&same_as.left.text, known));
     }
     if !known.contains(&same_as.right.text) {
-        out.push(entity_unknown(&same_as.right.text, &known));
+        out.push(entity_unknown(&same_as.right.text, known));
     }
     if same_as.left.text == same_as.right.text {
         out.push(identity_self_merge(&same_as.left.text));
@@ -1621,7 +1614,7 @@ fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace, base: &CompiledWorld) 
     // kernel's own `identity_temporal_unsupported`, which also stops at the
     // first hit.
     for endpoint in [same_as.left.text.as_str(), same_as.right.text.as_str()] {
-        if let Some(sort @ ("era" | "event")) = entity_sort(base, &ws.decls, endpoint) {
+        if let Some(sort @ ("era" | "event")) = ws.entity_sort(endpoint) {
             out.push(identity_temporal_unsupported(
                 &same_as.left.text,
                 &same_as.right.text,
@@ -1632,8 +1625,8 @@ fn same_as_findings(same_as: &SameAsDecl, ws: &Workspace, base: &CompiledWorld) 
         }
     }
     if let (Some(left_sort), Some(right_sort)) = (
-        entity_sort(base, &ws.decls, &same_as.left.text),
-        entity_sort(base, &ws.decls, &same_as.right.text),
+        ws.entity_sort(&same_as.left.text),
+        ws.entity_sort(&same_as.right.text),
     ) && left_sort != right_sort
     {
         out.push(identity_sort_mismatch(
@@ -1666,15 +1659,15 @@ fn predicate_same_as_findings(identity: &PredicateSameAsDecl) -> Vec<Finding> {
 /// from a check-time dead end into an add-time repairable finding, ahead of
 /// the load-side `load.unknown-temporal-reference` backstop (unchanged) that
 /// still catches an anchor this workspace never even declares.
-fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
-    let known = known_entities(base, &ws.decls);
+fn state_findings(state: &StateDecl, ws: &Workspace) -> Vec<Finding> {
+    let known = ws.known_entities();
     let mut out = Vec::new();
     // `gwern.water-status` is a state on `gwern`; an undotted name names no
     // subject and so has nothing to resolve.
     if let Some((subject, _)) = state.name.text.split_once('.')
         && !known.contains(subject)
     {
-        out.push(entity_unknown(subject, &known));
+        out.push(entity_unknown(subject, known));
     }
     if let Some(time) = &state.time {
         let (point, expected_kind) = match time {
@@ -1687,22 +1680,22 @@ fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Ve
             TimeClause::Order(points) => {
                 for point in points {
                     if !known.contains(&point.text) {
-                        out.push(entity_unknown(&point.text, &known));
+                        out.push(entity_unknown(&point.text, known));
                     }
                 }
                 return out;
             }
         };
         if !known.contains(&point.text) {
-            out.push(entity_unknown(&point.text, &known));
-        } else if let Some(actual_kind) = entity_sort(base, &ws.decls, &point.text)
+            out.push(entity_unknown(&point.text, known));
+        } else if let Some(actual_kind) = ws.entity_sort(&point.text)
             && actual_kind != expected_kind
         {
             out.push(state_anchor_kind(
                 &point.text,
                 expected_kind,
                 actual_kind,
-                &entities_of_kind(base, &ws.decls, expected_kind),
+                &ws.entities_of_kind(expected_kind),
             ));
         }
     }
@@ -1712,24 +1705,6 @@ fn state_findings(state: &StateDecl, ws: &Workspace, base: &CompiledWorld) -> Ve
 /// The known entities of exactly one sort (`era`, `event`, …), for a
 /// `state.anchor-kind` repair's `alternatives` — the valid anchors an author
 /// could have meant instead.
-fn entities_of_kind(base: &CompiledWorld, decls: &[Decl], kind: &str) -> Vec<String> {
-    let mut set: BTreeSet<String> = base
-        .model
-        .entities()
-        .iter()
-        .filter(|entry| entry.sort.as_deref() == Some(kind))
-        .map(|entry| entry.name.clone())
-        .collect();
-    for decl in decls {
-        if let Decl::Entity(e) = decl
-            && e.kind.keyword() == kind
-        {
-            set.insert(e.name.text.clone());
-        }
-    }
-    set.into_iter().collect()
-}
-
 /// `add_attest` findings: the attested question must be open. An attestation
 /// request against a question nobody asked is tracked debt pointing at nothing.
 fn attest_findings(attest: &AttestDecl, ws: &Workspace) -> Vec<Finding> {
@@ -1747,9 +1722,9 @@ fn attest_findings(attest: &AttestDecl, ws: &Workspace) -> Vec<Finding> {
 /// `add_name` findings: a bound bearer must be a known entity, and the name
 /// itself has not passed the naming oracle — the same unvetted warning
 /// `add_entity` raises, for the same reason.
-fn name_findings(name: &NameDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
+fn name_findings(name: &NameDecl, ws: &Workspace) -> Vec<Finding> {
     let mut out = vec![name_unvetted(&name.name.text)];
-    let known = known_entities(base, &ws.decls);
+    let known = ws.known_entities();
     for clause in &name.body.clauses {
         if let NameItem::Bearer {
             entity: Some(entity),
@@ -1757,7 +1732,7 @@ fn name_findings(name: &NameDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<F
         } = &clause.item
             && !known.contains(entity)
         {
-            out.push(entity_unknown(entity, &known));
+            out.push(entity_unknown(entity, known));
         }
     }
     out
@@ -1769,14 +1744,10 @@ fn name_findings(name: &NameDecl, ws: &Workspace, base: &CompiledWorld) -> Vec<F
 ///
 /// The read tools (`author.findings`, `author.check`) reuse this so the standing
 /// aggregate is exactly what materialize refuses on.
-pub(super) fn workspace_findings(
-    ws: &Workspace,
-    base: &CompiledWorld,
-    decisions: &BTreeSet<String>,
-) -> Vec<Finding> {
+pub(super) fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = Vec::new();
     for decl in &ws.decls {
-        out.extend(decl_findings(decl, ws, base, decisions));
+        out.extend(decl_findings(decl, ws, base));
     }
     let hyps = hypothesis_count(ws);
     if hyps > 0 && ws.mode != Mode::Fork {
@@ -1789,63 +1760,6 @@ pub(super) fn workspace_findings(
 }
 
 // -- entity/order resolution -------------------------------------------------
-
-/// The known-entity set: every entity the base declares or observes, unioned with
-/// the entities and events staged in the workspace.
-fn known_entities(base: &CompiledWorld, decls: &[Decl]) -> BTreeSet<String> {
-    let mut set: BTreeSet<String> = base
-        .model
-        .entities()
-        .iter()
-        .map(|entry| entry.name.clone())
-        .collect();
-    for decl in decls {
-        if let Decl::Entity(e) = decl {
-            set.insert(e.name.text.clone());
-        }
-    }
-    set
-}
-
-fn entity_sort<'a>(base: &'a CompiledWorld, decls: &'a [Decl], name: &str) -> Option<&'a str> {
-    decls
-        .iter()
-        .rev()
-        .find_map(|decl| match decl {
-            Decl::Entity(entity) if entity.name.text == name => Some(entity.kind.keyword()),
-            _ => None,
-        })
-        .or_else(|| {
-            base.model
-                .entities()
-                .iter()
-                .find(|entity| entity.name == name)
-                .and_then(|entity| entity.sort.as_deref())
-        })
-}
-
-/// The distinct certain values the base holds for a `(pred, subject)` slot — the
-/// basis a proposed fact could contradict.
-fn base_certain_values(base: &CompiledWorld, pred: &str, subject: &str) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    for atom in base.model.atoms() {
-        if atom.atom.pred.text != pred || atom.atom.args.len() != 2 {
-            continue;
-        }
-        let status = atom
-            .ann
-            .status(&base.model.world.valuation, &base.model.world.theory);
-        if status != Status::Certain {
-            continue;
-        }
-        if let (Term::Sym(subj), value) = (&atom.atom.args[0], &atom.atom.args[1])
-            && subj.text == subject
-        {
-            out.insert(term_text(value));
-        }
-    }
-    out
-}
 
 /// Whether adding `earlier -> later` closes a cycle against the base's and the
 /// workspace's existing orderings.
@@ -3488,18 +3402,10 @@ fn refuse_cited(
 /// staged in this workspace counts — the reference resolves against what is
 /// present, exactly as entity references do.
 pub(super) fn workspace_decisions(store: &Store, ws_id: &str) -> BTreeSet<String> {
-    let base = store
-        .workspace_base_docs(ws_id)
+    store
+        .get(ws_id)
+        .map(|ws| ws.known_decisions().clone())
         .unwrap_or_default()
-        .iter()
-        .flat_map(|document| document.decls.iter());
-    let staged = store.get(ws_id).into_iter().flat_map(|ws| ws.decls.iter());
-    base.chain(staged)
-        .filter_map(|decl| match decl {
-            Decl::Ratify(ratify) => Some(ratify.decision.text.clone()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// The referential-integrity findings a declaration's provenance raises: one per

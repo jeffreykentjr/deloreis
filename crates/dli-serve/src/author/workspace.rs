@@ -23,13 +23,17 @@
 //! hashed, the digest **value is unchanged** — the optimization is invisible on
 //! the wire, and every recorded fence and fixture still matches.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use dli_ast::decl::Decl;
+use dli_ast::decl::{Decl, Document};
+use dli_ast::term::Term;
+use dli_core::ann::Status;
+use dli_core::atom::Interner;
 use dli_core::valuation::Valuation;
+use dli_world::CompiledWorld;
 
 use crate::author::digest::digest_hash;
 
@@ -73,11 +77,10 @@ pub struct Workspace {
     /// the fact-object hashes it staged. A per-declaration reject removes its
     /// group, so a rejected claim never reaches a commit.
     pub staged_fact_hashes: Vec<(String, Vec<dli_lorestore::identity::ContentHash>)>,
-    /// The interner names from the base pack, to seed per-decl lowering
-    /// (`lower_decl`) so that citation and proposal-bundle variables resolve
-    /// to the same `Atom` indices the full compilation assigns. Grown
-    /// incrementally as staged declarations intern new variables.
-    pub interner_names: Vec<String>,
+    /// The live interner seeded from the base pack and grown by per-declaration
+    /// lowering. Keeping the reverse index alive avoids rebuilding it from the
+    /// complete name list on every staged mutation.
+    pub interner: Interner,
     /// The bundle counter for staged proposal-bundle variables — continues
     /// from the base pack's count so `h.<pack>#N` indices are stable.
     pub bundle_counter: u32,
@@ -103,6 +106,9 @@ pub struct Workspace {
     /// value first produced). The fingerprint guards key reuse: the same key with
     /// a different payload is a conflict, never a silent cached replay (R3/M9).
     pub idempotency: BTreeMap<String, (String, serde_json::Value)>,
+    /// Derived resolution state for add-time and aggregate findings. It is not
+    /// part of the workspace digest or any wire/storage shape.
+    resolution: ResolutionIndex,
     /// The streaming digest state: a SHA-256 that has absorbed the canonical head
     /// (`{"base_name":…,"decls":[`) and every staged declaration's JCS bytes in
     /// order, up to but not including the closing `]`. An append feeds one more
@@ -125,12 +131,13 @@ impl Workspace {
             digest: String::new(),
             idempotency: BTreeMap::new(),
             staged_fact_hashes: Vec::new(),
-            interner_names: Vec::new(),
+            interner: Interner::new(),
             bundle_counter: 0,
             base_root_hash: None,
             base_valuation: Valuation::new(),
             base_ref_digest: None,
             target_branch: None,
+            resolution: ResolutionIndex::default(),
         };
         workspace.absorb_head();
         workspace.reseal();
@@ -146,6 +153,7 @@ impl Workspace {
             self.prefix.update(b",");
         }
         self.prefix.update(encode(&decl).as_bytes());
+        self.resolution.add_staged(&decl);
         self.decls.push(decl);
         self.reseal();
     }
@@ -155,6 +163,7 @@ impl Workspace {
     pub fn replace_decl(&mut self, index: usize, decl: Decl) {
         if let Some(slot) = self.decls.get_mut(index) {
             *slot = decl;
+            self.resolution.rebuild_staged(&self.decls);
             self.reabsorb();
             self.reseal();
         }
@@ -166,9 +175,58 @@ impl Workspace {
             return None;
         }
         let removed = self.decls.remove(index);
+        self.resolution.rebuild_staged(&self.decls);
         self.reabsorb();
         self.reseal();
         Some(removed)
+    }
+
+    /// Replace the base half of the derived resolution index, then replay the
+    /// staged declarations over it. Used at open and after a branch/base reload.
+    pub fn refresh_resolution(&mut self, base: &CompiledWorld, documents: &[Document]) {
+        self.resolution.rebase(base, documents, &self.decls);
+    }
+
+    /// Every entity declared or observed in the selected base or staged layer.
+    #[must_use]
+    pub fn known_entities(&self) -> &BTreeSet<String> {
+        &self.resolution.known_entities
+    }
+
+    /// The current entity sort: latest staged declaration first, otherwise the
+    /// first matching entity entry in the compiled base (the pre-index semantics).
+    #[must_use]
+    pub fn entity_sort(&self, name: &str) -> Option<&str> {
+        self.resolution
+            .entity_sorts
+            .get(name)
+            .and_then(|sort| sort.as_deref())
+    }
+
+    /// Sorted entity names that have at least one declaration of `kind` in the
+    /// base or staged layer. Duplicate declarations of different kinds remain in
+    /// both sets, matching the former union scan used for repair alternatives.
+    #[must_use]
+    pub fn entities_of_kind(&self, kind: &str) -> Vec<String> {
+        self.resolution
+            .entities_by_kind
+            .get(kind)
+            .map(|names| names.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Decision ids declared by the selected base or staged layer.
+    #[must_use]
+    pub fn known_decisions(&self) -> &BTreeSet<String> {
+        &self.resolution.known_decisions
+    }
+
+    /// The base's distinct certain values for one `(predicate, subject)` slot.
+    /// Staged values deliberately do not participate: this is the same base-only
+    /// contradiction check the former atom scan implemented.
+    #[must_use]
+    pub fn certain_base_values(&self, pred: &str, subject: &str) -> Option<&BTreeSet<String>> {
+        self.resolution.certain_base_values.get(pred)?.get(subject)
     }
 
     /// Recompute the digest by finishing the streamed material: clone the prefix
@@ -224,6 +282,123 @@ impl Workspace {
     }
 }
 
+/// A rebuildable, non-authoritative census used by the authoring seam's
+/// referential checks. Base state is retained separately so the rare mid-array
+/// edit can rebuild only the staged overlay without rescanning the compiled
+/// world. Ordered collections preserve finding and repair ordering.
+#[derive(Debug, Clone, Default)]
+struct ResolutionIndex {
+    base_entities: BTreeSet<String>,
+    base_entity_sorts: BTreeMap<String, Option<String>>,
+    base_entities_by_kind: BTreeMap<String, BTreeSet<String>>,
+    base_decisions: BTreeSet<String>,
+    known_entities: BTreeSet<String>,
+    entity_sorts: BTreeMap<String, Option<String>>,
+    entities_by_kind: BTreeMap<String, BTreeSet<String>>,
+    known_decisions: BTreeSet<String>,
+    certain_base_values: BTreeMap<String, BTreeMap<String, BTreeSet<String>>>,
+    #[cfg(test)]
+    staged_rebuild_visits: usize,
+    #[cfg(test)]
+    base_atom_visits: usize,
+}
+
+impl ResolutionIndex {
+    fn rebase(&mut self, base: &CompiledWorld, documents: &[Document], decls: &[Decl]) {
+        self.base_entities.clear();
+        self.base_entity_sorts.clear();
+        self.base_entities_by_kind.clear();
+        self.base_decisions.clear();
+        self.certain_base_values.clear();
+
+        for entity in base.model.entities() {
+            self.base_entities.insert(entity.name.clone());
+            self.base_entity_sorts
+                .entry(entity.name.clone())
+                .or_insert_with(|| entity.sort.clone());
+            if let Some(kind) = &entity.sort {
+                self.base_entities_by_kind
+                    .entry(kind.clone())
+                    .or_default()
+                    .insert(entity.name.clone());
+            }
+        }
+        self.base_decisions.extend(
+            documents
+                .iter()
+                .flat_map(|document| document.decls.iter())
+                .filter_map(|decl| match decl {
+                    Decl::Ratify(ratify) => Some(ratify.decision.text.clone()),
+                    _ => None,
+                }),
+        );
+        for atom in base.model.atoms() {
+            #[cfg(test)]
+            {
+                self.base_atom_visits += 1;
+            }
+            if atom
+                .ann
+                .status(&base.model.world.valuation, &base.model.world.theory)
+                != Status::Certain
+                || atom.atom.args.len() != 2
+            {
+                continue;
+            }
+            if let [Term::Sym(subject), value] = atom.atom.args.as_slice() {
+                self.certain_base_values
+                    .entry(atom.atom.pred.text.clone())
+                    .or_default()
+                    .entry(subject.text.clone())
+                    .or_default()
+                    .insert(term_text(value));
+            }
+        }
+        self.rebuild_staged(decls);
+    }
+
+    fn rebuild_staged(&mut self, decls: &[Decl]) {
+        #[cfg(test)]
+        {
+            self.staged_rebuild_visits += decls.len();
+        }
+        self.known_entities.clone_from(&self.base_entities);
+        self.entity_sorts.clone_from(&self.base_entity_sorts);
+        self.entities_by_kind
+            .clone_from(&self.base_entities_by_kind);
+        self.known_decisions.clone_from(&self.base_decisions);
+        for decl in decls {
+            self.add_staged(decl);
+        }
+    }
+
+    fn add_staged(&mut self, decl: &Decl) {
+        match decl {
+            Decl::Entity(entity) => {
+                let name = entity.name.text.clone();
+                let kind = entity.kind.keyword().to_owned();
+                self.known_entities.insert(name.clone());
+                self.entity_sorts.insert(name.clone(), Some(kind.clone()));
+                self.entities_by_kind.entry(kind).or_default().insert(name);
+            }
+            Decl::Ratify(ratify) => {
+                self.known_decisions.insert(ratify.decision.text.clone());
+            }
+            _ => {}
+        }
+    }
+}
+
+fn term_text(term: &Term) -> String {
+    match term {
+        Term::Var(id) | Term::Sym(id) => id.text.clone(),
+        Term::Str(text) => text.clone(),
+        Term::Int(value) => value.to_string(),
+        Term::Time(dli_ast::term::TimeRef::Era(id)) => format!("era:{}", id.text),
+        Term::Time(dli_ast::term::TimeRef::Event(id)) => format!("event:{}", id.text),
+    }
+}
+
 /// The canonical JSON encoding of a value (empty on the impossible serialize
 /// failure — every type here is infallibly serializable).
 fn encode<T: Serialize>(value: &T) -> String {
@@ -233,10 +408,12 @@ fn encode<T: Serialize>(value: &T) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Mode, Workspace};
+    use super::{Mode, ResolutionIndex, Workspace};
 
-    use dli_ast::decl::{Decl, EntityDecl, EntityKind};
+    use dli_ast::decl::{AttrDecl, Decl, EntityDecl, EntityKind, RatifyDecl};
     use dli_ast::ident::Ident;
+    use dli_ast::language::RatifyBody;
+    use dli_ast::term::Term;
     use serde::Serialize;
 
     /// The whole-snapshot shape the incremental reseal must reproduce byte for
@@ -260,6 +437,100 @@ mod tests {
             slots: Vec::new(),
             provenance: None,
         })
+    }
+
+    fn entity(name: &str, kind: EntityKind) -> Decl {
+        Decl::Entity(EntityDecl {
+            kind,
+            name: Ident::synthetic(name),
+            label: Some(name.to_owned()),
+            time: None,
+            slots: Vec::new(),
+            provenance: None,
+        })
+    }
+
+    fn ratify(id: &str) -> Decl {
+        Decl::Ratify(RatifyDecl {
+            decision: Ident::synthetic(id),
+            body: RatifyBody {
+                clauses: Vec::new(),
+                citations: Vec::new(),
+            },
+        })
+    }
+
+    fn fact(index: usize) -> Decl {
+        Decl::Attr(AttrDecl {
+            subject: Ident::synthetic("world"),
+            attr: Ident::synthetic("holds"),
+            value: Term::Str(format!("value-{index}")),
+            provenance: None,
+        })
+    }
+
+    fn indexed_base() -> (dli_world::CompiledWorld, Vec<dli_ast::decl::Document>) {
+        let source = "scope saltmarket\nratify d-1\nperson world \"World\" decided d-1\nworld.holds = old decided d-1\n";
+        let (document, diagnostics) = dli_syntax::parse_document(source);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.class.is_error()),
+            "indexed base parses: {diagnostics:?}"
+        );
+        let documents = vec![document];
+        let world = dli_world::compile(&dli_world::pack::Pack {
+            name: "saltmarket".to_owned(),
+            documents: documents.clone(),
+        })
+        .expect("indexed base compiles");
+        (world, documents)
+    }
+
+    fn alternate_base() -> (dli_world::CompiledWorld, Vec<dli_ast::decl::Document>) {
+        let source = "scope alternate\nratify d-2\nplace world \"World\" decided d-2\nworld.holds = newer decided d-2\n";
+        let (document, diagnostics) = dli_syntax::parse_document(source);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.class.is_error()),
+            "alternate base parses: {diagnostics:?}"
+        );
+        let documents = vec![document];
+        let world = dli_world::compile(&dli_world::pack::Pack {
+            name: "alternate".to_owned(),
+            documents: documents.clone(),
+        })
+        .expect("alternate base compiles");
+        (world, documents)
+    }
+
+    fn assert_resolution_matches_rebuild(
+        ws: &Workspace,
+        base: &dli_world::CompiledWorld,
+        documents: &[dli_ast::decl::Document],
+    ) {
+        let mut rebuilt = ResolutionIndex::default();
+        rebuilt.rebase(base, documents, &ws.decls);
+        let actual = &ws.resolution;
+        assert_eq!(actual.base_entities, rebuilt.base_entities);
+        assert_eq!(actual.base_entity_sorts, rebuilt.base_entity_sorts);
+        assert_eq!(actual.base_entities_by_kind, rebuilt.base_entities_by_kind);
+        assert_eq!(actual.base_decisions, rebuilt.base_decisions);
+        assert_eq!(actual.known_entities, rebuilt.known_entities);
+        assert_eq!(actual.entity_sorts, rebuilt.entity_sorts);
+        assert_eq!(actual.entities_by_kind, rebuilt.entities_by_kind);
+        assert_eq!(actual.known_decisions, rebuilt.known_decisions);
+        assert_eq!(actual.certain_base_values, rebuilt.certain_base_values);
+    }
+
+    fn generated_decl(seed: u32) -> Decl {
+        match seed % 4 {
+            0 => entity(&format!("entity-{}", (seed >> 8) % 7), EntityKind::Person),
+            1 => entity(&format!("entity-{}", (seed >> 8) % 7), EntityKind::Place),
+            2 => ratify(&format!("decision-{}", (seed >> 8) % 11)),
+            _ => fact(usize::try_from(seed).expect("u32 test seed fits usize")),
+        }
     }
 
     fn scope(base: &str) -> Workspace {
@@ -412,6 +683,132 @@ mod tests {
         let b = scope("saltmarket");
         assert_eq!(a.digest, b.digest);
         assert!(a.digest.starts_with("jcs:sha256:"));
+    }
+
+    /// The resolution census is a derived cache, never an alternate semantics:
+    /// append updates, duplicate-sort fallback, mid-array rebuild, and decision
+    /// removal all reproduce the former base-plus-staged scans.
+    #[test]
+    fn resolution_index_tracks_append_replace_remove_and_base_state() {
+        let (base, documents) = indexed_base();
+        let mut ws = scope("saltmarket");
+        ws.refresh_resolution(&base, &documents);
+
+        assert!(ws.known_entities().contains("world"));
+        assert_eq!(ws.entity_sort("world"), Some("person"));
+        assert!(ws.known_decisions().contains("d-1"));
+        assert_eq!(
+            ws.certain_base_values("holds", "world")
+                .expect("certain base slot")
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec!["old"]
+        );
+
+        ws.push_decl(entity("mara", EntityKind::Person));
+        ws.push_decl(entity("mara", EntityKind::Place));
+        ws.push_decl(ratify("d-stage"));
+        assert_eq!(ws.entity_sort("mara"), Some("place"));
+        assert_eq!(ws.entities_of_kind("person"), vec!["mara", "world"]);
+        assert_eq!(ws.entities_of_kind("place"), vec!["mara"]);
+        assert!(ws.known_decisions().contains("d-stage"));
+
+        ws.remove_decl(1);
+        assert_eq!(ws.entity_sort("mara"), Some("person"));
+        assert!(ws.entities_of_kind("place").is_empty());
+
+        ws.replace_decl(0, entity("mara", EntityKind::Thing));
+        assert_eq!(ws.entity_sort("mara"), Some("thing"));
+        assert!(!ws.entities_of_kind("person").contains(&"mara".to_owned()));
+
+        ws.remove_decl(1);
+        assert!(!ws.known_decisions().contains("d-stage"));
+        assert!(ws.known_decisions().contains("d-1"));
+    }
+
+    /// Deterministic mutation-property oracle: incremental append state and the
+    /// rare edit/reload rebuild paths equal a fresh base-plus-staged census after
+    /// every operation. The fixed generator makes failures exactly replayable.
+    #[test]
+    fn resolution_index_matches_rebuild_across_mutation_sequences() {
+        let (base_a, documents_a) = indexed_base();
+        let (base_b, documents_b) = alternate_base();
+        let mut use_alternate = false;
+        let mut ws = scope("saltmarket");
+        ws.refresh_resolution(&base_a, &documents_a);
+        let mut seed = 0xcafe_f00d_u32;
+        let mut appends = 0usize;
+        let mut replaces = 0usize;
+        let mut removals = 0usize;
+        let mut reloads = 0usize;
+
+        for step in 0..256usize {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            match step % 4 {
+                2 if !ws.decls.is_empty() => {
+                    let index =
+                        usize::try_from(seed).expect("u32 test seed fits usize") % ws.decls.len();
+                    ws.replace_decl(index, generated_decl(seed.rotate_left(17)));
+                    replaces += 1;
+                }
+                3 if !ws.decls.is_empty() => {
+                    let index =
+                        usize::try_from(seed).expect("u32 test seed fits usize") % ws.decls.len();
+                    ws.remove_decl(index);
+                    removals += 1;
+                }
+                _ => {
+                    ws.push_decl(generated_decl(seed));
+                    appends += 1;
+                }
+            }
+            if step % 31 == 30 {
+                use_alternate = !use_alternate;
+                let (base, documents) = if use_alternate {
+                    (&base_b, documents_b.as_slice())
+                } else {
+                    (&base_a, documents_a.as_slice())
+                };
+                ws.refresh_resolution(base, documents);
+                reloads += 1;
+            }
+            let (base, documents) = if use_alternate {
+                (&base_b, documents_b.as_slice())
+            } else {
+                (&base_a, documents_a.as_slice())
+            };
+            assert_resolution_matches_rebuild(&ws, base, documents);
+        }
+
+        assert!(appends >= 128, "append coverage is anti-vacuous");
+        assert!(replaces >= 50, "replace coverage is anti-vacuous");
+        assert!(removals >= 50, "remove coverage is anti-vacuous");
+        assert!(reloads >= 8, "base-reload coverage is anti-vacuous");
+    }
+
+    /// Gate-resident complexity oracle: a fact-only append sequence neither
+    /// rebuilds the staged census nor revisits base atoms. Wall time is not the
+    /// verdict; the exact historical-visit budget is zero.
+    #[test]
+    fn fact_appends_do_no_historical_resolution_work() {
+        const FACTS: usize = 16_384;
+        let (base, documents) = indexed_base();
+        let mut ws = scope("saltmarket");
+        ws.refresh_resolution(&base, &documents);
+        let staged_visits = ws.resolution.staged_rebuild_visits;
+        let base_visits = ws.resolution.base_atom_visits;
+
+        for index in 0..FACTS {
+            ws.push_decl(fact(index));
+            assert!(ws.known_entities().contains("world"));
+            assert!(ws.known_decisions().contains("d-1"));
+            assert!(ws.certain_base_values("holds", "world").is_some());
+        }
+
+        assert_eq!(ws.decls.len(), FACTS);
+        assert_eq!(ws.resolution.staged_rebuild_visits, staged_visits);
+        assert_eq!(ws.resolution.base_atom_visits, base_visits);
     }
 
     /// The reseal is linear, not quadratic: staging the second half of a large

@@ -364,8 +364,7 @@ pub(super) fn workspace_report(
             diff_rows: Vec::new(),
         };
     };
-    let decisions = super::tools::workspace_decisions(store, &ws.id);
-    let mut findings = workspace_findings(ws, base, &decisions);
+    let mut findings = workspace_findings(ws, base);
     match staged_world(store, ws) {
         Ok(world) => {
             findings.extend(

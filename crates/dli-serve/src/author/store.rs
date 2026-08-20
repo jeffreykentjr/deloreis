@@ -379,12 +379,13 @@ impl Store {
                     bundle_counter = bundle_counter.max(n + 1);
                 }
             }
-            workspace.interner_names = branch_names;
+            workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
             workspace.base_valuation = branch_ref.valuation.clone();
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = Some(branch_name);
+            workspace.refresh_resolution(&world, &pack.documents);
             // `Workspace::new` already sealed the initial digest with
             // `target_branch: None` (it has no way to know the branch yet at
             // construction). Reseal now that it is set, or the fence never
@@ -430,8 +431,8 @@ impl Store {
                 .unwrap_or_else(|_| base.world.model().interner().names().to_vec()),
             _ => base.world.model().interner().names().to_vec(),
         };
-        self.next_id += 1;
-        let id = format!("ws-{}", self.next_id);
+        let next_id = self.next_id + 1;
+        let id = format!("ws-{next_id}");
         let mut workspace = Workspace::new(id.clone(), mode, base_name);
         // The seeded names give `lower_decl` (LS-4b) matching Atom indices.
         // Also compute the bundle counter continuation.
@@ -445,7 +446,7 @@ impl Store {
                 bundle_counter = bundle_counter.max(n + 1);
             }
         }
-        workspace.interner_names = base_names;
+        workspace.interner = dli_core::atom::Interner::from_names(base_names);
         workspace.bundle_counter = bundle_counter;
         // Pin the project-selected commit and valuation together. For local
         // demo stores no snapshot exists, preserving their previous behavior.
@@ -464,6 +465,8 @@ impl Store {
                 .and_then(|ls| ls.root_hash().ok().flatten())
                 .map(|h| h.to_string());
         }
+        workspace.refresh_resolution(&base.world, &base.documents);
+        self.next_id = next_id;
         self.workspace_bases.insert(id.clone(), base_key);
         Ok(self.workspaces.entry(id.clone()).or_insert(workspace))
     }
@@ -578,17 +581,18 @@ impl Store {
                     bundle = bundle.max(value + 1);
                 }
             }
-            ws.interner_names = interner;
+            ws.interner = dli_core::atom::Interner::from_names(interner);
             ws.bundle_counter = bundle;
         }
-        self.branch_bases.insert(
-            ws_id.to_owned(),
-            Base {
-                world,
-                documents: pack.documents,
-                pack_name: pack.name,
-            },
-        );
+        let refreshed = Base {
+            world,
+            documents: pack.documents,
+            pack_name: pack.name,
+        };
+        if let Some(ws) = self.workspaces.get_mut(ws_id) {
+            ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        }
+        self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
     }
 
@@ -698,7 +702,7 @@ impl Store {
 
     /// LS-4b: lower a staged decl to `FactObject`s and write them to the
     /// lorestore immediately (durable staging). Updates the workspace's
-    /// `staged_fact_hashes`, `interner_names`, and `bundle_counter` in place.
+    /// `staged_fact_hashes`, the live interner, and `bundle_counter` in place.
     /// Does nothing if no lorestore is attached.
     ///
     /// Fail-closed: a write error advances **no** workspace state — no hash is
@@ -717,30 +721,38 @@ impl Store {
         let Some(ws) = self.workspaces.get_mut(ws_id) else {
             return Ok(());
         };
-        let pack_name = ws.base_name.clone();
-        let interner_names = ws.interner_names.clone();
-        let bundle_counter = ws.bundle_counter;
-
         let Some(ls) = self.lorestores.get(&base_key) else {
             return Ok(());
         };
-        let mut interner = dli_core::atom::Interner::from_names(interner_names);
-        let mut counter = bundle_counter;
-        let objects =
-            dli_lorestore::lower::lower_decl(decl, &pack_name, &mut interner, &mut counter);
+        let pack_name = ws.base_name.clone();
+        let interner_checkpoint = ws.interner.len();
+        let bundle_checkpoint = ws.bundle_counter;
+        let objects = dli_lorestore::lower::lower_decl(
+            decl,
+            &pack_name,
+            &mut ws.interner,
+            &mut ws.bundle_counter,
+        );
 
         let mut hashes = Vec::with_capacity(objects.len());
         for fo in &objects {
-            hashes.push(ls.write_object(fo)?);
+            match ls.write_object(fo) {
+                Ok(hash) => hashes.push(hash),
+                Err(error) => {
+                    // Lowering only appends names. Restore the exact prefix and
+                    // proposal-bundle counter so a failed durable write advances
+                    // no workspace state. Objects written before the failure are
+                    // harmless CAS orphans, as before.
+                    ws.interner = dli_core::atom::Interner::from_names(
+                        ws.interner.names()[..interner_checkpoint].to_vec(),
+                    );
+                    ws.bundle_counter = bundle_checkpoint;
+                    return Err(error);
+                }
+            }
         }
         let key = super::tools::decl_key(decl);
-        let ws = self
-            .workspaces
-            .get_mut(ws_id)
-            .expect("workspace existed above");
         ws.staged_fact_hashes.push((key, hashes));
-        ws.interner_names = interner.names().to_vec();
-        ws.bundle_counter = counter;
         Ok(())
     }
 
@@ -842,4 +854,185 @@ fn fork_owners(document: &str, sources: &[Document]) -> Vec<(String, String)> {
             _ => None,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+
+    use dli_ast::annot::{Annotation, ProvenanceMarker};
+    use dli_ast::decl::{AttrDecl, Decl};
+    use dli_ast::ident::Ident;
+    use dli_ast::span::Span;
+    use dli_ast::term::Term;
+    use dli_lorestore::storage::{Storage, StoreError};
+    use dli_lorestore::{Commit, ContentHash, Lorestore, Ref};
+
+    use super::Store;
+    use crate::author::workspace::Mode;
+
+    #[derive(Debug)]
+    struct WriteFails;
+
+    fn injected_failure() -> StoreError {
+        StoreError::Io {
+            path: "injected".to_owned(),
+            source: std::io::Error::other("injected write failure"),
+        }
+    }
+
+    impl Storage for WriteFails {
+        fn read_object(&self, _hash: &ContentHash) -> Result<Option<Vec<u8>>, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn write_object(&self, _bytes: &[u8]) -> Result<ContentHash, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn cas_ref(
+            &self,
+            _name: &str,
+            _expected: Option<&str>,
+            _new: &Ref,
+        ) -> Result<bool, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn load_ref(&self, _name: &str) -> Result<Option<Ref>, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn list_refs(&self) -> Result<Vec<String>, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn delete_ref(&self, _name: &str) -> Result<(), StoreError> {
+            Err(injected_failure())
+        }
+
+        fn acquire_lock(&self) -> Result<File, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn walk_dag(
+            &self,
+            _tip: &ContentHash,
+            _base: Option<&ContentHash>,
+        ) -> Result<Vec<Commit>, StoreError> {
+            Err(injected_failure())
+        }
+
+        fn cleanup_orphans(&self) -> Result<usize, StoreError> {
+            Err(injected_failure())
+        }
+    }
+
+    fn proposed_fact(origin: &str, value: &str) -> Decl {
+        Decl::Attr(AttrDecl {
+            subject: Ident::synthetic("world"),
+            attr: Ident::synthetic("holds"),
+            value: Term::Str(value.to_owned()),
+            provenance: Some(Annotation {
+                marker: ProvenanceMarker::Proposed,
+                citations: Vec::new(),
+                condition: None,
+                tags: if origin.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![origin.to_owned()]
+                },
+                span: Span::synthetic(),
+            }),
+        })
+    }
+
+    fn workspace(store: &mut Store) -> String {
+        store
+            .open(Mode::Scope, "saltmarket".to_owned(), None)
+            .expect("open workspace")
+            .id
+            .clone()
+    }
+
+    /// A durable write failure after lowering restores every piece of mutable
+    /// workspace state. The rollback may rebuild the prefix on this exceptional
+    /// path; successful staging never does.
+    #[test]
+    fn durable_stage_failure_rolls_back_live_interner_and_counter() {
+        let mut store = Store::default();
+        let ws_id = workspace(&mut store);
+        let base_key = store.workspace_bases[&ws_id].clone();
+        store
+            .lorestores
+            .insert(base_key, Lorestore::from_storage(Box::new(WriteFails)));
+        let before = store.get(&ws_id).expect("workspace");
+        let names = before.interner.names().to_vec();
+        let counter = before.bundle_counter;
+        let hashes = before.staged_fact_hashes.clone();
+        let digest = before.digest.clone();
+
+        let error = store
+            .stage_lorestore(&ws_id, &proposed_fact("", "one"))
+            .expect_err("the injected write fails");
+        assert!(error.to_string().contains("injected write failure"));
+
+        let after = store.get(&ws_id).expect("workspace");
+        assert_eq!(after.interner.names(), names);
+        assert_eq!(after.bundle_counter, counter);
+        assert_eq!(after.staged_fact_hashes, hashes);
+        assert_eq!(after.digest, digest);
+        assert!(after.decls.is_empty());
+    }
+
+    /// Mutating the live interner produces the exact names, counter, and object
+    /// hashes the former reconstruct-lower-copy path produced.
+    #[test]
+    fn live_interner_lowering_is_byte_identical_to_reconstruction() {
+        let root = tempfile::tempdir().expect("temporary lorestore");
+        let mut store = Store::default();
+        let ws_id = workspace(&mut store);
+        let base_key = store.workspace_bases[&ws_id].clone();
+        store.lorestores.insert(
+            base_key,
+            Lorestore::open(root.path().join("store")).expect("open lorestore"),
+        );
+
+        for (origin, value) in [("session-a", "one"), ("session-b", "two")] {
+            let decl = proposed_fact(origin, value);
+            let before = store.get(&ws_id).expect("workspace");
+            let mut reference = dli_core::Interner::from_names(before.interner.names().to_vec());
+            let mut reference_counter = before.bundle_counter;
+            let objects = dli_lorestore::lower::lower_decl(
+                &decl,
+                &before.base_name,
+                &mut reference,
+                &mut reference_counter,
+            );
+            let expected_hashes = {
+                let ls = store
+                    .workspace_lorestore(&ws_id)
+                    .expect("attached lorestore");
+                objects
+                    .iter()
+                    .map(|object| ls.write_object(object).expect("reference write"))
+                    .collect::<Vec<_>>()
+            };
+
+            store
+                .stage_lorestore(&ws_id, &decl)
+                .expect("live staging succeeds");
+            let after = store.get(&ws_id).expect("workspace");
+            assert_eq!(after.interner.names(), reference.names());
+            assert_eq!(after.bundle_counter, reference_counter);
+            assert_eq!(
+                after
+                    .staged_fact_hashes
+                    .last()
+                    .expect("staged hash group")
+                    .1,
+                expected_hashes
+            );
+        }
+    }
 }
