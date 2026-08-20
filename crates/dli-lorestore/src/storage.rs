@@ -82,6 +82,10 @@ pub enum StoreError {
     /// JCS canonicalization failed.
     #[error("canonical encoding: {0}")]
     Canonical(#[from] crate::canonical::CanonicalError),
+    /// A persisted valuation cannot be resolved through its paired commit
+    /// interner into the receiving world.
+    #[error("persisted valuation is corrupt: {0}")]
+    ValuationRemap(#[from] dli_core::valuation::ValuationRemapError),
     /// Lock acquisition failed.
     #[error("could not acquire store lock: {0}")]
     Lock(String),

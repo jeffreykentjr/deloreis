@@ -613,14 +613,16 @@ fn author_store_for(project: &Project) -> dli_serve::author::store::Store {
         .expect("the project compiles for authoring");
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            author.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                document.store_commit.clone().expect("store commit"),
-                document.store_valuation.clone(),
-                document.store_ref_digest.clone(),
-            );
+            author
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    document.store_commit.clone().expect("store commit"),
+                    document.store_valuation.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .expect("store valuation maps by name");
         }
     }
     author
@@ -1237,14 +1239,16 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         .expect("the project compiles");
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            author.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                document.store_commit.clone().expect("store commit"),
-                document.store_valuation.clone(),
-                document.store_ref_digest.clone(),
-            );
+            author
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    document.store_commit.clone().expect("store commit"),
+                    document.store_valuation.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .expect("store valuation maps by name");
         }
     }
     author
@@ -1567,14 +1571,16 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
         .expect("the project compiles");
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            author.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                document.store_commit.clone().expect("store commit"),
-                document.store_valuation.clone(),
-                document.store_ref_digest.clone(),
-            );
+            author
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    document.store_commit.clone().expect("store commit"),
+                    document.store_valuation.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .expect("store valuation maps by name");
         }
     }
     author

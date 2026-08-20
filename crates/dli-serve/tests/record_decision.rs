@@ -5,8 +5,13 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use std::sync::Arc;
+
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
+use dli_serve::project::Project;
+use dli_serve::serve::respond;
+use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
 use serde_json::{Value, json};
@@ -215,7 +220,7 @@ fn materialize_stamps_and_why_names_the_supporting_decision() {
         &req(
             "why",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "atom": "rank(mara, captain)" }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "captain"}]} }),
         ),
         &mut store,
     ));
@@ -311,7 +316,7 @@ fn materialize_decision_confers_certainty_and_check_fires_the_fd_violation() {
         &req(
             "why",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "atom": "rank(mara, captain)" }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "captain"}]} }),
         ),
         &mut store,
     ));
@@ -459,18 +464,17 @@ fn a_provenance_citation_of_an_unknown_decision_refuses_the_record() {
 
 #[test]
 fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
-    let (_root, mut store) = store_with_mara();
+    let (root, mut store) = store_with_mara();
     let ws = open(&mut store);
-    record_decision(&mut store, &ws, "d-1");
     assert!(
-        add_fact_cited(&mut store, &ws, "rank", "captain", "d-1").is_empty(),
-        "the cited fact is clean"
+        add_fact_proposed(&mut store, &ws, "rank", "captain").is_empty(),
+        "the proposed fact is clean"
     );
     let materialized = result(dispatch(
         &req(
             "mat",
             Op::AuthorMaterialize,
-            json!({ "workspace": ws, "rendered": false }),
+            json!({ "workspace": ws, "rendered": false, "decision": "d-1" }),
         ),
         &mut store,
     ));
@@ -478,9 +482,53 @@ fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
         .as_array()
         .expect("committed facts")
         .iter()
-        .find_map(|fact| fact["claim_id"].as_str())
+        .find(|fact| {
+            fact["atom"]["pred"] == "rank" && fact["atom"]["args"] == json!(["mara", "captain"])
+        })
+        .and_then(|fact| fact["claim_id"].as_str())
         .expect("a committed claim id")
         .to_owned();
+
+    record_decision(&mut store, &ws, "d-independent");
+    assert!(
+        add_fact_cited(&mut store, &ws, "title", "commander", "d-independent").is_empty(),
+        "the independent control is clean"
+    );
+    result(dispatch(
+        &req(
+            "mat-independent",
+            Op::AuthorMaterialize,
+            json!({ "workspace": ws, "rendered": false }),
+        ),
+        &mut store,
+    ));
+
+    // Mutation tooth: this fixture is useful only when the persisted and
+    // independently recompiled positions genuinely differ. Directly copying
+    // the numeric overlay would therefore target another name.
+    let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("open durable store");
+    let head = durable
+        .root_hash()
+        .expect("read durable head")
+        .expect("head exists");
+    let durable_names = durable.interner_at(&head).expect("durable interner");
+    let recompiled = durable.compile_at(&head).expect("recompiled world");
+    let durable_pos = durable_names
+        .iter()
+        .position(|name| name == "d-1")
+        .expect("durable decision position");
+    let compiled_pos = recompiled
+        .model
+        .interner()
+        .names()
+        .iter()
+        .position(|name| name == "d-1")
+        .expect("compiled decision position");
+    assert_ne!(
+        durable_pos, compiled_pos,
+        "the regression must exercise cross-interner skew"
+    );
 
     // Defeat the claim's supporting decision (d-1) with a new decision. The
     // recorded decision is a claim a ruling was made — defeasible, not deleted.
@@ -504,7 +552,7 @@ fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
         &req(
             "why",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "atom": "rank(mara, captain)" }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "captain"}]} }),
         ),
         &mut store,
     ));
@@ -519,5 +567,94 @@ fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
         why["why_not"]["status"],
         json!("certain"),
         "the fact resting on the defeated decision is no longer certain: {why}"
+    );
+    let independent = result(dispatch(
+        &req(
+            "why-independent",
+            Op::AuthorWhy,
+            json!({ "workspace": ws, "goal_atom": {"pred": "title", "args": [{"Sym": "mara"}, {"Sym": "commander"}]} }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(
+        independent["why_not"]["status"], "certain",
+        "name remapping must not falsify the atom occupying the durable position: {independent}"
+    );
+
+    // Reopen through the project/session path. This is a second independently
+    // compiled receiver and used to repeat the same positional corruption.
+    let project = Project::load(root.path()).expect("reload store-backed project");
+    let mut sessions = Sessions::from_project(Arc::new(project));
+    let mut reopened_author = Store::default();
+    let query = |id: &str, pred: &str, value: &str, sessions: &mut Sessions, author: &mut Store| {
+        let frame = json!({
+            "dli": "1.9.0",
+            "id": id,
+            "op": "dli.query",
+            "params": {
+                "document": "demo",
+                "goal_atom": {"pred": pred, "args": [{"Sym": "mara"}, {"Sym": value}]},
+                "layer": "all"
+            }
+        });
+        respond(
+            &serde_json::to_string(&frame).expect("serialize query"),
+            sessions,
+            author,
+        )
+        .expect("query answers")
+    };
+    let reopened_defeated = query(
+        "reopen-rank",
+        "rank",
+        "captain",
+        &mut sessions,
+        &mut reopened_author,
+    );
+    assert_eq!(
+        reopened_defeated.result.expect("query result")["rows"],
+        json!([]),
+        "the reopened session excludes the defeated row"
+    );
+    let reopened_independent = query(
+        "reopen-title",
+        "title",
+        "commander",
+        &mut sessions,
+        &mut reopened_author,
+    );
+    assert_eq!(
+        reopened_independent.result.expect("query result")["rows"][0]["status"],
+        "certain"
+    );
+}
+
+#[test]
+fn project_load_refuses_an_out_of_range_persisted_valuation_atom() {
+    let (root, _store) = store_with_mara();
+    let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("open durable store");
+    let current = durable
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .expect("read main ref")
+        .expect("main exists");
+    let expected = current.digest().expect("digest current ref").to_string();
+    let mut corrupt = current.valuation.clone();
+    corrupt.set(dli_core::Atom(u32::MAX), false);
+    let replacement = dli_lorestore::Ref::with_valuation(
+        dli_lorestore::branch_ref_name(dli_lorestore::MAIN_REF),
+        current.commit,
+        corrupt,
+    );
+    assert!(
+        durable
+            .cas_branch_ref(dli_lorestore::MAIN_REF, Some(&expected), &replacement)
+            .expect("write corrupt test ref")
+    );
+
+    let error = Project::load(root.path()).expect_err("corrupt valuation must fail closed");
+    assert!(
+        error.to_string().contains("outside its source interner"),
+        "typed remap refusal names the corruption: {error}"
     );
 }

@@ -510,13 +510,20 @@ fn durable_defeat_refolds_to_an_un_merged_world() {
         "the defeating bit survives a store reopen"
     );
 
-    // Apply it exactly as a consumer would: one valuation flip over the
-    // ALREADY-compiled world, no re-fixpoint (spec 02 §2 — supersession
-    // revaluates a variable; the symbolic fixpoint stands).
+    // Apply it exactly as a consumer would: resolve the persisted numeric bit
+    // through its source commit interner, then into this independently compiled
+    // world. The symbolic fixpoint still stands; only its valuation changes.
     let mut refolded = compiled;
-    for (atom, value) in &stored_ref.valuation.0 {
-        refolded.model.world.valuation.set(*atom, *value);
-    }
+    let source_names = reopened
+        .interner_at(&stored_ref.commit)
+        .expect("source commit interner");
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&stored_ref.valuation, &source_names)
+            .expect("persisted valuation resolves");
+    let target_interner = refolded.model.interner().clone();
+    named
+        .apply_to(&target_interner, &mut refolded.model.world.valuation)
+        .expect("all persisted names exist in the receiving world");
     let fd_after: Vec<_> = dli_world::check::run(&refolded)
         .into_iter()
         .filter(|f| f.code == "continuity.fd-violation")

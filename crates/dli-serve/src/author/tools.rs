@@ -3000,10 +3000,22 @@ pub(super) fn record_decision(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let source_names = store
+        .workspace_lorestore(&params.workspace)
+        .expect("lorestore presence checked above")
+        .interner_at(&current_ref.commit)
+        .map_err(|error| store_fault(&error))?;
+    let named_valuation =
+        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message: error.to_string(),
+                data: None,
+            })?;
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = named_valuation;
     }
     // Reconstruct the workspace's base from the new head so the recorded `ratify`
     // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
@@ -3275,10 +3287,22 @@ fn durable_standing_change(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let source_names = store
+        .workspace_lorestore(workspace)
+        .expect("lorestore presence checked above")
+        .interner_at(&current_ref.commit)
+        .map_err(|error| store_fault(&error))?;
+    let named_valuation =
+        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message: error.to_string(),
+                data: None,
+            })?;
     if let Some((_, ws)) = store.parts_mut(workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = named_valuation;
     }
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

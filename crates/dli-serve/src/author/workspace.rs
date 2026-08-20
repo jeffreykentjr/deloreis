@@ -32,7 +32,7 @@ use dli_ast::decl::{Decl, Document};
 use dli_ast::term::Term;
 use dli_core::ann::Status;
 use dli_core::atom::Interner;
-use dli_core::valuation::Valuation;
+use dli_core::valuation::NamedValuation;
 use dli_world::CompiledWorld;
 
 use crate::author::digest::digest_hash;
@@ -90,7 +90,7 @@ pub struct Workspace {
     pub base_root_hash: Option<String>,
     /// The persisted valuation paired with [`base_root_hash`](Self::base_root_hash)
     /// when the workspace opened. It is applied before local suppositions.
-    pub base_valuation: Valuation,
+    pub base_valuation: NamedValuation,
     /// Whole-ref fence for the branch the workspace writes to. Branch-mode
     /// workspaces inherit their project snapshot; pinned replays capture the
     /// live origin ref at open while continuing to serve their pinned world.
@@ -134,7 +134,7 @@ impl Workspace {
             interner: Interner::new(),
             bundle_counter: 0,
             base_root_hash: None,
-            base_valuation: Valuation::new(),
+            base_valuation: NamedValuation::default(),
             base_ref_digest: None,
             target_branch: None,
             resolution: ResolutionIndex::default(),

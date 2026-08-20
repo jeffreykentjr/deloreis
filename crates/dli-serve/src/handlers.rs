@@ -2638,9 +2638,16 @@ fn canon_export(
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .filter(|reference| reference.commit == *head)
     {
-        for (atom, value) in reference.valuation.0 {
-            compiled.model.world.valuation.0.insert(atom, value);
-        }
+        let source_names = store
+            .interner_at(&reference.commit)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        let named =
+            dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, &source_names)
+                .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        let target_interner = compiled.model.interner().clone();
+        named
+            .apply_to(&target_interner, &mut compiled.model.world.valuation)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
     }
     let valuation = &compiled.model.world.valuation;
     let theory = &compiled.model.world.theory;

@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::Valuation;
+use dli_core::valuation::{NamedValuation, ValuationRemapError};
 use dli_eval::error::EvalError;
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
@@ -83,7 +83,7 @@ struct Base {
 #[derive(Debug, Clone)]
 struct StoreSnapshot {
     commit: dli_lorestore::ContentHash,
-    valuation: Valuation,
+    valuation: NamedValuation,
     ref_digest: Option<String>,
 }
 
@@ -106,6 +106,9 @@ pub enum StoreError {
         /// The second owning document.
         second: String,
     },
+    /// A store ref valuation could not be resolved into its compiled document.
+    #[error("store ref valuation is corrupt: {0}")]
+    ValuationRemap(#[from] ValuationRemapError),
 }
 
 /// Why [`Store::open`] refused to open a workspace — distinct wire error codes
@@ -379,10 +382,12 @@ impl Store {
                     bundle_counter = bundle_counter.max(n + 1);
                 }
             }
+            workspace.base_valuation =
+                NamedValuation::from_indexed(&branch_ref.valuation, &branch_names)
+                    .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
-            workspace.base_valuation = branch_ref.valuation.clone();
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = Some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
@@ -556,11 +561,11 @@ impl Store {
             .lorestores
             .get(&base_key)
             .ok_or_else(|| format!("workspace `{ws_id}` has no attached lorestore"))?;
-        let head = ls
+        let current_ref = ls
             .branch_ref(&target)
             .map_err(|error| error.to_string())?
-            .ok_or_else(|| format!("branch `{target}` has no ref"))?
-            .commit;
+            .ok_or_else(|| format!("branch `{target}` has no ref"))?;
+        let head = current_ref.commit.clone();
         // Through the session cache, as branch-open above: a reload after a
         // materialize that did not advance the target branch is a pure repeat,
         // and the reload that follows one that did lands on a commit the merge
@@ -569,6 +574,8 @@ impl Store {
             .reconstruct_at(&head)
             .map_err(|error| error.to_string())?;
         let interner = ls.interner_at(&head).map_err(|error| error.to_string())?;
+        let named_valuation = NamedValuation::from_indexed(&current_ref.valuation, &interner)
+            .map_err(|error| error.to_string())?;
         let mut world = ls.compile_at(&head).map_err(|error| error.to_string())?;
         world.killed = killed;
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
@@ -583,6 +590,9 @@ impl Store {
             }
             ws.interner = dli_core::atom::Interner::from_names(interner);
             ws.bundle_counter = bundle;
+            ws.base_root_hash = Some(head.to_string());
+            ws.base_valuation = named_valuation;
+            ws.base_ref_digest = current_ref.digest().ok().map(|digest| digest.0);
         }
         let refreshed = Base {
             world,
@@ -672,14 +682,13 @@ impl Store {
         origin: std::path::PathBuf,
         pinned: bool,
         commit: dli_lorestore::ContentHash,
-        valuation: Valuation,
+        valuation: NamedValuation,
         ref_digest: Option<String>,
-    ) {
+    ) -> Result<(), StoreError> {
         self.origins.insert(key.clone(), origin);
         if let Some(base) = self.bases.get_mut(&key) {
-            for (atom, value) in &valuation.0 {
-                base.world.model.world.valuation.0.insert(*atom, *value);
-            }
+            let target_interner = base.world.model.interner().clone();
+            valuation.apply_to(&target_interner, &mut base.world.model.world.valuation)?;
         }
         self.snapshots.insert(
             key.clone(),
@@ -692,6 +701,7 @@ impl Store {
         if pinned {
             self.pinned_bases.insert(key);
         }
+        Ok(())
     }
 
     /// Whether this base is served at a manifest-pinned commit.

@@ -1279,8 +1279,13 @@ impl Lorestore {
         // dry run (`advance = false`) skips the CAS: the commit object above is
         // already durably written (content-addressed, so writing it is never
         // itself the commitment), but no ref moves to point at it.
-        let merged_valuation =
-            crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
+        let merged_valuation = crate::merge::union_valuations(
+            &target_ref.valuation,
+            &target_commit.interner,
+            &source_ref.valuation,
+            &source_commit.interner,
+            &merged_interner,
+        )?;
         if advance {
             let new_ref = Ref::with_valuation(
                 branch_ref_name(target),
@@ -1312,7 +1317,9 @@ impl Lorestore {
             &source_head,
             base.as_ref(),
             &target_ref.valuation,
+            &target_commit.interner,
             &source_ref.valuation,
+            &source_commit.interner,
             &merged_valuation,
             &merged_interner,
         )?;

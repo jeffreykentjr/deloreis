@@ -695,17 +695,19 @@ pub(crate) fn project_author_store(project: &Project) -> io::Result<author::stor
     // a copy of it (DL-0055), so its origin is registered before the attach.
     for (id, document) in project.documents() {
         if let Some(origin) = document.store_origin.as_ref() {
-            store.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                document
-                    .store_commit
-                    .clone()
-                    .expect("store-backed documents carry their selected commit"),
-                document.store_valuation.clone(),
-                document.store_ref_digest.clone(),
-            );
+            store
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    document
+                        .store_commit
+                        .clone()
+                        .expect("store-backed documents carry their selected commit"),
+                    document.store_valuation.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .map_err(io::Error::other)?;
         }
     }
     let lorestore_path = project.root().join(".dli-lorestore");
