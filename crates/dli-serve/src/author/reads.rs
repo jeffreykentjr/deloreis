@@ -1402,4 +1402,65 @@ mod cache_tests {
             }
         );
     }
+
+    #[test]
+    #[ignore = "non-gating release profile; run with --release --ignored --nocapture"]
+    #[allow(clippy::print_stderr)]
+    fn release_profile_reports_size_query_and_snapshot_counter_matrix() {
+        use std::time::Instant;
+
+        for claim_count in [0usize, 100, 1_000, 10_000] {
+            for logical_queries in [1usize, 3, 15] {
+                for snapshot_count in [2usize, 3] {
+                    let mut store = store();
+                    store
+                        .open(Mode::Scope, "cache-test".to_owned(), None)
+                        .expect("workspace opens");
+                    for index in 0..claim_count {
+                        store
+                            .parts_mut("ws-1")
+                            .expect("workspace exists")
+                            .1
+                            .push_decl(person(&format!("person-{index}")));
+                    }
+                    let query_params = AuthorQueryParams {
+                        workspace: "ws-1".to_owned(),
+                        goal: String::new(),
+                        goal_atom: Some(missing_goal()),
+                        layer: None,
+                        why: false,
+                    };
+                    let why_params = AuthorWhyParams {
+                        workspace: "ws-1".to_owned(),
+                        atom: String::new(),
+                        goal_atom: Some(missing_goal()),
+                    };
+                    let started = Instant::now();
+                    for snapshot in 0..snapshot_count {
+                        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+                        ws.base_valuation
+                            .0
+                            .insert(format!("snapshot-{snapshot}"), snapshot % 2 == 0);
+                        for _ in 0..logical_queries {
+                            query(&store, &query_params, true).expect("profile query");
+                            why(&store, &why_params, true, true).expect("profile why");
+                        }
+                    }
+                    let elapsed = started.elapsed();
+                    let stats = store.get("ws-1").expect("workspace").compile_cache_stats();
+                    let reads = u64::try_from(snapshot_count * logical_queries * 2)
+                        .expect("small profile matrix");
+                    assert_eq!(stats.compiles, 1);
+                    assert_eq!(stats.misses, 1);
+                    assert_eq!(stats.hits, reads - 1);
+                    assert_eq!(stats.evictions, 0);
+                    eprintln!(
+                        "claims={claim_count} logical_queries={logical_queries} snapshots={snapshot_count} \
+                         compiles={} hits={} misses={} evictions={} query_why={elapsed:?}",
+                        stats.compiles, stats.hits, stats.misses, stats.evictions
+                    );
+                }
+            }
+        }
+    }
 }
