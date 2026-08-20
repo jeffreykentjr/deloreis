@@ -615,6 +615,57 @@ impl Store {
         Ok(())
     }
 
+    /// Refresh only a workspace's durable valuation overlay and resolution
+    /// index, keeping its current base documents intact. Standing changes use
+    /// this path because already-materialized declarations remain in the
+    /// workspace's staged document set until its ordinary session lifecycle
+    /// clears them; reconstructing the new durable head here would therefore
+    /// install a second copy beside those staged declarations.
+    pub fn refresh_workspace_valuation(&mut self, ws_id: &str) -> Result<(), String> {
+        let base_key = self
+            .workspace_bases
+            .get(ws_id)
+            .cloned()
+            .ok_or_else(|| format!("no base is bound to workspace `{ws_id}`"))?;
+        let named = self
+            .workspaces
+            .get(ws_id)
+            .map(|workspace| workspace.base_valuation.clone())
+            .ok_or_else(|| format!("workspace `{ws_id}` is not open"))?;
+        let current = self
+            .branch_bases
+            .get(ws_id)
+            .or_else(|| self.base_named(&base_key))
+            .ok_or_else(|| format!("workspace `{ws_id}` has no compiled base"))?;
+        let mut refreshed = Base {
+            world: current.world.clone(),
+            documents: current.documents.clone(),
+            pack_name: current.pack_name.clone(),
+        };
+        let target_interner = refreshed.world.model.interner().clone();
+        // This is a projection onto the base half, not the fail-closed
+        // full-world boundary: a decision introduced only by a staged
+        // declaration is absent here but present when `staged_world` applies
+        // the complete overlay. Such a name cannot affect any base atom.
+        let target_names: BTreeSet<&str> =
+            target_interner.names().iter().map(String::as_str).collect();
+        let base_named = NamedValuation(
+            named
+                .0
+                .into_iter()
+                .filter(|(name, _)| target_names.contains(name.as_str()))
+                .collect(),
+        );
+        base_named
+            .apply_to(&target_interner, &mut refreshed.world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        if let Some(workspace) = self.workspaces.get_mut(ws_id) {
+            workspace.refresh_resolution(&refreshed.world, &refreshed.documents);
+        }
+        self.branch_bases.insert(ws_id.to_owned(), refreshed);
+        Ok(())
+    }
+
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
     /// its own single-branch store — one store, one pack lineage.
     #[must_use]

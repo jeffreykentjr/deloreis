@@ -3316,7 +3316,7 @@ fn durable_standing_change(
         ws.base_valuation = named_valuation;
     }
     store
-        .reload_workspace_base(workspace)
+        .refresh_workspace_valuation(workspace)
         .map_err(|message| ErrorBody {
             code: ErrorCode::Internal,
             message: format!("refreshing the workspace after changing standing: {message}"),

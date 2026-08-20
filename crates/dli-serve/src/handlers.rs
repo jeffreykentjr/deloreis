@@ -2587,28 +2587,62 @@ fn render_export(
 /// derived from those buckets. This is the projection scaffold: predicate
 /// bucketing, the interner, and the known decisions are emitted now, and the
 /// domain normalizers layer onto the buckets incrementally.
-fn apply_main_ref_valuation(
+fn remap_canon_theory(
+    source: &dli_core::ann::Theory,
+    source_interner: &Interner,
+    target_interner: &Interner,
+) -> Result<dli_core::ann::Theory, Fault> {
+    let mut target = dli_core::ann::Theory::new();
+    for family in &source.exclusive {
+        let mut indexed = Valuation::new();
+        for atom in family {
+            indexed.set(*atom, true);
+        }
+        let named =
+            dli_core::valuation::NamedValuation::from_indexed(&indexed, source_interner.names())
+                .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        let remapped = named
+            .to_indexed(target_interner)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        target.add_exclusive(remapped.0.into_keys());
+    }
+    Ok(target)
+}
+
+fn canon_object_standing(
     store: &dli_lorestore::Lorestore,
     head: &dli_lorestore::ContentHash,
-    compiled: &mut dli_world::CompiledWorld,
-) -> Result<(), Fault> {
-    let Some(reference) = store
+    compiled: &dli_world::CompiledWorld,
+    durable_names: &[String],
+) -> Result<(Valuation, dli_core::ann::Theory), Fault> {
+    let compiled_interner = compiled.model.interner();
+    let durable_interner = Interner::from_names(durable_names.to_vec());
+    let named_defaults = dli_core::valuation::NamedValuation::from_indexed(
+        &compiled.model.world.valuation,
+        compiled_interner.names(),
+    )
+    .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let mut valuation = named_defaults
+        .to_indexed(&durable_interner)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let theory = remap_canon_theory(
+        &compiled.model.world.theory,
+        compiled_interner,
+        &durable_interner,
+    )?;
+    if let Some(reference) = store
         .branch_ref(dli_lorestore::MAIN_REF)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .filter(|reference| reference.commit == *head)
-    else {
-        return Ok(());
-    };
-    let source_names = store
-        .interner_at(&reference.commit)
-        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-    let named =
-        dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, &source_names)
+    {
+        let named =
+            dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, durable_names)
+                .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        named
+            .apply_to(&durable_interner, &mut valuation)
             .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-    let target_interner = compiled.model.interner().clone();
-    named
-        .apply_to(&target_interner, &mut compiled.model.world.valuation)
-        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))
+    }
+    Ok((valuation, theory))
 }
 
 fn canon_export(
@@ -2654,12 +2688,10 @@ fn canon_export(
             ),
         ));
     }
-    let mut compiled = store
+    let compiled = store
         .compile_at(head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    apply_main_ref_valuation(store, head, &mut compiled)?;
-    let valuation = &compiled.model.world.valuation;
-    let theory = &compiled.model.world.theory;
+    let (valuation, theory) = canon_object_standing(store, head, &compiled, &interner)?;
 
     // `serialized_objects` preserves the store commit order (`fact_hashes_from`
     // walks the history in append order, which is the `facts.dli` source order =
@@ -2670,7 +2702,7 @@ fn canon_export(
     let mut serialized_objects: Vec<serde_json::Value> = Vec::with_capacity(objects.len());
     let mut by_pred: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
     for object in &objects {
-        if object.annotation().status(valuation, theory) == dli_core::ann::Status::Dead {
+        if object.annotation().status(&valuation, &theory) == dli_core::ann::Status::Dead {
             continue;
         }
         let value =
