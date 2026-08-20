@@ -5,7 +5,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dli_ast::decl::{Decl, Document, RatifyDecl, ScopeHeader};
+use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
+use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, RatifyDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::language::RatifyBody;
 use dli_ast::span::Span;
@@ -100,6 +101,87 @@ fn canon(root: &std::path::Path) -> Value {
     let response = corpus_export(root);
     assert!(response.ok, "canon export failed: {response:?}");
     response.result.expect("canon export result")["canon"].clone()
+}
+
+fn ratified_to(decision: &str) -> Annotation {
+    Annotation {
+        marker: ProvenanceMarker::Ratified,
+        citations: vec![CitationRef { id: id(decision) }],
+        condition: None,
+        tags: Vec::new(),
+        span: Span::synthetic(),
+    }
+}
+
+fn entity(name: &str, decision: &str) -> Decl {
+    Decl::Entity(EntityDecl {
+        kind: EntityKind::Person,
+        name: id(name),
+        label: None,
+        time: None,
+        slots: Vec::new(),
+        provenance: Some(ratified_to(decision)),
+    })
+}
+
+fn skewed_canon_store() -> tempfile::TempDir {
+    let root = tempfile::tempdir().expect("temporary project root");
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"canon-skew\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
+    )
+    .expect("write project manifest");
+    let store = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("open skewed store");
+    let declarations = [
+        Decl::Ratify(RatifyDecl {
+            decision: id("D-dead"),
+            body: RatifyBody::default(),
+        }),
+        Decl::Ratify(RatifyDecl {
+            decision: id("D-control"),
+            body: RatifyBody::default(),
+        }),
+        entity("mara", "D-dead"),
+        entity("moira", "D-control"),
+    ];
+    let mut interner = dli_core::Interner::from_names(vec![
+        "padding".to_owned(),
+        "D-dead".to_owned(),
+        "D-control".to_owned(),
+    ]);
+    let mut bundle = 0;
+    let mut hashes = Vec::new();
+    for declaration in &declarations {
+        for object in
+            dli_lorestore::lower::lower_decl(declaration, "demo", &mut interner, &mut bundle)
+        {
+            hashes.push(store.write_object(&object).expect("write fact object"));
+        }
+    }
+    store
+        .commit_on_branch(
+            "main",
+            interner.names().to_vec(),
+            hashes,
+            Vec::new(),
+            Vec::new(),
+            vec!["D-dead".to_owned(), "D-control".to_owned()],
+            "demo".to_owned(),
+        )
+        .expect("commit skewed fixture");
+    let current = store.head_ref().expect("head ref").expect("main exists");
+    let token = current.digest().expect("ref digest").to_string();
+    let mut valuation = current.valuation;
+    valuation.set(dli_core::Atom(1), false);
+    valuation.set(dli_core::Atom(2), true);
+    let updated = dli_lorestore::Ref::with_valuation("main", current.commit, valuation);
+    assert!(
+        store
+            .cas_main_ref(Some(&token), &updated)
+            .expect("advance skewed ref")
+    );
+    root
 }
 
 #[test]
@@ -341,6 +423,43 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             .iter()
             .all(|row| row["id"] != "mara"),
         "canon excludes the dead claim while the object remains stored: {defeated_canon}"
+    );
+}
+
+#[test]
+fn canon_applies_a_post_compile_durable_overlay_by_exact_name() {
+    let root = skewed_canon_store();
+    let store = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("reopen skewed store");
+    let head = store.root_hash().expect("root hash").expect("head exists");
+    let durable_names = store.interner_at(&head).expect("durable names");
+    let compiled = store.compile_at(&head).expect("compile canon receiver");
+    assert_eq!(
+        durable_names.iter().position(|name| name == "D-dead"),
+        Some(1)
+    );
+    assert_eq!(
+        compiled
+            .model
+            .interner()
+            .names()
+            .iter()
+            .position(|name| name == "D-dead"),
+        Some(0),
+        "fixture must cross a real post-compile index skew"
+    );
+
+    let exported = canon(root.path());
+    let people = exported["characters"]["person"]
+        .as_array()
+        .expect("canon person rows");
+    assert!(
+        people.iter().all(|row| row["id"] != "mara"),
+        "the exact-name false ruling removes only its supported claim: {exported}"
+    );
+    assert!(
+        people.iter().any(|row| row["id"] == "moira"),
+        "the independently true named control survives: {exported}"
     );
 }
 

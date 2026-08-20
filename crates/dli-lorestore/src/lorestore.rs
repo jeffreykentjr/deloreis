@@ -93,6 +93,13 @@ pub struct CommitReceipt {
     pub ref_digest: ContentHash,
 }
 
+struct MergeInputs {
+    target_ref: Ref,
+    source_ref: Ref,
+    target_commit: Commit,
+    source_commit: Commit,
+}
+
 impl Lorestore {
     /// Open (or initialise) a store at `root`.
     ///
@@ -1193,21 +1200,12 @@ impl Lorestore {
         self.merge_impl(target, source, advance, expected_ref)
     }
 
-    /// The shared merge body behind [`merge`](Self::merge) and
-    /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
-    /// the fact-hash union, the merge-commit write, and the conflict scan —
-    /// runs identically regardless of `advance`, so a dry run and its later
-    /// real merge (same two heads) write the same merge commit and report the
-    /// same conflicts.
-    fn merge_impl(
+    fn read_merge_inputs(
         &self,
         target: &str,
         source: &str,
-        advance: bool,
         expected_ref: Option<&str>,
-    ) -> Result<crate::merge::MergeReport, StoreError> {
-        let _lock = self.storage.acquire_lock()?;
-
+    ) -> Result<MergeInputs, StoreError> {
         let target_ref = self
             .storage
             .load_ref(&branch_ref_name(target))?
@@ -1226,13 +1224,73 @@ impl Lorestore {
             .storage
             .load_ref(&branch_ref_name(source))?
             .ok_or_else(|| StoreError::NotFound(format!("branch `{source}` does not exist")))?;
+        let target_commit =
+            storage::read_typed(&*self.storage, &target_ref.commit)?.ok_or_else(|| {
+                StoreError::NotFound(format!("target head missing: {}", target_ref.commit))
+            })?;
+        let source_commit =
+            storage::read_typed(&*self.storage, &source_ref.commit)?.ok_or_else(|| {
+                StoreError::NotFound(format!("source head missing: {}", source_ref.commit))
+            })?;
+        Ok(MergeInputs {
+            target_ref,
+            source_ref,
+            target_commit,
+            source_commit,
+        })
+    }
+
+    fn advance_merge_ref(
+        &self,
+        target: &str,
+        target_ref: &Ref,
+        merge_hash: &ContentHash,
+        merged_valuation: dli_core::valuation::Valuation,
+    ) -> Result<(), StoreError> {
+        let new_ref = Ref::with_valuation(
+            branch_ref_name(target),
+            merge_hash.clone(),
+            merged_valuation,
+        );
+        let expected_token = Some(target_ref.digest()?.0);
+        if self.storage.cas_ref(
+            &branch_ref_name(target),
+            expected_token.as_deref(),
+            &new_ref,
+        )? {
+            return Ok(());
+        }
+        Err(StoreError::CasConflict {
+            name: branch_ref_name(target),
+            expected: Some(target_ref.commit.0.clone()),
+            found: self
+                .storage
+                .load_ref(&branch_ref_name(target))?
+                .map(|reference| reference.commit.0),
+        })
+    }
+
+    /// The shared merge body behind [`merge`](Self::merge) and
+    /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
+    /// the fact-hash union, the merge-commit write, and the conflict scan —
+    /// runs identically regardless of `advance`, so a dry run and its later
+    /// real merge (same two heads) write the same merge commit and report the
+    /// same conflicts.
+    fn merge_impl(
+        &self,
+        target: &str,
+        source: &str,
+        advance: bool,
+        expected_ref: Option<&str>,
+    ) -> Result<crate::merge::MergeReport, StoreError> {
+        let _lock = self.storage.acquire_lock()?;
+        let inputs = self.read_merge_inputs(target, source, expected_ref)?;
+        let target_ref = inputs.target_ref;
+        let source_ref = inputs.source_ref;
+        let target_commit = inputs.target_commit;
+        let source_commit = inputs.source_commit;
         let target_head = target_ref.commit.clone();
         let source_head = source_ref.commit.clone();
-
-        let target_commit: Commit = storage::read_typed(&*self.storage, &target_head)?
-            .ok_or_else(|| StoreError::NotFound(format!("target head missing: {target_head}")))?;
-        let source_commit: Commit = storage::read_typed(&*self.storage, &source_head)?
-            .ok_or_else(|| StoreError::NotFound(format!("source head missing: {source_head}")))?;
 
         // Interner reconciliation — prefix-preservation against BOTH parents.
         let merged_interner =
@@ -1279,29 +1337,15 @@ impl Lorestore {
         // dry run (`advance = false`) skips the CAS: the commit object above is
         // already durably written (content-addressed, so writing it is never
         // itself the commitment), but no ref moves to point at it.
-        let merged_valuation =
-            crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
+        let merged_valuation = crate::merge::union_valuations(
+            &target_ref.valuation,
+            &target_commit.interner,
+            &source_ref.valuation,
+            &source_commit.interner,
+            &merged_interner,
+        )?;
         if advance {
-            let new_ref = Ref::with_valuation(
-                branch_ref_name(target),
-                merge_hash.clone(),
-                merged_valuation.clone(),
-            );
-            let expected_token = Some(target_ref.digest()?.0);
-            if !self.storage.cas_ref(
-                &branch_ref_name(target),
-                expected_token.as_deref(),
-                &new_ref,
-            )? {
-                return Err(StoreError::CasConflict {
-                    name: branch_ref_name(target),
-                    expected: Some(target_head.0.clone()),
-                    found: self
-                        .storage
-                        .load_ref(&branch_ref_name(target))?
-                        .map(|r| r.commit.0),
-                });
-            }
+            self.advance_merge_ref(target, &target_ref, &merge_hash, merged_valuation.clone())?;
         }
 
         // Detect the three conflict classes over the merged state.
@@ -1312,7 +1356,9 @@ impl Lorestore {
             &source_head,
             base.as_ref(),
             &target_ref.valuation,
+            &target_commit.interner,
             &source_ref.valuation,
+            &source_commit.interner,
             &merged_valuation,
             &merged_interner,
         )?;

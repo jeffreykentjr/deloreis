@@ -11,7 +11,7 @@ use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::Valuation;
+use dli_core::valuation::{NamedValuation, Valuation};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
@@ -89,7 +89,7 @@ pub struct ProjectDocument {
     /// This is empty for a manifest-pinned commit: a pin is a replay of that
     /// commit, not an instruction to borrow the valuation of whatever ref happens
     /// to point elsewhere when the project starts.
-    pub store_valuation: Valuation,
+    pub store_valuation: NamedValuation,
     /// Digest of the selected branch ref, including its valuation overlay.
     ///
     /// Only branch mode has a selected ref. The authoring write path uses this
@@ -591,10 +591,16 @@ fn load_document(
         store_valuation,
         store_ref_digest,
     ) = load_source(root, id, entry)?;
-    compile(&pack).map_err(|error| ProjectError::Compile {
+    let compiled = compile(&pack).map_err(|error| ProjectError::Compile {
         document: id.to_owned(),
         message: error.to_string(),
     })?;
+    store_valuation
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store ref valuation does not map to its compiled document: {error}"),
+        })?;
     let episodes = entry
         .episodes
         .as_deref()
@@ -739,7 +745,7 @@ fn load_source(
         String,
         Option<PathBuf>,
         Option<dli_lorestore::ContentHash>,
-        Valuation,
+        NamedValuation,
         Option<String>,
     ),
     ProjectError,
@@ -774,7 +780,15 @@ fn load_source(
                 )));
             }
             let (pack, paths, digest) = load_pack(root, id, &entry.sources)?;
-            Ok((pack, paths, digest, None, None, Valuation::new(), None))
+            Ok((
+                pack,
+                paths,
+                digest,
+                None,
+                None,
+                NamedValuation::default(),
+                None,
+            ))
         }
     }
 }
@@ -801,7 +815,7 @@ fn load_pack_from_store(
         Vec<PathBuf>,
         String,
         dli_lorestore::ContentHash,
-        Valuation,
+        NamedValuation,
         Option<String>,
     ),
     ProjectError,
@@ -855,6 +869,19 @@ fn load_pack_from_store(
                     })
             })?,
     };
+
+    let source_names = lorestore
+        .interner_at(&resolved)
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store head `{resolved}` has no valid interner: {error}"),
+        })?;
+    let valuation = NamedValuation::from_indexed(&valuation, &source_names).map_err(|error| {
+        ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store ref valuation cannot be resolved: {error}"),
+        }
+    })?;
 
     let pack = lorestore
         .reconstruct_at(&resolved)

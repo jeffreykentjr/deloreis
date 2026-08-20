@@ -34,7 +34,7 @@ use dli_ast::decl::{Decl, Document, FactDecl, FunctionalDecl, RatifyDecl, ScopeH
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
-use dli_core::atom::Atom;
+use dli_core::atom::{Atom, Interner};
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_eval::fork::ConflictKind;
@@ -193,6 +193,104 @@ fn open_declared_base() -> (Lorestore, TempDir) {
         derived_preds(&base)
     );
     (store, dir)
+}
+
+/// A declared-functional base whose durable table deliberately carries an
+/// unused prefix name before `D-1`. Reconstruction synthesizes `ratify D-1`
+/// first, so the receiving compile assigns it atom 0 while the persisted ref
+/// must address atom 1. This is the mutation tooth for merge-time remapping.
+fn open_skewed_declared_base() -> (Lorestore, TempDir) {
+    let (store, dir) = open_store();
+    let functional = Decl::Functional(FunctionalDecl {
+        pred: id(DECLARED),
+        provenance: Some(ratified()),
+    });
+    let mut interner = Interner::from_names(vec!["padding".to_owned(), DECISION.to_owned()]);
+    let mut bundle = 0;
+    let mut hashes =
+        dli_lorestore::lower::lower_decl(&functional, "canon", &mut interner, &mut bundle)
+            .iter()
+            .map(|object| {
+                store
+                    .write_object(object)
+                    .expect("write functional carriage")
+            })
+            .collect::<Vec<_>>();
+    hashes.push(
+        store
+            .write_object(&common::test_fact(
+                "base-home",
+                "home",
+                &["mara", "shallows"],
+                PosBool::pos(Atom(1)),
+                Grade::Asserted,
+            ))
+            .expect("write cited base fact"),
+    );
+    store
+        .commit_on_branch(
+            "main",
+            interner.names().to_vec(),
+            hashes,
+            Vec::new(),
+            Vec::new(),
+            vec![DECISION.to_owned()],
+            "canon".to_owned(),
+        )
+        .expect("seed skewed main");
+    store.create_branch("a", "main").expect("a");
+    store.create_branch("b", "main").expect("b");
+
+    let main = store.branch_head("main").expect("head").expect("main");
+    let durable_names = store.interner_at(&main).expect("durable interner");
+    let compiled = store.compile_at(&main).expect("compiled base");
+    assert_eq!(
+        durable_names.iter().position(|name| name == DECISION),
+        Some(1)
+    );
+    assert_eq!(
+        compiled
+            .model
+            .interner()
+            .names()
+            .iter()
+            .position(|name| name == DECISION),
+        Some(0),
+        "fixture must keep a real persisted/compiled skew"
+    );
+    (store, dir)
+}
+
+fn set_decision(store: &Lorestore, branch: &str, value: bool) {
+    let reference = store
+        .branch_ref(branch)
+        .expect("read branch ref")
+        .expect("branch exists");
+    let source_names = store
+        .interner_at(&reference.commit)
+        .expect("source interner");
+    let atom = Atom(
+        u32::try_from(
+            source_names
+                .iter()
+                .position(|name| name == DECISION)
+                .expect("decision is interned"),
+        )
+        .expect("atom index"),
+    );
+    let mut valuation = reference.valuation.clone();
+    valuation.set(atom, value);
+    let expected = reference.digest().expect("ref digest").to_string();
+    let replacement = dli_lorestore::Ref::with_valuation(
+        dli_lorestore::branch_ref_name(branch),
+        reference.commit,
+        valuation,
+    );
+    assert!(
+        store
+            .cas_branch_ref(branch, Some(&expected), &replacement)
+            .expect("set branch decision")
+    );
 }
 
 // ── world inspection ─────────────────────────────────────────────────────────
@@ -357,6 +455,45 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
     assert!(
         message.contains("gold") && message.contains("silver"),
         "carries both clashing values: {message}"
+    );
+}
+
+#[test]
+fn merged_declared_checks_use_the_name_remapped_effective_valuation() {
+    let (store, _dir) = open_skewed_declared_base();
+    commit_facts(
+        &store,
+        "a",
+        &[common::test_fact(
+            "a-crest",
+            DECLARED,
+            &["mara", "gold"],
+            PosBool::pos(Atom(1)),
+            Grade::Asserted,
+        )],
+    );
+    commit_facts(
+        &store,
+        "b",
+        &[common::test_fact(
+            "b-crest",
+            DECLARED,
+            &["mara", "silver"],
+            PosBool::pos(Atom(1)),
+            Grade::Asserted,
+        )],
+    );
+    set_decision(&store, "a", false);
+
+    let report = store.merge("a", "b").expect("merge");
+    assert!(
+        continuity_fd_findings(&report).is_empty(),
+        "the target's false ruling makes both values dead for declared checks: {:?}",
+        report.findings
+    );
+    assert!(
+        certain_conflicts(&report).is_empty(),
+        "the same effective valuation drives the inferred conflict lens"
     );
 }
 

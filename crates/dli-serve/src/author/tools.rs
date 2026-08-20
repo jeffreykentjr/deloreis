@@ -123,6 +123,7 @@ fn open_error(err: &super::store::OpenError) -> ErrorBody {
         OE::UnknownDoc(_) | OE::UnknownBranch(_) => ErrorCode::UnknownDoc,
         OE::ProjectRequired => ErrorCode::ProjectRequired,
         OE::BranchCompile(_) => ErrorCode::Internal,
+        OE::ValuationRemap(_) => ErrorCode::EvidenceCorrupt,
     };
     ErrorBody {
         code,
@@ -2908,6 +2909,12 @@ pub(super) fn record_decision(
             .map_err(|error| store_fault(&error))?;
         (head, head_ref, pack_name, interner, decisions)
     };
+    {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        preflight_ref_valuation(ls, &head_ref, &interner)?;
+    }
 
     // Guard census (DL-0083): a control character in the id or rationale, and a
     // provenance citation of an unknown decision, refuse the record rather than
@@ -3000,10 +3007,22 @@ pub(super) fn record_decision(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let source_names = store
+        .workspace_lorestore(&params.workspace)
+        .expect("lorestore presence checked above")
+        .interner_at(&current_ref.commit)
+        .map_err(|error| store_fault(&error))?;
+    let named_valuation =
+        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message: error.to_string(),
+                data: None,
+            })?;
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = named_valuation;
     }
     // Reconstruct the workspace's base from the new head so the recorded `ratify`
     // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
@@ -3096,6 +3115,12 @@ fn durable_standing_change(
         }
         (head, head_ref, pack_name, interner, decisions, target)
     };
+    {
+        let ls = store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above");
+        preflight_ref_valuation(ls, &head_ref, &interner)?;
+    }
 
     let Some((_, mut object)) = target.take() else {
         return Err(ErrorBody {
@@ -3264,7 +3289,6 @@ fn durable_standing_change(
         }
     }
 
-    let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     let current_ref = store
         .workspace_lorestore(workspace)
         .and_then(|ls| ls.branch_ref(&target_branch).ok().flatten())
@@ -3275,11 +3299,31 @@ fn durable_standing_change(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let source_names = store
+        .workspace_lorestore(workspace)
+        .expect("lorestore presence checked above")
+        .interner_at(&current_ref.commit)
+        .map_err(|error| store_fault(&error))?;
+    let named_valuation =
+        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message: error.to_string(),
+                data: None,
+            })?;
     if let Some((_, ws)) = store.parts_mut(workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = named_valuation;
     }
+    store
+        .refresh_workspace_valuation(workspace)
+        .map_err(|message| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("refreshing the workspace after changing standing: {message}"),
+            data: None,
+        })?;
+    let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
         rendered: Vec::new(),
@@ -3347,6 +3391,34 @@ fn declaration_carriage_cites_decision(
 fn store_fault(error: &dli_lorestore::StoreError) -> ErrorBody {
     ErrorBody {
         code: ErrorCode::Internal,
+        message: error.to_string(),
+        data: None,
+    }
+}
+
+/// Validate a persisted ref overlay against both its source commit table and
+/// the independently compiled receiving table before a mutating author call
+/// writes any object, commit, or ref.
+fn preflight_ref_valuation(
+    store: &dli_lorestore::Lorestore,
+    reference: &dli_lorestore::Ref,
+    source_names: &[String],
+) -> Result<(), ErrorBody> {
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, source_names)
+            .map_err(|error| valuation_corrupt(&error))?;
+    let compiled = store
+        .compile_at(&reference.commit)
+        .map_err(|error| store_fault(&error))?;
+    named
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| valuation_corrupt(&error))?;
+    Ok(())
+}
+
+fn valuation_corrupt(error: &dli_core::valuation::ValuationRemapError) -> ErrorBody {
+    ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
         message: error.to_string(),
         data: None,
     }
@@ -3736,6 +3808,7 @@ fn store_error(err: &dli_lorestore::StoreError) -> ErrorBody {
         // caller's snapshot has gone stale — the same code `materialize`'s
         // own `RefSnapshotConflict` mapping already uses.
         SE::RefSnapshotConflict { .. } => ErrorCode::StaleFence,
+        SE::ValuationRemap(_) => ErrorCode::EvidenceCorrupt,
         _ => ErrorCode::Internal,
     };
     ErrorBody {
