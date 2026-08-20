@@ -558,8 +558,10 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
         ),
         store,
     ));
-    // Known (not deleted) but no longer certain — its support rests on a decision
-    // the defeat ruled false.
+    // Known (not deleted) but dead — its sole durable support rests on a
+    // decision the defeat ruled false. Materialize reconciles the original
+    // proposed declaration into that committed object, so no duplicate staged
+    // proposal survives to make the fact merely possible.
     assert_eq!(
         why["why_not"]["known"],
         json!(true),
@@ -567,8 +569,8 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
     );
     assert_eq!(
         why["why_not"]["status"],
-        json!("possible"),
-        "the false named decision removes certainty while redundant proposed support survives: {why}"
+        json!("dead"),
+        "the false named decision removes the reconciled durable support: {why}"
     );
     let independent = result(dispatch(
         &req(
@@ -639,7 +641,7 @@ fn assert_reopened_defeat_and_control(root: &std::path::Path) {
 }
 
 #[test]
-fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
+fn defeating_the_recorded_decision_leaves_reconciled_facts_dead() {
     let (root, mut store) = store_with_mara();
     let ws = open(&mut store);
     let claim_id = materialize_rank_and_control(&mut store, &ws);
