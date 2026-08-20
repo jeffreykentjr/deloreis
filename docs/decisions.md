@@ -5329,3 +5329,47 @@ worlds without predicate-identity declarations remain byte-identical. Fresh
 red teams must execute branch-isolation, inference-creep, order-dependence,
 and live-wire-reachability probes on the committed diff; a report without
 executed commands is not a red-team result.
+
+## DL-0093 — Record the large-workspace `author.add_fact` staging stall and the benchmark continuation exception (GH #99)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — a measured performance report from the external
+`dli-benchmarks` novel benchmark. This entry is live as an investigation
+record, pending the author's async review (DL-0052).
+
+**Ruling.** The Slice 1 large-theory DLI failures are recorded as an engine
+performance defect, not as a semantic failure or a timeout that can be cured
+by increasing the client deadline alone. The benchmark is permitted to
+continue into later slices only under an explicit asterisked exception. Raw
+engine-timeout rows remain primary evidence; any deterministic proxy used to
+keep the later harness moving must be separately labelled, excluded from DLI
+primary correctness/property scores, and reported with the timeout count.
+
+**Evidence.** At revision `dfffbb0fcd0349293af53699e0f6467f60010948`, the
+benchmark authored 65,536 facts individually through `author.add_fact`. Seven
+large-theory cells reached the 900-second client deadline. During the stall the
+worker was approximately 99% CPU and approximately 454 MB RSS, with no
+checkpoint progress and negligible observed storage activity. The suspected
+hot path is `author.add_fact` → `stage` → `decl_findings` → `attr_findings` →
+`known_entities`; the latter scans `ws.decls` on every fact. The resulting
+upper-bound count is 65,536 × 65,537 / 2 = 2,147,516,416 declaration
+inspections. `author.add_rule`'s tentative full compile and
+`author.materialize`'s full staged-world report/object pass are additional
+scale costs, but are not required to explain the CPU-bound staging symptom.
+
+**Scope.** This is tracked publicly as
+[GH #99](https://github.com/jeffreyksmithjr/deloreis/issues/99). The suspected
+fix is an incremental or invalidated known-entity index, backed by scale
+regressions at 1k, 4k, 16k, and 65k facts, plus phase-level progress or bounded
+diagnostics. No wire contract or semantic rule is changed by this entry.
+
+**Benchmark caveat.** The external continuation is indicative only. Proxy
+rows are not engine reads, do not repair the failed DLI cells, and cannot be
+used to claim that DLI passed the Slice 1 gate. A clean result requires an
+engine fix and a rerun of the affected cells.
+
+**Verification.** The external benchmark records the raw checkpoint rows,
+exception metadata, and issue URL. Engine remediation must add a deterministic
+scale regression and rerun the original authoring shape before this entry can
+be closed.
