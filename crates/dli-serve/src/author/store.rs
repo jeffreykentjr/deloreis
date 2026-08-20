@@ -692,8 +692,21 @@ impl Store {
             documents: pack.documents,
             pack_name: pack.name,
         };
+        let structural_changed = self.workspace_base(ws_id).is_none_or(|current| {
+            current.killed != refreshed.world.killed
+                || self
+                    .workspace_base_docs(ws_id)
+                    .is_none_or(|documents| documents != refreshed.documents)
+        });
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
-            ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+            if structural_changed {
+                ws.refresh_structure(&refreshed.world, &refreshed.documents);
+            } else {
+                // Attack-only commits and ref-standing movement keep the exact
+                // same symbolic documents. Refresh the derived add-time index,
+                // but retain the saturate-once compile.
+                ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+            }
         }
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
@@ -843,7 +856,7 @@ impl Store {
         ws.bundle_counter = bundle;
         ws.base_valuation = base_valuation;
         ws.base_unassigned = base_unassigned;
-        ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        ws.refresh_structure(&refreshed.world, &refreshed.documents);
         let digest = ws.digest.clone();
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         self.base_update_stats.prepared_installs += 1;

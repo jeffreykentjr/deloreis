@@ -3682,23 +3682,18 @@ fn durable_standing_change(
         ws.base_valuation = named_valuation;
         ws.base_unassigned = named_unassigned;
     }
-    if conditional {
-        store
-            .reload_workspace_base(workspace)
-            .map_err(|message| ErrorBody {
-                code: ErrorCode::Internal,
-                message: format!("refreshing the workspace after conditional defeat: {message}"),
-                data: None,
-            })?;
-    } else {
-        store
-            .refresh_workspace_valuation(workspace)
-            .map_err(|message| ErrorBody {
-                code: ErrorCode::Internal,
-                message: format!("refreshing the workspace after changing standing: {message}"),
-                data: None,
-            })?;
-    }
+    // Both legacy false bits and 1.13 grounded attacks change only the named
+    // standing overlay. Conditional attacks may carry a new Ratify object to
+    // establish their endpoint, but that attack-only name is interned and
+    // registered dynamically; rebuilding the symbolic documents would violate
+    // saturate-once/valuate-many for every defeat and nested restoration.
+    store
+        .refresh_workspace_valuation(workspace)
+        .map_err(|message| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("refreshing the workspace after changing standing: {message}"),
+            data: None,
+        })?;
     let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

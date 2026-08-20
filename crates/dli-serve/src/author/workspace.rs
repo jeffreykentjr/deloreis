@@ -24,6 +24,8 @@
 //! the wire, and every recorded fence and fixture still matches.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -112,6 +114,13 @@ pub struct Workspace {
     /// Derived resolution state for add-time and aggregate findings. It is not
     /// part of the workspace digest or any wire/storage shape.
     resolution: ResolutionIndex,
+    /// Monotonic identity of the source declarations compiled by staged reads.
+    /// Dynamic valuation, grounded attacks, explicit unassignment, ref movement,
+    /// and suppositions deliberately do not participate.
+    structural_revision: u64,
+    /// One bounded structural compile per workspace. Reads clone the cached
+    /// world before applying request-local standing and suppositions.
+    compile_cache: WorkspaceCompileCache,
     /// The streaming digest state: a SHA-256 that has absorbed the canonical head
     /// (`{"base_name":…,"decls":[`) and every staged declaration's JCS bytes in
     /// order, up to but not including the closing `]`. An append feeds one more
@@ -142,6 +151,8 @@ impl Workspace {
             base_ref_digest: None,
             target_branch: None,
             resolution: ResolutionIndex::default(),
+            structural_revision: 0,
+            compile_cache: WorkspaceCompileCache::default(),
         };
         workspace.absorb_head();
         workspace.reseal();
@@ -159,6 +170,7 @@ impl Workspace {
         self.prefix.update(encode(&decl).as_bytes());
         self.resolution.add_staged(&decl);
         self.decls.push(decl);
+        self.bump_structural_revision();
         self.reseal();
     }
 
@@ -168,6 +180,7 @@ impl Workspace {
         if let Some(slot) = self.decls.get_mut(index) {
             *slot = decl;
             self.resolution.rebuild_staged(&self.decls);
+            self.bump_structural_revision();
             self.reabsorb();
             self.reseal();
         }
@@ -180,6 +193,7 @@ impl Workspace {
         }
         let removed = self.decls.remove(index);
         self.resolution.rebuild_staged(&self.decls);
+        self.bump_structural_revision();
         self.reabsorb();
         self.reseal();
         Some(removed)
@@ -189,6 +203,117 @@ impl Workspace {
     /// staged declarations over it. Used at open and after a branch/base reload.
     pub fn refresh_resolution(&mut self, base: &CompiledWorld, documents: &[Document]) {
         self.resolution.rebase(base, documents, &self.decls);
+        // Conditional-attack commits may introduce a Ratify carriage solely to
+        // establish an attack endpoint. Those decision variables are dynamic
+        // standing inputs, not symbolic declarations worth recompiling. The
+        // durable named overlay is nevertheless sufficient referential proof,
+        // so keep them in the resolution census by exact name.
+        self.resolution.known_decisions.extend(
+            self.base_valuation
+                .0
+                .keys()
+                .chain(self.base_unassigned.0.iter())
+                .cloned(),
+        );
+    }
+
+    /// Refresh derived resolution state and invalidate the symbolic compile
+    /// because the base documents or killed-token guardrails changed.
+    pub fn refresh_structure(&mut self, base: &CompiledWorld, documents: &[Document]) {
+        self.refresh_resolution(base, documents);
+        self.bump_structural_revision();
+    }
+
+    /// Return the cached structural world for this declaration revision.
+    /// Counters are diagnostic only and use relaxed ordering: no verdict relies
+    /// on an inter-thread ordering between observations.
+    pub(super) fn cached_structural_world(&self) -> Option<Arc<CompiledWorld>> {
+        if !self.compile_cache.enabled.load(Ordering::Relaxed) {
+            self.compile_cache.misses.fetch_add(1, Ordering::Relaxed);
+            return None;
+        }
+        let cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(entry) = cached.as_ref()
+            && entry.revision == self.structural_revision
+        {
+            self.compile_cache.hits.fetch_add(1, Ordering::Relaxed);
+            return Some(Arc::clone(&entry.world));
+        }
+        self.compile_cache.misses.fetch_add(1, Ordering::Relaxed);
+        None
+    }
+
+    /// Install a successful structural compile for subsequent reads. Racing
+    /// identical misses may compile twice; the first matching entry wins and
+    /// both worlds have already passed the same deterministic compiler.
+    pub(super) fn cache_structural_world(&self, world: CompiledWorld) {
+        self.compile_cache.compiles.fetch_add(1, Ordering::Relaxed);
+        if !self.compile_cache.enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let mut cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if cached
+            .as_ref()
+            .is_some_and(|entry| entry.revision == self.structural_revision)
+        {
+            return;
+        }
+        if cached.is_some() {
+            self.compile_cache.evictions.fetch_add(1, Ordering::Relaxed);
+        }
+        *cached = Some(CachedStructuralWorld {
+            revision: self.structural_revision,
+            world: Arc::new(world),
+        });
+    }
+
+    /// Deterministic diagnostic counts for the request-side symbolic cache.
+    #[must_use]
+    pub fn compile_cache_stats(&self) -> CompileCacheStats {
+        CompileCacheStats {
+            compiles: self.compile_cache.compiles.load(Ordering::Relaxed),
+            hits: self.compile_cache.hits.load(Ordering::Relaxed),
+            misses: self.compile_cache.misses.load(Ordering::Relaxed),
+            evictions: self.compile_cache.evictions.load(Ordering::Relaxed),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_compile_cache_enabled(&self, enabled: bool) {
+        self.compile_cache.enabled.store(enabled, Ordering::Relaxed);
+    }
+
+    #[cfg(test)]
+    pub(super) fn corrupt_compile_cache(&self) {
+        let mut cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *cached = Some(CachedStructuralWorld {
+            revision: self.structural_revision,
+            world: Arc::new(CompiledWorld::default()),
+        });
+    }
+
+    fn bump_structural_revision(&mut self) {
+        self.structural_revision = self.structural_revision.wrapping_add(1);
+        if self.structural_revision == 0 {
+            let mut cached = self
+                .compile_cache
+                .entry
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *cached = None;
+        }
     }
 
     /// Every entity declared or observed in the selected base or staged layer.
@@ -284,6 +409,66 @@ impl Workspace {
             self.prefix.update(encode(decl).as_bytes());
         }
     }
+}
+
+#[derive(Debug, Clone)]
+struct CachedStructuralWorld {
+    revision: u64,
+    world: Arc<CompiledWorld>,
+}
+
+#[derive(Debug)]
+struct WorkspaceCompileCache {
+    entry: Mutex<Option<CachedStructuralWorld>>,
+    enabled: AtomicBool,
+    compiles: AtomicU64,
+    hits: AtomicU64,
+    misses: AtomicU64,
+    evictions: AtomicU64,
+}
+
+impl Default for WorkspaceCompileCache {
+    fn default() -> Self {
+        Self {
+            entry: Mutex::new(None),
+            enabled: AtomicBool::new(true),
+            compiles: AtomicU64::new(0),
+            hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
+            evictions: AtomicU64::new(0),
+        }
+    }
+}
+
+impl Clone for WorkspaceCompileCache {
+    fn clone(&self) -> Self {
+        let entry = self
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        Self {
+            entry: Mutex::new(entry),
+            enabled: AtomicBool::new(self.enabled.load(Ordering::Relaxed)),
+            compiles: AtomicU64::new(self.compiles.load(Ordering::Relaxed)),
+            hits: AtomicU64::new(self.hits.load(Ordering::Relaxed)),
+            misses: AtomicU64::new(self.misses.load(Ordering::Relaxed)),
+            evictions: AtomicU64::new(self.evictions.load(Ordering::Relaxed)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Deterministic counts for one workspace's bounded structural-compile cache.
+pub struct CompileCacheStats {
+    /// Successful symbolic compiler invocations, including racing duplicates.
+    pub compiles: u64,
+    /// Reads served from the matching structural entry.
+    pub hits: u64,
+    /// Reads that had to invoke the compiler (or deliberately bypassed it).
+    pub misses: u64,
+    /// Stale structural entries replaced after an invalidating mutation.
+    pub evictions: u64,
 }
 
 /// A rebuildable, non-authoritative census used by the authoring seam's

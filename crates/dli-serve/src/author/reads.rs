@@ -670,21 +670,32 @@ enum StagedWorldError {
 }
 
 fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, StagedWorldError> {
-    let mut documents = store
-        .workspace_base_docs(&ws.id)
-        .unwrap_or_default()
-        .to_vec();
-    documents.push(Document {
-        scope: Some(ScopeHeader {
-            name: Ident::synthetic(&ws.base_name),
-            span: Span::synthetic(),
-        }),
-        decls: ws.decls.clone(),
-    });
-    let mut world = compile(&Pack {
-        name: ws.base_name.clone(),
-        documents,
-    })?;
+    let mut world = if let Some(cached) = ws.cached_structural_world() {
+        (*cached).clone()
+    } else {
+        let mut documents = store
+            .workspace_base_docs(&ws.id)
+            .unwrap_or_default()
+            .to_vec();
+        documents.push(Document {
+            scope: Some(ScopeHeader {
+                name: Ident::synthetic(&ws.base_name),
+                span: Span::synthetic(),
+            }),
+            decls: ws.decls.clone(),
+        });
+        let killed = store
+            .workspace_base(&ws.id)
+            .map(|base| base.killed.clone())
+            .unwrap_or_default();
+        let structural = compile(&Pack {
+            name: ws.base_name.clone(),
+            documents,
+        })?
+        .with_killed_tokens(killed);
+        ws.cache_structural_world(structural.clone());
+        structural
+    };
     // The workspace is anchored to the store ref selected during project load.
     // Apply that complete overlay before its local suppositions; explicit falses
     // are as meaningful as trues and must not be reconstructed as absence.
@@ -723,11 +734,7 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, StagedWo
                 .set(dli_core::atom::Atom(index), true);
         }
     }
-    let killed = store
-        .workspace_base(&ws.id)
-        .map(|base| base.killed.clone())
-        .unwrap_or_default();
-    Ok(world.with_killed_tokens(killed))
+    Ok(world)
 }
 
 fn classify_standings(
@@ -1126,5 +1133,273 @@ mod explanation_tests {
         assert_eq!(active, vec![Vec::<String>::new()]);
         assert!(blocked.is_empty());
         assert_eq!(attack_blocked_path_count, 0);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod cache_tests {
+    use std::sync::{Arc, Barrier};
+
+    use dli_ast::decl::{Decl, EntityDecl, EntityKind, HypothesisDecl};
+
+    use super::*;
+    use crate::author::workspace::CompileCacheStats;
+
+    fn store() -> Store {
+        Store::with_pack(Pack {
+            name: "cache-test".to_owned(),
+            documents: Vec::new(),
+        })
+        .expect("empty cache test pack compiles")
+    }
+
+    fn hypothesis(name: &str) -> Decl {
+        Decl::Hypothesis(HypothesisDecl {
+            name: Ident::synthetic(name),
+            statement: Some("cache overlay probe".to_owned()),
+        })
+    }
+
+    fn person(name: &str) -> Decl {
+        Decl::Entity(EntityDecl {
+            kind: EntityKind::Person,
+            name: Ident::synthetic(name),
+            label: Some(name.to_owned()),
+            time: None,
+            slots: Vec::new(),
+            provenance: None,
+        })
+    }
+
+    fn missing_goal() -> AtomExpr {
+        AtomExpr {
+            pred: Ident::synthetic("missing"),
+            args: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn interleaved_query_and_why_share_one_structural_compile() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        let query_params = AuthorQueryParams {
+            workspace: "ws-1".to_owned(),
+            goal: String::new(),
+            goal_atom: Some(missing_goal()),
+            layer: None,
+            why: false,
+        };
+        let why_params = AuthorWhyParams {
+            workspace: "ws-1".to_owned(),
+            atom: String::new(),
+            goal_atom: Some(missing_goal()),
+        };
+
+        query(&store, &query_params, true).expect("first query");
+        why(&store, &why_params, true, true).expect("why hit");
+        query(&store, &query_params, true).expect("second query hit");
+        why(&store, &why_params, true, true).expect("second why hit");
+
+        assert_eq!(
+            store.get("ws-1").expect("workspace").compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 1,
+                hits: 3,
+                misses: 1,
+                evictions: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn suppositions_are_request_local_and_structural_edits_invalidate_once() {
+        let mut store = store();
+        store
+            .open(Mode::Fork, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(hypothesis("h-cache"));
+
+        let first = staged_world(&store, store.get("ws-1").expect("workspace")).expect("compile");
+        let atom = first
+            .model
+            .world
+            .interner
+            .names()
+            .iter()
+            .position(|name| name == "h-cache")
+            .and_then(|index| u32::try_from(index).ok())
+            .map(dli_core::atom::Atom)
+            .expect("hypothesis is interned");
+        assert_eq!(first.model.world.valuation.get(atom), None);
+
+        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+        ws.suppositions.push("h-cache".to_owned());
+        ws.reseal();
+        let supposed = staged_world(&store, store.get("ws-1").expect("workspace")).expect("hit");
+        assert_eq!(supposed.model.world.valuation.get(atom), Some(true));
+
+        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+        ws.suppositions.clear();
+        ws.reseal();
+        let restored = staged_world(&store, store.get("ws-1").expect("workspace")).expect("hit");
+        assert_eq!(restored.model.world.valuation.get(atom), None);
+
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(person("mara"));
+        staged_world(&store, store.get("ws-1").expect("workspace")).expect("recompile");
+        staged_world(&store, store.get("ws-1").expect("workspace")).expect("second hit");
+        assert_eq!(
+            store.get("ws-1").expect("workspace").compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 2,
+                hits: 3,
+                misses: 2,
+                evictions: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn disabled_cache_is_byte_equivalent_and_corrupt_hit_is_observable() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(person("mara"));
+        let ws = store.get("ws-1").expect("workspace");
+        let enabled = staged_world(&store, ws).expect("enabled compile");
+        let query_params = AuthorQueryParams {
+            workspace: "ws-1".to_owned(),
+            goal: String::new(),
+            goal_atom: Some(missing_goal()),
+            layer: None,
+            why: true,
+        };
+        let why_params = AuthorWhyParams {
+            workspace: "ws-1".to_owned(),
+            atom: String::new(),
+            goal_atom: Some(missing_goal()),
+        };
+        let enabled_query = query(&store, &query_params, true).expect("enabled query");
+        let enabled_why = why(&store, &why_params, true, true).expect("enabled why");
+
+        ws.set_compile_cache_enabled(false);
+        let disabled = staged_world(&store, ws).expect("disabled compile");
+        assert_eq!(enabled, disabled);
+        assert_eq!(
+            enabled_query,
+            query(&store, &query_params, true).expect("disabled query")
+        );
+        assert_eq!(
+            enabled_why,
+            why(&store, &why_params, true, true).expect("disabled why")
+        );
+
+        ws.set_compile_cache_enabled(true);
+        ws.corrupt_compile_cache();
+        let corrupted = staged_world(&store, ws).expect("forced hit");
+        assert_ne!(
+            enabled, corrupted,
+            "the mutation tooth proves a hit supplies the cached structural world"
+        );
+        assert!(ws.compile_cache_stats().hits >= 1);
+    }
+
+    #[test]
+    fn concurrent_identical_reads_are_safe_and_bounded() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(person("mara"));
+        let store = Arc::new(store);
+        let barrier = Arc::new(Barrier::new(8));
+        let mut threads = Vec::new();
+        for _ in 0..8 {
+            let store = Arc::clone(&store);
+            let barrier = Arc::clone(&barrier);
+            threads.push(std::thread::spawn(move || {
+                barrier.wait();
+                staged_world(&store, store.get("ws-1").expect("workspace")).expect("racing compile")
+            }));
+        }
+        let worlds: Vec<_> = threads
+            .into_iter()
+            .map(|thread| thread.join().expect("read thread did not panic"))
+            .collect();
+        for world in &worlds[1..] {
+            assert_eq!(world, &worlds[0]);
+        }
+        let stats = store.get("ws-1").expect("workspace").compile_cache_stats();
+        assert!((1..=8).contains(&stats.compiles));
+        assert_eq!(stats.misses + stats.hits, 8);
+        assert_eq!(stats.evictions, 0, "one cache entry is retained");
+    }
+
+    #[test]
+    fn add_replace_remove_and_base_refresh_have_exact_invalidation_counts() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+
+        store.parts_mut("ws-1").unwrap().1.push_decl(person("mara"));
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .replace_decl(0, person("kes"));
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        store.parts_mut("ws-1").unwrap().1.remove_decl(0);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+
+        let base = store.workspace_base("ws-1").unwrap().clone();
+        let documents = store.workspace_base_docs("ws-1").unwrap().to_vec();
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .refresh_resolution(&base, &documents);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        let after_dynamic = store.get("ws-1").unwrap().compile_cache_stats();
+        assert_eq!(after_dynamic.compiles, 4);
+        assert_eq!(after_dynamic.hits, 1);
+        assert_eq!(after_dynamic.evictions, 3);
+
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .refresh_structure(&base, &documents);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        assert_eq!(
+            store.get("ws-1").unwrap().compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 5,
+                hits: 1,
+                misses: 5,
+                evictions: 4,
+            }
+        );
     }
 }
