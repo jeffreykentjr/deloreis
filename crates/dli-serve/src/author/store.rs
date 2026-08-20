@@ -891,15 +891,19 @@ impl Store {
         ref_digest: &dli_lorestore::ContentHash,
         materialized_keys: &BTreeSet<String>,
     ) -> String {
-        let digest =
-            self.install_prepared_workspace_base(ws_id, prepared, interner, commit, ref_digest);
-        let workspace = self
-            .workspaces
-            .get_mut(ws_id)
-            .expect("the prepared base was installed into this live workspace");
-        workspace.mark_materialized(materialized_keys);
-        workspace.staged_fact_hashes.clear();
-        digest
+        {
+            let workspace = self
+                .workspaces
+                .get_mut(ws_id)
+                .expect("the prepared base belongs to this live workspace");
+            // Reconcile before the base refresh so its derived resolution index
+            // replays only the still-pending delta atop the newly installed
+            // durable world. Both mutations are infallible and remain strictly
+            // after the successful CAS.
+            workspace.mark_materialized(materialized_keys);
+            workspace.staged_fact_hashes.clear();
+        }
+        self.install_prepared_workspace_base(ws_id, prepared, interner, commit, ref_digest)
     }
 
     /// Diagnostic operation counts used by deterministic scale tests.

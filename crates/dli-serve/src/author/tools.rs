@@ -1929,15 +1929,17 @@ fn name_findings(name: &NameDecl, ws: &Workspace) -> Vec<Finding> {
     out
 }
 
-/// Every finding open over the whole workspace — the materialize gate reads its
-/// error-severity subset. Each declaration is re-checked against the *full*
-/// staged state, so a later-added target clears an earlier reference's block.
+/// Every finding open over the pending workspace delta — the materialize gate
+/// reads its error-severity subset. Each pending declaration is re-checked
+/// against the full base-plus-workspace resolution state, so a later-added
+/// target clears an earlier reference's block while accepted history is not
+/// revalidated as if it were newly staged.
 ///
 /// The read tools (`author.findings`, `author.check`) reuse this so the standing
 /// aggregate is exactly what materialize refuses on.
 pub(super) fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = Vec::new();
-    for decl in &ws.decls {
+    for decl in ws.pending_decl_refs() {
         out.extend(decl_findings(decl, ws, base));
     }
     let hyps = hypothesis_count(ws);
@@ -2711,9 +2713,9 @@ fn rule_datalog(rule: &RuleDecl) -> Option<&Datalog> {
 /// This runs at two different times against the same workspace: at add time,
 /// on a freshly built candidate not yet in `ws.decls`, where any staged rule
 /// sharing the name is a genuine duplicate; and again at every later
-/// `author.check`, over each already-staged declaration in turn
-/// ([`workspace_findings`]'s `for decl in &ws.decls` re-validation), where
-/// `current` IS one of the elements being scanned. Comparing by pointer
+/// `author.check`, over each pending declaration in turn
+/// ([`workspace_findings`]'s pending-ref re-validation), where `current` IS one
+/// of the elements being scanned. Comparing by pointer
 /// excludes exactly that self-match — the one case a plain name scan cannot
 /// tell apart from a real duplicate — so a rule never reports itself as
 /// duplicating itself on every subsequent check.
@@ -2749,7 +2751,7 @@ fn rule_stratifies(store: &Store, ws_id: &str, candidate: &Decl) -> Result<(), E
         .workspace_base_docs(ws_id)
         .unwrap_or_default()
         .to_vec();
-    let mut decls = ws.decls.clone();
+    let mut decls = ws.pending_decls();
     decls.push(candidate.clone());
     documents.push(Document {
         scope: Some(ScopeHeader {

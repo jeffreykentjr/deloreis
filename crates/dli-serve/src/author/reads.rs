@@ -336,7 +336,7 @@ pub(super) fn check(
 
 /// The full staged-world report shared by status, diff, and check.
 pub(super) struct WorkspaceReport {
-    /// Every deduplicated finding over base plus staged declarations.
+    /// Every deduplicated finding over the base plus pending declarations.
     pub findings: Vec<Finding>,
     /// The base-to-staged derived-consequence diff.
     pub consequences: DiffDelta,
@@ -376,7 +376,7 @@ pub(super) fn workspace_report(
                     .iter()
                     .map(|finding| world_finding(finding, carries_data)),
             );
-            for report in factcheck(&world, &staged_claims(&ws.decls)) {
+            for report in factcheck(&world, &staged_claims(&ws.pending_decls())) {
                 if report.verdict == Verdict::Contradicted {
                     findings.push(contradiction_finding(&report));
                 }
@@ -421,10 +421,10 @@ pub(super) fn materialize_candidate_findings(
 ) -> Vec<Finding> {
     // Rebuild the declaration-resolution census against the candidate rather
     // than consulting the caller workspace's stale base index. Workspace has
-    // intentionally non-cloneable caches/counters, so replay only the authored
-    // semantic state into a throwaway exact-candidate view.
+    // intentionally non-cloneable caches/counters, so replay only declarations
+    // not already represented by the installed base into the throwaway view.
     let mut exact = Workspace::new(ws.id.clone(), ws.mode, ws.base_name.clone());
-    for declaration in &ws.decls {
+    for declaration in ws.pending_decl_refs() {
         exact.push_decl(declaration.clone());
     }
     exact.suppositions.clone_from(&ws.suppositions);

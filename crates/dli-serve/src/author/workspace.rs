@@ -193,7 +193,8 @@ impl Workspace {
             if let Some(materialized) = self.materialized_decls.get_mut(index) {
                 *materialized = false;
             }
-            self.resolution.rebuild_staged(&self.decls);
+            let pending = self.pending_decls();
+            self.resolution.rebuild_staged(&pending);
             self.bump_structural_revision();
             self.reabsorb();
             self.reseal();
@@ -207,7 +208,8 @@ impl Workspace {
         }
         let removed = self.decls.remove(index);
         self.materialized_decls.remove(index);
-        self.resolution.rebuild_staged(&self.decls);
+        let pending = self.pending_decls();
+        self.resolution.rebuild_staged(&pending);
         self.bump_structural_revision();
         self.reabsorb();
         self.reseal();
@@ -217,7 +219,8 @@ impl Workspace {
     /// Replace the base half of the derived resolution index, then replay the
     /// staged declarations over it. Used at open and after a branch/base reload.
     pub fn refresh_resolution(&mut self, base: &CompiledWorld, documents: &[Document]) {
-        self.resolution.rebase(base, documents, &self.decls);
+        let pending = self.pending_decls();
+        self.resolution.rebase(base, documents, &pending);
         // Conditional-attack commits may introduce a Ratify carriage solely to
         // establish an attack endpoint. Those decision variables are dynamic
         // standing inputs, not symbolic declarations worth recompiling. The
@@ -240,12 +243,16 @@ impl Workspace {
     }
 
     /// Declarations not yet represented by the installed durable base.
-    pub(super) fn pending_decls(&self) -> Vec<Decl> {
+    pub(super) fn pending_decl_refs(&self) -> impl Iterator<Item = &Decl> {
         self.decls
             .iter()
             .zip(&self.materialized_decls)
-            .filter_map(|(decl, materialized)| (!materialized).then_some(decl.clone()))
-            .collect()
+            .filter_map(|(decl, materialized)| (!materialized).then_some(decl))
+    }
+
+    /// Owned declarations not yet represented by the installed durable base.
+    pub(super) fn pending_decls(&self) -> Vec<Decl> {
+        self.pending_decl_refs().cloned().collect()
     }
 
     /// Reconcile every currently staged durable-object group into the newly
@@ -767,6 +774,8 @@ fn encode<T: Serialize>(value: &T) -> String {
 mod tests {
     use super::{Mode, ResolutionIndex, Workspace};
 
+    use std::collections::BTreeSet;
+
     use dli_ast::decl::{AttrDecl, Decl, EntityDecl, EntityKind, RatifyDecl};
     use dli_ast::ident::Ident;
     use dli_ast::language::RatifyBody;
@@ -868,7 +877,7 @@ mod tests {
         documents: &[dli_ast::decl::Document],
     ) {
         let mut rebuilt = ResolutionIndex::default();
-        rebuilt.rebase(base, documents, &ws.decls);
+        rebuilt.rebase(base, documents, &ws.pending_decls());
         let actual = &ws.resolution;
         assert_eq!(actual.base_entities, rebuilt.base_entities);
         assert_eq!(actual.base_entity_sorts, rebuilt.base_entity_sorts);
@@ -1082,6 +1091,29 @@ mod tests {
         ws.remove_decl(1);
         assert!(!ws.known_decisions().contains("d-stage"));
         assert!(ws.known_decisions().contains("d-1"));
+    }
+
+    #[test]
+    fn accepted_history_never_overlays_the_refreshed_base_resolution() {
+        let (base, documents) = alternate_base();
+        let mut ws = scope("alternate");
+        let accepted = entity("world", EntityKind::Person);
+        let key = crate::author::tools::decl_key(&accepted);
+        ws.push_decl(accepted);
+
+        ws.mark_materialized(&BTreeSet::from([key]));
+        ws.refresh_resolution(&base, &documents);
+
+        assert!(ws.pending_decls().is_empty());
+        assert_eq!(
+            ws.entity_sort("world"),
+            Some("place"),
+            "the current base wins over the accepted workspace-history sort"
+        );
+        assert_eq!(
+            ws.resolution.staged_rebuild_visits, 0,
+            "a refreshed resolution replays no accepted history"
+        );
     }
 
     /// Deterministic mutation-property oracle: incremental append state and the

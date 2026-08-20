@@ -182,6 +182,60 @@ fn defeat(
     ));
 }
 
+fn add_unary_rule(
+    store: &mut Store,
+    workspace: &str,
+    id: &str,
+    name: &str,
+    head_pred: &str,
+    body_pred: &str,
+) -> Value {
+    result(dispatch(
+        &request(
+            id,
+            Op::AuthorAddRule,
+            json!({
+                "workspace": workspace,
+                "name": name,
+                "head": {"pred": head_pred, "args": [{"Var": "x"}]},
+                "body": [{
+                    "atom": {"pred": body_pred, "args": [{"Var": "x"}]},
+                    "negated": false
+                }],
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        store,
+    ))
+}
+
+fn add_honorific_rule(store: &mut Store, workspace: &str) {
+    result(dispatch(
+        &request(
+            "add-rule",
+            Op::AuthorAddRule,
+            json!({
+                "workspace": workspace,
+                "name": "honorific",
+                "head": {"pred": "honored", "args": [{"Var": "x"}]},
+                "body": [{
+                    "atom": {"pred": "rank", "args": [{"Var": "x"}, {"Sym": "gold"}]},
+                    "negated": false
+                }],
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        store,
+    ));
+}
+
+fn workspace_read(store: &mut Store, workspace: &str, id: &str, op: Op) -> Value {
+    result(dispatch(
+        &request(id, op, json!({"workspace": workspace})),
+        store,
+    ))
+}
+
 #[test]
 fn direct_defeat_and_nested_restoration_reuse_one_symbolic_compile() {
     let (_root, mut store, path) = fixture();
@@ -649,23 +703,7 @@ fn stale_main_materialize_checks_the_exact_merged_candidate_before_cas() {
 fn exact_candidate_oracle_does_not_self_report_a_staged_rule_as_duplicate() {
     let (_root, mut store, _path) = fixture();
     let workspace = open(&mut store);
-    result(dispatch(
-        &request(
-            "add-rule",
-            Op::AuthorAddRule,
-            json!({
-                "workspace": workspace,
-                "name": "honorific",
-                "head": {"pred": "honored", "args": [{"Var": "x"}]},
-                "body": [{
-                    "atom": {"pred": "rank", "args": [{"Var": "x"}, {"Sym": "gold"}]},
-                    "negated": false
-                }],
-                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
-            }),
-        ),
-        &mut store,
-    ));
+    add_honorific_rule(&mut store, &workspace);
     let materialized = dispatch(
         &request(
             "materialize-rule",
@@ -678,6 +716,178 @@ fn exact_candidate_oracle_does_not_self_report_a_staged_rule_as_duplicate() {
         materialized.ok,
         "candidate checking must compare the staged rule to the target parent, not to itself: \
          {materialized:?}"
+    );
+    let accepted_history = workspace_read(
+        &mut store,
+        &workspace,
+        "status-after-rule",
+        Op::AuthorStatus,
+    );
+    assert_eq!(accepted_history["staged"].as_array().unwrap().len(), 1);
+    assert_eq!(accepted_history["staged"][0]["kind"], "rule");
+    assert_eq!(accepted_history["findings"], json!([]));
+
+    let second_rule = add_unary_rule(
+        &mut store,
+        &workspace,
+        "add-second-rule",
+        "honor-echo",
+        "esteemed",
+        "honored",
+    );
+    assert_eq!(
+        second_rule["findings"],
+        json!([]),
+        "rule preflight compiles the pending delta atop accepted history exactly once"
+    );
+
+    result(dispatch(
+        &request(
+            "add-after-rule",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": workspace,
+                "entity": "mara",
+                "key": "title",
+                "value": "warden",
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        &mut store,
+    ));
+    let checked = workspace_read(&mut store, &workspace, "check-after-rule", Op::AuthorCheck);
+    assert_eq!(
+        checked["ok"], true,
+        "the installed rule is base history, not a pending duplicate: {checked}"
+    );
+    let pending_diff = workspace_read(&mut store, &workspace, "diff-after-rule", Op::AuthorDiff);
+    assert_eq!(
+        pending_diff["rows"].as_array().unwrap().len(),
+        2,
+        "the pending rule consequence and fact are the only review rows"
+    );
+    assert_eq!(pending_diff["findings"], json!([]));
+    let second = dispatch(
+        &request(
+            "materialize-after-rule",
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false}),
+        ),
+        &mut store,
+    );
+    assert!(
+        second.ok,
+        "a later unrelated fact must materialize without rechecking accepted rule history: {second:?}"
+    );
+    let reconciled = workspace_read(
+        &mut store,
+        &workspace,
+        "diff-after-second-materialize",
+        Op::AuthorDiff,
+    );
+    assert_eq!(reconciled["rows"], json!([]));
+    assert_eq!(reconciled["findings"], json!([]));
+    let history_after_second = workspace_read(
+        &mut store,
+        &workspace,
+        "status-after-second-materialize",
+        Op::AuthorStatus,
+    );
+    assert_eq!(
+        history_after_second["staged"].as_array().unwrap().len(),
+        3,
+        "materialization does not rewrite the public declaration history"
+    );
+}
+
+#[test]
+fn accepted_fact_history_is_not_rechecked_as_a_pending_contradiction() {
+    let (_root, mut store, path) = fixture();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let workspace = open(&mut store);
+
+    result(dispatch(
+        &request(
+            "add-old-title",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": workspace,
+                "entity": "mara",
+                "key": "title",
+                "value": "warden",
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &request(
+            "materialize-old-title",
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false}),
+        ),
+        &mut store,
+    ));
+
+    let d1_claim = claim_id(&lorestore, false, "mara");
+    defeat(
+        &mut store,
+        &workspace,
+        "defeat-old-title-support",
+        &d1_claim,
+        "d2",
+        "d1",
+    );
+    result(dispatch(
+        &request(
+            "add-new-title",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": workspace,
+                "entity": "mara",
+                "key": "title",
+                "value": "keeper",
+                "provenance": {"kind": "proposed", "origin": "replacement-title"}
+            }),
+        ),
+        &mut store,
+    ));
+
+    let checked = result(dispatch(
+        &request(
+            "check-new-title",
+            Op::AuthorCheck,
+            json!({"workspace": workspace}),
+        ),
+        &mut store,
+    ));
+    assert_eq!(
+        checked["ok"], true,
+        "the defeated accepted fact is base history, not a pending claim: {checked}"
+    );
+    assert!(
+        checked["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|finding| finding["code"] != "factcheck.contradicted")
+    );
+    let materialized = dispatch(
+        &request(
+            "materialize-new-title",
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false, "decision": "d3"}),
+        ),
+        &mut store,
+    );
+    assert!(
+        materialized.ok,
+        "the replacement fact materializes without rechecking accepted fact history: \
+         {materialized:?}"
+    );
+    assert_eq!(
+        query_value(&mut store, &workspace, "new-title", "title", "keeper")["rows"][0]["status"],
+        "certain"
     );
 }
 
