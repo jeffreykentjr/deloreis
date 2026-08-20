@@ -5427,3 +5427,40 @@ recompiled atom positions differ, then checks the intended defeated claim and
 an independent control through live authoring, reopen/session, branch, merge,
 and canon paths. A mutation tooth that reuses raw indices must redden the suite;
 `cargo xtask gate` remains the acceptance verdict.
+
+## DL-0095 — Corrigendum to DL-0094 verification: real declaration skew, independent recompilation, and exact corruption codes
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+correcting DL-0094's verification paragraph after clean-context red teams found
+that its first acceptance oracle manufactured skew and reused its subject as the
+reference. It is live and binding on the tree, pending the author's async review
+(DL-0052).
+
+**Ruling.** This corrects DL-0094's verification evidence; its semantic ruling
+is unchanged. The final verification
+is stronger and narrower than the paragraph originally recorded. The permanent
+oracle lowers real Ratify, Fact, Rule, and Hypothesis declarations; an earlier
+written carriage produces the durable/compiled order skew, while a control
+without that real declaration proves the positions align. The subject store is
+closed, reopened, reconstructed, and compiled afresh. A separately constructed
+Pack and interner receive the same named overlay as the independent reference —
+no cloned subject world, positional flip, padding name, or synthetic annotation
+can satisfy the test.
+
+That oracle covers six legal ingestion orders and real derivation depths
+1/2/4/8 with 1/2/5 distinct shared conclusions, plus independent and redundant
+controls. Separate public regressions cover live authoring, branch open/reload,
+session reopen, skewed merge checks, and skewed canon evaluation. Every invalid
+source or receiving name on branch open and merge surfaces as
+`evidence-corrupt`, matching DL-0094 rather than collapsing to `internal`.
+
+**Process correction.** DL-0094 was temporarily amended on the feature branch
+while its evidence was still being repaired. Its minted bytes have been restored;
+this append-only corrigendum records the corrected evidence instead (DL-0027).
+
+**Verification.** The declaration oracle, public corruption-code tests, both
+canonical Clippy lanes, and all 23 `cargo xtask gate` steps are green. Mutation
+controls remove the real skew-producing declaration, reuse a raw index, or reuse
+the subject as its own reference; each must redden the suite.
