@@ -5424,6 +5424,8 @@ byte-identical; only the skewed case stops falsifying an unrelated decision.
 **Verification.** Pure tests cover exact mapping plus out-of-range, duplicate,
 and missing-name refusals. The public regression first proves that durable and
 recompiled atom positions differ, then checks the intended defeated claim and
-an independent control through live authoring, reopen/session, branch, merge,
-and canon paths. A mutation tooth that reuses raw indices must redden the suite;
-`cargo xtask gate` remains the acceptance verdict.
+an independent control through live authoring and reopen/session; separate
+mutation teeth cover branch open/reload and skewed merge checks. Canon retains
+its functional defeat coverage and uses the same production remapper, but this
+change does not claim a separate skewed-index canon fixture. Reusing raw indices
+must redden the suite; `cargo xtask gate` remains the acceptance verdict.
