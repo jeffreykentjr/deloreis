@@ -123,19 +123,6 @@ fn declarations(order: [&str; 3], depth: usize, shared: usize) -> Vec<Decl> {
     declarations
 }
 
-fn declaration_pack(order: [&str; 3], depth: usize, shared: usize) -> dli_world::Pack {
-    dli_world::Pack {
-        name: "matrix".to_owned(),
-        documents: vec![Document {
-            scope: Some(ScopeHeader {
-                name: id("matrix"),
-                span: Span::synthetic(),
-            }),
-            decls: declarations(order, depth, shared),
-        }],
-    }
-}
-
 fn atom_named(names: &[String], name: &str) -> Atom {
     names
         .iter()
@@ -255,8 +242,39 @@ fn assert_ingestion_is_the_skew_tooth(order: [&str; 3]) {
 }
 
 fn assert_fresh_reference(received: &CompiledWorld, order: [&str; 3], depth: usize, shared: usize) {
+    // Compile the same real declarations under a second legal ingestion order.
+    // Move the existing open fact ahead of the ratifications, so its genuine
+    // proposal-bundle name enters this interner first. The named world is
+    // equivalent, but the decision positions differ. That difference is the
+    // tooth that prevents the subject from serving as its own reference:
+    // replacing this compile with `received.clone()` must fail before the
+    // standing comparison can become self-fulfilling.
+    let mut reference_declarations = declarations(order, depth, shared);
+    let open_position = reference_declarations
+        .iter()
+        .position(
+            |declaration| matches!(declaration, Decl::Fact(fact) if fact.atom.pred.text == "open"),
+        )
+        .expect("reference carries the real open control");
+    let open = reference_declarations.remove(open_position);
+    reference_declarations.insert(0, open);
+    let reference_pack = dli_world::Pack {
+        name: "matrix".to_owned(),
+        documents: vec![Document {
+            scope: Some(ScopeHeader {
+                name: id("matrix"),
+                span: Span::synthetic(),
+            }),
+            decls: reference_declarations,
+        }],
+    };
     let mut reference =
-        dli_world::compile(&declaration_pack(order, depth, shared)).expect("reference compiles");
+        dli_world::compile(&reference_pack).expect("independent reference compiles");
+    assert_ne!(
+        decision_position(received.model.interner().names(), DEAD),
+        decision_position(reference.model.interner().names(), DEAD),
+        "the independently compiled reference must carry a distinct real-declaration ordering"
+    );
     let reference_names = reference.model.interner().clone();
     NamedValuation(BTreeMap::from([(DEAD.to_owned(), false)]))
         .apply_to(&reference_names, &mut reference.model.world.valuation)
