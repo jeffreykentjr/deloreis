@@ -36,6 +36,7 @@ use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Status;
+use dli_core::atom::Rail;
 use dli_core::grade::Grade;
 use dli_core::posbool::PosBool;
 use dli_eval::error::EvalError;
@@ -54,8 +55,9 @@ use crate::contract::{
     AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorEntityCandidatesParams,
     AuthorEntityCandidatesResult, AuthorFindingsParams, AuthorFindingsResult,
     AuthorListWorkspacesResult, AuthorPredicatesParams, AuthorPredicatesResult, AuthorQueryParams,
-    AuthorQueryResult, AuthorWhyParams, AuthorWhyResult, DiffConflict, DiffDelta, EntityCandidate,
-    PredicateEntry, ValuationEntry, WorkspaceDigest, WorkspaceMode,
+    AuthorQueryResult, AuthorWhyParams, AuthorWhyResult, BlockedSupport, BlockingDefeat,
+    DiffConflict, DiffDelta, EntityCandidate, PredicateEntry, ValuationEntry, WorkspaceDigest,
+    WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
@@ -415,6 +417,7 @@ pub(super) fn why(
     store: &Store,
     params: &AuthorWhyParams,
     records_decisions: bool,
+    explains_active_support: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     // The typed successor wins when the caller sent it; the rendered string is
@@ -456,11 +459,130 @@ pub(super) fn why(
         }
         _ => Vec::new(),
     };
+    let (active_supporting_decision_paths, blocking_defeats, blocked_supports) =
+        if explains_active_support {
+            let known = super::tools::workspace_decisions(store, &params.workspace);
+            let attacks = store
+                .workspace_decision_attacks(&params.workspace)
+                .map_err(|message| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message,
+                    data: None,
+                })?;
+            let (active, blocked) = derived.map_or_else(
+                || (Vec::new(), Vec::new()),
+                |derived| explain_support_paths(inner, derived, &known, &attacks),
+            );
+            let blockers = if active.is_empty() {
+                let mut blockers: Vec<_> = blocked
+                    .iter()
+                    .flat_map(|support| support.blocking_defeats.iter().cloned())
+                    .collect();
+                blockers.sort();
+                blockers.dedup();
+                blockers
+            } else {
+                Vec::new()
+            };
+            (Some(active), Some(blockers), Some(blocked))
+        } else {
+            (None, None, None)
+        };
     Ok(value(&AuthorWhyResult {
         why_not,
         why,
         supporting_decisions,
+        active_supporting_decision_paths,
+        blocking_defeats,
+        blocked_supports,
     }))
+}
+
+/// Partition the symbolic antichain into currently active paths and paths made
+/// inactive specifically by durable decision attacks. Path membership is read
+/// from the evaluator's own conditioned annotation; the server contributes only
+/// exact-name storage edges and wire shaping.
+fn explain_support_paths(
+    world: &dli_eval::world::World,
+    derived: &dli_eval::world::Derived,
+    known: &BTreeSet<String>,
+    attacks: &[dli_lorestore::DecisionAttack],
+) -> (Vec<Vec<String>>, Vec<BlockedSupport>) {
+    let ann = derived.ann();
+    let mut active = Vec::new();
+    let mut blocked = Vec::new();
+
+    for monomial in derived.support.monomials() {
+        let path = named_decision_path(monomial, &world.interner, known);
+        if ann.support_path_is_active(monomial, &world.valuation, &world.theory) {
+            active.push(path);
+            continue;
+        }
+
+        let mut path_blockers = Vec::new();
+        let mut restored = world.valuation.clone();
+        for attack in attacks {
+            let attacker = atom_named(&world.interner, &attack.attacker);
+            let target = atom_named(&world.interner, &attack.target);
+            let (Some(attacker), Some(target)) = (attacker, target) else {
+                continue;
+            };
+            if world.valuation.get(attacker) != Some(true)
+                || world.valuation.get(target) != Some(false)
+                || !monomial
+                    .lits()
+                    .any(|literal| literal.atom == target && literal.rail == Rail::Pos)
+            {
+                continue;
+            }
+            restored.set(target, true);
+            path_blockers.push(BlockingDefeat {
+                defeated_decision: attack.target.clone(),
+                defeating_decision: attack.attacker.clone(),
+            });
+        }
+        path_blockers.sort();
+        path_blockers.dedup();
+        if !path_blockers.is_empty()
+            && ann.support_path_is_active(monomial, &restored, &world.theory)
+        {
+            blocked.push(BlockedSupport {
+                supporting_decision_path: path,
+                blocking_defeats: path_blockers,
+            });
+        }
+    }
+
+    active.sort();
+    active.dedup();
+    blocked.sort();
+    blocked.dedup();
+    (active, blocked)
+}
+
+fn named_decision_path(
+    monomial: &dli_core::posbool::Monomial,
+    interner: &dli_core::atom::Interner,
+    known: &BTreeSet<String>,
+) -> Vec<String> {
+    let mut names: Vec<_> = monomial
+        .lits()
+        .filter_map(|literal| interner.resolve(literal.atom))
+        .filter(|name| known.contains(*name))
+        .map(str::to_owned)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn atom_named(interner: &dli_core::atom::Interner, name: &str) -> Option<dli_core::Atom> {
+    interner
+        .names()
+        .iter()
+        .position(|candidate| candidate == name)
+        .and_then(|index| u32::try_from(index).ok())
+        .map(dli_core::Atom)
 }
 
 // -- author.findings ---------------------------------------------------------
@@ -952,5 +1074,36 @@ fn gone() -> ErrorBody {
         code: ErrorCode::Internal,
         message: "the workspace vanished mid-call".to_owned(),
         data: None,
+    }
+}
+
+#[cfg(test)]
+mod explanation_tests {
+    use super::*;
+    use dli_core::ann::Ann;
+
+    #[test]
+    fn unconditional_support_is_one_explicit_empty_path() {
+        let atom = GroundAtom {
+            pred: "unconditional".to_owned(),
+            args: vec!["mara".to_owned()],
+        };
+        let mut program = dli_eval::world::World::new();
+        program.assert_fact(atom.clone(), Ann::unconditional());
+        let world = program.fixpoint().expect("unconditional program saturates");
+        let derived = world
+            .derived
+            .iter()
+            .find(|derived| derived.atom == atom)
+            .expect("unconditional fact is derived");
+
+        let (active, blocked) = explain_support_paths(
+            &world,
+            derived,
+            &BTreeSet::new(),
+            &Vec::<dli_lorestore::DecisionAttack>::new(),
+        );
+        assert_eq!(active, vec![Vec::<String>::new()]);
+        assert!(blocked.is_empty());
     }
 }

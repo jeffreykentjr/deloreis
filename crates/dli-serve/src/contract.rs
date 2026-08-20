@@ -2307,6 +2307,42 @@ pub struct AuthorWhyResult {
     /// `null`, and never populated below the floor).
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub supporting_decisions: Vec<String>,
+    /// Currently admissible minimal support monomials, with exact recorded
+    /// decision names and path boundaries preserved. `Some([])` is an explicit
+    /// dead/unknown result at contract 1.13+; `None` omits the field on every
+    /// earlier accepted wire.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub active_supporting_decision_paths: Option<Vec<Vec<String>>>,
+    /// The active direct decision defeats that explain a currently blocked
+    /// conclusion. Live conclusions report an explicit empty list; their
+    /// blocked alternatives remain available through [`Self::blocked_supports`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub blocking_defeats: Option<Vec<BlockingDefeat>>,
+    /// Minimal symbolic support paths that would be active but for the listed
+    /// current direct defeats. This remains separate from active provenance so
+    /// a defeated redundant alternative never contaminates a live path.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub blocked_supports: Option<Vec<BlockedSupport>>,
+}
+
+/// One currently active direct decision attack, named exactly as recorded.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BlockingDefeat {
+    /// The decision whose supporting path is disabled.
+    pub defeated_decision: String,
+    /// The undefeated decision that directly attacks it.
+    pub defeating_decision: String,
+}
+
+/// One otherwise-admissible minimal derivation path and its active blockers.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BlockedSupport {
+    /// Exact recorded decision ids carried by the fact/rule support monomial.
+    pub supporting_decision_path: Vec<String>,
+    /// The minimal active direct-defeat pairs disabling this path.
+    pub blocking_defeats: Vec<BlockingDefeat>,
 }
 
 // -- author.findings (read) --------------------------------------------------

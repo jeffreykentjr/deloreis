@@ -100,6 +100,12 @@ fn records_decisions(request: &Request) -> bool {
     crate::has_decisions(&request.dli)
 }
 
+/// Whether `author.why` carries valuation-aware active and defeated support
+/// paths (contract 1.13+, GH #104/#105).
+fn explains_active_support(request: &Request) -> bool {
+    crate::has_conditional_defeat(&request.dli)
+}
+
 /// Whether `author.entity_candidates` uses the corrected declared-entity
 /// universe introduced by contract 1.11.0 (GH #88). The 1.10.0 path remains
 /// available for replay compatibility.
@@ -390,7 +396,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                reads::why(store, &params, records_decisions(request)),
+                reads::why(
+                    store,
+                    &params,
+                    records_decisions(request),
+                    explains_active_support(request),
+                ),
             ))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {

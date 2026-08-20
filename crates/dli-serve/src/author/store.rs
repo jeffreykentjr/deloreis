@@ -747,6 +747,31 @@ impl Store {
         self.lorestores.get(base_key)
     }
 
+    /// Conditional decision attacks folded at the exact commit this workspace
+    /// currently reads. Demo/in-memory workspaces have no durable attack lane
+    /// and therefore return an empty set.
+    pub fn workspace_decision_attacks(
+        &self,
+        ws_id: &str,
+    ) -> Result<Vec<dli_lorestore::DecisionAttack>, String> {
+        let Some(workspace) = self.workspaces.get(ws_id) else {
+            return Err(format!("no workspace named `{ws_id}` is open"));
+        };
+        let Some(lorestore) = self.workspace_lorestore(ws_id) else {
+            return Ok(Vec::new());
+        };
+        let Some(head) = workspace
+            .base_root_hash
+            .as_deref()
+            .and_then(dli_lorestore::ContentHash::parse)
+        else {
+            return Ok(Vec::new());
+        };
+        lorestore
+            .decision_attacks_from(&head)
+            .map_err(|error| error.to_string())
+    }
+
     /// Mutable access to the lorestore backing a workspace's base.
     pub fn workspace_lorestore_mut(
         &mut self,

@@ -318,7 +318,13 @@ the committed **facts** under a named, recorded decision so they read `certain` 
 but it is **facts-only**: the expert carriage claims on this card (rules, `same-as`
 links, inertial declarations) are never stamped and stay `possible`. Make *them*
 certain with `author.record_decision` plus a **cited declaration**, not
-`materialize {decision}`. To audit that a fact reached certainty the designed way,
-call `author.why` and read `supporting_decisions`; pass the atom as a typed
-`goal_atom` (the shape `author.query` takes) so the check works in a syntax-free
-build, where the rendered `atom` string has no `.dli` front end to parse it.
+`materialize {decision}`. To audit that a fact reached certainty the designed
+way, call `author.why` and, on contract `1.13.0`, read
+`active_supporting_decision_paths`: each nested array is one currently
+admissible minimal decision path. `blocked_supports` keeps a defeated
+alternative separate with the exact direct decision attacks that block it;
+top-level `blocking_defeats` is non-empty only when no active path remains. The
+older `supporting_decisions` union remains for compatibility. Pass the atom as a
+typed `goal_atom` (the shape `author.query` takes) so the check works in a
+syntax-free build, where the rendered `atom` string has no `.dli` front end to
+parse it.

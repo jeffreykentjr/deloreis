@@ -4,6 +4,39 @@
   "description": "`author.why` result: the actionable explanation of a staged atom's standing —\nthe blocking rulings and defeater (why certain / why dead / why possible),\nplus the support antichain when the atom is known.",
   "type": "object",
   "properties": {
+    "active_supporting_decision_paths": {
+      "description": "Currently admissible minimal support monomials, with exact recorded\ndecision names and path boundaries preserved. `Some([])` is an explicit\ndead/unknown result at contract 1.13+; `None` omits the field on every\nearlier accepted wire.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "blocked_supports": {
+      "description": "Minimal symbolic support paths that would be active but for the listed\ncurrent direct defeats. This remains separate from active provenance so\na defeated redundant alternative never contaminates a live path.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/BlockedSupport"
+      }
+    },
+    "blocking_defeats": {
+      "description": "The active direct decision defeats that explain a currently blocked\nconclusion. Live conclusions report an explicit empty list; their\nblocked alternatives remain available through [`Self::blocked_supports`].",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/BlockingDefeat"
+      }
+    },
     "supporting_decisions": {
       "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set (contract 1.9.0,\nDL-0083). The auditability affordance: it lets a caller confirm a fact\nreached certainty the designed way, through recorded decisions, rather\nthan through a side channel. Floor-gated with skip-serialize, so pre-1.9.0\n`author.why` responses stay byte-identical (the field is absent, not\n`null`, and never populated below the floor).",
       "type": "array",
@@ -31,6 +64,50 @@
     "why_not"
   ],
   "$defs": {
+    "BlockedSupport": {
+      "description": "One otherwise-admissible minimal derivation path and its active blockers.",
+      "type": "object",
+      "properties": {
+        "blocking_defeats": {
+          "description": "The minimal active direct-defeat pairs disabling this path.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockingDefeat"
+          }
+        },
+        "supporting_decision_path": {
+          "description": "Exact recorded decision ids carried by the fact/rule support monomial.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "supporting_decision_path",
+        "blocking_defeats"
+      ]
+    },
+    "BlockingDefeat": {
+      "description": "One currently active direct decision attack, named exactly as recorded.",
+      "type": "object",
+      "properties": {
+        "defeated_decision": {
+          "description": "The decision whose supporting path is disabled.",
+          "type": "string"
+        },
+        "defeating_decision": {
+          "description": "The undefeated decision that directly attacks it.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "defeated_decision",
+        "defeating_decision"
+      ]
+    },
     "ClaimId": {
       "description": "A claim identifier.",
       "type": "integer",

@@ -295,7 +295,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.suppose` | Pin minted hypotheses true within the workspace (fork-only). | yes |
 | `author.query` | Query the compiled world (entity lookup, relation traversal, timeline). | read |
 | `author.check` | Run the full check battery over the workspace and return findings. | read |
-| `author.why` | Explain why a fact holds: provenance chain + grade derivation. | read |
+| `author.why` | Explain why a fact holds. At `1.13.0`, returns valuation-aware `active_supporting_decision_paths`, exact top-level `blocking_defeats` when all paths are blocked, and per-path `blocked_supports`; older accepted wires omit these additive fields. | read |
 | `author.findings` | Return all outstanding findings for the workspace. | read |
 | `author.list_workspaces` | List open workspaces and their summary status; each row's `branch` (**≥ `1.7.0`**) names the branch it targets, if any. | read |
 | `author.branch` | Create a persistent lorestore branch, list them, or (**≥ `1.7.0`**) `delete` one; `create`/`delete` accept an `expected_ref` fence and the result carries per-branch `heads` (added at `0.6.1`). | yes (`create`, `delete`) |

@@ -609,7 +609,7 @@ are pure queries with no side effects.
 |---|---|
 | `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. |
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
-| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions a certain fact rests on), the auditability affordance. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes `supporting_decisions` reachable in a syntax-free build. |
+| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions anywhere in the symbolic antichain). At contract `1.13.0`, `active_supporting_decision_paths` preserves the boundaries of each currently admissible minimal support path; `blocking_defeats` names the active direct decision attacks when no path remains live; and `blocked_supports` keeps each otherwise-admissible path beside the minimal direct attacks disabling it. All three are explicit arrays, including empty arrays for live, dead-without-a-decision-attack, or unknown atoms. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes decision provenance reachable in a syntax-free build. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
 | `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — the one inertia-aware read (DL-0082): `check::slot_state_at` kernel-side, never `author.query`'s eval path. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
@@ -620,6 +620,15 @@ appear in the feedback contract's mutating-call shape (§4) — they return
 query-specific result shapes rather than `{ ok, workspace_digest, rendered,
 findings }`. An agent uses them to orient before mutating: query what exists,
 check the current state, understand a derivation, then act.
+
+`author.why` evaluates those path fields under the workspace's exact grounded
+effective valuation. It does not infer decision ids from rendered prose. Paths
+and attack pairs use exact recorded names, are sorted canonically, and are
+pinned to the workspace's selected commit (including branch and pinned-project
+opens). An unconditional derivation is one active empty path, `[[]]`; an unknown
+atom has no paths, `[]`. A conclusion with one live independent path reports an
+empty top-level `blocking_defeats` even when `blocked_supports` records a
+defeated redundant alternative.
 
 ### 3.17 Expert authoring tools (contract 1.3.0)
 

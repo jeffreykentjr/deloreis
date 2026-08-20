@@ -74,6 +74,10 @@ fn propagation_fixture(
         writeln!(&mut source, "ratify {decision}").unwrap();
         writeln!(&mut source, "declared-{decision}(mara) ratified {decision}").unwrap();
     }
+    for level in 1..derivation_depth {
+        writeln!(&mut source, "ratify d{}", 20 + level).unwrap();
+    }
+    source.push_str("ratify d19\n");
     source.push_str(concat!(
         "person mara \"Mara\" ratified d11\n",
         "p(mara) ratified d1\n",
@@ -91,7 +95,8 @@ fn propagation_fixture(
         let step = format!("step-{level}");
         writeln!(
             &mut source,
-            "rule chain-{level} ratified d10\n  {step}(mara) :- {predecessor}(mara)"
+            "rule chain-{level} ratified d{}\n  {step}(mara) :- {predecessor}(mara)",
+            20 + level
         )
         .unwrap();
         predecessor = step;
@@ -99,7 +104,7 @@ fn propagation_fixture(
     for conclusion in 1..=conclusion_count {
         writeln!(
             &mut source,
-            "rule conclusion-{conclusion} ratified d10\n  q-{conclusion}(mara) :- {predecessor}(mara)"
+            "rule conclusion-{conclusion} ratified d19\n  q-{conclusion}(mara) :- {predecessor}(mara)"
         )
         .unwrap();
     }
@@ -120,6 +125,13 @@ fn propagation_fixture(
         .attach_lorestore(root.path().join("lorestore"))
         .unwrap();
     (root, store, base)
+}
+
+fn propagation_decision_path(derivation_depth: usize) -> Vec<String> {
+    let mut decisions = vec!["d1".to_owned(), "d19".to_owned()];
+    decisions.extend((1..derivation_depth).map(|level| format!("d{}", 20 + level)));
+    decisions.sort();
+    decisions
 }
 
 fn claim_id(store: &dli_lorestore::Lorestore, kind: Option<&str>, name: &str) -> String {
@@ -183,6 +195,21 @@ fn query_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str
     ))
 }
 
+fn why_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str) -> Value {
+    result(dispatch(
+        &request(
+            "1.13.0",
+            id,
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": predicate, "args": [{"Sym": "mara"}]}
+            }),
+        ),
+        store,
+    ))
+}
+
 fn assert_named_standings(store: &dli_lorestore::Lorestore, expected: &[(&str, bool)]) {
     let reference = store.branch_ref(dli_lorestore::MAIN_REF).unwrap().unwrap();
     let names = store.interner_at(&reference.commit).unwrap();
@@ -218,6 +245,21 @@ fn author_query(store: &mut Store, workspace: &str, id: &str) -> Value {
                 "workspace": workspace,
                 "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]},
                 "layer": "all"
+            }),
+        ),
+        store,
+    ))
+}
+
+fn author_why(store: &mut Store, workspace: &str, id: &str) -> Value {
+    result(dispatch(
+        &request(
+            "1.13.0",
+            id,
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
             }),
         ),
         store,
@@ -290,6 +332,30 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             .unwrap()
             .is_empty()
     );
+    let blocked_why = result(dispatch(
+        &request(
+            "1.13.0",
+            "why1",
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(blocked_why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        blocked_why["blocking_defeats"],
+        json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
+    );
+    assert_eq!(
+        blocked_why["blocked_supports"],
+        json!([{
+            "supporting_decision_path": ["d1"],
+            "blocking_defeats": [{"defeated_decision": "d1", "defeating_decision": "d2"}]
+        }])
+    );
 
     let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
     defeat(&mut store, &workspace, "d3", &d2_claim, "d3", "d2");
@@ -318,6 +384,12 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         restored["rows"][0]["status"], "certain",
         "nested defeat restores the original support: query={restored}, why={restored_why}, decls={debug_decls:?}"
     );
+    assert_eq!(
+        restored_why["active_supporting_decision_paths"],
+        json!([["d1"]])
+    );
+    assert_eq!(restored_why["blocking_defeats"], json!([]));
+    assert_eq!(restored_why["blocked_supports"], json!([]));
 
     let d3_claim = claim_id(&lorestore, Some("ratify"), "d3");
     defeat(&mut store, &workspace, "d4", &d3_claim, "d4", "d3");
@@ -326,6 +398,23 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             .as_array()
             .unwrap()
             .is_empty()
+    );
+    let reblocked_why = result(dispatch(
+        &request(
+            "1.13.0",
+            "why3",
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(reblocked_why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        reblocked_why["blocking_defeats"],
+        json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
     );
 
     let reference = lorestore
@@ -344,11 +433,45 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         3
     );
 
-    // A fresh project/session reconstructs the attack graph from the commit and
-    // reaches the same dead result without borrowing the live author workspace.
-    let project = Project::load(root.path()).unwrap();
-    let mut sessions = Sessions::from_project(Arc::new(project));
-    let mut author = Store::default();
+    // Pin the project to this exact attacked commit. A fresh project/session
+    // must explain that snapshot, never the ambient tip or the original pack.
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        format!(
+            "version = 1\nname = \"conditional-defeat\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\nhead = \"{}\"\n",
+            reference.commit
+        ),
+    )
+    .unwrap();
+    // A fresh pinned project/session reconstructs the attack graph from the
+    // commit and reaches the same dead result without borrowing the live author
+    // workspace.
+    let project = Arc::new(Project::load(root.path()).unwrap());
+    let packs = project.documents().map(|(id, document)| {
+        (
+            id.to_owned(),
+            document.pack.clone(),
+            document.killed.clone(),
+        )
+    });
+    let mut author = Store::with_packs(packs).unwrap();
+    for (id, document) in project.documents() {
+        if let (Some(origin), Some(commit)) = (&document.store_origin, &document.store_commit) {
+            author.register_store_origin(
+                id.to_owned(),
+                origin.clone(),
+                document.store_pinned,
+                commit.clone(),
+                document.store_valuation.clone(),
+                document.store_unassigned.clone(),
+                document.store_ref_digest.clone(),
+            );
+        }
+    }
+    author
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    let mut sessions = Sessions::from_project(Arc::clone(&project));
     let frame = json!({
         "dli": "1.13.0",
         "id": "reopen",
@@ -367,6 +490,122 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             .unwrap()
             .is_empty()
     );
+    let reopened_open = json!({
+        "dli": "1.13.0", "id": "author-reopen", "op": "author.open",
+        "params": {"scope": "demo"}
+    });
+    let reopened_open = respond(&reopened_open.to_string(), &mut sessions, &mut author).unwrap();
+    let reopened_workspace = reopened_open.result.unwrap()["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let reopened_why = result(dispatch(
+        &request(
+            "1.13.0",
+            "author-why-reopen",
+            Op::AuthorWhy,
+            json!({
+                "workspace": reopened_workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut author,
+    ));
+    assert_eq!(reopened_why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        reopened_why["blocking_defeats"],
+        json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
+    );
+}
+
+#[test]
+fn author_why_is_pinned_to_each_branch_workspace_root() {
+    let (_root, mut store, path) = fixture();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let claim = claim_id(&lorestore, None, "mara");
+    let main_workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-main",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    result(dispatch(
+        &request(
+            "1.13.0",
+            "create-rival",
+            Op::AuthorBranch,
+            json!({
+                "workspace": main_workspace,
+                "action": "create",
+                "name": "rival",
+                "from": "main"
+            }),
+        ),
+        &mut store,
+    ));
+    let rival_workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-rival",
+            Op::AuthorOpen,
+            json!({"scope": "demo", "branch": "rival"}),
+        ),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    defeat(
+        &mut store,
+        &rival_workspace,
+        "rival-defeat",
+        &claim,
+        "d2",
+        "d1",
+    );
+
+    let rival_why = result(dispatch(
+        &request(
+            "1.13.0",
+            "why-rival",
+            Op::AuthorWhy,
+            json!({
+                "workspace": rival_workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(rival_why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        rival_why["blocking_defeats"],
+        json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
+    );
+
+    let main_why = result(dispatch(
+        &request(
+            "1.13.0",
+            "why-main",
+            Op::AuthorWhy,
+            json!({
+                "workspace": main_workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(
+        main_why["active_supporting_decision_paths"],
+        json!([["d1"]])
+    );
+    assert_eq!(main_why["blocking_defeats"], json!([]));
+    assert_eq!(main_why["blocked_supports"], json!([]));
 }
 
 #[test]
@@ -409,6 +648,54 @@ fn contract_1_12_defeat_keeps_the_frozen_one_way_ref_semantics() {
             .expect("decision atom index fits u32"),
     );
     assert_eq!(reference.valuation.get(d1), Some(false));
+    let legacy_why = result(dispatch(
+        &request(
+            "1.12.0",
+            "why",
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut store,
+    ));
+    for field in [
+        "active_supporting_decision_paths",
+        "blocking_defeats",
+        "blocked_supports",
+    ] {
+        assert!(
+            legacy_why.get(field).is_none(),
+            "legacy field `{field}` absent"
+        );
+    }
+    assert_eq!(
+        serde_json::to_string(&legacy_why).unwrap(),
+        r#"{"supporting_decisions":["d1"],"why":{"antichain":[[0]],"rendered":["d1"]},"why_not":{"atom":"rank(mara, gold)","blocking":[],"closest":[],"defeater":null,"known":true,"rendered":["dead — no admissible support"],"status":"dead"}}"#,
+        "the released 1.12 result bytes remain frozen"
+    );
+}
+
+#[test]
+fn contract_1_13_unknown_atom_has_explicit_empty_explanation_arrays() {
+    let (_root, mut store, _path) = fixture();
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-unknown",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let why = why_predicate(&mut store, &workspace, "why-unknown", "never-known");
+    assert_eq!(why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(why["blocking_defeats"], json!([]));
+    assert_eq!(why["blocked_supports"], json!([]));
 }
 
 #[test]
@@ -449,6 +736,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
         }
         let live = author_query(&mut store, &workspace, &format!("query-{name}"));
         assert_eq!(live["rows"][0]["status"], "possible", "{name}: {live}");
+        let canon_adjacent_before = author_why(&mut store, &workspace, &format!("why-{name}"));
 
         let project = Project::load(root.path()).unwrap();
         let mut sessions = Sessions::from_project(Arc::new(project));
@@ -485,6 +773,18 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
                         .unwrap()
                         .iter()
                         .all(|edge| edge.get("subject_fact_hash").is_some())
+                );
+            }
+            let canon_adjacent_after =
+                author_why(&mut store, &workspace, "why-after-canon-exports");
+            for field in [
+                "active_supporting_decision_paths",
+                "blocking_defeats",
+                "blocked_supports",
+            ] {
+                assert_eq!(
+                    canon_adjacent_after[field], canon_adjacent_before[field],
+                    "canon-adjacent reads do not move author.why field `{field}`"
                 );
             }
         }
@@ -655,16 +955,30 @@ fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
                 .to_owned();
 
             for conclusion in 1..=conclusion_count {
+                let predicate = format!("q-{conclusion}");
                 let query = query_predicate(
                     &mut author,
                     &workspace,
                     &format!("before-{derivation_depth}-{conclusion_count}-{conclusion}"),
-                    &format!("q-{conclusion}"),
+                    &predicate,
                 );
                 assert_eq!(
                     query["rows"][0]["status"], "certain",
                     "derivation depth {derivation_depth}, shared conclusion {conclusion}/{conclusion_count}: {query}"
                 );
+                let why = why_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("why-before-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &predicate,
+                );
+                assert_eq!(
+                    why["active_supporting_decision_paths"],
+                    json!([propagation_decision_path(derivation_depth)]),
+                    "full active path at derivation depth {derivation_depth}: {why}"
+                );
+                assert_eq!(why["blocking_defeats"], json!([]));
+                assert_eq!(why["blocked_supports"], json!([]));
             }
 
             defeat(
@@ -684,16 +998,34 @@ fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
                 1
             );
             for conclusion in 1..=conclusion_count {
+                let predicate = format!("q-{conclusion}");
                 let query = query_predicate(
                     &mut author,
                     &workspace,
                     &format!("retracted-{derivation_depth}-{conclusion_count}-{conclusion}"),
-                    &format!("q-{conclusion}"),
+                    &predicate,
                 );
                 assert_eq!(
                     query["rows"],
                     json!([]),
                     "one decision attack retracts every result at derivation depth {derivation_depth}: {query}"
+                );
+                let why = why_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("why-dead-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &predicate,
+                );
+                let blocker = json!({"defeated_decision": "d1", "defeating_decision": "d2"});
+                assert_eq!(why["active_supporting_decision_paths"], json!([]));
+                assert_eq!(why["blocking_defeats"], json!([blocker.clone()]));
+                assert_eq!(
+                    why["blocked_supports"],
+                    json!([{
+                        "supporting_decision_path": propagation_decision_path(derivation_depth),
+                        "blocking_defeats": [blocker]
+                    }]),
+                    "full blocked path at derivation depth {derivation_depth}: {why}"
                 );
             }
             for control in ["independent", "redundant"] {
@@ -707,6 +1039,37 @@ fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
                     query["rows"][0]["status"], "certain",
                     "{control} is an independent/redundant live-support control: {query}"
                 );
+                let why = why_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("why-control-{derivation_depth}-{conclusion_count}-{control}"),
+                    control,
+                );
+                assert_eq!(
+                    why["active_supporting_decision_paths"],
+                    json!([["d10", "d11"]]),
+                    "{control}: {why}"
+                );
+                assert_eq!(
+                    why["blocking_defeats"],
+                    json!([]),
+                    "a live independent path keeps the conclusion unblocked: {why}"
+                );
+                if control == "redundant" {
+                    assert_eq!(
+                        why["blocked_supports"],
+                        json!([{
+                            "supporting_decision_path": ["d1", "d10"],
+                            "blocking_defeats": [{
+                                "defeated_decision": "d1",
+                                "defeating_decision": "d2"
+                            }]
+                        }]),
+                        "the blocked redundant alternative stays separate: {why}"
+                    );
+                } else {
+                    assert_eq!(why["blocked_supports"], json!([]));
+                }
             }
 
             let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
@@ -727,16 +1090,29 @@ fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
                 2
             );
             for conclusion in 1..=conclusion_count {
+                let predicate = format!("q-{conclusion}");
                 let query = query_predicate(
                     &mut author,
                     &workspace,
                     &format!("restored-{derivation_depth}-{conclusion_count}-{conclusion}"),
-                    &format!("q-{conclusion}"),
+                    &predicate,
                 );
                 assert_eq!(
                     query["rows"][0]["status"], "certain",
                     "defeating the attacker restores all {conclusion_count} results through {derivation_depth} real rule edges: {query}"
                 );
+                let why = why_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("why-restored-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &predicate,
+                );
+                assert_eq!(
+                    why["active_supporting_decision_paths"],
+                    json!([propagation_decision_path(derivation_depth)])
+                );
+                assert_eq!(why["blocking_defeats"], json!([]));
+                assert_eq!(why["blocked_supports"], json!([]));
             }
         }
     }
@@ -795,6 +1171,62 @@ fn multiple_attackers_require_every_live_attack_to_be_defeated() {
 }
 
 #[test]
+fn all_redundant_paths_report_their_distinct_direct_blockers() {
+    let (_root, mut author, path) = propagation_fixture(1, 1, &["d2", "d3"]);
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-distinct",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut author,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let p_claim = predicate_claim_id(&lorestore, "p");
+    let redundant_seed_claim = predicate_claim_id(&lorestore, "redundant-seed");
+    defeat(&mut author, &workspace, "distinct-d1", &p_claim, "d2", "d1");
+    defeat(
+        &mut author,
+        &workspace,
+        "distinct-d11",
+        &redundant_seed_claim,
+        "d3",
+        "d11",
+    );
+
+    let why = why_predicate(&mut author, &workspace, "why-distinct", "redundant");
+    assert_eq!(why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        why["blocking_defeats"],
+        json!([
+            {"defeated_decision": "d1", "defeating_decision": "d2"},
+            {"defeated_decision": "d11", "defeating_decision": "d3"}
+        ])
+    );
+    assert_eq!(
+        why["blocked_supports"],
+        json!([
+            {
+                "supporting_decision_path": ["d1", "d10"],
+                "blocking_defeats": [
+                    {"defeated_decision": "d1", "defeating_decision": "d2"}
+                ]
+            },
+            {
+                "supporting_decision_path": ["d10", "d11"],
+                "blocking_defeats": [
+                    {"defeated_decision": "d11", "defeating_decision": "d3"}
+                ]
+            }
+        ])
+    );
+}
+
+#[test]
 fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
     let edges = [("d2", "d1"), ("d3", "d1"), ("d4", "d2")];
     let permutations = [
@@ -806,6 +1238,7 @@ fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
         [2, 1, 0],
     ];
     let mut projections = Vec::new();
+    let mut explanations = Vec::new();
     for (case, permutation) in permutations.into_iter().enumerate() {
         let declarations: Vec<_> = permutation.iter().map(|index| edges[*index].0).collect();
         let (_root, mut author, path) = propagation_fixture(1, 1, &declarations);
@@ -848,6 +1281,12 @@ fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
                 .unwrap()
                 .is_empty()
         );
+        let why = why_predicate(&mut author, &workspace, "ordered-why", "q-1");
+        explanations.push(json!({
+            "active": why["active_supporting_decision_paths"],
+            "blocking": why["blocking_defeats"],
+            "blocked": why["blocked_supports"]
+        }));
         for control in ["independent", "redundant"] {
             assert_eq!(
                 query_predicate(&mut author, &workspace, "ordered-control", control)["rows"][0]["status"],
@@ -865,4 +1304,8 @@ fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
         );
     }
     assert!(projections.windows(2).all(|pair| pair[0] == pair[1]));
+    assert!(
+        explanations.windows(2).all(|pair| pair[0] == pair[1]),
+        "author.why is declaration/attack order independent: {explanations:#?}"
+    );
 }
