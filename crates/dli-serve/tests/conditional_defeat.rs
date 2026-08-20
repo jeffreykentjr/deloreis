@@ -457,15 +457,17 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     let mut author = Store::with_packs(packs).unwrap();
     for (id, document) in project.documents() {
         if let (Some(origin), Some(commit)) = (&document.store_origin, &document.store_commit) {
-            author.register_store_origin(
-                id.to_owned(),
-                origin.clone(),
-                document.store_pinned,
-                commit.clone(),
-                document.store_valuation.clone(),
-                document.store_unassigned.clone(),
-                document.store_ref_digest.clone(),
-            );
+            author
+                .register_store_origin(
+                    id.to_owned(),
+                    origin.clone(),
+                    document.store_pinned,
+                    commit.clone(),
+                    document.store_valuation.clone(),
+                    document.store_unassigned.clone(),
+                    document.store_ref_digest.clone(),
+                )
+                .expect("store standing maps by exact name");
         }
     }
     author
