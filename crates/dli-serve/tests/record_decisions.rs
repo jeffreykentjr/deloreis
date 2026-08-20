@@ -7,6 +7,7 @@ use dli_serve::author::store::Store;
 use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
 use serde_json::{Value, json};
+use std::time::Instant;
 
 const DLI: &str = "1.13.0";
 
@@ -26,13 +27,7 @@ fn result(response: dli_serve::Response) -> Value {
     response.result.expect("successful request has a result")
 }
 
-fn store_with_mara() -> (tempfile::TempDir, Store) {
-    let root = tempfile::tempdir().expect("temporary store root");
-    std::fs::write(
-        root.path().join("deloreis.toml"),
-        "version = 1\nname = \"record-decisions\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
-    )
-    .expect("write project manifest");
+fn mara_pack() -> Pack {
     let (document, diagnostics) =
         dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
     assert!(
@@ -40,15 +35,41 @@ fn store_with_mara() -> (tempfile::TempDir, Store) {
             .iter()
             .all(|diagnostic| !diagnostic.class.is_error())
     );
-    let pack = Pack {
+    Pack {
         name: "demo".to_owned(),
         documents: vec![document],
-    };
-    let mut store = Store::with_pack(pack).expect("base compiles");
+    }
+}
+
+fn store_with_mara() -> (tempfile::TempDir, Store) {
+    let root = tempfile::tempdir().expect("temporary store root");
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"record-decisions\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
+    )
+    .expect("write project manifest");
+    let mut store = Store::with_pack(mara_pack()).expect("base compiles");
     store
         .attach_lorestore(root.path().join("lorestore"))
         .expect("attach lorestore");
     (root, store)
+}
+
+fn term(text: &str) -> Value {
+    text.strip_prefix('$')
+        .map_or_else(|| json!({"Sym": text}), |var| json!({"Var": var}))
+}
+
+fn atom(pred: &str, args: &[&str]) -> Value {
+    json!({"pred": pred, "args": args.iter().map(|arg| term(arg)).collect::<Vec<_>>()})
+}
+
+fn lit(pred: &str, args: &[&str]) -> Value {
+    json!({"atom": atom(pred, args), "negated": false})
+}
+
+fn cited(decision: &str) -> Value {
+    json!({"kind":"cited", "decisions":[decision], "state":"ratified"})
 }
 
 fn open(store: &mut Store) -> String {
@@ -61,7 +82,7 @@ fn open(store: &mut Store) -> String {
         .to_owned()
 }
 
-fn bulk(store: &mut Store, ws: &str, records: Value) -> Value {
+fn bulk(store: &mut Store, ws: &str, records: &Value) -> Value {
     result(dispatch(
         &req(
             "bulk",
@@ -88,7 +109,7 @@ fn forward_and_cyclic_same_batch_citations_are_validated_as_a_whole() {
     let value = bulk(
         &mut store,
         &ws,
-        json!([
+        &json!([
             {"decision":"d-1", "provenance":{
                 "kind":"cited", "decisions":["d-2"], "state":"ratified"}},
             {"decision":"d-2", "provenance":{
@@ -115,7 +136,7 @@ fn duplicate_and_unknown_citation_findings_are_atomic_and_identify_records() {
     let value = bulk(
         &mut store,
         &ws,
-        json!([
+        &json!([
             {"decision":"d-dup"},
             {"decision":"d-dup"},
             {"decision":"d-external", "provenance":{
@@ -143,11 +164,11 @@ fn duplicate_and_unknown_citation_findings_are_atomic_and_identify_records() {
 fn mixed_known_and_new_records_preserve_order_and_all_known_is_zero_write() {
     let (_root, mut store) = store_with_mara();
     let ws = open(&mut store);
-    bulk(&mut store, &ws, json!([{"decision":"known"}]));
+    bulk(&mut store, &ws, &json!([{"decision":"known"}]));
     let value = bulk(
         &mut store,
         &ws,
-        json!([
+        &json!([
             {"decision":"new-a"},
             {"decision":"known"},
             {"decision":"new-b"}
@@ -168,7 +189,7 @@ fn mixed_known_and_new_records_preserve_order_and_all_known_is_zero_write() {
     let all_known = bulk(
         &mut store,
         &ws,
-        json!([
+        &json!([
             {"decision":"new-b"},
             {"decision":"known"},
             {"decision":"new-a"}
@@ -194,7 +215,7 @@ fn one_thousand_twenty_four_records_use_one_commit_and_one_prepared_compile() {
     let records = (0..1024)
         .map(|index| json!({"decision": format!("d-{index:04}")}))
         .collect::<Vec<_>>();
-    let value = bulk(&mut store, &ws, Value::Array(records));
+    let value = bulk(&mut store, &ws, &Value::Array(records));
     assert_eq!(value["recorded"], 1024);
     let after = head(&store, &ws);
     let after_depth = store
@@ -208,6 +229,234 @@ fn one_thousand_twenty_four_records_use_one_commit_and_one_prepared_compile() {
     assert_eq!(stats.prepared_compiles, 1);
     assert_eq!(stats.prepared_installs, 1);
     assert_eq!(stats.reloads, 0);
+}
+
+#[test]
+fn one_record_has_the_same_semantics_as_record_decision() {
+    let (_single_root, mut single) = store_with_mara();
+    let (_bulk_root, mut batched) = store_with_mara();
+    let single_ws = open(&mut single);
+    let bulk_ws = open(&mut batched);
+
+    result(dispatch(
+        &req(
+            "single",
+            Op::AuthorRecordDecision,
+            json!({"workspace":single_ws, "decision":"d-one"}),
+        ),
+        &mut single,
+    ));
+    let recorded = bulk(&mut batched, &bulk_ws, &json!([{"decision":"d-one"}]));
+    assert_eq!(recorded["requested"], 1);
+    assert_eq!(recorded["already_known"], 0);
+    assert_eq!(recorded["recorded"], 1);
+
+    for (store, workspace) in [(&mut single, &single_ws), (&mut batched, &bulk_ws)] {
+        result(dispatch(
+            &req(
+                "fact",
+                Op::AuthorAddFact,
+                json!({
+                    "workspace":workspace,
+                    "entity":"mara", "key":"rank", "value":"captain",
+                    "provenance":cited("d-one")
+                }),
+            ),
+            store,
+        ));
+    }
+
+    let single_head = head(&single, &single_ws);
+    let bulk_head = head(&batched, &bulk_ws);
+    assert_eq!(
+        single
+            .workspace_lorestore(&single_ws)
+            .expect("single lorestore")
+            .decisions_at(&single_head)
+            .expect("single decisions"),
+        batched
+            .workspace_lorestore(&bulk_ws)
+            .expect("bulk lorestore")
+            .decisions_at(&bulk_head)
+            .expect("bulk decisions")
+    );
+    assert_eq!(
+        single
+            .workspace_lorestore(&single_ws)
+            .expect("single lorestore")
+            .interner_at(&single_head)
+            .expect("single interner"),
+        batched
+            .workspace_lorestore(&bulk_ws)
+            .expect("bulk lorestore")
+            .interner_at(&bulk_head)
+            .expect("bulk interner")
+    );
+
+    let why = |store: &mut Store, workspace: &str| {
+        result(dispatch(
+            &req(
+                "why",
+                Op::AuthorWhy,
+                json!({"workspace":workspace, "goal_atom":atom("rank", &["mara", "captain"])}),
+            ),
+            store,
+        ))
+    };
+    let single_why = why(&mut single, &single_ws);
+    let bulk_why = why(&mut batched, &bulk_ws);
+    assert_eq!(single_why["why"], bulk_why["why"]);
+    assert_eq!(single_why["why_not"], bulk_why["why_not"]);
+    assert_eq!(
+        single_why["supporting_decisions"],
+        bulk_why["supporting_decisions"]
+    );
+}
+
+#[test]
+fn bulk_decisions_drive_fact_rule_why_and_defeat() {
+    let (_root, mut store) = store_with_mara();
+    let ws = open(&mut store);
+    bulk(
+        &mut store,
+        &ws,
+        &json!([
+            {"decision":"d-fact"},
+            {"decision":"d-rule"},
+            {"decision":"d-defeat"}
+        ]),
+    );
+    result(dispatch(
+        &req(
+            "fact",
+            Op::AuthorAddFact,
+            json!({
+                "workspace":ws, "entity":"mara", "key":"rank", "value":"captain",
+                "provenance":cited("d-fact")
+            }),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &req(
+            "rule",
+            Op::AuthorAddRule,
+            json!({
+                "workspace":ws, "name":"honorific",
+                "head":atom("honored", &["$x"]),
+                "body":[lit("rank", &["$x", "captain"])],
+                "provenance":cited("d-rule")
+            }),
+        ),
+        &mut store,
+    ));
+
+    let why = result(dispatch(
+        &req(
+            "why-before",
+            Op::AuthorWhy,
+            json!({"workspace":ws, "goal_atom":atom("honored", &["mara"])}),
+        ),
+        &mut store,
+    ));
+    let supporting = why["supporting_decisions"]
+        .as_array()
+        .expect("why returns supporting decisions");
+    assert!(supporting.contains(&json!("d-fact")), "fact support: {why}");
+    assert!(supporting.contains(&json!("d-rule")), "rule support: {why}");
+
+    let materialized = result(dispatch(
+        &req(
+            "materialize",
+            Op::AuthorMaterialize,
+            json!({"workspace":ws, "rendered":false}),
+        ),
+        &mut store,
+    ));
+    let fact_claim_id = materialized["facts"]
+        .as_array()
+        .expect("materialized facts")
+        .iter()
+        .find(|fact| fact["atom"]["pred"] == "rank")
+        .and_then(|fact| fact["claim_id"].as_str())
+        .unwrap_or_else(|| panic!("materialized rank claim: {materialized}"))
+        .to_owned();
+    let defeated = result(dispatch(
+        &req(
+            "defeat",
+            Op::AuthorDefeat,
+            json!({
+                "workspace":ws,
+                "claim_id":fact_claim_id,
+                "decision":"d-defeat",
+                "defeated_decision":"d-fact"
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(defeated["findings"], json!([]));
+
+    let after = result(dispatch(
+        &req(
+            "query-after",
+            Op::AuthorQuery,
+            json!({
+                "workspace":ws,
+                "goal_atom":atom("honored", &["mara"]),
+                "layer":"all"
+            }),
+        ),
+        &mut store,
+    ));
+    assert_eq!(
+        after["rows"],
+        json!([]),
+        "defeat removes derivation: {after}"
+    );
+}
+
+#[test]
+fn stale_workspace_digest_refuses_the_complete_batch() {
+    let (_root, mut store) = store_with_mara();
+    let opened = result(dispatch(
+        &req("open-stale", Op::AuthorOpen, json!({"scope":"demo"})),
+        &mut store,
+    ));
+    let ws = opened["workspace"].as_str().expect("workspace").to_owned();
+    let stale_digest = opened["workspace_digest"]
+        .as_str()
+        .expect("open digest")
+        .to_owned();
+    result(dispatch(
+        &req(
+            "move-digest",
+            Op::AuthorAddFact,
+            json!({
+                "workspace":ws, "entity":"mara", "key":"color", "value":"red",
+                "provenance":{"kind":"proposed", "origin":"stale-test"}
+            }),
+        ),
+        &mut store,
+    ));
+    let before = head(&store, &ws);
+    let mut stale = req(
+        "stale-bulk",
+        Op::AuthorRecordDecisions,
+        json!({"workspace":ws, "records":[{"decision":"d-never"}]}),
+    );
+    stale.expected_digest = Some(stale_digest);
+    let response = dli_serve::serve::respond(
+        &serde_json::to_string(&stale).expect("stale envelope json"),
+        &mut dli_serve::session::Sessions::default(),
+        &mut store,
+    )
+    .expect("stale envelope receives a response");
+    assert!(!response.ok, "stale request is refused: {response:?}");
+    assert_eq!(
+        response.error.expect("typed refusal").code,
+        dli_serve::ErrorCode::StaleFence
+    );
+    assert_eq!(head(&store, &ws), before, "the branch is untouched");
 }
 
 #[test]
@@ -305,28 +554,51 @@ fn branch_routing_and_idempotent_retry_preserve_isolation() {
     );
 }
 
-/// Release-only scale evidence; correctness is pinned by the 1,024-record test.
+/// Release-only scale evidence at every requested campaign size. The printed
+/// phases make request construction and the atomic store transaction visible
+/// separately; counters pin the one-compile/one-install/no-reload invariant.
 #[test]
 #[ignore = "release scale harness"]
-fn sixteen_thousand_three_hundred_eighty_four_records_still_use_one_commit() {
-    let (_root, mut store) = store_with_mara();
-    let ws = open(&mut store);
-    let before = head(&store, &ws);
-    let records = (0..16_384)
-        .map(|index| json!({"decision": format!("d-{index:05}")}))
-        .collect::<Vec<_>>();
-    let value = bulk(&mut store, &ws, Value::Array(records));
-    assert_eq!(value["recorded"], 16_384);
-    let after = head(&store, &ws);
-    assert_eq!(
-        store
+#[allow(clippy::print_stderr)]
+fn release_scale_harness_reports_phase_timings_and_counters() {
+    for count in [1_024_usize, 4_096, 16_384, 65_536] {
+        let setup_started = Instant::now();
+        let (_root, mut store) = store_with_mara();
+        let ws = open(&mut store);
+        let before = head(&store, &ws);
+        let setup_elapsed = setup_started.elapsed();
+
+        let build_started = Instant::now();
+        let records = (0..count)
+            .map(|index| json!({"decision": format!("d-{index:05}")}))
+            .collect::<Vec<_>>();
+        let build_elapsed = build_started.elapsed();
+
+        let dispatch_started = Instant::now();
+        let value = bulk(&mut store, &ws, &Value::Array(records));
+        let dispatch_elapsed = dispatch_started.elapsed();
+        assert_eq!(value["recorded"], count);
+        let after = head(&store, &ws);
+        let commit_delta = store
             .workspace_lorestore(&ws)
             .expect("lorestore")
             .walk_dag(&after, Some(&before))
             .expect("walk delta")
-            .len(),
-        2
-    );
-    assert_eq!(store.base_update_stats().prepared_compiles, 1);
-    assert_eq!(store.base_update_stats().reloads, 0);
+            .len()
+            - 1;
+        let stats = store.base_update_stats();
+        assert_eq!(commit_delta, 1);
+        assert_eq!(stats.prepared_compiles, 1);
+        assert_eq!(stats.prepared_installs, 1);
+        assert_eq!(stats.reloads, 0);
+        eprintln!(
+            "record_decisions count={count} setup_ms={} build_ms={} dispatch_ms={} commits={commit_delta} prepared_compiles={} prepared_installs={} reloads={}",
+            setup_elapsed.as_millis(),
+            build_elapsed.as_millis(),
+            dispatch_elapsed.as_millis(),
+            stats.prepared_compiles,
+            stats.prepared_installs,
+            stats.reloads,
+        );
+    }
 }

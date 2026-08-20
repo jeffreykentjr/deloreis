@@ -799,8 +799,8 @@ impl Store {
         pack: Pack,
         world: CompiledWorld,
         interner: Vec<String>,
-        commit: dli_lorestore::ContentHash,
-        ref_digest: dli_lorestore::ContentHash,
+        commit: &dli_lorestore::ContentHash,
+        ref_digest: &dli_lorestore::ContentHash,
     ) -> String {
         let mut bundle = 0u32;
         let prefix = self

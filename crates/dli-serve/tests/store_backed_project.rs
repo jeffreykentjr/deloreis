@@ -253,6 +253,72 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     );
 }
 
+#[test]
+fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
+    use std::sync::Arc;
+
+    let root = temp("store-backed-pinned-bulk-decisions");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    let pinned = head_of(&dir);
+    let lorestore = Lorestore::open(dir.clone()).expect("open store");
+    lorestore
+        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .expect("advance origin branch");
+    let live_before = lorestore
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read live head")
+        .expect("live head exists");
+    write_manifest(
+        &root,
+        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+    );
+
+    let project = Arc::new(Project::load(&root).expect("pinned project loads"));
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"1.13.0","id":"open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace id");
+    let recorded = send(
+        &serde_json::json!({"dli":"1.13.0","id":"bulk","op":"author.record_decisions",
+                            "params":{"workspace":workspace,
+                                      "records":[{"decision":"d-pinned"}]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(recorded["ok"], true, "bulk record succeeds: {recorded}");
+    assert_eq!(recorded["result"]["recorded"], 1);
+
+    let live_after = lorestore
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read live head")
+        .expect("live head exists");
+    assert_ne!(live_after, live_before, "the live origin branch advances");
+    assert!(
+        lorestore
+            .decisions_at(&live_after)
+            .expect("read live decisions")
+            .contains(&"d-pinned".to_owned()),
+        "the decision lands on the origin, not an import copy"
+    );
+    assert_eq!(
+        project
+            .documents()
+            .find(|(id, _)| *id == "tpth")
+            .expect("pinned document")
+            .1
+            .source_digest,
+        pinned,
+        "the served replay remains pinned while authoring targets its origin"
+    );
+}
+
 /// A pinned replay intentionally authors to its live origin, but opening the
 /// workspace still captures one whole-ref fence. An intervening writer must
 /// therefore refuse materialize rather than silently append the staged work to
@@ -370,6 +436,133 @@ fn branch_mode_follows_the_tip_across_a_reload() {
     assert!(
         people(&after, "tpth").contains(&"kes".to_owned()),
         "the reloaded world contains the newly committed work"
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
+    use std::sync::Arc;
+
+    let root = temp("store-backed-bulk-reopen-canon");
+    let dir = seed_store(&root, "tpth", "bedivere");
+    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+
+    let project = Arc::new(Project::load(&root).expect("project loads"));
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"1.13.0","id":"open","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace id")
+        .to_owned();
+    let recorded = send(
+        &serde_json::json!({"dli":"1.13.0","id":"bulk","op":"author.record_decisions",
+                            "params":{"workspace":workspace,
+                                      "records":[{"decision":"d-reopen"}]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(recorded["ok"], true, "record succeeds: {recorded}");
+    let added = send(
+        &serde_json::json!({"dli":"1.13.0","id":"fact","op":"author.add_fact",
+                            "params":{"workspace":workspace,
+                                      "entity":"bedivere","key":"rank","value":"captain",
+                                      "provenance":{"kind":"cited",
+                                                    "decisions":["d-reopen"],
+                                                    "state":"ratified"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(added["ok"], true, "cited fact stages: {added}");
+    let live_why = send(
+        &serde_json::json!({"dli":"1.13.0","id":"why-live","op":"author.why",
+                            "params":{"workspace":workspace,
+                                      "goal_atom":{"pred":"rank",
+                                                   "args":[{"Sym":"bedivere"},
+                                                           {"Sym":"captain"}]}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(live_why["ok"], true, "live why succeeds: {live_why}");
+    let materialized = send(
+        &serde_json::json!({"dli":"1.13.0","id":"materialize","op":"author.materialize",
+                            "params":{"workspace":workspace,"rendered":false}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        materialized["ok"], true,
+        "materialize succeeds: {materialized}"
+    );
+    drop(author);
+    drop(sessions);
+    drop(project);
+
+    let reopened = |suffix: &str| -> (serde_json::Value, serde_json::Value) {
+        let project = Arc::new(Project::load(&root).expect("project reopens"));
+        let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+        let mut author = author_store_for(&project);
+        let canon = send(
+            &serde_json::json!({"dli":"1.13.0","id":format!("canon-{suffix}"),
+                                "op":"dli.corpus.export",
+                                "params":{"document":"tpth","format":"canon"}}),
+            &mut sessions,
+            &mut author,
+        );
+        assert_eq!(canon["ok"], true, "canon export succeeds: {canon}");
+        let opened = send(
+            &serde_json::json!({"dli":"1.13.0","id":format!("open-{suffix}"),
+                                "op":"author.open","params":{"scope":"tpth"}}),
+            &mut sessions,
+            &mut author,
+        );
+        let workspace = opened["result"]["workspace"]
+            .as_str()
+            .expect("workspace id");
+        let why = send(
+            &serde_json::json!({"dli":"1.13.0","id":format!("why-{suffix}"),
+                                "op":"author.why",
+                                "params":{"workspace":workspace,
+                                          "goal_atom":{"pred":"rank",
+                                                       "args":[{"Sym":"bedivere"},
+                                                               {"Sym":"captain"}]}}}),
+            &mut sessions,
+            &mut author,
+        );
+        assert_eq!(why["ok"], true, "reopened why succeeds: {why}");
+        (canon["result"]["canon"].clone(), why["result"].clone())
+    };
+
+    let (first_canon, first_why) = reopened("first");
+    let (second_canon, second_why) = reopened("second");
+    assert_eq!(first_canon, second_canon, "canon is stable across reopen");
+    assert_eq!(first_why, second_why, "why is stable across reopen");
+    assert_eq!(
+        live_why["result"]["supporting_decisions"], first_why["supporting_decisions"],
+        "the reopened world preserves the bulk-recorded support"
+    );
+    assert!(
+        first_why["supporting_decisions"]
+            .as_array()
+            .expect("supporting decisions")
+            .contains(&serde_json::json!("d-reopen"))
+    );
+    let lorestore = Lorestore::open(dir).expect("reopen lorestore");
+    let head = lorestore
+        .branch_head(dli_lorestore::MAIN_REF)
+        .expect("read head")
+        .expect("head exists");
+    assert!(
+        lorestore
+            .decisions_at(&head)
+            .expect("read decisions")
+            .contains(&"d-reopen".to_owned())
     );
 }
 

@@ -3300,8 +3300,8 @@ pub(super) fn record_decisions(
         candidate_pack,
         candidate_world,
         interner,
-        receipt.commit.clone(),
-        receipt.ref_digest,
+        &receipt.commit,
+        &receipt.ref_digest,
     );
     Ok(value(&AuthorRecordDecisionsResult {
         mutation: AuthorMutationResult {
