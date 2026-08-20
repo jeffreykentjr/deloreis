@@ -5422,10 +5422,13 @@ bump. Already-aligned worlds and all released request/response shapes remain
 byte-identical; only the skewed case stops falsifying an unrelated decision.
 
 **Verification.** Pure tests cover exact mapping plus out-of-range, duplicate,
-and missing-name refusals. The public regression first proves that durable and
-recompiled atom positions differ, then checks the intended defeated claim and
-an independent control through live authoring and reopen/session; separate
-mutation teeth cover branch open/reload and skewed merge checks. Canon retains
-its functional defeat coverage and uses the same production remapper, but this
-change does not claim a separate skewed-index canon fixture. Reusing raw indices
-must redden the suite; `cargo xtask gate` remains the acceptance verdict.
+and missing-name refusals. Public regressions first prove that durable and
+recompiled atom positions differ, then check the intended defeated claim and
+independent/redundant controls through live authoring, reopen/session, branch
+open/reload, merge, and canon. The permanent declaration-ingestion oracle lowers
+real Ratify, Fact, and Rule declarations, saturates depth 1/2/4/8 chains with
+1/2/5 distinct shared conclusions, persists a skewed defeat after compilation,
+reopens/remaps it, and compares exact named standings with an independently
+indexed reference across six legal orders. Reusing raw indices or replacing the
+real derivations with synthetic annotations must redden the suite; `cargo xtask
+gate` remains the acceptance verdict.
