@@ -58,6 +58,20 @@ fn open(store: &mut Store) -> String {
         .to_owned()
 }
 
+fn open_main_branch(store: &mut Store) -> String {
+    result(dispatch(
+        &request(
+            "fresh-main",
+            Op::AuthorOpen,
+            json!({"scope": "demo", "branch": "main"}),
+        ),
+        store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
 fn query(store: &mut Store, workspace: &str, id: &str) -> Value {
     result(dispatch(
         &request(
@@ -338,9 +352,9 @@ fn record_add_discard_materialize_and_reload_invalidate_at_structural_boundaries
     query(&mut store, &workspace, "after-explicit-reload");
 
     let stats = store.get(&workspace).unwrap().compile_cache_stats();
-    assert_eq!(stats.compiles, 7);
-    assert_eq!(stats.misses, 7);
-    assert_eq!(stats.evictions, 6);
+    assert_eq!(stats.compiles, 6);
+    assert_eq!(stats.misses, 6);
+    assert_eq!(stats.evictions, 5);
     assert_eq!(stats.hits, 1);
 }
 
@@ -400,6 +414,271 @@ fn materialize_installs_the_decision_stamped_base_before_returning() {
     let after_reloaded_read = store.get(&workspace).unwrap().compile_cache_stats();
     assert_eq!(after_reloaded_read.compiles, before_reloaded_read.compiles);
     assert_eq!(after_reloaded_read.hits, before_reloaded_read.hits + 1);
+}
+
+#[test]
+fn stale_main_materialize_installs_the_exact_current_parent_fold() {
+    let (_root, mut store, _path) = fixture();
+    let stale = open(&mut store);
+    let sibling = open(&mut store);
+
+    result(dispatch(
+        &request(
+            "sibling-add",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": sibling,
+                "entity": "mara",
+                "key": "title",
+                "value": "keeper",
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &request(
+            "sibling-materialize",
+            Op::AuthorMaterialize,
+            json!({"workspace": sibling, "rendered": false}),
+        ),
+        &mut store,
+    ));
+
+    result(dispatch(
+        &request(
+            "stale-add",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": stale,
+                "entity": "mara",
+                "key": "color",
+                "value": "blue",
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &request(
+            "stale-materialize",
+            Op::AuthorMaterialize,
+            json!({"workspace": stale, "rendered": false}),
+        ),
+        &mut store,
+    ));
+
+    let mut immediate_query = query_value(&mut store, &stale, "stale-query", "title", "keeper");
+    let immediate_why = why_value(&mut store, &stale, "stale-why", "title", "keeper");
+    let fresh = open_main_branch(&mut store);
+    let mut fresh_query = query_value(&mut store, &fresh, "fresh-query", "title", "keeper");
+    immediate_query.as_object_mut().unwrap().remove("root_hash");
+    fresh_query.as_object_mut().unwrap().remove("root_hash");
+    assert_eq!(
+        immediate_query, fresh_query,
+        "the stale caller must install the complete current-parent fold"
+    );
+    assert_eq!(
+        immediate_why,
+        why_value(&mut store, &fresh, "fresh-why", "title", "keeper"),
+        "immediate explanation must match a fresh main workspace"
+    );
+}
+
+#[test]
+fn stale_main_materialize_remaps_workspace_local_support_by_exact_name() {
+    let (_root, mut store, _path) = fixture();
+    let stale = open(&mut store);
+    let sibling = open(&mut store);
+
+    result(dispatch(
+        &request(
+            "sibling-decision",
+            Op::AuthorRecordDecision,
+            json!({"workspace": sibling, "decision": "d-sibling"}),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &request(
+            "stale-proposal",
+            Op::AuthorAddFact,
+            json!({
+                "workspace": stale,
+                "entity": "mara",
+                "key": "color",
+                "value": "blue",
+                "provenance": {"kind": "proposed", "origin": "stale-skew"}
+            }),
+        ),
+        &mut store,
+    ));
+    result(dispatch(
+        &request(
+            "stale-materialize-skew",
+            Op::AuthorMaterialize,
+            json!({"workspace": stale, "rendered": false}),
+        ),
+        &mut store,
+    ));
+
+    let immediate = query_value(&mut store, &stale, "stale-skew-query", "color", "blue");
+    assert_eq!(
+        immediate["rows"][0]["status"], "possible",
+        "the stale proposal support must not be retargeted to the sibling's true decision"
+    );
+    let immediate_why = why_value(&mut store, &stale, "stale-skew-why", "color", "blue");
+    let fresh = open_main_branch(&mut store);
+    let fresh_why = why_value(&mut store, &fresh, "fresh-skew-why", "color", "blue");
+    assert_eq!(immediate_why, fresh_why);
+    assert_eq!(immediate_why["why_not"]["status"], "possible");
+    assert!(
+        immediate_why["why"]["rendered"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|name| name.as_str() == Some("h.stale-skew")),
+        "the explanation keeps the workspace-local hypothesis name: {immediate_why}"
+    );
+}
+
+#[test]
+fn stale_main_materialize_checks_the_exact_merged_candidate_before_cas() {
+    let root = tempfile::tempdir().unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(concat!(
+        "scope demo\n",
+        "ratify d1\n",
+        "person mara \"Mara\" ratified d1\n",
+        "functional rank\n",
+    ));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "fixture parses: {diagnostics:?}"
+    );
+    let mut store = Store::with_pack(Pack {
+        name: "demo".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let path = root.path().join("lorestore/demo");
+    store
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    let first = open(&mut store);
+    let stale = open(&mut store);
+
+    for (id, workspace, value) in [
+        ("first-rank", first.as_str(), "gold"),
+        ("stale-rank", stale.as_str(), "silver"),
+    ] {
+        result(dispatch(
+            &request(
+                id,
+                Op::AuthorAddFact,
+                json!({
+                    "workspace": workspace,
+                    "entity": "mara",
+                    "key": "rank",
+                    "value": value,
+                    "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+                }),
+            ),
+            &mut store,
+        ));
+    }
+    result(dispatch(
+        &request(
+            "first-materialize",
+            Op::AuthorMaterialize,
+            json!({"workspace": first, "rendered": false}),
+        ),
+        &mut store,
+    ));
+    let pinned_check = result(dispatch(
+        &request("stale-check", Op::AuthorCheck, json!({"workspace": stale})),
+        &mut store,
+    ));
+    assert_eq!(pinned_check["ok"], true, "the stale pre-image is clean");
+
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let head_before = lorestore.root_hash().unwrap();
+    let status_before = result(dispatch(
+        &request(
+            "status-before",
+            Op::AuthorStatus,
+            json!({"workspace": stale}),
+        ),
+        &mut store,
+    ));
+    let refused = dispatch(
+        &request(
+            "stale-invalid-merge",
+            Op::AuthorMaterialize,
+            json!({"workspace": stale, "rendered": false}),
+        ),
+        &mut store,
+    );
+    assert!(!refused.ok, "the merged FD violation must refuse");
+    let error = refused.error.unwrap();
+    assert_eq!(error.code, dli_serve::ErrorCode::MaterializeBlocked);
+    assert!(
+        error.data.unwrap()["blocking"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|code| code == "continuity.fd-violation")
+    );
+    assert_eq!(lorestore.root_hash().unwrap(), head_before);
+    assert_eq!(
+        result(dispatch(
+            &request(
+                "status-after",
+                Op::AuthorStatus,
+                json!({"workspace": stale}),
+            ),
+            &mut store,
+        )),
+        status_before,
+        "refused candidate leaves the live workspace unchanged"
+    );
+}
+
+#[test]
+fn exact_candidate_oracle_does_not_self_report_a_staged_rule_as_duplicate() {
+    let (_root, mut store, _path) = fixture();
+    let workspace = open(&mut store);
+    result(dispatch(
+        &request(
+            "add-rule",
+            Op::AuthorAddRule,
+            json!({
+                "workspace": workspace,
+                "name": "honorific",
+                "head": {"pred": "honored", "args": [{"Var": "x"}]},
+                "body": [{
+                    "atom": {"pred": "rank", "args": [{"Var": "x"}, {"Sym": "gold"}]},
+                    "negated": false
+                }],
+                "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
+            }),
+        ),
+        &mut store,
+    ));
+    let materialized = dispatch(
+        &request(
+            "materialize-rule",
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false}),
+        ),
+        &mut store,
+    );
+    assert!(
+        materialized.ok,
+        "candidate checking must compare the staged rule to the target parent, not to itself: \
+         {materialized:?}"
+    );
 }
 
 #[test]

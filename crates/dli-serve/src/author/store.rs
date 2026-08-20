@@ -70,6 +70,10 @@ pub struct Store {
     /// Deterministic operation counters for the durable base-refresh paths.
     /// They are diagnostic only; no verdict depends on them.
     base_update_stats: BaseUpdateStats,
+    /// Unit-test-only scheduling seam for a ref movement after materialize has
+    /// prepared its exact candidate but before it enters the fenced commit.
+    #[cfg(test)]
+    materialize_pre_cas_hook: Option<fn(&mut Store, &str)>,
 }
 
 /// Diagnostic counts for workspace-base preparation and installation.
@@ -192,6 +196,8 @@ impl Default for Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         }
     }
 }
@@ -224,6 +230,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         }
     }
 
@@ -267,6 +275,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         })
     }
 
@@ -319,6 +329,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         })
     }
 
@@ -896,6 +908,13 @@ impl Store {
         self.base_update_stats
     }
 
+    #[cfg(test)]
+    pub(super) fn run_materialize_pre_cas_hook(&mut self, ws_id: &str) {
+        if let Some(hook) = self.materialize_pre_cas_hook.take() {
+            hook(self, ws_id);
+        }
+    }
+
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
     /// its own single-branch store — one store, one pack lineage.
     #[must_use]
@@ -1432,6 +1451,24 @@ mod tests {
         })
     }
 
+    fn advance_main_ref_before_materialize_cas(store: &mut Store, ws: &str) {
+        let lorestore = store.workspace_lorestore(ws).expect("lorestore");
+        let current = lorestore
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        let token = current.digest().expect("ref digest").to_string();
+        let mut valuation = current.valuation.clone();
+        let atom = dli_core::Atom(0);
+        valuation.set(atom, !valuation.get(atom).unwrap_or(false));
+        let moved = Ref::with_valuation(dli_lorestore::MAIN_REF, current.commit, valuation);
+        assert!(
+            lorestore
+                .cas_main_ref(Some(&token), &moved)
+                .expect("injected ref movement")
+        );
+    }
+
     #[test]
     fn bulk_decision_write_and_cas_failures_leave_ref_and_workspace_unchanged() {
         for fail_cas in [false, true] {
@@ -1505,6 +1542,70 @@ mod tests {
             "the successful CAS must flow directly into the infallible prepared-base install"
         );
         assert_eq!(store.base_update_stats.prepared_installs, 1);
+    }
+
+    #[test]
+    fn ordinary_main_materialize_fences_its_prepared_target_snapshot() {
+        let (_root, mut store, ws, _control) = batch_store();
+        let added = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "add-race".to_owned(),
+                op: crate::Op::AuthorAddFact,
+                params: json!({
+                    "workspace": ws,
+                    "entity": "mara",
+                    "key": "rank",
+                    "value": "silver",
+                    "provenance": {"kind": "proposed", "origin": "cas-race-tooth"}
+                }),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(added.ok, "staging succeeds: {added:?}");
+        let lorestore = store.workspace_lorestore(&ws).expect("lorestore");
+        let head_before = lorestore
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        let root_before = head_before.commit.clone();
+        let ref_digest_before = head_before.digest().expect("ref digest");
+        let workspace_before = semantic_workspace_state(&store, &ws);
+
+        store.materialize_pre_cas_hook = Some(advance_main_ref_before_materialize_cas);
+        let refused = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "materialize-race".to_owned(),
+                op: crate::Op::AuthorMaterialize,
+                params: json!({"workspace": ws, "rendered": false}),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(!refused.ok, "the injected CAS race refuses: {refused:?}");
+        assert_eq!(
+            refused.error.as_ref().map(|error| error.code),
+            Some(crate::ErrorCode::StaleFence),
+            "the prepared target's whole-ref fence names the race"
+        );
+        let head_after = store
+            .workspace_lorestore(&ws)
+            .expect("lorestore")
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        assert_eq!(head_after.commit, root_before);
+        assert_ne!(
+            head_after.digest().expect("ref digest"),
+            ref_digest_before,
+            "the injected valuation-only movement must change whole-ref authority"
+        );
+        assert_eq!(semantic_workspace_state(&store, &ws), workspace_before);
+        assert_eq!(store.base_update_stats.prepared_installs, 0);
     }
 
     #[test]

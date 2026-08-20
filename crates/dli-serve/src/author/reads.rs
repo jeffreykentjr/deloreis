@@ -408,6 +408,44 @@ pub(super) fn workspace_report(
     }
 }
 
+/// Re-run the complete materialize blocking oracle against the exact durable
+/// target-parent plus staged candidate. An ordinary main workspace may have
+/// opened before a sibling commit, so its earlier staged-world report is not a
+/// verdict about the fold the CAS will actually create.
+pub(super) fn materialize_candidate_findings(
+    ws: &Workspace,
+    target_parent: &CompiledWorld,
+    target_documents: &[Document],
+    candidate: &CompiledWorld,
+    carries_data: bool,
+) -> Vec<Finding> {
+    // Rebuild the declaration-resolution census against the candidate rather
+    // than consulting the caller workspace's stale base index. Workspace has
+    // intentionally non-cloneable caches/counters, so replay only the authored
+    // semantic state into a throwaway exact-candidate view.
+    let mut exact = Workspace::new(ws.id.clone(), ws.mode, ws.base_name.clone());
+    for declaration in &ws.decls {
+        exact.push_decl(declaration.clone());
+    }
+    exact.suppositions.clone_from(&ws.suppositions);
+    exact.base_valuation.clone_from(&ws.base_valuation);
+    exact.base_unassigned.clone_from(&ws.base_unassigned);
+    exact.refresh_resolution(target_parent, target_documents);
+
+    let mut findings = workspace_findings(&exact, target_parent);
+    findings.extend(
+        check::run(candidate)
+            .iter()
+            .map(|finding| world_finding(finding, carries_data)),
+    );
+    for report in factcheck(candidate, &staged_claims(&exact.decls)) {
+        if report.verdict == Verdict::Contradicted {
+            findings.push(contradiction_finding(&report));
+        }
+    }
+    dedup_findings(findings)
+}
+
 // -- author.why --------------------------------------------------------------
 
 /// Explain a staged atom's standing: the blocking rulings and defeater (why
