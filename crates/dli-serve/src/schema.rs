@@ -371,6 +371,14 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             schema_for!(AuthorMutationResult),
         ),
         (
+            "author.record_decisions.request".to_owned(),
+            schema_for!(AuthorRecordDecisionsParams),
+        ),
+        (
+            "author.record_decisions.response".to_owned(),
+            schema_for!(AuthorRecordDecisionsResult),
+        ),
+        (
             "author.check.request".to_owned(),
             schema_for!(AuthorCheckParams),
         ),

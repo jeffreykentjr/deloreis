@@ -59,7 +59,7 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:32f2f0e67719d788c6b0ae531642e57293edaa8bfe005e24978f3c359c56bc75",
+          "root_hash": "sha256:be9638d5c5f333c9fd03b4569da0299552928c8ccbacf3ebf87f6cebb9f74d65",
           "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
         }
       }
@@ -83,7 +83,7 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:d458af9d238822af4b7733af1095fb72d5103764a0c1a5853509b2aaa85b9d74",
+          "root_hash": "sha256:144f14dc7c89395f8568ddec8416ef8efaffe37d3779681d9a63ec84df5bebdd",
           "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
         }
       }

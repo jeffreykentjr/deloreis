@@ -111,8 +111,13 @@ mod simulation;
 /// before applying the caller limit (GH #88). The 1.10.0 behavior remains
 /// available to callers negotiating that released version. `1.12.0` adds the
 /// predicate-identity wire socket; its evaluator/lorestore carriage remains a
-/// separate kernel integration.
-pub const CONTRACT_VERSION: &str = "1.12.0";
+/// separate kernel integration. `1.13.0` introduces conditional decision
+/// attacks: `author.defeat` appends an attack edge and grounded standing can
+/// restore a decision when its attacker falls, adds valuation-aware active and
+/// blocked explanation paths, and adds atomic `author.record_decisions`.
+/// Earlier negotiations retain the released one-way Ref-valuation and response
+/// behavior.
+pub const CONTRACT_VERSION: &str = "1.13.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -149,9 +154,11 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// byte-identical; declaring a predicate inertial reshapes its fluent
 /// projection, bounding forward persistence at the next distinct certain
 /// value), and `1.9.0` (the as-of and decision reads), `1.10.0` (the
-/// incremental-canonicalization reads), and `1.11.0` (the GH #88
-/// declared-entity candidate correction, with the 1.10.0 result semantics
-/// retained for that negotiation).
+/// incremental-canonicalization reads), `1.11.0` (the GH #88 declared-entity
+/// candidate correction, with the 1.10.0 result semantics retained for that
+/// negotiation), `1.12.0` (predicate identity), and `1.13.0` (conditional
+/// decision attacks, active/blocked explanations, and atomic decision
+/// batches).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until
@@ -160,7 +167,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -302,6 +309,13 @@ pub fn has_decisions(dli: &str) -> bool {
     at_or_above(dli, (1, 9, 0))
 }
 
+/// Whether the negotiated version carries the atomic bulk decision recorder
+/// (`author.record_decisions`, >= 1.13.0).
+#[must_use]
+pub fn has_bulk_decisions(dli: &str) -> bool {
+    at_or_above(dli, (1, 13, 0))
+}
+
 /// Whether the negotiated version carries the incremental-canonicalization
 /// reads (`author.predicates`, `author.entity_candidates`, ≥ `1.10.0`). A floor
 /// like every gate here, not an equality: this is what `serve::dispatch` gates
@@ -333,6 +347,14 @@ pub fn has_declared_entity_candidates(dli: &str) -> bool {
 #[must_use]
 pub fn has_predicate_identity(dli: &str) -> bool {
     at_or_above(dli, (1, 12, 0))
+}
+
+/// Whether `author.defeat` records conditional attack edges and reads standing
+/// through grounded labelling. Versions through 1.12 retain one-way false Ref
+/// assignments for replay compatibility.
+#[must_use]
+pub fn has_conditional_defeat(dli: &str) -> bool {
+    at_or_above(dli, (1, 13, 0))
 }
 
 /// Whether predicate identity is ready to advertise as a capability. The wire

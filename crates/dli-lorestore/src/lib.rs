@@ -22,6 +22,7 @@
 //! Only the bare parent pointer stays out of the content hash: it belongs to the
 //! commit DAG (as in git), not to the fact.
 
+pub mod attack;
 pub mod cache;
 pub mod canonical;
 pub mod evidence;
@@ -34,6 +35,7 @@ pub mod storage;
 pub mod store;
 pub mod upcast;
 
+pub use attack::{DecisionAttack, EffectiveValuation, GroundedLabel, grounded_labels};
 pub use cache::{CacheStats, DEFAULT_CACHE_CAPACITY};
 pub use canonical::{
     CanonicalError, canonical_bytes, content_hash, digest_bytes, validate_content_address,
@@ -77,7 +79,10 @@ pub use store::{Commit, Ref};
 /// - **v4** — Contract 1.5: the retired `decided` marker is upcast to
 ///   `provisional` at the load boundary. Marker metadata remains outside the
 ///   identity projection, so this migration does not change fact addresses.
-pub const SCHEMA_VERSION: u32 = 4;
+/// - **v5** — Contract 1.13: commits gain a default-empty `attacks` lane of
+///   content-addressed [`DecisionAttack`] objects. Older commits upcast with an
+///   empty lane, preserving their documented one-way Ref valuation semantics.
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Return the canonical standing vocabulary for a stored marker.
 ///
@@ -106,5 +111,6 @@ pub fn schemas() -> Vec<(&'static str, schemars::Schema)> {
         ("ref-v1", schema_for!(Ref)),
         ("evidence-envelope-v1", schema_for!(EvidenceEnvelope)),
         ("lineage-edge-v1", schema_for!(LineageEdge)),
+        ("decision-attack-v1", schema_for!(DecisionAttack)),
     ]
 }

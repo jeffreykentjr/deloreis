@@ -49,8 +49,8 @@ use crate::contract::{
     AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams, AuthorEntityCandidatesParams,
     AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
     AuthorOpenParams, AuthorOpenQuestionParams, AuthorPredicatesParams, AuthorQueryParams,
-    AuthorRecordDecisionParams, AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams,
-    AuthorWhyParams,
+    AuthorRecordDecisionParams, AuthorRecordDecisionsParams, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -98,6 +98,12 @@ fn carries_finding_data(request: &Request) -> bool {
 /// answer to the same version rather than each re-consulting the wire.
 fn records_decisions(request: &Request) -> bool {
     crate::has_decisions(&request.dli)
+}
+
+/// Whether `author.why` carries valuation-aware active and defeated support
+/// paths (contract 1.13+, GH #104/#105).
+fn explains_active_support(request: &Request) -> bool {
+    crate::has_conditional_defeat(&request.dli)
 }
 
 /// Whether `author.entity_candidates` uses the corrected declared-entity
@@ -300,7 +306,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorDefeat => mutate(request, store, |store, request| {
             let params: AuthorDefeatParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::defeat(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::defeat(store, &params, crate::has_conditional_defeat(&request.dli)),
+            ))
         }),
         Op::AuthorDeclareFunctional => mutate(request, store, |store, request| {
             let params: AuthorDeclareFunctionalParams = parse(request)?;
@@ -355,6 +364,15 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
                 tools::record_decision(store, &params, records_citations(request)),
             ))
         }),
+        Op::AuthorRecordDecisions => mutate(request, store, |store, request| {
+            let params: AuthorRecordDecisionsParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            precheck_record_decisions(request, &params)?;
+            Ok((
+                params.workspace.clone(),
+                tools::record_decisions(store, &params, records_citations(request)),
+            ))
+        }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
         // (base + staged) and stages nothing, so they route through `read` — no
         // idempotency caching, only the tool's result or a typed error.
@@ -387,7 +405,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                reads::why(store, &params, records_decisions(request)),
+                reads::why(
+                    store,
+                    &params,
+                    records_decisions(request),
+                    explains_active_support(request),
+                ),
             ))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {
@@ -572,33 +595,61 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
             },
         ));
     }
-    let provenance = &request.params["provenance"];
-    if !crate::has_standing_tools(&request.dli) && provenance.get("state").is_some() {
+    if let Some(message) = provenance_contract_error(&request.dli, &request.params["provenance"]) {
         return Err(error(
             request,
             ErrorBody {
                 code: ErrorCode::SchemaViolation,
-                message: "field `state` is defined only by contract 1.5 cited provenance"
-                    .to_owned(),
-                data: None,
-            },
-        ));
-    }
-    if crate::has_standing_tools(&request.dli)
-        && provenance["kind"] == serde_json::json!("cited")
-        && provenance.get("state").is_none()
-    {
-        return Err(error(
-            request,
-            ErrorBody {
-                code: ErrorCode::SchemaViolation,
-                message: "contract 1.5 cited provenance requires state `provisional` or `ratified`"
-                    .to_owned(),
+                message: message.to_owned(),
                 data: None,
             },
         ));
     }
     Ok(())
+}
+
+/// Apply the ordinary negotiated-provenance fence to every nested record in a
+/// bulk decision request. `precheck` handles only the common top-level
+/// `params.provenance` shape; without this explicit descent, a cited record at
+/// 1.5+ could omit its required state and silently lower as legacy `Decided`.
+fn precheck_record_decisions(
+    request: &Request,
+    params: &AuthorRecordDecisionsParams,
+) -> Result<(), Response> {
+    for (record_index, record) in params.records.iter().enumerate() {
+        let Some(provenance) = request.params["records"][record_index].get("provenance") else {
+            continue;
+        };
+        if let Some(message) = provenance_contract_error(&request.dli, provenance) {
+            return Err(error(
+                request,
+                ErrorBody {
+                    code: ErrorCode::SchemaViolation,
+                    message: message.to_owned(),
+                    data: Some(serde_json::json!({
+                        "record_index": record_index,
+                        "decision": record.decision,
+                    })),
+                },
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The versioned cited-provenance wire rule shared by top-level author calls
+/// and nested bulk-decision records. Messages are the released single-op bytes.
+fn provenance_contract_error(dli: &str, provenance: &serde_json::Value) -> Option<&'static str> {
+    if !crate::has_standing_tools(dli) && provenance.get("state").is_some() {
+        return Some("field `state` is defined only by contract 1.5 cited provenance");
+    }
+    if crate::has_standing_tools(dli)
+        && provenance["kind"] == serde_json::json!("cited")
+        && provenance.get("state").is_none()
+    {
+        return Some("contract 1.5 cited provenance requires state `provisional` or `ratified`");
+    }
+    None
 }
 
 /// A stable fingerprint of a request's mutating content (its op and params), so

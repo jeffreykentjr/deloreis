@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 37 tools you author with)
+## 2. The tool surface (the 38 tools you author with)
 
-The contract's §3.2 table lists 39 `author.*` tools. Two of them,
+The contract's §3.2 table lists 40 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -115,7 +115,7 @@ conflicts rather than blocking on them, so a merge never leaves you stuck. Both
 operate on the durable lorestore's refs, not the staged workspace layer, and
 neither stages a declaration itself.
 
-**The twenty-five mutating tools** (each returns `{findings, workspace_digest}`,
+**The twenty-eight mutating tools** (each returns `{findings, workspace_digest}`,
 plus `rendered` when you ask for it) and **two read-only state ops** (status,
 diff). `author.materialize` is a mutation — it is the accept decision, and
 `author.discard` is the reject.
@@ -171,7 +171,7 @@ compatibility mode.
 | `author.add_state` | **1.3.0.** Assert a time-varying fluent `{id, value?, time?}` — a state that holds over an interval, not forever. `id` may be dotted (`lancelot.oath-status`), and the subject before the dot must be a known entity. `time` is `{kind: after\|during\|since\|until, point}`. Provenance required. |
 | `author.add_attest` | **1.3.0.** Request an attestation `{question}` against a question already open in this workspace. Provenance required. |
 | `author.set_standing` | **1.5.0.** Promote a provisional stored claim `{claim_id, decision}` to ratified, by citing a decision that is declared and occurs in every support path. |
-| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. |
+| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. From **1.13.0**, a newly negotiated defeat is a conditional attack: defeating its attacker restores the target; older wires retain one-way defeat. |
 | `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
 | `author.assert_predicate_same_as` | **1.12.0.** Assert `{left, right}` name the same property: the world closes the claim symmetrically and transitively, carries it into FD/fluent/rule/query consequences, and un-merges those consequences when its support is defeated. Declaration only; no name or value similarity infers identity, and no new `.dli` form is added. Provenance required. |
@@ -179,8 +179,9 @@ compatibility mode.
 | `author.declare_inertial` | **1.8.0.** Declare a predicate `{pred}` inertial (fluent-persistent): a value asserted `since` a point is meant to hold forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `declare_functional`; the continuity check reads it to bound an inertial value's forward persistence at the next distinct certain value (silent transition, `continuity.fluent-order-undeclared` warn, or `continuity.fluent-contradiction`). Provenance required. |
 | `author.as_of` | **1.9.0.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; `author.query` still returns the raw extensional value(s) unmodified. Read-only, no provenance. |
 | `author.record_decision` | **1.9.0.** Record a baseline ratified decision `{decision, rationale?, provenance?}` on the workspace branch — the wire way to reach certainty. It writes a `ratify` for `decision`, so a fact that then cites it reads certain and contradiction checks (`fd-violation`, fluent, inertia) finally fire through `author.*` alone; caller-named id, idempotent on a known one, defeasible by `author.defeat`. This is the taught replacement for the `fixture-authority` hack — **do not** reach for that binary. Optional `provenance` lets the decision rest on prior decisions (integrity-gated). |
+| `author.record_decisions` | **1.13.0.** Atomically record an ordered `{records:[{decision, rationale?, provenance?}, …]}` batch. The whole batch validates before writing; forward and cyclic citations within the batch are legal, duplicates and unknown external citations refuse with `record_index`, and success performs one compile, commit, CAS, and prepared install. Use it instead of a long singleton loop. |
 
-**The seven read tools** let you interrogate the staged world — five to
+**The eight read tools** let you interrogate the staged world — six to
 self-check *before* you materialize (§4), plus `author.predicates` and
 `author.entity_candidates` to reuse an existing predicate or entity name before
 minting a new one. All are read-only and mutate nothing; each names a workspace
@@ -193,7 +194,7 @@ in its params (except `author.list_workspaces`):
 | `author.entity_candidates` | `{workspace, surface, limit}` | `{candidates:[{name, sort, distance}]}` — from **1.11.0**, declared entities whose id is closest to `surface`, nearest first, at most `limit` (capped by the engine); fact-only symbols are excluded before canonicalization and ranking. Candidates are folded to their canonical representative, so an already-merged class appears once. The 1.10.0 wire remains available with its released legacy candidate set. Read it before minting a new entity id to find the coreference candidates worth `assert_same_as`-ing into (contract 1.11.0). |
 | `author.check` | `{workspace}` | `{ok, findings}` — the full check battery (continuity + factcheck + rejected-lore) over the staged world; `ok:true` means no error-severity finding remains. New proposed claims are legitimately unsupported, so only contradictions surface — not "unsupported" noise. |
 | `author.query` | `{workspace, goal_atom, layer?, why?}` | `{rows}` — query the staged world. `goal_atom` is a **typed atom**, written `{"pred": "serves", "args": [{"Sym": "bedivere"}, {"Var": "who"}]}` — each name is plain text, and a `Var` argument is a variable that enumerates matches. A proposed claim reads `status:"possible"`, never `certain`. Unknown predicate → empty rows (not an error). The rendered string `goal` is the retired predecessor: a registered killed form, refused from contract 1.0 naming `goal_atom`, and still answered on a `0.5.1`/`0.6.x` wire. |
-| `author.why` | `{workspace, goal_atom}` (or the rendered `{atom}` string) | `{why_not, why?, supporting_decisions?}` — why an atom can't be certain yet: the blocking rulings and the defeater. `known:false` means the world derives no such atom. From **1.9.0** `supporting_decisions` names the recorded decisions a certain fact rests on — confirm you reached certainty the designed way, through recorded decisions, not a side channel. `goal_atom` is the **typed atom** (same shape as `author.query`'s, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`), and is what makes `supporting_decisions` reachable in a **syntax-free** build — the rendered `atom` string needs the `.dli` front end to parse, so use `goal_atom` for the auditability check when no formatter is linked. |
+| `author.why` | `{workspace, goal_atom}` (or the rendered `{atom}` string) | `{why_not, why?, supporting_decisions?, active_supporting_decision_paths, blocking_defeats, blocked_supports}` — why an atom can't be certain yet. From **1.9.0** `supporting_decisions` names every recorded decision anywhere in the symbolic support. From **1.13.0**, `active_supporting_decision_paths` keeps each currently admissible minimal path separate; `blocking_defeats` gives exact active direct attack pairs only when every path is blocked; and `blocked_supports` pairs each defeated alternative with its own minimal direct blockers. The three 1.13 fields are always arrays: unknown/dead-without-an-attack is `[]`, unconditional active support is `[[]]`, and a live conclusion has empty top-level blockers even if a redundant alternative appears under `blocked_supports`. `goal_atom` is the typed atom (same shape as `author.query`'s) and works in a syntax-free build; the rendered `atom` string needs the `.dli` front end. |
 | `author.list_workspaces` | `{}` | `{workspaces:[{workspace, base, mode, staged, workspace_digest}]}` — context recovery across your open workspaces. |
 | `author.as_of` | `{workspace, pred, subject, at}` | `{pred, subject, at, inertial, capping, contested, inertial_citations, holdings}` — the value(s) in force at `at`, each with its projection/temporal/support and, for a capped inertial value, the DERIVED `until` and the certain defeater that caps it. The one inertia-aware read (contract 1.9.0, DL-0082): unlike `author.query`, it never touches the eval query path — a `(pred, subject)` with no fluent timeline answers empty `holdings`. |
 
@@ -267,7 +268,10 @@ have not interrogated. The read path costs nothing and mutates nothing.
   `status:"possible"` — expected until a resolvable decision citation makes it certain.
 - **`author.why`** answers "why isn't this certain yet?" — `why_not` names the
   blocking rulings and the defeater; `known:false` means the world derives no
-  such atom at all (you referenced something that isn't there).
+  such atom at all. On a 1.13 wire, read `active_supporting_decision_paths` for
+  the currently valid provenance and `blocked_supports` for defeated
+  alternatives. Exact decision ids come from structured evaluator/storage data,
+  never from parsing the rendered explanation.
 - **`author.diff`** / **`author.status`** render the whole staged block (and, for
   `diff`, every open finding and the derived-consequence shift) — the surface a
   human will review.

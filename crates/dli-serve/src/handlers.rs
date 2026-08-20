@@ -143,6 +143,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorDeclareInertial
         | Op::AuthorAsOf
         | Op::AuthorRecordDecision
+        | Op::AuthorRecordDecisions
         | Op::AuthorPredicates
         | Op::AuthorEntityCandidates => Err((
             ErrorCode::Internal,
@@ -1992,6 +1993,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let incremental_canon = crate::has_incremental_canon(dli);
     let predicate_identity =
         crate::has_predicate_identity(dli) && crate::predicate_identity_wired();
+    let bulk_decisions = crate::has_bulk_decisions(dli);
     Op::ALL
         .iter()
         .copied()
@@ -2016,6 +2018,7 @@ fn capabilities(dli: &str) -> Vec<String> {
         })
         .filter(|op| incremental_canon || !op.added_in_1_10_0())
         .filter(|op| predicate_identity || !op.added_in_1_12_0())
+        .filter(|op| bulk_decisions || !op.added_in_1_13_0())
         .map(wire_name)
         .collect()
 }
@@ -2094,6 +2097,19 @@ fn document_store(sessions: &Sessions, document: &str) -> Result<dli_lorestore::
 
 fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CorpusImportParams = params(request)?;
+    if !p.attacks.is_empty() && !crate::has_conditional_defeat(&request.dli) {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "conditional decision attacks require contract 1.13.0".to_owned(),
+        ));
+    }
+    if !p.attacks.is_empty() && p.objects.is_none() {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "conditional decision attacks can be imported only with their exact `objects` carriers"
+                .to_owned(),
+        ));
+    }
     let store = document_store(sessions, &p.document)?;
 
     // "Empty" means **holds no facts**, and nothing weaker.
@@ -2150,6 +2166,7 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                 objects,
                 interner,
                 &p.decisions,
+                &p.attacks,
                 &p.document,
                 crate::validates_claim_ids(&request.dli),
                 &request.dli,
@@ -2182,11 +2199,13 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
 /// resolves to the wrong variable — a `decided d-1` fact reads back as
 /// `proposed assumes __decl`. Carrying the table keeps the exchange lossless
 /// (DL-0056).
+#[allow(clippy::too_many_arguments)]
 fn import_objects(
     store: &dli_lorestore::Lorestore,
     objects: &[serde_json::Value],
     interner: &[String],
     decisions: &[String],
+    attacks: &[serde_json::Value],
     document: &str,
     validate_claim_ids: bool,
     dli: &str,
@@ -2268,6 +2287,21 @@ fn import_objects(
                 .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
         );
     }
+    let mut attack_hashes = Vec::with_capacity(attacks.len());
+    for (index, value) in attacks.iter().enumerate() {
+        let attack: dli_lorestore::DecisionAttack =
+            serde_json::from_value(value.clone()).map_err(|error| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("attack {index} is not a stored decision attack: {error}"),
+                )
+            })?;
+        attack_hashes.push(
+            store
+                .write_object(&attack)
+                .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+        );
+    }
     // `document` is a wire identifier, deliberately decoupled from lore scope —
     // a store committed as `alpha` may legitimately be served as document
     // `beta`. So an append carries the committed name forward; only a seeding
@@ -2278,11 +2312,12 @@ fn import_objects(
         .unwrap_or_else(|| document.to_owned());
 
     store
-        .commit(
+        .commit_with_attacks(
             interner.to_vec(),
             hashes,
             Vec::new(),
             Vec::new(),
+            attack_hashes,
             decisions.to_vec(),
             pack_name,
         )
@@ -2324,6 +2359,10 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
                  `{candidate}`; the scope is read off the newest commit, so every committed \
                  fact's provenance would re-render under a name it was never written in"
             ),
+        ),
+        dli_lorestore::StoreError::NotFound(message) if message.starts_with("decision attack") => (
+            ErrorCode::SchemaViolation,
+            format!("invalid conditional decision attack: {message}"),
         ),
         other => (ErrorCode::Internal, other.to_string()),
     }
@@ -2522,7 +2561,14 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
         // `canon` projects the folded state into the per-domain normalized maps
         // that `parity.json` carries — the store-read equivalent of
         // `compile_lore_dli.py`'s `products()` normalizers (LS-7).
-        CorpusExportFormat::Canon => (Vec::new(), Some(canon_export(&store, &head)?)),
+        CorpusExportFormat::Canon => (
+            Vec::new(),
+            Some(canon_export(
+                &store,
+                &head,
+                crate::has_conditional_defeat(&request.dli),
+            )?),
+        ),
     };
 
     // The name table those objects' support polynomials index into. Exported
@@ -2533,6 +2579,18 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
     let decisions = store
         .decisions_at(&head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let attacks = if crate::has_conditional_defeat(&request.dli) {
+        store
+            .decision_attacks_from(&head)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
+            .into_iter()
+            .map(|attack| {
+                serde_json::to_value(attack).map_err(|e| (ErrorCode::Internal, e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        Vec::new()
+    };
 
     Ok(ok_response(
         request,
@@ -2541,6 +2599,7 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
             objects,
             interner,
             decisions,
+            attacks,
             rendered,
             canon,
         },
@@ -2630,24 +2689,34 @@ fn canon_object_standing(
         compiled_interner,
         &durable_interner,
     )?;
-    if let Some(reference) = store
+    let legacy = store
         .branch_ref(dli_lorestore::MAIN_REF)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .filter(|reference| reference.commit == *head)
-    {
-        let named =
-            dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, durable_names)
-                .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-        named
-            .apply_to(&durable_interner, &mut valuation)
+        .map_or_else(dli_core::Valuation::new, |reference| reference.valuation);
+    let effective = store
+        .effective_valuation_at(head, &legacy)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, durable_names)
             .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-    }
+    named
+        .apply_to(&durable_interner, &mut valuation)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let unassigned =
+        dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, durable_names)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    unassigned
+        .remove_from(&durable_interner, &mut valuation)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
     Ok((valuation, theory))
 }
 
+#[allow(clippy::too_many_lines)]
 fn canon_export(
     store: &dli_lorestore::Lorestore,
     head: &dli_lorestore::ContentHash,
+    include_attacks: bool,
 ) -> Result<serde_json::Value, Fault> {
     let hashes = store
         .fact_hashes_from(head)
@@ -2727,6 +2796,15 @@ fn canon_export(
         "decisions".to_string(),
         serde_json::to_value(&decisions).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
     );
+    if include_attacks {
+        let attacks = store
+            .decision_attacks_from(head)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        canon.insert(
+            "attacks".to_string(),
+            serde_json::to_value(attacks).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+        );
+    }
     // LS-7: the killed-tokens domain is the first per-domain normalizer to land
     // (DL-0065). It projects {killed, worker_projection, rejected_claims,
     // excluded_ratified_surface_collisions} purely from folded fact objects,

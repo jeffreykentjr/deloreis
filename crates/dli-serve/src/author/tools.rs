@@ -13,7 +13,7 @@
 //! error, staging nothing); an **error-severity finding** stages the claim but
 //! bars `author.materialize` until the world is made consistent again.
 
-use std::collections::{BTreeSet, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 
 use serde_json::{Value, json};
 
@@ -50,9 +50,9 @@ use crate::contract::{
     AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
     AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
     AuthorOpenQuestionParams, AuthorOpenResult, AuthorRecordDecisionParams,
-    AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams,
-    BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind, MergeStandingChange,
-    StagedDecl, StateTimeKind,
+    AuthorRecordDecisionsParams, AuthorRecordDecisionsResult, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
+    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -2818,19 +2818,25 @@ pub(super) fn set_standing(
         &params.claim_id,
         &params.decision,
         None,
+        false,
     )
 }
 
 /// Record a defeating decision and rule the claim's existing supporting
 /// decision false on the current main ref. The defeated object remains
 /// reachable in the append-only store.
-pub(super) fn defeat(store: &mut Store, params: &AuthorDefeatParams) -> Result<Value, ErrorBody> {
+pub(super) fn defeat(
+    store: &mut Store,
+    params: &AuthorDefeatParams,
+    conditional: bool,
+) -> Result<Value, ErrorBody> {
     durable_standing_change(
         store,
         &params.workspace,
         &params.claim_id,
         &params.decision,
         Some(&params.defeated_decision),
+        conditional,
     )
 }
 
@@ -2867,6 +2873,11 @@ pub(super) fn record_decision(
         return Err(schema_error(
             "recording a decision requires an attached lorestore",
         ));
+    }
+    if let Some(provenance) = &params.provenance
+        && let Some(refusal) = refuse_cited(store, &params.workspace, provenance, records_citations)
+    {
+        return refusal;
     }
 
     // The `ratify` carriage this op will write. Any `cited` provenance names the
@@ -3007,22 +3018,39 @@ pub(super) fn record_decision(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let effective_valuation = store
+        .workspace_lorestore(&params.workspace)
+        .expect("lorestore presence checked above")
+        .effective_valuation_at(&commit, &current_ref.valuation)
+        .map_err(|error| store_fault(&error))?;
     let source_names = store
         .workspace_lorestore(&params.workspace)
         .expect("lorestore presence checked above")
         .interner_at(&current_ref.commit)
         .map_err(|error| store_fault(&error))?;
-    let named_valuation =
-        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
-            .map_err(|error| ErrorBody {
-                code: ErrorCode::EvidenceCorrupt,
-                message: error.to_string(),
-                data: None,
-            })?;
+    let named_valuation = dli_core::valuation::NamedValuation::from_indexed(
+        &effective_valuation.valuation,
+        &source_names,
+    )
+    .map_err(|error| ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
+        message: error.to_string(),
+        data: None,
+    })?;
+    let named_unassigned = dli_core::valuation::NamedAtomSet::from_indexed(
+        &effective_valuation.unassigned,
+        &source_names,
+    )
+    .map_err(|error| ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
+        message: error.to_string(),
+        data: None,
+    })?;
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
         ws.base_valuation = named_valuation;
+        ws.base_unassigned = named_unassigned;
     }
     // Reconstruct the workspace's base from the new head so the recorded `ratify`
     // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
@@ -3050,6 +3078,297 @@ pub(super) fn record_decision(
     }))
 }
 
+/// Atomically record several baseline supporting decisions in one branch
+/// commit. Validation and the single candidate compile complete before any
+/// object write; after the CAS succeeds, installing that prepared base is an
+/// infallible in-memory swap.
+#[allow(clippy::too_many_lines)]
+pub(super) fn record_decisions(
+    store: &mut Store,
+    params: &AuthorRecordDecisionsParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if params.records.is_empty() {
+        return Err(schema_error(
+            "author.record_decisions requires at least one record",
+        ));
+    }
+    let ws0 = store.get(&params.workspace).ok_or_else(gone)?;
+    let digest = ws0.digest.clone();
+    let target_branch = target_ref_name(ws0).to_owned();
+    if store.workspace_lorestore(&params.workspace).is_none() {
+        return Err(schema_error(
+            "recording decisions requires an attached lorestore",
+        ));
+    }
+
+    // One immutable pre-image read for the entire request. `reconstruct_at`
+    // gives the exact target-branch pack to which the new Ratify carriages will
+    // be appended, including branch-only and pinned-origin state.
+    let (
+        head,
+        head_ref,
+        mut interner,
+        mut decisions,
+        mut candidate_pack,
+        named_valuation,
+        named_unassigned,
+    ) = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let head_ref = ls
+            .branch_ref(&target_branch)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| {
+                schema_error("the lorestore has no ref for this workspace's target branch")
+            })?;
+        let head = head_ref.commit.clone();
+        let interner = ls.interner_at(&head).map_err(|error| store_fault(&error))?;
+        let effective = ls
+            .effective_valuation_at(&head, &head_ref.valuation)
+            .map_err(|error| store_fault(&error))?;
+        let named_valuation =
+            dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, &interner)
+                .map_err(|error| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message: error.to_string(),
+                    data: None,
+                })?;
+        let named_unassigned =
+            dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, &interner)
+                .map_err(|error| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message: error.to_string(),
+                    data: None,
+                })?;
+        let decisions = ls
+            .decisions_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        let pack = ls
+            .reconstruct_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        (
+            head,
+            head_ref,
+            interner,
+            decisions,
+            pack,
+            named_valuation,
+            named_unassigned,
+        )
+    };
+
+    let existing: BTreeSet<String> = decisions.iter().cloned().collect();
+    let mut citation_universe = existing.clone();
+    citation_universe.extend(params.records.iter().map(|record| record.decision.clone()));
+
+    // Build every declaration and validate against the complete batch universe.
+    // That makes forward references legal. Ratify citations are referential
+    // metadata, so cycles remain legal exactly as in the existing world loader.
+    let mut declarations = Vec::with_capacity(params.records.len());
+    let mut findings = Vec::new();
+    let mut first_index = BTreeMap::<String, usize>::new();
+    for (index, record) in params.records.iter().enumerate() {
+        if let Some(first) = first_index.get(&record.decision).copied() {
+            findings.push(Finding {
+                severity: Severity::Error,
+                code: "decision.duplicate-in-batch".to_owned(),
+                message: format!(
+                    "decision '{}' occurs more than once in this batch",
+                    record.decision
+                ),
+                grade: Grade::Checked,
+                repair: None,
+                citations: Vec::new(),
+                data: Some(json!({
+                    "record_index": index,
+                    "first_index": first,
+                    "decision": record.decision,
+                })),
+            });
+        } else {
+            first_index.insert(record.decision.clone(), index);
+        }
+        if !records_citations
+            && matches!(record.provenance.as_ref(), Some(Provenance::Cited { .. }))
+        {
+            let mut finding = cited_refused();
+            finding.data = Some(json!({
+                "record_index": index,
+                "decision": record.decision,
+            }));
+            findings.push(finding);
+        }
+        let cited = match &record.provenance {
+            Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),
+            _ => Vec::new(),
+        };
+        let ratify = Decl::Ratify(RatifyDecl {
+            decision: ident(&record.decision),
+            body: dli_ast::language::RatifyBody {
+                clauses: Vec::new(),
+                citations: cited,
+            },
+        });
+        let mut record_findings = control_char_findings(&ratify);
+        if let Some(rationale) = record.rationale.as_deref()
+            && let Some(finding) = field_control("rationale", rationale)
+        {
+            record_findings.push(finding);
+        }
+        record_findings.extend(citation_findings(&ratify, &citation_universe));
+        for finding in &mut record_findings {
+            finding.data = Some(json!({
+                "record_index": index,
+                "decision": record.decision,
+            }));
+        }
+        findings.extend(record_findings);
+        declarations.push(ratify);
+    }
+
+    let already_known = params
+        .records
+        .iter()
+        .filter(|record| existing.contains(&record.decision))
+        .count();
+    if findings
+        .iter()
+        .any(|finding| finding.severity == Severity::Error)
+    {
+        return Ok(value(&AuthorRecordDecisionsResult {
+            mutation: AuthorMutationResult {
+                findings,
+                rendered: Vec::new(),
+                workspace_digest: digest,
+                root_hash: Some(head.to_string()),
+                facts: None,
+            },
+            requested: params.records.len(),
+            already_known,
+            recorded: 0,
+        }));
+    }
+
+    let new_declarations: Vec<Decl> = params
+        .records
+        .iter()
+        .zip(declarations)
+        .filter_map(|(record, decl)| (!existing.contains(&record.decision)).then_some(decl))
+        .collect();
+    if new_declarations.is_empty() {
+        return Ok(value(&AuthorRecordDecisionsResult {
+            mutation: AuthorMutationResult {
+                findings: Vec::new(),
+                rendered: Vec::new(),
+                workspace_digest: digest,
+                root_hash: Some(head.to_string()),
+                facts: None,
+            },
+            requested: params.records.len(),
+            already_known,
+            recorded: 0,
+        }));
+    }
+
+    // Append names in request order, exactly as successful repeated singles do.
+    for record in &params.records {
+        if existing.contains(&record.decision) {
+            continue;
+        }
+        decisions.push(record.decision.clone());
+        if !interner.iter().any(|name| name == &record.decision) {
+            interner.push(record.decision.clone());
+        }
+    }
+
+    // Candidate pack preparation is the one full compile. Ratify declarations
+    // have no proposal bundle side effects, and appending them to the current
+    // reconstructed document matches their durable carriage order on reopen.
+    if let Some(document) = candidate_pack.documents.first_mut() {
+        document.decls.extend(new_declarations.iter().cloned());
+    } else {
+        candidate_pack.documents.push(Document {
+            scope: (!candidate_pack.name.is_empty()).then(|| ScopeHeader {
+                name: Ident::synthetic(&candidate_pack.name),
+                span: Span::synthetic(),
+            }),
+            decls: new_declarations.clone(),
+        });
+    }
+    let prepared = store
+        .prepare_workspace_base(
+            &params.workspace,
+            candidate_pack,
+            named_valuation,
+            named_unassigned,
+        )
+        .map_err(|error| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("compiling the bulk decision candidate: {error}"),
+            data: None,
+        })?;
+
+    let receipt = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let mut lower_interner = dli_core::Interner::from_names(interner.clone());
+        let mut bundle_counter = 0;
+        let mut fact_hashes = Vec::new();
+        for declaration in &new_declarations {
+            for object in dli_lorestore::lower::lower_decl(
+                declaration,
+                &prepared.pack.name,
+                &mut lower_interner,
+                &mut bundle_counter,
+            ) {
+                fact_hashes.push(
+                    ls.write_object(&object)
+                        .map_err(|error| store_fault(&error))?,
+                );
+            }
+        }
+        ls.commit_on_branch_at_ref(
+            &target_branch,
+            Some(
+                &head_ref
+                    .digest()
+                    .map_err(|error| schema_error(error.to_string()))?
+                    .to_string(),
+            ),
+            interner.clone(),
+            fact_hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            prepared.pack.name.clone(),
+        )
+        .map_err(|error| store_fault(&error))?
+    };
+
+    let workspace_digest = store.install_prepared_workspace_base(
+        &params.workspace,
+        prepared,
+        interner,
+        &receipt.commit,
+        &receipt.ref_digest,
+    );
+    Ok(value(&AuthorRecordDecisionsResult {
+        mutation: AuthorMutationResult {
+            findings: Vec::new(),
+            rendered: Vec::new(),
+            workspace_digest,
+            root_hash: Some(receipt.commit.to_string()),
+            facts: None,
+        },
+        requested: params.records.len(),
+        already_known,
+        recorded: new_declarations.len(),
+    }))
+}
+
 #[allow(clippy::too_many_lines)]
 fn durable_standing_change(
     store: &mut Store,
@@ -3057,6 +3376,7 @@ fn durable_standing_change(
     claim_id: &str,
     decision: &str,
     defeated_decision: Option<&str>,
+    conditional: bool,
 ) -> Result<Value, ErrorBody> {
     let defeating = defeated_decision.is_some();
     let ws0 = store.get(workspace).ok_or_else(gone)?;
@@ -3122,7 +3442,7 @@ fn durable_standing_change(
         preflight_ref_valuation(ls, &head_ref, &interner)?;
     }
 
-    let Some((_, mut object)) = target.take() else {
+    let Some((subject_fact_hash, mut object)) = target.take() else {
         return Err(ErrorBody {
             code: ErrorCode::UnknownDoc,
             message: format!("no stored claim has claim_id `{claim_id}`"),
@@ -3143,7 +3463,7 @@ fn durable_standing_change(
 
     if defeating {
         let defeated_decision = defeated_decision.expect("defeat carries a supporting decision");
-        if defeated_decision == decision {
+        if defeated_decision == decision && !conditional {
             return Err(schema_error(
                 "author.defeat requires distinct defeating and defeated decisions",
             ));
@@ -3158,15 +3478,21 @@ fn durable_standing_change(
                 facts: None,
             }));
         }
-        if !support_cites_decision(&object, &interner, defeated_decision) {
+        let ratify_carrier = conditional
+            && object.expert_body.as_ref().is_some_and(|body| {
+                body.kind == dli_lorestore::ExpertDeclKind::Ratify && body.name == defeated_decision
+            });
+        if !ratify_carrier && !support_cites_decision(&object, &interner, defeated_decision) {
             return Err(schema_error(format!(
                 "claim `{claim_id}` does not rest on decision `{defeated_decision}` in every support path"
             )));
         }
-        object
-            .provenance
-            .get_or_insert_with(Default::default)
-            .defeated_by = Some(decision.to_owned());
+        if !conditional {
+            object
+                .provenance
+                .get_or_insert_with(Default::default)
+                .defeated_by = Some(decision.to_owned());
+        }
     } else {
         let marker = object
             .provenance
@@ -3194,8 +3520,8 @@ fn durable_standing_change(
     if defeating && !interner.iter().any(|name| name == decision) {
         interner.push(decision.to_owned());
     }
-    let defeat_atom = if let Some(defeated_decision) = defeated_decision {
-        Some(
+    let defeat_atom = match (defeated_decision, conditional) {
+        (Some(defeated_decision), false) => Some(
             interner
                 .iter()
                 .position(|name| name == defeated_decision)
@@ -3206,9 +3532,8 @@ fn durable_standing_change(
                         "defeated decision `{defeated_decision}` has no interner atom"
                     ))
                 })?,
-        )
-    } else {
-        None
+        ),
+        _ => None,
     };
 
     let (commit, ref_digest) = {
@@ -3234,12 +3559,28 @@ fn durable_standing_change(
         } else {
             Vec::new()
         };
-        fact_hashes.push(
-            ls.write_object(&object)
-                .map_err(|error| store_fault(&error))?,
-        );
+        if !conditional {
+            fact_hashes.push(
+                ls.write_object(&object)
+                    .map_err(|error| store_fault(&error))?,
+            );
+        }
+        let attack_hashes = if conditional {
+            let attack = dli_lorestore::DecisionAttack::new(
+                object.claim_id.clone(),
+                subject_fact_hash,
+                decision,
+                defeated_decision.expect("conditional defeat carries a target"),
+            );
+            vec![
+                ls.write_object(&attack)
+                    .map_err(|error| store_fault(&error))?,
+            ]
+        } else {
+            Vec::new()
+        };
         let receipt = ls
-            .commit_on_branch_at_ref(
+            .commit_on_branch_with_attacks_at_ref(
                 &target_branch,
                 Some(
                     &head_ref
@@ -3251,6 +3592,7 @@ fn durable_standing_change(
                 fact_hashes,
                 Vec::new(),
                 Vec::new(),
+                attack_hashes,
                 decisions,
                 pack_name,
             )
@@ -3258,7 +3600,7 @@ fn durable_standing_change(
         (receipt.commit, receipt.ref_digest)
     };
 
-    if defeating {
+    if defeating && !conditional {
         let ls = store
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above");
@@ -3299,30 +3641,64 @@ fn durable_standing_change(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let effective_valuation = if conditional {
+        store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above")
+            .effective_valuation_at(&commit, &current_ref.valuation)
+            .map_err(|error| store_fault(&error))?
+    } else {
+        dli_lorestore::EffectiveValuation {
+            valuation: current_ref.valuation.clone(),
+            unassigned: BTreeSet::new(),
+        }
+    };
     let source_names = store
         .workspace_lorestore(workspace)
         .expect("lorestore presence checked above")
         .interner_at(&current_ref.commit)
         .map_err(|error| store_fault(&error))?;
-    let named_valuation =
-        dli_core::valuation::NamedValuation::from_indexed(&current_ref.valuation, &source_names)
-            .map_err(|error| ErrorBody {
-                code: ErrorCode::EvidenceCorrupt,
-                message: error.to_string(),
-                data: None,
-            })?;
+    let named_valuation = dli_core::valuation::NamedValuation::from_indexed(
+        &effective_valuation.valuation,
+        &source_names,
+    )
+    .map_err(|error| ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
+        message: error.to_string(),
+        data: None,
+    })?;
+    let named_unassigned = dli_core::valuation::NamedAtomSet::from_indexed(
+        &effective_valuation.unassigned,
+        &source_names,
+    )
+    .map_err(|error| ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
+        message: error.to_string(),
+        data: None,
+    })?;
     if let Some((_, ws)) = store.parts_mut(workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
         ws.base_valuation = named_valuation;
+        ws.base_unassigned = named_unassigned;
     }
-    store
-        .refresh_workspace_valuation(workspace)
-        .map_err(|message| ErrorBody {
-            code: ErrorCode::Internal,
-            message: format!("refreshing the workspace after changing standing: {message}"),
-            data: None,
-        })?;
+    if conditional {
+        store
+            .reload_workspace_base(workspace)
+            .map_err(|message| ErrorBody {
+                code: ErrorCode::Internal,
+                message: format!("refreshing the workspace after conditional defeat: {message}"),
+                data: None,
+            })?;
+    } else {
+        store
+            .refresh_workspace_valuation(workspace)
+            .map_err(|message| ErrorBody {
+                code: ErrorCode::Internal,
+                message: format!("refreshing the workspace after changing standing: {message}"),
+                data: None,
+            })?;
+    }
     let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

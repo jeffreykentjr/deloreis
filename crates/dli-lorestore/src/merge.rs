@@ -36,7 +36,7 @@ use std::sync::Arc;
 use dli_core::ann::Status;
 use dli_core::atom::Atom;
 use dli_core::fd::{fd_violations, inferred_functional};
-use dli_core::valuation::{NamedValuation, Valuation};
+use dli_core::valuation::{NamedAtomSet, NamedValuation, Valuation};
 use dli_eval::error::EvalError;
 use dli_eval::fork::{Conflict, ConflictKind};
 use dli_world::CompiledWorld;
@@ -212,7 +212,9 @@ pub(crate) fn scan(
     target_interner: &[String],
     source_val: &Valuation,
     source_interner: &[String],
-    merged_val: &Valuation,
+    target_effective: &crate::EffectiveValuation,
+    source_effective: &crate::EffectiveValuation,
+    merged_effective: &crate::EffectiveValuation,
     merged_interner: &[String],
 ) -> Result<ConflictScan, StoreError> {
     // Class 1 — valuation disagreement, straight off the two overlays.
@@ -225,9 +227,9 @@ pub(crate) fn scan(
     let mut conflicts =
         valuation_conflicts(&target_for_merged, &source_for_merged, merged_interner);
 
-    let merged_named = overlay_to_named(merged_val, merged_interner);
-    let target_named = target_named.0;
-    let source_named = source_named.0;
+    let merged_named = overlay_to_named(merged_effective, merged_interner)?;
+    let target_named = overlay_to_named(target_effective, target_interner)?;
+    let source_named = overlay_to_named(source_effective, source_interner)?;
 
     // The union's compiled world, through the session cache in both directions.
     //
@@ -540,16 +542,20 @@ fn constraint_finding(conflict: &Conflict) -> WorldFinding {
 }
 
 /// Resolve overlay atom indices to names through the (merged) interner.
-fn overlay_to_named(overlay: &Valuation, interner_names: &[String]) -> BTreeMap<String, bool> {
-    overlay
-        .0
-        .iter()
-        .filter_map(|(atom, &value)| {
-            interner_names
-                .get(atom.0 as usize)
-                .map(|name| (name.clone(), value))
-        })
-        .collect()
+fn overlay_to_named(
+    overlay: &crate::EffectiveValuation,
+    interner_names: &[String],
+) -> Result<BTreeMap<String, Option<bool>>, StoreError> {
+    let mut named: BTreeMap<_, _> =
+        NamedValuation::from_indexed(&overlay.valuation, interner_names)?
+            .0
+            .into_iter()
+            .map(|(name, value)| (name, Some(value)))
+            .collect();
+    for name in NamedAtomSet::from_indexed(&overlay.unassigned, interner_names)?.0 {
+        named.insert(name, None);
+    }
+    Ok(named)
 }
 
 /// The compiled world's base valuation with a name-keyed overlay applied — robust
@@ -557,10 +563,37 @@ fn overlay_to_named(overlay: &Valuation, interner_names: &[String]) -> BTreeMap<
 /// world (names are the stable key).
 fn effective(
     world: &CompiledWorld,
-    named: &BTreeMap<String, bool>,
+    named: &BTreeMap<String, Option<bool>>,
 ) -> Result<Valuation, StoreError> {
     let mut eff = world.model.world.valuation.clone();
-    NamedValuation(named.clone()).apply_to(&world.model.world.interner, &mut eff)?;
+    let target_names: std::collections::BTreeSet<&str> = world
+        .model
+        .world
+        .interner
+        .names()
+        .iter()
+        .map(String::as_str)
+        .collect();
+    // Attack-only recorded decisions legitimately have no atom in a compiled
+    // fact/rule world. They cannot affect this world's constraint or standing
+    // scan, so project only the exact names that the receiver represents.
+    let assignments = NamedValuation(
+        named
+            .iter()
+            .filter(|(name, _)| target_names.contains(name.as_str()))
+            .filter_map(|(name, value)| value.map(|value| (name.clone(), value)))
+            .collect(),
+    );
+    let unassigned = NamedAtomSet(
+        named
+            .iter()
+            .filter(|(name, _)| target_names.contains(name.as_str()))
+            .filter(|(_, value)| value.is_none())
+            .map(|(name, _)| name.clone())
+            .collect(),
+    );
+    assignments.apply_to(&world.model.world.interner, &mut eff)?;
+    unassigned.remove_from(&world.model.world.interner, &mut eff)?;
     Ok(eff)
 }
 

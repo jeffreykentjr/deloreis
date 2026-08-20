@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::{NamedValuation, ValuationRemapError};
+use dli_core::valuation::{NamedAtomSet, NamedValuation, ValuationRemapError};
 use dli_eval::error::EvalError;
 use dli_world::pack::Pack;
 use dli_world::{CompiledWorld, compile};
@@ -67,6 +67,33 @@ pub struct Store {
     /// lorestore handle: an external CAS after load must not mix its state into
     /// an already loaded project.
     snapshots: BTreeMap<String, StoreSnapshot>,
+    /// Deterministic operation counters for the durable base-refresh paths.
+    /// They are diagnostic only; no verdict depends on them.
+    base_update_stats: BaseUpdateStats,
+}
+
+/// Diagnostic counts for workspace-base preparation and installation.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BaseUpdateStats {
+    /// Full candidate compiles prepared before a bulk commit.
+    pub prepared_compiles: usize,
+    /// Legacy reconstruct/compile reloads.
+    pub reloads: usize,
+    /// Infallible installs of a successfully committed prepared base.
+    pub prepared_installs: usize,
+}
+
+/// A fully compiled base and the exact durable standing snapshot applied to it.
+///
+/// Keeping the structural world and its named overlay together prevents an
+/// infallible post-CAS install from accidentally reusing workspace-stale
+/// standing state.
+#[derive(Debug)]
+pub struct PreparedWorkspaceBase {
+    pub(super) pack: Pack,
+    pub(super) world: CompiledWorld,
+    pub(super) base_valuation: NamedValuation,
+    pub(super) base_unassigned: NamedAtomSet,
 }
 
 const MAX_DISCARD_REPLAYS: usize = 1024;
@@ -84,6 +111,7 @@ struct Base {
 struct StoreSnapshot {
     commit: dli_lorestore::ContentHash,
     valuation: NamedValuation,
+    unassigned: NamedAtomSet,
     ref_digest: Option<String>,
 }
 
@@ -163,6 +191,7 @@ impl Default for Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         }
     }
 }
@@ -194,6 +223,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         }
     }
 
@@ -236,6 +266,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         })
     }
 
@@ -287,6 +318,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         })
     }
 
@@ -388,14 +420,44 @@ impl Store {
                     bundle_counter = bundle_counter.max(n + 1);
                 }
             }
-            let named_valuation =
-                NamedValuation::from_indexed(&branch_ref.valuation, &branch_names)
-                    .map_err(OpenError::ValuationRemap)?;
+            let effective = ls
+                .effective_valuation_at(&head, &branch_ref.valuation)
+                .map_err(|error| match error {
+                    dli_lorestore::StoreError::ValuationRemap(error) => {
+                        OpenError::ValuationRemap(error)
+                    }
+                    other => OpenError::BranchCompile(other.to_string()),
+                })?;
+            let named_valuation = NamedValuation::from_indexed(&effective.valuation, &branch_names)
+                .map_err(OpenError::ValuationRemap)?;
+            let named_unassigned = NamedAtomSet::from_indexed(&effective.unassigned, &branch_names)
+                .map_err(OpenError::ValuationRemap)?;
+            let declared_decisions: BTreeSet<&str> = pack
+                .documents
+                .iter()
+                .flat_map(|document| &document.decls)
+                .filter_map(|decl| match decl {
+                    Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
+                    _ => None,
+                })
+                .collect();
+            for name in named_valuation
+                .0
+                .keys()
+                .chain(named_unassigned.0.iter())
+                .filter(|name| declared_decisions.contains(name.as_str()))
+            {
+                world.model.world.interner.intern(name);
+            }
             let target_interner = world.model.interner().clone();
             named_valuation
                 .apply_to(&target_interner, &mut world.model.world.valuation)
                 .map_err(OpenError::ValuationRemap)?;
+            named_unassigned
+                .remove_from(&target_interner, &mut world.model.world.valuation)
+                .map_err(OpenError::ValuationRemap)?;
             workspace.base_valuation = named_valuation;
+            workspace.base_unassigned = named_unassigned;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
@@ -469,6 +531,7 @@ impl Store {
         if let Some(snapshot) = self.snapshots.get(&base_key) {
             workspace.base_root_hash = Some(snapshot.commit.to_string());
             workspace.base_valuation = snapshot.valuation.clone();
+            workspace.base_unassigned.clone_from(&snapshot.unassigned);
             if let Some(origin_ref) = pinned_origin_ref.flatten() {
                 workspace.base_ref_digest = origin_ref.digest().ok().map(|digest| digest.0);
             } else {
@@ -554,6 +617,7 @@ impl Store {
     /// its target branch has no ref, or the reconstructed pack fails to
     /// recompile.
     pub fn reload_workspace_base(&mut self, ws_id: &str) -> Result<(), String> {
+        self.base_update_stats.reloads += 1;
         let base_key = self
             .workspace_bases
             .get(ws_id)
@@ -572,11 +636,14 @@ impl Store {
             .lorestores
             .get(&base_key)
             .ok_or_else(|| format!("workspace `{ws_id}` has no attached lorestore"))?;
-        let current_ref = ls
+        let branch_ref = ls
             .branch_ref(&target)
             .map_err(|error| error.to_string())?
             .ok_or_else(|| format!("branch `{target}` has no ref"))?;
-        let head = current_ref.commit.clone();
+        let head = branch_ref.commit.clone();
+        let effective_valuation = ls
+            .effective_valuation_at(&head, &branch_ref.valuation)
+            .map_err(|error| error.to_string())?;
         // Through the session cache, as branch-open above: a reload after a
         // materialize that did not advance the target branch is a pure repeat,
         // and the reload that follows one that did lands on a commit the merge
@@ -585,12 +652,22 @@ impl Store {
             .reconstruct_at(&head)
             .map_err(|error| error.to_string())?;
         let interner = ls.interner_at(&head).map_err(|error| error.to_string())?;
-        let named_valuation = NamedValuation::from_indexed(&current_ref.valuation, &interner)
-            .map_err(|error| error.to_string())?;
+        let named_valuation =
+            NamedValuation::from_indexed(&effective_valuation.valuation, &interner)
+                .map_err(|error| error.to_string())?;
+        let named_unassigned =
+            NamedAtomSet::from_indexed(&effective_valuation.unassigned, &interner)
+                .map_err(|error| error.to_string())?;
         let mut world = ls.compile_at(&head).map_err(|error| error.to_string())?;
+        for name in named_valuation.0.keys().chain(named_unassigned.0.iter()) {
+            world.model.world.interner.intern(name);
+        }
         let target_interner = world.model.interner().clone();
         named_valuation
             .apply_to(&target_interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        named_unassigned
+            .remove_from(&target_interner, &mut world.model.world.valuation)
             .map_err(|error| error.to_string())?;
         world.killed = killed;
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
@@ -606,8 +683,9 @@ impl Store {
             ws.interner = dli_core::atom::Interner::from_names(interner);
             ws.bundle_counter = bundle;
             ws.base_root_hash = Some(head.to_string());
+            ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             ws.base_valuation = named_valuation;
-            ws.base_ref_digest = current_ref.digest().ok().map(|digest| digest.0);
+            ws.base_unassigned = named_unassigned;
         }
         let refreshed = Base {
             world,
@@ -638,6 +716,11 @@ impl Store {
             .get(ws_id)
             .map(|workspace| workspace.base_valuation.clone())
             .ok_or_else(|| format!("workspace `{ws_id}` is not open"))?;
+        let unassigned = self
+            .workspaces
+            .get(ws_id)
+            .map(|workspace| workspace.base_unassigned.clone())
+            .ok_or_else(|| format!("workspace `{ws_id}` is not open"))?;
         let current = self
             .branch_bases
             .get(ws_id)
@@ -662,14 +745,115 @@ impl Store {
                 .filter(|(name, _)| target_names.contains(name.as_str()))
                 .collect(),
         );
+        let base_unassigned = NamedAtomSet(
+            unassigned
+                .0
+                .into_iter()
+                .filter(|name| target_names.contains(name.as_str()))
+                .collect(),
+        );
         base_named
             .apply_to(&target_interner, &mut refreshed.world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        base_unassigned
+            .remove_from(&target_interner, &mut refreshed.world.model.world.valuation)
             .map_err(|error| error.to_string())?;
         if let Some(workspace) = self.workspaces.get_mut(ws_id) {
             workspace.refresh_resolution(&refreshed.world, &refreshed.documents);
         }
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
+    }
+
+    /// Compile a complete candidate workspace base before a durable batch write.
+    /// The returned pack/world pair is ready for an infallible install after the
+    /// branch CAS succeeds.
+    pub fn prepare_workspace_base(
+        &mut self,
+        ws_id: &str,
+        pack: Pack,
+        base_valuation: NamedValuation,
+        base_unassigned: NamedAtomSet,
+    ) -> Result<PreparedWorkspaceBase, StoreError> {
+        let killed = self
+            .workspace_base(ws_id)
+            .map(|base| base.killed.clone())
+            .unwrap_or_default();
+        let mut world = compile(&pack)?;
+        world.killed = killed;
+        debug_assert!(self.workspaces.contains_key(ws_id));
+        for name in base_valuation.0.keys().chain(base_unassigned.0.iter()) {
+            world.model.world.interner.intern(name);
+        }
+        let target_interner = world.model.interner().clone();
+        base_valuation.apply_to(&target_interner, &mut world.model.world.valuation)?;
+        base_unassigned.remove_from(&target_interner, &mut world.model.world.valuation)?;
+        self.base_update_stats.prepared_compiles += 1;
+        Ok(PreparedWorkspaceBase {
+            pack,
+            world,
+            base_valuation,
+            base_unassigned,
+        })
+    }
+
+    /// Install a base that was compiled before its commit/CAS. Every fallible
+    /// operation has already succeeded; this method only swaps owned in-memory
+    /// state, so a successful durable batch cannot be followed by a refresh
+    /// failure that reports an ambiguous outcome.
+    pub fn install_prepared_workspace_base(
+        &mut self,
+        ws_id: &str,
+        prepared: PreparedWorkspaceBase,
+        interner: Vec<String>,
+        commit: &dli_lorestore::ContentHash,
+        ref_digest: &dli_lorestore::ContentHash,
+    ) -> String {
+        let mut bundle = 0u32;
+        let prefix = self
+            .workspaces
+            .get(ws_id)
+            .map(|ws| format!("h.{}#", ws.base_name))
+            .unwrap_or_default();
+        for name in &interner {
+            if let Some(rest) = name.strip_prefix(&prefix)
+                && let Ok(value) = rest.parse::<u32>()
+            {
+                bundle = bundle.max(value + 1);
+            }
+        }
+        let PreparedWorkspaceBase {
+            pack,
+            world,
+            base_valuation,
+            base_unassigned,
+        } = prepared;
+        let refreshed = Base {
+            world,
+            documents: pack.documents,
+            pack_name: pack.name,
+        };
+        let ws = self
+            .workspaces
+            .get_mut(ws_id)
+            .expect("prepared base belongs to a live workspace");
+        ws.base_root_hash = Some(commit.to_string());
+        ws.base_ref_digest = Some(ref_digest.to_string());
+        ws.interner = dli_core::atom::Interner::from_names(interner);
+        ws.bundle_counter = bundle;
+        ws.base_valuation = base_valuation;
+        ws.base_unassigned = base_unassigned;
+        ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        let digest = ws.digest.clone();
+        self.branch_bases.insert(ws_id.to_owned(), refreshed);
+        self.base_update_stats.prepared_installs += 1;
+        digest
+    }
+
+    /// Diagnostic operation counts used by deterministic scale tests.
+    #[must_use]
+    pub const fn base_update_stats(&self) -> BaseUpdateStats {
+        self.base_update_stats
     }
 
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
@@ -684,6 +868,31 @@ impl Store {
     pub fn workspace_lorestore(&self, ws_id: &str) -> Option<&dli_lorestore::Lorestore> {
         let base_key = self.workspace_bases.get(ws_id)?;
         self.lorestores.get(base_key)
+    }
+
+    /// Conditional decision attacks folded at the exact commit this workspace
+    /// currently reads. Demo/in-memory workspaces have no durable attack lane
+    /// and therefore return an empty set.
+    pub fn workspace_decision_attacks(
+        &self,
+        ws_id: &str,
+    ) -> Result<Vec<dli_lorestore::DecisionAttack>, String> {
+        let Some(workspace) = self.workspaces.get(ws_id) else {
+            return Err(format!("no workspace named `{ws_id}` is open"));
+        };
+        let Some(lorestore) = self.workspace_lorestore(ws_id) else {
+            return Ok(Vec::new());
+        };
+        let Some(head) = workspace
+            .base_root_hash
+            .as_deref()
+            .and_then(dli_lorestore::ContentHash::parse)
+        else {
+            return Ok(Vec::new());
+        };
+        lorestore
+            .decision_attacks_from(&head)
+            .map_err(|error| error.to_string())
     }
 
     /// Mutable access to the lorestore backing a workspace's base.
@@ -742,6 +951,7 @@ impl Store {
     /// materialize writes — but the *served* world stays the pinned commit
     /// until the manifest says otherwise, which is what makes a pinned project
     /// replayable.
+    #[allow(clippy::too_many_arguments)]
     pub fn register_store_origin(
         &mut self,
         key: String,
@@ -749,18 +959,24 @@ impl Store {
         pinned: bool,
         commit: dli_lorestore::ContentHash,
         valuation: NamedValuation,
+        unassigned: NamedAtomSet,
         ref_digest: Option<String>,
     ) -> Result<(), StoreError> {
         self.origins.insert(key.clone(), origin);
         if let Some(base) = self.bases.get_mut(&key) {
+            for name in valuation.0.keys().chain(unassigned.0.iter()) {
+                base.world.model.world.interner.intern(name);
+            }
             let target_interner = base.world.model.interner().clone();
             valuation.apply_to(&target_interner, &mut base.world.model.world.valuation)?;
+            unassigned.remove_from(&target_interner, &mut base.world.model.world.valuation)?;
         }
         self.snapshots.insert(
             key.clone(),
             StoreSnapshot {
                 commit,
                 valuation,
+                unassigned,
                 ref_digest,
             },
         );
@@ -935,6 +1151,8 @@ fn fork_owners(document: &str, sources: &[Document]) -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use dli_ast::annot::{Annotation, ProvenanceMarker};
     use dli_ast::decl::{AttrDecl, Decl};
@@ -942,13 +1160,83 @@ mod tests {
     use dli_ast::span::Span;
     use dli_ast::term::Term;
     use dli_lorestore::storage::{Storage, StoreError};
-    use dli_lorestore::{Commit, ContentHash, Lorestore, Ref};
+    use dli_lorestore::{Commit, ContentHash, FilesystemStorage, Lorestore, Ref};
+    use serde_json::json;
 
     use super::Store;
     use crate::author::workspace::Mode;
 
     #[derive(Debug)]
     struct WriteFails;
+
+    #[derive(Debug, Default)]
+    struct BatchStorageControl {
+        writes: AtomicUsize,
+        cas: AtomicUsize,
+        fail_write_at: AtomicUsize,
+        fail_cas: AtomicBool,
+    }
+
+    #[derive(Debug)]
+    struct CountingFaultStorage {
+        inner: FilesystemStorage,
+        control: Arc<BatchStorageControl>,
+    }
+
+    impl Storage for CountingFaultStorage {
+        fn read_object(&self, hash: &ContentHash) -> Result<Option<Vec<u8>>, StoreError> {
+            self.inner.read_object(hash)
+        }
+
+        fn write_object(&self, bytes: &[u8]) -> Result<ContentHash, StoreError> {
+            let call = self.control.writes.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.control.fail_write_at.load(Ordering::SeqCst) == call {
+                return Err(injected_failure());
+            }
+            self.inner.write_object(bytes)
+        }
+
+        fn cas_ref(
+            &self,
+            name: &str,
+            expected: Option<&str>,
+            new: &Ref,
+        ) -> Result<bool, StoreError> {
+            self.control.cas.fetch_add(1, Ordering::SeqCst);
+            if self.control.fail_cas.swap(false, Ordering::SeqCst) {
+                return Err(injected_failure());
+            }
+            self.inner.cas_ref(name, expected, new)
+        }
+
+        fn load_ref(&self, name: &str) -> Result<Option<Ref>, StoreError> {
+            self.inner.load_ref(name)
+        }
+
+        fn list_refs(&self) -> Result<Vec<String>, StoreError> {
+            self.inner.list_refs()
+        }
+
+        fn delete_ref(&self, name: &str) -> Result<(), StoreError> {
+            self.inner.delete_ref(name)
+        }
+
+        fn acquire_lock(&self) -> Result<File, StoreError> {
+            self.inner.acquire_lock()
+        }
+
+        fn walk_dag(
+            &self,
+            tip: &ContentHash,
+            base: Option<&ContentHash>,
+        ) -> Result<Vec<Commit>, StoreError> {
+            self.inner.walk_dag(tip, base)
+        }
+
+        fn cleanup_orphans(&self) -> Result<usize, StoreError> {
+            self.inner.cleanup_orphans()
+        }
+    }
 
     fn injected_failure() -> StoreError {
         StoreError::Io {
@@ -1029,6 +1317,113 @@ mod tests {
             .expect("open workspace")
             .id
             .clone()
+    }
+
+    fn batch_store() -> (tempfile::TempDir, Store, String, Arc<BatchStorageControl>) {
+        let root = tempfile::tempdir().expect("temporary lorestore");
+        let (document, diagnostics) =
+            dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.class.is_error())
+        );
+        let pack = dli_world::pack::Pack {
+            name: "demo".to_owned(),
+            documents: vec![document],
+        };
+        let mut store = Store::with_pack(pack).expect("base compiles");
+        store
+            .attach_lorestore(root.path().join("lorestores"))
+            .expect("attach lorestore");
+        let ws = store
+            .open(Mode::Scope, "demo".to_owned(), None)
+            .expect("open workspace")
+            .id
+            .clone();
+        let base_key = store.workspace_bases[&ws].clone();
+        let path = root.path().join("lorestores").join(&base_key);
+        let control = Arc::new(BatchStorageControl::default());
+        store.lorestores.insert(
+            base_key,
+            Lorestore::from_storage(Box::new(CountingFaultStorage {
+                inner: FilesystemStorage::new(path),
+                control: Arc::clone(&control),
+            })),
+        );
+        (root, store, ws, control)
+    }
+
+    fn bulk_request(ws: &str, count: usize) -> crate::Request {
+        crate::Request {
+            dli: "1.13.0".to_owned(),
+            id: "bulk".to_owned(),
+            op: crate::Op::AuthorRecordDecisions,
+            params: json!({
+                "workspace": ws,
+                "records": (0..count)
+                    .map(|index| json!({"decision": format!("d-{index:05}")}))
+                    .collect::<Vec<_>>()
+            }),
+            expected_digest: None,
+            idempotency_key: None,
+        }
+    }
+
+    fn semantic_workspace_state(store: &Store, ws: &str) -> serde_json::Value {
+        let workspace = store.get(ws).expect("workspace");
+        json!({
+            "digest": workspace.digest,
+            "root": workspace.base_root_hash,
+            "ref": workspace.base_ref_digest,
+            "valuation": workspace.base_valuation.0,
+            "unassigned": workspace.base_unassigned.0,
+            "interner": workspace.interner.names(),
+            "decisions": workspace.known_decisions(),
+        })
+    }
+
+    #[test]
+    fn bulk_decision_write_and_cas_failures_leave_ref_and_workspace_unchanged() {
+        for fail_cas in [false, true] {
+            let (_root, mut store, ws, control) = batch_store();
+            let before_ref = store
+                .workspace_lorestore(&ws)
+                .expect("lorestore")
+                .root_hash()
+                .expect("head read");
+            let before_workspace = semantic_workspace_state(&store, &ws);
+            if fail_cas {
+                control.fail_cas.store(true, Ordering::SeqCst);
+            } else {
+                control.fail_write_at.store(1, Ordering::SeqCst);
+            }
+            let response = crate::author::dispatch(&bulk_request(&ws, 3), &mut store);
+            assert!(!response.ok, "injected failure must refuse: {response:?}");
+            assert_eq!(
+                store
+                    .workspace_lorestore(&ws)
+                    .expect("lorestore")
+                    .root_hash()
+                    .expect("head read"),
+                before_ref
+            );
+            assert_eq!(semantic_workspace_state(&store, &ws), before_workspace);
+            assert_eq!(store.base_update_stats.prepared_installs, 0);
+        }
+    }
+
+    #[test]
+    fn bulk_decision_storage_counts_are_constant_per_batch() {
+        let (_root, mut store, ws, control) = batch_store();
+        let response = crate::author::dispatch(&bulk_request(&ws, 1024), &mut store);
+        assert!(response.ok, "bulk succeeds: {response:?}");
+        // One Ratify carriage per record plus one Commit object; one branch CAS.
+        assert_eq!(control.writes.load(Ordering::SeqCst), 1025);
+        assert_eq!(control.cas.load(Ordering::SeqCst), 1);
+        assert_eq!(store.base_update_stats.prepared_compiles, 1);
+        assert_eq!(store.base_update_stats.prepared_installs, 1);
+        assert_eq!(store.base_update_stats.reloads, 0);
     }
 
     /// A durable write failure after lowering restores every piece of mutable

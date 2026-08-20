@@ -1,7 +1,7 @@
 ---
 status: live
 title: "Serving: one offline, deterministic worker surface"
-verdict: "One project-backed JSON/MCP worker surface, offline and deterministic. Contract 1.12.0 is current while accepted earlier wires retain their specified behavior; predicate identity is a typed authoring operation with no new .dli form."
+verdict: "One project-backed JSON/MCP worker surface, offline and deterministic. Contract 1.13.0 is current while accepted earlier wires retain their specified behavior; conditional defeats, active/blocked explanations, and atomic decision batches are the new negotiated horizon."
 ---
 
 # Serving
@@ -50,6 +50,13 @@ authoring tools. It adds no batch operation and no textual `.dli` form because
 no current consumer needs predicate identity to round-trip through that
 deprecated rendering; structured JSON and fact objects are the supported
 surfaces. Earlier negotiated responses remain unchanged (DL-0092).
+
+Contract `1.13.0` adds `author.record_decisions` and no `dli.*` batch op. It
+also changes newly negotiated `author.defeat` calls to durable conditional
+decision attacks and adds active/blocked support arrays to `author.why`.
+Schema-v4 stores and all contracts through `1.12.0` retain their released
+one-way defeat and response behavior; schema v5 carries attacks explicitly
+(DL-0096 through DL-0098).
 
 ### 1.1 Caller projects
 
@@ -168,7 +175,7 @@ The version handshake rides `dli.version`, not the envelope: a consumer calls
 `dli.version` and reads the `contract`, `contract_version`, `server`, and
 `capabilities` the running build reports (the consumer pins the contract vendored
 and digest-checked, DL-0010). This build speaks `0.5.1`, `0.6.0`–`0.6.4`,
-and `1.0.0` through `1.12.0`, and answers every call in the version that call
+and `1.0.0` through `1.13.0`, and answers every call in the version that call
 declared, so a
 consumer vendored at an older version sees byte-identical responses until it
 chooses to move (`integration/fantasy-contract.md` §6). A frame that declares a

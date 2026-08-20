@@ -819,6 +819,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
                         .clone()
                         .expect("a store-backed document carries its selected commit"),
                     document.store_valuation.clone(),
+                    document.store_unassigned.clone(),
                     document.store_ref_digest.clone(),
                 )
                 .expect("store valuation maps by name");

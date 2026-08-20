@@ -638,6 +638,17 @@ pub fn dispatch(
             ),
         );
     }
+    if request.op.added_in_1_13_0() && !crate::has_bulk_decisions(&request.dli) {
+        return typed_error(
+            &request.dli,
+            &request.id,
+            ErrorCode::UnknownOp,
+            format!(
+                "operation {:?} is not available before contract 1.13.0",
+                request.op
+            ),
+        );
+    }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
     {
@@ -705,6 +716,7 @@ pub(crate) fn project_author_store(project: &Project) -> io::Result<author::stor
                         .clone()
                         .expect("store-backed documents carry their selected commit"),
                     document.store_valuation.clone(),
+                    document.store_unassigned.clone(),
                     document.store_ref_digest.clone(),
                 )
                 .map_err(io::Error::other)?;

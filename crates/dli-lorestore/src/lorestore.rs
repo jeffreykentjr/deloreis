@@ -300,6 +300,12 @@ impl Lorestore {
     /// Returns `true` if the CAS succeeded, `false` if it lost the race.
     pub fn cas_main_ref(&self, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError> {
         let _lock = self.storage.acquire_lock()?;
+        let current = self.storage.load_ref(MAIN_REF)?;
+        let current_digest = current.as_ref().map(Ref::digest).transpose()?;
+        if current_digest.as_ref().map(ContentHash::as_str) != expected {
+            return Ok(false);
+        }
+        self.validate_decision_attacks_at(&new.commit)?;
         self.storage.cas_ref(MAIN_REF, expected, new)
     }
 
@@ -379,8 +385,14 @@ impl Lorestore {
         new: &Ref,
     ) -> Result<bool, StoreError> {
         let _lock = self.storage.acquire_lock()?;
-        self.storage
-            .cas_ref(&branch_ref_name(branch), expected, new)
+        let ref_name = branch_ref_name(branch);
+        let current = self.storage.load_ref(&ref_name)?;
+        let current_digest = current.as_ref().map(Ref::digest).transpose()?;
+        if current_digest.as_ref().map(ContentHash::as_str) != expected {
+            return Ok(false);
+        }
+        self.validate_decision_attacks_at(&new.commit)?;
+        self.storage.cas_ref(&ref_name, expected, new)
     }
 
     /// Delete a branch ref (WS-3, `author.branch`'s `delete` action). Pointer
@@ -445,6 +457,34 @@ impl Lorestore {
         )
     }
 
+    /// Commit facts plus newly introduced conditional decision attacks to
+    /// `main`. Existing callers use [`commit`](Self::commit), whose attack
+    /// delta is empty.
+    #[allow(clippy::too_many_arguments)]
+    pub fn commit_with_attacks(
+        &self,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        attacks: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<ContentHash, StoreError> {
+        self.commit_on_branch_with_attacks_at_ref(
+            MAIN_REF,
+            None,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            attacks,
+            decisions,
+            pack_name,
+        )
+        .map(|receipt| receipt.commit)
+    }
+
     /// Commit a new `Commit` to an arbitrary branch (LS-6). The parent is that
     /// branch's current head; the CAS fences on that branch's whole-ref digest.
     /// The interner-append-only discipline is checked against the branch's own
@@ -489,6 +529,35 @@ impl Lorestore {
         decisions: Vec<String>,
         pack_name: String,
     ) -> Result<CommitReceipt, StoreError> {
+        self.commit_on_branch_with_attacks_at_ref(
+            branch,
+            expected_ref,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            Vec::new(),
+            decisions,
+            pack_name,
+        )
+    }
+
+    /// Commit on `branch`, adding conditional decision-attack object hashes.
+    /// Every attack is verified to exist, decode, and name decisions carried
+    /// by the candidate commit before the commit object or ref is written.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    pub fn commit_on_branch_with_attacks_at_ref(
+        &self,
+        branch: &str,
+        expected_ref: Option<&str>,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        mut attacks: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<CommitReceipt, StoreError> {
         let _lock = self.storage.acquire_lock()?;
         let ref_name = branch_ref_name(branch);
 
@@ -514,7 +583,16 @@ impl Lorestore {
                 )));
             }
         }
-
+        let mut ordered_attacks = Vec::with_capacity(attacks.len());
+        for hash in &attacks {
+            let attack: crate::DecisionAttack = storage::read_typed(&*self.storage, hash)?
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!("decision attack not in store: {hash}"))
+                })?;
+            ordered_attacks.push((attack, hash.clone()));
+        }
+        ordered_attacks.sort_by(|(left, _), (right, _)| left.cmp(right));
+        attacks = ordered_attacks.into_iter().map(|(_, hash)| hash).collect();
         // The parent is the branch's current head commit; the CAS token is the
         // whole head ref's digest (commit + valuation overlay).
         let head_ref = self.storage.load_ref(&ref_name)?;
@@ -548,6 +626,49 @@ impl Lorestore {
             check_chain_invariants(&parent, &interner, &decisions, &pack_name)?;
         }
 
+        // Validate the complete candidate fold before writing a commit or
+        // advancing the ref. An attack is meaningful only when both endpoints
+        // are exact commit names and its carrier is the exact live fact it
+        // claims to defeat.
+        let mut candidate_facts = match &expected {
+            Some(parent) => self.fact_hashes_from(&ContentHash(parent.clone()))?,
+            None => Vec::new(),
+        };
+        let mut fact_identities = std::collections::BTreeMap::new();
+        for (index, hash) in candidate_facts.iter().enumerate() {
+            let object: crate::FactObject = self
+                .read_object(hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {hash}")))?;
+            fact_identities.insert(object.content_hash()?, index);
+        }
+        for hash in &fact_hashes {
+            let object: crate::FactObject = self
+                .read_object(hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("fact object not in store: {hash}")))?;
+            let identity = object.content_hash()?;
+            if let Some(index) = fact_identities.get(&identity) {
+                candidate_facts[*index] = hash.clone();
+            } else {
+                fact_identities.insert(identity, candidate_facts.len());
+                candidate_facts.push(hash.clone());
+            }
+        }
+        let mut candidate_attacks = match &expected {
+            Some(parent) => self.decision_attack_hashes_from(&ContentHash(parent.clone()))?,
+            None => Vec::new(),
+        };
+        for hash in &attacks {
+            if !candidate_attacks.contains(hash) {
+                candidate_attacks.push(hash.clone());
+            }
+        }
+        self.validate_decision_attack_hashes(
+            &candidate_attacks,
+            &interner,
+            &decisions,
+            &candidate_facts,
+        )?;
+
         let commit = match &expected {
             Some(parent_hash) => Commit::child(
                 ContentHash(parent_hash.clone()),
@@ -557,7 +678,8 @@ impl Lorestore {
                 evidence,
                 decisions,
                 pack_name,
-            ),
+            )
+            .with_attacks(attacks),
             None => Commit::root(
                 interner,
                 fact_hashes,
@@ -565,7 +687,8 @@ impl Lorestore {
                 evidence,
                 decisions,
                 pack_name,
-            ),
+            )
+            .with_attacks(attacks),
         };
 
         let commit_hash = storage::write_typed(&*self.storage, &commit)?;
@@ -650,6 +773,155 @@ impl Lorestore {
             }
         }
         Ok(unique)
+    }
+
+    /// Fold the unique conditional decision-attack hashes reachable from
+    /// `head`, in deterministic root-to-head order across both parents.
+    pub fn decision_attack_hashes_from(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Vec<ContentHash>, StoreError> {
+        let mut chain = self.storage.walk_dag(head, None)?;
+        chain.reverse();
+        let mut seen = std::collections::BTreeSet::new();
+        let mut unique = Vec::new();
+        for commit in chain {
+            for hash in commit.attacks {
+                // Decode on the fold path: an existing object of the wrong type
+                // is corruption, not an attack to skip.
+                let _: crate::DecisionAttack = self.read_object(&hash)?.ok_or_else(|| {
+                    StoreError::NotFound(format!("decision attack missing: {hash}"))
+                })?;
+                if seen.insert(hash.clone()) {
+                    unique.push(hash);
+                }
+            }
+        }
+        Ok(unique)
+    }
+
+    /// Read the folded conditional decision attacks at `head`.
+    pub fn decision_attacks_from(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
+        let commit = self.commit_at(head)?;
+        let facts = self.fact_hashes_from(head)?;
+        let hashes = self.decision_attack_hashes_from(head)?;
+        self.validate_decision_attack_hashes(&hashes, &commit.interner, &commit.decisions, &facts)
+    }
+
+    /// Validate attack objects against one exact candidate fold. This is the
+    /// common authority seam for ordinary commits, merges, raw ref CAS, imports,
+    /// and reopened reads: no path can derive standing from an edge whose names
+    /// or carrier are merely plausible rather than reachable and exact.
+    fn validate_decision_attack_hashes(
+        &self,
+        hashes: &[ContentHash],
+        interner: &[String],
+        decisions: &[String],
+        live_facts: &[ContentHash],
+    ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
+        let mut attacks = Vec::with_capacity(hashes.len());
+        for hash in hashes {
+            let attack: crate::DecisionAttack = self
+                .read_object(hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))?;
+            for endpoint in [&attack.attacker, &attack.target] {
+                if !decisions.contains(endpoint) {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} names unknown decision `{endpoint}`"
+                    )));
+                }
+                if interner.iter().filter(|name| *name == endpoint).count() != 1 {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} endpoint `{endpoint}` is not uniquely interned"
+                    )));
+                }
+            }
+            if !live_facts.contains(&attack.subject_fact_hash) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} carrier {} is not in the candidate fact fold",
+                    attack.subject_fact_hash
+                )));
+            }
+            let carrier: crate::FactObject = self
+                .read_object(&attack.subject_fact_hash)?
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!(
+                        "decision attack {hash} carrier {} is missing",
+                        attack.subject_fact_hash
+                    ))
+                })?;
+            if carrier.claim_id != attack.claim_id {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} claim_id does not match carrier {}",
+                    attack.subject_fact_hash
+                )));
+            }
+            if !crate::attack::carrier_supports_decision(&carrier, interner, &attack.target) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} carrier {} does not positively support target `{}`",
+                    attack.subject_fact_hash, attack.target
+                )));
+            }
+            attacks.push(attack);
+        }
+        attacks.sort();
+        Ok(attacks)
+    }
+
+    /// Refuse a raw commit pointer whose folded attack graph is invalid.
+    fn validate_decision_attacks_at(&self, head: &ContentHash) -> Result<(), StoreError> {
+        self.decision_attacks_from(head).map(drop)
+    }
+
+    /// Project effective standing at `head`: legacy numeric Ref assignments are
+    /// first translated through the commit interner into fixed exact-name
+    /// seeds, then the folded attack graph receives grounded labelling, and the
+    /// resulting names are translated back into this commit's atom space.
+    pub fn effective_valuation_at(
+        &self,
+        head: &ContentHash,
+        legacy: &dli_core::valuation::Valuation,
+    ) -> Result<crate::EffectiveValuation, StoreError> {
+        let commit = self.commit_at(head)?;
+        let fixed = dli_core::valuation::NamedValuation::from_indexed(legacy, &commit.interner)?.0;
+        let attacks = self.decision_attacks_from(head)?;
+        let labels = crate::grounded_labels(&commit.decisions, &attacks, &fixed);
+        let mut effective = legacy.clone();
+        let mut unassigned = std::collections::BTreeSet::new();
+        for (name, label) in labels {
+            let index = commit
+                .interner
+                .iter()
+                .position(|candidate| candidate == &name)
+                .and_then(|index| u32::try_from(index).ok())
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!(
+                        "decision `{name}` has no atom in the commit interner"
+                    ))
+                })?;
+            let atom = dli_core::atom::Atom(index);
+            match label {
+                crate::GroundedLabel::In => {
+                    effective.set(atom, true);
+                    unassigned.remove(&atom);
+                }
+                crate::GroundedLabel::Out => {
+                    effective.set(atom, false);
+                    unassigned.remove(&atom);
+                }
+                crate::GroundedLabel::Undecided => {
+                    effective.0.remove(&atom);
+                    unassigned.insert(atom);
+                }
+            }
+        }
+        Ok(crate::EffectiveValuation {
+            valuation: effective,
+            unassigned,
+        })
     }
 
     /// The set of commit hashes reachable from `head` (inclusive), following both
@@ -1270,6 +1542,54 @@ impl Lorestore {
         })
     }
 
+    fn merge_attack_hashes(
+        &self,
+        target_head: &ContentHash,
+        source_head: &ContentHash,
+        merged_interner: &[String],
+        merged_decisions: &[String],
+        union: &[ContentHash],
+    ) -> Result<Vec<ContentHash>, StoreError> {
+        let mut merged = self.decision_attack_hashes_from(target_head)?;
+        let mut seen: std::collections::BTreeSet<ContentHash> = merged.iter().cloned().collect();
+        for hash in self.decision_attack_hashes_from(source_head)? {
+            if seen.insert(hash.clone()) {
+                merged.push(hash);
+            }
+        }
+        let mut ordered = Vec::with_capacity(merged.len());
+        for hash in merged {
+            let attack: crate::DecisionAttack = self
+                .read_object(&hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))?;
+            ordered.push((attack, hash));
+        }
+        ordered.sort_by(|(left, _), (right, _)| left.cmp(right));
+        let merged: Vec<_> = ordered.into_iter().map(|(_, hash)| hash).collect();
+
+        let mut live_facts = Vec::new();
+        let mut identities = std::collections::BTreeMap::new();
+        for fact_hash in union {
+            let object: crate::FactObject = self
+                .read_object(fact_hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {fact_hash}")))?;
+            let identity = object.content_hash()?;
+            if let Some(index) = identities.get(&identity) {
+                live_facts[*index] = fact_hash.clone();
+            } else {
+                identities.insert(identity, live_facts.len());
+                live_facts.push(fact_hash.clone());
+            }
+        }
+        self.validate_decision_attack_hashes(
+            &merged,
+            merged_interner,
+            merged_decisions,
+            &live_facts,
+        )?;
+        Ok(merged)
+    }
+
     /// The shared merge body behind [`merge`](Self::merge) and
     /// [`merge_with`](Self::merge_with). Every step — interner reconciliation,
     /// the fact-hash union, the merge-commit write, and the conflict scan —
@@ -1292,6 +1612,12 @@ impl Lorestore {
         let target_head = target_ref.commit.clone();
         let source_head = source_ref.commit.clone();
 
+        // Parent validity is not something the union may heal. In particular,
+        // a sibling can supply an interner name missing from a corrupt attack
+        // parent and make the merged candidate look valid. Validate both exact
+        // pre-merge worlds before constructing or writing that candidate.
+        let target_effective = self.effective_valuation_at(&target_head, &target_ref.valuation)?;
+        let source_effective = self.effective_valuation_at(&source_head, &source_ref.valuation)?;
         // Interner reconciliation — prefix-preservation against BOTH parents.
         let merged_interner =
             crate::merge::reconcile_interners(&target_commit.interner, &source_commit.interner)?;
@@ -1316,6 +1642,16 @@ impl Lorestore {
             }
         }
 
+        // Attacks are a canonical append-only union, validated against the
+        // exact merged fact fold before any ref can advance.
+        let merged_attacks = self.merge_attack_hashes(
+            &target_head,
+            &source_head,
+            &merged_interner,
+            &merged_decisions,
+            &union,
+        )?;
+
         let base = self.merge_base(&target_head, &source_head)?;
 
         // Write the merge commit — its facts are already stored, so it is a pure
@@ -1329,14 +1665,14 @@ impl Lorestore {
             Vec::new(),
             merged_decisions,
             target_commit.pack_name.clone(),
-        );
+        )
+        .with_attacks(merged_attacks);
         let merge_hash = storage::write_typed(&*self.storage, &merge_commit)?;
 
-        // Advance the target branch to the merge commit, carrying the union
-        // overlay (target wins on disagreement — reported, never silent). A
-        // dry run (`advance = false`) skips the CAS: the commit object above is
-        // already durably written (content-addressed, so writing it is never
-        // itself the commitment), but no ref moves to point at it.
+        // Complete every fallible effective-standing and conflict-analysis
+        // step before the target ref can move. Writing the content-addressed
+        // commit above is harmless preparation; the CAS below is the only
+        // authoritative state transition.
         let merged_valuation = crate::merge::union_valuations(
             &target_ref.valuation,
             &target_commit.interner,
@@ -1344,11 +1680,7 @@ impl Lorestore {
             &source_commit.interner,
             &merged_interner,
         )?;
-        if advance {
-            self.advance_merge_ref(target, &target_ref, &merge_hash, merged_valuation.clone())?;
-        }
-
-        // Detect the three conflict classes over the merged state.
+        let merged_effective = self.effective_valuation_at(&merge_hash, &merged_valuation)?;
         let scan = crate::merge::scan(
             self,
             &merge_hash,
@@ -1359,10 +1691,18 @@ impl Lorestore {
             &target_commit.interner,
             &source_ref.valuation,
             &source_commit.interner,
-            &merged_valuation,
+            &target_effective,
+            &source_effective,
+            &merged_effective,
             &merged_interner,
         )?;
 
+        // Advance only after parent validation, merged validation, compilation,
+        // and the complete conflict scan have succeeded. A dry run skips this
+        // sole authority transition while retaining the identical analysis.
+        if advance {
+            self.advance_merge_ref(target, &target_ref, &merge_hash, merged_valuation)?;
+        }
         Ok(crate::merge::MergeReport {
             merge_commit: merge_hash,
             merge_base: base,

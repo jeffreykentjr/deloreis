@@ -1,6 +1,6 @@
 //! Valuations: truth assignments over atoms.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -101,6 +101,69 @@ impl NamedValuation {
     }
 }
 
+/// A set of interner-local atoms carried across compilation boundaries by
+/// their stable exact names.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NamedAtomSet(pub BTreeSet<String>);
+
+impl NamedAtomSet {
+    /// Resolve indexed atoms through the exact table that produced them.
+    pub fn from_indexed(
+        atoms: &BTreeSet<Atom>,
+        source_names: &[String],
+    ) -> Result<Self, ValuationRemapError> {
+        reject_duplicate_names(source_names, InternerSide::Source)?;
+        let mut named = BTreeSet::new();
+        for &atom in atoms {
+            let name = source_names.get(atom.0 as usize).ok_or(
+                ValuationRemapError::SourceAtomOutOfRange {
+                    atom,
+                    source_len: source_names.len(),
+                },
+            )?;
+            named.insert(name.clone());
+        }
+        Ok(Self(named))
+    }
+
+    /// Resolve the names into a receiving interner.
+    pub fn to_indexed(&self, target: &Interner) -> Result<BTreeSet<Atom>, ValuationRemapError> {
+        reject_duplicate_names(target.names(), InternerSide::Target)?;
+        let by_name: BTreeMap<&str, Atom> = target
+            .names()
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                (
+                    name.as_str(),
+                    Atom(u32::try_from(index).expect("atom count fits in u32")),
+                )
+            })
+            .collect();
+        self.0
+            .iter()
+            .map(|name| {
+                by_name
+                    .get(name.as_str())
+                    .copied()
+                    .ok_or_else(|| ValuationRemapError::TargetNameMissing { name: name.clone() })
+            })
+            .collect()
+    }
+
+    /// Remove these explicitly open atoms from a receiving valuation.
+    pub fn remove_from(
+        &self,
+        target: &Interner,
+        valuation: &mut Valuation,
+    ) -> Result<(), ValuationRemapError> {
+        for atom in self.to_indexed(target)? {
+            valuation.0.remove(&atom);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum InternerSide {
     Source,
@@ -179,8 +242,9 @@ impl std::error::Error for ValuationRemapError {}
 
 #[cfg(test)]
 mod tests {
-    use super::{NamedValuation, Valuation, ValuationRemapError};
+    use super::{NamedAtomSet, NamedValuation, Valuation, ValuationRemapError};
     use crate::atom::{Atom, Interner};
+    use std::collections::{BTreeMap, BTreeSet};
 
     #[test]
     fn remaps_by_name_when_positions_are_skewed() {
@@ -227,5 +291,21 @@ mod tests {
             named.to_indexed(&Interner::from_names(vec!["other".to_owned()])),
             Err(ValuationRemapError::TargetNameMissing { .. })
         ));
+    }
+
+    #[test]
+    fn remaps_explicitly_open_atoms_by_name() {
+        let source = BTreeSet::from([Atom(1)]);
+        let named =
+            NamedAtomSet::from_indexed(&source, &["other".to_owned(), "decision".to_owned()])
+                .expect("valid source");
+        let target = Interner::from_names(vec!["decision".to_owned(), "other".to_owned()]);
+        assert_eq!(named.to_indexed(&target), Ok(BTreeSet::from([Atom(0)])));
+
+        let mut valuation = Valuation(BTreeMap::from([(Atom(0), true), (Atom(1), true)]));
+        named
+            .remove_from(&target, &mut valuation)
+            .expect("exact target name");
+        assert_eq!(valuation.0, BTreeMap::from([(Atom(1), true)]));
     }
 }

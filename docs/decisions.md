@@ -5464,3 +5464,171 @@ this append-only corrigendum records the corrected evidence instead (DL-0027).
 canonical Clippy lanes, and all 23 `cargo xtask gate` steps are green. Mutation
 controls remove the real skew-producing declaration, reuse a raw index, or reuse
 the subject as its own reference; each must redden the suite.
+
+## DL-0096 — Model new defeats as durable conditional decision attacks at contract 1.13 (GH #102)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the durable attack graph, grounded standing semantics, and migration
+boundary required for genuine nested defeat. It is live and binding on the tree,
+pending the author's async review (DL-0052).
+
+**Ruling.** Contract `1.13.0` changes only newly negotiated `author.defeat`
+mutations from destructive one-way Ref assignments to append-only conditional
+attacks. A schema-v5 `DecisionAttack` names the exact attacking and target
+decision, the carried claim, and the exact live subject fact-object hash.
+Endpoints, carrier identity, positive target support, and unique interning are
+validated before any authoritative ref advance. Attacks are content addressed,
+canonically ordered, unioned on merge, carried by corpus exchange at the new
+floor, and never rewritten into false Ref bits.
+
+Standing is the deterministic grounded labelling of the reachable attack graph:
+a decision is in when every attacker is out, out when any attacker is in, and
+otherwise undecided. Undecided explicitly removes the compiler's default
+assignment, so self, mutual, and odd cycles remain possible rather than falling
+back to true. Existing Ref assignments are fixed legacy seeds. Contracts through
+`1.12.0` retain their released one-way defeat behavior byte-for-byte, and
+schema-v4 commits upcast with an empty attack lane; the engine never invents an
+attack edge from historical false bits.
+
+Every authority seam fails closed. Ordinary commit, import, raw main/branch CAS,
+read, reopen, and merge validate the exact folded attacks. Merge validates each
+parent before a sibling can heal it, validates the union and completes effective
+standing plus the full conflict scan before target CAS, and performs no fallible
+analysis after a successful advance. Persisted true/false and explicit undecided
+state cross recompilation boundaries through the exact-name rule of DL-0094;
+attack-only decisions may extend a receiving interner only when a real stored
+Ratify declaration establishes that decision.
+
+**Verification.** Permanent tests cover first defeat and restoration at attack
+depths 1/2/4/8; real rule depth 1/2/4/8 with 1/2/5 shared consequences;
+independent and redundant controls; multiple attackers; self, mutual, and odd
+cycles; six joint declaration/attack orders; branch merge, reopen, canon,
+export/import, idempotency, legacy 1.12, and schema-v4 upcast. Public raw-object
+probes reject unsupported, mismatched, phantom, absent-endpoint, and duplicate-
+interner attacks without changing main or named refs. A corrupt merge parent
+cannot be healed by its sibling and an erroring merge preserves complete ref
+bytes.
+
+## DL-0097 — Explanations distinguish active paths from currently blocked paths (GH #104, GH #105)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the valuation-aware explanation contract required by the defeat-
+horizon consumer. It is live and binding on the tree, pending the author's async
+review (DL-0052).
+
+**Ruling.** At contract `1.13.0`, `author.why` adds three typed, deterministic
+fields: `active_supporting_decision_paths`, `blocking_defeats`, and
+`blocked_supports`. Older contracts omit all three fields and retain their exact
+legacy response bytes. At and above the new floor the fields are always present,
+including explicit empty arrays; an unconditional live support is represented by
+the one empty path `[[]]`.
+
+An active path is one complete minimal support monomial that is live under the
+request's effective valuation and theory, with path boundaries preserved and all
+literals evaluated before exact recorded decision names are projected. A blocked
+support is one otherwise relevant minimal monomial paired with the minimal active
+direct attack pairs that make it unusable. Each blocker names both the defeated
+and defeating decision. For a dead conclusion the blocked entries collectively
+explain every otherwise relevant minimal path; for a live redundantly supported
+conclusion active and blocked alternatives remain separate, and blockers do not
+misclassify the live goal. Nested restoration moves a path back to active support
+and removes stale attack pairs.
+
+The new fields are derived together from the same request-local symbolic support,
+effective named standing, grounded attack graph, and theory. They never parse
+rendered prose, mutation receipts, or caller event graphs. Legacy `why`,
+`why.antichain`, query support, and `supporting_decisions` remain the static/all-
+path compatibility surfaces. Exact lexical path, blocker, and outer ordering is
+canonical across declaration order, reopen, branch, pinned session, and
+equivalent compilation routes.
+
+**Verification.** The wire acceptance suite covers unique paths, real rule depth
+1/2/4/8 and 1/2/5 shared conclusions, two live redundant paths, one blocked
+alternative, every path blocked by distinct attacks, independent controls,
+nested restoration and re-blocking, six declaration/attack permutations,
+branch and pinned fresh-session reopen, canon-adjacent reads, unconditional
+`[[]]`, unknown/dead empty results, and frozen `1.12.0` bytes. The integrated
+#108 matrix remains the oracle for the #103 requirement that six skewed
+ingestion orders yield identical named active supports.
+
+## DL-0098 — Record decision batches with one validated compile and one atomic commit (GH #106)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the bulk authoring operation and its all-or-nothing safety boundary.
+It is live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** Contract `1.13.0` adds `author.record_decisions`. Its ordered records
+carry the same decision id, rationale, and optional provenance as repeated
+`author.record_decision` calls, but the whole request is validated against one
+immutable branch pre-image, compiled once, lowered in request order, committed
+once, CAS-advanced once, and installed from the already prepared world without a
+post-commit reload. The singleton operation and every older contract remain
+unchanged.
+
+Validation is all-or-nothing and applies the negotiated provenance law to every
+nested record before any compile or write. Forward and cyclic same-batch Ratify
+citations are legal because referential integrity is checked against the complete
+batch universe. Duplicate ids, control characters, unknown citations, missing
+required cited state, stale workspace fences, object-write failures, and CAS
+failures refuse the complete batch with record-index repair data and preserve ref
+and workspace bytes. Known decisions are no-ops; mixed batches append only new
+records in request order; an all-known replay performs no write. Idempotency,
+branch isolation, pinned replay routing, exact-name standing, and schema/capability
+gating are the ordinary author laws, not bulk exceptions.
+
+The prepared install is infallible: the candidate pack is compiled and the
+workspace's named effective assignments plus explicitly unassigned decisions are
+validated and applied before durable mutation. After successful CAS the store
+only swaps owned prepared state and updates counters. This keeps the semantic
+answer equivalent to valid repeated singleton calls while removing repeated
+commit/reconstruct/compile work.
+
+**Verification.** Tests cover singleton equivalence, forward/cyclic citations,
+duplicates and per-record contract guards, mixed/all-known batches, stale fences,
+branch/idempotent replay, pinned origin routing, reopen why/canon parity, fact and
+rule consequences, object-write/CAS atomicity, and exact compile/commit/install/
+reload counters. The deterministic 1,024-record gate asserts one compile, one
+commit, one install, and zero reloads. The ignored release harness reports
+1,024/4,096/16,384/65,536 phase timings; wall time remains non-gating under
+DL-0013.
+
+## DL-0099 — Corrigendum: schema-v5 content addresses re-pin at the 1.13 boundary
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the release-integrating
+agent, correcting DL-0096's over-broad byte-compatibility phrase after the
+schema-v5 release oracle made the unavoidable address movement concrete. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** DL-0096's statement that contracts through `1.12.0` retain their
+released one-way defeat behavior byte-for-byte governs the defeat operation's
+negotiated representation, standing semantics, capability list, and
+non-address response fields. It cannot govern content-address fields across a
+stored-schema bump. Schema v5 places `schema_version` and the empty-or-populated
+attack lane inside canonical stored bytes; therefore fact-object hashes, commit
+hashes, ref digests, and any wire field carrying them deliberately move when a
+`1.13.0` build creates or reconstructs that content. This is the same
+schema-first law DL-0055 records for schema v3: canonical-byte movement is a
+contract change, and Audit C4 requires the affected fixture digests to ride the
+new contract label.
+
+Every earlier negotiated version remains accepted and retains its released
+request/response schema and one-way defeat behavior. Schema-v4 objects still
+upcast without invented attacks. What is not promised is that an address of a
+newly schema-v5-encoded object equals the address emitted by an older binary.
+The release re-pins only fixtures whose exact response contains a moved object,
+commit, ref, or export schema stamp; unrelated legacy fixtures remain untouched.
+
+**Verification.** The schema-v5 cross-platform root golden, three regenerated
+demo bundles, cold fixture replay, closed fixture registry, and Audit C4 all
+pass under contract `1.13.0`. The `0.x` parity corpus remains byte-exact except
+for its already-declared build-version/version-mismatch deviations, while the
+frozen `1.12.0` defeat suite proves the old one-way semantics and response
+shape.

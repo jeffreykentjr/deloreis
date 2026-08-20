@@ -98,12 +98,13 @@ The coordination points and what each side owes are defined in `migration.md`
 | **CP-9** — worker on the contract | `deloreis serve` + a tagged build | the fantasy worker on the vendored contract (EXT-F3) | verified | Fantasy `main` `32817c8b` pins `contract/1.6.0`; contract pin, projection provenance, boundary checks, full local gate, and hosted real-binary lanes are green |
 | **CP-10** — authoring-tools handshake | a tagged build with the `author.*` tools + the worked-scenario fixture | their agent exercises the scenario against the tagged build + posts the transcript (EXT-F4) | verified | Fantasy PR #30's real Contract 1.5 MCP transcript remains the committed scratch proof; the Contract 1.6 replay path requires an explicit tagged binary |
 
-The source tree currently implements contract `1.6.0`, served **multi-version
-dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.6.0`,
+The source tree currently implements contract `1.13.0`, served **multi-version
+dual-mode**: it accepts `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.13.0`,
 answering each caller in the version it declared, so a `0.5.1` request
 still receives byte-identical `0.5.1`-shaped responses and every vendored v1
 fixture remains in the registry as the standing compatibility suite (DL-0046,
-DL-0051, DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0071, DL-0074).
+DL-0051, DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0071,
+DL-0074, DL-0096, DL-0097, DL-0098).
 All six export emission branches are implemented.
 
 `1.6.0` adds exactly one operation, `author.declare_functional` — the

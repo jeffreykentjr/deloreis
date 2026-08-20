@@ -11,7 +11,7 @@ use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use dli_ast::decl::{Decl, Document};
-use dli_core::valuation::{NamedValuation, Valuation};
+use dli_core::valuation::{NamedAtomSet, NamedValuation, Valuation};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
 use dli_game::model::Ruleset;
@@ -90,6 +90,9 @@ pub struct ProjectDocument {
     /// commit, not an instruction to borrow the valuation of whatever ref happens
     /// to point elsewhere when the project starts.
     pub store_valuation: NamedValuation,
+    /// Store decisions explicitly left unassigned by grounded attack cycles,
+    /// carried by exact name across independent compilation interners.
+    pub store_unassigned: NamedAtomSet,
     /// Digest of the selected branch ref, including its valuation overlay.
     ///
     /// Only branch mode has a selected ref. The authoring write path uses this
@@ -577,6 +580,48 @@ fn file_identity(path: &Path, field: &str) -> Result<FileIdentity, ProjectError>
     Ok(FileIdentity::Path(path.to_path_buf()))
 }
 
+fn validate_store_standing(
+    id: &str,
+    pack: &Pack,
+    valuation: &NamedValuation,
+    unassigned: &NamedAtomSet,
+) -> Result<(), ProjectError> {
+    let mut compiled = compile(pack).map_err(|error| ProjectError::Compile {
+        document: id.to_owned(),
+        message: error.to_string(),
+    })?;
+    let declared_decisions: BTreeSet<&str> = pack
+        .documents
+        .iter()
+        .flat_map(|document| &document.decls)
+        .filter_map(|decl| match decl {
+            Decl::Ratify(ratify) => Some(ratify.decision.text.as_str()),
+            _ => None,
+        })
+        .collect();
+    for name in valuation
+        .0
+        .keys()
+        .chain(unassigned.0.iter())
+        .filter(|name| declared_decisions.contains(name.as_str()))
+    {
+        compiled.model.world.interner.intern(name);
+    }
+    valuation
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store ref valuation does not map to its compiled document: {error}"),
+        })?;
+    unassigned
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store open decisions do not map to the compiled document: {error}"),
+        })?;
+    Ok(())
+}
+
 fn load_document(
     root: &Path,
     id: &str,
@@ -589,18 +634,10 @@ fn load_document(
         store_origin,
         store_commit,
         store_valuation,
+        store_unassigned,
         store_ref_digest,
     ) = load_source(root, id, entry)?;
-    let compiled = compile(&pack).map_err(|error| ProjectError::Compile {
-        document: id.to_owned(),
-        message: error.to_string(),
-    })?;
-    store_valuation
-        .to_indexed(compiled.model.interner())
-        .map_err(|error| ProjectError::Compile {
-            document: id.to_owned(),
-            message: format!("store ref valuation does not map to its compiled document: {error}"),
-        })?;
+    validate_store_standing(id, &pack, &store_valuation, &store_unassigned)?;
     let episodes = entry
         .episodes
         .as_deref()
@@ -662,6 +699,7 @@ fn load_document(
         store_origin: store_origin.clone(),
         store_commit,
         store_valuation,
+        store_unassigned,
         store_ref_digest,
         store_pinned: store_origin.is_some() && entry.head.is_some(),
     })
@@ -746,6 +784,7 @@ fn load_source(
         Option<PathBuf>,
         Option<dli_lorestore::ContentHash>,
         NamedValuation,
+        NamedAtomSet,
         Option<String>,
     ),
     ProjectError,
@@ -759,7 +798,7 @@ fn load_source(
             "document `{id}` declares neither `sources` nor `store`; it has nothing to compile"
         ))),
         (true, Some(store)) => {
-            let (pack, paths, digest, commit, valuation, ref_digest) =
+            let (pack, paths, digest, commit, valuation, unassigned, ref_digest) =
                 load_pack_from_store(root, id, store, entry.head.as_deref())?;
             let origin = paths.first().cloned();
             Ok((
@@ -769,6 +808,7 @@ fn load_source(
                 origin,
                 Some(commit),
                 valuation,
+                unassigned,
                 ref_digest,
             ))
         }
@@ -787,6 +827,7 @@ fn load_source(
                 None,
                 None,
                 NamedValuation::default(),
+                NamedAtomSet::default(),
                 None,
             ))
         }
@@ -816,6 +857,7 @@ fn load_pack_from_store(
         String,
         dli_lorestore::ContentHash,
         NamedValuation,
+        NamedAtomSet,
         Option<String>,
     ),
     ProjectError,
@@ -870,18 +912,32 @@ fn load_pack_from_store(
             })?,
     };
 
+    let effective = lorestore
+        .effective_valuation_at(&resolved, &valuation)
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store head `{resolved}` has invalid decision standing: {error}"),
+        })?;
     let source_names = lorestore
         .interner_at(&resolved)
         .map_err(|error| ProjectError::Compile {
             document: id.to_owned(),
             message: format!("store head `{resolved}` has no valid interner: {error}"),
         })?;
-    let valuation = NamedValuation::from_indexed(&valuation, &source_names).map_err(|error| {
-        ProjectError::Compile {
-            document: id.to_owned(),
-            message: format!("store ref valuation cannot be resolved: {error}"),
-        }
-    })?;
+    let valuation =
+        NamedValuation::from_indexed(&effective.valuation, &source_names).map_err(|error| {
+            ProjectError::Compile {
+                document: id.to_owned(),
+                message: format!("store ref valuation cannot be resolved: {error}"),
+            }
+        })?;
+    let unassigned =
+        NamedAtomSet::from_indexed(&effective.unassigned, &source_names).map_err(|error| {
+            ProjectError::Compile {
+                document: id.to_owned(),
+                message: format!("store open decisions cannot be resolved: {error}"),
+            }
+        })?;
 
     let pack = lorestore
         .reconstruct_at(&resolved)
@@ -899,6 +955,7 @@ fn load_pack_from_store(
         resolved.as_str().to_owned(),
         resolved,
         valuation,
+        unassigned,
         ref_digest,
     ))
 }

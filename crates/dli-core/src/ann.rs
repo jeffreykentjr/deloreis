@@ -328,6 +328,23 @@ impl Ann {
         }
     }
 
+    /// Whether one exact support monomial is currently admissible and
+    /// undefeated under `(valuation, theory)`.
+    ///
+    /// This is the path-level predicate used by explanation surfaces. Keeping
+    /// it beside [`Self::status`] prevents a reader from drifting into a
+    /// positive-support-only approximation that forgets conditioned poison.
+    #[must_use]
+    pub fn support_path_is_active(
+        &self,
+        monomial: &Monomial,
+        valuation: &Valuation,
+        theory: &Theory,
+    ) -> bool {
+        monomial_certain(monomial, valuation, theory)
+            && !poly_certain(self.conditions.defeater_of(monomial), valuation, theory)
+    }
+
     /// Whether the claim is certain yet every certain support monomial carries a
     /// still-live defeater — *"assertable, but a pending ruling could defeat it."*
     ///

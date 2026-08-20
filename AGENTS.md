@@ -128,10 +128,11 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.9.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
+The contract is **1.13.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
 DL-0059, DL-0069, DL-0070, DL-0074, DL-0077, DL-0078, DL-0080, DL-0081,
-DL-0082), served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, and
-`1.0.0`–`1.9.0` stay accepted — a `0.5.1` caller keeps the rendered-lines
+DL-0082, DL-0083, DL-0084, DL-0091, DL-0092, DL-0096, DL-0097, DL-0098),
+served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, and
+`1.0.0`–`1.13.0` stay accepted — a `0.5.1` caller keeps the rendered-lines
 return. EXT-F4 is complete, which licenses the `0.x` retirement but has not
 performed it: that is DM-6's, at `2.0.0`, and it runs through the killed-form
 registry naming each version's successor, never silently. `1.3.0` added seven
@@ -143,9 +144,14 @@ completion campaign, DL-0077), taking the surface to 62 operations. `1.8.0`
 adds `author.declare_inertial`, taking the surface to 63 operations —
 declaring a predicate inertial reshapes its fluent projection, bounding an
 open value's forward persistence at the next distinct certain value. `1.9.0`
-adds `author.as_of`, taking the surface to 64 operations — the one
-inertia-aware read, projecting `check::slot_state_at` at a query point
-without ever routing through the eval query path. `SKILL.md` governs the
+adds `author.as_of` and `author.record_decision`, taking the surface to 65
+operations. `1.10.0` adds `author.predicates` and
+`author.entity_candidates`, taking the surface to 67; `1.11.0` corrects
+declared-only entity-candidate ranking without adding an operation; and
+`1.12.0` adds `author.assert_predicate_same_as`, taking the surface to 68.
+`1.13.0` adds `author.record_decisions`, taking the surface to 69, and adds
+conditional decision attacks plus valuation-aware explanation fields without
+removing an earlier capability. `SKILL.md` governs the
 authoring session; supervision reviews
 **structured diffs** — the LS-5 contract's per-fact rows with before/after
 standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
@@ -173,3 +179,9 @@ At `1.5.0`, cited provenance requires caller-supplied
 defeat records a new decision and rules the old supporting decision false while
 keeping the object reachable. Canon excludes dead claims and verifies the
 commit decision list against stored `Ratify` carriage objects.
+
+At `1.13.0`, newly negotiated defeats are durable conditional attacks rather
+than destructive false assignments: defeating the attacker can restore the
+target, while self and attack cycles remain undecided/possible. Schema v5 adds
+the append-only attack lane; schema-v4 commits upcast with no invented attacks,
+and every contract through `1.12.0` retains one-way defeat semantics.

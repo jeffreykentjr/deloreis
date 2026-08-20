@@ -1952,8 +1952,56 @@ pub struct AuthorRecordDecisionParams {
     pub provenance: Option<Provenance>,
 }
 
-/// `author.defeat` records a defeating decision and rules the claim's existing
-/// supporting decision false without deleting the defeated fact.
+/// One decision record in an atomic [`AuthorRecordDecisionsParams`] batch.
+/// The fields intentionally mirror [`AuthorRecordDecisionParams`] minus the
+/// workspace: bulk recording changes commit granularity, not decision meaning.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorDecisionRecord {
+    /// The caller-supplied decision id, matched by exact equality.
+    pub decision: String,
+    /// Optional review rationale. It receives the same control-character guard
+    /// as the single operation and otherwise preserves that operation's current
+    /// metadata behaviour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rationale: Option<String>,
+    /// Optional citation-bearing provenance for the decision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+}
+
+/// `author.record_decisions` atomically records several supporting decisions
+/// on one workspace branch (contract 1.13.0).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorRecordDecisionsParams {
+    /// The authoring workspace whose branch records the decisions.
+    pub workspace: String,
+    /// Decision records in durable append order. Empty batches are refused by
+    /// schema; duplicate ids are a typed, atomic validation finding.
+    #[schemars(length(min = 1))]
+    pub records: Vec<AuthorDecisionRecord>,
+}
+
+/// The ordinary author mutation receipt plus deterministic batch counts.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorRecordDecisionsResult {
+    /// The ordinary mutation receipt, flattened so the wire retains the common
+    /// `findings`/`rendered`/digest/root fields rather than nesting them.
+    #[serde(flatten)]
+    pub mutation: AuthorMutationResult,
+    /// Number of records supplied by the caller.
+    pub requested: usize,
+    /// Number already present at the target branch head.
+    pub already_known: usize,
+    /// Number newly written by this call.
+    pub recorded: usize,
+}
+
+/// `author.defeat` records a defeating decision. Through contract 1.12 it rules
+/// the existing supporting decision false on the Ref; from 1.13 it appends a
+/// conditional attack edge, so grounded standing restores the target when its
+/// attacker is itself defeated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorDefeatParams {
@@ -2305,6 +2353,42 @@ pub struct AuthorWhyResult {
     /// `null`, and never populated below the floor).
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub supporting_decisions: Vec<String>,
+    /// Currently admissible minimal support monomials, with exact recorded
+    /// decision names and path boundaries preserved. `Some([])` is an explicit
+    /// dead/unknown result at contract 1.13+; `None` omits the field on every
+    /// earlier accepted wire.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub active_supporting_decision_paths: Option<Vec<Vec<String>>>,
+    /// The active direct decision defeats that explain a currently blocked
+    /// conclusion. Live conclusions report an explicit empty list; their
+    /// blocked alternatives remain available through [`Self::blocked_supports`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub blocking_defeats: Option<Vec<BlockingDefeat>>,
+    /// Minimal symbolic support paths that would be active but for the listed
+    /// current direct defeats. This remains separate from active provenance so
+    /// a defeated redundant alternative never contaminates a live path.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub blocked_supports: Option<Vec<BlockedSupport>>,
+}
+
+/// One currently active direct decision attack, named exactly as recorded.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BlockingDefeat {
+    /// The decision whose supporting path is disabled.
+    pub defeated_decision: String,
+    /// The undefeated decision that directly attacks it.
+    pub defeating_decision: String,
+}
+
+/// One otherwise-admissible minimal derivation path and its active blockers.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BlockedSupport {
+    /// Exact recorded decision ids carried by the fact/rule support monomial.
+    pub supporting_decision_path: Vec<String>,
+    /// The minimal active direct-defeat pairs disabling this path.
+    pub blocking_defeats: Vec<BlockingDefeat>,
 }
 
 // -- author.findings (read) --------------------------------------------------
@@ -2535,6 +2619,10 @@ pub struct CorpusImportParams {
     /// would demote every ratified fact it carried.
     #[serde(default)]
     pub decisions: Vec<String>,
+    /// Conditional decision-attack objects exported by a contract 1.13+
+    /// store. Default-empty so every older import frame remains valid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attacks: Vec<serde_json::Value>,
     /// The corpus as `.dli` documents. Syntax builds only; elsewhere this is a
     /// loud refusal naming the one-shot syntax-build path, never a silent skip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2622,6 +2710,9 @@ pub struct CorpusExportResult {
     /// rather than `proposed assumes`. Round-trips with `objects` and
     /// `interner`; the three together are the exported state.
     pub decisions: Vec<String>,
+    /// Folded conditional decision attacks at this commit (contract 1.13+).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attacks: Vec<serde_json::Value>,
     /// The `.dli` rendering, when `format: rendered` was asked for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rendered: Vec<String>,
