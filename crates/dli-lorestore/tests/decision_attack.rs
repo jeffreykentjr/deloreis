@@ -319,17 +319,19 @@ fn raw_commit_cas_and_reopened_reads_reject_every_invalid_attack_shape() {
     }
 
     let probe = store.branch_ref("probe").unwrap().unwrap();
-    let corrupt = Ref::new("refs/heads/probe", corrupt_heads[0].clone());
-    assert!(
-        store
-            .cas_branch_ref(
-                "probe",
-                Some(&probe.digest().unwrap().to_string()),
-                &corrupt,
-            )
-            .is_err()
-    );
-    assert_eq!(store.branch_ref("probe").unwrap().unwrap(), probe);
+    for corrupt_head in &corrupt_heads {
+        let corrupt = Ref::new("refs/heads/probe", corrupt_head.clone());
+        assert!(
+            store
+                .cas_branch_ref(
+                    "probe",
+                    Some(&probe.digest().unwrap().to_string()),
+                    &corrupt,
+                )
+                .is_err()
+        );
+        assert_eq!(store.branch_ref("probe").unwrap().unwrap(), probe);
+    }
 
     // Simulate a store produced by an older/bypassing writer: reopening can
     // observe its ref, but every attack-derived read still fails closed.

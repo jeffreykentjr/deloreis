@@ -3,6 +3,7 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use dli_serve::author::{dispatch, store::Store};
@@ -57,6 +58,70 @@ fn fixture() -> (tempfile::TempDir, Store, std::path::PathBuf) {
     (root, store, base)
 }
 
+fn propagation_fixture(
+    derivation_depth: usize,
+    conclusion_count: usize,
+    decision_order: &[&str],
+) -> (tempfile::TempDir, Store, std::path::PathBuf) {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"conditional-propagation\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
+    )
+    .unwrap();
+    let mut source = "scope demo\nratify d1\nratify d10\nratify d11\n".to_owned();
+    for decision in decision_order {
+        writeln!(&mut source, "ratify {decision}").unwrap();
+        writeln!(&mut source, "declared-{decision}(mara) ratified {decision}").unwrap();
+    }
+    source.push_str(concat!(
+        "person mara \"Mara\" ratified d11\n",
+        "p(mara) ratified d1\n",
+        "independent-seed(mara) ratified d11\n",
+        "redundant-seed(mara) ratified d11\n",
+        "rule independent-rule ratified d10\n",
+        "  independent(mara) :- independent-seed(mara)\n",
+        "rule redundant-from-p ratified d10\n",
+        "  redundant(mara) :- p(mara)\n",
+        "rule redundant-live ratified d10\n",
+        "  redundant(mara) :- redundant-seed(mara)\n",
+    ));
+    let mut predecessor = "p".to_owned();
+    for level in 1..derivation_depth {
+        let step = format!("step-{level}");
+        writeln!(
+            &mut source,
+            "rule chain-{level} ratified d10\n  {step}(mara) :- {predecessor}(mara)"
+        )
+        .unwrap();
+        predecessor = step;
+    }
+    for conclusion in 1..=conclusion_count {
+        writeln!(
+            &mut source,
+            "rule conclusion-{conclusion} ratified d10\n  q-{conclusion}(mara) :- {predecessor}(mara)"
+        )
+        .unwrap();
+    }
+    let (document, diagnostics) = dli_syntax::parse_document(&source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "propagation fixture parses: {diagnostics:?}\n{source}"
+    );
+    let mut store = Store::with_pack(Pack {
+        name: "demo".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let base = root.path().join("lorestore/demo");
+    store
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    (root, store, base)
+}
+
 fn claim_id(store: &dli_lorestore::Lorestore, kind: Option<&str>, name: &str) -> String {
     let head = store.root_hash().unwrap().unwrap();
     store
@@ -84,6 +149,63 @@ fn claim_id(store: &dli_lorestore::Lorestore, kind: Option<&str>, name: &str) ->
             }
         })
         .unwrap_or_else(|| panic!("stored {kind:?} claim `{name}` exists"))
+}
+
+fn predicate_claim_id(store: &dli_lorestore::Lorestore, predicate: &str) -> String {
+    let head = store.root_hash().unwrap().unwrap();
+    store
+        .fact_hashes_from(&head)
+        .unwrap()
+        .into_iter()
+        .find_map(|hash| {
+            store
+                .read_object::<dli_lorestore::FactObject>(&hash)
+                .unwrap()
+                .filter(|object| object.atom.pred == predicate)
+                .map(|object| object.claim_id.0)
+        })
+        .unwrap_or_else(|| panic!("stored predicate `{predicate}` exists"))
+}
+
+fn query_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str) -> Value {
+    result(dispatch(
+        &request(
+            "1.13.0",
+            id,
+            Op::AuthorQuery,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {"pred": predicate, "args": [{"Sym": "mara"}]},
+                "layer": "all"
+            }),
+        ),
+        store,
+    ))
+}
+
+fn assert_named_standings(store: &dli_lorestore::Lorestore, expected: &[(&str, bool)]) {
+    let reference = store.branch_ref(dli_lorestore::MAIN_REF).unwrap().unwrap();
+    let names = store.interner_at(&reference.commit).unwrap();
+    let effective = store
+        .effective_valuation_at(&reference.commit, &reference.valuation)
+        .unwrap();
+    for (name, value) in expected {
+        let atom = dli_core::Atom(
+            u32::try_from(
+                names
+                    .iter()
+                    .position(|candidate| candidate == name)
+                    .unwrap(),
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            effective.valuation.get(atom),
+            Some(*value),
+            "standing for exact decision name `{name}`"
+        );
+        assert!(!effective.unassigned.contains(&atom));
+    }
 }
 
 fn author_query(store: &mut Store, workspace: &str, id: &str) -> Value {
@@ -505,4 +627,242 @@ fn multiple_attackers_are_order_independent_end_to_end() {
         );
     }
     assert_eq!(projections[0], projections[1]);
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
+    // `derivation_depth` counts evaluator rule edges from p to each q. Attack
+    // depth is independently one (d2 -> d1) and then two (d3 -> d2 -> d1).
+    // The (1, 1) cell is the literal P -> Q acceptance case.
+    for derivation_depth in [1usize, 2, 4, 8] {
+        for conclusion_count in [1usize, 2, 5] {
+            let (_root, mut author, path) =
+                propagation_fixture(derivation_depth, conclusion_count, &["d2", "d3"]);
+            let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+            let p_claim = predicate_claim_id(&lorestore, "p");
+            let workspace = result(dispatch(
+                &request(
+                    "1.13.0",
+                    "open-propagation",
+                    Op::AuthorOpen,
+                    json!({"scope": "demo"}),
+                ),
+                &mut author,
+            ))["workspace"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+
+            for conclusion in 1..=conclusion_count {
+                let query = query_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("before-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &format!("q-{conclusion}"),
+                );
+                assert_eq!(
+                    query["rows"][0]["status"], "certain",
+                    "derivation depth {derivation_depth}, shared conclusion {conclusion}/{conclusion_count}: {query}"
+                );
+            }
+
+            defeat(
+                &mut author,
+                &workspace,
+                "attack-depth-1",
+                &p_claim,
+                "d2",
+                "d1",
+            );
+            assert_named_standings(&lorestore, &[("d1", false), ("d2", true)]);
+            assert_eq!(
+                lorestore
+                    .decision_attacks_from(&lorestore.root_hash().unwrap().unwrap())
+                    .unwrap()
+                    .len(),
+                1
+            );
+            for conclusion in 1..=conclusion_count {
+                let query = query_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("retracted-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &format!("q-{conclusion}"),
+                );
+                assert_eq!(
+                    query["rows"],
+                    json!([]),
+                    "one decision attack retracts every result at derivation depth {derivation_depth}: {query}"
+                );
+            }
+            for control in ["independent", "redundant"] {
+                let query = query_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("control-dead-{derivation_depth}-{conclusion_count}-{control}"),
+                    control,
+                );
+                assert_eq!(
+                    query["rows"][0]["status"], "certain",
+                    "{control} is an independent/redundant live-support control: {query}"
+                );
+            }
+
+            let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
+            defeat(
+                &mut author,
+                &workspace,
+                "attack-depth-2",
+                &d2_claim,
+                "d3",
+                "d2",
+            );
+            assert_named_standings(&lorestore, &[("d1", true), ("d2", false), ("d3", true)]);
+            assert_eq!(
+                lorestore
+                    .decision_attacks_from(&lorestore.root_hash().unwrap().unwrap())
+                    .unwrap()
+                    .len(),
+                2
+            );
+            for conclusion in 1..=conclusion_count {
+                let query = query_predicate(
+                    &mut author,
+                    &workspace,
+                    &format!("restored-{derivation_depth}-{conclusion_count}-{conclusion}"),
+                    &format!("q-{conclusion}"),
+                );
+                assert_eq!(
+                    query["rows"][0]["status"], "certain",
+                    "defeating the attacker restores all {conclusion_count} results through {derivation_depth} real rule edges: {query}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn multiple_attackers_require_every_live_attack_to_be_defeated() {
+    let (_root, mut author, path) = propagation_fixture(2, 2, &["d2", "d3", "d4", "d5"]);
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-multi",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut author,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let p_claim = predicate_claim_id(&lorestore, "p");
+    defeat(&mut author, &workspace, "d2-d1", &p_claim, "d2", "d1");
+    defeat(&mut author, &workspace, "d3-d1", &p_claim, "d3", "d1");
+    assert_named_standings(&lorestore, &[("d1", false), ("d2", true), ("d3", true)]);
+
+    let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
+    defeat(&mut author, &workspace, "d4-d2", &d2_claim, "d4", "d2");
+    assert_named_standings(
+        &lorestore,
+        &[("d1", false), ("d2", false), ("d3", true), ("d4", true)],
+    );
+    assert!(
+        query_predicate(&mut author, &workspace, "still-retracted", "q-1")["rows"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let d3_claim = claim_id(&lorestore, Some("ratify"), "d3");
+    defeat(&mut author, &workspace, "d5-d3", &d3_claim, "d5", "d3");
+    assert_named_standings(
+        &lorestore,
+        &[
+            ("d1", true),
+            ("d2", false),
+            ("d3", false),
+            ("d4", true),
+            ("d5", true),
+        ],
+    );
+    for predicate in ["q-1", "q-2", "independent", "redundant"] {
+        let query = query_predicate(&mut author, &workspace, "multi-restored", predicate);
+        assert_eq!(query["rows"][0]["status"], "certain", "{query}");
+    }
+}
+
+#[test]
+fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
+    let edges = [("d2", "d1"), ("d3", "d1"), ("d4", "d2")];
+    let permutations = [
+        [0usize, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ];
+    let mut projections = Vec::new();
+    for (case, permutation) in permutations.into_iter().enumerate() {
+        let declarations: Vec<_> = permutation.iter().map(|index| edges[*index].0).collect();
+        let (_root, mut author, path) = propagation_fixture(1, 1, &declarations);
+        let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+        let workspace = result(dispatch(
+            &request(
+                "1.13.0",
+                &format!("open-order-{case}"),
+                Op::AuthorOpen,
+                json!({"scope": "demo"}),
+            ),
+            &mut author,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        for index in permutation {
+            let (attacker, target) = edges[index];
+            let carrier = if target == "d1" {
+                predicate_claim_id(&lorestore, "p")
+            } else {
+                claim_id(&lorestore, Some("ratify"), target)
+            };
+            defeat(
+                &mut author,
+                &workspace,
+                &format!("order-{case}-{attacker}-{target}"),
+                &carrier,
+                attacker,
+                target,
+            );
+        }
+        assert_named_standings(
+            &lorestore,
+            &[("d1", false), ("d2", false), ("d3", true), ("d4", true)],
+        );
+        assert!(
+            query_predicate(&mut author, &workspace, "ordered-q", "q-1")["rows"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        for control in ["independent", "redundant"] {
+            assert_eq!(
+                query_predicate(&mut author, &workspace, "ordered-control", control)["rows"][0]["status"],
+                "certain"
+            );
+        }
+        let head = lorestore.root_hash().unwrap().unwrap();
+        projections.push(
+            lorestore
+                .decision_attacks_from(&head)
+                .unwrap()
+                .into_iter()
+                .map(|attack| (attack.attacker, attack.target))
+                .collect::<Vec<_>>(),
+        );
+    }
+    assert!(projections.windows(2).all(|pair| pair[0] == pair[1]));
 }
