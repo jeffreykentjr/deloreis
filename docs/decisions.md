@@ -5389,3 +5389,41 @@ counter rollback, while a success-path differential test proves fact hashes and
 interner names byte-identical to reconstruction. The ignored scale harness is
 the reproducible wall-clock evidence; `cargo xtask gate` remains the acceptance
 verdict.
+
+## DL-0094 — Persisted valuations cross compilation boundaries by exact name, never by atom position (GH #103)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+making the self-describing-interner invariant explicit after the defeat-horizon
+benchmark exposed a released positional aliasing defect. It is live and binding
+on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** An `Atom` index has meaning only under the `Interner` that produced
+it. A persisted `Ref::valuation`, merge-side valuation, project snapshot, or
+other durable overlay may enter a separately compiled world only through the
+source commit's exact name table: validate the source index, resolve it to a
+name, then resolve that name in the receiving interner. Duplicate source or
+target names, an out-of-range source atom, or a name absent from the receiving
+world is `EvidenceCorrupt`; the engine must never silently drop, retarget, or
+guess an assignment.
+
+The stored representation remains the schema-v4 numeric valuation paired with
+its commit interner. Changing those canonical bytes is unnecessary: the defect
+was every consumer that detached the numbers from their name table. The one
+typed name-remapping boundary therefore governs author staged reads, branch and
+pinned opens/reloads, project sessions, canon/refold, and merge union/conflict
+analysis. Merge resolves each parent through its own interner before combining
+assignments by name.
+
+This is a semantic correction across every accepted contract version, not a
+new capability or response field, so there is no contract or storage-schema
+bump. Already-aligned worlds and all released request/response shapes remain
+byte-identical; only the skewed case stops falsifying an unrelated decision.
+
+**Verification.** Pure tests cover exact mapping plus out-of-range, duplicate,
+and missing-name refusals. The public regression first proves that durable and
+recompiled atom positions differ, then checks the intended defeated claim and
+an independent control through live authoring, reopen/session, branch, merge,
+and canon paths. A mutation tooth that reuses raw indices must redden the suite;
+`cargo xtask gate` remains the acceptance verdict.
