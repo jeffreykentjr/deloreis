@@ -537,8 +537,45 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
     // The workspace is anchored to the store ref selected during project load.
     // Apply that complete overlay before its local suppositions; explicit falses
     // are as meaningful as trues and must not be reconstructed as absence.
-    for (atom, value) in &ws.base_valuation.0 {
-        world.model.world.valuation.0.insert(*atom, *value);
+    for (source_atom, value) in &ws.base_valuation.0 {
+        let name = ws
+            .interner
+            .resolve(*source_atom)
+            .ok_or_else(|| EvalError::Contradiction {
+                detail: format!(
+                    "stored valuation atom {} is outside the workspace interner",
+                    source_atom.0
+                ),
+            })?;
+        let mut matches = world
+            .model
+            .world
+            .interner
+            .names()
+            .iter()
+            .enumerate()
+            .filter(|(_, candidate)| candidate.as_str() == name);
+        let target = match matches.next() {
+            Some((index, _)) => {
+                if matches.next().is_some() {
+                    return Err(EvalError::Contradiction {
+                        detail: format!(
+                            "stored valuation name `{name}` is ambiguous in the staged world"
+                        ),
+                    });
+                }
+                let index = u32::try_from(index).map_err(|_| EvalError::Contradiction {
+                    detail: format!("stored valuation name `{name}` exceeds the atom index space"),
+                })?;
+                dli_core::atom::Atom(index)
+            }
+            // A recorded decision can participate in the attack graph before
+            // any fact cites it. The compiler then has no reason to intern it;
+            // append the exact name so the projected standing remains visible
+            // without changing any existing atom identity.
+            None => world.model.world.interner.intern(name),
+        };
+        world.model.world.valuation.set(target, *value);
     }
     for hypothesis in &ws.suppositions {
         if let Some(index) = world

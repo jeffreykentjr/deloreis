@@ -1952,8 +1952,10 @@ pub struct AuthorRecordDecisionParams {
     pub provenance: Option<Provenance>,
 }
 
-/// `author.defeat` records a defeating decision and rules the claim's existing
-/// supporting decision false without deleting the defeated fact.
+/// `author.defeat` records a defeating decision. Through contract 1.12 it rules
+/// the existing supporting decision false on the Ref; from 1.13 it appends a
+/// conditional attack edge, so grounded standing restores the target when its
+/// attacker is itself defeated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorDefeatParams {
@@ -2535,6 +2537,10 @@ pub struct CorpusImportParams {
     /// would demote every ratified fact it carried.
     #[serde(default)]
     pub decisions: Vec<String>,
+    /// Conditional decision-attack objects exported by a contract 1.13+
+    /// store. Default-empty so every older import frame remains valid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attacks: Vec<serde_json::Value>,
     /// The corpus as `.dli` documents. Syntax builds only; elsewhere this is a
     /// loud refusal naming the one-shot syntax-build path, never a silent skip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2622,6 +2628,9 @@ pub struct CorpusExportResult {
     /// rather than `proposed assumes`. Round-trips with `objects` and
     /// `interner`; the three together are the exported state.
     pub decisions: Vec<String>,
+    /// Folded conditional decision attacks at this commit (contract 1.13+).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attacks: Vec<serde_json::Value>,
     /// The `.dli` rendering, when `format: rendered` was asked for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rendered: Vec<String>,

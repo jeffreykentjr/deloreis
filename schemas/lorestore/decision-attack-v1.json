@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DecisionAttack",
+  "description": "A content-addressed, exact-name attack between two recorded decisions.",
+  "type": "object",
+  "properties": {
+    "attacker": {
+      "description": "The attacking decision, matched by exact name.",
+      "type": "string"
+    },
+    "authority": {
+      "description": "The authority recording the attack (unset in sovereign deployments).",
+      "$ref": "#/$defs/Authority"
+    },
+    "claim_id": {
+      "description": "The stable claim whose support established `target` for this defeat.",
+      "$ref": "#/$defs/ClaimId"
+    },
+    "schema_version": {
+      "description": "Schema version; excluded from the semantic identity projection.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "target": {
+      "description": "The attacked decision, matched by exact name.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "claim_id",
+    "attacker",
+    "target"
+  ],
+  "$defs": {
+    "Authority": {
+      "description": "The authority that asserted an object.\n\nExists on every stored object; stays `None` in single-sovereign\ndeployments (DEF-4 unchanged). In multi-authority configurations, the\nauthority tag distinguishes who proposed or ruled the object — and because\nit participates in the content hash, the same proposition asserted by two\nauthorities is two distinct objects, never conflated by dedup.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ClaimId": {
+      "description": "A stable minted claim identifier.\n\nUnlike the [`ContentHash`], a `ClaimId` is not derived from the fact's\ncontent — it is minted once and survives revisions, so lineage and\ncross-version references remain stable even when the fact's text changes.\nThe content hash does not reference it, so minting a `ClaimId` never\ndestabilizes addressing.",
+      "type": "string"
+    }
+  }
+}

@@ -438,6 +438,34 @@ impl Lorestore {
         )
     }
 
+    /// Commit facts plus newly introduced conditional decision attacks to
+    /// `main`. Existing callers use [`commit`](Self::commit), whose attack
+    /// delta is empty.
+    #[allow(clippy::too_many_arguments)]
+    pub fn commit_with_attacks(
+        &self,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        attacks: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<ContentHash, StoreError> {
+        self.commit_on_branch_with_attacks_at_ref(
+            MAIN_REF,
+            None,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            attacks,
+            decisions,
+            pack_name,
+        )
+        .map(|receipt| receipt.commit)
+    }
+
     /// Commit a new `Commit` to an arbitrary branch (LS-6). The parent is that
     /// branch's current head; the CAS fences on that branch's whole-ref digest.
     /// The interner-append-only discipline is checked against the branch's own
@@ -482,6 +510,35 @@ impl Lorestore {
         decisions: Vec<String>,
         pack_name: String,
     ) -> Result<CommitReceipt, StoreError> {
+        self.commit_on_branch_with_attacks_at_ref(
+            branch,
+            expected_ref,
+            interner,
+            fact_hashes,
+            lineage,
+            evidence,
+            Vec::new(),
+            decisions,
+            pack_name,
+        )
+    }
+
+    /// Commit on `branch`, adding conditional decision-attack object hashes.
+    /// Every attack is verified to exist, decode, and name decisions carried
+    /// by the candidate commit before the commit object or ref is written.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    pub fn commit_on_branch_with_attacks_at_ref(
+        &self,
+        branch: &str,
+        expected_ref: Option<&str>,
+        interner: Vec<String>,
+        fact_hashes: Vec<ContentHash>,
+        lineage: Vec<ContentHash>,
+        evidence: Vec<ContentHash>,
+        attacks: Vec<ContentHash>,
+        decisions: Vec<String>,
+        pack_name: String,
+    ) -> Result<CommitReceipt, StoreError> {
         let _lock = self.storage.acquire_lock()?;
         let ref_name = branch_ref_name(branch);
 
@@ -505,6 +562,19 @@ impl Lorestore {
                 return Err(StoreError::NotFound(format!(
                     "evidence envelope not in store: {hash}"
                 )));
+            }
+        }
+        for hash in &attacks {
+            let attack: crate::DecisionAttack = storage::read_typed(&*self.storage, hash)?
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!("decision attack not in store: {hash}"))
+                })?;
+            for decision in [&attack.attacker, &attack.target] {
+                if !decisions.contains(decision) {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} names unknown decision `{decision}`"
+                    )));
+                }
             }
         }
 
@@ -550,7 +620,8 @@ impl Lorestore {
                 evidence,
                 decisions,
                 pack_name,
-            ),
+            )
+            .with_attacks(attacks),
             None => Commit::root(
                 interner,
                 fact_hashes,
@@ -558,7 +629,8 @@ impl Lorestore {
                 evidence,
                 decisions,
                 pack_name,
-            ),
+            )
+            .with_attacks(attacks),
         };
 
         let commit_hash = storage::write_typed(&*self.storage, &commit)?;
@@ -643,6 +715,96 @@ impl Lorestore {
             }
         }
         Ok(unique)
+    }
+
+    /// Fold the unique conditional decision-attack hashes reachable from
+    /// `head`, in deterministic root-to-head order across both parents.
+    pub fn decision_attack_hashes_from(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Vec<ContentHash>, StoreError> {
+        let mut chain = self.storage.walk_dag(head, None)?;
+        chain.reverse();
+        let mut seen = std::collections::BTreeSet::new();
+        let mut unique = Vec::new();
+        for commit in chain {
+            for hash in commit.attacks {
+                // Decode on the fold path: an existing object of the wrong type
+                // is corruption, not an attack to skip.
+                let _: crate::DecisionAttack = self.read_object(&hash)?.ok_or_else(|| {
+                    StoreError::NotFound(format!("decision attack missing: {hash}"))
+                })?;
+                if seen.insert(hash.clone()) {
+                    unique.push(hash);
+                }
+            }
+        }
+        Ok(unique)
+    }
+
+    /// Read the folded conditional decision attacks at `head`.
+    pub fn decision_attacks_from(
+        &self,
+        head: &ContentHash,
+    ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
+        self.decision_attack_hashes_from(head)?
+            .into_iter()
+            .map(|hash| {
+                self.read_object(&hash)?
+                    .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))
+            })
+            .collect()
+    }
+
+    /// Project effective standing at `head`: legacy numeric Ref assignments are
+    /// first translated through the commit interner into fixed exact-name
+    /// seeds, then the folded attack graph receives grounded labelling, and the
+    /// resulting names are translated back into this commit's atom space.
+    pub fn effective_valuation_at(
+        &self,
+        head: &ContentHash,
+        legacy: &dli_core::valuation::Valuation,
+    ) -> Result<dli_core::valuation::Valuation, StoreError> {
+        let commit = self.commit_at(head)?;
+        let mut fixed = std::collections::BTreeMap::new();
+        for (atom, value) in &legacy.0 {
+            let name = commit.interner.get(atom.0 as usize).ok_or_else(|| {
+                StoreError::NotFound(format!(
+                    "legacy valuation atom {} is outside the commit interner ({} names)",
+                    atom.0,
+                    commit.interner.len()
+                ))
+            })?;
+            fixed.insert(name.clone(), *value);
+        }
+        let attacks = self.decision_attacks_from(head)?;
+        let attack_names: std::collections::BTreeSet<&str> = attacks
+            .iter()
+            .flat_map(|attack| [attack.attacker.as_str(), attack.target.as_str()])
+            .collect();
+        let labels = crate::grounded_labels(&commit.decisions, &attacks, &fixed);
+        let mut effective = legacy.clone();
+        for (name, value) in labels {
+            // Unattacked decisions outside the graph are already ruled by the
+            // compiler's ledger valuation when a fact cites them. Project only
+            // attack-graph vertices here; an unused recorded decision need not
+            // have an interner atom at all.
+            if !attack_names.contains(name.as_str()) {
+                continue;
+            }
+            let index = commit
+                .interner
+                .iter()
+                .position(|candidate| candidate == &name)
+                .and_then(|index| u32::try_from(index).ok())
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!(
+                        "decision `{name}` has no atom in the commit interner"
+                    ))
+                })?;
+            effective.set(dli_core::atom::Atom(index), value);
+        }
+        Ok(effective)
     }
 
     /// The set of commit hashes reachable from `head` (inclusive), following both
@@ -1199,6 +1361,7 @@ impl Lorestore {
     /// runs identically regardless of `advance`, so a dry run and its later
     /// real merge (same two heads) write the same merge commit and report the
     /// same conflicts.
+    #[allow(clippy::too_many_lines)]
     fn merge_impl(
         &self,
         target: &str,
@@ -1258,6 +1421,19 @@ impl Lorestore {
             }
         }
 
+        // Conditional attacks are append-only semantic objects, so merge is
+        // their deterministic set union just like facts. The graph is labelled
+        // only after the union, allowing a merge to introduce a cycle without
+        // making the result depend on parent order.
+        let mut merged_attacks = self.decision_attack_hashes_from(&target_head)?;
+        let mut aseen: std::collections::BTreeSet<ContentHash> =
+            merged_attacks.iter().cloned().collect();
+        for hash in self.decision_attack_hashes_from(&source_head)? {
+            if aseen.insert(hash.clone()) {
+                merged_attacks.push(hash);
+            }
+        }
+
         let base = self.merge_base(&target_head, &source_head)?;
 
         // Write the merge commit — its facts are already stored, so it is a pure
@@ -1271,7 +1447,8 @@ impl Lorestore {
             Vec::new(),
             merged_decisions,
             target_commit.pack_name.clone(),
-        );
+        )
+        .with_attacks(merged_attacks);
         let merge_hash = storage::write_typed(&*self.storage, &merge_commit)?;
 
         // Advance the target branch to the merge commit, carrying the union
@@ -1304,7 +1481,12 @@ impl Lorestore {
             }
         }
 
-        // Detect the three conflict classes over the merged state.
+        // Detect conflicts against effective standing. Ref valuations remain
+        // the raw legacy/fork overlays written to the target; conditional
+        // attacks are a derived read projection and never become false bits.
+        let target_effective = self.effective_valuation_at(&target_head, &target_ref.valuation)?;
+        let source_effective = self.effective_valuation_at(&source_head, &source_ref.valuation)?;
+        let merged_effective = self.effective_valuation_at(&merge_hash, &merged_valuation)?;
         let scan = crate::merge::scan(
             self,
             &merge_hash,
@@ -1313,7 +1495,9 @@ impl Lorestore {
             base.as_ref(),
             &target_ref.valuation,
             &source_ref.valuation,
-            &merged_valuation,
+            &target_effective,
+            &source_effective,
+            &merged_effective,
             &merged_interner,
         )?;
 

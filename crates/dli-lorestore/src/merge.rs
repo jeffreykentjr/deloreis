@@ -199,15 +199,17 @@ pub(crate) fn scan(
     base: Option<&ContentHash>,
     target_val: &Valuation,
     source_val: &Valuation,
-    merged_val: &Valuation,
+    target_effective: &Valuation,
+    source_effective: &Valuation,
+    merged_effective: &Valuation,
     merged_interner: &[String],
 ) -> Result<ConflictScan, StoreError> {
     // Class 1 — valuation disagreement, straight off the two overlays.
     let mut conflicts = valuation_conflicts(target_val, source_val, merged_interner);
 
-    let merged_named = overlay_to_named(merged_val, merged_interner);
-    let target_named = overlay_to_named(target_val, merged_interner);
-    let source_named = overlay_to_named(source_val, merged_interner);
+    let merged_named = overlay_to_named(merged_effective, merged_interner);
+    let target_named = overlay_to_named(target_effective, merged_interner);
+    let source_named = overlay_to_named(source_effective, merged_interner);
 
     // The union's compiled world, through the session cache in both directions.
     //

@@ -54,6 +54,10 @@ pub struct Commit {
     pub lineage: Vec<ContentHash>,
     /// The evidence envelope hashes introduced by this commit.
     pub evidence: Vec<ContentHash>,
+    /// Conditional decision-attack objects introduced by this commit. Empty on
+    /// every pre-v5 commit; folded across both parents like facts and lineage.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attacks: Vec<ContentHash>,
     /// The event-variable name table at this commit — a flat list so that
     /// `Atom(u32)` indices in support polynomials resolve deterministically.
     /// Present on the root commit; extended by append-only growth only.
@@ -89,6 +93,7 @@ impl Commit {
             facts,
             lineage,
             evidence,
+            attacks: Vec::new(),
             interner,
             decisions,
             pack_name,
@@ -114,6 +119,7 @@ impl Commit {
             facts,
             lineage,
             evidence,
+            attacks: Vec::new(),
             interner,
             decisions,
             pack_name,
@@ -145,10 +151,18 @@ impl Commit {
             facts,
             lineage,
             evidence,
+            attacks: Vec::new(),
             interner,
             decisions,
             pack_name,
         }
+    }
+
+    /// Attach conditional attack objects to a freshly constructed commit.
+    #[must_use]
+    pub fn with_attacks(mut self, attacks: Vec<ContentHash>) -> Self {
+        self.attacks = attacks;
+        self
     }
 
     /// The content hash of this commit — over all fields. Used as the ref

@@ -2817,19 +2817,25 @@ pub(super) fn set_standing(
         &params.claim_id,
         &params.decision,
         None,
+        false,
     )
 }
 
 /// Record a defeating decision and rule the claim's existing supporting
 /// decision false on the current main ref. The defeated object remains
 /// reachable in the append-only store.
-pub(super) fn defeat(store: &mut Store, params: &AuthorDefeatParams) -> Result<Value, ErrorBody> {
+pub(super) fn defeat(
+    store: &mut Store,
+    params: &AuthorDefeatParams,
+    conditional: bool,
+) -> Result<Value, ErrorBody> {
     durable_standing_change(
         store,
         &params.workspace,
         &params.claim_id,
         &params.decision,
         Some(&params.defeated_decision),
+        conditional,
     )
 }
 
@@ -3000,10 +3006,15 @@ pub(super) fn record_decision(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let effective_valuation = store
+        .workspace_lorestore(&params.workspace)
+        .expect("lorestore presence checked above")
+        .effective_valuation_at(&commit, &current_ref.valuation)
+        .map_err(|error| store_fault(&error))?;
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = effective_valuation;
     }
     // Reconstruct the workspace's base from the new head so the recorded `ratify`
     // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
@@ -3038,6 +3049,7 @@ fn durable_standing_change(
     claim_id: &str,
     decision: &str,
     defeated_decision: Option<&str>,
+    conditional: bool,
 ) -> Result<Value, ErrorBody> {
     let defeating = defeated_decision.is_some();
     let ws0 = store.get(workspace).ok_or_else(gone)?;
@@ -3133,15 +3145,21 @@ fn durable_standing_change(
                 facts: None,
             }));
         }
-        if !support_cites_decision(&object, &interner, defeated_decision) {
+        let ratify_carrier = conditional
+            && object.expert_body.as_ref().is_some_and(|body| {
+                body.kind == dli_lorestore::ExpertDeclKind::Ratify && body.name == defeated_decision
+            });
+        if !ratify_carrier && !support_cites_decision(&object, &interner, defeated_decision) {
             return Err(schema_error(format!(
                 "claim `{claim_id}` does not rest on decision `{defeated_decision}` in every support path"
             )));
         }
-        object
-            .provenance
-            .get_or_insert_with(Default::default)
-            .defeated_by = Some(decision.to_owned());
+        if !conditional {
+            object
+                .provenance
+                .get_or_insert_with(Default::default)
+                .defeated_by = Some(decision.to_owned());
+        }
     } else {
         let marker = object
             .provenance
@@ -3169,8 +3187,8 @@ fn durable_standing_change(
     if defeating && !interner.iter().any(|name| name == decision) {
         interner.push(decision.to_owned());
     }
-    let defeat_atom = if let Some(defeated_decision) = defeated_decision {
-        Some(
+    let defeat_atom = match (defeated_decision, conditional) {
+        (Some(defeated_decision), false) => Some(
             interner
                 .iter()
                 .position(|name| name == defeated_decision)
@@ -3181,9 +3199,8 @@ fn durable_standing_change(
                         "defeated decision `{defeated_decision}` has no interner atom"
                     ))
                 })?,
-        )
-    } else {
-        None
+        ),
+        _ => None,
     };
 
     let (commit, ref_digest) = {
@@ -3209,12 +3226,27 @@ fn durable_standing_change(
         } else {
             Vec::new()
         };
-        fact_hashes.push(
-            ls.write_object(&object)
-                .map_err(|error| store_fault(&error))?,
-        );
+        if !conditional {
+            fact_hashes.push(
+                ls.write_object(&object)
+                    .map_err(|error| store_fault(&error))?,
+            );
+        }
+        let attack_hashes = if conditional {
+            let attack = dli_lorestore::DecisionAttack::new(
+                object.claim_id.clone(),
+                decision,
+                defeated_decision.expect("conditional defeat carries a target"),
+            );
+            vec![
+                ls.write_object(&attack)
+                    .map_err(|error| store_fault(&error))?,
+            ]
+        } else {
+            Vec::new()
+        };
         let receipt = ls
-            .commit_on_branch_at_ref(
+            .commit_on_branch_with_attacks_at_ref(
                 &target_branch,
                 Some(
                     &head_ref
@@ -3226,6 +3258,7 @@ fn durable_standing_change(
                 fact_hashes,
                 Vec::new(),
                 Vec::new(),
+                attack_hashes,
                 decisions,
                 pack_name,
             )
@@ -3233,7 +3266,7 @@ fn durable_standing_change(
         (receipt.commit, receipt.ref_digest)
     };
 
-    if defeating {
+    if defeating && !conditional {
         let ls = store
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above");
@@ -3275,10 +3308,28 @@ fn durable_standing_change(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
+    let effective_valuation = if conditional {
+        store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above")
+            .effective_valuation_at(&commit, &current_ref.valuation)
+            .map_err(|error| store_fault(&error))?
+    } else {
+        current_ref.valuation.clone()
+    };
     if let Some((_, ws)) = store.parts_mut(workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = current_ref.valuation;
+        ws.base_valuation = effective_valuation;
+    }
+    if conditional {
+        store
+            .reload_workspace_base(workspace)
+            .map_err(|message| ErrorBody {
+                code: ErrorCode::Internal,
+                message: format!("refreshing the workspace after conditional defeat: {message}"),
+                data: None,
+            })?;
     }
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

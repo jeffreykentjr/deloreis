@@ -382,7 +382,9 @@ impl Store {
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
-            workspace.base_valuation = branch_ref.valuation.clone();
+            workspace.base_valuation = ls
+                .effective_valuation_at(&head, &branch_ref.valuation)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = Some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
@@ -556,11 +558,14 @@ impl Store {
             .lorestores
             .get(&base_key)
             .ok_or_else(|| format!("workspace `{ws_id}` has no attached lorestore"))?;
-        let head = ls
+        let branch_ref = ls
             .branch_ref(&target)
             .map_err(|error| error.to_string())?
-            .ok_or_else(|| format!("branch `{target}` has no ref"))?
-            .commit;
+            .ok_or_else(|| format!("branch `{target}` has no ref"))?;
+        let head = branch_ref.commit.clone();
+        let effective_valuation = ls
+            .effective_valuation_at(&head, &branch_ref.valuation)
+            .map_err(|error| error.to_string())?;
         // Through the session cache, as branch-open above: a reload after a
         // materialize that did not advance the target branch is a pure repeat,
         // and the reload that follows one that did lands on a commit the merge
@@ -583,6 +588,9 @@ impl Store {
             }
             ws.interner = dli_core::atom::Interner::from_names(interner);
             ws.bundle_counter = bundle;
+            ws.base_root_hash = Some(head.to_string());
+            ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
+            ws.base_valuation = effective_valuation;
         }
         let refreshed = Base {
             world,

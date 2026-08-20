@@ -4,6 +4,11 @@
   "description": "`dli.corpus.export` result.",
   "type": "object",
   "properties": {
+    "attacks": {
+      "description": "Folded conditional decision attacks at this commit (contract 1.13+).",
+      "type": "array",
+      "items": true
+    },
     "canon": {
       "description": "The canon-normalized per-domain maps, when `format: canon` was asked\nfor. `null` (omitted from the serialized response) for non-canon\nexports. Round-trips with `objects` and `interner`: re-importing\n`objects` at `root_hash` reproduces this projection."
     },

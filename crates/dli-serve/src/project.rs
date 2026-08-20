@@ -856,6 +856,13 @@ fn load_pack_from_store(
             })?,
     };
 
+    let valuation = lorestore
+        .effective_valuation_at(&resolved, &valuation)
+        .map_err(|error| ProjectError::Compile {
+            document: id.to_owned(),
+            message: format!("store head `{resolved}` has invalid decision standing: {error}"),
+        })?;
+
     let pack = lorestore
         .reconstruct_at(&resolved)
         .map_err(|error| ProjectError::Compile {

@@ -300,7 +300,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorDefeat => mutate(request, store, |store, request| {
             let params: AuthorDefeatParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), tools::defeat(store, &params)))
+            Ok((
+                params.workspace.clone(),
+                tools::defeat(store, &params, crate::has_conditional_defeat(&request.dli)),
+            ))
         }),
         Op::AuthorDeclareFunctional => mutate(request, store, |store, request| {
             let params: AuthorDeclareFunctionalParams = parse(request)?;

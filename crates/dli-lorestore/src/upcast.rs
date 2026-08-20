@@ -177,6 +177,20 @@ pub fn upcast_value(from_version: u64, mut value: Value) -> Result<Value, Upcast
         normalize_decided_marker(&mut value);
     }
 
+    // v4 -> v5: commits gain a default-empty conditional-attack lane. Other
+    // stored object kinds also pass through this boundary, so add it only to a
+    // value recognizable as a commit.
+    if from_version < 5
+        && value.get("facts").is_some()
+        && value.get("interner").is_some()
+        && value.get("pack_name").is_some()
+        && let Some(object) = value.as_object_mut()
+    {
+        object
+            .entry("attacks".to_owned())
+            .or_insert_with(|| Value::Array(Vec::new()));
+    }
+
     // Stamp the lifted object with the schema it now conforms to.
     if let Some(obj) = value.as_object_mut() {
         obj.insert("schema_version".to_owned(), Value::from(SCHEMA_VERSION));

@@ -4,6 +4,13 @@
   "description": "An append-only commit: one atomic write to the store.\n\nThe commit DAG carries **storage-level ancestry** (which write produced which\nstate) — as in git, ancestry is a commit-level concern, never a fact-level\none. The fact object's content hash embeds no parent pointer of any kind.\n\nThe interner is a flattened name list (`Vec<String>`) — same serialization\nas `dli_core::Interner` — so support polynomials using `Atom(u32)` indices\nare resolvable without a separate lookup. It is committed at the root\ncommit; subsequent commits may extend it (append-only — atoms are never\nrenumbered, only added).",
   "type": "object",
   "properties": {
+    "attacks": {
+      "description": "Conditional decision-attack objects introduced by this commit. Empty on\nevery pre-v5 commit; folded across both parents like facts and lineage.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ContentHash"
+      }
+    },
     "authority": {
       "description": "The authority behind this commit (unset in sovereign deployments).",
       "$ref": "#/$defs/Authority"

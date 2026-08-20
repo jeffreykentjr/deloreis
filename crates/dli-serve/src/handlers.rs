@@ -2094,6 +2094,12 @@ fn document_store(sessions: &Sessions, document: &str) -> Result<dli_lorestore::
 
 fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CorpusImportParams = params(request)?;
+    if !p.attacks.is_empty() && !crate::has_conditional_defeat(&request.dli) {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "conditional decision attacks require contract 1.13.0".to_owned(),
+        ));
+    }
     let store = document_store(sessions, &p.document)?;
 
     // "Empty" means **holds no facts**, and nothing weaker.
@@ -2150,6 +2156,7 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                 objects,
                 interner,
                 &p.decisions,
+                &p.attacks,
                 &p.document,
                 crate::validates_claim_ids(&request.dli),
                 &request.dli,
@@ -2182,11 +2189,13 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
 /// resolves to the wrong variable — a `decided d-1` fact reads back as
 /// `proposed assumes __decl`. Carrying the table keeps the exchange lossless
 /// (DL-0056).
+#[allow(clippy::too_many_arguments)]
 fn import_objects(
     store: &dli_lorestore::Lorestore,
     objects: &[serde_json::Value],
     interner: &[String],
     decisions: &[String],
+    attacks: &[serde_json::Value],
     document: &str,
     validate_claim_ids: bool,
     dli: &str,
@@ -2268,6 +2277,21 @@ fn import_objects(
                 .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
         );
     }
+    let mut attack_hashes = Vec::with_capacity(attacks.len());
+    for (index, value) in attacks.iter().enumerate() {
+        let attack: dli_lorestore::DecisionAttack =
+            serde_json::from_value(value.clone()).map_err(|error| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("attack {index} is not a stored decision attack: {error}"),
+                )
+            })?;
+        attack_hashes.push(
+            store
+                .write_object(&attack)
+                .map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+        );
+    }
     // `document` is a wire identifier, deliberately decoupled from lore scope —
     // a store committed as `alpha` may legitimately be served as document
     // `beta`. So an append carries the committed name forward; only a seeding
@@ -2278,11 +2302,12 @@ fn import_objects(
         .unwrap_or_else(|| document.to_owned());
 
     store
-        .commit(
+        .commit_with_attacks(
             interner.to_vec(),
             hashes,
             Vec::new(),
             Vec::new(),
+            attack_hashes,
             decisions.to_vec(),
             pack_name,
         )
@@ -2522,7 +2547,14 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
         // `canon` projects the folded state into the per-domain normalized maps
         // that `parity.json` carries — the store-read equivalent of
         // `compile_lore_dli.py`'s `products()` normalizers (LS-7).
-        CorpusExportFormat::Canon => (Vec::new(), Some(canon_export(&store, &head)?)),
+        CorpusExportFormat::Canon => (
+            Vec::new(),
+            Some(canon_export(
+                &store,
+                &head,
+                crate::has_conditional_defeat(&request.dli),
+            )?),
+        ),
     };
 
     // The name table those objects' support polynomials index into. Exported
@@ -2533,6 +2565,18 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
     let decisions = store
         .decisions_at(&head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let attacks = if crate::has_conditional_defeat(&request.dli) {
+        store
+            .decision_attacks_from(&head)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
+            .into_iter()
+            .map(|attack| {
+                serde_json::to_value(attack).map_err(|e| (ErrorCode::Internal, e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        Vec::new()
+    };
 
     Ok(ok_response(
         request,
@@ -2541,6 +2585,7 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
             objects,
             interner,
             decisions,
+            attacks,
             rendered,
             canon,
         },
@@ -2587,9 +2632,11 @@ fn render_export(
 /// derived from those buckets. This is the projection scaffold: predicate
 /// bucketing, the interner, and the known decisions are emitted now, and the
 /// domain normalizers layer onto the buckets incrementally.
+#[allow(clippy::too_many_lines)]
 fn canon_export(
     store: &dli_lorestore::Lorestore,
     head: &dli_lorestore::ContentHash,
+    include_attacks: bool,
 ) -> Result<serde_json::Value, Fault> {
     let hashes = store
         .fact_hashes_from(head)
@@ -2638,7 +2685,10 @@ fn canon_export(
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .filter(|reference| reference.commit == *head)
     {
-        for (atom, value) in reference.valuation.0 {
+        let effective = store
+            .effective_valuation_at(head, &reference.valuation)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        for (atom, value) in effective.0 {
             compiled.model.world.valuation.0.insert(atom, value);
         }
     }
@@ -2679,6 +2729,15 @@ fn canon_export(
         "decisions".to_string(),
         serde_json::to_value(&decisions).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
     );
+    if include_attacks {
+        let attacks = store
+            .decision_attacks_from(head)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+        canon.insert(
+            "attacks".to_string(),
+            serde_json::to_value(attacks).map_err(|e| (ErrorCode::Internal, e.to_string()))?,
+        );
+    }
     // LS-7: the killed-tokens domain is the first per-domain normalizer to land
     // (DL-0065). It projects {killed, worker_projection, rejected_claims,
     // excluded_ratified_surface_collisions} purely from folded fact objects,

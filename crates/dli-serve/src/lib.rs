@@ -111,8 +111,11 @@ mod simulation;
 /// before applying the caller limit (GH #88). The 1.10.0 behavior remains
 /// available to callers negotiating that released version. `1.12.0` adds the
 /// predicate-identity wire socket; its evaluator/lorestore carriage remains a
-/// separate kernel integration.
-pub const CONTRACT_VERSION: &str = "1.12.0";
+/// separate kernel integration. `1.13.0` introduces conditional decision
+/// attacks: `author.defeat` appends an attack edge and grounded standing can
+/// restore a decision when its attacker falls. Earlier negotiations retain the
+/// released one-way Ref-valuation behavior.
+pub const CONTRACT_VERSION: &str = "1.13.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
 /// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
@@ -160,7 +163,7 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// on exactly one member of this list and dormant on the older versions.
 pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
     "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0",
+    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0",
 ];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
@@ -333,6 +336,14 @@ pub fn has_declared_entity_candidates(dli: &str) -> bool {
 #[must_use]
 pub fn has_predicate_identity(dli: &str) -> bool {
     at_or_above(dli, (1, 12, 0))
+}
+
+/// Whether `author.defeat` records conditional attack edges and reads standing
+/// through grounded labelling. Versions through 1.12 retain one-way false Ref
+/// assignments for replay compatibility.
+#[must_use]
+pub fn has_conditional_defeat(dli: &str) -> bool {
+    at_or_above(dli, (1, 13, 0))
 }
 
 /// Whether predicate identity is ready to advertise as a capability. The wire
