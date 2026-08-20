@@ -677,6 +677,43 @@ pub(super) fn materialize(
             })?
     };
 
+    // Prepare the JSON-first return from the object-addressed bytes before the
+    // branch CAS. These objects were already written during staging (or while
+    // stamping above), so reading them after the ref moved would create an
+    // avoidable error window in which the durable commit succeeded but the
+    // prepared in-memory base was not installed.
+    let facts = if v2 {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("checked above");
+        let mut list = Vec::with_capacity(commit_fact_hashes.len());
+        for hash in &commit_fact_hashes {
+            let fo: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|e| ErrorBody {
+                    code: ErrorCode::Internal,
+                    message: format!("reading committed fact object: {e}"),
+                    data: None,
+                })?
+                .ok_or_else(|| ErrorBody {
+                    code: ErrorCode::Internal,
+                    message: format!("committed fact object missing: {hash}"),
+                    data: None,
+                })?;
+            list.push(serde_json::to_value(&fo).unwrap_or(Value::Null));
+        }
+        Some(list)
+    } else {
+        None
+    };
+    let materialized_keys: BTreeSet<String> = store
+        .get(&params.workspace)
+        .ok_or_else(gone)?
+        .staged_fact_hashes
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect();
+
     let receipt = store
         .workspace_lorestore(&params.workspace)
         .expect("checked above")
@@ -708,55 +745,18 @@ pub(super) fn materialize(
             }
         })?;
 
-    // The JSON-first return: the committed fact objects, read back from the
-    // store so the caller sees exactly the durable bytes.
-    let facts = if v2 {
-        let ls = store
-            .workspace_lorestore(&params.workspace)
-            .expect("checked above");
-        let mut list = Vec::with_capacity(commit_fact_hashes.len());
-        for hash in &commit_fact_hashes {
-            let fo: dli_lorestore::FactObject = ls
-                .read_object(hash)
-                .map_err(|e| ErrorBody {
-                    code: ErrorCode::Internal,
-                    message: format!("reading committed fact object: {e}"),
-                    data: None,
-                })?
-                .ok_or_else(|| ErrorBody {
-                    code: ErrorCode::Internal,
-                    message: format!("committed fact object missing: {hash}"),
-                    data: None,
-                })?;
-            list.push(serde_json::to_value(&fo).unwrap_or(Value::Null));
-        }
-        Some(list)
-    } else {
-        None
-    };
-
+    // Advance the workspace immediately after the successful CAS: everything
+    // between preparation and this point is either the CAS itself or infallible
+    // owned-state installation. A retry then commits nothing.
     let commit_hash = receipt.commit;
-    // Advance the workspace: the staged facts are durable, the pin moves to
-    // the new commit, and a retry commits nothing. Branch-mode workspaces also
-    // advance their whole-ref fence to the ref this commit just wrote, so their
-    // next materialize is fenced against external work rather than themselves.
-    let materialized_keys: BTreeSet<String> = store
-        .get(&params.workspace)
-        .ok_or_else(gone)?
-        .staged_fact_hashes
-        .iter()
-        .map(|(key, _)| key.clone())
-        .collect();
-    store.install_prepared_workspace_base(
+    store.install_materialized_workspace_base(
         &params.workspace,
         prepared,
         commit_interner,
         &commit_hash,
         &receipt.ref_digest,
+        &materialized_keys,
     );
-    let (_, ws) = parts_mut(store, &params.workspace)?;
-    ws.mark_materialized(&materialized_keys);
-    ws.staged_fact_hashes.clear();
 
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

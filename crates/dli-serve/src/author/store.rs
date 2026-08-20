@@ -866,6 +866,30 @@ impl Store {
         digest
     }
 
+    /// Infallibly install a successfully materialized base and reconcile the
+    /// staged bookkeeping in the same owned-state transition. All validation,
+    /// object reads, and compilation must precede the durable branch CAS; this
+    /// method is the immediate post-CAS continuation.
+    pub fn install_materialized_workspace_base(
+        &mut self,
+        ws_id: &str,
+        prepared: PreparedWorkspaceBase,
+        interner: Vec<String>,
+        commit: &dli_lorestore::ContentHash,
+        ref_digest: &dli_lorestore::ContentHash,
+        materialized_keys: &BTreeSet<String>,
+    ) -> String {
+        let digest =
+            self.install_prepared_workspace_base(ws_id, prepared, interner, commit, ref_digest);
+        let workspace = self
+            .workspaces
+            .get_mut(ws_id)
+            .expect("the prepared base was installed into this live workspace");
+        workspace.mark_materialized(materialized_keys);
+        workspace.staged_fact_hashes.clear();
+        digest
+    }
+
     /// Diagnostic operation counts used by deterministic scale tests.
     #[must_use]
     pub const fn base_update_stats(&self) -> BaseUpdateStats {
@@ -1187,8 +1211,10 @@ mod tests {
 
     #[derive(Debug, Default)]
     struct BatchStorageControl {
+        reads_after_cas: AtomicUsize,
         writes: AtomicUsize,
         cas: AtomicUsize,
+        cas_succeeded: AtomicBool,
         fail_write_at: AtomicUsize,
         fail_cas: AtomicBool,
     }
@@ -1201,6 +1227,9 @@ mod tests {
 
     impl Storage for CountingFaultStorage {
         fn read_object(&self, hash: &ContentHash) -> Result<Option<Vec<u8>>, StoreError> {
+            if self.control.cas_succeeded.load(Ordering::SeqCst) {
+                self.control.reads_after_cas.fetch_add(1, Ordering::SeqCst);
+            }
             self.inner.read_object(hash)
         }
 
@@ -1222,7 +1251,11 @@ mod tests {
             if self.control.fail_cas.swap(false, Ordering::SeqCst) {
                 return Err(injected_failure());
             }
-            self.inner.cas_ref(name, expected, new)
+            let swapped = self.inner.cas_ref(name, expected, new)?;
+            if swapped {
+                self.control.cas_succeeded.store(true, Ordering::SeqCst);
+            }
+            Ok(swapped)
         }
 
         fn load_ref(&self, name: &str) -> Result<Option<Ref>, StoreError> {
@@ -1427,6 +1460,51 @@ mod tests {
             assert_eq!(semantic_workspace_state(&store, &ws), before_workspace);
             assert_eq!(store.base_update_stats.prepared_installs, 0);
         }
+    }
+
+    #[test]
+    fn materialize_reads_every_response_object_before_the_successful_cas() {
+        let (_root, mut store, ws, control) = batch_store();
+        let added = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "add".to_owned(),
+                op: crate::Op::AuthorAddFact,
+                params: json!({
+                    "workspace": ws,
+                    "entity": "mara",
+                    "key": "rank",
+                    "value": "silver",
+                    "provenance": {"kind": "proposed", "origin": "atomicity-tooth"}
+                }),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(added.ok, "staging succeeds: {added:?}");
+
+        let cas_before = control.cas.load(Ordering::SeqCst);
+        let materialized = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "materialize".to_owned(),
+                op: crate::Op::AuthorMaterialize,
+                params: json!({"workspace": ws, "rendered": false}),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(materialized.ok, "materialize succeeds: {materialized:?}");
+        assert_eq!(control.cas.load(Ordering::SeqCst), cas_before + 1);
+        assert!(control.cas_succeeded.load(Ordering::SeqCst));
+        assert_eq!(
+            control.reads_after_cas.load(Ordering::SeqCst),
+            0,
+            "the successful CAS must flow directly into the infallible prepared-base install"
+        );
+        assert_eq!(store.base_update_stats.prepared_installs, 1);
     }
 
     #[test]
