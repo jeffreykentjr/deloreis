@@ -234,6 +234,10 @@ pub enum Op {
     /// entity identity. No `.dli` syntax or rendering form exists for it.
     #[serde(rename = "author.assert_predicate_same_as")]
     AuthorAssertPredicateSameAs,
+    /// Atomically record several baseline supporting decisions in one branch
+    /// commit, contract 1.13.0.
+    #[serde(rename = "author.record_decisions")]
+    AuthorRecordDecisions,
 }
 
 impl Op {
@@ -245,7 +249,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 68] = [
+    pub const ALL: [Op; 69] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -314,6 +318,7 @@ impl Op {
         Op::AuthorPredicates,
         Op::AuthorEntityCandidates,
         Op::AuthorAssertPredicateSameAs,
+        Op::AuthorRecordDecisions,
     ];
 
     /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
@@ -401,6 +406,12 @@ impl Op {
         matches!(self, Op::AuthorAssertPredicateSameAs)
     }
 
+    /// Whether this op was introduced in contract 1.13.0.
+    #[must_use]
+    pub const fn added_in_1_13_0(self) -> bool {
+        matches!(self, Op::AuthorRecordDecisions)
+    }
+
     /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
     /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
     /// negotiation's capability list — and the golden fixture recording it —
@@ -425,7 +436,9 @@ impl Op {
     /// apart; the unit test below asserts the agreement for every op.
     #[must_use]
     pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_12_0() {
+        if self.added_in_1_13_0() {
+            "1.13.0"
+        } else if self.added_in_1_12_0() {
             "1.12.0"
         } else if self.added_in_1_10_0() {
             "1.10.0"
@@ -480,6 +493,7 @@ impl Op {
                 | Op::AuthorDeclareInertial
                 | Op::AuthorRecordDecision
                 | Op::AuthorAssertPredicateSameAs
+                | Op::AuthorRecordDecisions
         )
     }
 
@@ -644,6 +658,9 @@ impl Op {
             Op::AuthorAssertPredicateSameAs => {
                 "Assert two predicate names denote the same property; the evaluator records a defeasible symmetric-transitive identity claim and exposes its consequences through checks, queries, derivations, and the durable store."
             }
+            Op::AuthorRecordDecisions => {
+                "Atomically record many baseline supporting decisions on one workspace branch, validating the complete batch before one commit and one ref update."
+            }
         }
     }
 }
@@ -663,6 +680,9 @@ mod tests {
             }
             if op.added_in_1_12_0() {
                 assert_eq!(op.introduced_in(), "1.12.0", "{op:?}");
+            }
+            if op.added_in_1_13_0() {
+                assert_eq!(op.introduced_in(), "1.13.0", "{op:?}");
             }
             if op.added_in_1_9_0() {
                 assert_eq!(op.introduced_in(), "1.9.0", "{op:?}");

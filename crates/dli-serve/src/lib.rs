@@ -113,8 +113,10 @@ mod simulation;
 /// predicate-identity wire socket; its evaluator/lorestore carriage remains a
 /// separate kernel integration. `1.13.0` introduces conditional decision
 /// attacks: `author.defeat` appends an attack edge and grounded standing can
-/// restore a decision when its attacker falls. Earlier negotiations retain the
-/// released one-way Ref-valuation behavior.
+/// restore a decision when its attacker falls, adds valuation-aware active and
+/// blocked explanation paths, and adds atomic `author.record_decisions`.
+/// Earlier negotiations retain the released one-way Ref-valuation and response
+/// behavior.
 pub const CONTRACT_VERSION: &str = "1.13.0";
 
 /// The legacy dual-mode contract version: a `0.5.1` request receives
@@ -303,6 +305,13 @@ pub fn has_as_of_read(dli: &str) -> bool {
 #[must_use]
 pub fn has_decisions(dli: &str) -> bool {
     at_or_above(dli, (1, 9, 0))
+}
+
+/// Whether the negotiated version carries the atomic bulk decision recorder
+/// (`author.record_decisions`, >= 1.13.0).
+#[must_use]
+pub fn has_bulk_decisions(dli: &str) -> bool {
+    at_or_above(dli, (1, 13, 0))
 }
 
 /// Whether the negotiated version carries the incremental-canonicalization

@@ -867,6 +867,7 @@ fn a_1_0_handshake_gets_the_full_capability_surface() {
         ("1.9.0", &["author.as_of", "author.record_decision"]),
         ("1.10.0", &["author.predicates", "author.entity_candidates"]),
         ("1.12.0", &["author.assert_predicate_same_as"]),
+        ("1.13.0", &["author.record_decisions"]),
     ];
 
     let surface = |version: &str, sessions: &mut _, store: &mut _| -> Vec<String> {

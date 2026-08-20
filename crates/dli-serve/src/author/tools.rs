@@ -13,7 +13,7 @@
 //! error, staging nothing); an **error-severity finding** stages the claim but
 //! bars `author.materialize` until the world is made consistent again.
 
-use std::collections::{BTreeSet, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 
 use serde_json::{Value, json};
 
@@ -50,9 +50,9 @@ use crate::contract::{
     AuthorDefeatParams, AuthorDiffParams, AuthorDiffResult, AuthorMaterializeParams,
     AuthorMergeParams, AuthorMergeResult, AuthorMutationResult, AuthorOpenParams,
     AuthorOpenQuestionParams, AuthorOpenResult, AuthorRecordDecisionParams,
-    AuthorSetStandingParams, AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams,
-    BranchAction, BranchHead, DiffConflict, EntityKind as WireEntityKind, MergeStandingChange,
-    StagedDecl, StateTimeKind,
+    AuthorRecordDecisionsParams, AuthorRecordDecisionsResult, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorStatusResult, AuthorSupposeParams, BranchAction, BranchHead,
+    DiffConflict, EntityKind as WireEntityKind, MergeStandingChange, StagedDecl, StateTimeKind,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Provenance, ProvenanceState, Severity};
@@ -3070,6 +3070,250 @@ pub(super) fn record_decision(
         workspace_digest,
         root_hash: Some(commit.to_string()),
         facts: None,
+    }))
+}
+
+/// Atomically record several baseline supporting decisions in one branch
+/// commit. Validation and the single candidate compile complete before any
+/// object write; after the CAS succeeds, installing that prepared base is an
+/// infallible in-memory swap.
+#[allow(clippy::too_many_lines)]
+pub(super) fn record_decisions(
+    store: &mut Store,
+    params: &AuthorRecordDecisionsParams,
+    records_citations: bool,
+) -> Result<Value, ErrorBody> {
+    if params.records.is_empty() {
+        return Err(schema_error(
+            "author.record_decisions requires at least one record",
+        ));
+    }
+    let ws0 = store.get(&params.workspace).ok_or_else(gone)?;
+    let digest = ws0.digest.clone();
+    let target_branch = target_ref_name(ws0).to_owned();
+    if store.workspace_lorestore(&params.workspace).is_none() {
+        return Err(schema_error(
+            "recording decisions requires an attached lorestore",
+        ));
+    }
+
+    // One immutable pre-image read for the entire request. `reconstruct_at`
+    // gives the exact target-branch pack to which the new Ratify carriages will
+    // be appended, including branch-only and pinned-origin state.
+    let (head, head_ref, mut interner, mut decisions, mut candidate_pack) = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let head_ref = ls
+            .branch_ref(&target_branch)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| {
+                schema_error("the lorestore has no ref for this workspace's target branch")
+            })?;
+        let head = head_ref.commit.clone();
+        let interner = ls.interner_at(&head).map_err(|error| store_fault(&error))?;
+        let decisions = ls
+            .decisions_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        let pack = ls
+            .reconstruct_at(&head)
+            .map_err(|error| store_fault(&error))?;
+        (head, head_ref, interner, decisions, pack)
+    };
+
+    let existing: BTreeSet<String> = decisions.iter().cloned().collect();
+    let mut citation_universe = existing.clone();
+    citation_universe.extend(params.records.iter().map(|record| record.decision.clone()));
+
+    // Build every declaration and validate against the complete batch universe.
+    // That makes forward references legal. Ratify citations are referential
+    // metadata, so cycles remain legal exactly as in the existing world loader.
+    let mut declarations = Vec::with_capacity(params.records.len());
+    let mut findings = Vec::new();
+    let mut first_index = BTreeMap::<String, usize>::new();
+    for (index, record) in params.records.iter().enumerate() {
+        if let Some(first) = first_index.get(&record.decision).copied() {
+            findings.push(Finding {
+                severity: Severity::Error,
+                code: "decision.duplicate-in-batch".to_owned(),
+                message: format!(
+                    "decision '{}' occurs more than once in this batch",
+                    record.decision
+                ),
+                grade: Grade::Checked,
+                repair: None,
+                citations: Vec::new(),
+                data: Some(json!({
+                    "record_index": index,
+                    "first_index": first,
+                    "decision": record.decision,
+                })),
+            });
+        } else {
+            first_index.insert(record.decision.clone(), index);
+        }
+        let cited = match &record.provenance {
+            Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),
+            _ => Vec::new(),
+        };
+        let ratify = Decl::Ratify(RatifyDecl {
+            decision: ident(&record.decision),
+            body: dli_ast::language::RatifyBody {
+                clauses: Vec::new(),
+                citations: cited,
+            },
+        });
+        let mut record_findings = control_char_findings(&ratify);
+        if let Some(rationale) = record.rationale.as_deref()
+            && let Some(finding) = field_control("rationale", rationale)
+        {
+            record_findings.push(finding);
+        }
+        record_findings.extend(citation_findings(&ratify, &citation_universe));
+        for finding in &mut record_findings {
+            finding.data = Some(json!({
+                "record_index": index,
+                "decision": record.decision,
+            }));
+        }
+        findings.extend(record_findings);
+        declarations.push(ratify);
+    }
+
+    let already_known = params
+        .records
+        .iter()
+        .filter(|record| existing.contains(&record.decision))
+        .count();
+    if findings
+        .iter()
+        .any(|finding| finding.severity == Severity::Error)
+    {
+        return Ok(value(&AuthorRecordDecisionsResult {
+            mutation: AuthorMutationResult {
+                findings,
+                rendered: Vec::new(),
+                workspace_digest: digest,
+                root_hash: Some(head.to_string()),
+                facts: None,
+            },
+            requested: params.records.len(),
+            already_known,
+            recorded: 0,
+        }));
+    }
+
+    let new_declarations: Vec<Decl> = params
+        .records
+        .iter()
+        .zip(declarations)
+        .filter_map(|(record, decl)| (!existing.contains(&record.decision)).then_some(decl))
+        .collect();
+    if new_declarations.is_empty() {
+        return Ok(value(&AuthorRecordDecisionsResult {
+            mutation: AuthorMutationResult {
+                findings: Vec::new(),
+                rendered: Vec::new(),
+                workspace_digest: digest,
+                root_hash: Some(head.to_string()),
+                facts: None,
+            },
+            requested: params.records.len(),
+            already_known,
+            recorded: 0,
+        }));
+    }
+
+    // Append names in request order, exactly as successful repeated singles do.
+    for record in &params.records {
+        if existing.contains(&record.decision) {
+            continue;
+        }
+        decisions.push(record.decision.clone());
+        if !interner.iter().any(|name| name == &record.decision) {
+            interner.push(record.decision.clone());
+        }
+    }
+
+    // Candidate pack preparation is the one full compile. Ratify declarations
+    // have no proposal bundle side effects, and appending them to the current
+    // reconstructed document matches their durable carriage order on reopen.
+    if let Some(document) = candidate_pack.documents.first_mut() {
+        document.decls.extend(new_declarations.iter().cloned());
+    } else {
+        candidate_pack.documents.push(Document {
+            scope: (!candidate_pack.name.is_empty()).then(|| ScopeHeader {
+                name: Ident::synthetic(&candidate_pack.name),
+                span: Span::synthetic(),
+            }),
+            decls: new_declarations.clone(),
+        });
+    }
+    let (candidate_pack, candidate_world) = store
+        .prepare_workspace_base(&params.workspace, candidate_pack)
+        .map_err(|error| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("compiling the bulk decision candidate: {error}"),
+            data: None,
+        })?;
+
+    let receipt = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let mut lower_interner = dli_core::Interner::from_names(interner.clone());
+        let mut bundle_counter = 0;
+        let mut fact_hashes = Vec::new();
+        for declaration in &new_declarations {
+            for object in dli_lorestore::lower::lower_decl(
+                declaration,
+                &candidate_pack.name,
+                &mut lower_interner,
+                &mut bundle_counter,
+            ) {
+                fact_hashes.push(
+                    ls.write_object(&object)
+                        .map_err(|error| store_fault(&error))?,
+                );
+            }
+        }
+        ls.commit_on_branch_at_ref(
+            &target_branch,
+            Some(
+                &head_ref
+                    .digest()
+                    .map_err(|error| schema_error(error.to_string()))?
+                    .to_string(),
+            ),
+            interner.clone(),
+            fact_hashes,
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            candidate_pack.name.clone(),
+        )
+        .map_err(|error| store_fault(&error))?
+    };
+
+    let workspace_digest = store.install_prepared_workspace_base(
+        &params.workspace,
+        candidate_pack,
+        candidate_world,
+        interner,
+        receipt.commit.clone(),
+        receipt.ref_digest,
+    );
+    Ok(value(&AuthorRecordDecisionsResult {
+        mutation: AuthorMutationResult {
+            findings: Vec::new(),
+            rendered: Vec::new(),
+            workspace_digest,
+            root_hash: Some(receipt.commit.to_string()),
+            facts: None,
+        },
+        requested: params.records.len(),
+        already_known,
+        recorded: new_declarations.len(),
     }))
 }
 

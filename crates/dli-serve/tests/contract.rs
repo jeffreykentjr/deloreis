@@ -77,6 +77,7 @@ const EXPECTED: &[(Op, &str)] = &[
         Op::AuthorAssertPredicateSameAs,
         "author.assert_predicate_same_as",
     ),
+    (Op::AuthorRecordDecisions, "author.record_decisions"),
 ];
 
 #[test]

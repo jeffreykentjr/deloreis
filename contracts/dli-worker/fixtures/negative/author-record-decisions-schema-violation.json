@@ -1,0 +1,10 @@
+{
+  "fixture": "negative/author-record-decisions-schema-violation",
+  "version": 1,
+  "note": "author.record_decisions params omit the required non-empty records batch.",
+  "send": {
+    "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+    "params": { "workspace": "ws-1" }
+  },
+  "expect_error": { "code": "schema-violation" }
+}

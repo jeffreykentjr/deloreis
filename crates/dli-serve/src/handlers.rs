@@ -143,6 +143,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         | Op::AuthorDeclareInertial
         | Op::AuthorAsOf
         | Op::AuthorRecordDecision
+        | Op::AuthorRecordDecisions
         | Op::AuthorPredicates
         | Op::AuthorEntityCandidates => Err((
             ErrorCode::Internal,
@@ -1992,6 +1993,7 @@ fn capabilities(dli: &str) -> Vec<String> {
     let incremental_canon = crate::has_incremental_canon(dli);
     let predicate_identity =
         crate::has_predicate_identity(dli) && crate::predicate_identity_wired();
+    let bulk_decisions = crate::has_bulk_decisions(dli);
     Op::ALL
         .iter()
         .copied()
@@ -2016,6 +2018,7 @@ fn capabilities(dli: &str) -> Vec<String> {
         })
         .filter(|op| incremental_canon || !op.added_in_1_10_0())
         .filter(|op| predicate_identity || !op.added_in_1_12_0())
+        .filter(|op| bulk_decisions || !op.added_in_1_13_0())
         .map(wire_name)
         .collect()
 }

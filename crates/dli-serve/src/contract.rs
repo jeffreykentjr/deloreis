@@ -1952,6 +1952,52 @@ pub struct AuthorRecordDecisionParams {
     pub provenance: Option<Provenance>,
 }
 
+/// One decision record in an atomic [`AuthorRecordDecisionsParams`] batch.
+/// The fields intentionally mirror [`AuthorRecordDecisionParams`] minus the
+/// workspace: bulk recording changes commit granularity, not decision meaning.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorDecisionRecord {
+    /// The caller-supplied decision id, matched by exact equality.
+    pub decision: String,
+    /// Optional review rationale. It receives the same control-character guard
+    /// as the single operation and otherwise preserves that operation's current
+    /// metadata behaviour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rationale: Option<String>,
+    /// Optional citation-bearing provenance for the decision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
+}
+
+/// `author.record_decisions` atomically records several supporting decisions
+/// on one workspace branch (contract 1.13.0).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorRecordDecisionsParams {
+    /// The authoring workspace whose branch records the decisions.
+    pub workspace: String,
+    /// Decision records in durable append order. Empty batches are refused by
+    /// schema; duplicate ids are a typed, atomic validation finding.
+    #[schemars(length(min = 1))]
+    pub records: Vec<AuthorDecisionRecord>,
+}
+
+/// The ordinary author mutation receipt plus deterministic batch counts.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorRecordDecisionsResult {
+    /// The ordinary mutation receipt, flattened so the wire retains the common
+    /// `findings`/`rendered`/digest/root fields rather than nesting them.
+    #[serde(flatten)]
+    pub mutation: AuthorMutationResult,
+    /// Number of records supplied by the caller.
+    pub requested: usize,
+    /// Number already present at the target branch head.
+    pub already_known: usize,
+    /// Number newly written by this call.
+    pub recorded: usize,
+}
+
 /// `author.defeat` records a defeating decision. Through contract 1.12 it rules
 /// the existing supporting decision false on the Ref; from 1.13 it appends a
 /// conditional attack edge, so grounded standing restores the target when its

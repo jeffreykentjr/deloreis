@@ -49,8 +49,8 @@ use crate::contract::{
     AuthorDefeatParams, AuthorDiffParams, AuthorDiscardParams, AuthorEntityCandidatesParams,
     AuthorFindingsParams, AuthorListWorkspacesParams, AuthorMaterializeParams, AuthorMergeParams,
     AuthorOpenParams, AuthorOpenQuestionParams, AuthorPredicatesParams, AuthorQueryParams,
-    AuthorRecordDecisionParams, AuthorSetStandingParams, AuthorStatusParams, AuthorSupposeParams,
-    AuthorWhyParams,
+    AuthorRecordDecisionParams, AuthorRecordDecisionsParams, AuthorSetStandingParams,
+    AuthorStatusParams, AuthorSupposeParams, AuthorWhyParams,
 };
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
@@ -362,6 +362,14 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             Ok((
                 params.workspace.clone(),
                 tools::record_decision(store, &params, records_citations(request)),
+            ))
+        }),
+        Op::AuthorRecordDecisions => mutate(request, store, |store, request| {
+            let params: AuthorRecordDecisionsParams = parse(request)?;
+            precheck(store, request, &params.workspace)?;
+            Ok((
+                params.workspace.clone(),
+                tools::record_decisions(store, &params, records_citations(request)),
             ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world

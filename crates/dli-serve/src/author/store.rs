@@ -67,6 +67,20 @@ pub struct Store {
     /// lorestore handle: an external CAS after load must not mix its state into
     /// an already loaded project.
     snapshots: BTreeMap<String, StoreSnapshot>,
+    /// Deterministic operation counters for the durable base-refresh paths.
+    /// They are diagnostic only; no verdict depends on them.
+    base_update_stats: BaseUpdateStats,
+}
+
+/// Diagnostic counts for workspace-base preparation and installation.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BaseUpdateStats {
+    /// Full candidate compiles prepared before a bulk commit.
+    pub prepared_compiles: usize,
+    /// Legacy reconstruct/compile reloads.
+    pub reloads: usize,
+    /// Infallible installs of a successfully committed prepared base.
+    pub prepared_installs: usize,
 }
 
 const MAX_DISCARD_REPLAYS: usize = 1024;
@@ -164,6 +178,7 @@ impl Default for Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         }
     }
 }
@@ -195,6 +210,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         }
     }
 
@@ -237,6 +253,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         })
     }
 
@@ -288,6 +305,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            base_update_stats: BaseUpdateStats::default(),
         })
     }
 
@@ -586,6 +604,7 @@ impl Store {
     /// its target branch has no ref, or the reconstructed pack fails to
     /// recompile.
     pub fn reload_workspace_base(&mut self, ws_id: &str) -> Result<(), String> {
+        self.base_update_stats.reloads += 1;
         let base_key = self
             .workspace_bases
             .get(ws_id)
@@ -731,6 +750,95 @@ impl Store {
         }
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
+    }
+
+    /// Compile a complete candidate workspace base before a durable batch write.
+    /// The returned pack/world pair is ready for an infallible install after the
+    /// branch CAS succeeds.
+    pub fn prepare_workspace_base(
+        &mut self,
+        ws_id: &str,
+        pack: Pack,
+    ) -> Result<(Pack, CompiledWorld), StoreError> {
+        let killed = self
+            .workspace_base(ws_id)
+            .map(|base| base.killed.clone())
+            .unwrap_or_default();
+        let mut world = compile(&pack)?;
+        world.killed = killed;
+        let workspace = self
+            .workspaces
+            .get(ws_id)
+            .expect("prepared base belongs to a live workspace");
+        for name in workspace
+            .base_valuation
+            .0
+            .keys()
+            .chain(workspace.base_unassigned.0.iter())
+        {
+            world.model.world.interner.intern(name);
+        }
+        let target_interner = world.model.interner().clone();
+        workspace
+            .base_valuation
+            .apply_to(&target_interner, &mut world.model.world.valuation)?;
+        workspace
+            .base_unassigned
+            .remove_from(&target_interner, &mut world.model.world.valuation)?;
+        self.base_update_stats.prepared_compiles += 1;
+        Ok((pack, world))
+    }
+
+    /// Install a base that was compiled before its commit/CAS. Every fallible
+    /// operation has already succeeded; this method only swaps owned in-memory
+    /// state, so a successful durable batch cannot be followed by a refresh
+    /// failure that reports an ambiguous outcome.
+    pub fn install_prepared_workspace_base(
+        &mut self,
+        ws_id: &str,
+        pack: Pack,
+        world: CompiledWorld,
+        interner: Vec<String>,
+        commit: dli_lorestore::ContentHash,
+        ref_digest: dli_lorestore::ContentHash,
+    ) -> String {
+        let mut bundle = 0u32;
+        let prefix = self
+            .workspaces
+            .get(ws_id)
+            .map(|ws| format!("h.{}#", ws.base_name))
+            .unwrap_or_default();
+        for name in &interner {
+            if let Some(rest) = name.strip_prefix(&prefix)
+                && let Ok(value) = rest.parse::<u32>()
+            {
+                bundle = bundle.max(value + 1);
+            }
+        }
+        let refreshed = Base {
+            world,
+            documents: pack.documents,
+            pack_name: pack.name,
+        };
+        let ws = self
+            .workspaces
+            .get_mut(ws_id)
+            .expect("prepared base belongs to a live workspace");
+        ws.base_root_hash = Some(commit.to_string());
+        ws.base_ref_digest = Some(ref_digest.to_string());
+        ws.interner = dli_core::atom::Interner::from_names(interner);
+        ws.bundle_counter = bundle;
+        ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        let digest = ws.digest.clone();
+        self.branch_bases.insert(ws_id.to_owned(), refreshed);
+        self.base_update_stats.prepared_installs += 1;
+        digest
+    }
+
+    /// Diagnostic operation counts used by deterministic scale tests.
+    #[must_use]
+    pub const fn base_update_stats(&self) -> BaseUpdateStats {
+        self.base_update_stats
     }
 
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
@@ -1028,6 +1136,8 @@ fn fork_owners(document: &str, sources: &[Document]) -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use dli_ast::annot::{Annotation, ProvenanceMarker};
     use dli_ast::decl::{AttrDecl, Decl};
@@ -1035,13 +1145,83 @@ mod tests {
     use dli_ast::span::Span;
     use dli_ast::term::Term;
     use dli_lorestore::storage::{Storage, StoreError};
-    use dli_lorestore::{Commit, ContentHash, Lorestore, Ref};
+    use dli_lorestore::{Commit, ContentHash, FilesystemStorage, Lorestore, Ref};
+    use serde_json::json;
 
     use super::Store;
     use crate::author::workspace::Mode;
 
     #[derive(Debug)]
     struct WriteFails;
+
+    #[derive(Debug, Default)]
+    struct BatchStorageControl {
+        writes: AtomicUsize,
+        cas: AtomicUsize,
+        fail_write_at: AtomicUsize,
+        fail_cas: AtomicBool,
+    }
+
+    #[derive(Debug)]
+    struct CountingFaultStorage {
+        inner: FilesystemStorage,
+        control: Arc<BatchStorageControl>,
+    }
+
+    impl Storage for CountingFaultStorage {
+        fn read_object(&self, hash: &ContentHash) -> Result<Option<Vec<u8>>, StoreError> {
+            self.inner.read_object(hash)
+        }
+
+        fn write_object(&self, bytes: &[u8]) -> Result<ContentHash, StoreError> {
+            let call = self.control.writes.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.control.fail_write_at.load(Ordering::SeqCst) == call {
+                return Err(injected_failure());
+            }
+            self.inner.write_object(bytes)
+        }
+
+        fn cas_ref(
+            &self,
+            name: &str,
+            expected: Option<&str>,
+            new: &Ref,
+        ) -> Result<bool, StoreError> {
+            self.control.cas.fetch_add(1, Ordering::SeqCst);
+            if self.control.fail_cas.swap(false, Ordering::SeqCst) {
+                return Err(injected_failure());
+            }
+            self.inner.cas_ref(name, expected, new)
+        }
+
+        fn load_ref(&self, name: &str) -> Result<Option<Ref>, StoreError> {
+            self.inner.load_ref(name)
+        }
+
+        fn list_refs(&self) -> Result<Vec<String>, StoreError> {
+            self.inner.list_refs()
+        }
+
+        fn delete_ref(&self, name: &str) -> Result<(), StoreError> {
+            self.inner.delete_ref(name)
+        }
+
+        fn acquire_lock(&self) -> Result<File, StoreError> {
+            self.inner.acquire_lock()
+        }
+
+        fn walk_dag(
+            &self,
+            tip: &ContentHash,
+            base: Option<&ContentHash>,
+        ) -> Result<Vec<Commit>, StoreError> {
+            self.inner.walk_dag(tip, base)
+        }
+
+        fn cleanup_orphans(&self) -> Result<usize, StoreError> {
+            self.inner.cleanup_orphans()
+        }
+    }
 
     fn injected_failure() -> StoreError {
         StoreError::Io {
@@ -1122,6 +1302,112 @@ mod tests {
             .expect("open workspace")
             .id
             .clone()
+    }
+
+    fn batch_store() -> (tempfile::TempDir, Store, String, Arc<BatchStorageControl>) {
+        let root = tempfile::tempdir().expect("temporary lorestore");
+        let (document, diagnostics) =
+            dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.class.is_error())
+        );
+        let pack = dli_world::pack::Pack {
+            name: "demo".to_owned(),
+            documents: vec![document],
+        };
+        let mut store = Store::with_pack(pack).expect("base compiles");
+        store
+            .attach_lorestore(root.path().join("lorestores"))
+            .expect("attach lorestore");
+        let ws = store
+            .open(Mode::Scope, "demo".to_owned(), None)
+            .expect("open workspace")
+            .id
+            .clone();
+        let base_key = store.workspace_bases[&ws].clone();
+        let path = root.path().join("lorestores").join(&base_key);
+        let control = Arc::new(BatchStorageControl::default());
+        store.lorestores.insert(
+            base_key,
+            Lorestore::from_storage(Box::new(CountingFaultStorage {
+                inner: FilesystemStorage::new(path),
+                control: Arc::clone(&control),
+            })),
+        );
+        (root, store, ws, control)
+    }
+
+    fn bulk_request(ws: &str, count: usize) -> crate::Request {
+        crate::Request {
+            dli: "1.13.0".to_owned(),
+            id: "bulk".to_owned(),
+            op: crate::Op::AuthorRecordDecisions,
+            params: json!({
+                "workspace": ws,
+                "records": (0..count)
+                    .map(|index| json!({"decision": format!("d-{index:05}")}))
+                    .collect::<Vec<_>>()
+            }),
+            expected_digest: None,
+            idempotency_key: None,
+        }
+    }
+
+    fn semantic_workspace_state(store: &Store, ws: &str) -> serde_json::Value {
+        let workspace = store.get(ws).expect("workspace");
+        json!({
+            "digest": workspace.digest,
+            "root": workspace.base_root_hash,
+            "ref": workspace.base_ref_digest,
+            "valuation": workspace.base_valuation,
+            "interner": workspace.interner.names(),
+            "decisions": workspace.known_decisions(),
+        })
+    }
+
+    #[test]
+    fn bulk_decision_write_and_cas_failures_leave_ref_and_workspace_unchanged() {
+        for fail_cas in [false, true] {
+            let (_root, mut store, ws, control) = batch_store();
+            let before_ref = store
+                .workspace_lorestore(&ws)
+                .expect("lorestore")
+                .root_hash()
+                .expect("head read");
+            let before_workspace = semantic_workspace_state(&store, &ws);
+            if fail_cas {
+                control.fail_cas.store(true, Ordering::SeqCst);
+            } else {
+                control.fail_write_at.store(1, Ordering::SeqCst);
+            }
+            let response = crate::author::dispatch(&bulk_request(&ws, 3), &mut store);
+            assert!(!response.ok, "injected failure must refuse: {response:?}");
+            assert_eq!(
+                store
+                    .workspace_lorestore(&ws)
+                    .expect("lorestore")
+                    .root_hash()
+                    .expect("head read"),
+                before_ref
+            );
+            assert_eq!(semantic_workspace_state(&store, &ws), before_workspace);
+            assert_eq!(store.base_update_stats.prepared_installs, 0);
+        }
+    }
+
+    #[test]
+    fn bulk_decision_storage_counts_are_constant_per_batch() {
+        let (_root, mut store, ws, control) = batch_store();
+        let response = crate::author::dispatch(&bulk_request(&ws, 1024), &mut store);
+        assert!(response.ok, "bulk succeeds: {response:?}");
+        // One Ratify carriage per record plus one Commit object; one branch CAS.
+        assert_eq!(control.writes.load(Ordering::SeqCst), 1025);
+        assert_eq!(control.cas.load(Ordering::SeqCst), 1);
+        assert_eq!(store.base_update_stats.prepared_compiles, 1);
+        assert_eq!(store.base_update_stats.prepared_installs, 1);
+        assert_eq!(store.base_update_stats.reloads, 0);
     }
 
     /// A durable write failure after lowering restores every piece of mutable

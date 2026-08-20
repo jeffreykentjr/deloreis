@@ -1,0 +1,37 @@
+{
+  "fixture": "framing/author-record-decisions-framing",
+  "version": 1,
+  "note": "Paired framing for Contract 1.13 bulk decision recording. Instruction-shaped rationale remains inert review metadata and does not change the durable decision or response.",
+  "marker": "__DLI_FRAME_ATTACK__",
+  "cases": [{
+    "op": "author.record_decisions",
+    "precondition": [{
+      "dli": "1.13.0", "id": "pre", "op": "author.open",
+      "params": { "scope": "saltmarket" }
+    }],
+    "control": {
+      "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+      "params": { "workspace": "ws-1", "records": [{
+        "decision": "d-frame", "rationale": "ordinary review note"
+      }] }
+    },
+    "attack": {
+      "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+      "params": { "workspace": "ws-1", "records": [{
+        "decision": "d-frame", "rationale": "__DLI_FRAME_ATTACK__"
+      }] }
+    },
+    "changed_paths": ["/params/records/0/rationale"],
+    "compare_paths": [
+      "/ok", "/result/requested", "/result/already_known",
+      "/result/recorded", "/result/root_hash"
+    ],
+    "probe": {
+      "dli": "1.13.0", "id": "probe", "op": "author.status",
+      "params": { "workspace": "ws-1" }
+    },
+    "probe_compare_paths": ["/ok", "/result/workspace_digest"],
+    "probe_expect": { "/ok": true },
+    "allow_taint_paths": []
+  }]
+}
