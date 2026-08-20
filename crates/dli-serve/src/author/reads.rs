@@ -469,21 +469,28 @@ pub(super) fn why(
                     message,
                     data: None,
                 })?;
-            let (active, blocked, symbolic_path_count) = derived.map_or_else(
-                || (Vec::new(), Vec::new(), 0),
-                |derived| {
-                    let symbolic_path_count = derived.support.monomials().count();
-                    let (active, blocked) = explain_support_paths(inner, derived, &known, &attacks);
-                    (active, blocked, symbolic_path_count)
-                },
-            );
+            let (active, blocked, symbolic_path_count, attack_blocked_path_count) = derived
+                .map_or_else(
+                    || (Vec::new(), Vec::new(), 0, 0),
+                    |derived| {
+                        let symbolic_path_count = derived.support.monomials().count();
+                        let (active, blocked, attack_blocked_path_count) =
+                            explain_support_paths(inner, derived, &known, &attacks);
+                        (
+                            active,
+                            blocked,
+                            symbolic_path_count,
+                            attack_blocked_path_count,
+                        )
+                    },
+                );
             // The conclusion itself is attack-blocked only when every symbolic
             // support monomial is accounted for by a structured blocked entry.
             // A merely open/possible or otherwise-dead alternative prevents a
             // direct attack from being reported as the global cause.
             let blockers = if active.is_empty()
                 && symbolic_path_count > 0
-                && blocked.len() == symbolic_path_count
+                && attack_blocked_path_count == symbolic_path_count
             {
                 let mut blockers: Vec<_> = blocked
                     .iter()
@@ -518,10 +525,11 @@ fn explain_support_paths(
     derived: &dli_eval::world::Derived,
     known: &BTreeSet<String>,
     attacks: &[dli_lorestore::DecisionAttack],
-) -> (Vec<Vec<String>>, Vec<BlockedSupport>) {
+) -> (Vec<Vec<String>>, Vec<BlockedSupport>, usize) {
     let ann = derived.ann();
     let mut active = Vec::new();
     let mut blocked = Vec::new();
+    let mut attack_blocked_path_count = 0;
 
     for monomial in derived.support.monomials() {
         let path = named_decision_path(monomial, &world.interner, known);
@@ -557,6 +565,7 @@ fn explain_support_paths(
         if !path_blockers.is_empty()
             && ann.support_path_is_active(monomial, &restored, &world.theory)
         {
+            attack_blocked_path_count += 1;
             blocked.push(BlockedSupport {
                 supporting_decision_path: path,
                 blocking_defeats: path_blockers,
@@ -568,7 +577,7 @@ fn explain_support_paths(
     active.dedup();
     blocked.sort();
     blocked.dedup();
-    (active, blocked)
+    (active, blocked, attack_blocked_path_count)
 }
 
 fn named_decision_path(
@@ -1108,7 +1117,7 @@ mod explanation_tests {
             .find(|derived| derived.atom == atom)
             .expect("unconditional fact is derived");
 
-        let (active, blocked) = explain_support_paths(
+        let (active, blocked, attack_blocked_path_count) = explain_support_paths(
             &world,
             derived,
             &BTreeSet::new(),
@@ -1116,5 +1125,6 @@ mod explanation_tests {
         );
         assert_eq!(active, vec![Vec::<String>::new()]);
         assert!(blocked.is_empty());
+        assert_eq!(attack_blocked_path_count, 0);
     }
 }

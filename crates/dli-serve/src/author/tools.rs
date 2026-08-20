@@ -3105,7 +3105,15 @@ pub(super) fn record_decisions(
     // One immutable pre-image read for the entire request. `reconstruct_at`
     // gives the exact target-branch pack to which the new Ratify carriages will
     // be appended, including branch-only and pinned-origin state.
-    let (head, head_ref, mut interner, mut decisions, mut candidate_pack) = {
+    let (
+        head,
+        head_ref,
+        mut interner,
+        mut decisions,
+        mut candidate_pack,
+        named_valuation,
+        named_unassigned,
+    ) = {
         let ls = store
             .workspace_lorestore(&params.workspace)
             .expect("lorestore presence checked above");
@@ -3117,13 +3125,38 @@ pub(super) fn record_decisions(
             })?;
         let head = head_ref.commit.clone();
         let interner = ls.interner_at(&head).map_err(|error| store_fault(&error))?;
+        let effective = ls
+            .effective_valuation_at(&head, &head_ref.valuation)
+            .map_err(|error| store_fault(&error))?;
+        let named_valuation =
+            dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, &interner)
+                .map_err(|error| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message: error.to_string(),
+                    data: None,
+                })?;
+        let named_unassigned =
+            dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, &interner)
+                .map_err(|error| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message: error.to_string(),
+                    data: None,
+                })?;
         let decisions = ls
             .decisions_at(&head)
             .map_err(|error| store_fault(&error))?;
         let pack = ls
             .reconstruct_at(&head)
             .map_err(|error| store_fault(&error))?;
-        (head, head_ref, interner, decisions, pack)
+        (
+            head,
+            head_ref,
+            interner,
+            decisions,
+            pack,
+            named_valuation,
+            named_unassigned,
+        )
     };
 
     let existing: BTreeSet<String> = decisions.iter().cloned().collect();
@@ -3264,8 +3297,13 @@ pub(super) fn record_decisions(
             decls: new_declarations.clone(),
         });
     }
-    let (candidate_pack, candidate_world) = store
-        .prepare_workspace_base(&params.workspace, candidate_pack)
+    let prepared = store
+        .prepare_workspace_base(
+            &params.workspace,
+            candidate_pack,
+            named_valuation,
+            named_unassigned,
+        )
         .map_err(|error| ErrorBody {
             code: ErrorCode::Internal,
             message: format!("compiling the bulk decision candidate: {error}"),
@@ -3282,7 +3320,7 @@ pub(super) fn record_decisions(
         for declaration in &new_declarations {
             for object in dli_lorestore::lower::lower_decl(
                 declaration,
-                &candidate_pack.name,
+                &prepared.pack.name,
                 &mut lower_interner,
                 &mut bundle_counter,
             ) {
@@ -3305,15 +3343,14 @@ pub(super) fn record_decisions(
             Vec::new(),
             Vec::new(),
             decisions,
-            candidate_pack.name.clone(),
+            prepared.pack.name.clone(),
         )
         .map_err(|error| store_fault(&error))?
     };
 
     let workspace_digest = store.install_prepared_workspace_base(
         &params.workspace,
-        candidate_pack,
-        candidate_world,
+        prepared,
         interner,
         &receipt.commit,
         &receipt.ref_digest,

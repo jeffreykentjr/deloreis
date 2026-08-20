@@ -521,6 +521,177 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
 }
 
 #[test]
+fn stale_sibling_bulk_installs_the_current_attack_valuation() {
+    let (_root, mut store, path) = fixture();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let target_claim = claim_id(&lorestore, None, "mara");
+
+    let first = result(dispatch(
+        &request("1.13.0", "open-a", Op::AuthorOpen, json!({"scope": "demo"})),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let stale = result(dispatch(
+        &request("1.13.0", "open-b", Op::AuthorOpen, json!({"scope": "demo"})),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    defeat(&mut store, &first, "defeat", &target_claim, "d2", "d1");
+    assert!(
+        author_query(&mut store, &first, "first-query")["rows"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let before_bulk = store
+        .workspace_lorestore(&stale)
+        .unwrap()
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .unwrap()
+        .unwrap();
+    let before_names = store
+        .workspace_lorestore(&stale)
+        .unwrap()
+        .interner_at(&before_bulk.commit)
+        .unwrap();
+    let before_effective = store
+        .workspace_lorestore(&stale)
+        .unwrap()
+        .effective_valuation_at(&before_bulk.commit, &before_bulk.valuation)
+        .unwrap();
+    let effective_by_name = dli_core::valuation::NamedValuation::from_indexed(
+        &before_effective.valuation,
+        &before_names,
+    )
+    .unwrap();
+    assert_eq!(effective_by_name.0.get("d1"), Some(&false));
+
+    let bulk = result(dispatch(
+        &request(
+            "1.13.0",
+            "bulk",
+            Op::AuthorRecordDecisions,
+            json!({"workspace": stale, "records": [{"decision": "d3"}]}),
+        ),
+        &mut store,
+    ));
+    assert_eq!(bulk["recorded"], 1);
+    assert_eq!(
+        store.get(&stale).unwrap().base_valuation.0.get("d1"),
+        Some(&false)
+    );
+
+    let stale_rows = author_query(&mut store, &stale, "stale-query")["rows"].clone();
+    let fresh = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-c",
+            Op::AuthorOpen,
+            json!({"scope": "demo", "branch": "main"}),
+        ),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let fresh_rows = author_query(&mut store, &fresh, "fresh-query")["rows"].clone();
+    assert_eq!(
+        stale_rows, fresh_rows,
+        "bulk install must match its committed branch head"
+    );
+}
+
+#[test]
+fn duplicate_projected_blocked_paths_still_report_the_global_blocker() {
+    let root = tempfile::tempdir().unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(concat!(
+        "scope demo\n",
+        "ratify d1\n",
+        "ratify d2\n",
+        "ratify d10\n",
+        "person mara \"Mara\" proposed seed-person\n",
+        "p(mara) ratified d1\n",
+        "left(mara) proposed seed-left\n",
+        "right(mara) proposed seed-right\n",
+        "rule left-path ratified d10\n",
+        "  q(mara) :- p(mara), left(mara)\n",
+        "rule right-path ratified d10\n",
+        "  q(mara) :- p(mara), right(mara)\n",
+    ));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut author = Store::with_pack(Pack {
+        name: "demo".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let path = root.path().join("lorestore/demo");
+    author
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+
+    // Resolve both independent proposal gates true so both symbolic paths are
+    // certain before the same decision attack blocks them.
+    let current = lorestore.head_ref().unwrap().unwrap();
+    let token = current.digest().unwrap().to_string();
+    let names = lorestore.interner_at(&current.commit).unwrap();
+    let mut valuation = current.valuation;
+    let proposal_atoms = names
+        .iter()
+        .enumerate()
+        .filter(|(_, name)| name.starts_with("h."))
+        .map(|(index, _)| dli_core::Atom(u32::try_from(index).unwrap()))
+        .collect::<Vec<_>>();
+    assert!(proposal_atoms.len() >= 2, "{names:?}");
+    for atom in proposal_atoms {
+        valuation.set(atom, true);
+    }
+    let updated = dli_lorestore::Ref::with_valuation("main", current.commit, valuation);
+    assert!(lorestore.cas_main_ref(Some(&token), &updated).unwrap());
+
+    let p_claim = predicate_claim_id(&lorestore, "p");
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-projected",
+            Op::AuthorOpen,
+            json!({"scope": "demo", "branch": "main"}),
+        ),
+        &mut author,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    defeat(
+        &mut author,
+        &workspace,
+        "block-projected",
+        &p_claim,
+        "d2",
+        "d1",
+    );
+
+    let query = query_predicate(&mut author, &workspace, "query-projected", "q");
+    assert!(query["rows"].as_array().unwrap().is_empty(), "{query}");
+    let why = why_predicate(&mut author, &workspace, "why-projected", "q");
+    assert_eq!(
+        why["blocking_defeats"],
+        json!([{"defeated_decision": "d1", "defeating_decision": "d2"}]),
+        "every symbolic path is blocked by the same attack: {why}"
+    );
+}
+
+#[test]
 fn author_why_is_pinned_to_each_branch_workspace_root() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();

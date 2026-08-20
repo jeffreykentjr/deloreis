@@ -83,6 +83,19 @@ pub struct BaseUpdateStats {
     pub prepared_installs: usize,
 }
 
+/// A fully compiled base and the exact durable standing snapshot applied to it.
+///
+/// Keeping the structural world and its named overlay together prevents an
+/// infallible post-CAS install from accidentally reusing workspace-stale
+/// standing state.
+#[derive(Debug)]
+pub struct PreparedWorkspaceBase {
+    pub(super) pack: Pack,
+    pub(super) world: CompiledWorld,
+    pub(super) base_valuation: NamedValuation,
+    pub(super) base_unassigned: NamedAtomSet,
+}
+
 const MAX_DISCARD_REPLAYS: usize = 1024;
 
 #[derive(Debug)]
@@ -759,34 +772,29 @@ impl Store {
         &mut self,
         ws_id: &str,
         pack: Pack,
-    ) -> Result<(Pack, CompiledWorld), StoreError> {
+        base_valuation: NamedValuation,
+        base_unassigned: NamedAtomSet,
+    ) -> Result<PreparedWorkspaceBase, StoreError> {
         let killed = self
             .workspace_base(ws_id)
             .map(|base| base.killed.clone())
             .unwrap_or_default();
         let mut world = compile(&pack)?;
         world.killed = killed;
-        let workspace = self
-            .workspaces
-            .get(ws_id)
-            .expect("prepared base belongs to a live workspace");
-        for name in workspace
-            .base_valuation
-            .0
-            .keys()
-            .chain(workspace.base_unassigned.0.iter())
-        {
+        debug_assert!(self.workspaces.contains_key(ws_id));
+        for name in base_valuation.0.keys().chain(base_unassigned.0.iter()) {
             world.model.world.interner.intern(name);
         }
         let target_interner = world.model.interner().clone();
-        workspace
-            .base_valuation
-            .apply_to(&target_interner, &mut world.model.world.valuation)?;
-        workspace
-            .base_unassigned
-            .remove_from(&target_interner, &mut world.model.world.valuation)?;
+        base_valuation.apply_to(&target_interner, &mut world.model.world.valuation)?;
+        base_unassigned.remove_from(&target_interner, &mut world.model.world.valuation)?;
         self.base_update_stats.prepared_compiles += 1;
-        Ok((pack, world))
+        Ok(PreparedWorkspaceBase {
+            pack,
+            world,
+            base_valuation,
+            base_unassigned,
+        })
     }
 
     /// Install a base that was compiled before its commit/CAS. Every fallible
@@ -796,8 +804,7 @@ impl Store {
     pub fn install_prepared_workspace_base(
         &mut self,
         ws_id: &str,
-        pack: Pack,
-        world: CompiledWorld,
+        prepared: PreparedWorkspaceBase,
         interner: Vec<String>,
         commit: &dli_lorestore::ContentHash,
         ref_digest: &dli_lorestore::ContentHash,
@@ -815,6 +822,12 @@ impl Store {
                 bundle = bundle.max(value + 1);
             }
         }
+        let PreparedWorkspaceBase {
+            pack,
+            world,
+            base_valuation,
+            base_unassigned,
+        } = prepared;
         let refreshed = Base {
             world,
             documents: pack.documents,
@@ -828,6 +841,8 @@ impl Store {
         ws.base_ref_digest = Some(ref_digest.to_string());
         ws.interner = dli_core::atom::Interner::from_names(interner);
         ws.bundle_counter = bundle;
+        ws.base_valuation = base_valuation;
+        ws.base_unassigned = base_unassigned;
         ws.refresh_resolution(&refreshed.world, &refreshed.documents);
         let digest = ws.digest.clone();
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
