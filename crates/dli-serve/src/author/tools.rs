@@ -2874,6 +2874,11 @@ pub(super) fn record_decision(
             "recording a decision requires an attached lorestore",
         ));
     }
+    if let Some(provenance) = &params.provenance
+        && let Some(refusal) = refuse_cited(store, &params.workspace, provenance, records_citations)
+    {
+        return refusal;
+    }
 
     // The `ratify` carriage this op will write. Any `cited` provenance names the
     // prior decisions this ruling itself rests on; they ride in the body's typed
@@ -3151,6 +3156,16 @@ pub(super) fn record_decisions(
             });
         } else {
             first_index.insert(record.decision.clone(), index);
+        }
+        if !records_citations
+            && matches!(record.provenance.as_ref(), Some(Provenance::Cited { .. }))
+        {
+            let mut finding = cited_refused();
+            finding.data = Some(json!({
+                "record_index": index,
+                "decision": record.decision,
+            }));
+            findings.push(finding);
         }
         let cited = match &record.provenance {
             Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),

@@ -460,6 +460,111 @@ fn stale_workspace_digest_refuses_the_complete_batch() {
 }
 
 #[test]
+fn singleton_and_bulk_missing_state_share_the_live_contract_refusal() {
+    let (_single_root, mut single) = store_with_mara();
+    let (_bulk_root, mut batched) = store_with_mara();
+    let single_ws = open(&mut single);
+    let bulk_ws = open(&mut batched);
+    let single_before = head(&single, &single_ws);
+    let bulk_before = head(&batched, &bulk_ws);
+
+    let mut single_request = req(
+        "single-missing-state",
+        Op::AuthorRecordDecision,
+        json!({
+            "workspace":single_ws, "decision":"d-single",
+            "provenance":{"kind":"cited", "decisions":["d-parent"]}
+        }),
+    );
+    single_request.dli = "1.9.0".to_owned();
+    let bulk_request = req(
+        "bulk-missing-state",
+        Op::AuthorRecordDecisions,
+        json!({
+            "workspace":bulk_ws,
+            "records":[{
+                "decision":"d-bulk",
+                "provenance":{"kind":"cited", "decisions":["d-parent"]}
+            }]
+        }),
+    );
+    let live = |request: &Request, store: &mut Store| {
+        dli_serve::serve::respond(
+            &serde_json::to_string(request).expect("request envelope"),
+            &mut dli_serve::session::Sessions::default(),
+            store,
+        )
+        .expect("well-formed request receives a response")
+    };
+    let single_response = live(&single_request, &mut single);
+    let bulk_response = live(&bulk_request, &mut batched);
+    let single_error = single_response.error.expect("single typed refusal");
+    let bulk_error = bulk_response.error.expect("bulk typed refusal");
+    assert_eq!(single_error.code, dli_serve::ErrorCode::SchemaViolation);
+    assert_eq!(bulk_error.code, single_error.code);
+    assert_eq!(bulk_error.message, single_error.message);
+    assert_eq!(
+        bulk_error.data,
+        Some(json!({"record_index":0, "decision":"d-bulk"})),
+        "the nested refusal identifies its record"
+    );
+    assert_eq!(head(&single, &single_ws), single_before);
+    assert_eq!(head(&batched, &bulk_ws), bulk_before);
+}
+
+#[test]
+fn singleton_and_bulk_preserve_the_legacy_cited_refusal_without_writes() {
+    let (_single_root, mut single) = store_with_mara();
+    let (_bulk_root, mut batched) = store_with_mara();
+    let single_ws = open(&mut single);
+    let bulk_ws = open(&mut batched);
+    let single_before = head(&single, &single_ws);
+    let bulk_before = head(&batched, &bulk_ws);
+
+    let mut single_request = req(
+        "single-legacy",
+        Op::AuthorRecordDecision,
+        json!({
+            "workspace":single_ws, "decision":"d-single",
+            "provenance":{"kind":"cited", "decisions":["d-parent"]}
+        }),
+    );
+    single_request.dli = "1.2.0".to_owned();
+    let mut bulk_request = req(
+        "bulk-legacy",
+        Op::AuthorRecordDecisions,
+        json!({
+            "workspace":bulk_ws,
+            "records":[{
+                "decision":"d-bulk",
+                "provenance":{"kind":"cited", "decisions":["d-parent"]}
+            }]
+        }),
+    );
+    bulk_request.dli = "1.2.0".to_owned();
+
+    // Direct author dispatch is the unit seam for pre-floor behavior: the live
+    // server correctly refuses both operation names before their release floor.
+    let single_value = result(dispatch(&single_request, &mut single));
+    let bulk_value = result(dispatch(&bulk_request, &mut batched));
+    let single_finding = &single_value["findings"][0];
+    let bulk_finding = &bulk_value["findings"][0];
+    for field in ["severity", "code", "message", "grade", "repair"] {
+        assert_eq!(bulk_finding[field], single_finding[field], "field {field}");
+    }
+    assert_eq!(bulk_finding["code"], "provenance.cited-refused");
+    assert_eq!(
+        bulk_finding["data"],
+        json!({"record_index":0, "decision":"d-bulk"})
+    );
+    assert_eq!(bulk_value["recorded"], 0);
+    assert_eq!(head(&single, &single_ws), single_before);
+    assert_eq!(head(&batched, &bulk_ws), bulk_before);
+    assert_eq!(batched.base_update_stats().prepared_compiles, 0);
+    assert_eq!(batched.base_update_stats().prepared_installs, 0);
+}
+
+#[test]
 fn older_contract_rejects_bulk_without_moving_the_single_operation() {
     let (_root, mut store) = store_with_mara();
     let ws = open(&mut store);

@@ -367,6 +367,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorRecordDecisions => mutate(request, store, |store, request| {
             let params: AuthorRecordDecisionsParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
+            precheck_record_decisions(request, &params)?;
             Ok((
                 params.workspace.clone(),
                 tools::record_decisions(store, &params, records_citations(request)),
@@ -594,33 +595,61 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
             },
         ));
     }
-    let provenance = &request.params["provenance"];
-    if !crate::has_standing_tools(&request.dli) && provenance.get("state").is_some() {
+    if let Some(message) = provenance_contract_error(&request.dli, &request.params["provenance"]) {
         return Err(error(
             request,
             ErrorBody {
                 code: ErrorCode::SchemaViolation,
-                message: "field `state` is defined only by contract 1.5 cited provenance"
-                    .to_owned(),
-                data: None,
-            },
-        ));
-    }
-    if crate::has_standing_tools(&request.dli)
-        && provenance["kind"] == serde_json::json!("cited")
-        && provenance.get("state").is_none()
-    {
-        return Err(error(
-            request,
-            ErrorBody {
-                code: ErrorCode::SchemaViolation,
-                message: "contract 1.5 cited provenance requires state `provisional` or `ratified`"
-                    .to_owned(),
+                message: message.to_owned(),
                 data: None,
             },
         ));
     }
     Ok(())
+}
+
+/// Apply the ordinary negotiated-provenance fence to every nested record in a
+/// bulk decision request. `precheck` handles only the common top-level
+/// `params.provenance` shape; without this explicit descent, a cited record at
+/// 1.5+ could omit its required state and silently lower as legacy `Decided`.
+fn precheck_record_decisions(
+    request: &Request,
+    params: &AuthorRecordDecisionsParams,
+) -> Result<(), Response> {
+    for (record_index, record) in params.records.iter().enumerate() {
+        let Some(provenance) = request.params["records"][record_index].get("provenance") else {
+            continue;
+        };
+        if let Some(message) = provenance_contract_error(&request.dli, provenance) {
+            return Err(error(
+                request,
+                ErrorBody {
+                    code: ErrorCode::SchemaViolation,
+                    message: message.to_owned(),
+                    data: Some(serde_json::json!({
+                        "record_index": record_index,
+                        "decision": record.decision,
+                    })),
+                },
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The versioned cited-provenance wire rule shared by top-level author calls
+/// and nested bulk-decision records. Messages are the released single-op bytes.
+fn provenance_contract_error(dli: &str, provenance: &serde_json::Value) -> Option<&'static str> {
+    if !crate::has_standing_tools(dli) && provenance.get("state").is_some() {
+        return Some("field `state` is defined only by contract 1.5 cited provenance");
+    }
+    if crate::has_standing_tools(dli)
+        && provenance["kind"] == serde_json::json!("cited")
+        && provenance.get("state").is_none()
+    {
+        return Some("contract 1.5 cited provenance requires state `provisional` or `ratified`");
+    }
+    None
 }
 
 /// A stable fingerprint of a request's mutating content (its op and params), so
