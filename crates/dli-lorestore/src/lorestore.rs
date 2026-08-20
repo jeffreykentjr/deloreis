@@ -293,6 +293,12 @@ impl Lorestore {
     /// Returns `true` if the CAS succeeded, `false` if it lost the race.
     pub fn cas_main_ref(&self, expected: Option<&str>, new: &Ref) -> Result<bool, StoreError> {
         let _lock = self.storage.acquire_lock()?;
+        let current = self.storage.load_ref(MAIN_REF)?;
+        let current_digest = current.as_ref().map(Ref::digest).transpose()?;
+        if current_digest.as_ref().map(ContentHash::as_str) != expected {
+            return Ok(false);
+        }
+        self.validate_decision_attacks_at(&new.commit)?;
         self.storage.cas_ref(MAIN_REF, expected, new)
     }
 
@@ -372,8 +378,14 @@ impl Lorestore {
         new: &Ref,
     ) -> Result<bool, StoreError> {
         let _lock = self.storage.acquire_lock()?;
-        self.storage
-            .cas_ref(&branch_ref_name(branch), expected, new)
+        let ref_name = branch_ref_name(branch);
+        let current = self.storage.load_ref(&ref_name)?;
+        let current_digest = current.as_ref().map(Ref::digest).transpose()?;
+        if current_digest.as_ref().map(ContentHash::as_str) != expected {
+            return Ok(false);
+        }
+        self.validate_decision_attacks_at(&new.commit)?;
+        self.storage.cas_ref(&ref_name, expected, new)
     }
 
     /// Delete a branch ref (WS-3, `author.branch`'s `delete` action). Pointer
@@ -643,50 +655,12 @@ impl Lorestore {
                 candidate_attacks.push(hash.clone());
             }
         }
-        for hash in &candidate_attacks {
-            let attack: crate::DecisionAttack = storage::read_typed(&*self.storage, hash)?
-                .ok_or_else(|| {
-                    StoreError::NotFound(format!("decision attack not in store: {hash}"))
-                })?;
-            for endpoint in [&attack.attacker, &attack.target] {
-                if !decisions.contains(endpoint) {
-                    return Err(StoreError::NotFound(format!(
-                        "decision attack {hash} names unknown decision `{endpoint}`"
-                    )));
-                }
-                if interner.iter().filter(|name| *name == endpoint).count() != 1 {
-                    return Err(StoreError::NotFound(format!(
-                        "decision attack {hash} endpoint `{endpoint}` is not uniquely interned"
-                    )));
-                }
-            }
-            if !candidate_facts.contains(&attack.subject_fact_hash) {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {hash} carrier {} is not in the candidate fact fold",
-                    attack.subject_fact_hash
-                )));
-            }
-            let carrier: crate::FactObject = self
-                .read_object(&attack.subject_fact_hash)?
-                .ok_or_else(|| {
-                    StoreError::NotFound(format!(
-                        "decision attack {hash} carrier {} is missing",
-                        attack.subject_fact_hash
-                    ))
-                })?;
-            if carrier.claim_id != attack.claim_id {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {hash} claim_id does not match carrier {}",
-                    attack.subject_fact_hash
-                )));
-            }
-            if !crate::attack::carrier_supports_decision(&carrier, &interner, &attack.target) {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {hash} carrier {} does not positively support target `{}`",
-                    attack.subject_fact_hash, attack.target
-                )));
-            }
-        }
+        self.validate_decision_attack_hashes(
+            &candidate_attacks,
+            &interner,
+            &decisions,
+            &candidate_facts,
+        )?;
 
         let commit = match &expected {
             Some(parent_hash) => Commit::child(
@@ -824,16 +798,75 @@ impl Lorestore {
         &self,
         head: &ContentHash,
     ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
-        let mut attacks: Vec<_> = self
-            .decision_attack_hashes_from(head)?
-            .into_iter()
-            .map(|hash| {
-                self.read_object(&hash)?
-                    .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))
-            })
-            .collect::<Result<_, _>>()?;
+        let commit = self.commit_at(head)?;
+        let facts = self.fact_hashes_from(head)?;
+        let hashes = self.decision_attack_hashes_from(head)?;
+        self.validate_decision_attack_hashes(&hashes, &commit.interner, &commit.decisions, &facts)
+    }
+
+    /// Validate attack objects against one exact candidate fold. This is the
+    /// common authority seam for ordinary commits, merges, raw ref CAS, imports,
+    /// and reopened reads: no path can derive standing from an edge whose names
+    /// or carrier are merely plausible rather than reachable and exact.
+    fn validate_decision_attack_hashes(
+        &self,
+        hashes: &[ContentHash],
+        interner: &[String],
+        decisions: &[String],
+        live_facts: &[ContentHash],
+    ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
+        let mut attacks = Vec::with_capacity(hashes.len());
+        for hash in hashes {
+            let attack: crate::DecisionAttack = self
+                .read_object(hash)?
+                .ok_or_else(|| StoreError::NotFound(format!("decision attack missing: {hash}")))?;
+            for endpoint in [&attack.attacker, &attack.target] {
+                if !decisions.contains(endpoint) {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} names unknown decision `{endpoint}`"
+                    )));
+                }
+                if interner.iter().filter(|name| *name == endpoint).count() != 1 {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} endpoint `{endpoint}` is not uniquely interned"
+                    )));
+                }
+            }
+            if !live_facts.contains(&attack.subject_fact_hash) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} carrier {} is not in the candidate fact fold",
+                    attack.subject_fact_hash
+                )));
+            }
+            let carrier: crate::FactObject = self
+                .read_object(&attack.subject_fact_hash)?
+                .ok_or_else(|| {
+                    StoreError::NotFound(format!(
+                        "decision attack {hash} carrier {} is missing",
+                        attack.subject_fact_hash
+                    ))
+                })?;
+            if carrier.claim_id != attack.claim_id {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} claim_id does not match carrier {}",
+                    attack.subject_fact_hash
+                )));
+            }
+            if !crate::attack::carrier_supports_decision(&carrier, interner, &attack.target) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {hash} carrier {} does not positively support target `{}`",
+                    attack.subject_fact_hash, attack.target
+                )));
+            }
+            attacks.push(attack);
+        }
         attacks.sort();
         Ok(attacks)
+    }
+
+    /// Refuse a raw commit pointer whose folded attack graph is invalid.
+    fn validate_decision_attacks_at(&self, head: &ContentHash) -> Result<(), StoreError> {
+        self.decision_attacks_from(head).map(drop)
     }
 
     /// Project effective standing at `head`: legacy numeric Ref assignments are
@@ -1548,49 +1581,12 @@ impl Lorestore {
                 live_facts.push(fact_hash.clone());
             }
         }
-        for attack_hash in &merged_attacks {
-            let attack: crate::DecisionAttack =
-                self.read_object(attack_hash)?.ok_or_else(|| {
-                    StoreError::NotFound(format!("decision attack missing: {attack_hash}"))
-                })?;
-            for endpoint in [&attack.attacker, &attack.target] {
-                if !merged_decisions.contains(endpoint)
-                    || merged_interner
-                        .iter()
-                        .filter(|name| *name == endpoint)
-                        .count()
-                        != 1
-                {
-                    return Err(StoreError::NotFound(format!(
-                        "decision attack {attack_hash} endpoint `{endpoint}` is not present exactly once in the merged decision/interner tables"
-                    )));
-                }
-            }
-            if !live_facts.contains(&attack.subject_fact_hash) {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {attack_hash} carrier {} is not in the merged candidate fact fold",
-                    attack.subject_fact_hash
-                )));
-            }
-            let carrier: crate::FactObject = self
-                .read_object(&attack.subject_fact_hash)?
-                .ok_or_else(|| {
-                    StoreError::NotFound(format!(
-                        "decision attack {attack_hash} carrier is missing"
-                    ))
-                })?;
-            if carrier.claim_id != attack.claim_id
-                || !crate::attack::carrier_supports_decision(
-                    &carrier,
-                    &merged_interner,
-                    &attack.target,
-                )
-            {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {attack_hash} has a mismatched or unsupported carrier"
-                )));
-            }
-        }
+        self.validate_decision_attack_hashes(
+            &merged_attacks,
+            &merged_interner,
+            &merged_decisions,
+            &live_facts,
+        )?;
 
         let base = self.merge_base(&target_head, &source_head)?;
 

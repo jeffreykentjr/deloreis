@@ -8,7 +8,7 @@ use dli_ast::ident::Ident;
 use dli_ast::language::RatifyBody;
 use dli_ast::span::Span;
 use dli_core::{Atom, Valuation};
-use dli_lorestore::{ClaimId, DecisionAttack, Lorestore, MAIN_REF};
+use dli_lorestore::{ClaimId, Commit, DecisionAttack, Lorestore, MAIN_REF, Ref};
 
 fn decisions() -> Vec<String> {
     ["d1", "d2", "d3"].map(str::to_owned).to_vec()
@@ -219,6 +219,135 @@ fn corrupt_endpoint_and_carrier_refusals_leave_the_ref_unchanged() {
         "{error}"
     );
     assert_eq!(store.branch_ref(MAIN_REF).unwrap().unwrap(), before);
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn raw_commit_cas_and_reopened_reads_reject_every_invalid_attack_shape() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
+    let (interner, facts) = carriers(&store);
+    store
+        .commit(
+            interner.clone(),
+            facts.clone(),
+            Vec::new(),
+            Vec::new(),
+            decisions(),
+            "attack-test".to_owned(),
+        )
+        .unwrap();
+    store.create_branch("probe", MAIN_REF).unwrap();
+    let before = store.branch_ref(MAIN_REF).unwrap().unwrap();
+    let before_digest = before.digest().unwrap().to_string();
+
+    let carrier_for = |target: &str| {
+        let hash = facts
+            .iter()
+            .find(|hash| {
+                store
+                    .read_object::<dli_lorestore::FactObject>(hash)
+                    .unwrap()
+                    .unwrap()
+                    .expert_body
+                    .as_ref()
+                    .is_some_and(|body| body.name == target)
+            })
+            .unwrap()
+            .clone();
+        let object: dli_lorestore::FactObject = store.read_object(&hash).unwrap().unwrap();
+        (hash, object)
+    };
+    let (d1_hash, d1) = carrier_for("d1");
+    let (d2_hash, d2) = carrier_for("d2");
+    let mut phantom = d2.clone();
+    phantom.claim_id = ClaimId::from_label("phantom-carrier");
+    let phantom_hash = store.write_object(&phantom).unwrap();
+
+    let cases = [
+        (
+            DecisionAttack::new(d2.claim_id.clone(), d2_hash.clone(), "d2", "d1"),
+            interner.clone(),
+        ),
+        (
+            DecisionAttack::new(ClaimId::from_label("mismatched-claim"), d2_hash, "d1", "d2"),
+            interner.clone(),
+        ),
+        (
+            DecisionAttack::new(phantom.claim_id, phantom_hash, "d1", "d2"),
+            interner.clone(),
+        ),
+        (
+            DecisionAttack::new(d1.claim_id.clone(), d1_hash.clone(), "d3", "d1"),
+            interner[..2].to_vec(),
+        ),
+        (DecisionAttack::new(d1.claim_id, d1_hash, "d2", "d1"), {
+            let mut duplicate = interner.clone();
+            duplicate.push("d1".to_owned());
+            duplicate
+        }),
+    ];
+
+    let mut corrupt_heads = Vec::new();
+    for (attack, names) in cases {
+        let attack_hash = store.write_object(&attack).unwrap();
+        let raw = Commit::child(
+            before.commit.clone(),
+            names,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            decisions(),
+            "attack-test".to_owned(),
+        )
+        .with_attacks(vec![attack_hash]);
+        let raw_hash = store.write_object(&raw).unwrap();
+        let proposed = Ref::new(MAIN_REF, raw_hash.clone());
+        assert!(
+            store.cas_main_ref(Some(&before_digest), &proposed).is_err(),
+            "raw invalid commit must be refused before main CAS"
+        );
+        assert_eq!(store.branch_ref(MAIN_REF).unwrap().unwrap(), before);
+        assert!(store.decision_attacks_from(&raw_hash).is_err());
+        assert!(
+            store
+                .effective_valuation_at(&raw_hash, &Valuation::new())
+                .is_err(),
+            "invalid attack must never produce an overlay"
+        );
+        corrupt_heads.push(raw_hash);
+    }
+
+    let probe = store.branch_ref("probe").unwrap().unwrap();
+    let corrupt = Ref::new("refs/heads/probe", corrupt_heads[0].clone());
+    assert!(
+        store
+            .cas_branch_ref(
+                "probe",
+                Some(&probe.digest().unwrap().to_string()),
+                &corrupt,
+            )
+            .is_err()
+    );
+    assert_eq!(store.branch_ref("probe").unwrap().unwrap(), probe);
+
+    // Simulate a store produced by an older/bypassing writer: reopening can
+    // observe its ref, but every attack-derived read still fails closed.
+    let corrupt_ref = Ref::new(MAIN_REF, corrupt_heads[1].clone());
+    std::fs::write(
+        dir.path().join("refs/main"),
+        serde_json::to_vec(&corrupt_ref).unwrap(),
+    )
+    .unwrap();
+    drop(store);
+    let reopened = Lorestore::open(dir.path().to_path_buf()).unwrap();
+    let corrupt_head = reopened.branch_ref(MAIN_REF).unwrap().unwrap().commit;
+    assert!(reopened.decision_attacks_from(&corrupt_head).is_err());
+    assert!(
+        reopened
+            .effective_valuation_at(&corrupt_head, &Valuation::new())
+            .is_err()
+    );
 }
 
 #[test]
