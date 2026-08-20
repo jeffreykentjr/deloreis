@@ -798,9 +798,12 @@ impl Store {
         for name in base_valuation.0.keys().chain(base_unassigned.0.iter()) {
             world.model.world.interner.intern(name);
         }
-        let target_interner = world.model.interner().clone();
-        base_valuation.apply_to(&target_interner, &mut world.model.world.valuation)?;
-        base_unassigned.remove_from(&target_interner, &mut world.model.world.valuation)?;
+        dli_core::valuation::apply_named_overlay(
+            &base_valuation,
+            &base_unassigned,
+            &world.model.world.interner,
+            &mut world.model.world.valuation,
+        )?;
         self.base_update_stats.prepared_compiles += 1;
         Ok(PreparedWorkspaceBase {
             pack,

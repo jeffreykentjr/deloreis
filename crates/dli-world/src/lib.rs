@@ -90,6 +90,21 @@ use crate::model::Provenance;
 /// [`findings`](WorldModel::findings) held fail-closed.
 pub fn compile(pack: &Pack) -> Result<CompiledWorld, EvalError> {
     let model = Loader::load(&pack.documents).world;
+    seal_loaded(model, pack)
+}
+
+/// Finish a world already produced by [`Loader::load`] with the ledger
+/// valuation and symbolic fixpoint.
+///
+/// This pure phase boundary exists so non-gating release profiles can measure
+/// loader work separately from fixpoint-and-seal work without duplicating the
+/// compiler. Ordinary callers should prefer [`compile`].
+///
+/// # Errors
+///
+/// Returns [`EvalError::Unstratifiable`] under the same conditions as
+/// [`compile`].
+pub fn seal_loaded(model: WorldModel, pack: &Pack) -> Result<CompiledWorld, EvalError> {
     // Saturate the loader's status-gated facts; the clone inside the saturation
     // carries the valuation and findings through, so the compiled world
     // evaluates under the ledger.

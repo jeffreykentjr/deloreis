@@ -67,6 +67,11 @@ pub struct Workspace {
     /// [`remove_decl`](Workspace::remove_decl), which keep the digest cache in
     /// step.
     pub decls: Vec<Decl>,
+    /// Whether each declaration is already represented by the installed durable
+    /// base. Kept parallel to `decls` so the public workspace digest/history can
+    /// remain stable across materialize while structural reads compile only the
+    /// still-pending suffix/delta.
+    materialized_decls: Vec<bool>,
     /// The hypothesis ids supposed true within the fork (spec 11 §3.9).
     pub suppositions: Vec<String>,
     /// The current digest fence.
@@ -121,6 +126,9 @@ pub struct Workspace {
     /// One bounded structural compile per workspace. Reads clone the cached
     /// world before applying request-local standing and suppositions.
     compile_cache: WorkspaceCompileCache,
+    /// Deterministic request-work counters used by cache acceptance and release
+    /// profiling. They are observational only and never enter a verdict.
+    read_work: ReadWorkCounters,
     /// The streaming digest state: a SHA-256 that has absorbed the canonical head
     /// (`{"base_name":…,"decls":[`) and every staged declaration's JCS bytes in
     /// order, up to but not including the closing `]`. An append feeds one more
@@ -139,6 +147,7 @@ impl Workspace {
             mode,
             base_name,
             decls: Vec::new(),
+            materialized_decls: Vec::new(),
             suppositions: Vec::new(),
             digest: String::new(),
             idempotency: BTreeMap::new(),
@@ -153,6 +162,7 @@ impl Workspace {
             resolution: ResolutionIndex::default(),
             structural_revision: 0,
             compile_cache: WorkspaceCompileCache::default(),
+            read_work: ReadWorkCounters::default(),
         };
         workspace.absorb_head();
         workspace.reseal();
@@ -170,6 +180,7 @@ impl Workspace {
         self.prefix.update(encode(&decl).as_bytes());
         self.resolution.add_staged(&decl);
         self.decls.push(decl);
+        self.materialized_decls.push(false);
         self.bump_structural_revision();
         self.reseal();
     }
@@ -179,6 +190,9 @@ impl Workspace {
     pub fn replace_decl(&mut self, index: usize, decl: Decl) {
         if let Some(slot) = self.decls.get_mut(index) {
             *slot = decl;
+            if let Some(materialized) = self.materialized_decls.get_mut(index) {
+                *materialized = false;
+            }
             self.resolution.rebuild_staged(&self.decls);
             self.bump_structural_revision();
             self.reabsorb();
@@ -192,6 +206,7 @@ impl Workspace {
             return None;
         }
         let removed = self.decls.remove(index);
+        self.materialized_decls.remove(index);
         self.resolution.rebuild_staged(&self.decls);
         self.bump_structural_revision();
         self.reabsorb();
@@ -222,6 +237,26 @@ impl Workspace {
     pub fn refresh_structure(&mut self, base: &CompiledWorld, documents: &[Document]) {
         self.refresh_resolution(base, documents);
         self.bump_structural_revision();
+    }
+
+    /// Declarations not yet represented by the installed durable base.
+    pub(super) fn pending_decls(&self) -> Vec<Decl> {
+        self.decls
+            .iter()
+            .zip(&self.materialized_decls)
+            .filter_map(|(decl, materialized)| (!materialized).then_some(decl.clone()))
+            .collect()
+    }
+
+    /// Reconcile every currently staged durable-object group into the newly
+    /// installed base without changing the caller's digest/history surface.
+    /// Structural invalidation is owned by the base install and occurs once.
+    pub(super) fn mark_materialized(&mut self, keys: &BTreeSet<String>) {
+        for (decl, materialized) in self.decls.iter().zip(&mut self.materialized_decls) {
+            if keys.contains(&crate::author::tools::decl_key(decl)) {
+                *materialized = true;
+            }
+        }
     }
 
     /// Return the cached structural world for this declaration revision.
@@ -286,8 +321,58 @@ impl Workspace {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn set_compile_cache_enabled(&self, enabled: bool) {
+    /// Deterministic work counts for dynamic read overlays and explanations.
+    #[must_use]
+    pub fn read_work_stats(&self) -> ReadWorkStats {
+        self.read_work.snapshot()
+    }
+
+    pub(super) fn note_reconstruction(&self) {
+        self.read_work
+            .reconstructions
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_loader_and_seal(&self) {
+        self.read_work.loader_runs.fetch_add(1, Ordering::Relaxed);
+        self.read_work
+            .fixpoint_seals
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_valuation(&self, copied: u64, suppositions: u64) {
+        self.read_work.valuations.fetch_add(1, Ordering::Relaxed);
+        self.read_work
+            .valuation_copies
+            .fetch_add(copied, Ordering::Relaxed);
+        self.read_work
+            .supposition_probes
+            .fetch_add(suppositions, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_query(&self) {
+        self.read_work.queries.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_why(&self) {
+        self.read_work.whys.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_attack_explanation(&self, endpoints: u64, incidences: u64, copied: u64) {
+        self.read_work
+            .attack_endpoint_resolutions
+            .fetch_add(endpoints, Ordering::Relaxed);
+        self.read_work
+            .attack_incidence_visits
+            .fetch_add(incidences, Ordering::Relaxed);
+        self.read_work
+            .valuation_copies
+            .fetch_add(copied, Ordering::Relaxed);
+    }
+
+    /// Force cache bypass for deterministic differential tests.
+    #[doc(hidden)]
+    pub fn set_compile_cache_enabled(&self, enabled: bool) {
         self.compile_cache.enabled.store(enabled, Ordering::Relaxed);
     }
 
@@ -469,6 +554,89 @@ pub struct CompileCacheStats {
     pub misses: u64,
     /// Stale structural entries replaced after an invalidating mutation.
     pub evictions: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Deterministic phase/work counts for one workspace's author reads.
+pub struct ReadWorkStats {
+    /// Structural document reconstructions performed on cache misses.
+    pub reconstructions: u64,
+    /// Loader phase invocations.
+    pub loader_runs: u64,
+    /// Fixpoint-and-seal phase invocations paired with loader runs.
+    pub fixpoint_seals: u64,
+    /// Request-local dynamic valuation overlays applied.
+    pub valuations: u64,
+    /// `author.query` calls observed.
+    pub queries: u64,
+    /// `author.why` calls observed.
+    pub whys: u64,
+    /// Full target-interner name scans on the overlay hit path.
+    pub full_name_scans: u64,
+    /// Temporary target remap maps built on the overlay hit path.
+    pub remap_builds: u64,
+    /// Exact-name supposition lookups.
+    pub supposition_probes: u64,
+    /// Exact-name attack endpoint lookups.
+    pub attack_endpoint_resolutions: u64,
+    /// Active target-to-support-path incidences visited.
+    pub attack_incidence_visits: u64,
+    /// Request-bounded valuation copies, including the one read clone and the
+    /// optional one shared explanation counterfactual.
+    pub valuation_copies: u64,
+}
+
+#[derive(Debug, Default)]
+struct ReadWorkCounters {
+    reconstructions: AtomicU64,
+    loader_runs: AtomicU64,
+    fixpoint_seals: AtomicU64,
+    valuations: AtomicU64,
+    queries: AtomicU64,
+    whys: AtomicU64,
+    supposition_probes: AtomicU64,
+    attack_endpoint_resolutions: AtomicU64,
+    attack_incidence_visits: AtomicU64,
+    valuation_copies: AtomicU64,
+}
+
+impl ReadWorkCounters {
+    fn snapshot(&self) -> ReadWorkStats {
+        ReadWorkStats {
+            reconstructions: self.reconstructions.load(Ordering::Relaxed),
+            loader_runs: self.loader_runs.load(Ordering::Relaxed),
+            fixpoint_seals: self.fixpoint_seals.load(Ordering::Relaxed),
+            valuations: self.valuations.load(Ordering::Relaxed),
+            queries: self.queries.load(Ordering::Relaxed),
+            whys: self.whys.load(Ordering::Relaxed),
+            // The implementation has no operation that performs either form of
+            // work; keeping explicit zeros makes regressions an asserted tooth.
+            full_name_scans: 0,
+            remap_builds: 0,
+            supposition_probes: self.supposition_probes.load(Ordering::Relaxed),
+            attack_endpoint_resolutions: self.attack_endpoint_resolutions.load(Ordering::Relaxed),
+            attack_incidence_visits: self.attack_incidence_visits.load(Ordering::Relaxed),
+            valuation_copies: self.valuation_copies.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl Clone for ReadWorkCounters {
+    fn clone(&self) -> Self {
+        let stats = self.snapshot();
+        Self {
+            reconstructions: AtomicU64::new(stats.reconstructions),
+            loader_runs: AtomicU64::new(stats.loader_runs),
+            fixpoint_seals: AtomicU64::new(stats.fixpoint_seals),
+            valuations: AtomicU64::new(stats.valuations),
+            queries: AtomicU64::new(stats.queries),
+            whys: AtomicU64::new(stats.whys),
+            supposition_probes: AtomicU64::new(stats.supposition_probes),
+            attack_endpoint_resolutions: AtomicU64::new(stats.attack_endpoint_resolutions),
+            attack_incidence_visits: AtomicU64::new(stats.attack_incidence_visits),
+            valuation_copies: AtomicU64::new(stats.valuation_copies),
+        }
+    }
 }
 
 /// A rebuildable, non-authoritative census used by the authoring seam's

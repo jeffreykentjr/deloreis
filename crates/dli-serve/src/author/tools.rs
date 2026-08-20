@@ -480,10 +480,6 @@ pub(super) fn materialize(
         ws_interner
     };
 
-    let ls = store
-        .workspace_lorestore_mut(&params.workspace)
-        .expect("checked above");
-
     // Accept the whole staged set under `d` (DL-0083): each committed **fact**
     // has its SUPPORT rested on `d`, so it reads certain-and-ratified through the
     // ordinary `ledger_valuation` algebra once `d`'s synthetic `Ratify` is
@@ -500,6 +496,9 @@ pub(super) fn materialize(
     //     replaced by `d` and the promoting decision recorded. This is the
     //     batch-accept point — the honest replacement for `fixture-authority true`.
     let commit_fact_hashes = if let Some(decision) = params.decision.as_deref() {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("checked above");
         // The decision's atom in the commit interner — the variable a fact's
         // support must rest on to read certain. `decision` was appended to the
         // commit interner just above, so the lookup cannot miss.
@@ -566,7 +565,9 @@ pub(super) fn materialize(
     // provenance under a scope it was never written in, so an existing named
     // store keeps its name and only a seeding commit takes the session's. Same
     // rule the corpus arm follows (DL-0056).
-    let pack_name = ls
+    let pack_name = store
+        .workspace_lorestore(&params.workspace)
+        .expect("checked above")
         .head_pack_name()
         .map_err(|error| ErrorBody {
             code: ErrorCode::Internal,
@@ -575,11 +576,114 @@ pub(super) fn materialize(
         })?
         .unwrap_or(base_name);
 
-    let receipt = ls
+    // Prepare the exact post-commit world before the branch CAS. The candidate
+    // fold mirrors lorestore replacement-by-content-identity, then reconstructs
+    // from the very objects that will be committed (including decision-stamped
+    // support). Every fallible read/reconstruction/compile therefore completes
+    // while the durable ref is still unchanged.
+    let prepared = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let parent = pinned
+            .as_deref()
+            .and_then(dli_lorestore::ContentHash::parse)
+            .ok_or_else(|| schema_error("workspace has no valid durable base commit"))?;
+        let mut candidate_hashes = ls
+            .fact_hashes_from(&parent)
+            .map_err(|error| store_fault(&error))?;
+        let mut identities = BTreeMap::new();
+        for (index, hash) in candidate_hashes.iter().enumerate() {
+            let object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("base object {hash} is missing")))?;
+            identities.insert(
+                object
+                    .content_hash()
+                    .map_err(|error| schema_error(error.to_string()))?,
+                index,
+            );
+        }
+        for hash in &commit_fact_hashes {
+            let object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            let identity = object
+                .content_hash()
+                .map_err(|error| schema_error(error.to_string()))?;
+            if let Some(index) = identities.get(&identity).copied() {
+                candidate_hashes[index] = hash.clone();
+            } else {
+                identities.insert(identity, candidate_hashes.len());
+                candidate_hashes.push(hash.clone());
+            }
+        }
+        let mut objects = Vec::with_capacity(candidate_hashes.len());
+        for hash in candidate_hashes {
+            objects.push(
+                ls.read_object::<dli_lorestore::FactObject>(&hash)
+                    .map_err(|error| store_fault(&error))?
+                    .ok_or_else(|| schema_error(format!("candidate object {hash} is missing")))?,
+            );
+        }
+        let known = decisions.iter().cloned().collect();
+        let candidate = dli_lorestore::lower::reconstruct_pack(
+            &objects,
+            &dli_core::Interner::from_names(commit_interner.clone()),
+            &known,
+            &pack_name,
+        )
+        .map_err(|error| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("reconstructing the materialize candidate: {error}"),
+            data: None,
+        })?;
+        // Read standing from the exact ref the pending CAS targets. A sibling
+        // may have changed conditional attacks since this workspace opened;
+        // using the workspace's cached overlay here would prepare a stale
+        // post-commit base even if the structural candidate itself is sound.
+        // The later CAS still owns the race: if this ref changes after the
+        // snapshot, the durable write is refused and this prepared value is
+        // simply discarded.
+        let target = ls
+            .branch_ref(&target_ref)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| schema_error(format!("branch `{target_ref}` has no ref")))?;
+        let source_names = ls
+            .interner_at(&target.commit)
+            .map_err(|error| store_fault(&error))?;
+        let effective = ls
+            .effective_valuation_at(&target.commit, &target.valuation)
+            .map_err(|error| store_fault(&error))?;
+        let base_valuation =
+            dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, &source_names)
+                .map_err(|error| valuation_corrupt(&error))?;
+        let base_unassigned =
+            dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, &source_names)
+                .map_err(|error| valuation_corrupt(&error))?;
+        store
+            .prepare_workspace_base(
+                &params.workspace,
+                candidate,
+                base_valuation,
+                base_unassigned,
+            )
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::Internal,
+                message: format!("compiling the materialize candidate: {error}"),
+                data: None,
+            })?
+    };
+
+    let receipt = store
+        .workspace_lorestore(&params.workspace)
+        .expect("checked above")
         .commit_on_branch_at_ref(
             &target_ref,
             base_ref_digest.as_deref(),
-            commit_interner,
+            commit_interner.clone(),
             commit_fact_hashes.clone(),
             Vec::new(),
             Vec::new(),
@@ -607,6 +711,9 @@ pub(super) fn materialize(
     // The JSON-first return: the committed fact objects, read back from the
     // store so the caller sees exactly the durable bytes.
     let facts = if v2 {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("checked above");
         let mut list = Vec::with_capacity(commit_fact_hashes.len());
         for hash in &commit_fact_hashes {
             let fo: dli_lorestore::FactObject = ls
@@ -633,12 +740,23 @@ pub(super) fn materialize(
     // the new commit, and a retry commits nothing. Branch-mode workspaces also
     // advance their whole-ref fence to the ref this commit just wrote, so their
     // next materialize is fenced against external work rather than themselves.
+    let materialized_keys: BTreeSet<String> = store
+        .get(&params.workspace)
+        .ok_or_else(gone)?
+        .staged_fact_hashes
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect();
+    store.install_prepared_workspace_base(
+        &params.workspace,
+        prepared,
+        commit_interner,
+        &commit_hash,
+        &receipt.ref_digest,
+    );
     let (_, ws) = parts_mut(store, &params.workspace)?;
+    ws.mark_materialized(&materialized_keys);
     ws.staged_fact_hashes.clear();
-    ws.base_root_hash = Some(commit_hash.to_string());
-    if ws.base_ref_digest.is_some() {
-        ws.base_ref_digest = Some(receipt.ref_digest.to_string());
-    }
 
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),

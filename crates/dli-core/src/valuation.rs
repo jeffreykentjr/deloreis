@@ -49,7 +49,7 @@ impl NamedValuation {
         valuation: &Valuation,
         source_names: &[String],
     ) -> Result<Self, ValuationRemapError> {
-        reject_duplicate_names(source_names, InternerSide::Source)?;
+        reject_duplicate_names(source_names)?;
         let mut named = BTreeMap::new();
         for (&atom, &value) in &valuation.0 {
             let name = source_names.get(atom.0 as usize).ok_or(
@@ -65,23 +65,11 @@ impl NamedValuation {
 
     /// Resolve this named assignment into a receiving interner.
     pub fn to_indexed(&self, target: &Interner) -> Result<Valuation, ValuationRemapError> {
-        reject_duplicate_names(target.names(), InternerSide::Target)?;
-        let by_name: BTreeMap<&str, Atom> = target
-            .names()
-            .iter()
-            .enumerate()
-            .map(|(index, name)| {
-                (
-                    name.as_str(),
-                    Atom(u32::try_from(index).expect("atom count fits in u32")),
-                )
-            })
-            .collect();
+        reject_duplicate_target(target)?;
         let mut indexed = Valuation::new();
         for (name, &value) in &self.0 {
-            let atom = by_name
-                .get(name.as_str())
-                .copied()
+            let atom = target
+                .lookup(name)
                 .ok_or_else(|| ValuationRemapError::TargetNameMissing { name: name.clone() })?;
             indexed.set(atom, value);
         }
@@ -112,7 +100,7 @@ impl NamedAtomSet {
         atoms: &BTreeSet<Atom>,
         source_names: &[String],
     ) -> Result<Self, ValuationRemapError> {
-        reject_duplicate_names(source_names, InternerSide::Source)?;
+        reject_duplicate_names(source_names)?;
         let mut named = BTreeSet::new();
         for &atom in atoms {
             let name = source_names.get(atom.0 as usize).ok_or(
@@ -128,24 +116,12 @@ impl NamedAtomSet {
 
     /// Resolve the names into a receiving interner.
     pub fn to_indexed(&self, target: &Interner) -> Result<BTreeSet<Atom>, ValuationRemapError> {
-        reject_duplicate_names(target.names(), InternerSide::Target)?;
-        let by_name: BTreeMap<&str, Atom> = target
-            .names()
-            .iter()
-            .enumerate()
-            .map(|(index, name)| {
-                (
-                    name.as_str(),
-                    Atom(u32::try_from(index).expect("atom count fits in u32")),
-                )
-            })
-            .collect();
+        reject_duplicate_target(target)?;
         self.0
             .iter()
             .map(|name| {
-                by_name
-                    .get(name.as_str())
-                    .copied()
+                target
+                    .lookup(name)
                     .ok_or_else(|| ValuationRemapError::TargetNameMissing { name: name.clone() })
             })
             .collect()
@@ -164,27 +140,48 @@ impl NamedAtomSet {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum InternerSide {
-    Source,
-    Target,
+/// Apply named assignments and explicit-open removals to one receiving
+/// valuation after a single O(1) interner-validity check. Each overlay name is
+/// probed exactly once; no receiving-name scan, temporary remap map, or interner
+/// clone is built.
+pub fn apply_named_overlay(
+    assignments: &NamedValuation,
+    unassigned: &NamedAtomSet,
+    target: &Interner,
+    valuation: &mut Valuation,
+) -> Result<(), ValuationRemapError> {
+    reject_duplicate_target(target)?;
+    for (name, &value) in &assignments.0 {
+        let atom = target
+            .lookup(name)
+            .ok_or_else(|| ValuationRemapError::TargetNameMissing { name: name.clone() })?;
+        valuation.set(atom, value);
+    }
+    for name in &unassigned.0 {
+        let atom = target
+            .lookup(name)
+            .ok_or_else(|| ValuationRemapError::TargetNameMissing { name: name.clone() })?;
+        valuation.0.remove(&atom);
+    }
+    Ok(())
 }
 
-fn reject_duplicate_names(names: &[String], side: InternerSide) -> Result<(), ValuationRemapError> {
+fn reject_duplicate_names(names: &[String]) -> Result<(), ValuationRemapError> {
     let mut seen = std::collections::BTreeSet::new();
     for name in names {
         if !seen.insert(name) {
-            return Err(match side {
-                InternerSide::Source => {
-                    ValuationRemapError::DuplicateSourceName { name: name.clone() }
-                }
-                InternerSide::Target => {
-                    ValuationRemapError::DuplicateTargetName { name: name.clone() }
-                }
-            });
+            return Err(ValuationRemapError::DuplicateSourceName { name: name.clone() });
         }
     }
     Ok(())
+}
+
+fn reject_duplicate_target(target: &Interner) -> Result<(), ValuationRemapError> {
+    target.duplicate_name().map_or(Ok(()), |name| {
+        Err(ValuationRemapError::DuplicateTargetName {
+            name: name.to_owned(),
+        })
+    })
 }
 
 /// A persisted valuation cannot be mapped into a receiving compiled world.
