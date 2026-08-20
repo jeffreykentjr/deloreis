@@ -155,6 +155,14 @@ workspace discard, the worker retains compact tombstones for the 1,024 most
 recently discarded workspaces; an older retry is refused as `unknown-doc` and
 can never recreate or mutate the discarded workspace.
 
+`author.materialize` follows this mutation law from contract `0.6.0`, the
+version that made it the durable accept decision (DL-0046). A fresh stale
+digest refuses before commit; an exact keyed retry returns the first result
+without another commit; the same key with different materialize params is a
+conflict. Contract `0.5.1` retains its earlier read classification and refuses
+both fields. `author.branch` and `author.merge` join the same envelope law from
+`1.7.0`.
+
 `expected_digest` and `idempotency_key` are declared envelope fields (request
 level, defined for mutating `author.*` calls); the normative wire shape is
 `docs/integration/fantasy-contract.md` §2, and "unknown fields are errors"

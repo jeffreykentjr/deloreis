@@ -5632,3 +5632,51 @@ pass under contract `1.13.0`. The `0.x` parity corpus remains byte-exact except
 for its already-declared build-version/version-mismatch deviations, while the
 frozen `1.12.0` defeat suite proves the old one-way semantics and response
 shape.
+
+## DL-0100 — Restore materialize fences at the 0.6 mutation boundary (GH #113)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering correction by the implementing agent,
+reconciling the shipped envelope classifier with DL-0046 and the authoring
+contract after the first 1.13 consumer exercised fenced materialization.
+
+**Ruling.** `author.materialize` accepts the request envelope's
+`expected_digest` and `idempotency_key` from contract `0.6.0` onward. This is
+the behavior DL-0046 established when materialize became the durable accept
+mutation and was routed through idempotency replay. Contract `0.5.1` retains
+DL-0026's historical read classification and its exact schema-violation refusal
+for both fields. The stale paragraph in the integration contract that excluded
+materialize from all fence-bearing mutations is corrected; no later ruling had
+superseded DL-0046.
+
+One version-aware operation predicate owns both native dispatch admission and
+MCP descriptor generation. An exact keyed retry is resolved before the digest
+check and returns the original result without another commit, CAS, prepared
+install, or staged-declaration application. Reusing the key with different
+materialize params is `conflict`; a fresh key carrying a stale workspace digest
+is `stale-fence`. Those refusals preserve both live workspace state and the
+target ref. The existing exact-target snapshot, candidate validation, whole-ref
+CAS, and infallible post-CAS install remain the separate durable authority
+fence; the envelope correction neither weakens nor replaces them.
+
+The negotiated contract remains `1.13.0`: no operation, params type, response
+shape, stored schema, capability entry, or successful unfenced behavior changes.
+The immutable first `contract/1.13.0` tag remains historical evidence of the
+classifier omission. The corrected green main is published as the annotated
+`contract/1.13.0-hotfix.1` build, following the existing Contract 1.5 corrective
+tag precedent, and downstream consumers pin that tag while continuing to send
+`"dli":"1.13.0"`.
+
+**Verification.** Production-path stdio tests cover main and branch workspaces,
+successful fenced materialize, exact replay with one ref advance, payload
+conflict, stale local digest with unchanged workspace/ref, immediate live versus
+fresh-workspace query parity, and the `0.5.1`/`0.6.0`/`1.12.0`/`1.13.0` floor.
+MCP tests require both reserved arguments in `tools/list` and exercise a keyed
+materialize plus exact replay through `tools/call`. A mutation-inventory oracle
+requires every current post-open mutating dispatch arm to expose fences through
+the shared native/MCP predicate. The existing materialize tests retain
+stale-sibling exact-candidate rejection, branch isolation, whole-ref CAS-race
+refusal, and zero fallible reads after successful CAS. Schema, fixture,
+docs-oracle, authority, both strict Clippy lanes, and the full deterministic gate
+remain release-blocking.

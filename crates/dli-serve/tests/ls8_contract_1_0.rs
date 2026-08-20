@@ -961,6 +961,11 @@ fn every_capability_gate_is_a_floor_not_an_exact_match() {
         ),
         ("rule authoring", "1.7.0", dli_serve::has_rule_authoring),
         ("branch writes", "1.7.0", dli_serve::has_branch_writes),
+        (
+            "materialize fences",
+            "0.6.0",
+            dli_serve::has_materialize_fences,
+        ),
     ];
     for (name, floor, gate) in gates {
         let mut at_or_above = 0;

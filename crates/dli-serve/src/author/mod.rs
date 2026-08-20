@@ -518,6 +518,11 @@ fn mutate(
     store: &mut store::Store,
     step: impl FnOnce(&mut store::Store, &Request) -> Step,
 ) -> Response {
+    debug_assert!(
+        request.op.is_post_open_author_mutation(),
+        "every author::dispatch arm routed through mutate must be registered as a post-open mutation: {:?}",
+        request.op
+    );
     match step(store, request) {
         Ok((workspace, Ok(result))) => {
             if let Some(key) = &request.idempotency_key {

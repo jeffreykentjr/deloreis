@@ -21,7 +21,7 @@ either side disagrees with this document, this document wins.
 > **Implementation status:** the contract is at `1.13.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
 > DL-0080, DL-0081, DL-0082, DL-0084, DL-0091, DL-0092, DL-0096, DL-0097,
-> DL-0098). It carries typed responses for all 69 operations,
+> DL-0098, DL-0100). It carries typed responses for all 69 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
@@ -44,6 +44,9 @@ either side disagrees with this document, this document wins.
 > negotiated wire retains its released capabilities, shapes, and defeat
 > semantics. Because schema v5 changes canonical stored bytes, content-address
 > fields are deliberately re-pinned under the 1.13 contract label (DL-0099).
+> The corrective `contract/1.13.0-hotfix.1` build restores the materialize
+> digest/idempotency fences promised since 0.6.0; it adds no operation, schema
+> version, or negotiated contract version (DL-0100).
 
 ## 1. Parties
 
@@ -71,15 +74,15 @@ model utterance is one of four declared classes, or it does not enter.*
   may carry `expected_digest` — the caller's last-seen workspace digest, for
   optimistic concurrency: a mismatch is a `stale-fence` error (§9), so a stale
   caller never clobbers a moved fence — and `idempotency_key` — a retry-safe key,
-  so a re-sent mutation is applied at most once. Read tools, `author.open`,
-  `author.materialize`, `author.branch`, `author.merge`, and batch `dli.*`
-  operations do not accept either field — `materialize` is a mutation (§3.2)
-  whose fence is the workspace's own pinned commit, and a re-materialize with
-  nothing newly staged is an idempotent no-op without a key. Both are **declared**
-  fields; "unknown fields are errors" still stands. Native stdio carries them in
-  the request envelope. MCP exposes them as reserved arguments on those ten
-  author mutation tools and lifts them into that same envelope before shared
-  dispatch.
+  so a re-sent mutation is applied at most once. Read tools, `author.open`, and
+  batch `dli.*` operations do not accept either field. `author.materialize`
+  accepts both from `0.6.0`, when DL-0046 made it a mutation; `0.5.1` retains
+  its released read classification and refusal. `author.branch` and
+  `author.merge` accept both from `1.7.0`. These are **declared** fields;
+  "unknown fields are errors" still stands. Native stdio carries them in the
+  request envelope. MCP exposes them as reserved arguments on every
+  fence-bearing author mutation and lifts them into that same envelope before
+  shared dispatch.
 - **Every tool-surface mutation returns immediately.** No mutating `author.*`
   operation defers its verdict; graded findings, the structured result, and the
   workspace digest come back on the same call. The `.dli` rendering rides along
@@ -291,7 +294,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.status` | The workspace's staged declarations and open findings. | no |
 | `author.diff` | The structured review diff — per-fact `rows` with before/after standing, from `0.6.0` — with the full findings and derived consequences, including merely-possible status; the `.dli` rendering is a view of it. | no |
 | `author.discard` | Discard the workspace, or one staged declaration — the **reject** decision. | yes |
-| `author.materialize` | Commit the workspace's staged delta to the lorestore — the **accept** decision; returns the committed fact objects and the new `root_hash`. | yes (commits) |
+| `author.materialize` | Commit the workspace's staged delta to the lorestore — the **accept** decision; returns the committed fact objects and the new `root_hash`. From `0.6.0`, accepts `expected_digest` and `idempotency_key`; `0.5.1` retains its historical read classification. | yes (commits) |
 | `author.add_entity` | Add a proposed entity (kind: person/place/thing/era). Events are not entities — chronology points go through `author.add_event`. | yes |
 | `author.add_fact` | Add a proposed fact on an entity. | yes |
 | `author.add_relation` | Add a proposed relation between entities. | yes |
@@ -336,7 +339,11 @@ the `rendered: true` opt-in, not the return. `author.discard` — whole-workspac
 or per-declaration — is the matching **reject** decision, and a rejected
 declaration's durably staged objects are dropped from the pending commit.
 Re-materializing with nothing newly staged writes no new commit and returns the
-pinned one.
+pinned one. From contract `0.6.0`, the ordinary envelope `expected_digest`
+fences the live workspace state and `idempotency_key` makes an exact retry
+return the original materialize result without another commit. Reusing the key
+with different materialize params is `conflict`. Contract `0.5.1` keeps the
+pre-DL-0046 refusal for both fields.
 
 The kernel still never writes the fantasy repo: the commit lands in the
 lorestore the workspace was opened over, which is deloreis-side storage. What
@@ -635,6 +642,14 @@ decoupled, and the compatibility window carries the consumer across.
   are canonically ordered. They are always arrays on a 1.13 wire and omitted
   below the floor. Schema, fixture, branch/reopen/canon, ordering, corruption,
   and frozen-legacy oracles are part of the atomic release gate.
+- **Corrective build `contract/1.13.0-hotfix.1`.** The first 1.13 tag exposed a
+  pre-dispatch allowlist omission: native stdio rejected `expected_digest` and
+  `idempotency_key` on `author.materialize`, and MCP did not advertise them,
+  even though DL-0046 defines materialize as a replayable mutation from
+  `0.6.0`. The corrective build uses one version-aware mutation inventory for
+  native and MCP. It changes no successful unfenced response, operation
+  inventory, negotiated version, or stored schema; `0.5.1` retains its
+  historical refusal.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that
