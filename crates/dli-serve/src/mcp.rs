@@ -131,7 +131,7 @@ fn tool_descriptors() -> Vec<Value> {
                 .get(&format!("{wire}.request"))
                 .cloned()
                 .unwrap_or_else(|| json!({ "type": "object" }));
-            if op.accepts_author_fences()
+            if op.accepts_author_fences(crate::CONTRACT_VERSION)
                 && let Some(properties) = input_schema
                     .get_mut("properties")
                     .and_then(Value::as_object_mut)

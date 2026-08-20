@@ -357,6 +357,14 @@ pub fn has_conditional_defeat(dli: &str) -> bool {
     at_or_above(dli, (1, 13, 0))
 }
 
+/// Whether `author.materialize` accepts the ordinary workspace digest and
+/// idempotency fences. Contract 0.6.0 made materialize a replayable mutation;
+/// 0.5.1 retains its earlier read classification and refusal bytes.
+#[must_use]
+pub fn has_materialize_fences(dli: &str) -> bool {
+    at_or_above(dli, (0, 6, 0))
+}
+
 /// Whether predicate identity is ready to advertise as a capability. The wire
 /// lane owns this explicit seam so a future durable-store regression cannot
 /// silently turn a partial implementation into a live promise.

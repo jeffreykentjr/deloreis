@@ -24,10 +24,14 @@ LLM work; the worker keeps all evaluation and verdicts.
 The MCP transport is a thin wrapper, not a second protocol: it registers the
 same ops as MCP tools and forwards their arguments through the same request
 envelope, so an MCP client and a stdio client exercise identical kernel paths
-and identical fixtures. For a mutating tool-surface tool, `expected_digest` and
-`idempotency_key` appear as ordinary MCP tool arguments; the adapter lifts those
-two reserved keys into the shared envelope before dispatch. There is one worker
-surface; MCP is a way to reach it.
+and identical fixtures. For a fence-bearing mutating tool-surface tool,
+`expected_digest` and `idempotency_key` appear as ordinary MCP tool arguments;
+the adapter lifts those two reserved keys into the shared envelope before
+dispatch. Materialize is in that set from `0.6.0` (but not on its historical
+`0.5.1` wire), while branch/merge join at `1.7.0`. Native dispatch and MCP
+descriptors consult the same version-aware operation predicate, so their
+envelope shapes cannot drift. There is one worker surface; MCP is a way to
+reach it.
 
 The surface serves **two op families** over the same process:
 
@@ -57,6 +61,12 @@ decision attacks and adds active/blocked support arrays to `author.why`.
 Schema-v4 stores and all contracts through `1.12.0` retain their released
 one-way defeat and response behavior; schema v5 carries attacks explicitly
 (DL-0096 through DL-0098).
+
+The corrective `contract/1.13.0-hotfix.1` build also restores the
+`author.materialize` digest/idempotency fences that DL-0046 promised from
+`0.6.0`; the first 1.13 tag's pre-dispatch allowlist and MCP descriptor omitted
+them. This is a corrective build of the same negotiated contract, not a new
+operation or version. Contract `0.5.1` retains its released refusal.
 
 ### 1.1 Caller projects
 

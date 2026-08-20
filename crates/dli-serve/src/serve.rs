@@ -654,16 +654,10 @@ pub fn dispatch(
     {
         return refuse_field(request, field, successor);
     }
-    // `author.branch`/`author.merge` accept the envelope fences ONLY from
-    // contract 1.7.0 up (WS-3: they moved from the `read` wrapper to `mutate`,
-    // so idempotency-key replay now actually caches). This is a version-gated
-    // exception, not a change to `accepts_author_fences` itself — blanket-
-    // adding them there would flip a fence-refusal on every wire below 1.7.0,
-    // moving released bytes (the same C4 discipline every other capability
-    // gate here follows).
-    let fences_ok = request.op.accepts_author_fences()
-        || (matches!(request.op, Op::AuthorBranch | Op::AuthorMerge)
-            && crate::has_branch_writes(&request.dli));
+    // Fence support is negotiated per operation. Materialize joins at its 0.6
+    // mutation floor and branch/merge at 1.7; 0.5.1 materialize retains its
+    // released read classification and schema-violation bytes.
+    let fences_ok = request.op.accepts_author_fences(&request.dli);
     if !fences_ok {
         if request.expected_digest.is_some() {
             return fence_schema_violation(request, "expected_digest");

@@ -463,12 +463,16 @@ impl Op {
         }
     }
 
-    /// Whether this workspace mutation accepts digest/idempotency fences.
+    /// Whether this operation mutates an already-open authoring workspace.
+    /// This inventory mirrors the `author::dispatch` arms routed through
+    /// `mutate`; keeping it beside the envelope-fence predicate gives the
+    /// contract and MCP schema a testable source of truth.
     #[must_use]
-    pub const fn accepts_author_fences(self) -> bool {
+    pub const fn is_post_open_author_mutation(self) -> bool {
         matches!(
             self,
-            Op::AuthorDiscard
+            Op::AuthorMaterialize
+                | Op::AuthorDiscard
                 | Op::AuthorAddEntity
                 | Op::AuthorAddFact
                 | Op::AuthorAddRelation
@@ -494,7 +498,25 @@ impl Op {
                 | Op::AuthorRecordDecision
                 | Op::AuthorAssertPredicateSameAs
                 | Op::AuthorRecordDecisions
+                | Op::AuthorBranch
+                | Op::AuthorMerge
         )
+    }
+
+    /// Whether this operation accepts digest/idempotency fences on the
+    /// negotiated wire. Most post-open workspace mutations have always done
+    /// so; materialize joined when it became a mutation at 0.6 and branch/merge
+    /// joined at 1.7. The 0.5.1 materialize refusal remains frozen.
+    #[must_use]
+    pub fn accepts_author_fences(self, dli: &str) -> bool {
+        if !self.is_post_open_author_mutation() {
+            return false;
+        }
+        match self {
+            Op::AuthorMaterialize => crate::has_materialize_fences(dli),
+            Op::AuthorBranch | Op::AuthorMerge => crate::has_branch_writes(dli),
+            _ => true,
+        }
     }
 
     /// A one-line, role-bearing description of what the op does and when to reach
@@ -705,6 +727,32 @@ mod tests {
             if op.added_in_0_6_1() {
                 assert_eq!(op.introduced_in(), "0.6.1", "{op:?}");
             }
+        }
+    }
+
+    #[test]
+    fn materialize_fences_follow_the_0_6_mutation_floor() {
+        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
+            assert_eq!(
+                Op::AuthorMaterialize.accepts_author_fences(version),
+                crate::has_materialize_fences(version),
+                "materialize fence support follows its negotiated floor at {version}"
+            );
+        }
+        assert!(!Op::AuthorMaterialize.accepts_author_fences("0.5.1"));
+        assert!(Op::AuthorMaterialize.accepts_author_fences("0.6.0"));
+        assert!(Op::AuthorMaterialize.accepts_author_fences("1.12.0"));
+        assert!(Op::AuthorMaterialize.accepts_author_fences("1.13.0"));
+    }
+
+    #[test]
+    fn every_current_post_open_mutation_accepts_the_shared_fences() {
+        for op in Op::ALL {
+            assert_eq!(
+                op.accepts_author_fences(crate::CONTRACT_VERSION),
+                op.is_post_open_author_mutation(),
+                "the current native/MCP fence schema must match dispatch mutation status for {op:?}"
+            );
         }
     }
 }
