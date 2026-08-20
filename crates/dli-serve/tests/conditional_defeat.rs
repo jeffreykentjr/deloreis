@@ -1387,3 +1387,317 @@ fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
         "author.why is declaration/attack order independent: {explanations:#?}"
     );
 }
+
+fn skew_fixture() -> (tempfile::TempDir, Store, std::path::PathBuf) {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"explanation-skew\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
+    )
+    .unwrap();
+    let (document, diagnostics) =
+        dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "skew fixture parses: {diagnostics:?}"
+    );
+    let mut store = Store::with_pack(Pack {
+        name: "demo".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let base = root.path().join("lorestore/demo");
+    store
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    (root, store, base)
+}
+
+fn ingest_accepted_fact(
+    store: &mut Store,
+    workspace: &str,
+    id: &str,
+    key: &str,
+    value: &str,
+    decision: &str,
+) {
+    let added = result(dispatch(
+        &request(
+            "1.13.0",
+            &format!("add-accepted-{id}"),
+            Op::AuthorAddFact,
+            json!({
+                "workspace": workspace,
+                "entity": "mara",
+                "key": key,
+                "value": value,
+                "provenance": {"kind": "proposed", "origin": format!("batch-{id}")}
+            }),
+        ),
+        store,
+    ));
+    assert_eq!(
+        added["findings"],
+        json!([]),
+        "stage accepted fact {id}: {added}"
+    );
+    let materialized = result(dispatch(
+        &request(
+            "1.13.0",
+            &format!("materialize-accepted-{id}"),
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false, "decision": decision}),
+        ),
+        store,
+    ));
+    assert_eq!(
+        materialized["findings"],
+        json!([]),
+        "materialize accepted fact {id}: {materialized}"
+    );
+    store
+        .reload_workspace_base(workspace)
+        .unwrap_or_else(|error| panic!("reload after accepted fact {id}: {error}"));
+}
+
+fn stage_cited_fact(
+    store: &mut Store,
+    workspace: &str,
+    id: &str,
+    key: &str,
+    value: &str,
+    decision: &str,
+) {
+    let added = result(dispatch(
+        &request(
+            "1.13.0",
+            &format!("add-{id}"),
+            Op::AuthorAddFact,
+            json!({
+                "workspace": workspace,
+                "entity": "mara",
+                "key": key,
+                "value": value,
+                "provenance": {
+                    "kind": "cited",
+                    "decisions": [decision],
+                    "state": "ratified"
+                }
+            }),
+        ),
+        store,
+    ));
+    assert_eq!(
+        added["findings"],
+        json!([]),
+        "stage cited fact {id}: {added}"
+    );
+}
+
+fn materialize_cited_facts(store: &mut Store, workspace: &str) {
+    let materialized = result(dispatch(
+        &request(
+            "1.13.0",
+            "materialize-cited-facts",
+            Op::AuthorMaterialize,
+            json!({"workspace": workspace, "rendered": false}),
+        ),
+        store,
+    ));
+    assert_eq!(
+        materialized["findings"],
+        json!([]),
+        "materialize cited facts: {materialized}"
+    );
+    store
+        .reload_workspace_base(workspace)
+        .unwrap_or_else(|error| panic!("reload after cited facts: {error}"));
+}
+
+fn explanation_fields(why: &Value) -> Value {
+    json!({
+        "active_supporting_decision_paths": why["active_supporting_decision_paths"],
+        "blocking_defeats": why["blocking_defeats"],
+        "blocked_supports": why["blocked_supports"]
+    })
+}
+
+fn why_attribute(store: &mut Store, workspace: &str, id: &str, key: &str, value: &str) -> Value {
+    result(dispatch(
+        &request(
+            "1.13.0",
+            id,
+            Op::AuthorWhy,
+            json!({
+                "workspace": workspace,
+                "goal_atom": {
+                    "pred": key,
+                    "args": [{"Sym": "mara"}, {"Sym": value}]
+                }
+            }),
+        ),
+        store,
+    ))
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
+    let batches = [
+        ("support", "rank", "captain", "d1"),
+        ("oath", "oath", "iron", "d-alpha"),
+        ("banner", "banner", "white", "d-omega"),
+    ];
+    let permutations = [
+        [0usize, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ];
+    let expected_active = json!({
+        "active_supporting_decision_paths": [["d1"]],
+        "blocking_defeats": [],
+        "blocked_supports": []
+    });
+    let expected_blocked = json!({
+        "active_supporting_decision_paths": [],
+        "blocking_defeats": [{
+            "defeated_decision": "d1",
+            "defeating_decision": "d2"
+        }],
+        "blocked_supports": [{
+            "supporting_decision_path": ["d1"],
+            "blocking_defeats": [{
+                "defeated_decision": "d1",
+                "defeating_decision": "d2"
+            }]
+        }]
+    });
+    let mut observed_bytes = Vec::new();
+
+    for (case, permutation) in permutations.into_iter().enumerate() {
+        let (_root, mut author, path) = skew_fixture();
+        let workspace = result(dispatch(
+            &request(
+                "1.13.0",
+                &format!("open-skew-{case}"),
+                Op::AuthorOpen,
+                json!({"scope": "demo"}),
+            ),
+            &mut author,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        for declaration in permutation {
+            let (id, key, value, decision) = batches[declaration];
+            ingest_accepted_fact(
+                &mut author,
+                &workspace,
+                &format!("{case}-{id}"),
+                key,
+                value,
+                decision,
+            );
+        }
+        stage_cited_fact(
+            &mut author,
+            &workspace,
+            &format!("{case}-verdict"),
+            "verdict",
+            "accepted",
+            "d1",
+        );
+        materialize_cited_facts(&mut author, &workspace);
+
+        let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+        let head = lorestore.root_hash().unwrap().unwrap();
+        let durable_names = lorestore.interner_at(&head).unwrap();
+        let recompiled = lorestore.compile_at(&head).unwrap();
+        let compiled_names = recompiled.model.interner().names();
+        let durable_d1 = durable_names.iter().position(|name| name == "d1").unwrap();
+        let compiled_d1 = compiled_names.iter().position(|name| name == "d1").unwrap();
+        let durable_decision_positions: Vec<_> = ["d1", "d-alpha", "d-omega"]
+            .into_iter()
+            .map(|decision| {
+                durable_names
+                    .iter()
+                    .position(|name| name == decision)
+                    .unwrap()
+            })
+            .collect();
+        let compiled_decision_positions: Vec<_> = ["d1", "d-alpha", "d-omega"]
+            .into_iter()
+            .map(|decision| {
+                compiled_names
+                    .iter()
+                    .position(|name| name == decision)
+                    .unwrap()
+            })
+            .collect();
+        assert_ne!(
+            durable_decision_positions, compiled_decision_positions,
+            "case {case} must exercise persisted/recompiled decision-position skew: durable={durable_names:?}, compiled={compiled_names:?}"
+        );
+        assert_eq!(durable_names[durable_d1], "d1");
+        assert_eq!(compiled_names[compiled_d1], "d1");
+
+        let active = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-active-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        assert_eq!(active, expected_active, "active case {case}");
+        let verdict_claim = predicate_claim_id(&lorestore, "verdict");
+        defeat(
+            &mut author,
+            &workspace,
+            &format!("block-{case}"),
+            &verdict_claim,
+            "d2",
+            "d1",
+        );
+        let blocked = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-blocked-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        assert_eq!(blocked, expected_blocked, "blocked case {case}");
+
+        let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
+        defeat(
+            &mut author,
+            &workspace,
+            &format!("restore-{case}"),
+            &d2_claim,
+            "d3",
+            "d2",
+        );
+        let restored = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-restored-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        assert_eq!(restored, expected_active, "restored case {case}");
+        observed_bytes.push([
+            serde_json::to_vec(&active).unwrap(),
+            serde_json::to_vec(&blocked).unwrap(),
+            serde_json::to_vec(&restored).unwrap(),
+        ]);
+    }
+
+    assert!(
+        observed_bytes.windows(2).all(|pair| pair[0] == pair[1]),
+        "exact-name author.why fields must be byte-identical across all six real ingestion orders"
+    );
+}
