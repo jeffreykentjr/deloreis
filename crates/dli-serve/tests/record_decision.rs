@@ -658,3 +658,166 @@ fn project_load_refuses_an_out_of_range_persisted_valuation_atom() {
         "typed remap refusal names the corruption: {error}"
     );
 }
+
+fn corrupt_main_ref(durable: &dli_lorestore::Lorestore) -> String {
+    let current = durable
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .expect("read main ref")
+        .expect("main exists");
+    let expected = current.digest().expect("digest current ref").to_string();
+    let mut corrupt = current.valuation.clone();
+    corrupt.set(dli_core::Atom(u32::MAX), false);
+    let replacement = dli_lorestore::Ref::with_valuation(
+        dli_lorestore::branch_ref_name(dli_lorestore::MAIN_REF),
+        current.commit,
+        corrupt,
+    );
+    assert!(
+        durable
+            .cas_branch_ref(dli_lorestore::MAIN_REF, Some(&expected), &replacement)
+            .expect("write corrupt test ref")
+    );
+    replacement
+        .digest()
+        .expect("corrupt ref digest")
+        .to_string()
+}
+
+fn file_count(path: &std::path::Path) -> usize {
+    std::fs::read_dir(path)
+        .expect("read store directory")
+        .map(|entry| entry.expect("directory entry").path())
+        .map(|path| if path.is_dir() { file_count(&path) } else { 1 })
+        .sum()
+}
+
+#[test]
+fn corrupt_ref_preflight_blocks_record_decision_before_any_write() {
+    let (root, mut store) = store_with_mara();
+    let ws = open(&mut store);
+    let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("open durable store");
+    let corrupt_digest = corrupt_main_ref(&durable);
+    let workspace_before = {
+        let workspace = store.get(&ws).expect("workspace");
+        (
+            workspace.digest.clone(),
+            workspace.base_root_hash.clone(),
+            workspace.base_ref_digest.clone(),
+            workspace.base_valuation.clone(),
+        )
+    };
+    let files_before = file_count(root.path().join("lorestore/demo").as_path());
+
+    let response = record_decision(&mut store, &ws, "d-never-written");
+    assert!(!response.ok, "corrupt ref is refused: {response:?}");
+    assert_eq!(
+        response.error.expect("typed refusal").code,
+        dli_serve::ErrorCode::EvidenceCorrupt
+    );
+    assert_eq!(
+        durable
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .expect("read main")
+            .expect("main exists")
+            .digest()
+            .expect("digest")
+            .to_string(),
+        corrupt_digest,
+        "record_decision must not advance the corrupt ref"
+    );
+    let workspace_after = store.get(&ws).expect("workspace");
+    assert_eq!(
+        workspace_before,
+        (
+            workspace_after.digest.clone(),
+            workspace_after.base_root_hash.clone(),
+            workspace_after.base_ref_digest.clone(),
+            workspace_after.base_valuation.clone(),
+        ),
+        "record_decision must not advance workspace state"
+    );
+    assert_eq!(
+        file_count(root.path().join("lorestore/demo").as_path()),
+        files_before,
+        "preflight runs before writing even an orphan object"
+    );
+}
+
+#[test]
+fn corrupt_ref_preflight_blocks_defeat_before_any_write() {
+    let (root, mut store) = store_with_mara();
+    let ws = open(&mut store);
+    assert!(add_fact_proposed(&mut store, &ws, "rank", "captain").is_empty());
+    let materialized = result(dispatch(
+        &req(
+            "mat",
+            Op::AuthorMaterialize,
+            json!({ "workspace": ws, "rendered": false, "decision": "d-1" }),
+        ),
+        &mut store,
+    ));
+    let claim_id = materialized["facts"]
+        .as_array()
+        .expect("facts")
+        .iter()
+        .find(|fact| fact["atom"]["pred"] == "rank")
+        .and_then(|fact| fact["claim_id"].as_str())
+        .expect("rank claim")
+        .to_owned();
+    let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
+        .expect("open durable store");
+    let corrupt_digest = corrupt_main_ref(&durable);
+    let workspace_before = {
+        let workspace = store.get(&ws).expect("workspace");
+        (
+            workspace.digest.clone(),
+            workspace.base_root_hash.clone(),
+            workspace.base_ref_digest.clone(),
+            workspace.base_valuation.clone(),
+        )
+    };
+    let files_before = file_count(root.path().join("lorestore/demo").as_path());
+
+    let response = dispatch(
+        &req(
+            "defeat-corrupt",
+            Op::AuthorDefeat,
+            json!({ "workspace": ws, "claim_id": claim_id,
+                    "decision": "d-2", "defeated_decision": "d-1" }),
+        ),
+        &mut store,
+    );
+    assert!(!response.ok, "corrupt ref is refused: {response:?}");
+    assert_eq!(
+        response.error.expect("typed refusal").code,
+        dli_serve::ErrorCode::EvidenceCorrupt
+    );
+    assert_eq!(
+        durable
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .expect("read main")
+            .expect("main exists")
+            .digest()
+            .expect("digest")
+            .to_string(),
+        corrupt_digest,
+        "defeat must not advance the corrupt ref"
+    );
+    let workspace_after = store.get(&ws).expect("workspace");
+    assert_eq!(
+        workspace_before,
+        (
+            workspace_after.digest.clone(),
+            workspace_after.base_root_hash.clone(),
+            workspace_after.base_ref_digest.clone(),
+            workspace_after.base_valuation.clone(),
+        ),
+        "defeat must not advance workspace state"
+    );
+    assert_eq!(
+        file_count(root.path().join("lorestore/demo").as_path()),
+        files_before,
+        "preflight runs before writing even an orphan object"
+    );
+}

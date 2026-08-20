@@ -446,6 +446,25 @@ fn certain_conflict_constructible_wire_only() {
         );
         assert!(defeat["ok"].as_bool().unwrap(), "{branch}: {defeat}");
 
+        // The standing operation refreshes this already-open workspace. Its
+        // resolution index must immediately see d-1=false, before any reopen.
+        let after_reload = drive(
+            &json!({ "dli": V, "id": "add-after-reload", "op": "author.add_fact",
+                         "params": { "workspace": ws_1, "entity": "mara", "key": "home", "value": dest,
+                                     "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
+            sessions,
+            store,
+        );
+        assert!(
+            after_reload["ok"].as_bool().unwrap()
+                && after_reload["result"]["findings"]
+                    .as_array()
+                    .expect("reload findings")
+                    .iter()
+                    .all(|finding| finding["code"] != "fact.contradiction"),
+            "{branch}: the reloaded world excludes the defeated value: {after_reload}"
+        );
+
         // Re-open: the reconstructed branch head now carries the
         // `Decl::Ratify(d-2)` the defeat minted, so a FRESH workspace can
         // cite it (a workspace's own `workspace_decisions` reads its base
@@ -454,8 +473,8 @@ fn certain_conflict_constructible_wire_only() {
         let opened_2 = open_branch_workspace("canon", branch, sessions, store);
         let ws_2 = opened_2["result"]["workspace"].as_str().unwrap().to_owned();
         let added = drive(
-            &json!({ "dli": V, "id": "add", "op": "author.add_relation",
-                         "params": { "workspace": ws_2, "relation": "home", "from": "mara", "to": dest,
+            &json!({ "dli": V, "id": "add", "op": "author.add_fact",
+                         "params": { "workspace": ws_2, "entity": "mara", "key": "home", "value": dest,
                                      "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
             sessions,
             store,
@@ -463,6 +482,14 @@ fn certain_conflict_constructible_wire_only() {
         assert!(
             added["ok"].as_bool().unwrap(),
             "{branch}: citing the freshly-minted d-2: {added}"
+        );
+        assert!(
+            added["result"]["findings"]
+                .as_array()
+                .expect("add findings")
+                .iter()
+                .all(|finding| finding["code"] != "fact.contradiction"),
+            "{branch}: the defeated base value is absent from stage-time resolution: {added}"
         );
 
         let mat = materialize(&ws_2, sessions, store);

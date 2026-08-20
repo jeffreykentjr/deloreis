@@ -382,9 +382,14 @@ impl Store {
                     bundle_counter = bundle_counter.max(n + 1);
                 }
             }
-            workspace.base_valuation =
+            let named_valuation =
                 NamedValuation::from_indexed(&branch_ref.valuation, &branch_names)
                     .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+            let target_interner = world.model.interner().clone();
+            named_valuation
+                .apply_to(&target_interner, &mut world.model.world.valuation)
+                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+            workspace.base_valuation = named_valuation;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
@@ -577,6 +582,10 @@ impl Store {
         let named_valuation = NamedValuation::from_indexed(&current_ref.valuation, &interner)
             .map_err(|error| error.to_string())?;
         let mut world = ls.compile_at(&head).map_err(|error| error.to_string())?;
+        let target_interner = world.model.interner().clone();
+        named_valuation
+            .apply_to(&target_interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
         world.killed = killed;
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
             let prefix = format!("h.{}#", ws.base_name);

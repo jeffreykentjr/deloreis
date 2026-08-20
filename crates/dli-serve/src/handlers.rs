@@ -2587,6 +2587,30 @@ fn render_export(
 /// derived from those buckets. This is the projection scaffold: predicate
 /// bucketing, the interner, and the known decisions are emitted now, and the
 /// domain normalizers layer onto the buckets incrementally.
+fn apply_main_ref_valuation(
+    store: &dli_lorestore::Lorestore,
+    head: &dli_lorestore::ContentHash,
+    compiled: &mut dli_world::CompiledWorld,
+) -> Result<(), Fault> {
+    let Some(reference) = store
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
+        .filter(|reference| reference.commit == *head)
+    else {
+        return Ok(());
+    };
+    let source_names = store
+        .interner_at(&reference.commit)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, &source_names)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    let target_interner = compiled.model.interner().clone();
+    named
+        .apply_to(&target_interner, &mut compiled.model.world.valuation)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))
+}
+
 fn canon_export(
     store: &dli_lorestore::Lorestore,
     head: &dli_lorestore::ContentHash,
@@ -2633,22 +2657,7 @@ fn canon_export(
     let mut compiled = store
         .compile_at(head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    if let Some(reference) = store
-        .branch_ref(dli_lorestore::MAIN_REF)
-        .map_err(|e| (ErrorCode::Internal, e.to_string()))?
-        .filter(|reference| reference.commit == *head)
-    {
-        let source_names = store
-            .interner_at(&reference.commit)
-            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-        let named =
-            dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, &source_names)
-                .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-        let target_interner = compiled.model.interner().clone();
-        named
-            .apply_to(&target_interner, &mut compiled.model.world.valuation)
-            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-    }
+    apply_main_ref_valuation(store, head, &mut compiled)?;
     let valuation = &compiled.model.world.valuation;
     let theory = &compiled.model.world.theory;
 

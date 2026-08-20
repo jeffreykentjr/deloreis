@@ -2908,6 +2908,12 @@ pub(super) fn record_decision(
             .map_err(|error| store_fault(&error))?;
         (head, head_ref, pack_name, interner, decisions)
     };
+    {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        preflight_ref_valuation(ls, &head_ref, &interner)?;
+    }
 
     // Guard census (DL-0083): a control character in the id or rationale, and a
     // provenance citation of an unknown decision, refuse the record rather than
@@ -3108,6 +3114,12 @@ fn durable_standing_change(
         }
         (head, head_ref, pack_name, interner, decisions, target)
     };
+    {
+        let ls = store
+            .workspace_lorestore(workspace)
+            .expect("lorestore presence checked above");
+        preflight_ref_valuation(ls, &head_ref, &interner)?;
+    }
 
     let Some((_, mut object)) = target.take() else {
         return Err(ErrorBody {
@@ -3276,7 +3288,6 @@ fn durable_standing_change(
         }
     }
 
-    let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     let current_ref = store
         .workspace_lorestore(workspace)
         .and_then(|ls| ls.branch_ref(&target_branch).ok().flatten())
@@ -3304,6 +3315,14 @@ fn durable_standing_change(
         ws.base_ref_digest = Some(new_ref_digest);
         ws.base_valuation = named_valuation;
     }
+    store
+        .reload_workspace_base(workspace)
+        .map_err(|message| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("refreshing the workspace after changing standing: {message}"),
+            data: None,
+        })?;
+    let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
         rendered: Vec::new(),
@@ -3371,6 +3390,34 @@ fn declaration_carriage_cites_decision(
 fn store_fault(error: &dli_lorestore::StoreError) -> ErrorBody {
     ErrorBody {
         code: ErrorCode::Internal,
+        message: error.to_string(),
+        data: None,
+    }
+}
+
+/// Validate a persisted ref overlay against both its source commit table and
+/// the independently compiled receiving table before a mutating author call
+/// writes any object, commit, or ref.
+fn preflight_ref_valuation(
+    store: &dli_lorestore::Lorestore,
+    reference: &dli_lorestore::Ref,
+    source_names: &[String],
+) -> Result<(), ErrorBody> {
+    let named =
+        dli_core::valuation::NamedValuation::from_indexed(&reference.valuation, source_names)
+            .map_err(|error| valuation_corrupt(&error))?;
+    let compiled = store
+        .compile_at(&reference.commit)
+        .map_err(|error| store_fault(&error))?;
+    named
+        .to_indexed(compiled.model.interner())
+        .map_err(|error| valuation_corrupt(&error))?;
+    Ok(())
+}
+
+fn valuation_corrupt(error: &dli_core::valuation::ValuationRemapError) -> ErrorBody {
+    ErrorBody {
+        code: ErrorCode::EvidenceCorrupt,
         message: error.to_string(),
         data: None,
     }

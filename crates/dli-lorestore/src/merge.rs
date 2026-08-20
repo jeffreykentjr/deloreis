@@ -298,7 +298,9 @@ pub(crate) fn scan(
     // check battery is graded findings with repair data already; exclusivity and
     // functional-dependency are detected structurally and surfaced as both a
     // typed `Conflict` and a graded finding.
-    let mut findings = dli_world::check::run(&merged_world);
+    let mut checked_world = merged_world.as_ref().clone();
+    checked_world.model.world.valuation.clone_from(&merged_eff);
+    let mut findings = dli_world::check::run(&checked_world);
 
     let exclusivity = exclusivity_conflicts(&merged_world, &merged_eff);
 
