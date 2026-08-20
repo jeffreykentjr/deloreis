@@ -1517,6 +1517,13 @@ impl Lorestore {
         let source_commit: Commit = storage::read_typed(&*self.storage, &source_head)?
             .ok_or_else(|| StoreError::NotFound(format!("source head missing: {source_head}")))?;
 
+        // Parent validity is not something the union may heal. In particular,
+        // a sibling can supply an interner name missing from a corrupt attack
+        // parent and make the merged candidate look valid. Validate both exact
+        // pre-merge worlds before constructing or writing that candidate.
+        let target_effective = self.effective_valuation_at(&target_head, &target_ref.valuation)?;
+        let source_effective = self.effective_valuation_at(&source_head, &source_ref.valuation)?;
+
         // Interner reconciliation — prefix-preservation against BOTH parents.
         let merged_interner =
             crate::merge::reconcile_interners(&target_commit.interner, &source_commit.interner)?;
@@ -1605,18 +1612,35 @@ impl Lorestore {
         .with_attacks(merged_attacks);
         let merge_hash = storage::write_typed(&*self.storage, &merge_commit)?;
 
-        // Advance the target branch to the merge commit, carrying the union
-        // overlay (target wins on disagreement — reported, never silent). A
-        // dry run (`advance = false`) skips the CAS: the commit object above is
-        // already durably written (content-addressed, so writing it is never
-        // itself the commitment), but no ref moves to point at it.
+        // Complete every fallible effective-standing and conflict-analysis
+        // step before the target ref can move. Writing the content-addressed
+        // commit above is harmless preparation; the CAS below is the only
+        // authoritative state transition.
         let merged_valuation =
             crate::merge::union_valuations(&target_ref.valuation, &source_ref.valuation);
+        let merged_effective = self.effective_valuation_at(&merge_hash, &merged_valuation)?;
+        let scan = crate::merge::scan(
+            self,
+            &merge_hash,
+            &target_head,
+            &source_head,
+            base.as_ref(),
+            &target_ref.valuation,
+            &source_ref.valuation,
+            &target_effective,
+            &source_effective,
+            &merged_effective,
+            &merged_interner,
+        )?;
+
+        // Advance only after parent validation, merged validation, compilation,
+        // and the complete conflict scan have succeeded. A dry run skips this
+        // sole authority transition while retaining the identical analysis.
         if advance {
             let new_ref = Ref::with_valuation(
                 branch_ref_name(target),
                 merge_hash.clone(),
-                merged_valuation.clone(),
+                merged_valuation,
             );
             let expected_token = Some(target_ref.digest()?.0);
             if !self.storage.cas_ref(
@@ -1634,26 +1658,6 @@ impl Lorestore {
                 });
             }
         }
-
-        // Detect conflicts against effective standing. Ref valuations remain
-        // the raw legacy/fork overlays written to the target; conditional
-        // attacks are a derived read projection and never become false bits.
-        let target_effective = self.effective_valuation_at(&target_head, &target_ref.valuation)?;
-        let source_effective = self.effective_valuation_at(&source_head, &source_ref.valuation)?;
-        let merged_effective = self.effective_valuation_at(&merge_hash, &merged_valuation)?;
-        let scan = crate::merge::scan(
-            self,
-            &merge_hash,
-            &target_head,
-            &source_head,
-            base.as_ref(),
-            &target_ref.valuation,
-            &source_ref.valuation,
-            &target_effective,
-            &source_effective,
-            &merged_effective,
-            &merged_interner,
-        )?;
 
         Ok(crate::merge::MergeReport {
             merge_commit: merge_hash,

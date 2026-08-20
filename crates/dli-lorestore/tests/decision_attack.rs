@@ -500,6 +500,110 @@ fn branch_merge_unions_attacks_before_grounded_labelling() {
 }
 
 #[test]
+fn merge_never_heals_a_corrupt_parent_or_advances_its_complete_ref() {
+    for target in [MAIN_REF, "target"] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
+        let (_, facts) = carriers(&store);
+        let carrier_for = |decision: &str| {
+            let hash = facts
+                .iter()
+                .find(|hash| {
+                    store
+                        .read_object::<dli_lorestore::FactObject>(hash)
+                        .unwrap()
+                        .unwrap()
+                        .expert_body
+                        .as_ref()
+                        .is_some_and(|body| body.name == decision)
+                })
+                .unwrap()
+                .clone();
+            let object: dli_lorestore::FactObject = store.read_object(&hash).unwrap().unwrap();
+            (hash, object)
+        };
+        let (d1_hash, d1) = carrier_for("d1");
+        let (d2_hash, _) = carrier_for("d2");
+        store
+            .commit(
+                vec!["d1".to_owned()],
+                vec![d1_hash.clone()],
+                Vec::new(),
+                Vec::new(),
+                vec!["d1".to_owned()],
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        store.create_branch("source", MAIN_REF).unwrap();
+        if target != MAIN_REF {
+            store.create_branch(target, MAIN_REF).unwrap();
+        }
+
+        let source_ref = store.branch_ref("source").unwrap().unwrap();
+        store
+            .commit_on_branch_at_ref(
+                "source",
+                Some(&source_ref.digest().unwrap().to_string()),
+                vec!["d1".to_owned(), "d2".to_owned()],
+                vec![d2_hash],
+                Vec::new(),
+                Vec::new(),
+                vec!["d1".to_owned(), "d2".to_owned()],
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+
+        let target_ref = store.branch_ref(target).unwrap().unwrap();
+        let corrupt_attack = store
+            .write_object(&DecisionAttack::new(d1.claim_id, d1_hash, "d2", "d1"))
+            .unwrap();
+        let corrupt_commit = Commit::child(
+            target_ref.commit,
+            vec!["d1".to_owned()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec!["d1".to_owned(), "d2".to_owned()],
+            "attack-test".to_owned(),
+        )
+        .with_attacks(vec![corrupt_attack]);
+        let corrupt_head = store.write_object(&corrupt_commit).unwrap();
+        let ref_name = if target == MAIN_REF {
+            MAIN_REF.to_owned()
+        } else {
+            dli_lorestore::branch_ref_name(target)
+        };
+        let corrupt_ref = Ref::new(ref_name.clone(), corrupt_head);
+        let ref_path = dir.path().join("refs").join(&ref_name);
+        std::fs::create_dir_all(ref_path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &ref_path,
+            dli_lorestore::canonical_bytes(&corrupt_ref).unwrap(),
+        )
+        .unwrap();
+        let before = std::fs::read(&ref_path).unwrap();
+
+        let error = store.merge(target, "source").unwrap_err();
+        assert!(
+            error.to_string().contains("not uniquely interned"),
+            "{error}"
+        );
+        assert_eq!(
+            std::fs::read(&ref_path).unwrap(),
+            before,
+            "failed merge must leave the complete {target} ref byte-identical"
+        );
+        assert_eq!(
+            store
+                .interner_at(&store.branch_head("source").unwrap().unwrap())
+                .unwrap(),
+            vec!["d1".to_owned(), "d2".to_owned()],
+            "the valid sibling really does supply the missing endpoint"
+        );
+    }
+}
+
+#[test]
 fn schema_v4_commit_upcasts_with_an_empty_attack_lane() {
     let dir = tempfile::tempdir().unwrap();
     let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
