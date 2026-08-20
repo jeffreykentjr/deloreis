@@ -5597,3 +5597,38 @@ reload counters. The deterministic 1,024-record gate asserts one compile, one
 commit, one install, and zero reloads. The ignored release harness reports
 1,024/4,096/16,384/65,536 phase timings; wall time remains non-gating under
 DL-0013.
+
+## DL-0099 — Corrigendum: schema-v5 content addresses re-pin at the 1.13 boundary
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the release-integrating
+agent, correcting DL-0096's over-broad byte-compatibility phrase after the
+schema-v5 release oracle made the unavoidable address movement concrete. It is
+live and binding on the tree, pending the author's async review (DL-0052).
+
+**Ruling.** DL-0096's statement that contracts through `1.12.0` retain their
+released one-way defeat behavior byte-for-byte governs the defeat operation's
+negotiated representation, standing semantics, capability list, and
+non-address response fields. It cannot govern content-address fields across a
+stored-schema bump. Schema v5 places `schema_version` and the empty-or-populated
+attack lane inside canonical stored bytes; therefore fact-object hashes, commit
+hashes, ref digests, and any wire field carrying them deliberately move when a
+`1.13.0` build creates or reconstructs that content. This is the same
+schema-first law DL-0055 records for schema v3: canonical-byte movement is a
+contract change, and Audit C4 requires the affected fixture digests to ride the
+new contract label.
+
+Every earlier negotiated version remains accepted and retains its released
+request/response schema and one-way defeat behavior. Schema-v4 objects still
+upcast without invented attacks. What is not promised is that an address of a
+newly schema-v5-encoded object equals the address emitted by an older binary.
+The release re-pins only fixtures whose exact response contains a moved object,
+commit, ref, or export schema stamp; unrelated legacy fixtures remain untouched.
+
+**Verification.** The schema-v5 cross-platform root golden, three regenerated
+demo bundles, cold fixture replay, closed fixture registry, and Audit C4 all
+pass under contract `1.13.0`. The `0.x` parity corpus remains byte-exact except
+for its already-declared build-version/version-mismatch deviations, while the
+frozen `1.12.0` defeat suite proves the old one-way semantics and response
+shape.

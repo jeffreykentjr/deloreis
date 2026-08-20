@@ -41,7 +41,9 @@ either side disagrees with this document, this document wins.
 > Contract `1.13.0` adds one atomic decision-batch operation and changes only
 > newly negotiated defeats to append-only conditional attacks. It also adds
 > explicit active and blocked support fields to `author.why`; every earlier
-> negotiated wire retains its released capability and response bytes.
+> negotiated wire retains its released capabilities, shapes, and defeat
+> semantics. Because schema v5 changes canonical stored bytes, content-address
+> fields are deliberately re-pinned under the 1.13 contract label (DL-0099).
 
 ## 1. Parties
 
