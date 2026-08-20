@@ -1361,7 +1361,8 @@ mod tests {
             "digest": workspace.digest,
             "root": workspace.base_root_hash,
             "ref": workspace.base_ref_digest,
-            "valuation": workspace.base_valuation,
+            "valuation": workspace.base_valuation.0,
+            "unassigned": workspace.base_unassigned.0,
             "interner": workspace.interner.names(),
             "decisions": workspace.known_decisions(),
         })
