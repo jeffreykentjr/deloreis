@@ -3014,7 +3014,8 @@ pub(super) fn record_decision(
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = effective_valuation;
+        ws.base_valuation = effective_valuation.valuation;
+        ws.base_unassigned = effective_valuation.unassigned;
     }
     // Reconstruct the workspace's base from the new head so the recorded `ratify`
     // is visible to staged reads (`workspace_decisions`, `author.check`): unlike
@@ -3109,7 +3110,7 @@ fn durable_standing_change(
         (head, head_ref, pack_name, interner, decisions, target)
     };
 
-    let Some((_, mut object)) = target.take() else {
+    let Some((subject_fact_hash, mut object)) = target.take() else {
         return Err(ErrorBody {
             code: ErrorCode::UnknownDoc,
             message: format!("no stored claim has claim_id `{claim_id}`"),
@@ -3130,7 +3131,7 @@ fn durable_standing_change(
 
     if defeating {
         let defeated_decision = defeated_decision.expect("defeat carries a supporting decision");
-        if defeated_decision == decision {
+        if defeated_decision == decision && !conditional {
             return Err(schema_error(
                 "author.defeat requires distinct defeating and defeated decisions",
             ));
@@ -3235,6 +3236,7 @@ fn durable_standing_change(
         let attack_hashes = if conditional {
             let attack = dli_lorestore::DecisionAttack::new(
                 object.claim_id.clone(),
+                subject_fact_hash,
                 decision,
                 defeated_decision.expect("conditional defeat carries a target"),
             );
@@ -3315,12 +3317,16 @@ fn durable_standing_change(
             .effective_valuation_at(&commit, &current_ref.valuation)
             .map_err(|error| store_fault(&error))?
     } else {
-        current_ref.valuation.clone()
+        dli_lorestore::EffectiveValuation {
+            valuation: current_ref.valuation.clone(),
+            unassigned: BTreeSet::new(),
+        }
     };
     if let Some((_, ws)) = store.parts_mut(workspace) {
         ws.base_root_hash = Some(commit.to_string());
         ws.base_ref_digest = Some(new_ref_digest);
-        ws.base_valuation = effective_valuation;
+        ws.base_valuation = effective_valuation.valuation;
+        ws.base_unassigned = effective_valuation.unassigned;
     }
     if conditional {
         store

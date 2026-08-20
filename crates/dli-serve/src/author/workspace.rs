@@ -91,6 +91,8 @@ pub struct Workspace {
     /// The persisted valuation paired with [`base_root_hash`](Self::base_root_hash)
     /// when the workspace opened. It is applied before local suppositions.
     pub base_valuation: Valuation,
+    /// Stored decisions whose compiler-default assignment is explicitly open.
+    pub base_unassigned: BTreeSet<dli_core::Atom>,
     /// Whole-ref fence for the branch the workspace writes to. Branch-mode
     /// workspaces inherit their project snapshot; pinned replays capture the
     /// live origin ref at open while continuing to serve their pinned world.
@@ -135,6 +137,7 @@ impl Workspace {
             bundle_counter: 0,
             base_root_hash: None,
             base_valuation: Valuation::new(),
+            base_unassigned: BTreeSet::new(),
             base_ref_digest: None,
             target_branch: None,
             resolution: ResolutionIndex::default(),

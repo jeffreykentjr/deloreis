@@ -577,6 +577,28 @@ fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, EvalErro
         };
         world.model.world.valuation.set(target, *value);
     }
+    for source_atom in &ws.base_unassigned {
+        let name = ws
+            .interner
+            .resolve(*source_atom)
+            .ok_or_else(|| EvalError::Contradiction {
+                detail: format!(
+                    "stored unassignment atom {} is outside the workspace interner",
+                    source_atom.0
+                ),
+            })?;
+        if let Some(index) = world
+            .model
+            .world
+            .interner
+            .names()
+            .iter()
+            .position(|candidate| candidate == name)
+            .and_then(|index| u32::try_from(index).ok())
+        {
+            world.model.world.valuation.0.remove(&dli_core::Atom(index));
+        }
+    }
     for hypothesis in &ws.suppositions {
         if let Some(index) = world
             .model

@@ -2100,6 +2100,13 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
             "conditional decision attacks require contract 1.13.0".to_owned(),
         ));
     }
+    if !p.attacks.is_empty() && p.objects.is_none() {
+        return Err((
+            ErrorCode::SchemaViolation,
+            "conditional decision attacks can be imported only with their exact `objects` carriers"
+                .to_owned(),
+        ));
+    }
     let store = document_store(sessions, &p.document)?;
 
     // "Empty" means **holds no facts**, and nothing weaker.
@@ -2349,6 +2356,10 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
                  `{candidate}`; the scope is read off the newest commit, so every committed \
                  fact's provenance would re-render under a name it was never written in"
             ),
+        ),
+        dli_lorestore::StoreError::NotFound(message) if message.starts_with("decision attack") => (
+            ErrorCode::SchemaViolation,
+            format!("invalid conditional decision attack: {message}"),
         ),
         other => (ErrorCode::Internal, other.to_string()),
     }
@@ -2680,17 +2691,19 @@ fn canon_export(
     let mut compiled = store
         .compile_at(head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    if let Some(reference) = store
+    let legacy = store
         .branch_ref(dli_lorestore::MAIN_REF)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .filter(|reference| reference.commit == *head)
-    {
-        let effective = store
-            .effective_valuation_at(head, &reference.valuation)
-            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
-        for (atom, value) in effective.0 {
-            compiled.model.world.valuation.0.insert(atom, value);
-        }
+        .map_or_else(dli_core::Valuation::new, |reference| reference.valuation);
+    let effective = store
+        .effective_valuation_at(head, &legacy)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
+    for (atom, value) in effective.valuation.0 {
+        compiled.model.world.valuation.0.insert(atom, value);
+    }
+    for atom in effective.unassigned {
+        compiled.model.world.valuation.0.remove(&atom);
     }
     let valuation = &compiled.model.world.valuation;
     let theory = &compiled.model.world.theory;

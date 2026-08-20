@@ -22,6 +22,10 @@
       "format": "uint32",
       "minimum": 0
     },
+    "subject_fact_hash": {
+      "description": "Storage hash of the exact folded fact object carried by `claim_id`.",
+      "$ref": "#/$defs/ContentHash"
+    },
     "target": {
       "description": "The attacked decision, matched by exact name.",
       "type": "string"
@@ -32,6 +36,7 @@
     "schema_version",
     "authority",
     "claim_id",
+    "subject_fact_hash",
     "attacker",
     "target"
   ],
@@ -45,6 +50,10 @@
     },
     "ClaimId": {
       "description": "A stable minted claim identifier.\n\nUnlike the [`ContentHash`], a `ClaimId` is not derived from the fact's\ncontent — it is minted once and survives revisions, so lineage and\ncross-version references remain stable even when the fact's text changes.\nThe content hash does not reference it, so minting a `ClaimId` never\ndestabilizes addressing.",
+      "type": "string"
+    },
+    "ContentHash": {
+      "description": "A `sha256:<hex>` content digest of a JCS-serialized object.",
       "type": "string"
     }
   }

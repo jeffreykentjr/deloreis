@@ -619,6 +619,7 @@ fn author_store_for(project: &Project) -> dli_serve::author::store::Store {
                 document.store_pinned,
                 document.store_commit.clone().expect("store commit"),
                 document.store_valuation.clone(),
+                document.store_unassigned.clone(),
                 document.store_ref_digest.clone(),
             );
         }
@@ -1243,6 +1244,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
                 document.store_pinned,
                 document.store_commit.clone().expect("store commit"),
                 document.store_valuation.clone(),
+                document.store_unassigned.clone(),
                 document.store_ref_digest.clone(),
             );
         }
@@ -1573,6 +1575,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
                 document.store_pinned,
                 document.store_commit.clone().expect("store commit"),
                 document.store_valuation.clone(),
+                document.store_unassigned.clone(),
                 document.store_ref_digest.clone(),
             );
         }

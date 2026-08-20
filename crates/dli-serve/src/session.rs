@@ -134,6 +134,9 @@ impl Sessions {
                 for (atom, value) in &loaded.store_valuation.0 {
                     world.model.world.valuation.0.insert(*atom, *value);
                 }
+                for atom in &loaded.store_unassigned {
+                    world.model.world.valuation.0.remove(atom);
+                }
             }
             let forks = ForkStore::new(world.model.world.clone());
             self.scopes

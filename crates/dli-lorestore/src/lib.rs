@@ -35,7 +35,7 @@ pub mod storage;
 pub mod store;
 pub mod upcast;
 
-pub use attack::{DecisionAttack, grounded_labels};
+pub use attack::{DecisionAttack, EffectiveValuation, GroundedLabel, grounded_labels};
 pub use cache::{CacheStats, DEFAULT_CACHE_CAPACITY};
 pub use canonical::{
     CanonicalError, canonical_bytes, content_hash, digest_bytes, validate_content_address,

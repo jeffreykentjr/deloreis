@@ -704,6 +704,7 @@ pub(crate) fn project_author_store(project: &Project) -> io::Result<author::stor
                     .clone()
                     .expect("store-backed documents carry their selected commit"),
                 document.store_valuation.clone(),
+                document.store_unassigned.clone(),
                 document.store_ref_digest.clone(),
             );
         }

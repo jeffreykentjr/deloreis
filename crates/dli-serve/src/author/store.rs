@@ -84,6 +84,7 @@ struct Base {
 struct StoreSnapshot {
     commit: dli_lorestore::ContentHash,
     valuation: Valuation,
+    unassigned: BTreeSet<dli_core::Atom>,
     ref_digest: Option<String>,
 }
 
@@ -382,9 +383,11 @@ impl Store {
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
-            workspace.base_valuation = ls
+            let effective = ls
                 .effective_valuation_at(&head, &branch_ref.valuation)
                 .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+            workspace.base_valuation = effective.valuation;
+            workspace.base_unassigned = effective.unassigned;
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = Some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
@@ -455,6 +458,7 @@ impl Store {
         if let Some(snapshot) = self.snapshots.get(&base_key) {
             workspace.base_root_hash = Some(snapshot.commit.to_string());
             workspace.base_valuation = snapshot.valuation.clone();
+            workspace.base_unassigned.clone_from(&snapshot.unassigned);
             if let Some(origin_ref) = pinned_origin_ref.flatten() {
                 workspace.base_ref_digest = origin_ref.digest().ok().map(|digest| digest.0);
             } else {
@@ -590,7 +594,8 @@ impl Store {
             ws.bundle_counter = bundle;
             ws.base_root_hash = Some(head.to_string());
             ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
-            ws.base_valuation = effective_valuation;
+            ws.base_valuation = effective_valuation.valuation;
+            ws.base_unassigned = effective_valuation.unassigned;
         }
         let refreshed = Base {
             world,
@@ -674,6 +679,7 @@ impl Store {
     /// materialize writes — but the *served* world stays the pinned commit
     /// until the manifest says otherwise, which is what makes a pinned project
     /// replayable.
+    #[allow(clippy::too_many_arguments)]
     pub fn register_store_origin(
         &mut self,
         key: String,
@@ -681,6 +687,7 @@ impl Store {
         pinned: bool,
         commit: dli_lorestore::ContentHash,
         valuation: Valuation,
+        unassigned: BTreeSet<dli_core::Atom>,
         ref_digest: Option<String>,
     ) {
         self.origins.insert(key.clone(), origin);
@@ -688,12 +695,16 @@ impl Store {
             for (atom, value) in &valuation.0 {
                 base.world.model.world.valuation.0.insert(*atom, *value);
             }
+            for atom in &unassigned {
+                base.world.model.world.valuation.0.remove(atom);
+            }
         }
         self.snapshots.insert(
             key.clone(),
             StoreSnapshot {
                 commit,
                 valuation,
+                unassigned,
                 ref_digest,
             },
         );

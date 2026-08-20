@@ -288,3 +288,221 @@ fn contract_1_12_defeat_keeps_the_frozen_one_way_ref_semantics() {
     );
     assert_eq!(reference.valuation.get(d1), Some(false));
 }
+
+#[test]
+fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
+    for (name, edges) in [
+        ("self", vec![("d1", "d1")]),
+        ("mutual", vec![("d2", "d1"), ("d1", "d2")]),
+        ("odd", vec![("d2", "d1"), ("d3", "d2"), ("d1", "d3")]),
+    ] {
+        let (root, mut store, path) = fixture();
+        let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+        let workspace = result(dispatch(
+            &request(
+                "1.13.0",
+                &format!("open-{name}"),
+                Op::AuthorOpen,
+                json!({"scope": "demo"}),
+            ),
+            &mut store,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        for (attacker, target) in edges {
+            let carrier = if target == "d1" {
+                claim_id(&lorestore, None, "mara")
+            } else {
+                claim_id(&lorestore, Some("ratify"), target)
+            };
+            defeat(
+                &mut store,
+                &workspace,
+                &format!("{name}-{attacker}-{target}"),
+                &carrier,
+                attacker,
+                target,
+            );
+        }
+        let live = author_query(&mut store, &workspace, &format!("query-{name}"));
+        assert_eq!(live["rows"][0]["status"], "possible", "{name}: {live}");
+
+        let project = Project::load(root.path()).unwrap();
+        let mut sessions = Sessions::from_project(Arc::new(project));
+        let mut author = Store::default();
+        let frame = json!({
+            "dli": "1.13.0", "id": format!("reopen-{name}"), "op": "dli.query",
+            "params": {"document": "demo", "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}, "layer": "all"}
+        });
+        let reopened = respond(&frame.to_string(), &mut sessions, &mut author).unwrap();
+        assert_eq!(
+            reopened.result.unwrap()["rows"][0]["status"],
+            "possible",
+            "{name}"
+        );
+        if name == "odd" {
+            for format in ["objects", "canon"] {
+                let export = json!({
+                    "dli": "1.13.0", "id": format!("export-{format}"),
+                    "op": "dli.corpus.export",
+                    "params": {"document": "demo", "format": format}
+                });
+                let response = respond(&export.to_string(), &mut sessions, &mut author).unwrap();
+                assert!(response.ok, "{response:?}");
+                let value = response.result.unwrap();
+                let attacks = if format == "canon" {
+                    &value["canon"]["attacks"]
+                } else {
+                    &value["attacks"]
+                };
+                assert_eq!(attacks.as_array().unwrap().len(), 3);
+                assert!(
+                    attacks
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .all(|edge| edge.get("subject_fact_hash").is_some())
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn depths_one_two_four_and_eight_alternate_deterministically() {
+    for depth in [1usize, 2, 4, 8] {
+        let (_root, mut store, path) = fixture();
+        let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+        let workspace = result(dispatch(
+            &request(
+                "1.13.0",
+                &format!("open-{depth}"),
+                Op::AuthorOpen,
+                json!({"scope": "demo"}),
+            ),
+            &mut store,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut target = "d1".to_owned();
+        let mut carrier = claim_id(&lorestore, None, "mara");
+        for step in 2..=(depth + 1) {
+            let attacker = format!("d{step}");
+            defeat(
+                &mut store,
+                &workspace,
+                &format!("depth-{depth}-{step}"),
+                &carrier,
+                &attacker,
+                &target,
+            );
+            target = attacker;
+            carrier = claim_id(&lorestore, Some("ratify"), &target);
+        }
+        let rows = author_query(&mut store, &workspace, &format!("q-{depth}"))["rows"]
+            .as_array()
+            .unwrap()
+            .clone();
+        if depth % 2 == 0 {
+            assert_eq!(rows[0]["status"], "certain", "depth {depth}");
+        } else {
+            assert!(rows.is_empty(), "depth {depth}: {rows:?}");
+        }
+    }
+}
+
+#[test]
+fn defeat_idempotency_replay_does_not_advance_the_ref() {
+    let (_root, mut store, path) = fixture();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let claim = claim_id(&lorestore, None, "mara");
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-idem",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut store,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mut frame = request(
+        "1.13.0",
+        "idem",
+        Op::AuthorDefeat,
+        json!({
+            "workspace": workspace, "claim_id": claim, "decision": "d2", "defeated_decision": "d1"
+        }),
+    );
+    frame.idempotency_key = Some("same-defeat".to_owned());
+    let first = result(dispatch(&frame, &mut store));
+    let head = lorestore
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .unwrap()
+        .unwrap();
+    let second = result(dispatch(&frame, &mut store));
+    assert_eq!(second, first);
+    assert_eq!(
+        lorestore
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .unwrap()
+            .unwrap(),
+        head
+    );
+    assert_eq!(
+        lorestore.decision_attacks_from(&head.commit).unwrap().len(),
+        1
+    );
+}
+
+#[test]
+fn multiple_attackers_are_order_independent_end_to_end() {
+    let mut projections = Vec::new();
+    for order in [["d2", "d3"], ["d3", "d2"]] {
+        let (_root, mut store, path) = fixture();
+        let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+        let claim = claim_id(&lorestore, None, "mara");
+        let workspace = result(dispatch(
+            &request(
+                "1.13.0",
+                "open-order",
+                Op::AuthorOpen,
+                json!({"scope": "demo"}),
+            ),
+            &mut store,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        for attacker in order {
+            defeat(
+                &mut store,
+                &workspace,
+                &format!("edge-{attacker}"),
+                &claim,
+                attacker,
+                "d1",
+            );
+        }
+        assert!(
+            author_query(&mut store, &workspace, "order-query")["rows"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let head = lorestore.root_hash().unwrap().unwrap();
+        projections.push(
+            lorestore
+                .decision_attacks_from(&head)
+                .unwrap()
+                .into_iter()
+                .map(|attack| (attack.attacker, attack.target))
+                .collect::<Vec<_>>(),
+        );
+    }
+    assert_eq!(projections[0], projections[1]);
+}

@@ -199,9 +199,9 @@ pub(crate) fn scan(
     base: Option<&ContentHash>,
     target_val: &Valuation,
     source_val: &Valuation,
-    target_effective: &Valuation,
-    source_effective: &Valuation,
-    merged_effective: &Valuation,
+    target_effective: &crate::EffectiveValuation,
+    source_effective: &crate::EffectiveValuation,
+    merged_effective: &crate::EffectiveValuation,
     merged_interner: &[String],
 ) -> Result<ConflictScan, StoreError> {
     // Class 1 — valuation disagreement, straight off the two overlays.
@@ -520,22 +520,32 @@ fn constraint_finding(conflict: &Conflict) -> WorldFinding {
 }
 
 /// Resolve overlay atom indices to names through the (merged) interner.
-fn overlay_to_named(overlay: &Valuation, interner_names: &[String]) -> BTreeMap<String, bool> {
-    overlay
+fn overlay_to_named(
+    overlay: &crate::EffectiveValuation,
+    interner_names: &[String],
+) -> BTreeMap<String, Option<bool>> {
+    let mut named: BTreeMap<_, _> = overlay
+        .valuation
         .0
         .iter()
         .filter_map(|(atom, &value)| {
             interner_names
                 .get(atom.0 as usize)
-                .map(|name| (name.clone(), value))
+                .map(|name| (name.clone(), Some(value)))
         })
-        .collect()
+        .collect();
+    for atom in &overlay.unassigned {
+        if let Some(name) = interner_names.get(atom.0 as usize) {
+            named.insert(name.clone(), None);
+        }
+    }
+    named
 }
 
 /// The compiled world's base valuation with a name-keyed overlay applied — robust
 /// to any interner-index remapping between the stored commit and the recompiled
 /// world (names are the stable key).
-fn effective(world: &CompiledWorld, named: &BTreeMap<String, bool>) -> Valuation {
+fn effective(world: &CompiledWorld, named: &BTreeMap<String, Option<bool>>) -> Valuation {
     let mut eff = world.model.world.valuation.clone();
     let table = world.model.world.interner.names();
     let by_name: BTreeMap<&str, u32> = table
@@ -543,9 +553,14 @@ fn effective(world: &CompiledWorld, named: &BTreeMap<String, bool>) -> Valuation
         .enumerate()
         .map(|(pos, n)| (n.as_str(), u32::try_from(pos).unwrap_or(u32::MAX)))
         .collect();
-    for (name, &value) in named {
+    for (name, value) in named {
         if let Some(&pos) = by_name.get(name.as_str()) {
-            eff.set(Atom(pos), value);
+            match value {
+                Some(value) => eff.set(Atom(pos), *value),
+                None => {
+                    eff.0.remove(&Atom(pos));
+                }
+            }
         }
     }
     eff

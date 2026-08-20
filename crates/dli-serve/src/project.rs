@@ -90,6 +90,8 @@ pub struct ProjectDocument {
     /// commit, not an instruction to borrow the valuation of whatever ref happens
     /// to point elsewhere when the project starts.
     pub store_valuation: Valuation,
+    /// Store atoms explicitly left unassigned by grounded attack cycles.
+    pub store_unassigned: BTreeSet<dli_core::Atom>,
     /// Digest of the selected branch ref, including its valuation overlay.
     ///
     /// Only branch mode has a selected ref. The authoring write path uses this
@@ -589,6 +591,7 @@ fn load_document(
         store_origin,
         store_commit,
         store_valuation,
+        store_unassigned,
         store_ref_digest,
     ) = load_source(root, id, entry)?;
     compile(&pack).map_err(|error| ProjectError::Compile {
@@ -656,6 +659,7 @@ fn load_document(
         store_origin: store_origin.clone(),
         store_commit,
         store_valuation,
+        store_unassigned,
         store_ref_digest,
         store_pinned: store_origin.is_some() && entry.head.is_some(),
     })
@@ -740,6 +744,7 @@ fn load_source(
         Option<PathBuf>,
         Option<dli_lorestore::ContentHash>,
         Valuation,
+        BTreeSet<dli_core::Atom>,
         Option<String>,
     ),
     ProjectError,
@@ -753,7 +758,7 @@ fn load_source(
             "document `{id}` declares neither `sources` nor `store`; it has nothing to compile"
         ))),
         (true, Some(store)) => {
-            let (pack, paths, digest, commit, valuation, ref_digest) =
+            let (pack, paths, digest, commit, valuation, unassigned, ref_digest) =
                 load_pack_from_store(root, id, store, entry.head.as_deref())?;
             let origin = paths.first().cloned();
             Ok((
@@ -763,6 +768,7 @@ fn load_source(
                 origin,
                 Some(commit),
                 valuation,
+                unassigned,
                 ref_digest,
             ))
         }
@@ -774,7 +780,16 @@ fn load_source(
                 )));
             }
             let (pack, paths, digest) = load_pack(root, id, &entry.sources)?;
-            Ok((pack, paths, digest, None, None, Valuation::new(), None))
+            Ok((
+                pack,
+                paths,
+                digest,
+                None,
+                None,
+                Valuation::new(),
+                BTreeSet::new(),
+                None,
+            ))
         }
     }
 }
@@ -802,6 +817,7 @@ fn load_pack_from_store(
         String,
         dli_lorestore::ContentHash,
         Valuation,
+        BTreeSet<dli_core::Atom>,
         Option<String>,
     ),
     ProjectError,
@@ -856,7 +872,7 @@ fn load_pack_from_store(
             })?,
     };
 
-    let valuation = lorestore
+    let effective = lorestore
         .effective_valuation_at(&resolved, &valuation)
         .map_err(|error| ProjectError::Compile {
             document: id.to_owned(),
@@ -878,7 +894,8 @@ fn load_pack_from_store(
         vec![dir],
         resolved.as_str().to_owned(),
         resolved,
-        valuation,
+        effective.valuation,
+        effective.unassigned,
         ref_digest,
     ))
 }
