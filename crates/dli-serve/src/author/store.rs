@@ -70,6 +70,10 @@ pub struct Store {
     /// Deterministic operation counters for the durable base-refresh paths.
     /// They are diagnostic only; no verdict depends on them.
     base_update_stats: BaseUpdateStats,
+    /// Unit-test-only scheduling seam for a ref movement after materialize has
+    /// prepared its exact candidate but before it enters the fenced commit.
+    #[cfg(test)]
+    materialize_pre_cas_hook: Option<fn(&mut Store, &str)>,
 }
 
 /// Diagnostic counts for workspace-base preparation and installation.
@@ -192,6 +196,8 @@ impl Default for Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         }
     }
 }
@@ -224,6 +230,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         }
     }
 
@@ -267,6 +275,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         })
     }
 
@@ -319,6 +329,8 @@ impl Store {
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
             base_update_stats: BaseUpdateStats::default(),
+            #[cfg(test)]
+            materialize_pre_cas_hook: None,
         })
     }
 
@@ -692,8 +704,21 @@ impl Store {
             documents: pack.documents,
             pack_name: pack.name,
         };
+        let structural_changed = self.workspace_base(ws_id).is_none_or(|current| {
+            current.killed != refreshed.world.killed
+                || self
+                    .workspace_base_docs(ws_id)
+                    .is_none_or(|documents| documents != refreshed.documents)
+        });
         if let Some(ws) = self.workspaces.get_mut(ws_id) {
-            ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+            if structural_changed {
+                ws.refresh_structure(&refreshed.world, &refreshed.documents);
+            } else {
+                // Attack-only commits and ref-standing movement keep the exact
+                // same symbolic documents. Refresh the derived add-time index,
+                // but retain the saturate-once compile.
+                ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+            }
         }
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         Ok(())
@@ -785,9 +810,12 @@ impl Store {
         for name in base_valuation.0.keys().chain(base_unassigned.0.iter()) {
             world.model.world.interner.intern(name);
         }
-        let target_interner = world.model.interner().clone();
-        base_valuation.apply_to(&target_interner, &mut world.model.world.valuation)?;
-        base_unassigned.remove_from(&target_interner, &mut world.model.world.valuation)?;
+        dli_core::valuation::apply_named_overlay(
+            &base_valuation,
+            &base_unassigned,
+            &world.model.world.interner,
+            &mut world.model.world.valuation,
+        )?;
         self.base_update_stats.prepared_compiles += 1;
         Ok(PreparedWorkspaceBase {
             pack,
@@ -843,17 +871,52 @@ impl Store {
         ws.bundle_counter = bundle;
         ws.base_valuation = base_valuation;
         ws.base_unassigned = base_unassigned;
-        ws.refresh_resolution(&refreshed.world, &refreshed.documents);
+        ws.refresh_structure(&refreshed.world, &refreshed.documents);
         let digest = ws.digest.clone();
         self.branch_bases.insert(ws_id.to_owned(), refreshed);
         self.base_update_stats.prepared_installs += 1;
         digest
     }
 
+    /// Infallibly install a successfully materialized base and reconcile the
+    /// staged bookkeeping in the same owned-state transition. All validation,
+    /// object reads, and compilation must precede the durable branch CAS; this
+    /// method is the immediate post-CAS continuation.
+    pub fn install_materialized_workspace_base(
+        &mut self,
+        ws_id: &str,
+        prepared: PreparedWorkspaceBase,
+        interner: Vec<String>,
+        commit: &dli_lorestore::ContentHash,
+        ref_digest: &dli_lorestore::ContentHash,
+        materialized_keys: &BTreeSet<String>,
+    ) -> String {
+        {
+            let workspace = self
+                .workspaces
+                .get_mut(ws_id)
+                .expect("the prepared base belongs to this live workspace");
+            // Reconcile before the base refresh so its derived resolution index
+            // replays only the still-pending delta atop the newly installed
+            // durable world. Both mutations are infallible and remain strictly
+            // after the successful CAS.
+            workspace.mark_materialized(materialized_keys);
+            workspace.staged_fact_hashes.clear();
+        }
+        self.install_prepared_workspace_base(ws_id, prepared, interner, commit, ref_digest)
+    }
+
     /// Diagnostic operation counts used by deterministic scale tests.
     #[must_use]
     pub const fn base_update_stats(&self) -> BaseUpdateStats {
         self.base_update_stats
+    }
+
+    #[cfg(test)]
+    pub(super) fn run_materialize_pre_cas_hook(&mut self, ws_id: &str) {
+        if let Some(hook) = self.materialize_pre_cas_hook.take() {
+            hook(self, ws_id);
+        }
     }
 
     /// The lorestore backing a base, if one is attached (LS-4). Each base has
@@ -1171,8 +1234,10 @@ mod tests {
 
     #[derive(Debug, Default)]
     struct BatchStorageControl {
+        reads_after_cas: AtomicUsize,
         writes: AtomicUsize,
         cas: AtomicUsize,
+        cas_succeeded: AtomicBool,
         fail_write_at: AtomicUsize,
         fail_cas: AtomicBool,
     }
@@ -1185,6 +1250,9 @@ mod tests {
 
     impl Storage for CountingFaultStorage {
         fn read_object(&self, hash: &ContentHash) -> Result<Option<Vec<u8>>, StoreError> {
+            if self.control.cas_succeeded.load(Ordering::SeqCst) {
+                self.control.reads_after_cas.fetch_add(1, Ordering::SeqCst);
+            }
             self.inner.read_object(hash)
         }
 
@@ -1206,7 +1274,11 @@ mod tests {
             if self.control.fail_cas.swap(false, Ordering::SeqCst) {
                 return Err(injected_failure());
             }
-            self.inner.cas_ref(name, expected, new)
+            let swapped = self.inner.cas_ref(name, expected, new)?;
+            if swapped {
+                self.control.cas_succeeded.store(true, Ordering::SeqCst);
+            }
+            Ok(swapped)
         }
 
         fn load_ref(&self, name: &str) -> Result<Option<Ref>, StoreError> {
@@ -1383,6 +1455,24 @@ mod tests {
         })
     }
 
+    fn advance_main_ref_before_materialize_cas(store: &mut Store, ws: &str) {
+        let lorestore = store.workspace_lorestore(ws).expect("lorestore");
+        let current = lorestore
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        let token = current.digest().expect("ref digest").to_string();
+        let mut valuation = current.valuation.clone();
+        let atom = dli_core::Atom(0);
+        valuation.set(atom, !valuation.get(atom).unwrap_or(false));
+        let moved = Ref::with_valuation(dli_lorestore::MAIN_REF, current.commit, valuation);
+        assert!(
+            lorestore
+                .cas_main_ref(Some(&token), &moved)
+                .expect("injected ref movement")
+        );
+    }
+
     #[test]
     fn bulk_decision_write_and_cas_failures_leave_ref_and_workspace_unchanged() {
         for fail_cas in [false, true] {
@@ -1411,6 +1501,115 @@ mod tests {
             assert_eq!(semantic_workspace_state(&store, &ws), before_workspace);
             assert_eq!(store.base_update_stats.prepared_installs, 0);
         }
+    }
+
+    #[test]
+    fn materialize_reads_every_response_object_before_the_successful_cas() {
+        let (_root, mut store, ws, control) = batch_store();
+        let added = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "add".to_owned(),
+                op: crate::Op::AuthorAddFact,
+                params: json!({
+                    "workspace": ws,
+                    "entity": "mara",
+                    "key": "rank",
+                    "value": "silver",
+                    "provenance": {"kind": "proposed", "origin": "atomicity-tooth"}
+                }),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(added.ok, "staging succeeds: {added:?}");
+
+        let cas_before = control.cas.load(Ordering::SeqCst);
+        let materialized = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "materialize".to_owned(),
+                op: crate::Op::AuthorMaterialize,
+                params: json!({"workspace": ws, "rendered": false}),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(materialized.ok, "materialize succeeds: {materialized:?}");
+        assert_eq!(control.cas.load(Ordering::SeqCst), cas_before + 1);
+        assert!(control.cas_succeeded.load(Ordering::SeqCst));
+        assert_eq!(
+            control.reads_after_cas.load(Ordering::SeqCst),
+            0,
+            "the successful CAS must flow directly into the infallible prepared-base install"
+        );
+        assert_eq!(store.base_update_stats.prepared_installs, 1);
+    }
+
+    #[test]
+    fn ordinary_main_materialize_fences_its_prepared_target_snapshot() {
+        let (_root, mut store, ws, _control) = batch_store();
+        let added = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "add-race".to_owned(),
+                op: crate::Op::AuthorAddFact,
+                params: json!({
+                    "workspace": ws,
+                    "entity": "mara",
+                    "key": "rank",
+                    "value": "silver",
+                    "provenance": {"kind": "proposed", "origin": "cas-race-tooth"}
+                }),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(added.ok, "staging succeeds: {added:?}");
+        let lorestore = store.workspace_lorestore(&ws).expect("lorestore");
+        let head_before = lorestore
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        let root_before = head_before.commit.clone();
+        let ref_digest_before = head_before.digest().expect("ref digest");
+        let workspace_before = semantic_workspace_state(&store, &ws);
+
+        store.materialize_pre_cas_hook = Some(advance_main_ref_before_materialize_cas);
+        let refused = crate::author::dispatch(
+            &crate::Request {
+                dli: "1.13.0".to_owned(),
+                id: "materialize-race".to_owned(),
+                op: crate::Op::AuthorMaterialize,
+                params: json!({"workspace": ws, "rendered": false}),
+                expected_digest: None,
+                idempotency_key: None,
+            },
+            &mut store,
+        );
+        assert!(!refused.ok, "the injected CAS race refuses: {refused:?}");
+        assert_eq!(
+            refused.error.as_ref().map(|error| error.code),
+            Some(crate::ErrorCode::StaleFence),
+            "the prepared target's whole-ref fence names the race"
+        );
+        let head_after = store
+            .workspace_lorestore(&ws)
+            .expect("lorestore")
+            .head_ref()
+            .expect("head read")
+            .expect("main exists");
+        assert_eq!(head_after.commit, root_before);
+        assert_ne!(
+            head_after.digest().expect("ref digest"),
+            ref_digest_before,
+            "the injected valuation-only movement must change whole-ref authority"
+        );
+        assert_eq!(semantic_workspace_state(&store, &ws), workspace_before);
+        assert_eq!(store.base_update_stats.prepared_installs, 0);
     }
 
     #[test]

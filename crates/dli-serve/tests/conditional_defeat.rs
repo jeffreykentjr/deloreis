@@ -518,6 +518,27 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         reopened_why["blocking_defeats"],
         json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
     );
+    author
+        .get(&reopened_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(false);
+    let reopened_miss = result(dispatch(
+        &request(
+            "1.13.0",
+            "author-why-reopen-miss",
+            Op::AuthorWhy,
+            json!({
+                "workspace": reopened_workspace,
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+            }),
+        ),
+        &mut author,
+    ));
+    author
+        .get(&reopened_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(true);
+    assert_eq!(reopened_miss, reopened_why, "pinned-session forced miss");
 }
 
 #[test]
@@ -692,6 +713,7 @@ fn duplicate_projected_blocked_paths_still_report_the_global_blocker() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn author_why_is_pinned_to_each_branch_workspace_root() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
@@ -760,6 +782,16 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
         rival_why["blocking_defeats"],
         json!([{"defeated_decision": "d1", "defeating_decision": "d2"}])
     );
+    store
+        .get(&rival_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(false);
+    let rival_miss = author_why(&mut store, &rival_workspace, "why-rival-miss");
+    store
+        .get(&rival_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(true);
+    assert_eq!(rival_miss, rival_why, "rival branch forced miss");
 
     let main_why = result(dispatch(
         &request(
@@ -779,6 +811,16 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
     );
     assert_eq!(main_why["blocking_defeats"], json!([]));
     assert_eq!(main_why["blocked_supports"], json!([]));
+    store
+        .get(&main_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(false);
+    let main_miss = author_why(&mut store, &main_workspace, "why-main-miss");
+    store
+        .get(&main_workspace)
+        .unwrap()
+        .set_compile_cache_enabled(true);
+    assert_eq!(main_miss, main_why, "main sibling forced miss");
 }
 
 #[test]
@@ -872,6 +914,7 @@ fn contract_1_13_unknown_atom_has_explicit_empty_explanation_arrays() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
     for (name, edges) in [
         ("self", vec![("d1", "d1")]),
@@ -950,6 +993,15 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
             }
             let canon_adjacent_after =
                 author_why(&mut store, &workspace, "why-after-canon-exports");
+            store
+                .get(&workspace)
+                .unwrap()
+                .set_compile_cache_enabled(false);
+            let canon_adjacent_miss = author_why(&mut store, &workspace, "why-after-canon-miss");
+            store
+                .get(&workspace)
+                .unwrap()
+                .set_compile_cache_enabled(true);
             for field in [
                 "active_supporting_decision_paths",
                 "blocking_defeats",
@@ -958,6 +1010,10 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
                 assert_eq!(
                     canon_adjacent_after[field], canon_adjacent_before[field],
                     "canon-adjacent reads do not move author.why field `{field}`"
+                );
+                assert_eq!(
+                    canon_adjacent_miss[field], canon_adjacent_after[field],
+                    "canon-adjacent forced miss preserves author.why field `{field}`"
                 );
             }
         }
@@ -1825,6 +1881,22 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
             "accepted",
         ));
         assert_eq!(active, expected_active, "active case {case}");
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(false);
+        let active_miss = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-active-miss-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(true);
+        assert_eq!(active_miss, active, "active forced miss case {case}");
         let verdict_claim = predicate_claim_id(&lorestore, "verdict");
         defeat(
             &mut author,
@@ -1842,6 +1914,22 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
             "accepted",
         ));
         assert_eq!(blocked, expected_blocked, "blocked case {case}");
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(false);
+        let blocked_miss = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-blocked-miss-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(true);
+        assert_eq!(blocked_miss, blocked, "blocked forced miss case {case}");
 
         let d2_claim = claim_id(&lorestore, Some("ratify"), "d2");
         defeat(
@@ -1860,6 +1948,22 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
             "accepted",
         ));
         assert_eq!(restored, expected_active, "restored case {case}");
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(false);
+        let restored_miss = explanation_fields(&why_attribute(
+            &mut author,
+            &workspace,
+            &format!("why-restored-miss-{case}"),
+            "verdict",
+            "accepted",
+        ));
+        author
+            .get(&workspace)
+            .unwrap()
+            .set_compile_cache_enabled(true);
+        assert_eq!(restored_miss, restored, "restored forced miss case {case}");
         observed_bytes.push([
             serde_json::to_vec(&active).unwrap(),
             serde_json::to_vec(&blocked).unwrap(),

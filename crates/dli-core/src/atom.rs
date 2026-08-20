@@ -84,6 +84,7 @@ impl Lit {
 pub struct Interner {
     names: Vec<String>,
     index: HashMap<String, Atom>,
+    duplicate_name: Option<String>,
 }
 
 impl Interner {
@@ -98,13 +99,24 @@ impl Interner {
     #[must_use]
     pub fn from_names(names: Vec<String>) -> Self {
         let mut index = HashMap::with_capacity(names.len());
+        let mut duplicate_name = None;
         for (i, name) in names.iter().enumerate() {
-            index.insert(
-                name.clone(),
-                Atom(u32::try_from(i).expect("atom count fits in u32")),
-            );
+            if index
+                .insert(
+                    name.clone(),
+                    Atom(u32::try_from(i).expect("atom count fits in u32")),
+                )
+                .is_some()
+                && duplicate_name.is_none()
+            {
+                duplicate_name = Some(name.clone());
+            }
         }
-        Self { names, index }
+        Self {
+            names,
+            index,
+            duplicate_name,
+        }
     }
 
     /// The interned names in atom order.
@@ -128,6 +140,23 @@ impl Interner {
     #[must_use]
     pub fn resolve(&self, atom: Atom) -> Option<&str> {
         self.names.get(atom.0 as usize).map(String::as_str)
+    }
+
+    /// Resolve an exact name to its stable atom in constant expected time.
+    ///
+    /// The reverse index is built once when names enter the interner and grown
+    /// incrementally by [`Self::intern`]; request-side overlays must use this
+    /// lookup rather than reconstructing a map or scanning [`Self::names`].
+    #[must_use]
+    pub fn lookup(&self, name: &str) -> Option<Atom> {
+        self.index.get(name).copied()
+    }
+
+    /// The first duplicate observed while rebuilding an externally supplied
+    /// name table. Internally grown interners are unique by construction.
+    #[must_use]
+    pub fn duplicate_name(&self) -> Option<&str> {
+        self.duplicate_name.as_deref()
     }
 
     /// Number of interned atoms.

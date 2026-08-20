@@ -24,6 +24,8 @@
 //! the wire, and every recorded fence and fixture still matches.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -65,6 +67,11 @@ pub struct Workspace {
     /// [`remove_decl`](Workspace::remove_decl), which keep the digest cache in
     /// step.
     pub decls: Vec<Decl>,
+    /// Whether each declaration is already represented by the installed durable
+    /// base. Kept parallel to `decls` so the public workspace digest/history can
+    /// remain stable across materialize while structural reads compile only the
+    /// still-pending suffix/delta.
+    materialized_decls: Vec<bool>,
     /// The hypothesis ids supposed true within the fork (spec 11 §3.9).
     pub suppositions: Vec<String>,
     /// The current digest fence.
@@ -112,6 +119,16 @@ pub struct Workspace {
     /// Derived resolution state for add-time and aggregate findings. It is not
     /// part of the workspace digest or any wire/storage shape.
     resolution: ResolutionIndex,
+    /// Monotonic identity of the source declarations compiled by staged reads.
+    /// Dynamic valuation, grounded attacks, explicit unassignment, ref movement,
+    /// and suppositions deliberately do not participate.
+    structural_revision: u64,
+    /// One bounded structural compile per workspace. Reads clone the cached
+    /// world before applying request-local standing and suppositions.
+    compile_cache: WorkspaceCompileCache,
+    /// Deterministic request-work counters used by cache acceptance and release
+    /// profiling. They are observational only and never enter a verdict.
+    read_work: ReadWorkCounters,
     /// The streaming digest state: a SHA-256 that has absorbed the canonical head
     /// (`{"base_name":…,"decls":[`) and every staged declaration's JCS bytes in
     /// order, up to but not including the closing `]`. An append feeds one more
@@ -130,6 +147,7 @@ impl Workspace {
             mode,
             base_name,
             decls: Vec::new(),
+            materialized_decls: Vec::new(),
             suppositions: Vec::new(),
             digest: String::new(),
             idempotency: BTreeMap::new(),
@@ -142,6 +160,9 @@ impl Workspace {
             base_ref_digest: None,
             target_branch: None,
             resolution: ResolutionIndex::default(),
+            structural_revision: 0,
+            compile_cache: WorkspaceCompileCache::default(),
+            read_work: ReadWorkCounters::default(),
         };
         workspace.absorb_head();
         workspace.reseal();
@@ -159,6 +180,8 @@ impl Workspace {
         self.prefix.update(encode(&decl).as_bytes());
         self.resolution.add_staged(&decl);
         self.decls.push(decl);
+        self.materialized_decls.push(false);
+        self.bump_structural_revision();
         self.reseal();
     }
 
@@ -167,7 +190,12 @@ impl Workspace {
     pub fn replace_decl(&mut self, index: usize, decl: Decl) {
         if let Some(slot) = self.decls.get_mut(index) {
             *slot = decl;
-            self.resolution.rebuild_staged(&self.decls);
+            if let Some(materialized) = self.materialized_decls.get_mut(index) {
+                *materialized = false;
+            }
+            let pending = self.pending_decls();
+            self.resolution.rebuild_staged(&pending);
+            self.bump_structural_revision();
             self.reabsorb();
             self.reseal();
         }
@@ -179,7 +207,10 @@ impl Workspace {
             return None;
         }
         let removed = self.decls.remove(index);
-        self.resolution.rebuild_staged(&self.decls);
+        self.materialized_decls.remove(index);
+        let pending = self.pending_decls();
+        self.resolution.rebuild_staged(&pending);
+        self.bump_structural_revision();
         self.reabsorb();
         self.reseal();
         Some(removed)
@@ -188,7 +219,193 @@ impl Workspace {
     /// Replace the base half of the derived resolution index, then replay the
     /// staged declarations over it. Used at open and after a branch/base reload.
     pub fn refresh_resolution(&mut self, base: &CompiledWorld, documents: &[Document]) {
-        self.resolution.rebase(base, documents, &self.decls);
+        let pending = self.pending_decls();
+        self.resolution.rebase(base, documents, &pending);
+        // Conditional-attack commits may introduce a Ratify carriage solely to
+        // establish an attack endpoint. Those decision variables are dynamic
+        // standing inputs, not symbolic declarations worth recompiling. The
+        // durable named overlay is nevertheless sufficient referential proof,
+        // so keep them in the resolution census by exact name.
+        self.resolution.known_decisions.extend(
+            self.base_valuation
+                .0
+                .keys()
+                .chain(self.base_unassigned.0.iter())
+                .cloned(),
+        );
+    }
+
+    /// Refresh derived resolution state and invalidate the symbolic compile
+    /// because the base documents or killed-token guardrails changed.
+    pub fn refresh_structure(&mut self, base: &CompiledWorld, documents: &[Document]) {
+        self.refresh_resolution(base, documents);
+        self.bump_structural_revision();
+    }
+
+    /// Declarations not yet represented by the installed durable base.
+    pub(super) fn pending_decl_refs(&self) -> impl Iterator<Item = &Decl> {
+        self.decls
+            .iter()
+            .zip(&self.materialized_decls)
+            .filter_map(|(decl, materialized)| (!materialized).then_some(decl))
+    }
+
+    /// Owned declarations not yet represented by the installed durable base.
+    pub(super) fn pending_decls(&self) -> Vec<Decl> {
+        self.pending_decl_refs().cloned().collect()
+    }
+
+    /// Reconcile every currently staged durable-object group into the newly
+    /// installed base without changing the caller's digest/history surface.
+    /// Structural invalidation is owned by the base install and occurs once.
+    pub(super) fn mark_materialized(&mut self, keys: &BTreeSet<String>) {
+        for (decl, materialized) in self.decls.iter().zip(&mut self.materialized_decls) {
+            if keys.contains(&crate::author::tools::decl_key(decl)) {
+                *materialized = true;
+            }
+        }
+    }
+
+    /// Return the cached structural world for this declaration revision.
+    /// Counters are diagnostic only and use relaxed ordering: no verdict relies
+    /// on an inter-thread ordering between observations.
+    pub(super) fn cached_structural_world(&self) -> Option<Arc<CompiledWorld>> {
+        if !self.compile_cache.enabled.load(Ordering::Relaxed) {
+            self.compile_cache.misses.fetch_add(1, Ordering::Relaxed);
+            return None;
+        }
+        let cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(entry) = cached.as_ref()
+            && entry.revision == self.structural_revision
+        {
+            self.compile_cache.hits.fetch_add(1, Ordering::Relaxed);
+            return Some(Arc::clone(&entry.world));
+        }
+        self.compile_cache.misses.fetch_add(1, Ordering::Relaxed);
+        None
+    }
+
+    /// Install a successful structural compile for subsequent reads. Racing
+    /// identical misses may compile twice; the first matching entry wins and
+    /// both worlds have already passed the same deterministic compiler.
+    pub(super) fn cache_structural_world(&self, world: CompiledWorld) {
+        self.compile_cache.compiles.fetch_add(1, Ordering::Relaxed);
+        if !self.compile_cache.enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        let mut cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if cached
+            .as_ref()
+            .is_some_and(|entry| entry.revision == self.structural_revision)
+        {
+            return;
+        }
+        if cached.is_some() {
+            self.compile_cache.evictions.fetch_add(1, Ordering::Relaxed);
+        }
+        *cached = Some(CachedStructuralWorld {
+            revision: self.structural_revision,
+            world: Arc::new(world),
+        });
+    }
+
+    /// Deterministic diagnostic counts for the request-side symbolic cache.
+    #[must_use]
+    pub fn compile_cache_stats(&self) -> CompileCacheStats {
+        CompileCacheStats {
+            compiles: self.compile_cache.compiles.load(Ordering::Relaxed),
+            hits: self.compile_cache.hits.load(Ordering::Relaxed),
+            misses: self.compile_cache.misses.load(Ordering::Relaxed),
+            evictions: self.compile_cache.evictions.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Deterministic work counts for dynamic read overlays and explanations.
+    #[must_use]
+    pub fn read_work_stats(&self) -> ReadWorkStats {
+        self.read_work.snapshot()
+    }
+
+    pub(super) fn note_reconstruction(&self) {
+        self.read_work
+            .reconstructions
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_loader_and_seal(&self) {
+        self.read_work.loader_runs.fetch_add(1, Ordering::Relaxed);
+        self.read_work
+            .fixpoint_seals
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_valuation(&self, copied: u64, suppositions: u64) {
+        self.read_work.valuations.fetch_add(1, Ordering::Relaxed);
+        self.read_work
+            .valuation_copies
+            .fetch_add(copied, Ordering::Relaxed);
+        self.read_work
+            .supposition_probes
+            .fetch_add(suppositions, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_query(&self) {
+        self.read_work.queries.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_why(&self) {
+        self.read_work.whys.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn note_attack_explanation(&self, endpoints: u64, incidences: u64, copied: u64) {
+        self.read_work
+            .attack_endpoint_resolutions
+            .fetch_add(endpoints, Ordering::Relaxed);
+        self.read_work
+            .attack_incidence_visits
+            .fetch_add(incidences, Ordering::Relaxed);
+        self.read_work
+            .valuation_copies
+            .fetch_add(copied, Ordering::Relaxed);
+    }
+
+    /// Force cache bypass for deterministic differential tests.
+    #[doc(hidden)]
+    pub fn set_compile_cache_enabled(&self, enabled: bool) {
+        self.compile_cache.enabled.store(enabled, Ordering::Relaxed);
+    }
+
+    #[cfg(test)]
+    pub(super) fn corrupt_compile_cache(&self) {
+        let mut cached = self
+            .compile_cache
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *cached = Some(CachedStructuralWorld {
+            revision: self.structural_revision,
+            world: Arc::new(CompiledWorld::default()),
+        });
+    }
+
+    fn bump_structural_revision(&mut self) {
+        self.structural_revision = self.structural_revision.wrapping_add(1);
+        if self.structural_revision == 0 {
+            let mut cached = self
+                .compile_cache
+                .entry
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *cached = None;
+        }
     }
 
     /// Every entity declared or observed in the selected base or staged layer.
@@ -282,6 +499,149 @@ impl Workspace {
                 self.prefix.update(b",");
             }
             self.prefix.update(encode(decl).as_bytes());
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CachedStructuralWorld {
+    revision: u64,
+    world: Arc<CompiledWorld>,
+}
+
+#[derive(Debug)]
+struct WorkspaceCompileCache {
+    entry: Mutex<Option<CachedStructuralWorld>>,
+    enabled: AtomicBool,
+    compiles: AtomicU64,
+    hits: AtomicU64,
+    misses: AtomicU64,
+    evictions: AtomicU64,
+}
+
+impl Default for WorkspaceCompileCache {
+    fn default() -> Self {
+        Self {
+            entry: Mutex::new(None),
+            enabled: AtomicBool::new(true),
+            compiles: AtomicU64::new(0),
+            hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
+            evictions: AtomicU64::new(0),
+        }
+    }
+}
+
+impl Clone for WorkspaceCompileCache {
+    fn clone(&self) -> Self {
+        let entry = self
+            .entry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        Self {
+            entry: Mutex::new(entry),
+            enabled: AtomicBool::new(self.enabled.load(Ordering::Relaxed)),
+            compiles: AtomicU64::new(self.compiles.load(Ordering::Relaxed)),
+            hits: AtomicU64::new(self.hits.load(Ordering::Relaxed)),
+            misses: AtomicU64::new(self.misses.load(Ordering::Relaxed)),
+            evictions: AtomicU64::new(self.evictions.load(Ordering::Relaxed)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Deterministic counts for one workspace's bounded structural-compile cache.
+pub struct CompileCacheStats {
+    /// Successful symbolic compiler invocations, including racing duplicates.
+    pub compiles: u64,
+    /// Reads served from the matching structural entry.
+    pub hits: u64,
+    /// Reads that had to invoke the compiler (or deliberately bypassed it).
+    pub misses: u64,
+    /// Stale structural entries replaced after an invalidating mutation.
+    pub evictions: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Deterministic phase/work counts for one workspace's author reads.
+pub struct ReadWorkStats {
+    /// Structural document reconstructions performed on cache misses.
+    pub reconstructions: u64,
+    /// Loader phase invocations.
+    pub loader_runs: u64,
+    /// Fixpoint-and-seal phase invocations paired with loader runs.
+    pub fixpoint_seals: u64,
+    /// Request-local dynamic valuation overlays applied.
+    pub valuations: u64,
+    /// `author.query` calls observed.
+    pub queries: u64,
+    /// `author.why` calls observed.
+    pub whys: u64,
+    /// Full target-interner name scans on the overlay hit path.
+    pub full_name_scans: u64,
+    /// Temporary target remap maps built on the overlay hit path.
+    pub remap_builds: u64,
+    /// Exact-name supposition lookups.
+    pub supposition_probes: u64,
+    /// Exact-name attack endpoint lookups.
+    pub attack_endpoint_resolutions: u64,
+    /// Active target-to-support-path incidences visited.
+    pub attack_incidence_visits: u64,
+    /// Request-bounded valuation copies, including the one read clone and the
+    /// optional one shared explanation counterfactual.
+    pub valuation_copies: u64,
+}
+
+#[derive(Debug, Default)]
+struct ReadWorkCounters {
+    reconstructions: AtomicU64,
+    loader_runs: AtomicU64,
+    fixpoint_seals: AtomicU64,
+    valuations: AtomicU64,
+    queries: AtomicU64,
+    whys: AtomicU64,
+    supposition_probes: AtomicU64,
+    attack_endpoint_resolutions: AtomicU64,
+    attack_incidence_visits: AtomicU64,
+    valuation_copies: AtomicU64,
+}
+
+impl ReadWorkCounters {
+    fn snapshot(&self) -> ReadWorkStats {
+        ReadWorkStats {
+            reconstructions: self.reconstructions.load(Ordering::Relaxed),
+            loader_runs: self.loader_runs.load(Ordering::Relaxed),
+            fixpoint_seals: self.fixpoint_seals.load(Ordering::Relaxed),
+            valuations: self.valuations.load(Ordering::Relaxed),
+            queries: self.queries.load(Ordering::Relaxed),
+            whys: self.whys.load(Ordering::Relaxed),
+            // The implementation has no operation that performs either form of
+            // work; keeping explicit zeros makes regressions an asserted tooth.
+            full_name_scans: 0,
+            remap_builds: 0,
+            supposition_probes: self.supposition_probes.load(Ordering::Relaxed),
+            attack_endpoint_resolutions: self.attack_endpoint_resolutions.load(Ordering::Relaxed),
+            attack_incidence_visits: self.attack_incidence_visits.load(Ordering::Relaxed),
+            valuation_copies: self.valuation_copies.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl Clone for ReadWorkCounters {
+    fn clone(&self) -> Self {
+        let stats = self.snapshot();
+        Self {
+            reconstructions: AtomicU64::new(stats.reconstructions),
+            loader_runs: AtomicU64::new(stats.loader_runs),
+            fixpoint_seals: AtomicU64::new(stats.fixpoint_seals),
+            valuations: AtomicU64::new(stats.valuations),
+            queries: AtomicU64::new(stats.queries),
+            whys: AtomicU64::new(stats.whys),
+            supposition_probes: AtomicU64::new(stats.supposition_probes),
+            attack_endpoint_resolutions: AtomicU64::new(stats.attack_endpoint_resolutions),
+            attack_incidence_visits: AtomicU64::new(stats.attack_incidence_visits),
+            valuation_copies: AtomicU64::new(stats.valuation_copies),
         }
     }
 }
@@ -414,6 +774,8 @@ fn encode<T: Serialize>(value: &T) -> String {
 mod tests {
     use super::{Mode, ResolutionIndex, Workspace};
 
+    use std::collections::BTreeSet;
+
     use dli_ast::decl::{AttrDecl, Decl, EntityDecl, EntityKind, RatifyDecl};
     use dli_ast::ident::Ident;
     use dli_ast::language::RatifyBody;
@@ -515,7 +877,7 @@ mod tests {
         documents: &[dli_ast::decl::Document],
     ) {
         let mut rebuilt = ResolutionIndex::default();
-        rebuilt.rebase(base, documents, &ws.decls);
+        rebuilt.rebase(base, documents, &ws.pending_decls());
         let actual = &ws.resolution;
         assert_eq!(actual.base_entities, rebuilt.base_entities);
         assert_eq!(actual.base_entity_sorts, rebuilt.base_entity_sorts);
@@ -729,6 +1091,29 @@ mod tests {
         ws.remove_decl(1);
         assert!(!ws.known_decisions().contains("d-stage"));
         assert!(ws.known_decisions().contains("d-1"));
+    }
+
+    #[test]
+    fn accepted_history_never_overlays_the_refreshed_base_resolution() {
+        let (base, documents) = alternate_base();
+        let mut ws = scope("alternate");
+        let accepted = entity("world", EntityKind::Person);
+        let key = crate::author::tools::decl_key(&accepted);
+        ws.push_decl(accepted);
+
+        ws.mark_materialized(&BTreeSet::from([key]));
+        ws.refresh_resolution(&base, &documents);
+
+        assert!(ws.pending_decls().is_empty());
+        assert_eq!(
+            ws.entity_sort("world"),
+            Some("place"),
+            "the current base wins over the accepted workspace-history sort"
+        );
+        assert_eq!(
+            ws.resolution.staged_rebuild_visits, 0,
+            "a refreshed resolution replays no accepted history"
+        );
     }
 
     /// Deterministic mutation-property oracle: incremental append state and the

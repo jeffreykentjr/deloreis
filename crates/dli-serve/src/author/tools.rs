@@ -335,34 +335,27 @@ pub(super) fn materialize(
             "field `decision` is defined only by contract 1.9.0 decision-stamped materialize",
         ));
     }
-    // Clone everything we need from the workspace and check the blocking
-    // findings before touching the lorestore — this avoids a borrow conflict
-    // between `store.get()` (immutable) and the mutable lorestore access.
-    let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let blocking = dedup(
-        // Only finding CODES cross into the blocking-list error data below —
-        // `data` is never read here, so the carries-data gate is moot; `false`
-        // costs nothing and skips computing payloads no caller will see.
-        reads::workspace_report(store, ws, false)
-            .findings
-            .into_iter()
-            .filter(|f| f.severity == Severity::Error)
-            .map(|f| f.code),
-    );
-    if !blocking.is_empty() {
-        return Err(ErrorBody {
-            code: ErrorCode::MaterializeBlocked,
-            message: format!(
-                "{} error-severity finding(s) are unresolved; resolve them or discard before materializing.",
-                blocking.len()
-            ),
-            data: Some(json!({ "blocking": blocking })),
-        });
-    }
-
     // Without a lorestore the rendering IS the materialization (demo/test
     // contexts): version-independent legacy shape.
     if store.workspace_lorestore(&params.workspace).is_none() {
+        let ws = store.get(&params.workspace).ok_or_else(gone)?;
+        let blocking = dedup(
+            reads::workspace_report(store, ws, false)
+                .findings
+                .into_iter()
+                .filter(|finding| finding.severity == Severity::Error)
+                .map(|finding| finding.code),
+        );
+        if !blocking.is_empty() {
+            return Err(ErrorBody {
+                code: ErrorCode::MaterializeBlocked,
+                message: format!(
+                    "{} error-severity finding(s) are unresolved; resolve them or discard before materializing.",
+                    blocking.len()
+                ),
+                data: Some(json!({ "blocking": blocking })),
+            });
+        }
         // …and a build that renders no `.dli` has neither half: nothing to
         // commit and nothing to render. Answering `{findings: [], rendered:
         // []}` would be a success with no content — the author would read an
@@ -381,7 +374,6 @@ pub(super) fn materialize(
                 data: None,
             });
         }
-        let ws = store.get(&params.workspace).ok_or_else(gone)?;
         return Ok(value(&AuthorMutationResult {
             findings: Vec::new(),
             rendered: render_scoped(&ws.base_name, &ws.decls),
@@ -396,7 +388,6 @@ pub(super) fn materialize(
         staged_decls,
         staged_fact_hashes,
         ws_interner,
-        base_docs,
         ws_digest,
         pinned,
         base_ref_digest,
@@ -411,10 +402,6 @@ pub(super) fn materialize(
                 .flat_map(|(_, hashes)| hashes.iter().cloned())
                 .collect::<Vec<_>>(),
             ws.interner.names().to_vec(),
-            store
-                .workspace_base_docs(&params.workspace)
-                .map(<[Document]>::to_vec)
-                .unwrap_or_default(),
             ws.digest.clone(),
             ws.base_root_hash.clone(),
             ws.base_ref_digest.clone(),
@@ -432,6 +419,32 @@ pub(super) fn materialize(
 
     // Idempotent empty delta: nothing staged since the last commit.
     if staged_fact_hashes.is_empty() {
+        // Some deliberately non-durable authoring state (notably a hypothesis
+        // outside a fork) has no fact object. It must still pass the standing
+        // materialize oracle before the empty-object fast path answers success.
+        // There is no candidate fold or CAS in this arm, so the workspace's
+        // current base is the exact base relevant to these workspace-only
+        // findings.
+        if !staged_decls.is_empty() {
+            let ws = store.get(&params.workspace).ok_or_else(gone)?;
+            let blocking = dedup(
+                reads::workspace_report(store, ws, false)
+                    .findings
+                    .into_iter()
+                    .filter(|finding| finding.severity == Severity::Error)
+                    .map(|finding| finding.code),
+            );
+            if !blocking.is_empty() {
+                return Err(ErrorBody {
+                    code: ErrorCode::MaterializeBlocked,
+                    message: format!(
+                        "{} error-severity finding(s) are unresolved; resolve them or discard before materializing.",
+                        blocking.len()
+                    ),
+                    data: Some(json!({ "blocking": blocking })),
+                });
+            }
+        }
         return Ok(value(&AuthorMutationResult {
             findings: Vec::new(),
             rendered,
@@ -441,23 +454,102 @@ pub(super) fn materialize(
         }));
     }
 
-    // Scan for Ratify declarations in the base + staged docs (a lightweight
-    // annotation walk, no compilation) — the commit's known-decision list.
-    let mut documents: Vec<Document> = base_docs;
-    documents.push(Document {
-        scope: Some(ScopeHeader {
-            name: ident(&base_name),
-            span: Span::synthetic(),
-        }),
-        decls: staged_decls,
-    });
-    let pack = dli_world::pack::Pack {
-        name: base_name.clone(),
-        documents,
+    // Snapshot the exact target ref that will parent this materialize. Ordinary
+    // main workspaces intentionally carry no open-time ref fence, so they bind
+    // to the current main here; branch and pinned workspaces keep their stricter
+    // open-time fence. In both cases the snapshot's whole-ref digest fences the
+    // later CAS, making preparation and commit one coherent view.
+    let (
+        target_snapshot,
+        target_ref_digest,
+        target_names,
+        mut decisions,
+        target_parent_pack,
+        mut target_parent_world,
+        target_valuation,
+        target_unassigned,
+    ) = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let target = ls
+            .branch_ref(&target_ref)
+            .map_err(|error| store_fault(&error))?
+            .ok_or_else(|| schema_error(format!("branch `{target_ref}` has no ref")))?;
+        let digest = target
+            .digest()
+            .map_err(|error| schema_error(error.to_string()))?
+            .to_string();
+        if let Some(expected) = base_ref_digest.as_deref()
+            && expected != digest
+        {
+            return Err(ErrorBody {
+                code: ErrorCode::StaleFence,
+                message: format!(
+                    "ref snapshot conflict on `{target_ref}`: expected {expected}, found {digest}"
+                ),
+                data: None,
+            });
+        }
+        let names = ls
+            .interner_at(&target.commit)
+            .map_err(|error| store_fault(&error))?;
+        let decisions = ls
+            .decisions_at(&target.commit)
+            .map_err(|error| store_fault(&error))?;
+        let pack = ls
+            .reconstruct_at(&target.commit)
+            .map_err(|error| store_fault(&error))?;
+        let world = ls
+            .compile_at(&target.commit)
+            .map_err(|error| store_fault(&error))?;
+        let effective = ls
+            .effective_valuation_at(&target.commit, &target.valuation)
+            .map_err(|error| store_fault(&error))?;
+        let valuation =
+            dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, &names)
+                .map_err(|error| valuation_corrupt(&error))?;
+        let unassigned =
+            dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, &names)
+                .map_err(|error| valuation_corrupt(&error))?;
+        (
+            target, digest, names, decisions, pack, world, valuation, unassigned,
+        )
     };
-    let mut decisions: Vec<String> = dli_lorestore::lower::declared_decisions(&pack)
-        .into_iter()
-        .collect();
+    target_parent_world.killed = store
+        .workspace_base(&params.workspace)
+        .map(|base| base.killed.clone())
+        .unwrap_or_default();
+    for name in target_valuation.0.keys().chain(target_unassigned.0.iter()) {
+        target_parent_world.model.world.interner.intern(name);
+    }
+    dli_core::valuation::apply_named_overlay(
+        &target_valuation,
+        &target_unassigned,
+        &target_parent_world.model.world.interner,
+        &mut target_parent_world.model.world.valuation,
+    )
+    .map_err(|error| valuation_corrupt(&error))?;
+    let pack_name = target_parent_pack.name.clone();
+
+    // Append staged Ratify declarations to the target commit's decision prefix.
+    // Starting with the target list preserves the append-only chain invariant
+    // even when a sibling materialized after this ordinary workspace opened.
+    let staged_pack = dli_world::pack::Pack {
+        name: base_name.clone(),
+        documents: vec![Document {
+            scope: Some(ScopeHeader {
+                name: ident(&base_name),
+                span: Span::synthetic(),
+            }),
+            decls: staged_decls,
+        }],
+    };
+    for decision in dli_lorestore::lower::declared_decisions(&staged_pack) {
+        if !decisions.contains(&decision) {
+            decisions.push(decision);
+        }
+    }
     // Decision-stamped materialize (DL-0083): accept the whole committed set
     // under a named, recorded, defeasible decision — the honest replacement for
     // `fixture-authority ... true`. Record it as a known supporting decision of
@@ -467,22 +559,17 @@ pub(super) fn materialize(
     // cites it reads certain by the ordinary algebra. The fact objects are then
     // re-stamped `Ratified` under it below. `records_decisions` is guaranteed
     // true here — a pre-1.9.0 `decision` was refused at the top.
-    let commit_interner = if let Some(decision) = params.decision.as_deref() {
+    let mut merged_interner = dli_core::Interner::from_names(target_names.clone());
+    for name in &ws_interner {
+        merged_interner.intern(name);
+    }
+    if let Some(decision) = params.decision.as_deref() {
         if !decisions.iter().any(|known| known == decision) {
             decisions.push(decision.to_owned());
         }
-        let mut names = ws_interner.clone();
-        if !names.iter().any(|name| name == decision) {
-            names.push(decision.to_owned());
-        }
-        names
-    } else {
-        ws_interner
-    };
-
-    let ls = store
-        .workspace_lorestore_mut(&params.workspace)
-        .expect("checked above");
+        merged_interner.intern(decision);
+    }
+    let commit_interner = merged_interner.names().to_vec();
 
     // Accept the whole staged set under `d` (DL-0083): each committed **fact**
     // has its SUPPORT rested on `d`, so it reads certain-and-ratified through the
@@ -499,16 +586,20 @@ pub(super) fn materialize(
     //   * A proposed/uncited fact becomes `cited d ratified`: its support is
     //     replaced by `d` and the promoting decision recorded. This is the
     //     batch-accept point — the honest replacement for `fixture-authority true`.
-    let commit_fact_hashes = if let Some(decision) = params.decision.as_deref() {
-        // The decision's atom in the commit interner — the variable a fact's
-        // support must rest on to read certain. `decision` was appended to the
-        // commit interner just above, so the lookup cannot miss.
-        let decision_support = commit_interner
-            .iter()
-            .position(|name| name == decision)
-            .and_then(|index| u32::try_from(index).ok())
-            .map(|index| dli_core::PosBool::pos(dli_core::Atom(index)))
-            .expect("the decision is interned in the commit interner");
+    let commit_fact_hashes = if ws_interner == commit_interner && params.decision.is_none() {
+        staged_fact_hashes.clone()
+    } else {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("checked above");
+        let target_interner = dli_core::Interner::from_names(commit_interner.clone());
+        let decision_support = params.decision.as_deref().map(|decision| {
+            dli_core::PosBool::pos(
+                target_interner
+                    .lookup(decision)
+                    .expect("the decision is interned in the commit interner"),
+            )
+        });
         // Known decisions (base-declared plus `d`): a positive support literal
         // naming one is a deliberate citation the accept must preserve.
         let known: std::collections::BTreeSet<&str> =
@@ -523,90 +614,146 @@ pub(super) fn materialize(
                 })
             })
         };
-        let mut stamped = Vec::with_capacity(staged_fact_hashes.len());
+        let mut rewritten = Vec::with_capacity(staged_fact_hashes.len());
         for hash in &staged_fact_hashes {
             let mut object: dli_lorestore::FactObject = ls
                 .read_object(hash)
                 .map_err(|error| store_fault(&error))?
                 .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            remap_fact_object(&mut object, &ws_interner, &target_interner)?;
             // A carriage/declaration does not rest on a standing decision — commit
             // it unchanged, never stamped (its `standing_decision` stays absent).
-            if object.expert_body.is_some() {
-                stamped.push(hash.clone());
-                continue;
+            if object.expert_body.is_none()
+                && !cites_a_decision(&object.support)
+                && let (Some(decision), Some(support)) =
+                    (params.decision.as_deref(), decision_support.as_ref())
+            {
+                // A proposed/uncited fact is accepted under `d`: rest its support
+                // on `d` and record the promoting decision.
+                object.support.clone_from(support);
+                let provenance = object.provenance.get_or_insert_with(Default::default);
+                provenance.marker = Some(ProvenanceMarker::Ratified);
+                provenance.standing_decision = Some(decision.to_owned());
             }
-            // A fact that already cites a decision keeps its own citation, so a
-            // deliberate provenance is never clobbered by the batch accept.
-            if cites_a_decision(&object.support) {
-                stamped.push(hash.clone());
-                continue;
-            }
-            // A proposed/uncited fact is accepted under `d`: rest its support on
-            // `d` (provenance-equivalent to a directly authored `cited d
-            // ratified`) and record the promoting decision. It now reads certain
-            // through the algebra — the conferral the cosmetic marker never made.
-            object.support = decision_support.clone();
-            let provenance = object.provenance.get_or_insert_with(Default::default);
-            provenance.marker = Some(ProvenanceMarker::Ratified);
-            provenance.standing_decision = Some(decision.to_owned());
-            stamped.push(
+            rewritten.push(
                 ls.write_object(&object)
                     .map_err(|error| store_fault(&error))?,
             );
         }
-        stamped
-    } else {
-        staged_fact_hashes.clone()
+        rewritten
     };
 
-    // The workspace's `base_name` is the document id the session opened under,
-    // and a document id is a wire identifier decoupled from lore scope — a store
-    // committed as `tpth` may be served as document `beta`. Committing under the
-    // session's name would rename the chain and re-render every committed fact's
-    // provenance under a scope it was never written in, so an existing named
-    // store keeps its name and only a seeding commit takes the session's. Same
-    // rule the corpus arm follows (DL-0056).
-    let pack_name = ls
-        .head_pack_name()
+    // Prepare the exact post-commit world before the branch CAS. The candidate
+    // fold mirrors lorestore replacement-by-content-identity, then reconstructs
+    // from the very objects that will be committed (including decision-stamped
+    // support). Every fallible read/reconstruction/compile therefore completes
+    // while the durable ref is still unchanged.
+    let prepared = {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("lorestore presence checked above");
+        let parent = &target_snapshot.commit;
+        let mut candidate_hashes = ls
+            .fact_hashes_from(parent)
+            .map_err(|error| store_fault(&error))?;
+        let mut identities = BTreeMap::new();
+        for (index, hash) in candidate_hashes.iter().enumerate() {
+            let object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("base object {hash} is missing")))?;
+            identities.insert(
+                object
+                    .content_hash()
+                    .map_err(|error| schema_error(error.to_string()))?,
+                index,
+            );
+        }
+        for hash in &commit_fact_hashes {
+            let object: dli_lorestore::FactObject = ls
+                .read_object(hash)
+                .map_err(|error| store_fault(&error))?
+                .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            let identity = object
+                .content_hash()
+                .map_err(|error| schema_error(error.to_string()))?;
+            if let Some(index) = identities.get(&identity).copied() {
+                candidate_hashes[index] = hash.clone();
+            } else {
+                identities.insert(identity, candidate_hashes.len());
+                candidate_hashes.push(hash.clone());
+            }
+        }
+        let mut objects = Vec::with_capacity(candidate_hashes.len());
+        for hash in candidate_hashes {
+            objects.push(
+                ls.read_object::<dli_lorestore::FactObject>(&hash)
+                    .map_err(|error| store_fault(&error))?
+                    .ok_or_else(|| schema_error(format!("candidate object {hash} is missing")))?,
+            );
+        }
+        let known = decisions.iter().cloned().collect();
+        let candidate = dli_lorestore::lower::reconstruct_pack(
+            &objects,
+            &dli_core::Interner::from_names(commit_interner.clone()),
+            &known,
+            &pack_name,
+        )
         .map_err(|error| ErrorBody {
             code: ErrorCode::Internal,
-            message: format!("reading the store's pack name: {error}"),
+            message: format!("reconstructing the materialize candidate: {error}"),
             data: None,
-        })?
-        .unwrap_or(base_name);
-
-    let receipt = ls
-        .commit_on_branch_at_ref(
-            &target_ref,
-            base_ref_digest.as_deref(),
-            commit_interner,
-            commit_fact_hashes.clone(),
-            Vec::new(),
-            Vec::new(),
-            decisions,
-            pack_name,
-        )
-        .map_err(|error| {
-            // A structural refusal is a caller-facing verdict, not a server
-            // defect — the same discipline `corpus_commit_fault` applies on the
-            // corpus arm (DL-0056 rulings 3 and 5).
-            let code = match &error {
-                dli_lorestore::StoreError::InternerRegression { .. }
-                | dli_lorestore::StoreError::DecisionRegression { .. }
-                | dli_lorestore::StoreError::PackRename { .. } => ErrorCode::SchemaViolation,
-                dli_lorestore::StoreError::RefSnapshotConflict { .. } => ErrorCode::StaleFence,
-                _ => ErrorCode::Internal,
-            };
-            ErrorBody {
-                code,
-                message: format!("committing to lorestore: {error}"),
-                data: None,
-            }
         })?;
+        store
+            .prepare_workspace_base(
+                &params.workspace,
+                candidate,
+                target_valuation,
+                target_unassigned,
+            )
+            .map_err(|error| ErrorBody {
+                code: ErrorCode::Internal,
+                message: format!("compiling the materialize candidate: {error}"),
+                data: None,
+            })?
+    };
 
-    // The JSON-first return: the committed fact objects, read back from the
-    // store so the caller sees exactly the durable bytes.
+    // The opening report was checked against the workspace's old base. Re-run
+    // the complete blocking oracle over the exact target-parent fold that was
+    // just prepared; sibling state can turn two individually clean staged
+    // changes into one invalid candidate.
+    let blocking = dedup(
+        reads::materialize_candidate_findings(
+            store.get(&params.workspace).ok_or_else(gone)?,
+            &target_parent_world,
+            &target_parent_pack.documents,
+            &prepared.world,
+            false,
+        )
+        .into_iter()
+        .filter(|finding| finding.severity == Severity::Error)
+        .map(|finding| finding.code),
+    );
+    if !blocking.is_empty() {
+        return Err(ErrorBody {
+            code: ErrorCode::MaterializeBlocked,
+            message: format!(
+                "{} error-severity finding(s) are unresolved; resolve them or discard before materializing.",
+                blocking.len()
+            ),
+            data: Some(json!({ "blocking": blocking })),
+        });
+    }
+
+    // Prepare the JSON-first return from the object-addressed bytes before the
+    // branch CAS. These objects were already written during staging (or while
+    // stamping above), so reading them after the ref moved would create an
+    // avoidable error window in which the durable commit succeeded but the
+    // prepared in-memory base was not installed.
     let facts = if v2 {
+        let ls = store
+            .workspace_lorestore(&params.workspace)
+            .expect("checked above");
         let mut list = Vec::with_capacity(commit_fact_hashes.len());
         for hash in &commit_fact_hashes {
             let fo: dli_lorestore::FactObject = ls
@@ -627,18 +774,61 @@ pub(super) fn materialize(
     } else {
         None
     };
+    let materialized_keys: BTreeSet<String> = store
+        .get(&params.workspace)
+        .ok_or_else(gone)?
+        .staged_fact_hashes
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect();
 
+    #[cfg(test)]
+    store.run_materialize_pre_cas_hook(&params.workspace);
+
+    let receipt = store
+        .workspace_lorestore(&params.workspace)
+        .expect("checked above")
+        .commit_on_branch_at_ref(
+            &target_ref,
+            Some(&target_ref_digest),
+            commit_interner.clone(),
+            commit_fact_hashes.clone(),
+            Vec::new(),
+            Vec::new(),
+            decisions,
+            pack_name,
+        )
+        .map_err(|error| {
+            // A structural refusal is a caller-facing verdict, not a server
+            // defect — the same discipline `corpus_commit_fault` applies on the
+            // corpus arm (DL-0056 rulings 3 and 5).
+            let code = match &error {
+                dli_lorestore::StoreError::InternerRegression { .. }
+                | dli_lorestore::StoreError::DecisionRegression { .. }
+                | dli_lorestore::StoreError::PackRename { .. } => ErrorCode::SchemaViolation,
+                dli_lorestore::StoreError::RefSnapshotConflict { .. }
+                | dli_lorestore::StoreError::CasConflict { .. } => ErrorCode::StaleFence,
+                _ => ErrorCode::Internal,
+            };
+            ErrorBody {
+                code,
+                message: format!("committing to lorestore: {error}"),
+                data: None,
+            }
+        })?;
+
+    // Advance the workspace immediately after the successful CAS: everything
+    // between preparation and this point is either the CAS itself or infallible
+    // owned-state installation. A retry then commits nothing.
     let commit_hash = receipt.commit;
-    // Advance the workspace: the staged facts are durable, the pin moves to
-    // the new commit, and a retry commits nothing. Branch-mode workspaces also
-    // advance their whole-ref fence to the ref this commit just wrote, so their
-    // next materialize is fenced against external work rather than themselves.
-    let (_, ws) = parts_mut(store, &params.workspace)?;
-    ws.staged_fact_hashes.clear();
-    ws.base_root_hash = Some(commit_hash.to_string());
-    if ws.base_ref_digest.is_some() {
-        ws.base_ref_digest = Some(receipt.ref_digest.to_string());
-    }
+    store.install_materialized_workspace_base(
+        &params.workspace,
+        prepared,
+        commit_interner,
+        &commit_hash,
+        &receipt.ref_digest,
+        &materialized_keys,
+    );
 
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
@@ -1739,15 +1929,17 @@ fn name_findings(name: &NameDecl, ws: &Workspace) -> Vec<Finding> {
     out
 }
 
-/// Every finding open over the whole workspace — the materialize gate reads its
-/// error-severity subset. Each declaration is re-checked against the *full*
-/// staged state, so a later-added target clears an earlier reference's block.
+/// Every finding open over the pending workspace delta — the materialize gate
+/// reads its error-severity subset. Each pending declaration is re-checked
+/// against the full base-plus-workspace resolution state, so a later-added
+/// target clears an earlier reference's block while accepted history is not
+/// revalidated as if it were newly staged.
 ///
 /// The read tools (`author.findings`, `author.check`) reuse this so the standing
 /// aggregate is exactly what materialize refuses on.
 pub(super) fn workspace_findings(ws: &Workspace, base: &CompiledWorld) -> Vec<Finding> {
     let mut out = Vec::new();
-    for decl in &ws.decls {
+    for decl in ws.pending_decl_refs() {
         out.extend(decl_findings(decl, ws, base));
     }
     let hyps = hypothesis_count(ws);
@@ -2521,9 +2713,9 @@ fn rule_datalog(rule: &RuleDecl) -> Option<&Datalog> {
 /// This runs at two different times against the same workspace: at add time,
 /// on a freshly built candidate not yet in `ws.decls`, where any staged rule
 /// sharing the name is a genuine duplicate; and again at every later
-/// `author.check`, over each already-staged declaration in turn
-/// ([`workspace_findings`]'s `for decl in &ws.decls` re-validation), where
-/// `current` IS one of the elements being scanned. Comparing by pointer
+/// `author.check`, over each pending declaration in turn
+/// ([`workspace_findings`]'s pending-ref re-validation), where `current` IS one
+/// of the elements being scanned. Comparing by pointer
 /// excludes exactly that self-match — the one case a plain name scan cannot
 /// tell apart from a real duplicate — so a rule never reports itself as
 /// duplicating itself on every subsequent check.
@@ -2559,7 +2751,7 @@ fn rule_stratifies(store: &Store, ws_id: &str, candidate: &Decl) -> Result<(), E
         .workspace_base_docs(ws_id)
         .unwrap_or_default()
         .to_vec();
-    let mut decls = ws.decls.clone();
+    let mut decls = ws.pending_decls();
     decls.push(candidate.clone());
     documents.push(Document {
         scope: Some(ScopeHeader {
@@ -3682,23 +3874,18 @@ fn durable_standing_change(
         ws.base_valuation = named_valuation;
         ws.base_unassigned = named_unassigned;
     }
-    if conditional {
-        store
-            .reload_workspace_base(workspace)
-            .map_err(|message| ErrorBody {
-                code: ErrorCode::Internal,
-                message: format!("refreshing the workspace after conditional defeat: {message}"),
-                data: None,
-            })?;
-    } else {
-        store
-            .refresh_workspace_valuation(workspace)
-            .map_err(|message| ErrorBody {
-                code: ErrorCode::Internal,
-                message: format!("refreshing the workspace after changing standing: {message}"),
-                data: None,
-            })?;
-    }
+    // Both legacy false bits and 1.13 grounded attacks change only the named
+    // standing overlay. Conditional attacks may carry a new Ratify object to
+    // establish their endpoint, but that attack-only name is interned and
+    // registered dynamically; rebuilding the symbolic documents would violate
+    // saturate-once/valuate-many for every defeat and nested restoration.
+    store
+        .refresh_workspace_valuation(workspace)
+        .map_err(|message| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("refreshing the workspace after changing standing: {message}"),
+            data: None,
+        })?;
     let workspace_digest = store.get(workspace).ok_or_else(gone)?.digest.clone();
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
@@ -3798,6 +3985,59 @@ fn valuation_corrupt(error: &dli_core::valuation::ValuationRemapError) -> ErrorB
         message: error.to_string(),
         data: None,
     }
+}
+
+/// Rewrite every interner-local polynomial in a staged fact object by exact
+/// name. Staged objects were lowered against the workspace interner; a sibling
+/// may have appended a different name at the same numeric position before an
+/// ordinary-main materialize snapshots its current parent.
+fn remap_fact_object(
+    object: &mut dli_lorestore::FactObject,
+    source_names: &[String],
+    target: &dli_core::Interner,
+) -> Result<(), ErrorBody> {
+    object.support = remap_posbool(&object.support, source_names, target)?;
+    object.defeaters = remap_posbool(&object.defeaters, source_names, target)?;
+    for condition in &mut object.conditions {
+        condition.path = remap_posbool(&condition.path, source_names, target)?;
+        condition.poison = remap_posbool(&condition.poison, source_names, target)?;
+    }
+    Ok(())
+}
+
+fn remap_posbool(
+    formula: &dli_core::PosBool,
+    source_names: &[String],
+    target: &dli_core::Interner,
+) -> Result<dli_core::PosBool, ErrorBody> {
+    let mut monomials = BTreeSet::new();
+    for monomial in formula.monomials() {
+        let mut literals = Vec::new();
+        for literal in monomial.lits() {
+            let name = source_names
+                .get(literal.atom.0 as usize)
+                .ok_or_else(|| ErrorBody {
+                    code: ErrorCode::EvidenceCorrupt,
+                    message: format!(
+                        "staged support atom {} is outside its source interner of length {}",
+                        literal.atom.0,
+                        source_names.len()
+                    ),
+                    data: None,
+                })?;
+            let atom = target.lookup(name).ok_or_else(|| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message: format!("staged support name `{name}` is absent from the commit interner"),
+                data: None,
+            })?;
+            literals.push(dli_core::Lit {
+                atom,
+                rail: literal.rail,
+            });
+        }
+        monomials.insert(dli_core::posbool::Monomial::from_lits(literals));
+    }
+    Ok(dli_core::PosBool(monomials).absorb())
 }
 
 /// Serialize a typed result to a wire value.

@@ -78,6 +78,7 @@ pub(super) fn query(
     v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    ws.note_query();
     // The 0.6.3 typed successor wins when the caller sent it; the rendered string
     // is parsed only when it did not (`goal` is a registered field-level killed
     // form whose retirement lands at contract 1.0 — dormant here).
@@ -335,7 +336,7 @@ pub(super) fn check(
 
 /// The full staged-world report shared by status, diff, and check.
 pub(super) struct WorkspaceReport {
-    /// Every deduplicated finding over base plus staged declarations.
+    /// Every deduplicated finding over the base plus pending declarations.
     pub findings: Vec<Finding>,
     /// The base-to-staged derived-consequence diff.
     pub consequences: DiffDelta,
@@ -375,7 +376,7 @@ pub(super) fn workspace_report(
                     .iter()
                     .map(|finding| world_finding(finding, carries_data)),
             );
-            for report in factcheck(&world, &staged_claims(&ws.decls)) {
+            for report in factcheck(&world, &staged_claims(&ws.pending_decls())) {
                 if report.verdict == Verdict::Contradicted {
                     findings.push(contradiction_finding(&report));
                 }
@@ -407,6 +408,44 @@ pub(super) fn workspace_report(
     }
 }
 
+/// Re-run the complete materialize blocking oracle against the exact durable
+/// target-parent plus staged candidate. An ordinary main workspace may have
+/// opened before a sibling commit, so its earlier staged-world report is not a
+/// verdict about the fold the CAS will actually create.
+pub(super) fn materialize_candidate_findings(
+    ws: &Workspace,
+    target_parent: &CompiledWorld,
+    target_documents: &[Document],
+    candidate: &CompiledWorld,
+    carries_data: bool,
+) -> Vec<Finding> {
+    // Rebuild the declaration-resolution census against the candidate rather
+    // than consulting the caller workspace's stale base index. Workspace has
+    // intentionally non-cloneable caches/counters, so replay only declarations
+    // not already represented by the installed base into the throwaway view.
+    let mut exact = Workspace::new(ws.id.clone(), ws.mode, ws.base_name.clone());
+    for declaration in ws.pending_decl_refs() {
+        exact.push_decl(declaration.clone());
+    }
+    exact.suppositions.clone_from(&ws.suppositions);
+    exact.base_valuation.clone_from(&ws.base_valuation);
+    exact.base_unassigned.clone_from(&ws.base_unassigned);
+    exact.refresh_resolution(target_parent, target_documents);
+
+    let mut findings = workspace_findings(&exact, target_parent);
+    findings.extend(
+        check::run(candidate)
+            .iter()
+            .map(|finding| world_finding(finding, carries_data)),
+    );
+    for report in factcheck(candidate, &staged_claims(&exact.decls)) {
+        if report.verdict == Verdict::Contradicted {
+            findings.push(contradiction_finding(&report));
+        }
+    }
+    dedup_findings(findings)
+}
+
 // -- author.why --------------------------------------------------------------
 
 /// Explain a staged atom's standing: the blocking rulings and defeater (why
@@ -420,6 +459,7 @@ pub(super) fn why(
     explains_active_support: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
+    ws.note_why();
     // The typed successor wins when the caller sent it; the rendered string is
     // parsed only when it did not (parsing needs the `.dli` front end, so the
     // typed form is what makes `supporting_decisions` reachable syntax-free).
@@ -474,8 +514,13 @@ pub(super) fn why(
                     || (Vec::new(), Vec::new(), 0, 0),
                     |derived| {
                         let symbolic_path_count = derived.support.monomials().count();
-                        let (active, blocked, attack_blocked_path_count) =
+                        let (active, blocked, attack_blocked_path_count, work) =
                             explain_support_paths(inner, derived, &known, &attacks);
+                        ws.note_attack_explanation(
+                            work.endpoint_resolutions,
+                            work.incidence_visits,
+                            work.valuation_copies,
+                        );
                         (
                             active,
                             blocked,
@@ -525,11 +570,46 @@ fn explain_support_paths(
     derived: &dli_eval::world::Derived,
     known: &BTreeSet<String>,
     attacks: &[dli_lorestore::DecisionAttack],
-) -> (Vec<Vec<String>>, Vec<BlockedSupport>, usize) {
+) -> (
+    Vec<Vec<String>>,
+    Vec<BlockedSupport>,
+    usize,
+    AttackExplanationWork,
+) {
     let ann = derived.ann();
     let mut active = Vec::new();
     let mut blocked = Vec::new();
     let mut attack_blocked_path_count = 0;
+    let mut by_target = BTreeMap::<dli_core::Atom, Vec<BlockingDefeat>>::new();
+    let mut restored = world.valuation.clone();
+    let mut work = AttackExplanationWork {
+        endpoint_resolutions: u64::try_from(attacks.len()).unwrap_or(u64::MAX) * 2,
+        valuation_copies: 1,
+        ..AttackExplanationWork::default()
+    };
+
+    // Resolve each stored edge exactly once per endpoint, then index only the
+    // currently active attacks by target atom. Support paths visit their own
+    // incident blockers; they never rescan the complete attack set.
+    for attack in attacks {
+        let attacker = world.interner.lookup(&attack.attacker);
+        let target = world.interner.lookup(&attack.target);
+        let (Some(attacker), Some(target)) = (attacker, target) else {
+            continue;
+        };
+        if world.valuation.get(attacker) == Some(true) && world.valuation.get(target) == Some(false)
+        {
+            restored.set(target, true);
+            by_target.entry(target).or_default().push(BlockingDefeat {
+                defeated_decision: attack.target.clone(),
+                defeating_decision: attack.attacker.clone(),
+            });
+        }
+    }
+    for blockers in by_target.values_mut() {
+        blockers.sort();
+        blockers.dedup();
+    }
 
     for monomial in derived.support.monomials() {
         let path = named_decision_path(monomial, &world.interner, known);
@@ -539,26 +619,15 @@ fn explain_support_paths(
         }
 
         let mut path_blockers = Vec::new();
-        let mut restored = world.valuation.clone();
-        for attack in attacks {
-            let attacker = atom_named(&world.interner, &attack.attacker);
-            let target = atom_named(&world.interner, &attack.target);
-            let (Some(attacker), Some(target)) = (attacker, target) else {
-                continue;
-            };
-            if world.valuation.get(attacker) != Some(true)
-                || world.valuation.get(target) != Some(false)
-                || !monomial
-                    .lits()
-                    .any(|literal| literal.atom == target && literal.rail == Rail::Pos)
+        for literal in monomial.lits() {
+            if literal.rail == Rail::Pos
+                && let Some(incident) = by_target.get(&literal.atom)
             {
-                continue;
+                work.incidence_visits = work
+                    .incidence_visits
+                    .saturating_add(u64::try_from(incident.len()).unwrap_or(u64::MAX));
+                path_blockers.extend(incident.iter().cloned());
             }
-            restored.set(target, true);
-            path_blockers.push(BlockingDefeat {
-                defeated_decision: attack.target.clone(),
-                defeating_decision: attack.attacker.clone(),
-            });
         }
         path_blockers.sort();
         path_blockers.dedup();
@@ -577,7 +646,14 @@ fn explain_support_paths(
     active.dedup();
     blocked.sort();
     blocked.dedup();
-    (active, blocked, attack_blocked_path_count)
+    (active, blocked, attack_blocked_path_count, work)
+}
+
+#[derive(Debug, Default)]
+struct AttackExplanationWork {
+    endpoint_resolutions: u64,
+    incidence_visits: u64,
+    valuation_copies: u64,
 }
 
 fn named_decision_path(
@@ -594,15 +670,6 @@ fn named_decision_path(
     names.sort();
     names.dedup();
     names
-}
-
-fn atom_named(interner: &dli_core::atom::Interner, name: &str) -> Option<dli_core::Atom> {
-    interner
-        .names()
-        .iter()
-        .position(|candidate| candidate == name)
-        .and_then(|index| u32::try_from(index).ok())
-        .map(dli_core::Atom)
 }
 
 // -- author.findings ---------------------------------------------------------
@@ -670,64 +737,59 @@ enum StagedWorldError {
 }
 
 fn staged_world(store: &Store, ws: &Workspace) -> Result<CompiledWorld, StagedWorldError> {
-    let mut documents = store
-        .workspace_base_docs(&ws.id)
-        .unwrap_or_default()
-        .to_vec();
-    documents.push(Document {
-        scope: Some(ScopeHeader {
-            name: Ident::synthetic(&ws.base_name),
-            span: Span::synthetic(),
-        }),
-        decls: ws.decls.clone(),
-    });
-    let mut world = compile(&Pack {
-        name: ws.base_name.clone(),
-        documents,
-    })?;
+    let mut world = if let Some(cached) = ws.cached_structural_world() {
+        (*cached).clone()
+    } else {
+        ws.note_reconstruction();
+        let mut documents = store
+            .workspace_base_docs(&ws.id)
+            .unwrap_or_default()
+            .to_vec();
+        documents.push(Document {
+            scope: Some(ScopeHeader {
+                name: Ident::synthetic(&ws.base_name),
+                span: Span::synthetic(),
+            }),
+            decls: ws.pending_decls(),
+        });
+        let killed = store
+            .workspace_base(&ws.id)
+            .map(|base| base.killed.clone())
+            .unwrap_or_default();
+        ws.note_loader_and_seal();
+        let structural = compile(&Pack {
+            name: ws.base_name.clone(),
+            documents,
+        })?
+        .with_killed_tokens(killed);
+        ws.cache_structural_world(structural.clone());
+        structural
+    };
     // The workspace is anchored to the store ref selected during project load.
     // Apply that complete overlay before its local suppositions; explicit falses
     // are as meaningful as trues and must not be reconstructed as absence.
     // Recorded attack-only decisions need not occur in any compiled support.
     // Append their stable names without disturbing existing positions, then
     // apply both assignments and explicit open states through exact names.
-    let effective_names = ws
-        .base_valuation
-        .0
-        .keys()
-        .chain(ws.base_unassigned.0.iter())
-        .cloned()
-        .collect::<std::collections::BTreeSet<_>>();
-    for name in effective_names {
-        world.model.world.interner.intern(&name);
+    for name in ws.base_valuation.0.keys() {
+        world.model.world.interner.intern(name);
     }
-    let target_interner = world.model.interner().clone();
-    ws.base_valuation
-        .apply_to(&target_interner, &mut world.model.world.valuation)?;
-    ws.base_unassigned
-        .remove_from(&target_interner, &mut world.model.world.valuation)?;
+    for name in &ws.base_unassigned.0 {
+        world.model.world.interner.intern(name);
+    }
+    dli_core::valuation::apply_named_overlay(
+        &ws.base_valuation,
+        &ws.base_unassigned,
+        &world.model.world.interner,
+        &mut world.model.world.valuation,
+    )?;
     for hypothesis in &ws.suppositions {
-        if let Some(index) = world
-            .model
-            .world
-            .interner
-            .names()
-            .iter()
-            .position(|name| name == hypothesis)
-            .and_then(|index| u32::try_from(index).ok())
-        {
-            world
-                .model
-                .world
-                .valuation
-                .set(dli_core::atom::Atom(index), true);
+        if let Some(atom) = world.model.world.interner.lookup(hypothesis) {
+            world.model.world.valuation.set(atom, true);
         }
     }
-    let killed = store
-        .workspace_base(&ws.id)
-        .map(|base| base.killed.clone())
-        .unwrap_or_default();
-    Ok(world.with_killed_tokens(killed))
+    ws.note_valuation(1, u64::try_from(ws.suppositions.len()).unwrap_or(u64::MAX));
+    Ok(world)
 }
 
 fn classify_standings(
@@ -1117,7 +1179,7 @@ mod explanation_tests {
             .find(|derived| derived.atom == atom)
             .expect("unconditional fact is derived");
 
-        let (active, blocked, attack_blocked_path_count) = explain_support_paths(
+        let (active, blocked, attack_blocked_path_count, _) = explain_support_paths(
             &world,
             derived,
             &BTreeSet::new(),
@@ -1126,5 +1188,514 @@ mod explanation_tests {
         assert_eq!(active, vec![Vec::<String>::new()]);
         assert!(blocked.is_empty());
         assert_eq!(attack_blocked_path_count, 0);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod cache_tests {
+    use std::sync::{Arc, Barrier};
+
+    use dli_ast::decl::{Decl, EntityDecl, EntityKind, HypothesisDecl};
+
+    use super::*;
+    use crate::author::workspace::CompileCacheStats;
+
+    fn store() -> Store {
+        Store::with_pack(Pack {
+            name: "cache-test".to_owned(),
+            documents: Vec::new(),
+        })
+        .expect("empty cache test pack compiles")
+    }
+
+    fn hypothesis(name: &str) -> Decl {
+        Decl::Hypothesis(HypothesisDecl {
+            name: Ident::synthetic(name),
+            statement: Some("cache overlay probe".to_owned()),
+        })
+    }
+
+    fn person(name: &str) -> Decl {
+        Decl::Entity(EntityDecl {
+            kind: EntityKind::Person,
+            name: Ident::synthetic(name),
+            label: Some(name.to_owned()),
+            time: None,
+            slots: Vec::new(),
+            provenance: None,
+        })
+    }
+
+    fn missing_goal() -> AtomExpr {
+        AtomExpr {
+            pred: Ident::synthetic("missing"),
+            args: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn interleaved_query_and_why_share_one_structural_compile() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        let query_params = AuthorQueryParams {
+            workspace: "ws-1".to_owned(),
+            goal: String::new(),
+            goal_atom: Some(missing_goal()),
+            layer: None,
+            why: false,
+        };
+        let why_params = AuthorWhyParams {
+            workspace: "ws-1".to_owned(),
+            atom: String::new(),
+            goal_atom: Some(missing_goal()),
+        };
+
+        query(&store, &query_params, true).expect("first query");
+        why(&store, &why_params, true, true).expect("why hit");
+        query(&store, &query_params, true).expect("second query hit");
+        why(&store, &why_params, true, true).expect("second why hit");
+
+        assert_eq!(
+            store.get("ws-1").expect("workspace").compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 1,
+                hits: 3,
+                misses: 1,
+                evictions: 0,
+            }
+        );
+        assert_eq!(
+            store.get("ws-1").expect("workspace").read_work_stats(),
+            crate::author::workspace::ReadWorkStats {
+                reconstructions: 1,
+                loader_runs: 1,
+                fixpoint_seals: 1,
+                valuations: 4,
+                queries: 2,
+                whys: 2,
+                full_name_scans: 0,
+                remap_builds: 0,
+                valuation_copies: 4,
+                ..crate::author::workspace::ReadWorkStats::default()
+            }
+        );
+    }
+
+    #[test]
+    fn suppositions_are_request_local_and_structural_edits_invalidate_once() {
+        let mut store = store();
+        store
+            .open(Mode::Fork, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(hypothesis("h-cache"));
+
+        let first = staged_world(&store, store.get("ws-1").expect("workspace")).expect("compile");
+        let atom = first
+            .model
+            .world
+            .interner
+            .names()
+            .iter()
+            .position(|name| name == "h-cache")
+            .and_then(|index| u32::try_from(index).ok())
+            .map(dli_core::atom::Atom)
+            .expect("hypothesis is interned");
+        assert_eq!(first.model.world.valuation.get(atom), None);
+
+        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+        ws.suppositions.push("h-cache".to_owned());
+        ws.reseal();
+        let supposed = staged_world(&store, store.get("ws-1").expect("workspace")).expect("hit");
+        assert_eq!(supposed.model.world.valuation.get(atom), Some(true));
+
+        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+        ws.suppositions.clear();
+        ws.reseal();
+        let restored = staged_world(&store, store.get("ws-1").expect("workspace")).expect("hit");
+        assert_eq!(restored.model.world.valuation.get(atom), None);
+
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(person("mara"));
+        staged_world(&store, store.get("ws-1").expect("workspace")).expect("recompile");
+        staged_world(&store, store.get("ws-1").expect("workspace")).expect("second hit");
+        assert_eq!(
+            store.get("ws-1").expect("workspace").compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 2,
+                hits: 3,
+                misses: 2,
+                evictions: 1,
+            }
+        );
+        let work = store.get("ws-1").expect("workspace").read_work_stats();
+        assert_eq!(work.reconstructions, 2);
+        assert_eq!(work.loader_runs, 2);
+        assert_eq!(work.fixpoint_seals, 2);
+        assert_eq!(work.valuations, 5);
+        assert_eq!(work.full_name_scans, 0);
+        assert_eq!(work.remap_builds, 0);
+        assert_eq!(work.supposition_probes, 1);
+        assert_eq!(work.valuation_copies, 5);
+    }
+
+    #[test]
+    fn disabled_cache_is_byte_equivalent_and_corrupt_hit_is_observable() {
+        for mode in [Mode::Scope, Mode::Fork] {
+            let mut store = store();
+            store
+                .open(mode, "cache-test".to_owned(), None)
+                .expect("workspace opens");
+            store
+                .parts_mut("ws-1")
+                .expect("workspace exists")
+                .1
+                .push_decl(person("mara"));
+            let ws = store.get("ws-1").expect("workspace");
+            let enabled = staged_world(&store, ws).expect("enabled compile");
+            let query_params = AuthorQueryParams {
+                workspace: "ws-1".to_owned(),
+                goal: String::new(),
+                goal_atom: Some(missing_goal()),
+                layer: None,
+                why: true,
+            };
+            let why_params = AuthorWhyParams {
+                workspace: "ws-1".to_owned(),
+                atom: String::new(),
+                goal_atom: Some(missing_goal()),
+            };
+            let enabled_query = query(&store, &query_params, true).expect("enabled query");
+            let enabled_why = why(&store, &why_params, true, true).expect("enabled why");
+
+            ws.set_compile_cache_enabled(false);
+            let disabled = staged_world(&store, ws).expect("disabled compile");
+            assert_eq!(enabled, disabled, "{mode:?}");
+            assert_eq!(
+                enabled_query,
+                query(&store, &query_params, true).expect("disabled query"),
+                "{mode:?} query"
+            );
+            assert_eq!(
+                enabled_why,
+                why(&store, &why_params, true, true).expect("disabled why"),
+                "{mode:?} why"
+            );
+
+            ws.set_compile_cache_enabled(true);
+            ws.corrupt_compile_cache();
+            let corrupted = staged_world(&store, ws).expect("forced hit");
+            assert_ne!(
+                enabled, corrupted,
+                "the mutation tooth proves a hit supplies the cached structural world"
+            );
+            assert!(ws.compile_cache_stats().hits >= 1);
+        }
+    }
+
+    #[test]
+    fn concurrent_identical_reads_are_safe_and_bounded() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        store
+            .parts_mut("ws-1")
+            .expect("workspace exists")
+            .1
+            .push_decl(person("mara"));
+        let store = Arc::new(store);
+        let barrier = Arc::new(Barrier::new(8));
+        let mut threads = Vec::new();
+        for _ in 0..8 {
+            let store = Arc::clone(&store);
+            let barrier = Arc::clone(&barrier);
+            threads.push(std::thread::spawn(move || {
+                barrier.wait();
+                staged_world(&store, store.get("ws-1").expect("workspace")).expect("racing compile")
+            }));
+        }
+        let worlds: Vec<_> = threads
+            .into_iter()
+            .map(|thread| thread.join().expect("read thread did not panic"))
+            .collect();
+        for world in &worlds[1..] {
+            assert_eq!(world, &worlds[0]);
+        }
+        let stats = store.get("ws-1").expect("workspace").compile_cache_stats();
+        assert!((1..=8).contains(&stats.compiles));
+        assert_eq!(stats.misses + stats.hits, 8);
+        assert_eq!(stats.evictions, 0, "one cache entry is retained");
+    }
+
+    #[test]
+    fn add_replace_remove_and_base_refresh_have_exact_invalidation_counts() {
+        let mut store = store();
+        store
+            .open(Mode::Scope, "cache-test".to_owned(), None)
+            .expect("workspace opens");
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+
+        store.parts_mut("ws-1").unwrap().1.push_decl(person("mara"));
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .replace_decl(0, person("kes"));
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        store.parts_mut("ws-1").unwrap().1.remove_decl(0);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+
+        let base = store.workspace_base("ws-1").unwrap().clone();
+        let documents = store.workspace_base_docs("ws-1").unwrap().to_vec();
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .refresh_resolution(&base, &documents);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        let after_dynamic = store.get("ws-1").unwrap().compile_cache_stats();
+        assert_eq!(after_dynamic.compiles, 4);
+        assert_eq!(after_dynamic.hits, 1);
+        assert_eq!(after_dynamic.evictions, 3);
+
+        store
+            .parts_mut("ws-1")
+            .unwrap()
+            .1
+            .refresh_structure(&base, &documents);
+        staged_world(&store, store.get("ws-1").unwrap()).unwrap();
+        assert_eq!(
+            store.get("ws-1").unwrap().compile_cache_stats(),
+            CompileCacheStats {
+                compiles: 5,
+                hits: 1,
+                misses: 5,
+                evictions: 4,
+            }
+        );
+    }
+
+    #[test]
+    #[ignore = "non-gating release profile; run with --release --ignored --nocapture"]
+    #[allow(clippy::print_stderr, clippy::similar_names, clippy::too_many_lines)]
+    fn release_profile_reports_size_query_and_snapshot_counter_matrix() {
+        use std::fmt::Write as _;
+        use std::time::Instant;
+
+        for claim_count in [0usize, 100, 1_000, 10_000] {
+            let root = tempfile::tempdir().expect("profile tempdir");
+            let mut source = concat!(
+                "scope cache-profile\n",
+                "ratify d1\n",
+                "ratify d10\n",
+                "ratify d11\n",
+                "person mara \"Mara\" ratified d11\n",
+                "p(mara) ratified d1\n",
+                "rule p-to-q ratified d10\n",
+                "  q(mara) :- p(mara)\n",
+            )
+            .to_owned();
+            for index in 0..claim_count {
+                writeln!(&mut source, "noise-{index}(mara) ratified d11")
+                    .expect("writing a String is infallible");
+            }
+            let (document, diagnostics) = dli_syntax::parse_document(&source);
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| !diagnostic.class.is_error()),
+                "profile fixture parses: {diagnostics:?}"
+            );
+            let mut store = Store::with_pack(Pack {
+                name: "cache-profile".to_owned(),
+                documents: vec![document],
+            })
+            .expect("profile fixture compiles");
+            store
+                .attach_lorestore(root.path().join("lorestore"))
+                .expect("profile lorestore attaches");
+            store
+                .open(Mode::Scope, "cache-profile".to_owned(), None)
+                .expect("workspace opens");
+
+            let carrier = |store: &Store, ratify: bool, name: &str| {
+                let lorestore = store
+                    .workspace_lorestore("ws-1")
+                    .expect("profile lorestore");
+                let head = lorestore.root_hash().unwrap().unwrap();
+                lorestore
+                    .fact_hashes_from(&head)
+                    .unwrap()
+                    .into_iter()
+                    .find_map(|hash| {
+                        let object = lorestore
+                            .read_object::<dli_lorestore::FactObject>(&hash)
+                            .unwrap()?;
+                        if ratify {
+                            object
+                                .expert_body
+                                .as_ref()
+                                .is_some_and(|body| {
+                                    body.kind == dli_lorestore::ExpertDeclKind::Ratify
+                                        && body.name == name
+                                })
+                                .then_some(object.claim_id.0)
+                        } else {
+                            (object.atom.pred == name).then_some(object.claim_id.0)
+                        }
+                    })
+                    .expect("decision has a real carrier")
+            };
+            let snapshot = |store: &Store| {
+                let workspace = store.get("ws-1").unwrap();
+                (
+                    workspace.base_root_hash.clone().unwrap(),
+                    workspace.base_valuation.clone(),
+                    workspace.base_unassigned.clone(),
+                )
+            };
+            let live = snapshot(&store);
+            let d1_claim = carrier(&store, false, "p");
+            let defeat =
+                |store: &mut Store, id: &str, claim_id: &str, attacker: &str, target: &str| {
+                    let response = crate::author::dispatch(
+                        &crate::Request {
+                            dli: "1.13.0".to_owned(),
+                            id: id.to_owned(),
+                            op: crate::Op::AuthorDefeat,
+                            params: serde_json::json!({
+                                "workspace": "ws-1",
+                                "claim_id": claim_id,
+                                "decision": attacker,
+                                "defeated_decision": target,
+                            }),
+                            expected_digest: None,
+                            idempotency_key: None,
+                        },
+                        store,
+                    );
+                    assert!(response.ok, "profile defeat succeeds: {response:?}");
+                };
+            defeat(&mut store, "direct", &d1_claim, "d2", "d1");
+            let direct = snapshot(&store);
+            let d2_claim = carrier(&store, true, "d2");
+            defeat(&mut store, "nested", &d2_claim, "d3", "d2");
+            let nested = snapshot(&store);
+            let snapshots = [live, direct, nested];
+
+            for logical_queries in [1usize, 3, 15] {
+                for snapshot_count in [2usize, 3] {
+                    let base = store.workspace_base("ws-1").unwrap().clone();
+                    let base_documents = store.workspace_base_docs("ws-1").unwrap().to_vec();
+                    store
+                        .parts_mut("ws-1")
+                        .unwrap()
+                        .1
+                        .refresh_structure(&base, &base_documents);
+                    let before_cache = store.get("ws-1").unwrap().compile_cache_stats();
+                    let before_work = store.get("ws-1").unwrap().read_work_stats();
+
+                    let reconstruction_started = Instant::now();
+                    let pack = Pack {
+                        name: "cache-profile".to_owned(),
+                        documents: base_documents.clone(),
+                    };
+                    let reconstruction = reconstruction_started.elapsed();
+                    let loader_started = Instant::now();
+                    let loaded = dli_world::loader::Loader::load(&pack.documents).world;
+                    let loader = loader_started.elapsed();
+                    let seal_started = Instant::now();
+                    dli_world::seal_loaded(loaded, &pack).expect("profile seal succeeds");
+                    let fixpoint_seal = seal_started.elapsed();
+
+                    let query_params = AuthorQueryParams {
+                        workspace: "ws-1".to_owned(),
+                        goal: String::new(),
+                        goal_atom: Some(AtomExpr {
+                            pred: Ident::synthetic("q"),
+                            args: vec![Term::Sym(Ident::synthetic("mara"))],
+                        }),
+                        layer: None,
+                        why: false,
+                    };
+                    let why_params = AuthorWhyParams {
+                        workspace: "ws-1".to_owned(),
+                        atom: String::new(),
+                        goal_atom: query_params.goal_atom.clone(),
+                    };
+                    let mut query_time = std::time::Duration::ZERO;
+                    let mut why_time = std::time::Duration::ZERO;
+                    for (root_hash, valuation, unassigned) in snapshots.iter().take(snapshot_count)
+                    {
+                        let ws = store.parts_mut("ws-1").expect("workspace exists").1;
+                        ws.base_root_hash = Some(root_hash.clone());
+                        ws.base_valuation = valuation.clone();
+                        ws.base_unassigned = unassigned.clone();
+                        for _ in 0..logical_queries {
+                            let started = Instant::now();
+                            query(&store, &query_params, true).expect("profile query");
+                            query_time += started.elapsed();
+                            let started = Instant::now();
+                            why(&store, &why_params, true, true).expect("profile why");
+                            why_time += started.elapsed();
+                        }
+                    }
+                    let valuation_started = Instant::now();
+                    staged_world(&store, store.get("ws-1").unwrap())
+                        .expect("profile valuation hit");
+                    let valuation = valuation_started.elapsed();
+
+                    let after_cache = store.get("ws-1").unwrap().compile_cache_stats();
+                    let after_work = store.get("ws-1").unwrap().read_work_stats();
+                    let reads = u64::try_from(snapshot_count * logical_queries * 2)
+                        .expect("small profile matrix");
+                    assert_eq!(after_cache.compiles - before_cache.compiles, 1);
+                    assert_eq!(after_cache.misses - before_cache.misses, 1);
+                    assert_eq!(after_cache.hits - before_cache.hits, reads);
+                    assert_eq!(after_work.reconstructions - before_work.reconstructions, 1);
+                    assert_eq!(after_work.loader_runs - before_work.loader_runs, 1);
+                    assert_eq!(after_work.fixpoint_seals - before_work.fixpoint_seals, 1);
+                    assert_eq!(after_work.valuations - before_work.valuations, reads + 1);
+                    assert_eq!(after_work.queries - before_work.queries, reads / 2);
+                    assert_eq!(after_work.whys - before_work.whys, reads / 2);
+                    assert_eq!(after_work.full_name_scans, 0);
+                    assert_eq!(after_work.remap_builds, 0);
+                    assert_eq!(
+                        after_work.attack_endpoint_resolutions
+                            - before_work.attack_endpoint_resolutions,
+                        if snapshot_count == 2 {
+                            u64::try_from(logical_queries * 2).unwrap()
+                        } else {
+                            u64::try_from(logical_queries * 6).unwrap()
+                        }
+                    );
+                    assert_eq!(
+                        after_work.attack_incidence_visits - before_work.attack_incidence_visits,
+                        u64::try_from(logical_queries).unwrap()
+                    );
+                    assert_eq!(
+                        after_work.valuation_copies - before_work.valuation_copies,
+                        reads + 1 + reads / 2
+                    );
+                    eprintln!(
+                        "claims={claim_count} logical_queries={logical_queries} snapshots={snapshot_count} \
+                         compiles=1 hits={reads} misses=1 reconstruction={reconstruction:?} \
+                         loader={loader:?} fixpoint_seal={fixpoint_seal:?} valuation={valuation:?} \
+                         query={query_time:?} why={why_time:?}"
+                    );
+                }
+            }
+        }
     }
 }

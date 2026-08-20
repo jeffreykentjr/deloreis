@@ -256,17 +256,13 @@ fn materialize_stamps_and_why_names_the_supporting_decision() {
     );
 }
 
-// -- 4b. the pin: materialize {decision} CONFERS certainty on the accepted set
+// -- 4b. decision conferral participates in the pre-CAS materialize gate ------
 
-/// The regression the cosmetic-marker bug would have slipped through. Two
-/// PROPOSED (uncited) values on a functional predicate read `possible` while
-/// staged — so nothing bars `materialize {decision: d-1}` — but the accept must
-/// rest each fact's SUPPORT on `d-1`, so the committed pair reads CERTAIN and a
-/// reopened `author.check` fires `continuity.fd-violation`. Under the old
-/// cosmetic stamp the facts kept their proposal gate, stayed possible, and the
-/// check fired nothing — a `possible` pair stored as "ratified under d-1".
+/// Two proposed values are individually possible, but accepting both under one
+/// decision would make them certain and violate the functional declaration.
+/// The exact post-stamp candidate must therefore be checked before the CAS.
 #[test]
-fn materialize_decision_confers_certainty_and_check_fires_the_fd_violation() {
+fn materialize_decision_refuses_the_certain_fd_violation_before_cas() {
     let (_root, mut store) = store_with_mara();
     let ws = open(&mut store);
     declare_functional(&mut store, &ws, "rank");
@@ -282,53 +278,29 @@ fn materialize_decision_confers_certainty_and_check_fires_the_fd_violation() {
         "the sibling proposed value stages clean too"
     );
 
-    // Accept the whole set under d-1 — no prior record_decision needed:
-    // materialize records d-1 itself as the ratifying decision.
-    let materialized = result(dispatch(
+    let head_before = store.workspace_lorestore(&ws).unwrap().root_hash().unwrap();
+    let refused = dispatch(
         &req(
             "mat",
             Op::AuthorMaterialize,
             json!({ "workspace": ws, "rendered": false, "decision": "d-1" }),
         ),
         &mut store,
-    ));
+    );
+    assert!(!refused.ok, "the exact certain candidate must refuse");
+    let error = refused.error.unwrap();
+    assert_eq!(error.code, dli_serve::ErrorCode::MaterializeBlocked);
     assert!(
-        materialized["facts"]
+        error.data.unwrap()["blocking"]
             .as_array()
-            .is_some_and(|facts| !facts.is_empty()),
-        "materialize committed the accepted set: {materialized}"
+            .unwrap()
+            .iter()
+            .any(|code| code == "continuity.fd-violation")
     );
-
-    // Bring the committed head into the workspace base and check it: the two
-    // now-certain values on a functional predicate are a live FD violation.
-    store
-        .reload_workspace_base(&ws)
-        .expect("the workspace reloads after the accept");
-    assert!(
-        check_codes(&mut store, &ws).contains(&"continuity.fd-violation".to_owned()),
-        "the accepted-under-d-1 pair reads certain, so the FD break fires: {:?}",
-        check_codes(&mut store, &ws)
-    );
-
-    // author.why on one of them names d-1 in its support antichain — the fact
-    // rests on the recorded decision, the conferral the marker never made.
-    let why = result(dispatch(
-        &req(
-            "why",
-            Op::AuthorWhy,
-            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "captain"}]} }),
-        ),
-        &mut store,
-    ));
-    let supporting: Vec<String> = why["supporting_decisions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|value| value.as_str().map(str::to_owned))
-        .collect();
-    assert!(
-        supporting.contains(&"d-1".to_owned()),
-        "author.why names the decision the accepted fact rests on: {why}"
+    assert_eq!(
+        store.workspace_lorestore(&ws).unwrap().root_hash().unwrap(),
+        head_before,
+        "the invalid stamped candidate never advances the durable ref"
     );
 }
 
@@ -558,8 +530,10 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
         ),
         store,
     ));
-    // Known (not deleted) but no longer certain — its support rests on a decision
-    // the defeat ruled false.
+    // Known (not deleted) but dead — its sole durable support rests on a
+    // decision the defeat ruled false. Materialize reconciles the original
+    // proposed declaration into that committed object, so no duplicate staged
+    // proposal survives to make the fact merely possible.
     assert_eq!(
         why["why_not"]["known"],
         json!(true),
@@ -567,8 +541,8 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
     );
     assert_eq!(
         why["why_not"]["status"],
-        json!("possible"),
-        "the false named decision removes certainty while redundant proposed support survives: {why}"
+        json!("dead"),
+        "the false named decision removes the reconciled durable support: {why}"
     );
     let independent = result(dispatch(
         &req(
@@ -639,7 +613,7 @@ fn assert_reopened_defeat_and_control(root: &std::path::Path) {
 }
 
 #[test]
-fn defeating_the_recorded_decision_reverts_its_facts_to_possible() {
+fn defeating_the_recorded_decision_leaves_reconciled_facts_dead() {
     let (root, mut store) = store_with_mara();
     let ws = open(&mut store);
     let claim_id = materialize_rank_and_control(&mut store, &ws);
