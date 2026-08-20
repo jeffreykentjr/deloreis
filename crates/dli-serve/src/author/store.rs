@@ -135,6 +135,10 @@ pub enum OpenError {
     /// compilable when created.
     #[error("reconstructing branch head: {0}")]
     BranchCompile(String),
+    /// The branch ref's numeric valuation cannot be resolved through its
+    /// durable source names or into the freshly compiled receiving world.
+    #[error("branch ref valuation is corrupt: {0}")]
+    ValuationRemap(#[from] ValuationRemapError),
 }
 
 impl Default for Store {
@@ -313,6 +317,8 @@ impl Store {
     /// that name exists. [`OpenError::BranchCompile`] if the branch head fails
     /// to reconstruct or compile (a store-integrity failure, not a caller
     /// mistake — every branch was, by construction, compilable when created).
+    /// [`OpenError::ValuationRemap`] if the branch ref's persisted valuation
+    /// cannot be resolved by name into the reconstructed receiving world.
     #[allow(clippy::too_many_lines)]
     pub fn open(
         &mut self,
@@ -384,11 +390,11 @@ impl Store {
             }
             let named_valuation =
                 NamedValuation::from_indexed(&branch_ref.valuation, &branch_names)
-                    .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+                    .map_err(OpenError::ValuationRemap)?;
             let target_interner = world.model.interner().clone();
             named_valuation
                 .apply_to(&target_interner, &mut world.model.world.valuation)
-                .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+                .map_err(OpenError::ValuationRemap)?;
             workspace.base_valuation = named_valuation;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;

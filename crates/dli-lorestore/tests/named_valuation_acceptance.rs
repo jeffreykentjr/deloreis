@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, FactDecl, RatifyDecl, RuleDecl};
+use dli_ast::decl::{Decl, Document, FactDecl, HypothesisDecl, RatifyDecl, RuleDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -123,6 +123,19 @@ fn declarations(order: [&str; 3], depth: usize, shared: usize) -> Vec<Decl> {
     declarations
 }
 
+fn declaration_pack(order: [&str; 3], depth: usize, shared: usize) -> dli_world::Pack {
+    dli_world::Pack {
+        name: "matrix".to_owned(),
+        documents: vec![Document {
+            scope: Some(ScopeHeader {
+                name: id("matrix"),
+                span: Span::synthetic(),
+            }),
+            decls: declarations(order, depth, shared),
+        }],
+    }
+}
+
 fn atom_named(names: &[String], name: &str) -> Atom {
     names
         .iter()
@@ -176,14 +189,29 @@ fn persist_declarations(
     order: [&str; 3],
     depth: usize,
     shared: usize,
+    ingest_superseded: bool,
 ) -> dli_lorestore::ContentHash {
-    let mut interner = Interner::from_names(
-        std::iter::once("padding".to_owned())
-            .chain(order.map(str::to_owned))
-            .collect(),
-    );
+    let mut interner = Interner::new();
     let mut bundle = 0;
     let mut hashes = Vec::new();
+    if ingest_superseded {
+        // Model the real authoring lifecycle: a declaration is lowered and its
+        // content-addressed carriage is written while staged, then a later
+        // materialize replaces it and does not carry that pre-image into the
+        // commit. The append-only durable interner keeps the declaration's
+        // genuine name; reconstruction can see only committed declarations.
+        let staged = Decl::Hypothesis(HypothesisDecl {
+            name: id("h.superseded-staging"),
+            statement: Some("superseded before materialize".to_owned()),
+        });
+        for object in
+            dli_lorestore::lower::lower_decl(&staged, "matrix", &mut interner, &mut bundle)
+        {
+            store
+                .write_object(&object)
+                .expect("write staged declaration carriage");
+        }
+    }
     for declaration in declarations(order, depth, shared) {
         for object in
             dli_lorestore::lower::lower_decl(&declaration, "matrix", &mut interner, &mut bundle)
@@ -204,14 +232,46 @@ fn persist_declarations(
         .expect("commit real declarations")
 }
 
+fn decision_position(names: &[String], decision: &str) -> usize {
+    names
+        .iter()
+        .position(|name| name == decision)
+        .expect("decision is interned")
+}
+
+fn assert_ingestion_is_the_skew_tooth(order: [&str; 3]) {
+    let directory = tempfile::tempdir().expect("temporary store");
+    let store = Lorestore::open(directory.path().to_path_buf()).expect("open store");
+    let head = persist_declarations(&store, order, 1, 1, false);
+    let durable = store.interner_at(&head).expect("durable interner");
+    drop(store);
+    let reopened = Lorestore::open(directory.path().to_path_buf()).expect("reopen store");
+    let receiving = reopened.compile_at(&head).expect("fresh receiving compile");
+    assert_eq!(
+        decision_position(&durable, DEAD),
+        decision_position(receiving.model.interner().names(), DEAD),
+        "without the real earlier declaration there is no numeric skew"
+    );
+}
+
+fn assert_fresh_reference(received: &CompiledWorld, order: [&str; 3], depth: usize, shared: usize) {
+    let mut reference =
+        dli_world::compile(&declaration_pack(order, depth, shared)).expect("reference compiles");
+    let reference_names = reference.model.interner().clone();
+    NamedValuation(BTreeMap::from([(DEAD.to_owned(), false)]))
+        .apply_to(&reference_names, &mut reference.model.world.valuation)
+        .expect("reference decision resolves by name");
+    assert_eq!(standing_snapshot(received), standing_snapshot(&reference));
+}
+
 fn run_fixture(order: [&str; 3], depth: usize, shared: usize) -> Vec<u8> {
     let directory = tempfile::tempdir().expect("temporary store");
     let store = Lorestore::open(directory.path().to_path_buf()).expect("open store");
-    let head = persist_declarations(&store, order, depth, shared);
-    let compiled = store
+    let head = persist_declarations(&store, order, depth, shared, true);
+    let before_overlay = store
         .compile_at(&head)
         .expect("compile persisted declarations");
-    let before = standing_snapshot(&compiled);
+    let before = standing_snapshot(&before_overlay);
     assert!(
         before
             .iter()
@@ -220,7 +280,7 @@ fn run_fixture(order: [&str; 3], depth: usize, shared: usize) -> Vec<u8> {
     );
 
     let durable_names = store.interner_at(&head).expect("durable interner");
-    let compiled_names = compiled.model.interner().names().to_vec();
+    let compiled_names = before_overlay.model.interner().names().to_vec();
     assert_ne!(
         atom_named(&durable_names, DEAD),
         atom_named(&compiled_names, DEAD),
@@ -236,27 +296,32 @@ fn run_fixture(order: [&str; 3], depth: usize, shared: usize) -> Vec<u8> {
             .cas_main_ref(Some(&token), &updated)
             .expect("CAS defeat")
     );
+    drop(store);
 
     let reopened = Lorestore::open(directory.path().to_path_buf()).expect("reopen store");
+    let mut received = reopened
+        .compile_at(&head)
+        .expect("fresh receiving compile after reopen");
+    let reopened_names = reopened.interner_at(&head).expect("reopened interner");
+    assert_eq!(reopened_names, durable_names);
     let stored_ref = reopened.head_ref().expect("head ref").expect("main exists");
-    let named = NamedValuation::from_indexed(&stored_ref.valuation, &durable_names)
+    let named = NamedValuation::from_indexed(&stored_ref.valuation, &reopened_names)
         .expect("durable overlay resolves");
-    let mut received = compiled.clone();
     let target = received.model.interner().clone();
     named
         .apply_to(&target, &mut received.model.world.valuation)
         .expect("receiving compile contains every persisted name");
 
-    let mut reference = compiled;
-    reference
-        .model
-        .world
-        .valuation
-        .set(atom_named(&compiled_names, DEAD), false);
     let received_standings = standing_snapshot(&received);
-    assert_eq!(received_standings, standing_snapshot(&reference));
+    assert_fresh_reference(&received, order, depth, shared);
     assert_exact_standings(&received_standings, depth, shared);
     serde_json::to_vec(&received_standings).expect("serialize named standing snapshot")
+}
+
+#[test]
+fn real_superseded_declaration_is_the_numeric_skew_mutation_tooth() {
+    assert_ingestion_is_the_skew_tooth(ORDERS[0]);
+    run_fixture(ORDERS[0], 1, 1);
 }
 
 #[test]

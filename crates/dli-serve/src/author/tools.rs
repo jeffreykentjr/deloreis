@@ -123,6 +123,7 @@ fn open_error(err: &super::store::OpenError) -> ErrorBody {
         OE::UnknownDoc(_) | OE::UnknownBranch(_) => ErrorCode::UnknownDoc,
         OE::ProjectRequired => ErrorCode::ProjectRequired,
         OE::BranchCompile(_) => ErrorCode::Internal,
+        OE::ValuationRemap(_) => ErrorCode::EvidenceCorrupt,
     };
     ErrorBody {
         code,
@@ -3807,6 +3808,7 @@ fn store_error(err: &dli_lorestore::StoreError) -> ErrorBody {
         // caller's snapshot has gone stale — the same code `materialize`'s
         // own `RefSnapshotConflict` mapping already uses.
         SE::RefSnapshotConflict { .. } => ErrorCode::StaleFence,
+        SE::ValuationRemap(_) => ErrorCode::EvidenceCorrupt,
         _ => ErrorCode::Internal,
     };
     ErrorBody {
