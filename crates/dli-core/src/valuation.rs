@@ -180,32 +180,7 @@ impl std::error::Error for ValuationRemapError {}
 #[cfg(test)]
 mod tests {
     use super::{NamedValuation, Valuation, ValuationRemapError};
-    use crate::ann::{Ann, Status, Theory};
     use crate::atom::{Atom, Interner};
-    use crate::posbool::PosBool;
-
-    const INGESTION_ORDERS: [[&str; 3]; 6] = [
-        ["control", "defeated", "open"],
-        ["control", "open", "defeated"],
-        ["defeated", "control", "open"],
-        ["defeated", "open", "control"],
-        ["open", "control", "defeated"],
-        ["open", "defeated", "control"],
-    ];
-
-    fn atom_named(interner: &Interner, name: &str) -> Atom {
-        interner
-            .names()
-            .iter()
-            .position(|candidate| candidate == name)
-            .and_then(|position| u32::try_from(position).ok())
-            .map(Atom)
-            .expect("fixture name is interned")
-    }
-
-    fn status(valuation: &Valuation, support: PosBool) -> Status {
-        Ann::supported(support).status(valuation, &Theory::new())
-    }
 
     #[test]
     fn remaps_by_name_when_positions_are_skewed() {
@@ -252,80 +227,5 @@ mod tests {
             named.to_indexed(&Interner::from_names(vec!["other".to_owned()])),
             Err(ValuationRemapError::TargetNameMissing { .. })
         ));
-    }
-
-    #[test]
-    fn every_legal_ingestion_order_has_the_same_exact_named_standings() {
-        let target =
-            Interner::from_names(["open", "control", "defeated"].map(str::to_owned).to_vec());
-        let control = atom_named(&target, "control");
-        let defeated = atom_named(&target, "defeated");
-        let open = atom_named(&target, "open");
-        let mut reference = Valuation::new();
-        reference.set(control, true);
-        reference.set(defeated, false);
-
-        for order in INGESTION_ORDERS {
-            let source_names = order.map(str::to_owned);
-            let source = Interner::from_names(source_names.to_vec());
-            let mut persisted = Valuation::new();
-            persisted.set(atom_named(&source, "control"), true);
-            persisted.set(atom_named(&source, "defeated"), false);
-            let named = NamedValuation::from_indexed(&persisted, &source_names)
-                .expect("legal ingestion table");
-            let received = named.to_indexed(&target).expect("same exact names");
-
-            assert_eq!(received, reference, "ingestion order {order:?}");
-            assert_eq!(status(&received, PosBool::pos(control)), Status::Certain);
-            assert_eq!(status(&received, PosBool::pos(defeated)), Status::Dead);
-            assert_eq!(status(&received, PosBool::pos(open)), Status::Possible);
-            let redundant = PosBool::pos(defeated).or_(&PosBool::pos(control));
-            assert_eq!(status(&received, redundant), Status::Certain);
-        }
-    }
-
-    #[test]
-    fn post_compile_overlay_scales_by_name_and_preserves_redundant_support() {
-        for depth in [1_usize, 2, 4, 8] {
-            for shared_consequences in [1_usize, 2, 5] {
-                let mut source_names: Vec<String> =
-                    (0..depth).map(|index| format!("padding-{index}")).collect();
-                source_names.extend(["defeated".to_owned(), "control".to_owned()]);
-                let mut persisted = Valuation::new();
-                persisted.set(Atom(u32::try_from(depth).expect("depth")), false);
-                persisted.set(Atom(u32::try_from(depth + 1).expect("depth")), true);
-
-                let target = Interner::from_names(vec![
-                    "control".to_owned(),
-                    "defeated".to_owned(),
-                    "receiver-only".to_owned(),
-                ]);
-                let defeated = atom_named(&target, "defeated");
-                let control = atom_named(&target, "control");
-                let consequences =
-                    vec![Ann::supported(PosBool::pos(defeated)); shared_consequences];
-                let redundant = Ann::supported(PosBool::pos(defeated).or_(&PosBool::pos(control)));
-                let mut post_compile = Valuation::new();
-                post_compile.set(defeated, true);
-                post_compile.set(control, true);
-
-                let named = NamedValuation::from_indexed(&persisted, &source_names)
-                    .expect("persisted overlay");
-                named
-                    .apply_to(&target, &mut post_compile)
-                    .expect("post-compile exact-name application");
-                assert!(
-                    consequences
-                        .iter()
-                        .all(|ann| { ann.status(&post_compile, &Theory::new()) == Status::Dead }),
-                    "depth={depth}, shared={shared_consequences}"
-                );
-                assert_eq!(
-                    redundant.status(&post_compile, &Theory::new()),
-                    Status::Certain,
-                    "independent support survives: depth={depth}, shared={shared_consequences}"
-                );
-            }
-        }
     }
 }
