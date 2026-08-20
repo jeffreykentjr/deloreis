@@ -5329,3 +5329,63 @@ worlds without predicate-identity declarations remain byte-identical. Fresh
 red teams must execute branch-isolation, inference-creep, order-dependence,
 and live-wire-reachability probes on the committed diff; a report without
 executed commands is not a red-team result.
+
+## DL-0093 — Make fact staging linear with derived resolution indexes and a live lowering interner (GH #99)
+
+*Date: 2026-08-20*
+
+**Attribution:** machine — an engineering decision by the implementing agent,
+recording the measured accidental complexity and the private caching boundary
+that removes it. It is live and binding on the tree, pending the author's async
+review (DL-0052).
+
+**Ruling.** The 65,536-fact workload in GH #99 exposed three independent
+per-add rebuilds, not an intentional cost of the authoring contract. Before
+each append, decision resolution and entity resolution each rescanned the
+complete staged declaration vector. Across 65,536 additions those two scans
+performed 4,295,032,832 historical declaration visits; aggregate findings then
+repeated entity resolution inside its declaration loop for roughly another
+4.295 billion visits. Attribute contradiction checking also rescanned every
+base atom per addition, while durable lowering reconstructed an ever-growing
+interner from its complete name vector per addition. The latter is quadratic
+when origins or hypothesis names are distinct even if declaration resolution
+is cached.
+
+These are derived-data costs and carry no semantic authority. Each workspace
+therefore holds a private resolution index for known entities, the effective
+entity sort, the union of names by sort, declared decisions, and certain base
+values by predicate and subject. It is seeded from the workspace's actual
+selected base (including a point-in-time branch base), updated after a durable
+append succeeds, rebuilt after the rare replace or single-declaration discard,
+and rebased after a successful base reload. Duplicate-entity semantics remain
+exact: effective sort uses the latest staged declaration or first base entry,
+while repair alternatives retain the union of every matching declaration.
+
+Durable lowering likewise owns one live workspace interner. Successful adds
+grow it in place. A failed object write restores the pre-add name prefix and
+bundle counter before refusing the mutation, so no in-memory declaration,
+interner state, counter, or staged hash advances; already-written objects
+remain harmless content-addressed orphans as before. This exceptional rollback
+may rebuild the retained prefix because failure is not the hot path. Stored
+fact objects, hashes, declaration order, digest inputs, finding codes, repair
+ordering, response fields, and every accepted contract version are unchanged;
+this ruling requires no contract bump.
+
+**Measurement boundary.** Deterministic gates assert operation counts and
+state equivalence, never elapsed time (DL-0013). The ignored release harness
+exercises real dispatch and durable storage at 1,024, 4,096, 16,384, and 65,536
+facts with a distinct origin per fact. On the implementation machine the add
+phase measured 0.780 s, 2.973 s, 12.670 s, and 52.117 s respectively
+(0.725–0.795 ms/fact). The separate 65,536-fact full-world check took 243.428 s;
+it remains non-gating evidence and is not folded into the mutation result.
+Phase timing, progress, and cancellation are an observability concern rather
+than permission to weaken deterministic gates, and are tracked separately.
+
+**Verification.** Unit tests cover base seeding, duplicate-sort fallback,
+append, replace, discard, decision refresh, and base-value indexing; a
+16,384-fact counter test proves successful appends perform no historical staged
+declaration or base-atom visits. Durable-write failure proves live-interner and
+counter rollback, while a success-path differential test proves fact hashes and
+interner names byte-identical to reconstruction. The ignored scale harness is
+the reproducible wall-clock evidence; `cargo xtask gate` remains the acceptance
+verdict.
