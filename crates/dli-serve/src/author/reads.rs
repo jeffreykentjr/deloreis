@@ -469,11 +469,22 @@ pub(super) fn why(
                     message,
                     data: None,
                 })?;
-            let (active, blocked) = derived.map_or_else(
-                || (Vec::new(), Vec::new()),
-                |derived| explain_support_paths(inner, derived, &known, &attacks),
+            let (active, blocked, symbolic_path_count) = derived.map_or_else(
+                || (Vec::new(), Vec::new(), 0),
+                |derived| {
+                    let symbolic_path_count = derived.support.monomials().count();
+                    let (active, blocked) = explain_support_paths(inner, derived, &known, &attacks);
+                    (active, blocked, symbolic_path_count)
+                },
             );
-            let blockers = if active.is_empty() {
+            // The conclusion itself is attack-blocked only when every symbolic
+            // support monomial is accounted for by a structured blocked entry.
+            // A merely open/possible or otherwise-dead alternative prevents a
+            // direct attack from being reported as the global cause.
+            let blockers = if active.is_empty()
+                && symbolic_path_count > 0
+                && blocked.len() == symbolic_path_count
+            {
                 let mut blockers: Vec<_> = blocked
                     .iter()
                     .flat_map(|support| support.blocking_defeats.iter().cloned())

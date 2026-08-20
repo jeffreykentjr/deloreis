@@ -1229,6 +1229,82 @@ fn all_redundant_paths_report_their_distinct_direct_blockers() {
 }
 
 #[test]
+fn possible_alternative_prevents_a_blocked_path_from_becoming_a_global_blocker() {
+    let root = tempfile::tempdir().unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(concat!(
+        "scope demo\n",
+        "ratify d1\n",
+        "ratify d2\n",
+        "ratify d10\n",
+        "person mara \"Mara\" proposed seed-person\n",
+        "p(mara) ratified d1\n",
+        "open-seed(mara) proposed seed-open\n",
+        "rule from-p ratified d10\n",
+        "  mixed(mara) :- p(mara)\n",
+        "rule from-open ratified d10\n",
+        "  mixed(mara) :- open-seed(mara)\n",
+    ));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "mixed-standing fixture parses: {diagnostics:?}"
+    );
+    let mut author = Store::with_pack(Pack {
+        name: "demo".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let path = root.path().join("lorestore/demo");
+    author
+        .attach_lorestore(root.path().join("lorestore"))
+        .unwrap();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let p_claim = predicate_claim_id(&lorestore, "p");
+    let workspace = result(dispatch(
+        &request(
+            "1.13.0",
+            "open-mixed",
+            Op::AuthorOpen,
+            json!({"scope": "demo"}),
+        ),
+        &mut author,
+    ))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    defeat(
+        &mut author,
+        &workspace,
+        "block-one-mixed-path",
+        &p_claim,
+        "d2",
+        "d1",
+    );
+
+    let query = query_predicate(&mut author, &workspace, "query-mixed", "mixed");
+    assert_eq!(query["rows"][0]["status"], "possible", "{query}");
+    let why = why_predicate(&mut author, &workspace, "why-mixed", "mixed");
+    assert_eq!(why["active_supporting_decision_paths"], json!([]));
+    assert_eq!(
+        why["blocking_defeats"],
+        json!([]),
+        "an open alternative means the conclusion is not globally attack-blocked: {why}"
+    );
+    assert_eq!(
+        why["blocked_supports"],
+        json!([{
+            "supporting_decision_path": ["d1", "d10"],
+            "blocking_defeats": [{
+                "defeated_decision": "d1",
+                "defeating_decision": "d2"
+            }]
+        }]),
+        "the independently blocked alternative remains available: {why}"
+    );
+}
+
+#[test]
 fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
     let edges = [("d2", "d1"), ("d3", "d1"), ("d4", "d2")];
     let permutations = [
