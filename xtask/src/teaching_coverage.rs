@@ -218,7 +218,7 @@ fn check_stated_tool_counts(root: &Path) -> Result<Vec<String>> {
         "docs/spec/11-agent-authoring.md",
         &spec,
         &format!(
-            "The implemented `1.12.0` surface enforces that rule for all {total_op_count} operations."
+            "The implemented `1.13.0` surface enforces that rule for all {total_op_count} operations."
         ),
     );
 

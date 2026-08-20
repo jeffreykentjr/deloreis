@@ -448,8 +448,20 @@ Contract `1.5.0` adds two durable operations over stored claims:
   unchanged.
 - `author.defeat {workspace, claim_id, decision, defeated_decision}` records
   the new defeating decision, verifies that `defeated_decision` supports every
-  path, and rules that old supporting decision false on the serving ref. The
-  object records `defeated_by`, remains reachable, and evaluates dead.
+  path, and changes its effective standing. Through contract `1.12.0`, this is
+  the released one-way false assignment. At `1.13.0`, it appends a conditional
+  attack: the target is out while any attacker is in, restores when every
+  attacker is out, and remains undecided under self, mutual, or odd cycles. The
+  object remains reachable in either regime.
+
+`author.record_decision {workspace, decision, rationale?, provenance?}` records
+one baseline decision. Contract `1.13.0` adds
+`author.record_decisions {workspace, records:[…]}` for an all-or-nothing ordered
+batch. The full batch is checked against one immutable pre-image, including
+per-record provenance rules; forward and cyclic same-batch citations are legal,
+and a valid request performs one compile, one commit/CAS, and one prepared
+workspace install. A refusal writes nothing and reports the offending
+`record_index` where applicable.
 
 Both return the new lorestore `root_hash` and the unchanged staged-state
 `workspace_digest`. Canon export excludes dead claims and refuses
@@ -601,7 +613,7 @@ rendered diff are the supported wire and review surfaces.
 
 ### 3.16 Read tools
 
-Six non-mutating tools let an agent inspect workspace and world state without
+Eight non-mutating tools let an agent inspect workspace and world state without
 staging anything. They carry no `expected_digest` or `idempotency_key` — they
 are pure queries with no side effects.
 
@@ -611,6 +623,8 @@ are pure queries with no side effects.
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
 | `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions anywhere in the symbolic antichain). At contract `1.13.0`, `active_supporting_decision_paths` preserves the boundaries of each currently admissible minimal support path; `blocking_defeats` names the active direct decision attacks when no path remains live; and `blocked_supports` keeps each otherwise-admissible path beside the minimal direct attacks disabling it. All three are explicit arrays, including empty arrays for live, dead-without-a-decision-attack, or unknown atoms. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes decision provenance reachable in a syntax-free build. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
+| `author.predicates` | Contract `1.10.0`. List staged predicates with arity plus functional/inertial declarations so callers can reuse an existing slot. |
+| `author.entity_candidates` | Contract `1.10.0`; declared-only from `1.11.0`. Return the bounded nearest declared entity ids, canonicalized and deterministically ordered. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
 | `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — the one inertia-aware read (DL-0082): `check::slot_state_at` kernel-side, never `author.query`'s eval path. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
 
@@ -805,7 +819,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-The implemented `1.12.0` surface enforces that rule for all 68 operations. Paired cases declare
+The implemented `1.13.0` surface enforces that rule for all 69 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

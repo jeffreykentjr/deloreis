@@ -1,6 +1,6 @@
 authority: closed_fixture_registry
 contract: dli-worker
-contract_version: 1.12.0
+contract_version: 1.13.0
 ci_command: cargo run -p xtask --locked -- fixtures
 digest:
   algorithm: sha256
@@ -100,7 +100,7 @@ fixtures:
 - path: golden/author-branch-v1.json
   sha256: 4aa32ae0aa099071c2717c78516acacb2467f6ef2f6ae2b26c10aa3be4e59162
 - path: golden/author-branch-writes-v1.json
-  sha256: 13b99c7561d7af7b99aeba85c7e68c0345a1d7673c9ae4bce638ddd1b2b8fa3f
+  sha256: 0261c7e45a65054c8de1ea58db4aeee89033102e7a1d67c2d1e8976081eaef49
 - path: golden/author-check-v1.json
   sha256: 1f0588d5c7516e8a3de3fc714ce6227031bec7423ea0154d2d15761b7a46e001
 - path: golden/author-discard-v1.json
@@ -112,9 +112,9 @@ fixtures:
 - path: golden/author-list-workspaces-v1.json
   sha256: f13bc25a4ab9a2d9f9f6011dcd7bc7533a2714d01ba8f43b1a2010824b91a05c
 - path: golden/author-merge-v1.json
-  sha256: 751e747cd3957a9521e3bcfe8dda8f390977889b0ecea9b4cc6fe861faa3936d
+  sha256: 9056ca027e0abe2aa5efd817a86aa316e9f959ab315daf1c2e35df62782868a2
 - path: golden/author-standing-v1.json
-  sha256: d3b9c387bfd5b15c3ddeb023c2439b9fa4490ccafb24b59354a02f8972e17d56
+  sha256: 15a3e97e317b919fd7c7fdf89b028d09b38c89fe5b84a751ffc5a0b25f6cb0a6
 - path: golden/author-declare-functional-v1.json
   sha256: 0606a5860192b790a7bc5d4430ba486a38de23cc7297c8d24f00937594457ceb
 - path: golden/author-assert-same-as-v1.json
@@ -128,9 +128,9 @@ fixtures:
 - path: golden/author-as-of-v1.json
   sha256: 0d88aca8269e63a3d618041a6e1423fa94a83a8f393b205739faeda83387a245
 - path: golden/author-record-decision-v1.json
-  sha256: 4e57f47e0d81bfffd83faa35f29bd9e3315cf4b721d21de53223409d43d7acce
+  sha256: fe8bfd954ec6618d65ff6e903fca9ce31991d4d2fe329913413bdb2e78feb752
 - path: golden/author-record-decisions-v1.json
-  sha256: 83763c4d5fdad98076a540b91d419f230132c3f9f3822d1055a82cccf49b54f6
+  sha256: 2a549436c56744366509de3bcb3298855116c5f5150a0520e85f6605c7f6709c
 - path: golden/author-predicates-v1.json
   sha256: 943bf02be3ade9a38862fdccd6aa9612c2246275fd936c9d68c54a074c3a01a8
 - path: golden/author-entity-candidates-v1.json
@@ -158,7 +158,7 @@ fixtures:
 - path: golden/author-status-v1.json
   sha256: 7c2f0d32cbde0d996a19e2ca925051a3a9c34d7609bb7fe195d64afe5006ed15
 - path: golden/author-structural-key-v1.json
-  sha256: 31647428a658038497c85f96d525651765271a609811588d49fb0ab82ca58f31
+  sha256: 62eb95d287c9140f12964af03ed02b4b905d5ac53a9ff36128068107f45c275b
 - path: golden/author-suppose-v1.json
   sha256: a650632f416df96ee3e54b1cf392301a76f034528accebed44cb09e7ce935589
 - path: golden/author-tegwen-v1.json
@@ -178,11 +178,11 @@ fixtures:
 - path: golden/contract-1-0-terse-atom-v1.json
   sha256: acc168f2874c1e60b3bba502f76136c2a06fb929dd1e7f27c4eea9d81aa863a1
 - path: golden/corpus-export-v1.json
-  sha256: d69ebb19071fc65847e9434623fa01b8ea0bcf362a784e0fe366c17a8e315d27
+  sha256: f9622b26304be7af67f9815e3316d3d5960c7db168d6758f0c8b57ea4a72540f
 - path: golden/corpus-import-claim-id-frozen-1-2-0-v1.json
-  sha256: 222276e3f86b6fe6c4117e10ef7b01bbc4bc3bd25719b68b7996aa48dc15a795
+  sha256: f0b774313851175799f79555be769b017476806e2dc7d3225cb436334a7582fd
 - path: golden/corpus-import-v1.json
-  sha256: aa634b1e12aa3fd7e2474103b08ea623a38c624aed93f74cb634a9c09dde8e19
+  sha256: f526c321f336c63adc2b78e1087273a02a23dbffb42db82b035c80385daca2ef
 - path: golden/export-ludii-v1.json
   sha256: 04d54c00ea58de55b8c6f5c4a93ce7eff0b99872cd55a3147fe6e40e6ee68ce1
 - path: golden/fork-add-typed-v1.json

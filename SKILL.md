@@ -101,9 +101,9 @@ Read the findings on every call. Do not guess and re-emit — the tool already t
 you. An ignored finding does not go away: it reappears in the next call's set and
 blocks materialize.
 
-## 2. The tool surface (the 37 tools you author with)
+## 2. The tool surface (the 38 tools you author with)
 
-The contract's §3.2 table lists 39 `author.*` tools. Two of them,
+The contract's §3.2 table lists 40 `author.*` tools. Two of them,
 `author.branch` and `author.merge`, manage durable branches rather than stage
 lore and sit outside the authoring loop below — reach for `author.branch` when
 you want a durable, named checkpoint of the current state, one that survives
@@ -115,7 +115,7 @@ conflicts rather than blocking on them, so a merge never leaves you stuck. Both
 operate on the durable lorestore's refs, not the staged workspace layer, and
 neither stages a declaration itself.
 
-**The twenty-five mutating tools** (each returns `{findings, workspace_digest}`,
+**The twenty-eight mutating tools** (each returns `{findings, workspace_digest}`,
 plus `rendered` when you ask for it) and **two read-only state ops** (status,
 diff). `author.materialize` is a mutation — it is the accept decision, and
 `author.discard` is the reject.
@@ -171,7 +171,7 @@ compatibility mode.
 | `author.add_state` | **1.3.0.** Assert a time-varying fluent `{id, value?, time?}` — a state that holds over an interval, not forever. `id` may be dotted (`lancelot.oath-status`), and the subject before the dot must be a known entity. `time` is `{kind: after\|during\|since\|until, point}`. Provenance required. |
 | `author.add_attest` | **1.3.0.** Request an attestation `{question}` against a question already open in this workspace. Provenance required. |
 | `author.set_standing` | **1.5.0.** Promote a provisional stored claim `{claim_id, decision}` to ratified, by citing a decision that is declared and occurs in every support path. |
-| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. |
+| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. From **1.13.0**, a newly negotiated defeat is a conditional attack: defeating its attacker restores the target; older wires retain one-way defeat. |
 | `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
 | `author.assert_predicate_same_as` | **1.12.0.** Assert `{left, right}` name the same property: the world closes the claim symmetrically and transitively, carries it into FD/fluent/rule/query consequences, and un-merges those consequences when its support is defeated. Declaration only; no name or value similarity infers identity, and no new `.dli` form is added. Provenance required. |
@@ -179,8 +179,9 @@ compatibility mode.
 | `author.declare_inertial` | **1.8.0.** Declare a predicate `{pred}` inertial (fluent-persistent): a value asserted `since` a point is meant to hold forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `declare_functional`; the continuity check reads it to bound an inertial value's forward persistence at the next distinct certain value (silent transition, `continuity.fluent-order-undeclared` warn, or `continuity.fluent-contradiction`). Provenance required. |
 | `author.as_of` | **1.9.0.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; `author.query` still returns the raw extensional value(s) unmodified. Read-only, no provenance. |
 | `author.record_decision` | **1.9.0.** Record a baseline ratified decision `{decision, rationale?, provenance?}` on the workspace branch — the wire way to reach certainty. It writes a `ratify` for `decision`, so a fact that then cites it reads certain and contradiction checks (`fd-violation`, fluent, inertia) finally fire through `author.*` alone; caller-named id, idempotent on a known one, defeasible by `author.defeat`. This is the taught replacement for the `fixture-authority` hack — **do not** reach for that binary. Optional `provenance` lets the decision rest on prior decisions (integrity-gated). |
+| `author.record_decisions` | **1.13.0.** Atomically record an ordered `{records:[{decision, rationale?, provenance?}, …]}` batch. The whole batch validates before writing; forward and cyclic citations within the batch are legal, duplicates and unknown external citations refuse with `record_index`, and success performs one compile, commit, CAS, and prepared install. Use it instead of a long singleton loop. |
 
-**The seven read tools** let you interrogate the staged world — five to
+**The eight read tools** let you interrogate the staged world — six to
 self-check *before* you materialize (§4), plus `author.predicates` and
 `author.entity_candidates` to reuse an existing predicate or entity name before
 minting a new one. All are read-only and mutate nothing; each names a workspace

@@ -154,9 +154,11 @@ pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 /// byte-identical; declaring a predicate inertial reshapes its fluent
 /// projection, bounding forward persistence at the next distinct certain
 /// value), and `1.9.0` (the as-of and decision reads), `1.10.0` (the
-/// incremental-canonicalization reads), and `1.11.0` (the GH #88
-/// declared-entity candidate correction, with the 1.10.0 result semantics
-/// retained for that negotiation).
+/// incremental-canonicalization reads), `1.11.0` (the GH #88 declared-entity
+/// candidate correction, with the 1.10.0 result semantics retained for that
+/// negotiation), `1.12.0` (predicate identity), and `1.13.0` (conditional
+/// decision attacks, active/blocked explanations, and atomic decision
+/// batches).
 ///
 /// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
 /// minor: a consumer pinned to any of them keeps its byte-identical wire until

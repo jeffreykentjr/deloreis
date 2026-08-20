@@ -31,7 +31,7 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:8ec19be8485939d880289daaa46d2386f7fa1b4427f50f20ec56ab910b3c6c56",
+          "root_hash": "sha256:0036218dd1452ef3d8cf4ff8ee9a038e067bc1126005e70137a6d9a7a1f9c658",
           "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
         }
       }

@@ -328,3 +328,9 @@ older `supporting_decisions` union remains for compatibility. Pass the atom as a
 typed `goal_atom` (the shape `author.query` takes) so the check works in a
 syntax-free build, where the rendered `atom` string has no `.dli` front end to
 parse it.
+
+When several new decisions arrive together, contract `1.13.0` provides
+`author.record_decisions {records:[…]}`. Prefer that atomic batch to a long
+singleton loop: the complete citation graph validates first (including legal
+same-batch forward or cyclic references), and success uses one compile and one
+commit. Any invalid record refuses the whole batch with its `record_index`.

@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "The generic worker contract at 1.12.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, durable standing transitions, functional-dependency declarations, defeasible entity and predicate identity, datalog rule authoring, temporal close-out findings, inertial persistence, the inertia-aware read, declared-only entity candidates, and complete paired framing replay are implemented across the accepted window."
+verdict: "The generic worker contract at 1.13.0. Caller-project isolation, typed response semantics, durable evidence and simulation jobs, expert authoring, corpus and canon exchange, authority-scrubbed provenance, conditional decision attacks, active and blocked explanations, atomic decision batches, functional-dependency declarations, defeasible entity and predicate identity, datalog rule authoring, temporal close-out findings, inertial persistence, the inertia-aware read, declared-only entity candidates, and complete paired framing replay are implemented across the accepted window."
 ---
 
 # The dli-worker contract
@@ -18,14 +18,15 @@ repository's worker layer. It is owned by `deloreis` (`decisions.md` DL-0010) an
 vendored, pinned and digest-checked, by fantasy. Where any reimplementation on
 either side disagrees with this document, this document wins.
 
-> **Implementation status:** the contract is at `1.12.0` (`decisions.md` DL-0051,
+> **Implementation status:** the contract is at `1.13.0` (`decisions.md` DL-0051,
 > DL-0053, DL-0055, DL-0056, DL-0058, DL-0069, DL-0070, DL-0074, DL-0077,
-> DL-0080, DL-0081, DL-0082, DL-0084, DL-0091, DL-0092). It carries typed responses for all 68 operations,
+> DL-0080, DL-0081, DL-0082, DL-0084, DL-0091, DL-0092, DL-0096, DL-0097,
+> DL-0098). It carries typed responses for all 69 operations,
 > strict caller projects, complete golden/negative/paired-framing coverage, and
 > a replayable tool surface. Durable fat-payload, attestation, and
 > restart-resumable simulation evidence is implemented. `CON-1`, `AUTH-1`, and
 > `SERVE-1` are closed. The server runs **multi-version dual-mode**: it accepts
-> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.12.0`, and answers in the
+> `0.5.1`, `0.6.0`–`0.6.4`, and `1.0.0`–`1.13.0`, and answers in the
 > version the caller declared (§6), so a vendored `0.5.1` consumer keeps
 > byte-identical responses. `EXT-F4` — the consumer's worked-scenario transcript
 > against a tagged build — is **complete**: the posted transcript is byte-parity
@@ -36,6 +37,11 @@ either side disagrees with this document, this document wins.
 > Predicate identity is live at `1.12.0`. It is a typed authoring operation
 > with generated schemas and golden/negative/framing fixtures; no prior-version
 > fixture or capability bytes change.
+
+> Contract `1.13.0` adds one atomic decision-batch operation and changes only
+> newly negotiated defeats to append-only conditional attacks. It also adds
+> explicit active and blocked support fields to `author.why`; every earlier
+> negotiated wire retains its released capability and response bytes.
 
 ## 1. Parties
 
@@ -308,7 +314,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.add_state` | **≥ `1.3.0`.** Declare a time-varying fluent — the shape episode continuity is read over. | yes |
 | `author.add_attest` | **≥ `1.3.0`.** Raise an attestation request against a claim (the question-ledger door). | yes |
 | `author.set_standing` | **≥ `1.5.0`.** Promote a provisional stored claim to ratified; `decision` must be declared and support every path. | yes (commits) |
-| `author.defeat` | **≥ `1.5.0`.** Record a new defeating decision and rule the named old supporting decision false; the claim remains stored but evaluates dead. | yes (commits) |
+| `author.defeat` | **≥ `1.5.0`.** Record a new defeating decision against the named supporting decision; the claim remains stored. At `1.13.0`, this appends a conditional attack whose attacker may itself be defeated, restoring the target. Earlier wires retain one-way false assignment. | yes (commits) |
 | `author.declare_functional` | **≥ `1.6.0`.** Declare a predicate single-valued (a functional dependency), so two distinct certain values for one subject raise `continuity.fd-violation` — including for a first-seen predicate canon has no precedent for. | yes |
 | `author.assert_same_as` | **≥ `1.7.0`.** Assert two entity ids name the same bearer; the evaluable world closes the merge symmetric-transitively, gated on the citing claim's own standing (defeasible: defeating the citation un-merges every derived consequence). | yes |
 | `author.assert_predicate_same_as` | **≥ `1.12.0`.** Assert two predicate names denote one property; certain identity closes symmetric-transitively, rewrites facts and rule heads/bodies, and carries the assertion into FD/fluent findings and every derived support. Union-promotes functionality or inertia with a structured warning; defeating the assertion restores the original predicate slots. | yes |
@@ -316,6 +322,7 @@ key exists at all — on a default build it is the only name a declaration has.
 | `author.declare_inertial` | **≥ `1.8.0`.** Declare a predicate's fluent values persistent (inertial): a value asserted `since` a point holds forward until a later, distinct value defeats it. Stages a carriage-only declaration exactly like `author.declare_functional`; the `continuity` check reads it to bound an inertial value's forward persistence at the next distinct certain value (a silent transition, a `continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction` error). | yes |
 | `author.as_of` | **≥ `1.9.0`.** Project the inertially-current fluent value(s) of `{pred, subject}` at a query point `{at}` — the one inertia-aware read; kernel-side via `check::slot_state_at`, never the eval query path `author.query` answers over (`author.query` still returns the raw extensional value(s) unmodified). | read |
 | `author.record_decision` | **≥ `1.9.0`.** Record a baseline ratified decision on the workspace branch so facts that cite it read certain; defeasible by `author.defeat`. | yes |
+| `author.record_decisions` | **≥ `1.13.0`.** Atomically record an ordered batch of baseline decisions. The complete batch validates before mutation; same-batch forward/cyclic citations are legal, and success performs one compile, commit, CAS, and prepared install. | yes |
 | `author.predicates` | **≥ `1.10.0`.** List the distinct predicates in the staged world, including functional and inertial declarations. | read |
 | `author.entity_candidates` | **≥ `1.10.0`.** Find nearby existing entity names. From `1.11.0`, only declared entities participate before canonicalization, ranking, and the limit; the `1.10.0` result semantics remain available for legacy callers. | read |
 
@@ -341,7 +348,7 @@ so keeps its file-writing flow until `EXT-F4` (§6).
 The fixture registry is **closed**: *an operation or tool without golden,
 negative, and framing fixtures does not exist.* A new op or tool is added to the
 contract only together with its three fixtures. This completeness rule binds
-today: contract `1.12.0` enforces it for all 68 operations.
+today: contract `1.13.0` enforces it for all 69 operations.
 
 - **Golden** — a valid call and its expected verdict.
 - **Negative** — a malformed or refused call and its expected error.
@@ -406,7 +413,7 @@ shipping the pivot under a `0.x` label. So the version and the cutover were
 decoupled, and the compatibility window carries the consumer across.
 
 - **The accepted window.** The server accepts `0.5.1`, `0.6.0`, `0.6.1`,
-  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.11.0`. A frame declaring
+  `0.6.2`, `0.6.3`, `0.6.4`, and `1.0.0` through `1.13.0`. A frame declaring
   anything else is refused `version-mismatch` (§9), never reinterpreted.
 - **The caller picks; the server echoes.** Every response is shaped for, and
   labelled with, the version the caller declared. A vendored `0.5.1` consumer
@@ -604,6 +611,28 @@ decoupled, and the compatibility window carries the consumer across.
   consumer-rendered diff are the supported surfaces. Release requires the new
   operation's schema, golden, negative, and framing fixtures; no prior fixture
   may be rewritten.
+- **What `1.13.0` changes (conditional defeat horizon).** One additive
+  authoring operation, `author.record_decisions`, takes the inventory from 68
+  to 69 operations. A batch validates all records against one pre-image,
+  permits referentially closed forward and cyclic same-batch citations, and is
+  installed through one compile, commit, CAS, and prepared workspace update.
+  The singleton recorder and every earlier capability list remain unchanged.
+
+  A newly negotiated `author.defeat` now appends a schema-v5 conditional
+  decision attack rather than writing a permanent false assignment. Grounded
+  standing restores a target when all its attackers are out, and leaves
+  self/mutual/odd cycles undecided. Contracts through `1.12.0` retain the
+  released one-way behavior, while schema-v4 stores upcast with an empty attack
+  lane rather than invented history. Attack endpoints and exact carrier
+  support are validated at every ref authority seam before an advance.
+
+  `author.why` adds explicit `active_supporting_decision_paths`,
+  `blocking_defeats`, and `blocked_supports`. They are computed from the same
+  request-local effective standing as the answer, preserve minimal support-path
+  boundaries, distinguish redundant live alternatives from blocked ones, and
+  are canonically ordered. They are always arrays on a 1.13 wire and omitted
+  below the floor. Schema, fixture, branch/reopen/canon, ordering, corruption,
+  and frozen-legacy oracles are part of the atomic release gate.
 - **Retirement runs through the registry.** After `EXT-F4` — the consumer's
   move onto `1.0.0` — the `0.x` versions retire the way killed forms always do:
   each retired version is registered with its successor and the ruling that

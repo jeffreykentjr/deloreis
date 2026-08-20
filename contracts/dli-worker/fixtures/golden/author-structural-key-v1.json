@@ -79,7 +79,7 @@
             "term hedgeway proposed session-fx01",
             "term ford proposed session-fx01"
           ],
-          "root_hash": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+          "root_hash": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
           "staged": [
             {
               "key": "jcs:sha256:cdbd778e035e2c12b5875875daca2d5c30ec911ad57d1452c5fb6fd114ba195c",
@@ -135,7 +135,7 @@
           "rendered": [
             "term ford proposed session-fx01"
           ],
-          "root_hash": "sha256:71baa9557bdfc21d4e91f7b6719eb17887d4760436c177d53fff0cc86d240212",
+          "root_hash": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
           "staged": [
             {
               "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
