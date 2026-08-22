@@ -37,7 +37,13 @@ jobs:
           fetch-depth: 0
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: gate
+          # Keep each job's workspace cache separate. The old shared key let
+          # whichever parallel job saved first prevent the canonical gate's
+          # workspace artifacts from being stored at all.
+          shared-key: gate-v2-${{ github.job }}
+          # Preserve local crate outputs as well as registry dependencies. Cargo
+          # fingerprints remain the invalidation authority when source changes.
+          cache-workspace-crates: true
       - uses: taiki-e/install-action@v2
         with:
           tool: nextest,cargo-deny
@@ -54,7 +60,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: gate
+          shared-key: gate-v2-${{ github.job }}
+          cache-workspace-crates: true
       - uses: taiki-e/install-action@v2
         with:
           tool: nextest
@@ -73,7 +80,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: gate
+          shared-key: gate-v2-${{ github.job }}
+          cache-workspace-crates: true
       - uses: taiki-e/install-action@v2
         with:
           tool: mdbook
