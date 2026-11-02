@@ -284,6 +284,7 @@ dependencies = [
  "dli-eval",
  "dli-export",
  "dli-ledger",
+ "dli-lorestore",
  "dli-serve",
  "dli-syntax",
  "dli-time",
@@ -292,6 +293,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "toml",
 ]
 
 [[package]]

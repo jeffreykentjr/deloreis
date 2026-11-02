@@ -1,31 +1,9 @@
-//! The no-parse gate: LS-9's acceptance bar, and LS-7's default-build oracle.
+//! Verify that the kernel and optional parser-free builds stay independent of
+//! the `.dli` parser. The shipped default builds include `syntax`; this lane
+//! deliberately checks the artifacts with `--no-default-features`.
 //!
-//! Two checks, one law — **the parser is not on the default build path.**
-//!
-//! 1. *The LS-9 manifest ratchet.* `dli-world`, `dli-ledger`, and `dli-time`
-//!    must not declare `dli-syntax` as a non-optional normal dependency: that
-//!    links the parser into the library unconditionally, the coupling LS-9
-//!    retires (`docs/design-notes/lorestore-roadmap.md` §LS-9). `dli-syntax`
-//!    under `[dev-dependencies]` is fine — tests and doc examples still build
-//!    `.dli` text through the front end — and so is an `optional = true` entry
-//!    reached only through an off-by-default feature, which is exactly the
-//!    shape LS-7 gives it.
-//!
-//!    Rust enforces the deeper property for free: a crate's non-test code
-//!    cannot `use dli_syntax::…` unless `dli-syntax` is a normal dependency,
-//!    and cannot reach an optional one outside `#[cfg(feature = …)]`. So the
-//!    manifest classification is both necessary and sufficient.
-//!
-//! 2. *The LS-7 default-graph oracle.* The two shipped artifacts — the
-//!    `dli-serve` worker and the `deloreis` binary — must resolve, with no
-//!    features, to a dependency graph that **contains no `dli-syntax` at all**
-//!    (§LS-7). This is the whole-graph statement a per-manifest scan cannot
-//!    make: it catches a parser reintroduced anywhere beneath either root, in a
-//!    crate nobody thought to list. `cargo tree -e normal` is the authority.
-//!
-//! The ratchet "tells the truth": it never claims a bar is met when it is not,
-//! and it fails just as loudly when a crate is *cleared* without the tracked
-//! set being updated to say so.
+//! The manifest ratchet covers the core crates, and `cargo tree` checks the
+//! complete dependency graphs of the optional parser-free artifacts.
 
 use std::path::Path;
 use std::process::Command;
@@ -35,7 +13,7 @@ use anyhow::{Context, Result, bail};
 /// The engine crates whose default build LS-9 retired the parser from.
 const TARGET_CRATES: &[&str] = &["dli-world", "dli-ledger", "dli-time"];
 
-/// The shipped artifacts whose *whole* default dependency graph must be free of
+/// The shipped artifacts whose parser-free dependency graph must be free of
 /// `dli-syntax` — the LS-7 acceptance oracle.
 const DEFAULT_BUILD_ROOTS: &[&str] = &["dli-serve", "deloreis"];
 
@@ -54,7 +32,7 @@ pub fn run_syntax_free(root: &Path) -> Result<()> {
     run_default_graph_oracle(root)
 }
 
-/// The LS-7 acceptance oracle: with no features, neither shipped artifact's
+/// With default features disabled, neither shipped artifact's
 /// normal dependency graph may contain `dli-syntax`.
 ///
 /// `cargo tree -e normal` is the whole truth — it resolves the real graph rather
@@ -71,12 +49,12 @@ fn run_default_graph_oracle(root: &Path) -> Result<()> {
             .arg("--locked")
             .arg("--manifest-path")
             .arg(&manifest)
-            .args(["--edges", "normal"])
+            .args(["--edges", "normal", "--no-default-features"])
             .output()
             .with_context(|| format!("running cargo tree for {artifact}"))?;
         if !output.status.success() {
             bail!(
-                "LS-7 default-build oracle: `cargo tree` failed for {artifact}:\n{}",
+                "parser-free graph oracle: `cargo tree` failed for {artifact}:\n{}",
                 String::from_utf8_lossy(&output.stderr)
             );
         }
@@ -87,18 +65,18 @@ fn run_default_graph_oracle(root: &Path) -> Result<()> {
             .collect();
         if !hits.is_empty() {
             bail!(
-                "LS-7 default-build oracle: the default build of `{artifact}` links the parser — \
+                "parser-free graph oracle: the parser-free build of `{artifact}` links the parser — \
                  `cargo tree --edges normal` names dli-syntax at:\n{}\n\
-                 The default build must be 1.0-native. Put the edge behind the crate's \
-                 off-by-default `syntax` feature (`dli-syntax = {{ workspace = true, optional = \
+                 The no-default-features build must exclude the parser. Put the edge behind the crate's \
+                 `syntax` feature (`dli-syntax = {{ workspace = true, optional = \
                  true }}`) and `#[cfg(feature = \"syntax\")]` the call sites.",
                 hits.join("\n")
             );
         }
     }
     println!(
-        "LS-7 default-build oracle: {} shipped artifact(s) resolve with no `dli-syntax` on the \
-         default path — the parser is opt-in.",
+        "parser-free graph oracle: {} shipped artifact(s) resolve with no `dli-syntax` when \
+         default features are disabled.",
         DEFAULT_BUILD_ROOTS.len()
     );
     Ok(())

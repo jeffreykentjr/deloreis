@@ -21,13 +21,16 @@ struct Cli {
 /// The toolchain subcommands. Each variant carries the argument struct owned by
 /// its `cmd` submodule, so the parse surface and the handler stay together.
 ///
-/// Every subcommand that reads `.dli` text — off disk or off the command line —
-/// is behind the `syntax` feature (LS-7). A default build offers the 1.0-native
-/// surface: `serve`/`mcp` over lorestore-backed and demo corpora. The generated
-/// CLI reference documents the full surface, so
-/// `xtask docgen` builds this crate with the feature on.
+/// Text commands are included by default through `syntax`. Disabling default
+/// features retains the structured worker and MCP transports.
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Create a new lorestore-backed project.
+    #[cfg(feature = "syntax")]
+    Init(cmd::project::InitArgs),
+    /// Import a .dli file into a new project.
+    #[cfg(feature = "syntax")]
+    Import(cmd::project::ImportArgs),
     /// Validate documents against the world model.
     #[cfg(feature = "syntax")]
     Check(cmd::check::CheckArgs),
@@ -96,6 +99,10 @@ pub fn run_cli() -> i32 {
 /// Route a parsed command to its handler, returning the verdict exit code.
 fn run(command: Command) -> cmd::CmdResult {
     match command {
+        #[cfg(feature = "syntax")]
+        Command::Init(args) => cmd::project::init(&args),
+        #[cfg(feature = "syntax")]
+        Command::Import(args) => cmd::project::import(&args),
         #[cfg(feature = "syntax")]
         Command::Check(args) => cmd::check::run(&args),
         #[cfg(feature = "syntax")]

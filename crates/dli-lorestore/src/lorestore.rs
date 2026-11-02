@@ -1078,6 +1078,17 @@ impl Lorestore {
     /// The stored fact objects are byte-identical to the compiled world model
     /// (the total-lowering oracle on LS-1 guarantees this).
     pub fn import_pack(&self, pack: &dli_world::Pack) -> Result<ContentHash, StoreError> {
+        self.import_pack_at_ref(pack, None)
+    }
+
+    /// Import a pack only if the main ref still matches the supplied digest.
+    /// Immutable objects may be written before a stale ref is refused; the ref
+    /// and its reachable world are changed only by the fenced commit.
+    pub fn import_pack_at_ref(
+        &self,
+        pack: &dli_world::Pack,
+        expected_ref: Option<&str>,
+    ) -> Result<ContentHash, StoreError> {
         // 1 — lower the pack per-declaration (carriage objects interleaved in
         //     document order) and refuse it if the walk cannot track the
         //     loader.
@@ -1094,7 +1105,9 @@ impl Lorestore {
         let decisions = crate::lower::declared_decisions(pack).into_iter().collect();
 
         // 4 — commit, chaining from the current head.
-        self.commit(
+        self.commit_on_branch_at_ref(
+            MAIN_REF,
+            expected_ref,
             interner,
             fact_hashes,
             Vec::new(),
@@ -1102,6 +1115,7 @@ impl Lorestore {
             decisions,
             pack.name.clone(),
         )
+        .map(|receipt| receipt.commit)
     }
 
     /// Lower a pack per-declaration and verify the walk's interner matches the

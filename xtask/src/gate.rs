@@ -62,20 +62,11 @@ fn command_step(label: &'static str, parts: &[&str]) -> GateStep {
 
 /// The canonical, ordered gate list. `ci` selects the nextest CI profile.
 ///
-/// # The two-build matrix (LS-7)
+/// # The two-build matrix
 ///
-/// `dli_syntax` is opt-in, so there are two builds to keep honest and the gate
-/// runs both:
-///
-/// - **The default lane** is the oracle. It builds the two shipped artifacts
-///   with *no* features, proves `dli-syntax` is absent from their whole
-///   dependency graph (`syntax-free`, via `cargo tree --edges normal`), and runs
-///   the 1.0-native acceptance test — demo-backed reads, typed requests,
-///   structured diff rows, and a named refusal for every legacy form.
-/// - **The syntax lane** is everything else, with `--features syntax`. It is the
-///   pre-LS-7 gate unchanged in substance: the whole workspace, every existing
-///   test, every fixture replayed byte-for-byte. That is what keeps the 0.5.1 /
-///   0.6.x consumer served.
+/// The default build includes text authoring. The workspace test lane exercises
+/// it, while the parser-free lane disables default features and checks the
+/// structured worker and its store-backed projects separately.
 ///
 /// The lanes share a target directory, so the default lane's artifacts are the
 /// ones the oracle inspects; nothing in the syntax lane can turn the feature on
@@ -121,6 +112,7 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
         "store_backed_project",
         "--test",
         "span_identity",
+        "--no-default-features",
         "--locked",
     ];
     if ci {

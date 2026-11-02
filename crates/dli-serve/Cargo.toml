@@ -9,12 +9,8 @@ rust-version.workspace = true
 publish = false
 
 [features]
-# LS-7: the `.dli` front end is opt-in, and the default build is a 1.0-native
-# worker — lorestore-backed and demo corpora, typed requests (`goal_atom`,
-# `additions`), structured LS-5 diff rows. Off, the crate links no `dli_syntax`
-# and every request that would need the parser refuses by name. On, the legacy
-# surface is restored whole: `.dli` projects, string `goal`/`declarations`, and
-# the canonical `.dli` renderer behind `author.*`.
+# Text projects and rendered authoring ship in the default build.
+default = ["syntax"]
 syntax = ["dep:dli-syntax", "dli-world/syntax", "dli-lorestore/syntax"]
 
 [dependencies]

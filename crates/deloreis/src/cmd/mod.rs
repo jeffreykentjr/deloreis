@@ -34,10 +34,8 @@ macro_rules! out {
     ($($arg:tt)*) => { $crate::cmd::emit_raw(&::std::format!($($arg)*)) };
 }
 
-// The `.dli` toolchain (LS-7): every handler that reads `.dli` text off disk or
-// off the command line lives behind the `syntax` feature, together with the
-// shared corpus front door below. A default build is the 1.0-native binary —
-// `serve`/`mcp` — and links no parser.
+// Text handlers are included by default and can be excluded with
+// `--no-default-features` for parser-free deployments.
 #[cfg(feature = "syntax")]
 pub(crate) mod check;
 #[cfg(feature = "syntax")]
@@ -48,6 +46,8 @@ pub(crate) mod fmt;
 pub(crate) mod fork;
 #[cfg(feature = "syntax")]
 pub(crate) mod name;
+#[cfg(feature = "syntax")]
+pub(crate) mod project;
 #[cfg(feature = "syntax")]
 pub(crate) mod query;
 #[cfg(feature = "syntax")]
