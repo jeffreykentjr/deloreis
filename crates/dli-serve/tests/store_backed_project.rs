@@ -2799,3 +2799,140 @@ fn promotion_after_defeat_preserves_attack_history_and_reopens() {
     let reopened = Project::load(&root).expect("attack history survives reopening");
     assert!(reopened.document("storybook").is_some());
 }
+
+#[test]
+fn question_options_and_their_support_survive_materialize_and_reopen() {
+    use serde_json::json;
+    let root = temp("durable-question-options");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut call = |op: &str, params: serde_json::Value| {
+        send(
+            &json!({"dli":"2.0.0","id":"test","op":op,"params":params}),
+            &mut sessions,
+            &mut author,
+        )
+    };
+    let opened = call("author.open", json!({"scope":"storybook"}));
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    assert_eq!(
+        call(
+            "author.open_question",
+            json!({"workspace":ws,"id":"mystery","prompt":"What happened?"})
+        )["ok"],
+        true
+    );
+    for (id, value) in [("witness-one", "drowned"), ("witness-two", "poisoned")] {
+        let r = call(
+            "author.add_option",
+            json!({"workspace":ws,"question":"mystery","id":id,"label":id,
+            "implies":{"pred":"death","args":[{"Sym":"bedivere"},{"Sym":value}]}}),
+        );
+        assert_eq!(r["ok"], true, "{r}");
+    }
+    let other = call(
+        "author.open_question",
+        json!({"workspace":ws,"id":"other","prompt":"Another question"}),
+    );
+    assert_eq!(other["ok"], true);
+    let collision = call(
+        "author.add_option",
+        json!({"workspace":ws,"question":"other","id":"witness-one","label":"other"}),
+    );
+    assert_eq!(collision["ok"], false, "{collision}");
+    let bad = call(
+        "author.add_option",
+        json!({"workspace":ws,"question":"mystery","id":"bad","label":"bad",
+        "implies":{"pred":"death","args":[{"Var":"x"}]}}),
+    );
+    assert_eq!(bad["ok"], false);
+    let committed = call("author.materialize", json!({"workspace":ws}));
+    assert_eq!(committed["ok"], true, "{committed}");
+    let added = call(
+        "author.add_option",
+        json!({"workspace":ws,"question":"mystery","id":"witness-three","label":"witness-three",
+        "implies":{"pred":"death","args":[{"Sym":"bedivere"},{"Sym":"illness"}]}}),
+    );
+    assert_eq!(added["ok"], false, "{added}");
+    let reopened = call("author.open", json!({"scope":"storybook"}));
+    let ws2 = reopened["result"]["workspace"].as_str().unwrap();
+    for (id, value) in [("witness-one", "drowned"), ("witness-two", "poisoned")] {
+        let atom = json!({"pred":"death","args":[{"Sym":"bedivere"},{"Sym":value}]});
+        let result = call(
+            "author.query",
+            json!({"workspace":ws2,"goal_atom":atom,"layer":"all"}),
+        );
+        assert_eq!(
+            result["result"]["rows"][0]["status"], "possible",
+            "{result}"
+        );
+        let why = call("author.why", json!({"workspace":ws2,"goal_atom":atom}));
+        assert!(
+            why["result"]["why"]["rendered"].to_string().contains(id),
+            "{why}"
+        );
+    }
+}
+
+#[test]
+fn fork_hypothesis_cannot_reuse_a_committed_option_name() {
+    use serde_json::json;
+    let root = temp("option-hypothesis-collision");
+    let dir = root.join("store");
+    fs::create_dir_all(&dir).unwrap();
+    let mut pack = pack_with("storybook", &["bedivere"]);
+    pack.documents[0]
+        .decls
+        .push(Decl::Fork(dli_ast::decl::ForkDecl {
+            question: id("fork1"),
+            options: vec![],
+            body: vec![],
+            provenance: None,
+        }));
+    Lorestore::open(dir)
+        .unwrap()
+        .ensure_pack_imported(&pack)
+        .unwrap();
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let mut call = |op: &str, params: serde_json::Value| {
+        send(
+            &json!({"dli":"2.0.0","id":"test","op":op,"params":params}),
+            &mut sessions,
+            &mut author,
+        )
+    };
+    let opened = call("author.open", json!({"scope":"storybook"}));
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    assert_eq!(
+        call(
+            "author.open_question",
+            json!({"workspace":ws,"id":"q1","prompt":"Q"})
+        )["ok"],
+        true
+    );
+    assert_eq!(
+        call(
+            "author.add_option",
+            json!({"workspace":ws,"question":"q1","id":"shared","label":"O",
+        "implies":{"pred":"death","args":[{"Sym":"bedivere"}]}})
+        )["ok"],
+        true
+    );
+    assert_eq!(
+        call("author.materialize", json!({"workspace":ws}))["ok"],
+        true
+    );
+    let fork = call("author.open", json!({"fork":"fork1"}));
+    let fws = fork["result"]["workspace"].as_str().unwrap();
+    let collision = call(
+        "author.add_hypothesis",
+        json!({"workspace":fws,"id":"shared","statement":"unrelated"}),
+    );
+    assert_eq!(collision["ok"], false, "{collision}");
+}

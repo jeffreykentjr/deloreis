@@ -254,6 +254,10 @@ impl Workspace {
     }
 
     /// Declarations not yet represented by the installed durable base.
+    pub(super) fn is_pending_decl(&self, index: usize) -> bool {
+        self.materialized_decls.get(index) == Some(&false)
+    }
+
     pub(super) fn pending_decl_refs(&self) -> impl Iterator<Item = &Decl> {
         self.decls
             .iter()

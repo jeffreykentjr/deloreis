@@ -384,7 +384,11 @@ options; options are added separately with `author.add_option`.
 ### 3.7 `author.add_option`
 
 Add one option to a question already open in the workspace. `label` is stored as
-data in the AST and canonical surface.
+data in the AST and canonical surface. Optional `implies` is a typed ground
+atom: its claim is supported by this option and remains possible while the
+question is open. Option IDs must be unique in the world. Add all options
+before materializing the question; extending a committed question is refused.
+The updated question is durably staged, and text findings apply to the outcome.
 
 ```json
 { "op": "author.add_option",
