@@ -256,6 +256,8 @@ before-fact semantics, so it enters exclusively through `author.add_event`
 }
 ```
 
+When `river-speech` is configured in this workspace, a response can include:
+
 ```json
 {
   "ok": true,
@@ -271,7 +273,7 @@ before-fact semantics, so it enters exclusively through `author.add_event`
       "repair": {
         "kind": "run-check",
         "op": "dli.name.check",
-        "params": { "name": "mireth" }
+        "params": { "name": "mireth", "dialect": "river-speech", "workspace": "ws-3f9a" }
       }
     }
   ]
@@ -628,7 +630,7 @@ are pure queries with no side effects.
 
 | Tool | Purpose |
 |---|---|
-| `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. |
+| `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. A row's `claim_ids`, when present, names committed source claims with that exact atom at the workspace base; derived or only-staged rows can have none. IDs do not themselves explain support. |
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
 | `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions anywhere in the symbolic antichain). At contract `1.13.0`, `active_supporting_decision_paths` preserves the boundaries of each currently admissible minimal support path; `blocking_defeats` names the active direct decision attacks when no path remains live; and `blocked_supports` keeps each otherwise-admissible path beside the minimal direct attacks disabling it. All three are explicit arrays, including empty arrays for live, dead-without-a-decision-attack, or unknown atoms. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes decision provenance reachable in a syntax-free build. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |

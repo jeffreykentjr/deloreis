@@ -22,7 +22,7 @@
           "findings": [],
           "rendered": [],
           "root_hash": "sha256:c9a9b191a2e1555cef7f2075c56307a1cd59c0abfd293edb3114159d56634b15",
-          "workspace_digest": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3"
+          "workspace_digest": "jcs:sha256:8d10d48012bcedc2a376b3a1bda2979ffa39455c5caf5083707091cb6a32e503"
         }
       },
       "send": {

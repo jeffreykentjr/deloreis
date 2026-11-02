@@ -2245,10 +2245,16 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
             sessions,
             author,
         );
-        result["result"]["workspace"].as_str().unwrap().to_owned()
+        (
+            result["result"]["workspace"].as_str().unwrap().to_owned(),
+            result["result"]["workspace_digest"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        )
     };
-    let writer = open("writer", &mut sessions, &mut author);
-    let old = open("old", &mut sessions, &mut author);
+    let (writer, _) = open("writer", &mut sessions, &mut author);
+    let (old, old_digest) = open("old", &mut sessions, &mut author);
     let staged = send(
         &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact",
             "params":{"workspace":writer,"entity":"bedivere","key":"color","value":"red",
@@ -2264,7 +2270,30 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
         &mut author,
     );
     assert_eq!(committed["ok"], true, "{committed}");
-    let fresh = open("fresh", &mut sessions, &mut author);
+    let status = send(
+        &serde_json::json!({"dli":"2.0.0","id":"status","op":"author.status",
+                            "params":{"workspace":writer}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        committed["result"]["workspace_digest"],
+        status["result"]["workspace_digest"]
+    );
+    let (fresh, fresh_digest) = open("fresh", &mut sessions, &mut author);
+    assert_ne!(
+        old_digest, fresh_digest,
+        "the base commit must affect an empty workspace fence"
+    );
+    let stale = send(
+        &serde_json::json!({"dli":"2.0.0","id":"stale","op":"author.add_fact",
+            "expected_digest":old_digest,
+            "params":{"workspace":fresh,"entity":"bedivere","key":"color","value":"blue",
+                      "provenance":{"kind":"proposed","origin":"stale-check"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(stale["error"]["code"], "stale-fence", "{stale}");
     let query = |workspace: &str, sessions: &mut _, author: &mut _| {
         send(
             &serde_json::json!({"dli":"2.0.0","id":"query","op":"author.query",
@@ -2281,11 +2310,158 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
         1,
         "{result}"
     );
+    let committed_id = committed["result"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| fact["atom"]["pred"] == "color")
+        .unwrap()["claim_id"]
+        .as_str()
+        .unwrap();
+    assert_eq!(
+        result["result"]["rows"][0]["claim_ids"],
+        serde_json::json!([committed_id])
+    );
     let old_result = query(&old, &mut sessions, &mut author);
     assert_eq!(old_result["ok"], true, "{old_result}");
     assert!(
         old_result["result"]["rows"].as_array().unwrap().is_empty(),
         "{old_result}"
+    );
+}
+
+#[test]
+fn naming_repair_uses_workspace_dialect_before_and_after_materialize() {
+    use std::sync::Arc;
+    let root = temp("workspace-dialect-repair");
+    seed_store(&root, "storybook", "nara");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let open = |sessions: &mut _, author: &mut _| {
+        let result = send(
+            &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
+            "params":{"scope":"storybook"}}),
+            sessions,
+            author,
+        );
+        result["result"]["workspace"].as_str().unwrap().to_owned()
+    };
+    let first = open(&mut sessions, &mut author);
+    let dialect = send(
+        &serde_json::json!({"dli":"2.0.0","id":"dialect","op":"author.add_dialect",
+        "params":{"workspace":first,"id":"river-speech","provenance":{"kind":"proposed","origin":"test"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(dialect["ok"], true, "{dialect}");
+    let check_repair = |ws: &str, name: &str, sessions: &mut _, author: &mut _| {
+        let entity = send(
+            &serde_json::json!({"dli":"2.0.0","id":"entity","op":"author.add_entity",
+            "params":{"workspace":ws,"id":name,"name":name,"kind":"person",
+                "provenance":{"kind":"proposed","origin":"test"}}}),
+            sessions,
+            author,
+        );
+        let warning = entity["result"]["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["code"] == "name.unvetted")
+            .unwrap();
+        assert_eq!(warning["repair"]["params"]["workspace"], ws);
+        assert_eq!(warning["repair"]["params"]["dialect"], "river-speech");
+        let checked = send(
+            &serde_json::json!({"dli":"2.0.0","id":"vet","op":"dli.name.check",
+            "params":warning["repair"]["params"]}),
+            sessions,
+            author,
+        );
+        assert_eq!(checked["ok"], true, "{checked}");
+        assert!(
+            !checked
+                .to_string()
+                .contains("the named register is not declared"),
+            "{checked}"
+        );
+    };
+    check_repair(&first, "marin", &mut sessions, &mut author);
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
+        "params":{"workspace":first}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let fresh = open(&mut sessions, &mut author);
+    check_repair(&fresh, "sable", &mut sessions, &mut author);
+}
+
+#[test]
+fn query_claim_ids_deduplicate_committed_sources_and_omit_staged_only() {
+    use std::sync::Arc;
+    let root = temp("query-committed-claim-ids");
+    seed_store(&root, "storybook", "nara");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
+        "params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    for origin in ["account-one", "account-two"] {
+        let added = send(
+            &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact",
+            "params":{"workspace":ws,"entity":"nara","key":"color","value":"red",
+                "provenance":{"kind":"proposed","origin":origin}}}),
+            &mut sessions,
+            &mut author,
+        );
+        assert_eq!(added["ok"], true, "{added}");
+    }
+    let query = |sessions: &mut _, author: &mut _| {
+        send(
+            &serde_json::json!({"dli":"2.0.0","id":"query","op":"author.query",
+        "params":{"workspace":ws,"goal_atom":{"pred":"color","args":[{"Sym":"nara"},{"Sym":"red"}]}}}),
+            sessions,
+            author,
+        )
+    };
+    let staged = query(&mut sessions, &mut author);
+    assert!(
+        staged["result"]["rows"][0].get("claim_ids").is_none(),
+        "{staged}"
+    );
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let mut expected: Vec<_> = committed["result"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|fact| fact["atom"]["pred"] == "color")
+        .map(|fact| fact["claim_id"].as_str().unwrap().to_owned())
+        .collect();
+    expected.sort();
+    expected.dedup();
+    assert_eq!(expected.len(), 1, "the shared claim ID is deduplicated");
+    let read = query(&mut sessions, &mut author);
+    assert_eq!(
+        read["result"]["rows"][0]["claim_ids"],
+        serde_json::json!(expected)
+    );
+    assert_eq!(
+        query(&mut sessions, &mut author)["result"]["rows"],
+        read["result"]["rows"]
     );
 }
 

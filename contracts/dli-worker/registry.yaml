@@ -40,7 +40,7 @@ fixtures:
 - path: framing/author-expert-framing.json
   sha256: 62b743369958c96a6161e83886d036cc7d79f4c4f14d4031ae4d2208fdfc64f9
 - path: framing/author-framing-attack.json
-  sha256: c214439174661d9d18191a5e98047ff20a6005ddc9548a5c1f91044850f81e8e
+  sha256: d70c45a2090d4a814bea7ea9a572f7b03bcd3c6e921583c8633f0fdcffab3703
 - path: framing/author-merge-framing.json
   sha256: 2e8a524223d3dcb656dec88ad9495f0abd77ff7e2c9dcc0fb24d453cd59af517
 - path: framing/author-open-framing.json
@@ -72,7 +72,7 @@ fixtures:
 - path: framing/author-query-framing.json
   sha256: dd2405bd99bfdeca54556de12693e61a2169879693a1a31d06efca7cf26f046a
 - path: framing/author-why-framing.json
-  sha256: cd3ce8712b7834581c9643323298e274585c08a3d5c8e89b9bdb76f77633e553
+  sha256: 8d8220c8c4c6dac99b05b58ea3ec58d8c30ecd2db529baa97a63c264cfaa8197
 - path: framing/contract-1-0-framing.json
   sha256: 0159060871c256a10c9fc2c5fe2e6fcc513e0394ef200f517fec7ba556127815
 - path: framing/corpus-framing.json
@@ -98,21 +98,21 @@ fixtures:
 - path: golden/author-branch-v1.json
   sha256: 6ccfd8023818e90a33f98330ee154efe63bb571318fc15ebd900120d3812474b
 - path: golden/author-branch-writes-v1.json
-  sha256: b0c544ccfb7856cc463cf6861d2573b33613de9dd58ace3e5587eb47189771ad
+  sha256: 626d8250bfaffcaeab16af4151dca0f368b8fc175e0c21064caf2c1321d39bb7
 - path: golden/author-check-v1.json
-  sha256: f7dc5e754b1df673a8c31d4429bbc1dc705f6f488388a8be544df73ec4e510e0
+  sha256: 41b1df555b46e36a0c9049e9b41739fcb26b61783aecd31e148579764a619d91
 - path: golden/author-discard-v1.json
   sha256: bbda11f8da9e90220b18f39d01526e35baff010cff7078d59c46a0f081077e0c
 - path: golden/author-expert-session-v1.json
-  sha256: b2ac1e371eda78eec6d1fbf4a0b75c34f376408c763077d2719382d3c3b09c5b
+  sha256: bd1a491db2bbb54ee1d1b9bc4043aae225af3165c27f88179e8038f7dc7e7153
 - path: golden/author-findings-v1.json
-  sha256: d051f2a8d00f946362849cec42a0ada1eb0741c84cf4f8c0a9a01dffcd6ea760
+  sha256: 77a8dc0ffdab478325cc99645c58ae105b27c25cee073e3230bdd85775a19db7
 - path: golden/author-list-workspaces-v1.json
   sha256: 0519fe8b28f1db2411ea7f0fe0a11b87af721a80bebbe290c8f494ee3af20bc7
 - path: golden/author-merge-v1.json
   sha256: 81c6668a3f7964ce57c863a4667cb659584d03900ca1fdb063292c2ad7b68756
 - path: golden/author-standing-v1.json
-  sha256: 49cca28e43e443df4c48513895a074e1dc0bca5f7b49ef3dabe67bb5244d16f0
+  sha256: b3a4e0b5defbb4ed13c632bcf8035bd642ce472f4d8e416d54f16ac05f875093
 - path: golden/author-declare-functional-v1.json
   sha256: bcb5af749dc5da6d01ea5e2b1e9a595dc61d29b3c1768dfe9eef02308ad09af6
 - path: golden/author-assert-same-as-v1.json
@@ -126,33 +126,33 @@ fixtures:
 - path: golden/author-as-of-v1.json
   sha256: e61797ab83c7bb26608e7394887264ed0601c1ca71aa8476db6a6fec04544ec6
 - path: golden/author-record-decision-v1.json
-  sha256: e29d78df53758b16f965049f1f0ef8950680f8abe853c550f45761da218f8421
+  sha256: 5783a8e82bb5747a53fbdd9ac40e8188eb72cb2a2305e30aa6b01c9954189bce
 - path: golden/author-record-decisions-v1.json
-  sha256: c02d58180b1fae544e11c068569b1c35d198b8f70f25bbb7a342e139538be2af
+  sha256: 3c5d7ef3388ac636f9310488567c8fe76004ecc32de0272373cb76b5ad904490
 - path: golden/author-predicates-v1.json
-  sha256: 85fada24b58ecdc2357c1e7cb78222d8e231b1d42f4a338adffc00465d370f8f
+  sha256: ed8a289ba77fb0be1c033a4a037746f86df375d5621f94de3600651021f37f8d
 - path: golden/author-entity-candidates-declared-v1.json
-  sha256: 3cee423a0a07d22a7b15868325cf45b83aa996a659e2a9c4f0596dd978228551
+  sha256: 6aabe85247aa205024ba36b91fffa87bf8f4d34ab8ac4fec497c4005a28a2ae0
 - path: golden/author-open-question-v1.json
   sha256: b90a21849b5a8208394c2e45d547f28918548f2210c59bbc40f22018e16f8868
 - path: golden/author-query-typed-goal-v1.json
-  sha256: 213c276d18945d85b572a23441e390c9498034de837a1adce33f8090ba8d4251
+  sha256: 910012b5743d10c26721f4408f5f1ee3c96309a320be13941473f68feb229f36
 - path: golden/author-query-v1.json
   sha256: 6f5423785ba616a98ab1a7a96c9a44acd6008e2ed294b247bcc8f17567a6996c
 - path: golden/author-scrub-cited-recorded-v1.json
-  sha256: 88535c52b6015db4f4bd6a2f1b39aa39ac26a33f17397adb1bc9b40c391a93e1
+  sha256: 42f2379bed472ddb35ef66d5c6a5e56b8abdc089066306846abd072ee5f40f8d
 - path: golden/author-session-v1.json
-  sha256: 55bf89d7538625edaa13eea48dd351fe367ae88a53533273641a84e4000bc7d2
+  sha256: 894f44010ca8b444d82b57e4431825745555dde349364e7f926604971c0375ce
 - path: golden/author-status-v1.json
   sha256: 73f9b79fd72e50cd70553373a3c0629a0b55d36fd83c560b25c2f281fafcce2a
 - path: golden/author-structural-key-v1.json
-  sha256: 5151611687b81be54b5dd8d659ab19db1ddbabd4244ce5f929aef84ab41b28a8
+  sha256: c9678df12e8682c472a4c9947f0d64b7b4ae4cdcd93d1ff3dd2844e4db503990
 - path: golden/author-suppose-v1.json
   sha256: cd58e45400630d0ff1411c8e61788e94a534c4eabf74ba1f29678fcc9015fb80
 - path: golden/author-thalia-v1.json
-  sha256: 545140ec81cffc5c9995a8b6354162cbb505921291dc069738c67f58ead8f607
+  sha256: 827f649e141cf692d295d26e66fbd0c28a7b1024e0817810ed17f54c2bdf7584
 - path: golden/author-why-v1.json
-  sha256: ecd5e6ae7fd8287e9a7640cf5f6bbb9552ac8fc4567f656eef0f0f078d63b506
+  sha256: 309ac98b0e61e59a30319aa68ed020dc71aa17c6d2effdf911b2f128dbfdeb72
 - path: golden/check-basic-v1.json
   sha256: 57786ae593ffe484309a9ed8ef5b6fde26bd1827b506bb096f958958b0d14052
 - path: golden/check-proof-cycle-v1.json

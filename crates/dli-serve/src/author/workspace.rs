@@ -37,6 +37,14 @@ use dli_core::atom::Interner;
 use dli_core::valuation::{NamedAtomSet, NamedValuation};
 use dli_world::CompiledWorld;
 
+type ClaimIndex = BTreeMap<String, BTreeSet<String>>;
+
+#[derive(Debug)]
+struct CachedClaimIndex {
+    root: String,
+    index: Arc<ClaimIndex>,
+}
+
 use crate::author::digest::digest_hash;
 
 /// Which authoring door a workspace was opened in (spec 11 §2).
@@ -126,6 +134,8 @@ pub struct Workspace {
     /// One bounded structural compile per workspace. Reads clone the cached
     /// world before applying request-local standing and suppositions.
     compile_cache: WorkspaceCompileCache,
+    /// One immutable committed-claim index per workspace, keyed by base commit.
+    claim_index: Arc<Mutex<Option<CachedClaimIndex>>>,
     /// Deterministic request-work counters used by cache acceptance and release
     /// profiling. They are observational only and never enter a verdict.
     read_work: ReadWorkCounters,
@@ -162,6 +172,7 @@ impl Workspace {
             resolution: ResolutionIndex::default(),
             structural_revision: 0,
             compile_cache: WorkspaceCompileCache::default(),
+            claim_index: Arc::new(Mutex::new(None)),
             read_work: ReadWorkCounters::default(),
         };
         workspace.absorb_head();
@@ -455,15 +466,8 @@ impl Workspace {
     /// (`],"mode":…,"suppositions":…}`), and finalize. `O(1)` in the declaration
     /// count.
     ///
-    /// The absorbed-plus-tail bytes are exactly
-    /// `{"base_name":…,"decls":[…],"mode":…,"suppositions":…}`, the JCS string the
-    /// whole-snapshot reseal hashed, so the digest value is unchanged — UNLESS
-    /// [`target_branch`](Self::target_branch) is `Some`, in which case one more
-    /// key is appended (`"target_branch"` sorts after `"suppositions"` in JCS
-    /// key order, so it belongs at the very end of the tail). A `None`
-    /// `target_branch` emits nothing here, which is what keeps a branchless
-    /// workspace's digest byte-identical to every fixture recorded before this
-    /// field existed.
+    /// The JCS snapshot includes the selected base commit when one exists,
+    /// so the fence changes when the base changes even if no draft changed.
     pub fn reseal(&mut self) {
         let mut hasher = self.prefix.clone();
         hasher.update(b"],\"mode\":");
@@ -484,7 +488,46 @@ impl Workspace {
     fn absorb_head(&mut self) {
         self.prefix.update(b"{\"base_name\":");
         self.prefix.update(encode(&self.base_name).as_bytes());
+        if let Some(root) = &self.base_root_hash {
+            self.prefix.update(b",\"base_root_hash\":");
+            self.prefix.update(encode(root).as_bytes());
+        }
         self.prefix.update(b",\"decls\":[");
+    }
+
+    /// Return the cached claim index only for the exact immutable base commit.
+    pub(super) fn cached_claim_index(&self, root: &str) -> Option<Arc<ClaimIndex>> {
+        let cache = self
+            .claim_index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        cache
+            .as_ref()
+            .filter(|entry| entry.root == root)
+            .map(|entry| Arc::clone(&entry.index))
+    }
+
+    /// Replace the sole cached claim index; a changed base always misses.
+    pub(super) fn cache_claim_index(&self, root: String, index: ClaimIndex) -> Arc<ClaimIndex> {
+        let index = Arc::new(index);
+        let mut cache = self
+            .claim_index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *cache = Some(CachedClaimIndex {
+            root,
+            index: Arc::clone(&index),
+        });
+        index
+    }
+
+    /// Change the pinned base and rebuild the digest prefix before resealing.
+    pub fn set_base_root_hash(&mut self, root: Option<String>) {
+        if self.base_root_hash != root {
+            self.base_root_hash = root;
+            self.reabsorb();
+            self.reseal();
+        }
     }
 
     /// Rebuild the streaming prefix from scratch — the head then every staged
@@ -787,6 +830,8 @@ mod tests {
     #[derive(Serialize)]
     struct Snapshot<'a> {
         base_name: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        base_root_hash: Option<&'a str>,
         decls: &'a [Decl],
         mode: Mode,
         suppositions: &'a [String],
@@ -918,6 +963,7 @@ mod tests {
 
         let snapshot = crate::author::digest::digest_of(&Snapshot {
             base_name: &ws.base_name,
+            base_root_hash: ws.base_root_hash.as_deref(),
             decls: &ws.decls,
             mode: ws.mode,
             suppositions: &ws.suppositions,
@@ -951,6 +997,7 @@ mod tests {
 
         let branched_snapshot = crate::author::digest::digest_of(&Snapshot {
             base_name: &branched.base_name,
+            base_root_hash: branched.base_root_hash.as_deref(),
             decls: &branched.decls,
             mode: branched.mode,
             suppositions: &branched.suppositions,
@@ -963,6 +1010,7 @@ mod tests {
 
         let branchless_snapshot = crate::author::digest::digest_of(&Snapshot {
             base_name: &branchless.base_name,
+            base_root_hash: branchless.base_root_hash.as_deref(),
             decls: &branchless.decls,
             mode: branchless.mode,
             suppositions: &branchless.suppositions,
@@ -972,6 +1020,37 @@ mod tests {
             branchless.digest, branchless_snapshot,
             "a branchless workspace's digest carries no `target_branch` key at all"
         );
+    }
+
+    #[test]
+    fn changing_the_base_moves_the_fence_and_preserves_canonical_encoding() {
+        let mut ws = scope("storybook");
+        ws.push_decl(person("nara"));
+        ws.set_base_root_hash(Some("sha256:first".to_owned()));
+        let first = ws.digest.clone();
+        ws.set_base_root_hash(Some("sha256:second".to_owned()));
+        assert_ne!(first, ws.digest);
+        let snapshot = crate::author::digest::digest_of(&Snapshot {
+            base_name: &ws.base_name,
+            base_root_hash: ws.base_root_hash.as_deref(),
+            decls: &ws.decls,
+            mode: ws.mode,
+            suppositions: &ws.suppositions,
+            target_branch: ws.target_branch.as_deref(),
+        });
+        assert_eq!(ws.digest, snapshot);
+    }
+
+    #[test]
+    fn claim_index_is_reused_only_for_the_same_commit() {
+        let ws = scope("storybook");
+        let index =
+            ws.cache_claim_index("sha256:first".to_owned(), std::collections::BTreeMap::new());
+        let hit = ws.cached_claim_index("sha256:first").expect("cache hit");
+        assert!(std::sync::Arc::ptr_eq(&index, &hit));
+        assert!(ws.cached_claim_index("sha256:other").is_none());
+        ws.cache_claim_index("sha256:other".to_owned(), std::collections::BTreeMap::new());
+        assert!(ws.cached_claim_index("sha256:first").is_none());
     }
 
     /// The incremental stream — including the re-absorb a discard triggers —

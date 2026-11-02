@@ -19,11 +19,14 @@
         "id": "1",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3",
+          "root_hash": "jcs:sha256:856e17b42d08edacfd6db1799f5654e40e5868eed953a6b87a62787cbd4701ef",
           "rows": [
             {
               "atom": "marker(witness, baseline)",
               "bindings": {},
+              "claim_ids": [
+                "sha256:2a46e31608767fc93e2c1b31563c112ce1ff5280923d05b090ca756b64fda3e9"
+              ],
               "status": "certain",
               "verdict": {
                 "grade": "asserted",
@@ -71,11 +74,14 @@
         "id": "2",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3",
+          "root_hash": "jcs:sha256:856e17b42d08edacfd6db1799f5654e40e5868eed953a6b87a62787cbd4701ef",
           "rows": [
             {
               "atom": "marker(witness, baseline)",
               "bindings": {},
+              "claim_ids": [
+                "sha256:2a46e31608767fc93e2c1b31563c112ce1ff5280923d05b090ca756b64fda3e9"
+              ],
               "status": "certain",
               "verdict": {
                 "grade": "asserted",
@@ -137,11 +143,14 @@
         "id": "3",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3",
+          "root_hash": "jcs:sha256:856e17b42d08edacfd6db1799f5654e40e5868eed953a6b87a62787cbd4701ef",
           "rows": [
             {
               "atom": "marker(witness, baseline)",
               "bindings": {},
+              "claim_ids": [
+                "sha256:2a46e31608767fc93e2c1b31563c112ce1ff5280923d05b090ca756b64fda3e9"
+              ],
               "status": "certain",
               "verdict": {
                 "grade": "asserted",

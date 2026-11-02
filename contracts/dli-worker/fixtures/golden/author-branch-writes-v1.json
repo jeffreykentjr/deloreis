@@ -90,7 +90,7 @@
         "result": {
           "branch": "feature",
           "workspace": "ws-2",
-          "workspace_digest": "jcs:sha256:18a81b9941e35abef133c7bfe064f99fc046f824e29937fcd509d5ba411354b2"
+          "workspace_digest": "jcs:sha256:4076b4b2bdae4e50163af3e369b15921d520452150ea723f0ee365c306766853"
         }
       },
       "send": {

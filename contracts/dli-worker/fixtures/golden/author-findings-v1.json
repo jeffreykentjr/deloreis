@@ -1,6 +1,6 @@
 {
   "fixture": "golden/author-findings-v1",
-  "note": "author.findings partitions the workspace's open findings by severity \u2014 the pre-flight of what author.materialize would refuse on.",
+  "note": "author.findings partitions the workspace's open findings by severity — the pre-flight of what author.materialize would refuse on.",
   "precondition": [
     {
       "dli": "2.0.0",

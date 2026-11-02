@@ -532,7 +532,7 @@ pub fn dispatch(
     if is_author_op(request.op) {
         return author::dispatch(request, author_store);
     }
-    handlers::handle(request, sessions)
+    handlers::handle_with_store(request, sessions, Some(author_store))
 }
 
 /// Construct the explicit demo authoring-seam store, so the author read

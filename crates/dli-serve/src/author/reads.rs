@@ -55,9 +55,9 @@ use crate::contract::{
     AuthorCheckResult, AuthorDiffRow, AuthorDiffStanding, AuthorEntityCandidatesParams,
     AuthorEntityCandidatesResult, AuthorFindingsParams, AuthorFindingsResult,
     AuthorListWorkspacesResult, AuthorPredicatesParams, AuthorPredicatesResult, AuthorQueryParams,
-    AuthorQueryResult, AuthorWhyParams, AuthorWhyResult, BlockedSupport, BlockingDefeat,
-    DiffConflict, DiffDelta, EntityCandidate, PredicateEntry, ValuationEntry, WorkspaceDigest,
-    WorkspaceMode,
+    AuthorQueryResult, AuthorQueryRow, AuthorWhyParams, AuthorWhyResult, BlockedSupport,
+    BlockingDefeat, DiffConflict, DiffDelta, EntityCandidate, PredicateEntry, ValuationEntry,
+    WorkspaceDigest, WorkspaceMode,
 };
 use crate::envelope::{ErrorBody, ErrorCode};
 use crate::finding::{Finding, Severity};
@@ -65,6 +65,19 @@ use crate::finding::{Finding, Severity};
 use super::store::Store;
 use super::tools::{nearest_by_edit_distance, workspace_findings};
 use super::workspace::{Mode, Workspace};
+
+/// Language model of a workspace, including staged declarations.
+pub(crate) fn workspace_language(
+    store: &Store,
+    workspace: &str,
+) -> Result<dli_world::language::LanguageModel, String> {
+    let ws = store
+        .get(workspace)
+        .ok_or_else(|| format!("unknown workspace `{workspace}`"))?;
+    staged_world(store, ws)
+        .map(|world| world.model.language)
+        .map_err(|err| err.to_string())
+}
 
 // -- author.query ------------------------------------------------------------
 
@@ -112,10 +125,61 @@ pub(super) fn query(
     } else {
         (None, None)
     };
+    let claim_ids = if !answer.rows.is_empty()
+        && let (Some(ls), Some(root)) = (store.workspace_lorestore(&ws.id), &ws.base_root_hash)
+    {
+        if let Some(cached) = ws.cached_claim_index(root) {
+            Some(cached)
+        } else {
+            let hashes = ls
+                .fact_hashes_from(&dli_lorestore::ContentHash(root.clone()))
+                .map_err(|err| ErrorBody {
+                    code: ErrorCode::Internal,
+                    message: err.to_string(),
+                    data: None,
+                })?;
+            let mut index: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for hash in hashes {
+                let object: dli_lorestore::FactObject = ls
+                    .read_object(&hash)
+                    .map_err(|err| ErrorBody {
+                        code: ErrorCode::Internal,
+                        message: err.to_string(),
+                        data: None,
+                    })?
+                    .ok_or_else(|| ErrorBody {
+                        code: ErrorCode::Internal,
+                        message: format!("missing fact object {hash}"),
+                        data: None,
+                    })?;
+                index
+                    .entry(object.atom.render())
+                    .or_default()
+                    .insert(object.claim_id.0);
+            }
+            Some(ws.cache_claim_index(root.clone(), index))
+        }
+    } else {
+        None
+    };
+    let rows = answer
+        .rows
+        .into_iter()
+        .map(|row| AuthorQueryRow {
+            claim_ids: claim_ids
+                .as_ref()
+                .and_then(|index| index.get(&row.atom))
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .collect(),
+            row,
+        })
+        .collect();
     Ok(value(&AuthorQueryResult {
         root_hash,
         valuation,
-        rows: answer.rows,
+        rows,
     }))
 }
 
@@ -1639,7 +1703,7 @@ mod cache_tests {
                     for (root_hash, valuation, unassigned) in snapshots.iter().take(snapshot_count)
                     {
                         let ws = store.parts_mut("ws-1").expect("workspace exists").1;
-                        ws.base_root_hash = Some(root_hash.clone());
+                        ws.set_base_root_hash(Some(root_hash.clone()));
                         ws.base_valuation = valuation.clone();
                         ws.base_unassigned = unassigned.clone();
                         for _ in 0..logical_queries {

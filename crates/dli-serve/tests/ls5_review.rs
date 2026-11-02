@@ -236,7 +236,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .as_array()
         .expect("full valuation")
         .clone();
-    let response_rows = query["rows"].as_array().expect("rows").clone();
+    let mut response_rows = query["rows"].as_array().expect("rows").clone();
     assert!(
         !response_rows.is_empty(),
         "the staged fact answers the goal"
@@ -292,11 +292,20 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .world
         .query_with(&dli_eval::query::Query { goal }, &opts)
         .expect("replay query evaluates");
+    let expected_claim = facts
+        .iter()
+        .find(|fact| fact["atom"]["pred"] == "home")
+        .and_then(|fact| fact["claim_id"].as_str())
+        .expect("committed home claim");
+    assert_eq!(response_rows[0]["claim_ids"], json!([expected_claim]));
+    for row in &mut response_rows {
+        row.as_object_mut().expect("query row").remove("claim_ids");
+    }
     let replay_rows = serde_json::to_value(&replay_answer.rows).expect("rows serialize");
     assert_eq!(
         serde_json::to_vec(&replay_rows).expect("bytes"),
         serde_json::to_vec(&Value::Array(response_rows)).expect("bytes"),
-        "replay: the wire rows are byte-identical to the recompiled answer"
+        "replay: the semantic row fields match the recompiled answer"
     );
 
     // --- REJECT: a second workspace discards a staged claim per-decl; the

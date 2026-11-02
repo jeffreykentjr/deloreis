@@ -65,6 +65,14 @@ type Fault = (ErrorCode, String);
 /// `author.*` op reaching here is an internal routing bug, reported as such.
 #[must_use]
 pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
+    handle_with_store(request, sessions, None)
+}
+
+pub(crate) fn handle_with_store(
+    request: &Request,
+    sessions: &mut Sessions,
+    author: Option<&crate::author::store::Store>,
+) -> Response {
     let outcome = match request.op {
         Op::Version => handle_version(request),
         Op::Check => handle_check(request, sessions),
@@ -79,7 +87,7 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::ForkPromote => handle_fork_promote(request, sessions),
         Op::CorpusImport => handle_corpus_import(request, sessions),
         Op::CorpusExport => handle_corpus_export(request, sessions),
-        Op::NameCheck => handle_name_check(request, sessions),
+        Op::NameCheck => handle_name_check(request, sessions, author),
         Op::AttestMissing => handle_attest_missing(request, sessions),
         // check-proof replays the document's proof block against its practice and
         // the certain-layer scene projection, returning the rich `ProofReport`.
@@ -715,16 +723,33 @@ fn export_lore(
     ))
 }
 
-fn handle_name_check(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
+fn handle_name_check(
+    request: &Request,
+    sessions: &Sessions,
+    author: Option<&crate::author::store::Store>,
+) -> Result<Response, Fault> {
     let p: NameCheckParams = params(request)?;
     // The op carries no document id, so a named dialect resolves against the
     // selected project's combined language model (or the explicit demo model).
     // An empty dialect keeps the register-free default.
     let dialect = p.dialect.trim();
+    let language = match &p.workspace {
+        Some(workspace) => crate::author::reads::workspace_language(
+            author.ok_or_else(|| {
+                (
+                    ErrorCode::UnknownDoc,
+                    "no authoring workspace is available".to_owned(),
+                )
+            })?,
+            workspace,
+        )
+        .map_err(|err| (ErrorCode::UnknownDoc, err))?,
+        None => sessions.language_model(),
+    };
     let findings = if dialect.is_empty() {
         view::vet_candidate(&LanguageModel::default(), &p.name)
     } else {
-        vet_candidate_in_dialect(&sessions.language_model(), &p.name, dialect)
+        vet_candidate_in_dialect(&language, &p.name, dialect)
     };
     Ok(ok_response(
         request,
