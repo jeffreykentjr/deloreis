@@ -104,7 +104,10 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// Lift a loader fail-closed finding into a world-check finding, keeping its
 /// stable code and domain-spoken message (the two-channel error model).
 fn load_finding_to_world(finding: &LoadFinding) -> WorldFinding {
-    let world_finding = WorldFinding::error(finding.code(), finding.message());
+    let mut world_finding = WorldFinding::error(finding.code(), finding.message());
+    if let Some(span) = finding.span() {
+        world_finding = world_finding.with_span(span);
+    }
     match finding {
         LoadFinding::PredicateIdentityArityMismatch {
             touched_predicate,

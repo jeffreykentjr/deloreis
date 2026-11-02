@@ -55,7 +55,13 @@ use crate::lexer::{Line, Token, TokenKind, lines, to_u32};
 /// ```
 #[must_use]
 pub fn parse_document(input: &str) -> (Document, Vec<Diagnostic>) {
-    let file = FileId(0);
+    parse_document_in_file(input, FileId(0))
+}
+
+/// Parse a document with the caller's source-file identifier on source records.
+/// Nested reparsed fragments can retain synthetic or fragment-relative spans.
+#[must_use]
+pub fn parse_document_in_file(input: &str, file: FileId) -> (Document, Vec<Diagnostic>) {
     // Strip a leading UTF-8 BOM so it never lands inside the first token.
     let source = input.strip_prefix('\u{feff}').unwrap_or(input);
     let mut diags = lexical_diagnostics(source, file);
@@ -2286,7 +2292,11 @@ fn parse_entity(
             toks.extend(
                 crate::lexer::lex(&clause.text, clause.span.file)
                     .into_iter()
-                    .filter(|t| t.kind != TokenKind::Newline),
+                    .filter(|t| t.kind != TokenKind::Newline)
+                    .map(|mut token| {
+                        token.span = clause.span;
+                        token
+                    }),
             );
         }
         let mut chain_cur = Cursor::new(&toks);
@@ -2357,6 +2367,13 @@ fn parse_attr_clause(clause: &Clause, diags: &mut Vec<Diagnostic>) -> Option<Att
     let toks: Vec<Token> = toks
         .into_iter()
         .filter(|t| t.kind != TokenKind::Newline)
+        // Clause text is whitespace-normalized, so its token offsets cannot be
+        // mapped exactly back to the original line. Point at the real clause
+        // rather than presenting fragment-relative offsets as source offsets.
+        .map(|mut token| {
+            token.span = clause.span;
+            token
+        })
         .collect();
     let mut cur = Cursor::new(&toks);
     let decl = parse_attr(&mut cur, diags, clause.span);

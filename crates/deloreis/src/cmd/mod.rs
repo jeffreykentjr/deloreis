@@ -74,7 +74,7 @@ use dli_ast::span::Span;
 #[cfg(feature = "syntax")]
 use dli_ast::term::AtomExpr;
 #[cfg(feature = "syntax")]
-use dli_syntax::{Diagnostic, parse_clause_atom, parse_document};
+use dli_syntax::{Diagnostic, parse_clause_atom};
 #[cfg(feature = "syntax")]
 use dli_world::{CompiledWorld, Pack, compile};
 #[cfg(feature = "syntax")]
@@ -174,10 +174,12 @@ pub(crate) fn load_corpus(paths: &[PathBuf]) -> Result<Vec<CorpusFile>, String> 
     }
 
     let mut files = Vec::with_capacity(discovered.len());
-    for path in discovered {
+    for (file_index, path) in discovered.into_iter().enumerate() {
         let source = fs::read_to_string(&path)
             .map_err(|err| format!("cannot read {}: {err}", path.display()))?;
-        let (document, diagnostics) = parse_document(&source);
+        let file_id = u32::try_from(file_index).map_err(|_| "too many source files".to_owned())?;
+        let (document, diagnostics) =
+            dli_syntax::parser::parse_document_in_file(&source, dli_ast::span::FileId(file_id));
         files.push(CorpusFile {
             path,
             source,
