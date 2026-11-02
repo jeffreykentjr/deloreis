@@ -1,0 +1,9 @@
+ratify d-0001
+person wren "Wren" ratified d-0001
+place thornfield "Thornfield" ratified d-0001
+place ashby      "Ashby"      ratified d-0001
+person miller "The Miller" ratified d-0001
+era before-rain "Before the Rain" ratified d-0001
+era after-rain  "After the Rain"  ratified d-0001
+functional home ratified d-0001
+home(wren, thornfield) ratified d-0001
