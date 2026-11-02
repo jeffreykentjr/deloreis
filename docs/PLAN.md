@@ -517,17 +517,12 @@ theory grounding, and the risk register is
   interchange format, one review surface. *Oracle:* the consumer speaks 1.0
   against the vendored digest-checked copy; 0.5.1 dual-mode paths retire
   through the killed-form registry — *after* EXT-F4, never before.
-- **LS-10** — Incremental compilation (indexing-note Phase 3): for fact additions,
-  reuse the prior fixpoint and recompute above the affected stratum, behind an
-  in-process rebuildable compiled-world cache, so `author.merge`/`compile_at`
-  recompute cost tracks the delta, not the whole world. Entered ahead of Phase 2 on
-  the continuous-ingestion trigger (DL-0087); persistent on-disk indexes and a
-  sliced check battery are deferred.
-  *Needs:* LS-6. *Produces:* delta-time incremental compile at the atelier tier.
-  *Oracle:* a permanent gate-resident differential + confluence regression —
-  incremental compile equals full recompile byte-identically under **every** addition
-  ordering, over a nontrivial world, with threshold coverage counters; the full
-  recompile stays the runtime fallback.
+- **LS-10** — Deferred incremental compilation (DL-0102): the unused
+  loader-reuse compiler is retired. The bounded commit cache and incremental
+  saturation remain; any future delta compiler requires a new decision and a
+  parity oracle before it is used.
+  *Needs:* LS-6. *Produces:* no release deliverable. *Oracle:* retained
+  saturation and cache tests pass; the retired compiler has no callers.
 
 ### `distribution`
 
@@ -799,7 +794,7 @@ author or consumer artifact that this repository does not own.
 | LS-7 | done | DL-0050; `dli_syntax` demoted to an opt-in `syntax` feature OFF by default — default build of dli-serve/deloreis links zero `dli_syntax` (proven by a two-build gate matrix), no-parse ratchet 3/3. Docs-oracle validates fenced `json` (#11); typed successors `goal_atom`/`additions`/`atom_expr`/`to_atom_expr` + dormant field-level killed-form (#12/#17, contract 0.6.3→0.6.4); demos served from committed lorestore fact objects (#15); feature-gate across 4 crates (#16); reference cards reframed around JSON (#18). Default build is 1.0-native; `.dli` (projects, formatter, string parse, upcast, CLI) is behind `--features syntax`, which serves the 0.5.1/0.6.x consumer byte-identical until EXT-F4. `dli_syntax` crate kept (phase-4 removal unscheduled). |
 | LS-8 | external-blocked | DL-0051; **local half complete; the cutover is consumer-owned and awaits EXT-F4.** Contract `1.0.0` is minted and accepted alongside all of `0.5.1`/`0.6.0`–`0.6.4`; the LS-7 field-level killed-form registry is ACTIVATED at the 1.0 major and wired into `serve::dispatch` above the `author.*`/`dli.*` fork, so a 1.0 request carrying `goal`, `declarations`, or a payload claim's `atom` is refused `killed-form` naming `goal_atom`/`additions`/`atom_expr` — and the typed successor is sent alone, the retired fields having become optional. The retirement is two-sided off one registry: below 1.0 the string form is still **required**, with serde's verbatim `missing field` verdict, so no `0.x` wire moved. Evidence: `dli-serve/tests/ls8_contract_1_0.rs` (fires at 1.0 / dormant on every 0.x, per-version), `tests/default_build.rs` (the same hinge in both build lanes), `golden/contract-1-0-field-retirement-v1` (the dual-mode pair replayed byte-exact on both wires), four `negative/contract-1-0-killed-*` fixtures, `framing/contract-1-0-framing`; every pre-1.0 fixture replays byte-identical under `fixture_replay` with no digest re-pinned. **Not done:** the consumer cutover is EXT-F4, consumer-owned in the fantasy repo. The `0.5.1`/`0.6.x` dual-mode paths are NOT deleted; they retire through the killed-form registry only after EXT-F4. |
 | LS-9 | done | DL-0049; all eleven declaration interiors typed (`RuleDecl` DL-0047 + `Practice`/`Proof`/`Dialect`/`NamePart`/`Name`/`Ratify` + five near-empty), `dli_syntax` the single producer via `structure_<type>_body`, `dli-world`/`dli-ledger` typed readers; proof structural validator replaces format-and-reparse; v1→v2 upcast (`deepen_<type>_carriage`) for all eleven; contract 0.6.2; `dli-ledger`+`dli-time` syntax-free (ratchet 2/3). Residual `dli-world` `payload.rs` claim/fact parse is LS-7's load-boundary concern, not a declaration body. Evidence in `design-notes/dli-syntax-coupling-audit.md` |
-| LS-10 | open | DL-0087; incremental compilation entered ahead of Phase 2 on the continuous-ingestion trigger (#75/#77). v1: in-process rebuildable compiled-world cache (bounded LRU) + incremental fixpoint reusing the prior saturation (recompute above the affected stratum); persistent on-disk indexes and sliced checks deferred. Safety: permanent gate-resident oracle — incremental compile == full recompile byte-identical under every addition ordering, full recompile the runtime fallback. Staged PRs: dli-eval fixpoint → dli-world compile_incremental → dli-lorestore cache. |
+| LS-10 | deferred | DL-0102 retires the unused loader-reuse compiler; incremental saturation and the commit cache remain tested. A future delta compiler requires a new decision and parity oracle. |
 | DIST-1 | deferred | DL-0062; trigger is a benchmark query/update trace or archive deployment need |
 | DIST-2 | deferred | DL-0062; waits for DIST-1's segment contract |
 | DIST-3 | deferred | DL-0062; waits for DIST-1's segment contract |

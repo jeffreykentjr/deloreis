@@ -5736,3 +5736,28 @@ readable text form is the best way to show and teach a world.
 
 **Revisit trigger.** A new consumer outside fiction with a measured positive
 result, or the owner reopening the archive destination.
+
+
+## DL-0102 — Retire the unused loader-reuse compiler
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Under DL-0101's release reset, retire the unused world-level
+loader-reuse compiler and its compile-level parity oracle. This supersedes
+DL-0087, DL-0088, and DL-0089 §2 and its LS-10 status only where they require
+that API, its permanent tests, or the continuous-ingestion workstream. Defer
+LS-10; a future delta compiler needs a
+new decision and a non-vacuous parity oracle before use. Keep the bounded
+commit cache, incremental evaluator saturation, its differential and confluence
+coverage, and full recompilation as the safe fallback. This does not change the
+served contract or lore semantics.
+
+**Rationale.** No production caller uses the loader-reuse API, and its original
+continuous-ingestion motivation was retired by DL-0101. Its test-only
+measurement and unreachable implementation impose maintenance and CI costs.
+
+**Verification.** The retained evaluator parity tests and commit-cache tests
+remain gating; fixpoint-only reuse is checked against full compilation and a
+truncating prior is refused.

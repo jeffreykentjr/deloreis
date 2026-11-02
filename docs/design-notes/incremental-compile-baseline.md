@@ -1,7 +1,7 @@
 ---
 status: reference
 title: "Compile-cost baseline: where the time goes once compiles are cached"
-verdict: "The measurement DL-0088 §3 asked for, taken. It REFUTES the prediction: check::run is 0–1% of the residual per-author.merge cost and its share falls as the world grows, so slicing the check battery would buy about one percent. The symbolic fixpoint is the residual O(world) term — 49% of a small merge's residual rising to ~100% at 128 personas, growing ≈O(n^2.9). The PR 3 session cache takes a warm author.merge scan from 10.7× to 124.6× faster (4 whole-world compiles to 0); compile_incremental (PR 2) measures 0.97–0.98× — a small net loss — on the identity workload, exactly as DL-0088 §1 predicted for same-as. Data only; no ruling. Reproduced by tests/compile_cost_baseline.rs."
+verdict: "The measurement DL-0088 §3 asked for, taken. It REFUTES the prediction: check::run is 0–1% of the residual per-author.merge cost and its share falls as the world grows, so slicing the check battery would buy about one percent. The symbolic fixpoint is the residual O(world) term — 49% of a small merge's residual rising to ~100% at 128 personas, growing ≈O(n^2.9). The PR 3 session cache takes a warm author.merge scan from 10.7× to 124.6× faster (4 whole-world compiles to 0); compile_incremental (PR 2) measures 0.97–0.98× — a small net loss — on the identity workload, exactly as DL-0088 §1 predicted for same-as. Data only; no ruling. The retired delta measurement is reproducible from the pre-fiction-reset tag; the remaining measurements use tests/compile_cost_baseline.rs."
 ---
 
 # Compile-cost baseline
@@ -30,6 +30,10 @@ instrument was built precisely so the slicing trigger would fire on evidence, an
 the evidence says the trigger should not fire.
 
 ## How to reproduce
+
+The delta-curve measurement was retired by DL-0102 along with the unused
+compiler. To reproduce all four historical tables, check out `pre-fiction-reset`
+first. On the current tree, the command below reproduces the remaining tables.
 
 ```text
 cargo test -p dli-lorestore --all-features --release \
