@@ -139,3 +139,21 @@ checked.
 
 **Rationale.** The reset requires these authoring fixes while retaining the
 owner's decision to serve contract 2.0.0 alone.
+
+## DL-0108 — Preserve attacked support through metadata revisions
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** A standing change selects a stored support for the requested claim
+and decision, rather than an unrelated support sharing the claim ID. An attack
+continues to name its exact historical carrier when metadata-only promotion
+replaces that carrier in the current fold. Validation requires the carrier to
+have been reachable when the attack was introduced and requires a current fact
+with the same content identity and claim ID. Corpus exchange includes any
+superseded carriers needed to replay those attacks, before the current folded
+facts.
+
+**Rationale.** A retcon must not erase independent accounts, lose its recorded
+evidence, or prevent later metadata promotion and replay.

@@ -622,3 +622,274 @@ fn schema_v4_commit_upcasts_with_an_empty_attack_lane() {
     assert_eq!(lifted.schema_version, 5);
     assert!(lifted.attacks.is_empty());
 }
+
+#[test]
+fn equivalent_but_uncommitted_attack_carrier_cannot_be_forged_or_backfilled() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
+    let (interner, facts) = carriers(&store);
+    store
+        .commit(
+            interner.clone(),
+            facts.clone(),
+            Vec::new(),
+            Vec::new(),
+            decisions(),
+            "attack-test".to_owned(),
+        )
+        .unwrap();
+    let before = store.branch_ref(MAIN_REF).unwrap().unwrap();
+    let original_hash = facts
+        .iter()
+        .find(|hash| {
+            let object: dli_lorestore::FactObject = store.read_object(hash).unwrap().unwrap();
+            object
+                .expert_body
+                .as_ref()
+                .is_some_and(|body| body.name == "d1")
+        })
+        .unwrap();
+    let original: dli_lorestore::FactObject = store.read_object(original_hash).unwrap().unwrap();
+    let mut forged = original.clone();
+    forged
+        .provenance
+        .get_or_insert_with(Default::default)
+        .standing_decision = Some("fabricated".to_owned());
+    assert_eq!(
+        forged.content_hash().unwrap(),
+        original.content_hash().unwrap()
+    );
+    let forged_hash = store.write_object(&forged).unwrap();
+    assert_ne!(&forged_hash, original_hash);
+    let attack = store
+        .write_object(&DecisionAttack::new(
+            forged.claim_id,
+            forged_hash.clone(),
+            "d2",
+            "d1",
+        ))
+        .unwrap();
+    let refused = store
+        .commit_on_branch_with_attacks_at_ref(
+            MAIN_REF,
+            Some(before.digest().unwrap().as_str()),
+            interner.clone(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![attack.clone()],
+            decisions(),
+            "attack-test".to_owned(),
+        )
+        .unwrap_err();
+    assert!(
+        refused
+            .to_string()
+            .contains("not reachable when introduced"),
+        "{refused}"
+    );
+    assert_eq!(store.branch_ref(MAIN_REF).unwrap().unwrap(), before);
+
+    // A raw imported history cannot cure an invalid attack by adding its
+    // fabricated carrier in a later commit.
+    let introduced = Commit::child(
+        before.commit.clone(),
+        interner.clone(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        decisions(),
+        "attack-test".to_owned(),
+    )
+    .with_attacks(vec![attack]);
+    let introduced_hash = store.write_object(&introduced).unwrap();
+    let backfill = Commit::child(
+        introduced_hash,
+        interner,
+        vec![forged_hash],
+        Vec::new(),
+        Vec::new(),
+        decisions(),
+        "attack-test".to_owned(),
+    );
+    let backfill_hash = store.write_object(&backfill).unwrap();
+    let error = store.decision_attacks_from(&backfill_hash).unwrap_err();
+    assert!(
+        error.to_string().contains("not reachable when introduced"),
+        "{error}"
+    );
+}
+
+#[test]
+fn merge_preserves_attacks_across_metadata_revisions_in_both_directions() {
+    for (target, source) in [("left", "right"), ("right", "left")] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
+        let (interner, facts) = carriers(&store);
+        store
+            .commit(
+                interner.clone(),
+                facts.clone(),
+                Vec::new(),
+                Vec::new(),
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        store.create_branch("left", MAIN_REF).unwrap();
+        store.create_branch("right", MAIN_REF).unwrap();
+        let attack = write_attack(&store, &facts, "d2", "d1");
+        store
+            .commit_on_branch_with_attacks_at_ref(
+                "left",
+                None,
+                interner.clone(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                vec![attack],
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        let original_hash = facts
+            .iter()
+            .find(|hash| {
+                let object: dli_lorestore::FactObject = store.read_object(hash).unwrap().unwrap();
+                object
+                    .expert_body
+                    .as_ref()
+                    .is_some_and(|body| body.name == "d1")
+            })
+            .unwrap();
+        let mut revised: dli_lorestore::FactObject =
+            store.read_object(original_hash).unwrap().unwrap();
+        revised
+            .provenance
+            .get_or_insert_with(Default::default)
+            .standing_decision = Some("d1".to_owned());
+        let revision = store.write_object(&revised).unwrap();
+        store
+            .commit_on_branch(
+                "right",
+                interner,
+                vec![revision],
+                Vec::new(),
+                Vec::new(),
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        let report = store.merge_with(target, source, true, None).unwrap();
+        assert_eq!(
+            store
+                .decision_attacks_from(&report.merge_commit)
+                .unwrap()
+                .len(),
+            1
+        );
+        drop(store);
+        let reopened = Lorestore::open(dir.path().to_path_buf()).unwrap();
+        assert_eq!(
+            reopened
+                .decision_attacks_from(&report.merge_commit)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+}
+
+#[test]
+fn merges_never_transfer_an_attack_to_a_different_claim_id() {
+    let mut succeeded = 0;
+    let mut refused = 0;
+    for (target, source) in [("left", "right"), ("right", "left")] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
+        let (interner, facts) = carriers(&store);
+        store
+            .commit(
+                interner.clone(),
+                facts.clone(),
+                Vec::new(),
+                Vec::new(),
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        store.create_branch("left", MAIN_REF).unwrap();
+        store.create_branch("right", MAIN_REF).unwrap();
+        let attack = write_attack(&store, &facts, "d2", "d1");
+        store
+            .commit_on_branch_with_attacks_at_ref(
+                "left",
+                None,
+                interner.clone(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                vec![attack],
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        let original_hash = facts
+            .iter()
+            .find(|hash| {
+                let object: dli_lorestore::FactObject = store.read_object(hash).unwrap().unwrap();
+                object
+                    .expert_body
+                    .as_ref()
+                    .is_some_and(|body| body.name == "d1")
+            })
+            .unwrap();
+        let mut revised: dli_lorestore::FactObject =
+            store.read_object(original_hash).unwrap().unwrap();
+        revised
+            .provenance
+            .get_or_insert_with(Default::default)
+            .standing_decision = Some("d1".to_owned());
+        revised.claim_id = ClaimId::from_label("another-claim");
+        let revision = store.write_object(&revised).unwrap();
+        store
+            .commit_on_branch(
+                "right",
+                interner,
+                vec![revision],
+                Vec::new(),
+                Vec::new(),
+                decisions(),
+                "attack-test".to_owned(),
+            )
+            .unwrap();
+        match store.merge_with(target, source, true, None) {
+            Ok(report) => {
+                succeeded += 1;
+                let attacks = store.decision_attacks_from(&report.merge_commit).unwrap();
+                let live = store.fact_hashes_from(&report.merge_commit).unwrap();
+                let carrier: dli_lorestore::FactObject = store
+                    .read_object(&attacks[0].subject_fact_hash)
+                    .unwrap()
+                    .unwrap();
+                assert!(
+                    live.iter().any(|hash| {
+                        let fact: dli_lorestore::FactObject =
+                            store.read_object(hash).unwrap().unwrap();
+                        fact.content_hash().unwrap() == carrier.content_hash().unwrap()
+                            && fact.claim_id == carrier.claim_id
+                    }),
+                    "a successful merge must retain the attacked claim identity"
+                );
+            }
+            Err(_) => {
+                refused += 1;
+            }
+        }
+    }
+    assert!(
+        succeeded > 0,
+        "a merge preserving the original claim can succeed"
+    );
+    assert!(refused > 0, "a merge replacing the claim must be refused");
+}

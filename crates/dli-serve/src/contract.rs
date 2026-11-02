@@ -2513,7 +2513,7 @@ pub struct CorpusExportParams {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum CorpusExportFormat {
-    /// The folded fact objects — the default, and build-independent.
+    /// The folded facts, plus historical attack carriers required for replay.
     #[default]
     Objects,
     /// The `.dli` rendering. Syntax builds only; elsewhere a loud refusal.
@@ -2531,8 +2531,9 @@ pub enum CorpusExportFormat {
 pub struct CorpusExportResult {
     /// The commit these facts were folded at.
     pub root_hash: String,
-    /// The folded **live** fact objects at that commit — the state, not the
-    /// commit log. The log stays a library concern.
+    /// Folded fact objects at that commit, preceded when needed by superseded
+    /// metadata revisions that are exact carriers of decision attacks. Import
+    /// preserves those revisions as evidence and folds the current objects last.
     pub objects: Vec<serde_json::Value>,
     /// The interner those objects' support polynomials index into. Feed it back
     /// to `dli.corpus.import` alongside `objects`; the pair is the corpus, and

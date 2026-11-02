@@ -628,8 +628,8 @@ impl Lorestore {
 
         // Validate the complete candidate fold before writing a commit or
         // advancing the ref. An attack is meaningful only when both endpoints
-        // are exact commit names and its carrier is the exact live fact it
-        // claims to defeat.
+        // are exact commit names and its carrier is a reachable historical
+        // fact with a matching claim in the current fold.
         let mut candidate_facts = match &expected {
             Some(parent) => self.fact_hashes_from(&ContentHash(parent.clone()))?,
             None => Vec::new(),
@@ -662,11 +662,19 @@ impl Lorestore {
                 candidate_attacks.push(hash.clone());
             }
         }
+        let history_heads: Vec<ContentHash> = expected
+            .as_ref()
+            .map(|hash| ContentHash(hash.clone()))
+            .into_iter()
+            .collect();
         self.validate_decision_attack_hashes(
             &candidate_attacks,
             &interner,
             &decisions,
             &candidate_facts,
+            &history_heads,
+            &attacks,
+            &fact_hashes,
         )?;
 
         let commit = match &expected {
@@ -808,20 +816,52 @@ impl Lorestore {
         let commit = self.commit_at(head)?;
         let facts = self.fact_hashes_from(head)?;
         let hashes = self.decision_attack_hashes_from(head)?;
-        self.validate_decision_attack_hashes(&hashes, &commit.interner, &commit.decisions, &facts)
+        self.validate_decision_attack_hashes(
+            &hashes,
+            &commit.interner,
+            &commit.decisions,
+            &facts,
+            std::slice::from_ref(head),
+            &[],
+            &[],
+        )
     }
 
     /// Validate attack objects against one exact candidate fold. This is the
     /// common authority seam for ordinary commits, merges, raw ref CAS, imports,
     /// and reopened reads: no path can derive standing from an edge whose names
-    /// or carrier are merely plausible rather than reachable and exact.
+    /// or historical carrier are merely plausible rather than reachable and exact.
+    #[allow(clippy::too_many_arguments)]
     fn validate_decision_attack_hashes(
         &self,
         hashes: &[ContentHash],
         interner: &[String],
         decisions: &[String],
         live_facts: &[ContentHash],
+        history_heads: &[ContentHash],
+        added_attacks: &[ContentHash],
+        added_facts: &[ContentHash],
     ) -> Result<Vec<crate::DecisionAttack>, StoreError> {
+        if hashes.is_empty() {
+            return Ok(Vec::new());
+        }
+        // Read each historical commit once per validation. This remains scoped
+        // to the operation so missing or corrupt objects are detected on every
+        // subsequent read; no ref or persistent cache can mask corruption.
+        let mut history = std::collections::BTreeMap::new();
+        let mut pending = history_heads.to_vec();
+        while let Some(hash) = pending.pop() {
+            if history.contains_key(&hash) {
+                continue;
+            }
+            let commit = self.commit_at(&hash)?;
+            pending.extend(
+                [commit.parent.clone(), commit.merge_parent.clone()]
+                    .into_iter()
+                    .flatten(),
+            );
+            history.insert(hash, commit);
+        }
         let mut attacks = Vec::with_capacity(hashes.len());
         for hash in hashes {
             let attack: crate::DecisionAttack = self
@@ -839,12 +879,6 @@ impl Lorestore {
                     )));
                 }
             }
-            if !live_facts.contains(&attack.subject_fact_hash) {
-                return Err(StoreError::NotFound(format!(
-                    "decision attack {hash} carrier {} is not in the candidate fact fold",
-                    attack.subject_fact_hash
-                )));
-            }
             let carrier: crate::FactObject = self
                 .read_object(&attack.subject_fact_hash)?
                 .ok_or_else(|| {
@@ -853,6 +887,34 @@ impl Lorestore {
                         attack.subject_fact_hash
                     ))
                 })?;
+            if !live_facts.contains(&attack.subject_fact_hash) {
+                let identity = carrier.content_hash()?;
+                let mut has_revision = false;
+                for live_hash in live_facts {
+                    let live: crate::FactObject =
+                        self.read_object(live_hash)?.ok_or_else(|| {
+                            StoreError::NotFound(format!("fact object missing: {live_hash}"))
+                        })?;
+                    if live.claim_id == carrier.claim_id && live.content_hash()? == identity {
+                        has_revision = true;
+                        break;
+                    }
+                }
+                if !has_revision {
+                    return Err(StoreError::NotFound(format!(
+                        "decision attack {hash} carrier {} has no matching claim in the candidate fact fold",
+                        attack.subject_fact_hash
+                    )));
+                }
+            }
+            Self::validate_attack_introduction(
+                hash,
+                &attack.subject_fact_hash,
+                history_heads,
+                &history,
+                added_attacks,
+                added_facts,
+            )?;
             if carrier.claim_id != attack.claim_id {
                 return Err(StoreError::NotFound(format!(
                     "decision attack {hash} claim_id does not match carrier {}",
@@ -869,6 +931,70 @@ impl Lorestore {
         }
         attacks.sort();
         Ok(attacks)
+    }
+
+    /// An attack must name a carrier that was already committed (or added in
+    /// the same commit) when that attack was introduced. A later metadata
+    /// revision may replace the folded object, but cannot backfill its history.
+    fn validate_attack_introduction(
+        attack: &ContentHash,
+        carrier: &ContentHash,
+        heads: &[ContentHash],
+        history: &std::collections::BTreeMap<ContentHash, Commit>,
+        added_attacks: &[ContentHash],
+        added_facts: &[ContentHash],
+    ) -> Result<(), StoreError> {
+        let reachable = |heads: &[ContentHash]| -> bool {
+            let mut pending = heads.to_vec();
+            let mut seen = std::collections::BTreeSet::new();
+            while let Some(head) = pending.pop() {
+                if !seen.insert(head.clone()) {
+                    continue;
+                }
+                let Some(commit) = history.get(&head) else {
+                    continue;
+                };
+                if commit.facts.contains(carrier) {
+                    return true;
+                }
+                pending.extend(
+                    [commit.parent.clone(), commit.merge_parent.clone()]
+                        .into_iter()
+                        .flatten(),
+                );
+            }
+            false
+        };
+        let mut found = false;
+        if added_attacks.contains(attack) {
+            found = true;
+            if !added_facts.contains(carrier) && !reachable(heads) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {attack} carrier {carrier} was not reachable when introduced"
+                )));
+            }
+        }
+        for commit in history.values() {
+            if !commit.attacks.contains(attack) {
+                continue;
+            }
+            found = true;
+            let parents: Vec<_> = [commit.parent.clone(), commit.merge_parent.clone()]
+                .into_iter()
+                .flatten()
+                .collect();
+            if !commit.facts.contains(carrier) && !reachable(&parents) {
+                return Err(StoreError::NotFound(format!(
+                    "decision attack {attack} carrier {carrier} was not reachable when introduced"
+                )));
+            }
+        }
+        if !found {
+            return Err(StoreError::NotFound(format!(
+                "decision attack {attack} is not in the candidate history"
+            )));
+        }
+        Ok(())
     }
 
     /// Refuse a raw commit pointer whose folded attack graph is invalid.
@@ -1579,6 +1705,9 @@ impl Lorestore {
             merged_interner,
             merged_decisions,
             &live_facts,
+            &[target_head.clone(), source_head.clone()],
+            &[],
+            &[],
         )?;
         Ok(merged)
     }

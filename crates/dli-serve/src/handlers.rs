@@ -2077,10 +2077,29 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
             ))?,
     };
 
-    // The folded live facts at that commit — the state, not the commit log.
-    let hashes = store
+    // Preserve superseded metadata carriers that active attacks refer to. They
+    // precede the folded facts so an importer keeps the current revision while
+    // retaining the exact historical evidence needed to validate each attack.
+    let live_hashes = store
         .fact_hashes_from(&head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
+    let attack_objects = if crate::has_conditional_defeat(&request.dli) {
+        store
+            .decision_attacks_from(&head)
+            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
+    } else {
+        Vec::new()
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut hashes = Vec::new();
+    for attack in &attack_objects {
+        if !live_hashes.contains(&attack.subject_fact_hash)
+            && seen.insert(attack.subject_fact_hash.clone())
+        {
+            hashes.push(attack.subject_fact_hash.clone());
+        }
+    }
+    hashes.extend(live_hashes);
     let mut objects = Vec::with_capacity(hashes.len());
     for hash in &hashes {
         // A hash the commit references but the store cannot produce is
@@ -2120,18 +2139,12 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
     let decisions = store
         .decisions_at(&head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    let attacks = if crate::has_conditional_defeat(&request.dli) {
-        store
-            .decision_attacks_from(&head)
-            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
-            .into_iter()
-            .map(|attack| {
-                serde_json::to_value(attack).map_err(|e| (ErrorCode::Internal, e.to_string()))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-    } else {
-        Vec::new()
-    };
+    let attacks = attack_objects
+        .into_iter()
+        .map(|attack| {
+            serde_json::to_value(attack).map_err(|e| (ErrorCode::Internal, e.to_string()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(ok_response(
         request,

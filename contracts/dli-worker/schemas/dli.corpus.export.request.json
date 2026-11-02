@@ -30,7 +30,7 @@
       "description": "The form an export emits.",
       "oneOf": [
         {
-          "description": "The folded fact objects — the default, and build-independent.",
+          "description": "The folded facts, plus historical attack carriers required for replay.",
           "type": "string",
           "const": "objects"
         },

@@ -27,7 +27,7 @@
       }
     },
     "objects": {
-      "description": "The folded **live** fact objects at that commit — the state, not the\ncommit log. The log stays a library concern.",
+      "description": "Folded fact objects at that commit, preceded when needed by superseded\nmetadata revisions that are exact carriers of decision attacks. Import\npreserves those revisions as evidence and folds the current objects last.",
       "type": "array",
       "items": true
     },
