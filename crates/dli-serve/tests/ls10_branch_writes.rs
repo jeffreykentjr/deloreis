@@ -777,6 +777,9 @@ fn merge_dry_run_commits_nothing_and_matches_the_later_real_merge() {
     assert!(mat["ok"].as_bool().unwrap(), "{mat}");
 
     let main_ref_before = branch_ref_digest(&store, &seed_ws, "main");
+    let main_before_ws = open_workspace("canon", &mut sessions, &mut store);
+    let main_head_before =
+        status(&main_before_ws, &mut sessions, &mut store)["result"]["root_hash"].clone();
 
     let dry = drive(
         &json!({ "dli": V, "id": "dry", "op": "author.merge",
@@ -791,6 +794,12 @@ fn merge_dry_run_commits_nothing_and_matches_the_later_real_merge() {
     assert_eq!(
         main_ref_before, main_ref_after_dry,
         "the dry run advances nothing"
+    );
+    let after_dry_ws = open_workspace("canon", &mut sessions, &mut store);
+    assert_eq!(
+        status(&after_dry_ws, &mut sessions, &mut store)["result"]["root_hash"],
+        main_head_before,
+        "opening after a dry run still reads the original main head"
     );
 
     let real = drive(
@@ -809,6 +818,17 @@ fn merge_dry_run_commits_nothing_and_matches_the_later_real_merge() {
     assert_ne!(
         main_ref_before, main_ref_after_real,
         "the real merge DOES advance main"
+    );
+    let fresh = open_workspace("canon", &mut sessions, &mut store);
+    assert_eq!(
+        status(&fresh, &mut sessions, &mut store)["result"]["root_hash"],
+        real["result"]["merge_commit"],
+        "a fresh workspace observes the merged main head"
+    );
+    assert_eq!(
+        status(&main_before_ws, &mut sessions, &mut store)["result"]["root_hash"],
+        main_head_before,
+        "a workspace opened before the merge retains its snapshot"
     );
 }
 

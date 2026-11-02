@@ -1976,3 +1976,35 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
         "exact-name author.why fields must be byte-identical across all six real ingestion orders"
     );
 }
+
+#[test]
+fn fresh_workspace_observes_defeat_without_changing_existing_snapshot() {
+    let (_root, mut store, path) = fixture();
+    let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
+    let target = claim_id(&lorestore, None, "mara");
+    let open = |store: &mut Store, id: &str| {
+        result(dispatch(
+            &request("1.13.0", id, Op::AuthorOpen, json!({"scope": "demo"})),
+            store,
+        ))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let writer = open(&mut store, "writer");
+    let old = open(&mut store, "old");
+    defeat(&mut store, &writer, "defeat", &target, "d2", "d1");
+    let fresh = open(&mut store, "fresh");
+    assert!(
+        author_query(&mut store, &fresh, "new-query")["rows"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        !author_query(&mut store, &old, "old-query")["rows"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
