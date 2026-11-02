@@ -8,6 +8,7 @@
 //! for a syntax fault, the ladder block that teaches the repair.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use dli_ast::decl::Decl;
@@ -53,7 +54,7 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
     match cmd::compile_corpus(&files, "check") {
         Ok(world) => {
             for finding in check::run(&world) {
-                lines.push(cmd::render_world_finding(&finding));
+                lines.push(render_semantic_finding(&finding, &files));
             }
             for finding in language::check(&world.model.language) {
                 lines.push(cmd::render_world_finding(&finding));
@@ -76,6 +77,41 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
         outln!("checked {count} document(s): {findings} finding(s)");
         Ok(EXIT_FINDINGS)
     }
+}
+
+fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFile]) -> String {
+    let mut line = cmd::render_world_finding(finding);
+    if let Some(span) = finding.span
+        && span.end > span.start
+        && let Some(file) = files.get(span.file.0 as usize)
+    {
+        let offset = span.start as usize + usize::from(file.source.starts_with('\u{feff}')) * 3;
+        if let Some(prefix) = file.source.get(..offset) {
+            let prefix = prefix.strip_prefix('\u{feff}').unwrap_or(prefix);
+            let row = prefix.bytes().filter(|&byte| byte == b'\n').count() + 1;
+            let column = prefix.rsplit('\n').next().unwrap_or("").chars().count() + 1;
+            let _ = write!(line, " ({}:{row}:{column})", file.path.display());
+        }
+    }
+    let help = match finding.code.as_str() {
+        "load.missing-provenance" => Some("add provenance to the declaration"),
+        "load.malformed-provenance" => Some("correct the declaration's provenance"),
+        "load.malformed-world-rule" => Some("write a valid rule head and body"),
+        "load.unbound-head-variable" => Some("bind each head variable in a positive body atom"),
+        "load.unknown-temporal-reference" => {
+            Some("declare the referenced era or event, or correct its name")
+        }
+        "load.duplicate-declaration" => Some("rename or remove one of the duplicate declarations"),
+        "load.inert-declaration" => Some("give the state a subject or a value"),
+        "predicate-identity.arity-mismatch" => {
+            Some("use matching argument counts for the identified predicates")
+        }
+        _ => None,
+    };
+    if let Some(help) = help {
+        let _ = write!(line, "\n  help: {help}");
+    }
+    line
 }
 
 /// A near miss is useful evidence of a typo; unrelated undeclared symbols may

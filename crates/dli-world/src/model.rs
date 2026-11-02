@@ -270,6 +270,23 @@ pub enum LoadFinding {
 }
 
 impl LoadFinding {
+    /// The source location, when the finding identifies a particular declaration.
+    #[must_use]
+    pub fn span(&self) -> Option<Span> {
+        let span = match self {
+            Self::MissingProvenance { span, .. }
+            | Self::MalformedProvenance { span, .. }
+            | Self::MalformedWorldRule { span, .. }
+            | Self::UnboundHeadVariable { span, .. }
+            | Self::UnknownTemporalReference { span, .. }
+            | Self::DuplicateDeclaration { span, .. }
+            | Self::InertDeclaration { span, .. }
+            | Self::PredicateIdentityArityMismatch { span, .. } => Some(*span),
+            Self::CrossPackCollision { .. } | Self::Unstratifiable { .. } => None,
+        };
+        span.filter(|span| span.end > span.start)
+    }
+
     /// A stable, machine-readable class for this finding (charter koan 9,
     /// two-channel error model). Clients and tools match on this; it never
     /// changes for a given variant.

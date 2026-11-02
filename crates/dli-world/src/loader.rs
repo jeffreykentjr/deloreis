@@ -969,7 +969,7 @@ impl LoadCtx {
                 &literal.atom.pred.text,
                 literal.atom.args.len(),
                 pack,
-                literal.atom.pred.span,
+                span,
             );
         }
         if let Some(variable) = dli_eval::world::unbound_variable(&head, &body) {

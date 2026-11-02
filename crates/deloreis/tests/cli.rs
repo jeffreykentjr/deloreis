@@ -1151,6 +1151,79 @@ fn query_known_as_of_is_accepted() {
     assert_eq!(output.status.code(), Some(0));
 }
 
+#[test]
+fn semantic_findings_name_the_source_file_and_offer_repairs() {
+    let dir = tmp("semantic-source-locations");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(
+        &first,
+        "scope storybook\nratify d-0001\nperson wren \"Wren\" ratified d-0001\n",
+    )
+    .unwrap();
+    fs::write(&second, "scope storybook\nperson fox \"Fox\"\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    assert_eq!(output.status.code(), Some(1), "{text} {}", stderr(&output));
+    assert!(text.contains("load.missing-provenance"), "{text}");
+    assert!(text.contains(&format!("{}:2:", second.display())), "{text}");
+    assert!(
+        text.contains("help: add provenance to the declaration"),
+        "{text}"
+    );
+}
+
+#[test]
+fn semantic_columns_ignore_the_utf8_bom() {
+    let dir = tmp("semantic-bom-location");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "\u{feff}person fox \"Fox\"\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    assert!(
+        text.contains(&format!("{}:1:8", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn nested_slot_provenance_points_to_the_slot_line() {
+    let dir = tmp("semantic-nested-slot");
+    let corpus = dir.join("world.dli");
+    fs::write(
+        &corpus,
+        "scope storybook\n\nperson fox \"Fox\" proposed\n  fox.home = thornfield decided\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("load.malformed-provenance"))
+        .unwrap();
+    assert!(
+        line.contains(&format!("{}:4:3", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn wrapped_era_provenance_points_to_the_continuation() {
+    let dir = tmp("semantic-wrapped-era");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nera dawn <\n  dusk decided\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("load.malformed-provenance"))
+        .unwrap();
+    assert!(
+        line.contains(&format!("{}:3:3", corpus.display())),
+        "{text}"
+    );
+}
+
 /// M8: `name check --dialect` must not claim register-fit that the kernel vet
 /// does not run over a bare candidate.
 #[test]
