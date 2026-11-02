@@ -56,7 +56,7 @@ use dli_time::chronology::{Chronology, TemporalVerdict, TimePoint};
 use dli_time::fluent::{FluentTimeline, Projection, TemporalCover};
 
 use super::{CompiledWorld, WorldFinding, fd_value_key};
-use crate::model::{LoadFinding, LoadedAtom};
+use crate::model::{LoadFinding, LoadedAtom, Provenance};
 
 /// The world-internal continuity battery: the classes that check the compiled
 /// world against itself, needing no external draft.
@@ -95,6 +95,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     out.extend(fluent_contradictions(world, &canon));
     out.extend(inertia_unanchored(world, &canon));
     out.extend(fd_violations(world, &canon));
+    out.extend(pending_conflicts(world, &canon));
     out.extend(derived_fd_violations(world, &canon));
     out.sort_by(|a, b| (&a.code, &a.message).cmp(&(&b.code, &b.message)));
     out
@@ -1471,6 +1472,57 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
             .with_data(fd_violation_data(world, &violation))
         })
         .collect()
+}
+
+/// Warn when an authored proposal could conflict with another live value of a
+/// declared-functional slot. This is not a verdict that either account is canon.
+fn pending_conflicts(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec<WorldFinding> {
+    let functional = effective_functional_predicates(world);
+    if functional.is_empty() {
+        return Vec::new();
+    }
+    let mut slots: BTreeMap<(String, String), (Vec<String>, bool)> = BTreeMap::new();
+    for atom in world.model.atoms() {
+        let status = atom_status(world, atom);
+        if status == Status::Dead {
+            continue;
+        }
+        let Some((slot, value)) = slot_of(&atom.atom) else {
+            continue;
+        };
+        let slot = canon_slot(world, canon, &slot);
+        if !functional.contains(&slot.0) || fluent_class_member(world, canon, &slot) {
+            continue;
+        }
+        let entry = slots.entry(slot).or_default();
+        entry
+            .0
+            .push(dli_core::alias::canon(canon, &value).to_owned());
+        entry.1 |= atom.kind == Provenance::Proposed && status == Status::Possible;
+    }
+    let certain = fd_violations_over(
+        certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
+            !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
+        }),
+        &functional,
+    )
+    .into_iter()
+    .map(|v| (v.pred, v.subject))
+    .collect::<BTreeSet<_>>();
+    let candidates = slots
+        .into_iter()
+        .filter(|(slot, (_, proposed))| *proposed && !certain.contains(slot))
+        .flat_map(|((pred, subject), (values, _))| {
+            values
+                .into_iter()
+                .map(move |value| (pred.clone(), subject.clone(), value))
+        });
+    fd_violations_over(candidates, &functional).into_iter().map(|violation| {
+        WorldFinding::warn("continuity.pending-conflict", format!(
+            "proposed values for functional '{}' on {} may conflict: [{}]; decide which account should hold",
+            violation.pred, violation.subject, violation.values.join(", ")
+        )).with_data(fd_violation_data(world, &violation))
+    }).collect()
 }
 
 /// `{pred, subject, values, slot_key}` — enough to reconstruct an FD-violation

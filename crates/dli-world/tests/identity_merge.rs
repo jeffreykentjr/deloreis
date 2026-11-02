@@ -449,3 +449,34 @@ fn plain_same_as_fact_does_not_trigger_an_fd_merge() {
         "a plain same-as fact is not a declaration and must not merge bob/robert: {findings:?}"
     );
 }
+
+#[test]
+fn pending_conflicts_follow_certain_identity_but_not_proposed_identity() {
+    let proposed_fact = |subject, value| {
+        Decl::Fact(FactDecl {
+            atom: atom("rank", &[subject, value]),
+            triple: false,
+            provenance: Some(proposed()),
+        })
+    };
+    let build = |link| {
+        world(vec![
+            functional("rank", "D-1"),
+            same_as("nara", "moira", Some(link)),
+            proposed_fact("nara", "captain"),
+            proposed_fact("moira", "admiral"),
+        ])
+    };
+    let merged = build(ratified("D-1"));
+    assert!(
+        check::run(&merged)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+    let unmerged = build(proposed());
+    assert!(
+        !check::run(&unmerged)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+}

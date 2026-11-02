@@ -243,6 +243,12 @@ const FAMILIES: &[Family] = &[
                 meaning: "a fluent slot holds two distinct values certainly at once over overlapping intervals (a state's `since`/`until` spans collide).",
             },
             Code {
+                code: "continuity.pending-conflict",
+                severity: "warn",
+                repair: "—",
+                meaning: "a proposed value and another live value differ on a declared-functional non-fluent slot; the warning does not decide either account or block materialization.",
+            },
+            Code {
                 code: "continuity.fd-violation",
                 severity: "error",
                 repair: "—",

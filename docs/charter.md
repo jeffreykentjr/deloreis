@@ -305,10 +305,10 @@ Three worked decisions test the charter end to end.
 1. **Bare `ratified` cannot parse.** A status with no origin is a claim from
    nowhere; koan 1 refuses it at the grammar. The AST has no status slot to
    fill, so the refusal is structural, not a lint.
-2. **A proposed conflict queues as a debt.** Two proposed facts contradict.
-   Nothing is dropped (koan 4), nothing changes without a ruling (koan 2), so the
-   conflict is filed as an open question (koan 5) and surfaced, awaiting the
-   author.
+2. **A proposed conflict is surfaced.** Two proposed values for a declared
+   functional slot raise a warning. Nothing is dropped (koan 4), and neither
+   account becomes canon without a ruling (koan 2). The author can record an
+   open question (koan 5); the warning does not block materialization.
 3. **The write-back refusal.** A studio consuming the video-game export asks for
    `deloreis export --write-back`, so their tool can push edited entity fields
    home. Koan 10: integration is by declaration — an external tool's database is

@@ -324,6 +324,11 @@ fn a_fluent_slot_is_left_to_the_interval_check() {
             provenance: Some(ratified("D-1")),
         }),
         functional("rank"),
+        Decl::Fact(FactDecl {
+            atom: atom("rank", &["nara", "ensign"]),
+            triple: false,
+            provenance: Some(marker(ProvenanceMarker::Proposed, &[])),
+        }),
         state(
             "nara.rank",
             "captain",
@@ -341,6 +346,11 @@ fn a_fluent_slot_is_left_to_the_interval_check() {
             .fluents
             .contains_key(&("rank".to_owned(), "nara".to_owned())),
         "the slot really is a fluent — otherwise this asserts nothing"
+    );
+    assert!(
+        !check::run(&world)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
     );
     assert!(
         fd_findings(&world).is_empty(),
@@ -415,5 +425,66 @@ fn a_clean_declared_functional_world_is_silent() {
         check::run(&world).is_empty(),
         "a clean declared-functional world raises nothing: {:?}",
         check::run(&world)
+    );
+}
+
+#[test]
+fn proposed_values_warn_for_declared_functional_slots_without_a_canon_violation() {
+    let proposed = |value| {
+        Decl::Fact(FactDecl {
+            atom: atom("rank", &["nara", value]),
+            triple: false,
+            provenance: Some(marker(ProvenanceMarker::Proposed, &[])),
+        })
+    };
+    let with_policy = world(vec![
+        functional("rank"),
+        proposed("captain"),
+        proposed("admiral"),
+    ]);
+    let warnings: Vec<_> = check::run(&with_policy)
+        .into_iter()
+        .filter(|f| f.code == "continuity.pending-conflict")
+        .collect();
+    assert_eq!(warnings.len(), 1);
+    assert_eq!(warnings[0].severity, check::Severity::Warn);
+    assert!(fd_findings(&with_policy).is_empty());
+    let mixed = world(vec![
+        functional("rank"),
+        certain_fact("rank", "nara", "captain"),
+        proposed("admiral"),
+    ]);
+    assert!(
+        check::run(&mixed)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+    let broken_canon = world(vec![
+        functional("rank"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
+        proposed("ensign"),
+    ]);
+    assert!(
+        !check::run(&broken_canon)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+    assert_eq!(fd_findings(&broken_canon).len(), 1);
+    let without_policy = world(vec![proposed("captain"), proposed("admiral")]);
+    assert!(
+        !check::run(&without_policy)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+    let identical = world(vec![
+        functional("rank"),
+        proposed("captain"),
+        proposed("captain"),
+    ]);
+    assert!(
+        !check::run(&identical)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
     );
 }
