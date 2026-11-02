@@ -1,16 +1,15 @@
 ---
 status: live
 title: "Syntax"
-verdict: "Schema-first: lorestore fact-object schemas and JCS bytes are normative; .dli is an opt-in renderer/compatibility input behind the syntax feature, while semantic tools are the supported interface."
+verdict: "Stored fact objects are schema-defined; the default build also ships the .dli text toolchain and MCP authoring tools."
 ---
 
 # Syntax
 
-This document specifies the optional `.dli` surface: its record shape and the
-discipline that keeps it compatible with the fact objects it renders. It is not
-the normative storage or authoring interface; semantic tools are. This document
-retains syntax details for the supported compatibility feature and illustrative
-rendering.
+This document specifies the `.dli` text surface and its relationship to stored
+fact objects. The default build includes checking, formatting, querying, and
+importing `.dli` documents. The MCP authoring tools offer a structured route for
+agent sessions.
 
 The decision ledger (`../decisions.md`) outranks this document; where they
 disagree the ledger wins and this file is stale until fixed.
@@ -30,10 +29,9 @@ DL-0008). A definition and an enforcer that are two hand-kept copies drift; a
 definition computed from the types does not. This is the same anti-drift move
 the whole system makes about lore, applied to its own data model.
 
-The formatter provides one stable `.dli` rendering when text is requested. It
-is not the canonical form of stored knowledge and it is not a second authoring
-door. Loose text remains a compatibility input behind the `syntax` feature;
-structured tool results and JSON schemas are the supported path.
+The formatter provides a stable `.dli` rendering. Stored knowledge is kept as
+canonical fact objects; text documents are supported input and an optional
+rendering, not the bytes used as the store's canonical form.
 
 The grammar remains versioned for compatibility. Retired text forms are refused
 through the killed-form registry with a named successor; stored fact-object
@@ -329,76 +327,19 @@ Two dimensions where the design **deliberately pays**:
 
 ---
 
-## 6. The two doors (retired: one interface)
+## 6. Text and structured authoring
 
-*Retired semantic (DL-0041, DL-0043).* This section defined the v1 two-door
-model; it is retained because its drift-discipline and demoted-condition rules
-survive. The standing law is koan 11, *one way in*: a single declarative
-interface for every author, with authority — not channel — distinguishing
-them. The text surface described below is an opt-in rendering since DL-0041.
+A writer can check, format, and import `.dli` documents with the default CLI.
+The same parser and deterministic checks apply regardless of who produced the
+text. The [gentle card](../cards/gentle-card.md) introduces the format.
 
-The count of supported paths — not any single path's quality —
-predicts maintenance load and failure surface; every additional path is a
-support surface, a drift surface, and a bust-rate multiplier. That argument
-survives the doors it once counted: it is why the interface count is one.
+For agent sessions, the supported authoring workflow uses the `author.*` MCP
+tools. They return structured findings and workspace state; `author.materialize`
+commits accepted fact objects, with rendered text available on request. See
+[agent authoring](11-agent-authoring.md) and `SKILL.md` for the current workflow.
 
-**The text surface (historical manual-author path) — humans write surface text.** The formatter (write
-loosely, save canonical), the graded error ladder speaking the domain (§4), the
-gentle subset, and the reference cards. Everything, whatever path produced it, is
-**reviewed as surface** — the author reads one form of the language, always. A
-nicer keyboard is not a new door: a click-to-edit form over lore entities in a
-authoring interface serves the human population with a different keyboard,
-its output surface text reviewed as surface.
-
-**the tool surface — agents author through semantic tools (DL-0014).** Agents do not write
-`.dli` text as their supported path; they call a curated set of semantic tools
-registered over MCP against the `deloreis` server — `author.open`,
-`author.add_fact`, `author.add_entity`, `author.add_relation`, `author.add_event`,
-`author.add_before`, `author.open_question`, `author.suppose`, `author.diff`,
-`author.materialize`, and their siblings. Every mutating call returns, at once:
-**graded findings** (with repair data), the **rendered canonical lines**, and the
-**workspace digest**. `author.materialize` returns `.dli` contents *as data*; the
-calling agent commits them through its own review. The full tool surface is
-specified in `11-agent-authoring.md`.
-
-**Raw AST-document emission is a mechanism, not a door.** A frontier model can be
-constrained to emit a schema-valid AST at its decode layer, and that capability
-is used *inside* the tool surface's tools and as a benchmark arm — but raw AST emission is
-not itself a supported authoring channel. It solves syntactic validity only:
-wrong-but-well-formed content (invented names, bad citations, contradicted
-claims) passes the decoder and dies in the semantic gates, exactly as it should.
-
-**The demoted conditions, named plainly.**
-
-- **Textual agent editing of existing `.dli` files** is a **measured fallback**,
-  not a channel. It happens incidentally — an agent with a text editor will
-  sometimes edit text — and the gate treats it identically to any other input:
-  same pipeline, same graded errors. The skill file does not teach it, no tooling
-  is built for it, and no reliability claim is made for it. Its standing role is
-  the benchmark's control condition and the standing measurement of what happens
-  off-interface.
-- **Grammar-constrained local emission** is a **benchmark condition**, not a
-  shipped channel. No maintained grammar artifact is kept under an equivalence
-  tax for an unwalked path. What is kept costs nothing: the grammar stays
-  line-oriented and GBNF-expressible (§2), so the option remains cheap to reach
-  if evidence ever calls for it.
-
-**The promotion trigger is explicit and double-sided.** A demoted condition
-becomes a supported path only on evidence that the tool surface *fails* for named local
-models the owner actually uses **and** that constrained surface *passes* on the
-same tasks — **plus** a written argument against the interface budget. Paths and
-reasoning seats are the same species of scope creep and follow the same protocol.
-
-**Off-interface input meets the full pipeline.** The bounded interface limits what is
-*supported* — taught, tooled, measured — and never authorizes a silent drop. An
-agent's textual edit arriving off-interface is neither refused nor ignored; it meets
-the same graded errors as everything else (koan 4, *nothing is silently
-dropped*). The gate stays total; an unsupported path is a support decision, never a
-data-loss decision.
-
-**The benchmark existed to close routes.** Its output was a verdict about which
-route to shut or keep shut — never a menu of options to offer. It is retired
-with the semantic it measured (DL-0041, DL-0043).
+Neither path makes a model call in the kernel. A well-formed claim can still be
+possible, contradictory, or unsupported; the semantic checks report that state.
 
 ---
 
@@ -410,10 +351,8 @@ and the corpus drifting apart.
 **CI-compiled examples.** Every `.dli` example in every document in this suite,
 and in the skill, is wired into a compile harness: an example either parses
 cleanly against the current grammar or the gate is red (the docs-oracle runs the
-real parser over every block). Documentation cannot rot into showing forms the
-language no longer accepts, because a rotted example fails the build. (The
-grammar is at v0 — unfrozen, with the AST normative; the marker on the first
-line of every `.dli` block records exactly that.)
+real parser over every block). An example that produces an error-class
+diagnostic fails the gate.
 
 **The killed-form registry.** A surface form that is retired — a spelling the
 language once accepted and no longer does — is *registered*, not forgotten. The
@@ -422,52 +361,14 @@ bare error, and never silently re-accepts it. This is the same discipline the
 lore layer applies to killed names and banned vocabulary: history is the
 guardrail corpus, and the machine refuses a quiet return.
 
-**Versioned grammar, formatter as migrator.** A grammar version bump ships a
-canonical-to-canonical migration; the formatter *is* that migration (§1;
-DL-0003). Before a version ships, its migration is rehearsed on a synthetic
-version bump — the AST schema diff across the bump must be empty where no change
-was intended — so the migrator is exercised before any real corpus meets it.
-
-**The gate is deterministic and offline (DL-0013).** The compile-examples
-harness, the formatter idempotence check, and the killed-form checks all run
-with no network and no model in the loop. The authoring benchmark and any
-model-in-the-loop lane are **non-gating**: they informed the now-retired route verdict, they do
-not block a merge.
+**Deterministic offline gate.** Example parsing, formatter checks, and the
+killed-form checks run without a network or model call in the gate.
 
 ---
 
 ## 8. What is unvalidated
 
-The surface stands on a published basis, and it is honest about the edge of that
-basis.
-
-**The basis is prior art, accounted once elsewhere.** Word keywords over
-punctuation, the cognitive-dimensions method (§5), the language's named position
-in the DSL pattern space, the natural-programming footing under "structured
-notes," and the fiction-language lineage that places this language as a third
-family — *knowledge, not simulation or flow* — are the ground under the surface.
-Each cited line of published work licenses specific named decisions and nothing
-more; the accounting lives in `../design-notes/prior-art-licenses.md` and is not
-restated here.
-
-**No study of *this* grammar exists** — for humans or for agents. The basis sets
-the *direction* of the surface (evidence-oriented word-based design); it does not
-*validate* this particular surface. The regrounding narrows the bet; it does not
-discharge it.
-
-**Two instruments, planned and not presumed:**
-
-1. The **P0 authoring benchmark** — the agent-side instrument. Its pass is
-   defined by the *real gate's verdict*, not by a proxy score. Its matrix is the
-   two routes against a set of models, plus the two demoted conditions as
-   experimental arms. Its output was the route verdict of §6 (retired).
-2. A **small human-writer probe** taken at the G1 milestone, before the surface
-   freezes — a handful of non-programmer writers, the gentle subset, comprehension
-   and transcription tasks, with a cognitive-dimensions walkthrough as the
-   interview scaffold. G1 is the last point at which a surface change is cheap;
-   after it, a change is a versioned migration.
-
-Until both instruments report, **every approachability claim in this document is
-a hypothesis with good priors**, and is written as one. The surface freeze
-(recorded as a decision when it lands) is gated on the human-writer probe having
-run first.
+The syntax has executable examples and parser tests, but those do not establish
+that every writer finds it easy to read or use. The human-writer probe in
+[`probe-protocol.md`](../cards/probe-protocol.md) describes a way to collect
+that feedback. No claim of a completed study follows from the protocol.

@@ -1,7 +1,0 @@
-banned:
-  - word: telephone
-    scope: diegetic
-    match: exact
-  - word: subroutine
-    scope: all
-    match: stem

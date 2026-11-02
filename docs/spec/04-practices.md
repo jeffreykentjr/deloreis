@@ -188,15 +188,10 @@ annotation layer beneath it cannot even express the two pools, let alone diff
 them; here it is one declared error refining L2 with the discriminant
 *available-in(licensed-pool) and contradicted-in(certain)*.
 
-**Cost vocabulary is typed; the cost schedule is proposed lore.** The `cost`
-line fixes the *currencies* a casting may spend in — social, bodily, material,
-epistemic — so a ledger records spends by kind and the craft layer can ask what
-an episode's magic cost and in which currencies. What it does not fix is the cost
-*schedule*: how much strain a given pledge draws is a rule set that enters as
-`proposed` lore only when a ruling lands in the consuming ledger. The workbench holds the slot open
-with a typed vocabulary and declines to invent the numbers — the schedule is
-reserved extension work, and a practice with no schedule yet still checks
-everything else.
+**Cost vocabulary is declared, not computed.** A practice can name cost
+currencies such as social, bodily, material, or epistemic in a `cost` line.
+The current ledger checks declared resource premises; it does not produce a
+per-currency cost report from that vocabulary.
 
 ## 4. The arbitrariness proof
 

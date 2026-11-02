@@ -7,13 +7,16 @@ verdict: "evaluation and checking are owned; search and generation propose; noth
 # Reasoning
 
 De Lore Is answers a spread of reasoning tasks — assertability, continuity,
-blame, timeline consistency, ledger proof checking, ruleset exploration. This
+blame, timeline consistency, and ledger proof checking. This
 document inventories all of them, gives each its computational shape, and makes
 the own-versus-borrow call for each under one rule: **evaluation and checking
-are reimplemented, small and certifiable; search, optimization, and generative
-enumeration are integrated out-of-process, as proposers and baselines, never as
+are reimplemented, small and certifiable; any search or external baselines
+would act as proposers, never as
 certifiers.** That rule is koan 12 (own what certifies; borrow only baselines)
 and DL-0005 (owned-first reasoning) applied task by task.
+
+The inventory distinguishes implemented work from deferred possibilities. It
+does not promise that a future solver or service is included in the release.
 
 ## 1. The kernel is solver-class software
 
@@ -44,10 +47,8 @@ bill:
 - **Serialized, replayable derivation forests.** Every judgment is a byte-stable
   artifact: same input, byte-identical judgment. This is the audit surface, the
   debugging story, and the differential-testing hookup at once.
-- **The differential-testing story.** The kernel's own verdicts are checked
-  against a reference: the legacy gates as reference oracle during migration
-  (see `design-notes/sibling-lessons.md` and `integration/migration.md`), a
-  Lean-specified judgment fragment later (§7). The engine must stay small enough
+- **Differential testing.** Retained tests compare independent evaluation paths,
+  including incremental and full saturation. The engine must stay small enough
   to be *itself* checkable.
 
 Anyone who has built a datalog engine will recognize this list. Planning it as
@@ -64,8 +65,8 @@ checkability wherever a verdict certifies canon; integrate wherever a component
 proposes, enumerates at scale, or serves as a baseline.** A mature datalog crate
 is welcome as a differential *baseline* over the shared fragment; it may not
 *be* the certifying evaluator. The engine must stay small enough to be itself
-checkable — differentially against the legacy gates now, against a
-Lean-specified judgment fragment later (§7).
+checkable through its tests; an independent formal specification remains a
+possible future aid (§7).
 
 ## 2. The state tree is never walked
 
@@ -98,7 +99,7 @@ Machinery legend: **EVAL** annotated seminaive fixpoint / lattice evaluation ·
 (partial order / point algebra) · **SAT** bounded model search · **ASP**
 answer-set-shaped enumeration (choice rules + constraints + defaults) · **SMT**
 arithmetic theory solving · **CHECK** proof checking, linear in proof length ·
-**MC** Monte Carlo + property testing · **MCTS** game-tree search.
+**MC** property-based and mutation testing.
 
 | id | Task | Shape | Machinery | v1 | External |
 |---|---|---|---|---|---|
@@ -106,42 +107,31 @@ arithmetic theory solving · **CHECK** proof checking, linear in proof length ·
 | T2 | Transitive closures (geography, `happens-before`) | recursive datalog, finite domain | EVAL | yes — the irreducible center | no; this row *is* the engine |
 | T3 | Continuity checking (six classes) | non-recursive queries + FD checks over fold state | EVAL | yes | no |
 | T4 | Factcheck verdicts | point lookups + FD + constraint scan (model extraction stays caller-side, never above `tested`) | EVAL | yes | no |
-| T5 | Outline-vs-world soundness (check direction) | T3/T4 lifted to outline claims + promise bookkeeping | EVAL/CHECK | yes | no |
-| T6 | Abduction of minimal fixes | single claim: read the support's minimal monomials — precomputed; cross-claim repair: hitting set, trivial at instance sizes | ENUM | yes | ASP power tool iff repair spaces reach hundreds of interacting hypotheses |
+| T5 | Draft claims against canon | continuity and fact checks over draft claims | EVAL/CHECK | yes | no |
+| T6 | Explain one claim | read its support paths and blockers | EVAL | yes | no |
 | T7 | Ratification pre-flight | one candidate-valuation evaluation + conflict scan | EVAL | yes | no |
-| T8 | Joint valuation-space queries | bounded model search over event variables | ENUM→SAT | exact to ~20 free variables | SAT as proposer beyond; kernel re-evaluates any found valuation |
+| T8 | Joint valuation search | search over event variables | ENUM or SAT | deferred | any proposal must be rechecked |
 | T9 | Fork diff / merge conflicts | evaluation diff; constraint-join; FD/constraint scan | EVAL | yes | no |
 | T10 | Blame / min-why / why-not | antichain read; defeater read | EVAL | yes | no |
-| T11 | Keep-stamp unreachability | derivation-graph reachability + exhaustive spread enumeration | ENUM | yes | clingo as differential oracle |
+| T11 | Keep-stamp visibility | deterministic scope filter over exported or forked facts | CHECK | yes | no |
 | T12 | Timeline consistency | cycle detection over the before-graph + era spine | PROP | yes | no |
-| T13 | State-at projection / anachronism | cautious event-calculus projection over a partial order; three-valued | EVAL/ENUM | yes | no |
+| T13 | State-at projection | cautious event-calculus projection over a partial order; three-valued | EVAL/ENUM | yes | no |
 | T14 | Episode-order CHECK (~200 eps) | linear scans against precedence + window constraints | PROP (trivial) | yes | no |
 | T15 | Episode-order SEARCH / optimize | topological + earliest-slot while constraints stay precedence + windows (poly); NP only with disjunctive/soft constraints | PROP → owned searcher | deferred until the workflow exists | CP-SAT as proposer, if ever |
 | T16 | Wrong-hour / phase checking | modular arithmetic; wheel-walk consistency | CHECK | yes | no |
-| T17 | Game legal moves; deck invariants under deltas | successor + finite invariant enumeration | ENUM | yes | no |
-| T18 | Ruleset-space exploration | legality: sweep now, ASP-shaped iff generative; metrics: simulation | ENUM/ASP + MC | sweep + battery: yes | clingo when enumeration goes generative |
-| T19 | Rank-emergence / thesis-alignment metrics | statistical estimation over simulated play | MC (+ MCTS) | battery: yes | ISMCTS lab-side; results `tested` forever |
 | T20 | Proof-ledger checking | proof CHECKING — linear, decidable, no search | CHECK | yes | no — the paradigm reimplement case |
 | T21 | Metatheorems | interactive proving, offline | Lean | no, by design | spec organ; badged lemmas |
 | T22 | The proof layer itself (gate coverage) | seeded-violation operators × real gates | MC/ENUM | harness exists | no |
 
-## 4. The three rows that need prose
+## 4. Reasoning choices that need prose
 
-Three rows carry the whole argument and deserve their honesty spelled out.
+Some rows deserve their tradeoffs spelled out.
 
-**T6 / T8 — abduction and valuation search.** The single-claim case is the
-quiet triumph of the annotation design. "What would make this assertable?" is
-not a search problem, because the answer *is* the atom's support, already in
-minimal-monomial form: the provenance representation is a completed abduction.
-The combinatorial cases are real but bounded. Minimal repair across many failing
-claims is hitting-set, and joint valuation queries ("which combination of open
-rulings keeps Act 1 sound?") are propositional search over however many *free*
-variables the question leaves open. At corpus scale — a few hundred ledger
-entries, exclusivity families of single-digit size — exhaustive enumeration is
-exact and instant. The honest tripwire is roughly twenty free variables in one
-query, past which a SAT library earns proposer status. What never changes: a
-found valuation is *certified* by the kernel evaluating it — one pass, T1/T7 —
-so the solver is structurally incapable of being load-bearing even when present.
+**T6 / T8 — explanation and valuation search.** The engine can explain a
+single claim in terms of its support and blockers. Searching for a joint repair
+across claims or enumerating valuations is not a shipped capability. If a
+future proposer supplies a valuation, the kernel must re-evaluate its result
+before it is used as a judgment.
 
 **T14 / T15 — episode ordering, the one genuinely scheduling-shaped task.**
 Roughly two hundred episodes against reveal-before-payoff rules, staging
@@ -164,19 +154,6 @@ declared flashbacks. Three regimes, analyzed honestly:
   vacated in favor of an owned searcher, and CP-SAT is named as the eventual
   proposer only if that owned searcher measurably fails (§5, §6).
 
-**T18 — ruleset-space exploration.** Split it and it stops being mysterious. The
-*metrics* half — play each variant, measure rank-emergence, thesis alignment,
-honest-versus-rigged divergence — is Monte Carlo plus property testing:
-statistical by nature, `tested` grade forever, embarrassingly parallel, with no
-logical structure for a solver to exploit. ISMCTS enters only if competent-play
-studies are wanted, as a lab-side player, never a verdict. The *legality* half
-depends on who writes the variants. Today the deltas are author-designed and
-few: a parameter sweep with the kernel's exact invariant checker covers it. If
-the space is ever opened generatively — "enumerate all variant decks over these
-substitution schemas satisfying invariants I1..In" — that is ASP-shaped in the
-textbook sense, and the seat is handled by an owned enumerator pruned by the
-exact checker (§5), with clingo retained only as a differential oracle.
-
 **The two rows that anchor "reimplement."** T2 (transitive closures) is the
 irreducible center: recursive datalog over a finite domain *is* the engine, and
 there is nothing to integrate because this row is the thing being built. T20
@@ -185,13 +162,12 @@ proof checking is linear in proof length, decidable, and contains no search at
 all — a small first-order checker with explicit instantiation and linear
 resource accounting, whose verdicts certify canon and therefore must be owned,
 deterministic, and replayable. Between these two poles every certifying task is
-evaluation or checking, and every proposing task is search or simulation held
-behind the judgment boundary.
+evaluation or checking, and every proposing task stays behind the judgment boundary.
 
 **The synthesis.** The certification path — everything that gates canon
 assertion, continuity, the export pack, the proof ledger — is deterministic
 evaluation and checking: polynomial per evaluation, terminating by construction,
-no search anywhere. That is the crisp line under all twenty-two rows.
+no search anywhere in that certification path.
 
 ## 5. Owned-first: the seats, one by one
 
@@ -211,18 +187,6 @@ proposer, never a certifier.**
   safe: search output is self-certifying in the check direction (every found
   order re-passes the T14 linear checker), and the useful middle regime — slack
   computation — is already committed polynomial machinery that needed no solver.
-- **The clingo generative seat is vacated; the oracle seat is retained.** If
-  T18's legality half goes generative, the first build is a small owned
-  choice-point enumerator over delta schemas: backtracking over substitution
-  choice points, pruned at each node by the kernel's exact invariant checker —
-  which already exists and is the hard half. Enumeration over a schema-defined
-  space is the easy half; hand-rolling *propagation* is the thing to avoid, and
-  pruning-by-checker avoids it. **clingo is retained in exactly one role: the
-  standing differential oracle** — the same constraints encoded independently in
-  ASP, enumerations diffed in lab runs, covering T11's spread space, T17's deck
-  invariants, and the owned enumerator's own output. It is lab-side, never in a
-  gating lane (DL-0013), never in the serving path. A baseline is cheap to rent
-  precisely because nothing depends on it.
 - **SMT: unchanged.** Nothing in scope is SMT-shaped; the door is closed and
   unlocked. The trigger is a ratified law introducing real arithmetic, and the
   decision is made then.
@@ -232,8 +196,7 @@ proposer, never a certifier.**
 
 **The cost, accepted in writing.** Owned reimplementations must themselves be
 tested: property tests, the mutation-operator corpus extended with seeded
-searcher and enumerator violations, and the differential oracle diffing their
-outputs. That is the price of checkability, paid deliberately — koan 12 commits
+searcher and enumerator violations, and differential checks of their outputs. That is the price of checkability, paid deliberately — koan 12 commits
 the kernel to this bill, and it extends the same bill to the satellites. Also
 true and stated: an owned searcher is worse than CP-SAT in general. That is
 irrelevant at our sizes, and the flip condition names exactly the regime where
@@ -241,8 +204,7 @@ it stops being irrelevant.
 
 **What this buys in dependencies.** From the first release through the medium
 term: **zero foreign reasoning processes** required to build, gate, or serve.
-One — clingo — is optionally present lab-side as a baseline, never in
-CI-required jobs, never in the serving path.
+Optional external baselines are never required in the serving path.
 
 **Small parts, linked.** The kernel and timeline module compose at the
 **replayable-judgment boundary**: serialized inputs and outputs are rerunnable
@@ -262,24 +224,22 @@ kernel already exposes:
 
 Per seat:
 
-- **Joint-valuation queries beyond ~20 free variables** → owned bounded
-  enumeration first, a SAT library second (T8).
-- **Repair spaces of hundreds of interacting hypotheses** → owned hitting-set
-  enumeration first, ASP second (T6).
+- **A demonstrated joint-valuation search need** → evaluate a bounded approach
+  first; any proposed valuation must be rechecked (T8).
+- **A demonstrated cross-claim repair need** → assess an owned repair search
+  first; the current single-claim explanation does not implement it (T6).
 - **A real propose-orderings workflow with soft constraints** → the owned
   searcher first, CP-SAT second (T15).
-- **Generative ruleset enumeration** → the owned choice-point enumerator first,
-  clingo second (T18).
 - **A ratified arithmetic law** → the SMT decision, made then.
 
 ## 7. The Lean posture
 
-Lean is an offline spec organ, adopted later, never in the serving path. The
+Lean is a possible future offline specification tool, never part of the serving
+path. The
 proof-ledger checker is a first-order object — atoms, explicit instantiation,
 around nine forms, side conditions, and linear accounting — and a full CIC
 embedding would supply dependent types the design never uses while lacking the
-one thing it most needs, linearity. So Lean is not the checker; it is the spec
-the checker is audited against.
+one thing it most needs, linearity. It is not the checker; an offline specification could be used to audit it.
 
 Three triggers move it from deferred to built, any one sufficient: the judgment
 forms freeze; the first metatheorem is wanted; checker correctness becomes
@@ -290,10 +250,9 @@ ledgers runs through both the Rust checker and the Lean spec's executable
 elaboration, and their verdicts are diffed in CI. The serialized-judgment
 requirement (§1) is what makes that loop nearly free.
 
-Metatheorems — for example, "no legal sequence of plays increases total debt" as
-a *theorem* rather than a Monte-Carlo observation — are proven in Lean against
-the spec. Their authority reaches the runtime through the coherence evidence,
-imported as **badged lemmas** the verdict lattice marks honestly (koan 6; see
+Metatheorems could be proven in Lean against the spec. Their authority would
+reach the runtime through coherence evidence, imported as **badged lemmas**
+the verdict lattice marks honestly (koan 6; see
 `07-verdicts-and-llm-boundary.md`). The implementation stays authoritative at
 runtime; Lean is the spec organ; coherence is a differential loop, never an
 embedding.
@@ -304,8 +263,8 @@ Every task in the inventory falls on one side of a single line. On the certifyin
 side — assertability, continuity, factcheck, blame, timeline consistency, ledger
 proof checking — the machinery is deterministic evaluation and checking, owned,
 small, and replayable, with no search. On the proposing side — valuation-space
-queries at scale, episode-order optimization, generative ruleset enumeration,
-play metrics — the machinery may be integrated, out-of-process, behind the
+queries at scale and episode-order optimization — machinery could be integrated,
+out-of-process, behind the
 judgment boundary, and its every output is re-checked or graded honestly before
 it touches canon. Nothing foreign certifies; through the medium term, nothing
 foreign is even required to build, gate, or serve. That is DL-0005 and koan 12,
@@ -313,9 +272,9 @@ discharged row by row.
 
 ## 9. Archive evaluation keeps the line
 
-Whole-corpus saturation is the atelier-scale implementation, not a semantic
-requirement. At archive scale, a managed service will use supplementary Magic
-Sets to bound a snapshot-pinned provenance cluster, then an embedded peer will
+Whole-corpus saturation is the current implementation, not a semantic
+requirement. At archive scale, a future service could use supplementary Magic
+Sets to bound a snapshot-pinned provenance cluster, then an embedded peer could
 run this same owned bottom-up evaluator over that cluster. The service performs
 indexed I/O and binding propagation; it does not certify standing, choose a
 consensus, or replace the evaluator with a remote solver.
