@@ -20,6 +20,10 @@ allow = [
 
 [advisories]
 yanked = "deny"
+# The existing YAML readers include the private-consumer integration scheduled
+# for removal in the fiction-release reset. Remove this exception when those
+# readers are deleted or migrated to a maintained, safe YAML implementation.
+ignore = ["RUSTSEC-2024-0449"]
 
 [bans]
 multiple-versions = "warn"
