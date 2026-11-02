@@ -229,7 +229,8 @@ fn gentle_card_holds_no_expert_word() {
 #[test]
 fn gentle_card_teaches_only_the_gentle_grammar() {
     // Every non-blank, non-comment, non-indented line in a gentle-card `dli`
-    // block must open with a gentle word or be a named relation. An expert
+    // block must open with a gentle word, be a named relation, or parse as a
+    // standalone slot fact. An expert
     // keyword opening a line would be teaching expert grammar on the first card.
     let card = read_card("gentle-card.md");
     for block in dli_blocks(&card) {
@@ -243,7 +244,12 @@ fn gentle_card_teaches_only_the_gentle_grammar() {
             }
             let token = opening_token(line);
             assert!(
-                GENTLE_OPENERS.contains(&token) || is_relation_form(line),
+                GENTLE_OPENERS.contains(&token)
+                    || is_relation_form(line)
+                    || matches!(
+                        parse_document(line).0.decls.as_slice(),
+                        [dli_ast::decl::Decl::Attr(_)]
+                    ),
                 "gentle card line opens with non-gentle token {token:?}: {line:?}"
             );
         }

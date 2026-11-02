@@ -354,3 +354,18 @@ proptest! {
         prop_assert_eq!(doc.decls.len(), labels.len(), "source:\n{}", source);
     }
 }
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    #[test]
+    fn parser_handles_arbitrary_utf8_without_panicking(chars in prop::collection::vec(any::<char>(), 0..512)) {
+        let source: String = chars.into_iter().collect();
+        let (_, diagnostics) = parse_document(&source);
+        for diagnostic in diagnostics.iter().filter(|diagnostic| diagnostic.class.is_error()) {
+            prop_assert!(diagnostic.span.start <= diagnostic.span.end);
+            prop_assert!((diagnostic.span.end as usize) <= source.len());
+            prop_assert!(!dli_syntax::ladder::ladder(diagnostic.class).repair.instruction().is_empty());
+        }
+    }
+}

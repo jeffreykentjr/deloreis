@@ -1422,3 +1422,84 @@ fn import_refuses_a_manifest_linked_to_a_different_project() {
     let store = dli_lorestore::Lorestore::open(first.join(".deloreis/store")).unwrap();
     assert!(store.head_pack_name().unwrap().is_none());
 }
+
+#[test]
+fn check_suggests_a_declared_entity_for_a_misspelled_subject() {
+    let dir = tmp("entity-typo");
+    let doc = dir.join("story.dli");
+    fs::write(
+        &doc,
+        "scope story\nperson wren \"Wren\" proposed author\nwrne.home = ashby proposed author\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    let out = stdout(&output);
+    assert!(out.contains("entity.undeclared"), "{out}");
+    assert!(out.contains("did you mean `wren`"), "{out}");
+    assert!(out.contains(":3:1"), "{out}");
+}
+
+#[test]
+fn typo_hints_cover_targets_and_stay_in_scope() {
+    let dir = tmp("entity-typo-scopes");
+    fs::write(dir.join("declarations.dli"), "scope story\nperson wren \"Wren\" proposed author\nplace ashby \"Ashby\" proposed author\n").unwrap();
+    fs::write(
+        dir.join("claims.dli"),
+        "scope story\nwren.home = ashby proposed author\nwren.home = ashbee proposed author\nfriend(wren, wren) proposed author\nfriend(wren, wrne) proposed author\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.join("other.dli"),
+        "scope elsewhere\nperson wreck \"Wreck\" proposed author\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let out = stdout(&output);
+    assert!(
+        out.contains("`ashbee` is not declared; did you mean `ashby`"),
+        "{out}"
+    );
+    assert!(
+        out.contains("`wrne` is not declared; did you mean `wren`"),
+        "{out}"
+    );
+    assert!(!out.contains("did you mean `wreck`"), "{out}");
+}
+
+#[test]
+fn typo_hints_cover_indented_slots_and_unicode() {
+    let dir = tmp("entity-typo-indented");
+    let doc = dir.join("story.dli");
+    fs::write(&doc, "scope story\nperson élise \"Élise\" proposed author\n  élisa.home = ashby proposed author\n").unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    let out = stdout(&output);
+    assert!(
+        out.contains("`élisa` is not declared; did you mean `élise`"),
+        "{out}"
+    );
+    assert!(out.contains(":3:3"), "{out}");
+}
+
+#[test]
+fn typo_hints_handle_long_identifiers() {
+    let dir = tmp("entity-typo-long");
+    let doc = dir.join("story.dli");
+    let name = format!("person{}", "a".repeat(150));
+    let typo = format!("{name}b");
+    fs::write(&doc, format!("scope story\nperson {name} \"Long\" proposed author\n{typo}.home = place proposed author\n")).unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    assert!(
+        stdout(&output).contains(&format!("did you mean `{name}`")),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn typo_hints_do_not_treat_untyped_values_as_entities() {
+    let dir = tmp("entity-typo-concept");
+    let doc = dir.join("story.dli");
+    fs::write(&doc, "scope story\nperson ned \"Ned\" proposed author\nperson wren \"Wren\" proposed author\nwren.hair = red proposed author\n").unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    assert!(output.status.success(), "{}", stdout(&output));
+}
