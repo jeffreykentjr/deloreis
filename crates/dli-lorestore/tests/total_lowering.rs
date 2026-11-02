@@ -3,13 +3,13 @@
 //! This integration test closes the loop the roadmap (doc/PLAN.md § LS-1,
 //! `docs/design-notes/lorestore-roadmap.md` §LS-1) demands:
 //!
-//! > every AST construct lowers to fact objects, and lowering the vendored
+//! > every AST construct lowers to fact objects, and lowering the example
 //! > corpus then compiling reproduces identical fixpoint, findings, and digests
 //!
 //! Flow — shadow-read harness idiom (same as the MIG/PROOF lanes in
 //! `crates/dli-world/tests/check.rs`):
 //!
-//! 1.  Bridge the vendored `facts.yaml` into `Decl`s (same `corpus_pack`
+//! 1.  Bridge the original test corpus into `Decl`s (same `corpus_pack`
 //!     logic the MIG lane uses).
 //! 2.  Compile via `dli_world::compile` → **reference A**.
 //! 3.  Lower A's `LoadedAtom`s to `FactObject`s and compute their
@@ -42,7 +42,7 @@ use dli_world::compile;
 #[test]
 #[allow(clippy::too_many_lines, clippy::print_stdout)]
 fn total_lowering_reproduces_fixpoint_findings_and_digests() {
-    // 1 — bridge the vendored corpus.
+    // 1 — bridge the original test corpus.
     let pack = corpus_pack(&load_corpus());
 
     // 2 — compile reference A.
@@ -315,7 +315,7 @@ fn lower_decl_reproduces_lower_atoms() {
     }
 }
 
-/// Parity on the shapes the vendored corpus never exercises — each was a live
+/// Parity on the shapes the original test corpus never exercises — each was a live
 /// divergence between `lower_decl` and the loader before the audit repairs:
 /// tag-gated proposals (the `h.` prefix), negated condition groups (De
 /// Morgan), citation-requiring markers with no citations (fail-closed), a

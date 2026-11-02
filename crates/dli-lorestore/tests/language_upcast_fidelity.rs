@@ -28,6 +28,7 @@ use serde_json::Value;
 use tempfile::TempDir;
 
 use dli_ast::decl::Decl;
+use dli_ast::language::DialectItem;
 use dli_lorestore::lower::{declared_decisions, lower_pack};
 use dli_lorestore::object::{ExpertDeclKind, FactObject};
 use dli_lorestore::storage::{FilesystemStorage, Storage, read_typed, write_typed};
@@ -36,22 +37,54 @@ use dli_lorestore::upcast::upcast_value;
 use dli_lorestore::{Lorestore, MAIN_REF};
 use dli_world::{Pack, compile};
 
-/// The vendored `cymric-fringe` pack: a `dialect` with the full interior grammar
-/// (basis, inventories, `cluster-max`, `stress`, `name-kind`, `name-part`),
+/// The Norse example pack, extended in memory to exercise the full dialect
+/// interior grammar (including foreign clusters and alternative name kinds),
 /// several `name` derivations (composition + `bearer …` provenance + a standalone
 /// provenance line), and a `ratify` carrying a `hyp := true` valuation — every
 /// language-layer body the LS-9 structuring touched, in one pack.
-fn cymric_pack() -> Pack {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../worlds/tpth/packs/cymric-fringe.dli");
-    let src = std::fs::read_to_string(&path).expect("read cymric-fringe.dli");
+fn norse_pack() -> Pack {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/norse/runes.dli");
+    let src = std::fs::read_to_string(&path)
+        .expect("read runes.dli")
+        .replace(
+            "  cluster-max 2\n",
+            "  cluster-max 2\n  foreign z\n  sayability-max 6\n",
+        )
+        .replace(
+            "name-kind person.given = given-proto given-deutero",
+            "name-kind person.given = given-proto given-deutero | given-simple",
+        );
     let (document, diagnostics) = dli_syntax::parse_document(&src);
     assert!(
         diagnostics.is_empty(),
         "pack must parse clean: {diagnostics:?}"
     );
+    let dialect = document
+        .decls
+        .iter()
+        .find_map(|decl| match decl {
+            Decl::Dialect(dialect) => Some(dialect),
+            _ => None,
+        })
+        .expect("the test pack declares a dialect");
+    assert!(
+        dialect
+            .body
+            .clauses
+            .iter()
+            .any(|clause| matches!(&clause.item, DialectItem::Foreign(_)))
+    );
+    assert!(
+        dialect
+            .body
+            .clauses
+            .iter()
+            .any(|clause| matches!(&clause.item, DialectItem::SayabilityMax(Some(6))))
+    );
+    assert!(dialect.body.clauses.iter().any(|clause| matches!(&clause.item, DialectItem::NameKind(Some(spec)) if spec.patterns.len() == 2)));
     Pack {
-        name: "cymric-fringe".to_owned(),
+        name: "runes".to_owned(),
         documents: vec![document],
     }
 }
@@ -113,7 +146,7 @@ fn downgrade_to_v1(fo: &FactObject) -> Value {
 
 #[test]
 fn v1_language_carriages_upcast_to_the_exact_v2_object() {
-    let pack = cymric_pack();
+    let pack = norse_pack();
     let (objects, _names) = lower_pack(&pack);
 
     let mut checked = 0;
@@ -124,6 +157,7 @@ fn v1_language_carriages_upcast_to_the_exact_v2_object() {
     ] {
         let v2_carriage = objects
             .iter()
+            .rev()
             .find(|fo| fo.expert_body.as_ref().is_some_and(|b| b.kind == kind))
             .unwrap_or_else(|| panic!("the pack carries a {kind:?}"));
 
@@ -155,7 +189,7 @@ fn v1_language_carriages_upcast_to_the_exact_v2_object() {
 
 #[test]
 fn a_v1_stored_language_pack_compiles_identically_after_upcast() {
-    let pack = cymric_pack();
+    let pack = norse_pack();
 
     // reference A: direct compile.
     let compiled_a = compile(&pack).expect("direct compile");
@@ -269,7 +303,7 @@ fn commit_language_carriages_are_v1(
 /// Pin the `read_typed` upcast path directly for a language carriage.
 #[test]
 fn read_typed_upcasts_a_v1_language_object_on_read() {
-    let pack = cymric_pack();
+    let pack = norse_pack();
     let (objects, _names) = lower_pack(&pack);
     let v2_carriage = objects
         .iter()

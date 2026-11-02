@@ -1,0 +1,39 @@
+- id: e01
+  production_order: 1
+  story_anchor: {era: early-days, after: [], before: [], phases: [{cycle: season, index: 0}]}
+  scenes:
+    - id: s1
+      cast: [keeper]
+      presence: [!OnMic keeper]
+      location: lighthouse
+      scene_anchor: null
+      knowledge_deltas: [{knower: Listener, fact: beacon-lit}]
+      fact_deltas: [{fact: beacon-lit, provenance: null}]
+      opens: [who-sent-the-letter]
+      closes: []
+- id: e02
+  production_order: 2
+  story_anchor: {era: present, after: [], before: [], phases: []}
+  scenes:
+    - id: s1
+      cast: [wren]
+      presence: [!OnMic wren]
+      location: thornfield
+      scene_anchor: null
+      knowledge_deltas: [{knower: Listener, fact: letter-delivered}, {knower: !Cast wren, fact: letter-delivered}]
+      fact_deltas: [{fact: letter-delivered, provenance: null}]
+      opens: []
+      closes: []
+- id: e03
+  production_order: 3
+  story_anchor: {era: present, after: [], before: [], phases: []}
+  scenes:
+    - id: s1
+      cast: [keeper]
+      presence: [!OnMic keeper]
+      location: lighthouse
+      scene_anchor: {era: early-days, after: [], before: [], phases: []}
+      knowledge_deltas: [{knower: Listener, fact: keeper-sent-letter}]
+      fact_deltas: [{fact: keeper-sent-letter, provenance: null}]
+      opens: []
+      closes: [who-sent-the-letter]

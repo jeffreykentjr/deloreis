@@ -1,15 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! `CHECK-1` coverage: the six continuity classes, the fact-check verdicts, the
-//! unified lowering (zero Loader-vs-eval status divergence), and shadow parity
-//! against the pinned oracle over the vendored corpus.
-//!
-//! Offline and deterministic: the parity test reads `worlds/tpth/vendor` and
-//! `worlds/tpth/vendor/.../killed_tokens.yaml` from the repo, never the network and
-//! never `uv`. The pinned-oracle run itself ("canon OK: 0 violations") is recorded
-//! out of band; this test asserts *our* side reproduces it.
+//! unified lowering (zero Loader-vs-eval status divergence), and original
+//! corpus checks for clean, malformed and contradictory cases.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 
@@ -743,7 +737,7 @@ fn options_and_hypotheses_lower_without_status_divergence() {
     );
 }
 
-// --- shadow parity over the vendored corpus ----------------------------------
+// --- checks over an original test corpus ------------------------------------
 
 #[derive(Debug, Deserialize)]
 struct FactsDoc {
@@ -788,10 +782,6 @@ struct FactRow {
     decisions: Vec<String>,
 }
 
-fn vendor_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-099e04cd")
-}
-
 fn render_value(value: &serde_yaml_ng::Value) -> String {
     match value {
         serde_yaml_ng::Value::String(s) => s.clone(),
@@ -829,7 +819,7 @@ fn map_kind(kind: &str) -> EntityKind {
     }
 }
 
-/// Bridge the vendored `facts.yaml` into deloreis documents: entities become
+/// Bridge the test corpus into deloreis documents: entities become
 /// `entity` declarations, facts and relations become flat-triple `fact`s, and
 /// every decision the corpus cites is declared with a `ratify` decl — the ledger
 /// mirror of `decisions.md`, so cited authority is real (B1) rather than minted by
@@ -889,16 +879,20 @@ fn corpus_pack(facts: &FactsDoc) -> Pack {
 }
 
 fn load_corpus() -> FactsDoc {
-    let path = vendor_root().join("canon/data/facts.yaml");
-    let text = std::fs::read_to_string(&path).expect("read facts.yaml");
-    serde_yaml_ng::from_str(&text).expect("parse facts.yaml")
+    let source = r"
+entities:
+  - {id: anchor, kind: person, status: ratified, decisions: [D-1]}
+  - {id: thornfield, kind: place, status: ratified, decisions: [D-1]}
+facts:
+  - {entity: anchor, key: gender, value: male, status: ratified, decisions: [D-1]}
+relations: []
+";
+    serde_yaml_ng::from_str(source).expect("original test corpus parses")
 }
 
 #[test]
 fn parity_clean_corpus_reports_zero_violations() {
-    // The pinned oracle reports "canon OK: 0 violations" over this corpus. Our
-    // compile()+run() over the same corpus must agree: no fail-closed load
-    // finding, no continuity violation.
+    // The original corpus is well formed and has no continuity violations.
     let world = compile(&corpus_pack(&load_corpus())).expect("compiles");
     assert!(
         world.model().findings().is_empty(),
@@ -951,11 +945,11 @@ fn parity_duplicate_declaration_is_caught() {
     let mut pack = corpus_pack(&load_corpus());
     pack.documents[0].decls.push(Decl::Entity(EntityDecl {
         kind: EntityKind::Place,
-        name: id("gwern"),
+        name: id("thornfield"),
         label: None,
         time: None,
         slots: Vec::new(),
-        provenance: Some(ratified("D-0111")),
+        provenance: Some(ratified("D-1")),
     }));
     let world = compile(&pack).expect("compiles");
     assert!(
@@ -987,9 +981,8 @@ fn parity_draft_contradiction_is_caught() {
 }
 
 #[test]
-fn killed_tokens_load_from_the_vendored_registry() {
-    // The killed-token registry is real vendored data; a claim reviving `Irondale`
-    // (killed D-0101) is rejected lore.
+fn killed_tokens_load_from_an_original_registry() {
+    // A claim reviving a retired name is rejected lore.
     #[derive(Deserialize)]
     struct KilledDoc {
         killed: Vec<KilledRow>,
@@ -1003,9 +996,9 @@ fn killed_tokens_load_from_the_vendored_registry() {
         #[serde(default)]
         scope: String,
     }
-    let path = vendor_root().join("src/fantasy/propagate/data/killed_tokens.yaml");
     let doc: KilledDoc =
-        serde_yaml_ng::from_str(&std::fs::read_to_string(&path).expect("read")).expect("parse");
+        serde_yaml_ng::from_str("killed:\n  - {token: ironkeep, match: word, decision: D-1}\n")
+            .expect("parse");
     let tokens = doc
         .killed
         .into_iter()
@@ -1021,9 +1014,9 @@ fn killed_tokens_load_from_the_vendored_registry() {
         })
         .collect();
     let killed = KilledTokens::new(tokens);
-    assert!(killed.hit("Irondale").is_some());
+    assert!(killed.hit("Ironkeep").is_some());
     let world = saltcast_world().with_killed_tokens(killed);
-    let reports = factcheck(&world, &[atom("region", &["anchor", "irondale"])]);
+    let reports = factcheck(&world, &[atom("region", &["anchor", "ironkeep"])]);
     assert_eq!(reports[0].verdict, Verdict::Contradicted);
 }
 

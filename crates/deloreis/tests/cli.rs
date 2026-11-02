@@ -655,7 +655,7 @@ fn fork_management_commands_round_trip_and_alias_preflight() {
 #[test]
 fn every_timeline_read_returns_its_documented_shape() {
     let chronology = repo().join("examples/norse");
-    let episodes = repo().join("worlds/tpth/episodes/saltmarket-episodes.yaml");
+    let episodes = repo().join("crates/dli-world/tests/data/episodes.yaml");
 
     let show = bin()
         .args(["timeline", "show", "--corpus"])
@@ -691,7 +691,7 @@ fn every_timeline_read_returns_its_documented_shape() {
         .unwrap();
     assert_eq!(knows.status.code(), Some(0), "{}", stdout(&knows));
     assert!(
-        stdout(&knows).contains("the-weir-enclosed"),
+        stdout(&knows).contains("letter-delivered"),
         "{}",
         stdout(&knows)
     );
@@ -699,7 +699,7 @@ fn every_timeline_read_returns_its_documented_shape() {
     let known_empty = bin()
         .args(["timeline", "knows", "--episodes"])
         .arg(&episodes)
-        .args(["--at", "1", "--who", "mara"])
+        .args(["--at", "1", "--who", "wren"])
         .output()
         .unwrap();
     assert_eq!(
@@ -709,7 +709,7 @@ fn every_timeline_read_returns_its_documented_shape() {
         stderr(&known_empty)
     );
     assert!(
-        stdout(&known_empty).contains("mara knows nothing"),
+        stdout(&known_empty).contains("wren knows nothing"),
         "{}",
         stdout(&known_empty)
     );
@@ -748,7 +748,7 @@ fn every_timeline_read_returns_its_documented_shape() {
         .unwrap();
     assert_eq!(phases.status.code(), Some(0), "{}", stdout(&phases));
     assert!(
-        stdout(&phases).contains("episode anchor: tide = index 0"),
+        stdout(&phases).contains("episode anchor: season = index 0"),
         "{}",
         stdout(&phases)
     );
@@ -772,10 +772,10 @@ fn timeline_findings_and_errors_have_distinct_exit_codes() {
     let dir = tmp("timeline-open-loop");
     let episodes = dir.join("episodes.yaml");
     let source =
-        fs::read_to_string(repo().join("worlds/tpth/episodes/saltmarket-episodes.yaml")).unwrap();
+        fs::read_to_string(repo().join("crates/dli-world/tests/data/episodes.yaml")).unwrap();
     fs::write(
         &episodes,
-        source.replace("closes: [who-keeps-the-ledger]", "closes: []"),
+        source.replace("closes: [who-sent-the-letter]", "closes: []"),
     )
     .unwrap();
     let open = bin()

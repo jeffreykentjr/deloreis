@@ -22,7 +22,7 @@ use dli_world::compile;
 #[test]
 #[allow(clippy::too_many_lines, clippy::print_stdout)]
 fn compile_from_lorestore_matches_direct_compile() {
-    // 1 — build the reference Pack from the vendored corpus.
+    // 1 — build the reference Pack from the test corpus.
     let pack = corpus_pack(&load_corpus());
 
     // 2 — compile reference A (direct path).
@@ -170,20 +170,20 @@ fn assert_store_parity(pack: &dli_world::Pack, label: &str) {
     );
 }
 
-/// The corpus-wide oracle (audit A7, DL-0045 ruling 5): every vendored `.dli`
+/// The corpus-wide oracle (audit A7, DL-0045 ruling 5): every example `.dli`
 /// pack — rules, cycles, practices, dialects, proofs, forks and all — must
 /// survive the `.dli → parse → import → store → recompile` round-trip with an
 /// identical compiled world, or be *refused* by the import. Nothing may pass
 /// through the store and come out silently different.
 #[test]
 #[allow(clippy::print_stdout)]
-fn every_vendored_dli_pack_round_trips_through_the_store() {
-    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds");
+fn every_example_dli_pack_round_trips_through_the_store() {
+    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let mut dli_files: Vec<std::path::PathBuf> = walk_dli(&worlds);
     dli_files.sort();
     assert!(
         !dli_files.is_empty(),
-        "the vendored worlds tree contains .dli packs"
+        "the example tree contains .dli packs"
     );
 
     for path in &dli_files {
@@ -191,7 +191,7 @@ fn every_vendored_dli_pack_round_trips_through_the_store() {
         let (document, diagnostics) = dli_syntax::parse_document(&source);
         assert!(
             diagnostics.is_empty(),
-            "{}: vendored pack must parse clean, got {diagnostics:?}",
+            "{}: example pack must parse clean, got {diagnostics:?}",
             path.display()
         );
         let name = document.scope.as_ref().map_or_else(
@@ -210,7 +210,7 @@ fn every_vendored_dli_pack_round_trips_through_the_store() {
         assert_store_parity(&pack, &path.display().to_string());
     }
     println!(
-        "vendored differential parity passed over {} packs",
+        "example differential parity passed over {} packs",
         dli_files.len()
     );
 }
@@ -232,7 +232,7 @@ fn walk_dli(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 }
 
 /// **The import-side claim-id validator agrees with the write-side minter, over
-/// every vendored pack.**
+/// every example pack.**
 ///
 /// `expected_claim_id` is what `dli.corpus.import` checks a caller's object
 /// against from contract 1.3.0 (DL-0059 ruling 4). It re-derives the id by
@@ -245,17 +245,17 @@ fn walk_dli(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 /// the engine never mints — turning a guard into the bug.
 ///
 /// So the agreement is asserted end-to-end rather than argued: lower every
-/// vendored pack and require that the validator re-derives exactly the id the
+/// example pack and require that the validator re-derives exactly the id the
 /// lowering minted, for every object. A future write path that pairs a claim id
 /// with the wrong carriage shape reds here, whether or not anyone remembers this
 /// function exists.
 #[allow(clippy::print_stdout)]
 #[test]
-fn the_claim_id_validator_agrees_with_the_minter_on_every_vendored_object() {
-    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../worlds");
+fn the_claim_id_validator_agrees_with_the_minter_on_every_example_object() {
+    let worlds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let mut dli_files: Vec<std::path::PathBuf> = walk_dli(&worlds);
     dli_files.sort();
-    assert!(!dli_files.is_empty(), "the vendored worlds tree has packs");
+    assert!(!dli_files.is_empty(), "the example tree has packs");
 
     let (mut objects, mut carried, mut bare) = (0usize, 0usize, 0usize);
     for path in &dli_files {

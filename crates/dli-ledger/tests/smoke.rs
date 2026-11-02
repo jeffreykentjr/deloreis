@@ -1,8 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Smoke coverage for the resource ledger.
 
-use std::path::PathBuf;
-
 use dli_ast::ident::Ident;
 use dli_core::grade::Grade;
 use dli_ledger::practice::compile_practices;
@@ -24,13 +22,6 @@ fn resource_kind_round_trips() {
     }
 }
 
-fn fixture(name: &str) -> String {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../../worlds/tpth/packs");
-    path.push(name);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
-}
-
 fn delta(resource: &str, amount: i64) -> Delta {
     Delta {
         resource: Ident::synthetic(resource),
@@ -38,33 +29,22 @@ fn delta(resource: &str, amount: i64) -> Delta {
     }
 }
 
-/// The golden: `check_ledger` replays recorded deltas over the Turning practice's
-/// resource law. The Turning's one resource, `spread`, is `affine bounded
-/// nine-leaves` — a *symbolic* cap, so the affine bound is deferred at this layer
-/// (a `LedgerEntry` carries no scene to resolve `nine-leaves` to `9`). The
-/// documented contract: even a spread that would overspread a cap of nine reports
-/// no violation here; the bound is checked by `check_proof`, which resolves the
-/// cap from the scene projection.
+/// A symbolic affine cap cannot be checked until a scene supplies its value.
 #[test]
-fn golden_turning_ledger_report_matches() {
-    let (doc, diags) = parse_document(&fixture("second-practice.dli"));
+fn symbolic_cap_is_deferred_at_the_ledger_layer() {
+    let source = "scope lighthouse\npractice beacon proposed {\n  resource light : affine bounded lamp-cap\n  cost material\n}\n";
+    let (doc, diags) = parse_document(source);
     assert!(diags.is_empty(), "{diags:?}");
     let practices = compile_practices(&doc);
-
-    // Ten leaves laid — an overspread against nine, were the cap concrete.
     let entry = LedgerEntry {
-        practice: Ident::synthetic("the-turning"),
-        deltas: vec![delta("spread", 10)],
+        practice: Ident::synthetic("beacon"),
+        deltas: vec![delta("light", 10)],
     };
     let report = check_ledger(&practices, &[entry]);
-    assert!(
-        report.violations.is_empty(),
-        "the symbolic affine cap is deferred at the ledger layer, got: {:?}",
-        report.violations
-    );
+    assert!(report.violations.is_empty(), "{:?}", report.violations);
 }
 
-/// The teeth the Turning golden cannot show (its cap is symbolic): over a practice
+/// Over a practice
 /// whose laws are all concrete, `check_ledger` flags every algebra breach and
 /// passes every lawful ledger — the object-level replay SIM-1's battery consumes.
 #[test]
