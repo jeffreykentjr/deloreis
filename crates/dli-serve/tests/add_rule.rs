@@ -915,6 +915,11 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         "before defeat, the rule's derivation is certain through the wire: {before:?}"
     );
 
+    assert!(
+        before_rows[0].get("claim_ids").is_none(),
+        "a derived row must not pretend to be a source claim: {before:?}"
+    );
+
     let defeated = ledger_result(dispatch(
         &ledger_request(
             "defeat",

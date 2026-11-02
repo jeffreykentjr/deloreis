@@ -400,8 +400,8 @@ fn findings_partitions_by_severity_with_repairs() {
         "the unknown-entity blocker is an error"
     );
     assert!(
-        warnings.iter().any(|f| f["code"] == "name.unvetted"),
-        "the unvetted name is a warning, not a blocker"
+        warnings.is_empty(),
+        "no configured dialect means no naming warning"
     );
     assert_eq!(findings["materializable"], Value::Bool(false));
 }

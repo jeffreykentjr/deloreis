@@ -100,7 +100,7 @@ fn golden_session_flows_end_to_end() {
     let mut store = Store::default();
     let ws = open_scope(&mut store, "storybook");
 
-    // Two entities, then a fact relating them — all clean but for the naming nudge.
+    // Two entities, then a fact relating them; no dialect is configured.
     let nara = send(
         &mut store,
         &req(
@@ -110,7 +110,7 @@ fn golden_session_flows_end_to_end() {
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
-    assert_eq!(codes(result(&nara)), vec!["name.unvetted"]);
+    assert!(codes(result(&nara)).is_empty());
     assert_eq!(
         result(&nara)["rendered"],
         json!(["person nara \"Nara\" proposed session-fx01"])
@@ -125,7 +125,7 @@ fn golden_session_flows_end_to_end() {
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
-    assert_eq!(codes(result(&shallows)), vec!["name.unvetted"]);
+    assert!(codes(result(&shallows)).is_empty());
 
     let fact = send(
         &mut store,
@@ -158,8 +158,7 @@ fn golden_session_flows_end_to_end() {
     assert!(
         result(&diff)["findings"]
             .as_array()
-            .is_some_and(|findings| findings.iter().any(|f| f["code"] == "name.unvetted")),
-        "diff carries the full workspace findings"
+            .is_some_and(Vec::is_empty)
     );
     assert!(
         result(&diff)["consequences"]["newly_possible"]
@@ -804,12 +803,10 @@ fn thalia_scenario_replays_migration_section_10() {
                     "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
         ),
     );
-    // The name is unvetted; the repair points at the naming oracle.
-    let findings = result(&thalia)["findings"].as_array().expect("findings");
-    assert_eq!(findings.len(), 1);
-    assert_eq!(findings[0]["code"], json!("name.unvetted"));
-    assert_eq!(findings[0]["repair"]["op"], json!("dli.name.check"));
-    assert_eq!(findings[0]["repair"]["params"]["name"], json!("thalia"));
+    assert!(
+        codes(result(&thalia)).is_empty(),
+        "no dialect means no naming warning"
+    );
 
     let trade = send(
         &mut store,
@@ -1471,4 +1468,38 @@ fn fixtures_replay_through_dispatch() {
 #[test]
 fn modes_are_distinct() {
     assert_ne!(Mode::Scope, Mode::Fork);
+}
+
+#[test]
+fn naming_warning_requires_a_configured_dialect_and_offers_valid_params() {
+    let pack = dli_serve::session::builtin_pack("round-table").expect("demo world");
+    let mut store = Store::with_pack(pack).expect("demo world compiles");
+    let ws = open_scope(&mut store, "round-table");
+    let added = send(
+        &mut store,
+        &req(
+            "name",
+            Op::AuthorAddEntity,
+            json!({
+                "workspace": ws, "kind":"person", "id":"elaine", "name":"Elaine",
+                "provenance":{"kind":"proposed", "origin":"test"}
+            }),
+        ),
+    );
+    let warning = result(&added)["findings"]
+        .as_array()
+        .expect("findings array")
+        .iter()
+        .find(|finding| finding["code"] == "name.unvetted")
+        .expect("configured dialect warns");
+    assert_eq!(warning["repair"]["op"], "dli.name.check");
+    assert_eq!(warning["repair"]["params"]["dialect"], "old-speech");
+    let request = json!({"dli":"2.0.0","id":"check","op":"dli.name.check","params":warning["repair"]["params"]});
+    let mut sessions = dli_serve::session::Sessions::new();
+    let response = dli_serve::serve::respond(&request.to_string(), &mut sessions, &mut store)
+        .expect("name check response");
+    assert!(
+        response.ok,
+        "the suggested repair must be a valid call: {response:?}"
+    );
 }

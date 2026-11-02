@@ -1011,6 +1011,9 @@ pub struct VersionResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NameCheckParams {
+    /// Optional authoring workspace whose base and staged dialects are used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<String>,
     /// The proposed name.
     pub name: String,
     /// The dialect to vet against.
@@ -1884,7 +1887,19 @@ pub struct AuthorQueryResult {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub valuation: Option<Vec<ValuationEntry>>,
     /// The answer rows over the staged world.
-    pub rows: Vec<QueryRow>,
+    pub rows: Vec<AuthorQueryRow>,
+}
+
+/// A query row with IDs of directly matching committed claims. Derived rows
+/// may have none; these IDs name matching source objects, not a proof of support.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorQueryRow {
+    /// The ordinary query answer.
+    #[serde(flatten)]
+    pub row: QueryRow,
+    /// Stable IDs of directly matching committed claims, sorted and deduplicated.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_ids: Vec<String>,
 }
 
 // -- author.as_of (read, contract 1.9.0, DL-0082) -----------------------------

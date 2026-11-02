@@ -27,22 +27,7 @@
         "id": "2",
         "ok": true,
         "result": {
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"joren\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "joren"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "place joren \"Joren\" proposed agent:author/crossroads-cast"
           ],
@@ -71,22 +56,7 @@
         "id": "3",
         "ok": true,
         "result": {
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"thalia\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "thalia"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "person thalia \"Thalia\" proposed agent:author/crossroads-cast"
           ],
@@ -217,36 +187,7 @@
               }
             ]
           },
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"joren\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "joren"
-                }
-              },
-              "severity": "warn"
-            },
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"thalia\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "thalia"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "place joren \"Joren\" proposed agent:author/crossroads-cast",
             "person thalia \"Thalia\" proposed agent:author/crossroads-cast",

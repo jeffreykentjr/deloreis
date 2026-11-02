@@ -25,7 +25,7 @@
           "rendered": [],
           "requested": 2,
           "root_hash": "sha256:24d11e87574d5107acf10bf9798544b6aaed1271b43fca81df3d961415213add",
-          "workspace_digest": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3"
+          "workspace_digest": "jcs:sha256:a37a082ad088b416c240ba0cbb2398edb488d8d72d498ce899b68d92ba1c422c"
         }
       },
       "send": {

@@ -23,7 +23,7 @@
           "rendered": [
             "term hedgerow proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:d8cb8929d93de377683024e541c1bf5deec3641645f52dd0e1d38499644f56cd"
+          "workspace_digest": "jcs:sha256:d21085b588c06b54e496a7211691620ddcb9c6191ac8a488783e3a98281e7faa"
         }
       },
       "send": {
@@ -50,7 +50,7 @@
           "rendered": [
             "term ford proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:402fa283e297a5163f6fbee800c4cffd4a3b3c447f3a31db580499a67fde2583"
+          "workspace_digest": "jcs:sha256:5f995d379badcc708ae3cac93ac72c54a585f1c2ae65d284fc5148f1275212b4"
         }
       },
       "send": {
@@ -92,7 +92,7 @@
               "rendered": "term ford proposed session-fx01"
             }
           ],
-          "workspace_digest": "jcs:sha256:402fa283e297a5163f6fbee800c4cffd4a3b3c447f3a31db580499a67fde2583"
+          "workspace_digest": "jcs:sha256:5f995d379badcc708ae3cac93ac72c54a585f1c2ae65d284fc5148f1275212b4"
         }
       },
       "send": {
@@ -111,7 +111,7 @@
         "ok": true,
         "result": {
           "discarded": true,
-          "workspace_digest": "jcs:sha256:07c22a14888f2430085cebf737ed1eae2b12b8254aa4ad6e099674ddba8af3ab"
+          "workspace_digest": "jcs:sha256:ccb69d69949a3e86409432ddb89f2dcc7502f69d08e9711cab470f65a206b65a"
         }
       },
       "send": {
@@ -143,7 +143,7 @@
               "rendered": "term ford proposed session-fx01"
             }
           ],
-          "workspace_digest": "jcs:sha256:07c22a14888f2430085cebf737ed1eae2b12b8254aa4ad6e099674ddba8af3ab"
+          "workspace_digest": "jcs:sha256:ccb69d69949a3e86409432ddb89f2dcc7502f69d08e9711cab470f65a206b65a"
         }
       },
       "send": {

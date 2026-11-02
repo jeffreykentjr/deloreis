@@ -26,22 +26,7 @@
         "id": "2",
         "ok": true,
         "result": {
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"nara\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "nara"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "person nara \"Nara\" proposed session-fx01"
           ],
@@ -70,22 +55,7 @@
         "id": "3",
         "ok": true,
         "result": {
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"riverside\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "riverside"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "place riverside \"Riverside\" proposed session-fx01"
           ],
@@ -169,36 +139,7 @@
               }
             ]
           },
-          "findings": [
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"nara\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "nara"
-                }
-              },
-              "severity": "warn"
-            },
-            {
-              "citations": [],
-              "code": "name.unvetted",
-              "grade": "asserted",
-              "message": "The name \"riverside\" has not passed the naming oracle; it enters proposed and unvetted.",
-              "repair": {
-                "kind": "run-check",
-                "op": "dli.name.check",
-                "params": {
-                  "name": "riverside"
-                }
-              },
-              "severity": "warn"
-            }
-          ],
+          "findings": [],
           "rendered": [
             "person nara \"Nara\" proposed session-fx01",
             "place riverside \"Riverside\" proposed session-fx01",

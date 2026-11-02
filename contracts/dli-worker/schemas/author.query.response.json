@@ -15,7 +15,7 @@
       "description": "The answer rows over the staged world.",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/QueryRow"
+        "$ref": "#/$defs/AuthorQueryRow"
       }
     },
     "valuation": {
@@ -33,6 +33,55 @@
     "rows"
   ],
   "$defs": {
+    "AuthorQueryRow": {
+      "description": "A query row with IDs of directly matching committed claims. Derived rows\nmay have none; these IDs name matching source objects, not a proof of support.",
+      "type": "object",
+      "properties": {
+        "atom": {
+          "description": "The matched ground atom, rendered `pred(a, b)`.",
+          "type": "string"
+        },
+        "bindings": {
+          "description": "Variable name to bound-term rendering.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "claim_ids": {
+          "description": "Stable IDs of directly matching committed claims, sorted and deduplicated.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "description": "The atom's standing under the ambient valuation.",
+          "$ref": "#/$defs/Status"
+        },
+        "verdict": {
+          "description": "The support and grade for this binding.",
+          "$ref": "#/$defs/Verdict"
+        },
+        "why": {
+          "description": "The support antichain rendered for a reader, present only when the query\nasked for it ([`QueryOpts::why`]). Absent otherwise, so a plain query's\nwire form is unchanged.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Why"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "atom",
+        "bindings",
+        "verdict",
+        "status"
+      ]
+    },
     "ClaimId": {
       "description": "A claim identifier.",
       "type": "integer",
@@ -79,48 +128,6 @@
       },
       "required": [
         "monomials"
-      ]
-    },
-    "QueryRow": {
-      "description": "One answer row: the matched ground atom, its variable bindings, the verdict\n(support and grade) for that binding, and the atom's status under the\nvaluation the query was evaluated in.",
-      "type": "object",
-      "properties": {
-        "atom": {
-          "description": "The matched ground atom, rendered `pred(a, b)`.",
-          "type": "string"
-        },
-        "bindings": {
-          "description": "Variable name to bound-term rendering.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "status": {
-          "description": "The atom's standing under the ambient valuation.",
-          "$ref": "#/$defs/Status"
-        },
-        "verdict": {
-          "description": "The support and grade for this binding.",
-          "$ref": "#/$defs/Verdict"
-        },
-        "why": {
-          "description": "The support antichain rendered for a reader, present only when the query\nasked for it ([`QueryOpts::why`]). Absent otherwise, so a plain query's\nwire form is unchanged.",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Why"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "atom",
-        "bindings",
-        "verdict",
-        "status"
       ]
     },
     "Status": {

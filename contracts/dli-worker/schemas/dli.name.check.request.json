@@ -11,6 +11,13 @@
     "name": {
       "description": "The proposed name.",
       "type": "string"
+    },
+    "workspace": {
+      "description": "Optional authoring workspace whose base and staged dialects are used.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "additionalProperties": false,

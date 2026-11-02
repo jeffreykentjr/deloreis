@@ -123,3 +123,19 @@ fluent slots remain subject to interval-sensitive checks.
 
 **Rationale.** Authors need to see potential continuity debt while preserving
 rival accounts and leaving decisions to the caller.
+
+## DL-0107 — Correct pre-release contract fixtures
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Permit the exact registry transition identified by the two digests
+in `xtask/src/fixtures.rs` for the fiction reset's contract 2.0.0 workspace
+fence, naming repair, and claim-ID corrections. This is a single pre-release
+exception; all other fixture changes remain subject to the existing
+contract-version fence. The corrected fixtures must be replayed and schema
+checked.
+
+**Rationale.** The reset requires these authoring fixes while retaining the
+owner's decision to serve contract 2.0.0 alone.

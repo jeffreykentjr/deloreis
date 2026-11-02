@@ -484,7 +484,7 @@ impl Store {
             workspace.base_unassigned = named_unassigned;
             workspace.interner = dli_core::atom::Interner::from_names(branch_names);
             workspace.bundle_counter = bundle_counter;
-            workspace.base_root_hash = Some(head.to_string());
+            workspace.set_base_root_hash(Some(head.to_string()));
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             workspace.target_branch = explicit_branch.then_some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
@@ -553,7 +553,7 @@ impl Store {
         // Pin the project-selected commit and valuation together. For local
         // demo stores no snapshot exists, preserving their previous behavior.
         if let Some(snapshot) = self.snapshots.get(&base_key) {
-            workspace.base_root_hash = Some(snapshot.commit.to_string());
+            workspace.set_base_root_hash(Some(snapshot.commit.to_string()));
             workspace.base_valuation = snapshot.valuation.clone();
             workspace.base_unassigned.clone_from(&snapshot.unassigned);
             if let Some(origin_ref) = pinned_origin_ref.flatten() {
@@ -562,11 +562,12 @@ impl Store {
                 workspace.base_ref_digest.clone_from(&snapshot.ref_digest);
             }
         } else {
-            workspace.base_root_hash = self
-                .lorestores
-                .get(&base_key)
-                .and_then(|ls| ls.root_hash().ok().flatten())
-                .map(|h| h.to_string());
+            workspace.set_base_root_hash(
+                self.lorestores
+                    .get(&base_key)
+                    .and_then(|ls| ls.root_hash().ok().flatten())
+                    .map(|h| h.to_string()),
+            );
         }
         workspace.refresh_resolution(&base.world, &base.documents);
         self.next_id = next_id;
@@ -706,7 +707,7 @@ impl Store {
             }
             ws.interner = dli_core::atom::Interner::from_names(interner);
             ws.bundle_counter = bundle;
-            ws.base_root_hash = Some(head.to_string());
+            ws.set_base_root_hash(Some(head.to_string()));
             ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             ws.base_valuation = named_valuation;
             ws.base_unassigned = named_unassigned;
@@ -878,7 +879,7 @@ impl Store {
             .workspaces
             .get_mut(ws_id)
             .expect("prepared base belongs to a live workspace");
-        ws.base_root_hash = Some(commit.to_string());
+        ws.set_base_root_hash(Some(commit.to_string()));
         ws.base_ref_digest = Some(ref_digest.to_string());
         ws.interner = dli_core::atom::Interner::from_names(interner);
         ws.bundle_counter = bundle;

@@ -53,7 +53,7 @@
             "  name-kind person.given = given-proto",
             "}"
           ],
-          "workspace_digest": "jcs:sha256:05dcf183203ba3c5b66bdf4aecb904c3ef1086aa24a49fc26df49293b41dc8b5"
+          "workspace_digest": "jcs:sha256:f658287acbc9865a0dec17383bd66cf0294fcec6afb241044335a86a41d2075f"
         }
       },
       "send": {
@@ -109,7 +109,7 @@
           "rendered": [
             "name-part wyn \"fair\" role given-proto proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:7bfe6d06ce0aa0d6dead41020dfd7904b9cc735a44d3247b1d832c2ab391ef01"
+          "workspace_digest": "jcs:sha256:662259cba6c482f484a2dd3b78e884a55158ea19ce95bdcf68d962a9a19837a7"
         }
       },
       "send": {
@@ -147,7 +147,9 @@
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "gwenwyn"
+                  "dialect": "elder-tongue-fringe",
+                  "name": "gwenwyn",
+                  "workspace": "ws-1"
                 }
               },
               "severity": "warn"
@@ -158,7 +160,7 @@
             "  = given-proto wyn",
             "  bearer nara"
           ],
-          "workspace_digest": "jcs:sha256:91456f3ece20820a479ec3ca8d10ad6ed14f04de3d93c96af051b498dfebc2aa"
+          "workspace_digest": "jcs:sha256:0c0a43480ff9921f3b3575e4c91a775458a7d592e90c1b46aaa67fde6d9774b9"
         }
       },
       "send": {
@@ -198,7 +200,7 @@
           "rendered": [
             "term hedgerow \"the pleached boundary road\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:a98e8a9a0b9506a985598aa4e7ad6271b52859e72f2e6e924706896478ef8fe2"
+          "workspace_digest": "jcs:sha256:4f1eeee4a30bde3c49b3be0a235c174ef5085f49931bed877ce2bb2144ccf650"
         }
       },
       "send": {
@@ -226,7 +228,7 @@
           "rendered": [
             "banned sword \"no bladed weapons in this setting\""
           ],
-          "workspace_digest": "jcs:sha256:63b0eaf20fa32e49543646442235e7fb7e54c8f463cd9e4a60b01f1600460d4c"
+          "workspace_digest": "jcs:sha256:06abdb6211eca9273c7d3544a732247f3c0f69cd9b1d76a3c2fee093cee30cc9"
         }
       },
       "send": {
@@ -254,7 +256,7 @@
           "rendered": [
             "state nara.water-status = tidebound during first-tides proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:02067a1fc349db5f35b03a91ca394e60137dfc3ce209a39e880a38dfe1017d0a"
+          "workspace_digest": "jcs:sha256:0b10ec699bf99f40364141d76cce2375640dc7aa5ec7b49c8649e1ebf58b469d"
         }
       },
       "send": {
@@ -286,7 +288,7 @@
           "rendered": [
             "attest who-holds-the-ford proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:f14091b0666705befa281fa5d60fd6c68715421f8751e539e7877789e6603c0d"
+          "workspace_digest": "jcs:sha256:ff3291d38b28d9de004982f8ab29ad3f7bc91a7efffd9961034ca80e5625e044"
         }
       },
       "send": {

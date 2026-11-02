@@ -481,16 +481,17 @@ fn certain_conflict_constructible_wire_only() {
     create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
     create_branch(&seed_ws, "counter", "main", &mut sessions, &mut store);
 
-    let claim_id = {
-        let lorestore = store
-            .workspace_lorestore(&seed_ws)
-            .expect("lorestore attached");
-        let head = lorestore
-            .root_hash()
-            .expect("root hash")
-            .expect("head present");
-        claim_id_for(lorestore, &head, "home", &["nara", "shallows"])
-    };
+    let queried = drive(
+        &json!({"dli": V, "id": "claim-lookup", "op": "author.query",
+        "params": {"workspace": seed_ws, "goal_atom": {"pred": "home", "args": [{"Sym":"nara"}, {"Sym":"shallows"}]}}}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(queried["ok"], true, "{queried}");
+    let claim_id = queried["result"]["rows"][0]["claim_ids"][0]
+        .as_str()
+        .expect("committed claim id")
+        .to_owned();
 
     // Each branch defeats d-1 (citing the SAME new decision name, "d-2") and
     // asserts its own rival value, materializing cleanly on the branch.
@@ -508,7 +509,6 @@ fn certain_conflict_constructible_wire_only() {
             store,
         );
         assert!(defeat["ok"].as_bool().unwrap(), "{branch}: {defeat}");
-
         // The standing operation refreshes this already-open workspace. Its
         // resolution index must immediately see d-1=false, before any reopen.
         let after_reload = drive(

@@ -307,9 +307,9 @@ pub(super) fn discard(
 ///
 /// Digest regimes stay separate (audit A4, DL-0045 ruling 3): the returned
 /// `workspace_digest` is the fence-valid `jcs:sha256:` workspace digest —
-/// materialize does not restructure the staged declarations, so the digest is
-/// unchanged and immediately usable as the next call's fence. The lorestore
-/// commit hash travels in its own `root_hash` field (0.6.0 only).
+/// materialize advances its base commit, so it returns the newly sealed digest
+/// to use as the next call's fence. The lorestore commit hash travels in its
+/// own `root_hash` field.
 ///
 /// Re-materializing with nothing newly staged is an idempotent no-op: no new
 /// commit is written (audit B9) and the pinned commit is returned.
@@ -821,7 +821,7 @@ pub(super) fn materialize(
     // between preparation and this point is either the CAS itself or infallible
     // owned-state installation. A retry then commits nothing.
     let commit_hash = receipt.commit;
-    store.install_materialized_workspace_base(
+    let workspace_digest = store.install_materialized_workspace_base(
         &params.workspace,
         prepared,
         commit_interner,
@@ -833,7 +833,7 @@ pub(super) fn materialize(
     Ok(value(&AuthorMutationResult {
         findings: Vec::new(),
         rendered,
-        workspace_digest: ws_digest,
+        workspace_digest,
         root_hash: v2.then(|| commit_hash.to_string()),
         facts,
     }))
@@ -1620,12 +1620,23 @@ fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Findi
     let mut out = control_char_findings(decl);
     out.extend(declaration_rejected_lore_findings(base, decl));
     out.extend(citation_findings(decl, ws.known_decisions()));
+    let dialect = base
+        .model
+        .language
+        .registers
+        .iter()
+        .map(|register| register.name.as_str())
+        .chain(ws.pending_decl_refs().filter_map(|decl| match decl {
+            Decl::Dialect(dialect) => Some(dialect.name.text.as_str()),
+            _ => None,
+        }))
+        .min();
     match decl {
         Decl::Entity(e) => {
             if e.kind == AstEntityKind::Event {
                 out.extend(event_findings(e, ws));
-            } else {
-                out.push(name_unvetted(&e.name.text));
+            } else if let Some(dialect) = dialect {
+                out.push(name_unvetted(&e.name.text, dialect, &ws.id));
             }
         }
         Decl::Attr(a) => out.extend(attr_findings(a, ws)),
@@ -1637,7 +1648,7 @@ fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Findi
         // checked, on the same footing as `add_before`'s endpoints.
         Decl::State(s) => out.extend(state_findings(s, ws)),
         Decl::Attest(a) => out.extend(attest_findings(a, ws)),
-        Decl::Name(n) => out.extend(name_findings(n, ws)),
+        Decl::Name(n) => out.extend(name_findings(n, ws, dialect)),
         Decl::SameAs(s) => out.extend(same_as_findings(s, ws)),
         Decl::PredicateSameAs(s) => out.extend(predicate_same_as_findings(s)),
         Decl::Rule(r) => out.extend(rule_findings(r, ws, base)),
@@ -1913,8 +1924,10 @@ fn attest_findings(attest: &AttestDecl, ws: &Workspace) -> Vec<Finding> {
 /// `add_name` findings: a bound bearer must be a known entity, and the name
 /// itself has not passed the naming oracle — the same unvetted warning
 /// `add_entity` raises, for the same reason.
-fn name_findings(name: &NameDecl, ws: &Workspace) -> Vec<Finding> {
-    let mut out = vec![name_unvetted(&name.name.text)];
+fn name_findings(name: &NameDecl, ws: &Workspace, dialect: Option<&str>) -> Vec<Finding> {
+    let mut out = dialect
+        .map(|dialect| vec![name_unvetted(&name.name.text, dialect, &ws.id)])
+        .unwrap_or_default();
     let known = ws.known_entities();
     for clause in &name.body.clauses {
         if let NameItem::Bearer {
@@ -2411,7 +2424,7 @@ fn rendered_key(decl: &Decl) -> Option<String> {
 
 // -- finding constructors ----------------------------------------------------
 
-fn name_unvetted(id: &str) -> Finding {
+fn name_unvetted(id: &str, dialect: &str, workspace: &str) -> Finding {
     Finding {
         severity: Severity::Warn,
         code: "name.unvetted".to_owned(),
@@ -2422,7 +2435,7 @@ fn name_unvetted(id: &str) -> Finding {
         repair: Some(json!({
             "kind": "run-check",
             "op": "dli.name.check",
-            "params": { "name": id }
+            "params": { "name": id, "dialect": dialect, "workspace": workspace }
         })),
         citations: Vec::new(),
         data: None,
@@ -3241,7 +3254,7 @@ pub(super) fn record_decision(
         data: None,
     })?;
     if let Some((_, ws)) = store.parts_mut(&params.workspace) {
-        ws.base_root_hash = Some(commit.to_string());
+        ws.set_base_root_hash(Some(commit.to_string()));
         ws.base_ref_digest = Some(new_ref_digest);
         ws.base_valuation = named_valuation;
         ws.base_unassigned = named_unassigned;
@@ -3875,7 +3888,7 @@ fn durable_standing_change(
         data: None,
     })?;
     if let Some((_, ws)) = store.parts_mut(workspace) {
-        ws.base_root_hash = Some(commit.to_string());
+        ws.set_base_root_hash(Some(commit.to_string()));
         ws.base_ref_digest = Some(new_ref_digest);
         ws.base_valuation = named_valuation;
         ws.base_unassigned = named_unassigned;
