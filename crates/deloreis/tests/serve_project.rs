@@ -117,3 +117,28 @@ fn mcp_project_mode_uses_the_same_project_resolver() {
     .unwrap();
     assert_eq!(inner["error"]["code"], "unknown-doc");
 }
+
+#[test]
+fn mcp_tool_profile_is_selected_on_the_command_line() {
+    let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n";
+    let core = run_with_input(&["mcp", "--demo"], request);
+    let all = run_with_input(&["mcp", "--demo", "--tools", "all"], request);
+    assert!(core.status.success());
+    assert!(all.status.success());
+    assert!(core.stdout.len() < 60_000);
+    let core_lines = lines(&core);
+    let all_lines = lines(&all);
+    let core_tools = core_lines[0]["result"]["tools"].as_array().unwrap();
+    let all_tools = all_lines[0]["result"]["tools"].as_array().unwrap();
+    assert!(core_tools.len() < all_tools.len());
+    assert!(
+        all_tools
+            .iter()
+            .any(|tool| tool["name"] == "dli.export.run")
+    );
+    assert!(
+        !core_tools
+            .iter()
+            .any(|tool| tool["name"] == "dli.export.run")
+    );
+}

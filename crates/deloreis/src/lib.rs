@@ -65,7 +65,7 @@ enum Command {
     /// Run JSON-over-stdio with `--project <path>` or explicit `--demo`.
     Serve(cmd::serve::ServeArgs),
     /// Run MCP over stdio with `--project <path>` or explicit `--demo`.
-    Mcp(cmd::serve::ServeArgs),
+    Mcp(cmd::serve::McpArgs),
 }
 
 /// Return the executable's exact Clap command graph.

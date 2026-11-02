@@ -64,11 +64,23 @@ author.open                          open a workspace over a scope (or a fork)
 
 You reach the tools over a running `deloreis` server, on either of two
 transports carrying the identical tool surface: **`deloreis mcp --project
-<path>`** registers every tool for MCP (call them with JSON-RPC `tools/list` then
-`tools/call`), and **`deloreis serve --project <path>`** speaks the same tools as
+<path>`** advertises the core fiction tools for MCP (call them with JSON-RPC `tools/list` then
+`tools/call`). Use `--tools all` to advertise the full tool set, and **`deloreis serve --project <path>`** speaks the same tools as
 newline-delimited JSON over stdio. `<path>` is `deloreis.toml` or its containing
 directory. Pick whichever your harness speaks; the tools, findings, and rendered
 surface are the same on both. `--demo` is only for the bundled neutral fixtures.
+
+The default MCP profile lists `dli.check` and these authoring tools:
+`author.open`, `author.status`, `author.add_entity`, `author.add_fact`,
+`author.add_relation`, `author.add_event`, `author.add_before`, `author.add_state`,
+`author.declare_functional`,
+`author.declare_inertial`, `author.record_decision`, `author.open_question`,
+`author.add_option`, `author.check`, `author.findings`, `author.predicates`,
+`author.query`, `author.why`,
+`author.as_of`, `author.defeat`, `author.set_standing`, `author.add_hypothesis`, `author.suppose`,
+`author.diff`, `author.materialize`, `author.discard`, and
+`author.entity_candidates`. The full profile also advertises specialist reads,
+branch operations, language tools, exports, and other authoring operations.
 
 Nothing you do touches disk or changes canon. All authoring happens in a
 **workspace**: an in-memory staged layer over the compiled world. `author.open`

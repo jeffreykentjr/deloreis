@@ -6,7 +6,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use dli_serve::author::store::Store;
-use dli_serve::mcp::handle_rpc;
+use dli_serve::mcp::{ToolProfile, handle_rpc, handle_rpc_with_profile};
 use dli_serve::session::Sessions;
 use serde_json::Value;
 
@@ -170,4 +170,51 @@ fn mcp_only_lifts_fences_for_author_mutations() {
     )
     .unwrap();
     assert_eq!(response["error"]["code"], "schema-violation");
+}
+
+#[test]
+fn discovery_profiles_advertise_core_or_all() {
+    let mut sessions = Sessions::new();
+    let mut author = Store::default();
+    let request = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#;
+    let core =
+        handle_rpc_with_profile(request, &mut sessions, &mut author, ToolProfile::Core).unwrap();
+    let all =
+        handle_rpc_with_profile(request, &mut sessions, &mut author, ToolProfile::All).unwrap();
+    let core_tools: Value = serde_json::from_str(&core).unwrap();
+    let all_tools: Value = serde_json::from_str(&all).unwrap();
+    let core_tools = core_tools["result"]["tools"].as_array().unwrap();
+    let all_tools = all_tools["result"]["tools"].as_array().unwrap();
+    assert!(
+        core.len() < 60_000,
+        "core tool list was {} bytes",
+        core.len()
+    );
+    assert!(core_tools.len() < all_tools.len());
+    assert_eq!(all_tools.len(), dli_serve::ops::Op::ALL.len());
+    for name in [
+        "author.query",
+        "author.add_relation",
+        "author.findings",
+        "author.predicates",
+        "author.add_state",
+        "author.as_of",
+        "author.add_hypothesis",
+        "author.suppose",
+    ] {
+        assert!(
+            core_tools.iter().any(|tool| tool["name"] == name),
+            "missing {name}"
+        );
+    }
+    assert!(
+        !core_tools
+            .iter()
+            .any(|tool| tool["name"] == "dli.export.run")
+    );
+    assert!(
+        all_tools
+            .iter()
+            .any(|tool| tool["name"] == "dli.export.run")
+    );
 }

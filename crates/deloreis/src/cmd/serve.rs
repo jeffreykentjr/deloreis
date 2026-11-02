@@ -38,6 +38,22 @@ pub(crate) struct ServeArgs {
     demo: bool,
 }
 
+/// MCP transport options.
+#[derive(Debug, Args)]
+pub(crate) struct McpArgs {
+    #[command(flatten)]
+    serve: ServeArgs,
+    /// Select the advertised tool set.
+    #[arg(long, value_enum, default_value_t = Tools::Core)]
+    tools: Tools,
+}
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum Tools {
+    Core,
+    All,
+}
+
 /// Run the JSON-over-stdio worker loop.
 pub(crate) fn run(args: &ServeArgs) -> CmdResult {
     let result = match load_project(args)? {
@@ -50,10 +66,14 @@ pub(crate) fn run(args: &ServeArgs) -> CmdResult {
 }
 
 /// Run the MCP JSON-RPC tool transport over stdio.
-pub(crate) fn run_mcp(args: &ServeArgs) -> CmdResult {
-    let result = match load_project(args)? {
-        Some(project) => dli_serve::mcp::run_mcp_project(project),
-        None => dli_serve::mcp::run_mcp_demo(),
+pub(crate) fn run_mcp(args: &McpArgs) -> CmdResult {
+    let profile = match args.tools {
+        Tools::Core => dli_serve::mcp::ToolProfile::Core,
+        Tools::All => dli_serve::mcp::ToolProfile::All,
+    };
+    let result = match load_project(&args.serve)? {
+        Some(project) => dli_serve::mcp::run_mcp_project_with_profile(project, profile),
+        None => dli_serve::mcp::run_mcp_demo_with_profile(profile),
     };
     result
         .map(|()| EXIT_CLEAN)
