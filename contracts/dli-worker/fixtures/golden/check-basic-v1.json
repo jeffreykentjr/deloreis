@@ -1,18 +1,9 @@
 {
   "fixture": "golden/check-basic-v1",
-  "version": 1,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.check",
-        "params": {
-          "document": "camelot"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -20,7 +11,16 @@
           "grade": "checked",
           "ok": true
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.check",
+        "params": {
+          "document": "camelot"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

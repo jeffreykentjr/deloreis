@@ -1,9 +1,8 @@
 {
   "fixture": "golden/author-branch-v1",
-  "project": true,
   "precondition": [
     {
-      "dli": "0.6.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -11,44 +10,75 @@
       }
     }
   ],
+  "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "0.6.1",
-        "id": "1",
-        "op": "author.branch",
-        "params": {
-          "workspace": "ws-1",
-          "action": "create",
-          "name": "feature"
-        }
-      },
       "expect": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
-          "branches": ["main", "feature"],
-          "created": "feature"
+          "branches": [
+            "main",
+            "feature"
+          ],
+          "created": "feature",
+          "heads": [
+            {
+              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "name": "main",
+              "ref_digest": "sha256:b8838392795226786fa794db667390902698927dc8281a7ea545d9460b94ea87"
+            },
+            {
+              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "name": "feature",
+              "ref_digest": "sha256:d21e910b0f13d09adada019ccec9b2e8f531909f9d7b158254192c0e35dca7e3"
+            }
+          ]
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.branch",
+        "params": {
+          "action": "create",
+          "name": "feature",
+          "workspace": "ws-1"
         }
       }
     },
     {
-      "send": {
-        "dli": "0.6.1",
-        "id": "2",
-        "op": "author.branch",
-        "params": {
-          "workspace": "ws-1",
-          "action": "list"
-        }
-      },
       "expect": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
-          "branches": ["main", "feature"]
+          "branches": [
+            "main",
+            "feature"
+          ],
+          "heads": [
+            {
+              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "name": "main",
+              "ref_digest": "sha256:b8838392795226786fa794db667390902698927dc8281a7ea545d9460b94ea87"
+            },
+            {
+              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "name": "feature",
+              "ref_digest": "sha256:d21e910b0f13d09adada019ccec9b2e8f531909f9d7b158254192c0e35dca7e3"
+            }
+          ]
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "author.branch",
+        "params": {
+          "action": "list",
+          "workspace": "ws-1"
         }
       }
     }

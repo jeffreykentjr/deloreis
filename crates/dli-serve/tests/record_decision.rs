@@ -16,7 +16,7 @@ use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
 use serde_json::{Value, json};
 
-const DLI: &str = "1.9.0";
+const DLI: &str = "2.0.0";
 
 fn req(id: &str, op: Op, params: Value) -> Request {
     Request {
@@ -566,7 +566,7 @@ fn session_query(
     value: &str,
 ) -> dli_serve::Response {
     let frame = json!({
-        "dli": "1.9.0", "id": id, "op": "dli.query",
+        "dli": "2.0.0", "id": id, "op": "dli.query",
         "params": {
             "document": "demo",
             "goal_atom": {"pred": pred, "args": [{"Sym": "mara"}, {"Sym": value}]},

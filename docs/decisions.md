@@ -5761,3 +5761,22 @@ measurement and unreachable implementation impose maintenance and CI costs.
 **Verification.** The retained evaluator parity tests and commit-cache tests
 remain gating; fixpoint-only reuse is checked against full compilation and a
 truncating prior is refused.
+
+## DL-0103 — Serve the fiction release contract
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Implement DL-0101's contract retirement: `2.0.0` is the only
+served contract. The previously served `0.5.1`, `0.6.x`, and `1.x` versions
+are killed forms naming contract `2.0.0` as successor. The retired private
+consumer operations `dli.check-draft`, `dli.simulate.start`,
+`dli.simulate.status`, `dli.simulate.cancel`, `dli.attestation-sweep`, and
+`dli.payload-submit` are also killed forms naming that successor. Preserve
+current lorestore semantics, including conditional defeat and replay, in the
+new contract. This supersedes earlier rulings requiring those wire versions
+or operations to remain served; it does not supersede engine invariants.
+
+**Rationale.** One maintained contract makes the fiction release usable without
+continuing a compatibility layer and pipeline whose only consumer has left.

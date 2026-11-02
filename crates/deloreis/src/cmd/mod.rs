@@ -20,6 +20,7 @@
 
 /// Write a formatted line to stdout, EPIPE-safe (see [`emit`]). Reads like
 /// `println!`.
+#[cfg(feature = "syntax")]
 macro_rules! outln {
     () => { $crate::cmd::emit("") };
     ($($arg:tt)*) => { $crate::cmd::emit(&::std::format!($($arg)*)) };
@@ -36,10 +37,9 @@ macro_rules! out {
 // The `.dli` toolchain (LS-7): every handler that reads `.dli` text off disk or
 // off the command line lives behind the `syntax` feature, together with the
 // shared corpus front door below. A default build is the 1.0-native binary —
-// `serve`/`mcp`, `craft`, `validate-repo` — and links no parser.
+// `serve`/`mcp` — and links no parser.
 #[cfg(feature = "syntax")]
 pub(crate) mod check;
-pub(crate) mod craft;
 #[cfg(feature = "syntax")]
 pub(crate) mod drafts;
 #[cfg(feature = "syntax")]
@@ -52,12 +52,12 @@ pub(crate) mod name;
 pub(crate) mod query;
 #[cfg(feature = "syntax")]
 pub(crate) mod report;
-pub(crate) mod repository;
 pub(crate) mod serve;
 #[cfg(feature = "syntax")]
 pub(crate) mod timeline;
 
 use std::io::Write;
+#[cfg(feature = "syntax")]
 use std::path::Path;
 
 #[cfg(feature = "syntax")]
@@ -75,10 +75,6 @@ use dli_ast::span::Span;
 use dli_ast::term::AtomExpr;
 #[cfg(feature = "syntax")]
 use dli_syntax::{Diagnostic, parse_clause_atom, parse_document};
-use dli_world::craft::{
-    AppliedCraft, EpisodePolicy, Thresholds, apply, build_episode_policy, doctrines, load_config,
-    validate,
-};
 #[cfg(feature = "syntax")]
 use dli_world::{CompiledWorld, Pack, compile};
 #[cfg(feature = "syntax")]
@@ -92,6 +88,7 @@ pub(crate) type CmdResult = Result<i32, String>;
 pub(crate) const EXIT_CLEAN: i32 = 0;
 /// The operation produced findings — a diagnosed problem, a contradiction, or a
 /// query that matched nothing. Not a failure of the call.
+#[cfg(feature = "syntax")]
 pub(crate) const EXIT_FINDINGS: i32 = 1;
 /// A usage or operational error: bad arguments, a missing file, an engine that
 /// has not landed.
@@ -104,6 +101,7 @@ pub(crate) const EXIT_USAGE: i32 = 2;
 /// `unsafe`, the process cannot reset the ignored `SIGPIPE` disposition, and a
 /// bare `println!` would panic ("failed printing to stdout: Broken pipe"). So a
 /// failed write here is a clean `exit(0)` instead. Prefer the `outln!` macro.
+#[cfg(feature = "syntax")]
 pub(crate) fn emit(line: &str) {
     let stdout = std::io::stdout();
     let mut lock = stdout.lock();
@@ -246,31 +244,6 @@ pub(crate) fn parse_goal(goal: &str) -> Result<AtomExpr, String> {
              a triple `fact subject relation object`, or an attribute `subject.slot = value`"
         )
     })
-}
-
-/// Load and validate a caller-owned craft configuration, then compose it with
-/// the shipped generic doctrine packs.
-pub(crate) fn load_craft_config(
-    path: &Path,
-) -> Result<(AppliedCraft, Option<Thresholds>, EpisodePolicy<'static>), String> {
-    let packs = doctrines();
-    let config = load_config(path)
-        .map_err(|err| format!("cannot load craft config {}: {err}", path.display()))?;
-    let faults = validate(&config, &packs);
-    if !faults.is_empty() {
-        let rendered = faults
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("; ");
-        return Err(format!(
-            "craft config {} is invalid: {rendered}",
-            path.display()
-        ));
-    }
-    let thresholds = config.season_thresholds;
-    let policy = build_episode_policy(&config);
-    Ok((apply(&config, &packs), thresholds, policy))
 }
 
 /// The lowercase word for a finding's severity, for a stable report line.

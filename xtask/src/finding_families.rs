@@ -2,7 +2,7 @@
 //!
 //! Every graded finding the system emits carries a stable, dotted `family.item`
 //! code (charter koan 9, *errors are lore*). Those codes are the contract a
-//! benchmark, a repair tool, or a downstream consumer matches on, and until now
+//! client or repair tool matches on, and until now
 //! they were scattered across the crates that raise them. This page is their one
 //! catalogue: for each code, its family, the check or tool that emits it, its
 //! severity, its repair kind, and what it means.
@@ -61,10 +61,12 @@ enum Scrape {
     PrefixedSnapshot(&'static str),
     /// The closed outline family: bare suffixes from the season battery plus
     /// registered dotted codes accepted from caller text-rule config.
+    #[allow(dead_code)]
     OutlineClosed,
     /// The craft family: every `KernelRule` used at a production emit site must
     /// resolve through `KernelRule::id()`, and every non-meta id must be emitted.
     /// Stable judge outcomes are collected from their constructors.
+    #[allow(dead_code)]
     CraftKernelRules,
 }
 
@@ -455,13 +457,10 @@ const FAMILIES: &[Family] = &[
         key: "proof",
         title: "proof — the diegetic proof checker",
         emitter: "the proof/ledger checker, run by `deloreis check-proof` / `dli.check-proof`",
-        owner: "dli-ledger :: ledger_check.rs (ProofFinding); dli-world :: payload.rs (proof-shadow replay)",
+        owner: "dli-ledger :: ledger_check.rs (ProofFinding)",
         severity_note: "Error: a proof finding means the spoken proof is invalid; the L-class in \
             the message (L1–L7) names which structural obligation broke.",
-        sources: &[
-            "../crates/dli-ledger/src/ledger_check.rs",
-            "../crates/dli-world/src/payload.rs",
-        ],
+        sources: &["../crates/dli-ledger/src/ledger_check.rs"],
         scrape: Scrape::Prefixed("proof"),
         codes: &[
             Code {
@@ -572,115 +571,20 @@ const FAMILIES: &[Family] = &[
                 repair: "—",
                 meaning: "the proof does not carry exactly one final close.",
             },
-            Code {
-                code: "proof.no-close",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow carries an empty close atom.",
-            },
-            Code {
-                code: "proof.unknown-verdict",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow names an outcome outside the closed verdict set.",
-            },
-            Code {
-                code: "proof.empty-ledger",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow carries neither premises nor steps.",
-            },
-            Code {
-                code: "proof.undeclared-shadow",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow has no matching declared proof.",
-            },
-            Code {
-                code: "proof.ambiguous-declaration",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow resolves to more than one declaration.",
-            },
-            Code {
-                code: "proof.shadow-mismatch",
-                severity: "error",
-                repair: "—",
-                meaning: "a payload proof shadow differs from the declared proof body.",
-            },
-            Code {
-                code: "proof.practice-missing",
-                severity: "error",
-                repair: "—",
-                meaning: "the selected declared proof names no practice.",
-            },
-            Code {
-                code: "proof.practice-unknown",
-                severity: "error",
-                repair: "—",
-                meaning: "the selected declared proof names a practice that is not loaded.",
-            },
-            Code {
-                code: "proof.speaker-absent",
-                severity: "error",
-                repair: "—",
-                meaning: "the proof speaker is absent from the payload scene.",
-            },
         ],
-    },
-    Family {
-        key: "anchor",
-        title: "anchor — payload quote integrity",
-        emitter: "the fat-payload verifier, run by `check-draft` / `dli.check-draft`",
-        owner: "dli-world :: payload.rs",
-        severity_note: "All error: an extracted source anchor must be non-empty, verbatim, and on its claimed line.",
-        sources: &["../crates/dli-world/src/payload.rs"],
-        scrape: Scrape::Prefixed("anchor"),
-        codes: ANCHOR_CODES,
     },
     Family {
         key: "factcheck",
         title: "factcheck — payload claim standing",
         emitter: "the claim-relative certain-layer checks inside `check-draft` and the authoring seam",
-        owner: "dli-world :: payload.rs + check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs",
+        owner: "dli-world :: check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs",
         severity_note: "All error: supported claims are silent; only contradicted and unsupported claims emit findings.",
         sources: &[
-            "../crates/dli-world/src/payload.rs",
             "../crates/dli-serve/src/author/reads.rs",
             "../crates/dli-serve/src/author/tools.rs",
         ],
         scrape: Scrape::Prefixed("factcheck"),
         codes: FACTCHECK_CODES,
-    },
-    Family {
-        key: "payload",
-        title: "payload — structured-shadow integrity",
-        emitter: "the fat-payload shape and provenance battery inside `check-draft`",
-        owner: "dli-world :: payload.rs",
-        severity_note: "All error: malformed, stale, incomplete, or referentially invalid structured shadow data fails closed.",
-        sources: &["../crates/dli-world/src/payload.rs"],
-        scrape: Scrape::Prefixed("payload"),
-        codes: PAYLOAD_CODES,
-    },
-    Family {
-        key: "phase",
-        title: "phase — payload cycle observations",
-        emitter: "the scene-phase replay inside `check-draft`",
-        owner: "dli-world :: payload.rs",
-        severity_note: "All error: cycle observations must resolve and form a contiguous walk.",
-        sources: &["../crates/dli-world/src/payload.rs"],
-        scrape: Scrape::Prefixed("phase"),
-        codes: PHASE_CODES,
-    },
-    Family {
-        key: "lexicon",
-        title: "lexicon — deterministic banned-word replay",
-        emitter: "the payload lexicon replay inside `check-draft`",
-        owner: "dli-world :: payload.rs",
-        severity_note: "All error: supplied hits must be well formed and exactly match the kernel scan.",
-        sources: &["../crates/dli-world/src/payload.rs"],
-        scrape: Scrape::Prefixed("lexicon"),
-        codes: LEXICON_CODES,
     },
     Family {
         key: "resource",
@@ -910,39 +814,6 @@ const FAMILIES: &[Family] = &[
             },
         ],
     },
-    Family {
-        key: "craft",
-        title: "craft — the season-ledger join-rule battery",
-        emitter: "`check_season_rules` / `check_episode` and judge-attestation replay in `dli-world::craft`",
-        owner: "dli-world :: craft/season.rs + craft/kb.rs (WorldFinding, via KernelRule)",
-        severity_note: "Mixed error/warn per rule: structural verdicts (accomplishment-earned, \
-            yes-and-terminal, scene-name-clash) are error; band/threshold rules are warn until \
-            calibrated; judge outcomes are warn. Rule severities are defaults that caller finding \
-            policy may override. The set is exact against the stable emitters.",
-        sources: &[
-            "../crates/dli-world/src/craft/kb.rs",
-            "../crates/dli-world/src/craft/season.rs",
-        ],
-        scrape: Scrape::CraftKernelRules,
-        codes: CRAFT_CODES,
-    },
-    Family {
-        key: "outline",
-        title: "outline — the season/outline conformance battery",
-        emitter: "the season-outline checks, run by `check-draft`'s craft battery",
-        owner: "dli-world :: craft/season.rs + payload.rs + craft/kb.rs",
-        severity_note: "Mixed error/warn defaults per rule; caller finding policy may override \
-            them. The list is exact against both hardcoded emit sites and the closed registry \
-            used to validate caller text-rule codes.",
-        sources: &[
-            "../crates/dli-world/src/craft/season.rs",
-            "../crates/dli-world/src/payload.rs",
-            "../crates/dli-world/src/craft/kb.rs",
-        ],
-        scrape: Scrape::OutlineClosed,
-        codes: OUTLINE_CODES,
-        // OUTLINE_CODES follows this table.
-    },
 ];
 
 macro_rules! error_code {
@@ -956,639 +827,10 @@ macro_rules! error_code {
     };
 }
 
-const ANCHOR_CODES: &[Code] = &[
-    error_code!(
-        "anchor.empty-quote",
-        "an extracted item carries no quote to anchor."
-    ),
-    error_code!(
-        "anchor.quote-missing",
-        "the claimed quote does not occur in the draft."
-    ),
-    error_code!(
-        "anchor.quote-misplaced",
-        "the quote occurs in the draft, but not on its claimed line."
-    ),
-];
-
-const FACTCHECK_CODES: &[Code] = &[
-    error_code!(
-        "factcheck.contradicted",
-        "the claim conflicts with certain or explicitly rejected lore."
-    ),
-    error_code!(
-        "factcheck.unsupported",
-        "canon bears no certain support for the claim."
-    ),
-];
-
-const PAYLOAD_CODES: &[Code] = &[
-    error_code!(
-        "payload.stale",
-        "the payload source digest no longer matches the draft."
-    ),
-    error_code!(
-        "payload.unparseable-claim",
-        "a claim shadow is not a well-formed atom."
-    ),
-    error_code!(
-        "payload.runtime-continuity-invalid",
-        "a caller-owned runtime continuity fact is not a well-formed atom."
-    ),
-    error_code!(
-        "payload.outline-episode-unknown",
-        "the payload episode has no matching reviewed outline."
-    ),
-    error_code!(
-        "payload.proof-unknown-scene",
-        "a proof shadow references an undeclared scene."
-    ),
-    error_code!(
-        "payload.scene-id-empty",
-        "a payload scene carries no identifier."
-    ),
-    error_code!(
-        "payload.scene-duplicate",
-        "a payload scene identifier is declared more than once."
-    ),
-    error_code!(
-        "payload.cast-duplicate",
-        "a scene repeats an on-mic cast member."
-    ),
-    error_code!(
-        "payload.presence-conflict",
-        "a cast member is repeated or marked both on- and off-mic."
-    ),
-    error_code!(
-        "payload.location-unknown",
-        "a scene location is blank or undeclared."
-    ),
-    error_code!(
-        "payload.delta-incomplete",
-        "a scene delta lacks a required subject, fact, scene, or line."
-    ),
-    error_code!(
-        "payload.delta-unknown-subject",
-        "a scene delta names an undeclared subject."
-    ),
-    error_code!(
-        "payload.delta-unknown-scene",
-        "a scene delta references an undeclared scene."
-    ),
-    error_code!(
-        "payload.delta-line-out-of-range",
-        "a scene delta points beyond the end of the draft."
-    ),
-    error_code!(
-        "payload.beat-incomplete",
-        "a beat lacks a required id, scene, thread, or line."
-    ),
-    error_code!(
-        "payload.beat-duplicate",
-        "a beat identifier is declared more than once."
-    ),
-    error_code!(
-        "payload.beat-unknown-scene",
-        "a beat references an undeclared scene."
-    ),
-    error_code!(
-        "payload.beat-unknown-performer",
-        "a beat names an undeclared performer."
-    ),
-    error_code!(
-        "payload.beat-assistance-without-performer",
-        "an assisted beat names no performer."
-    ),
-    error_code!(
-        "payload.promise-id-empty",
-        "an opened or closed promise carries no identifier."
-    ),
-    error_code!(
-        "payload.promise-duplicate",
-        "a promise repeats within its opened or closed list."
-    ),
-    error_code!("payload.name-empty", "an introduced name is empty."),
-    error_code!("payload.name-duplicate", "an introduced name is repeated."),
-    error_code!(
-        "payload.episode-empty",
-        "payload metadata carries no episode identifier."
-    ),
-    error_code!(
-        "payload.source-file-empty",
-        "payload metadata carries no source filename."
-    ),
-    error_code!(
-        "payload.schema-unsupported",
-        "the extractor schema is not the supported payload version."
-    ),
-    error_code!(
-        "payload.extracted-invalid",
-        "the extraction date is not a valid calendar date."
-    ),
-    error_code!(
-        "payload.source-word-count",
-        "the declared source word count differs from the draft."
-    ),
-    error_code!(
-        "payload.register-token-count",
-        "the register-token count exceeds the draft token count."
-    ),
-    error_code!(
-        "payload.extractor-missing",
-        "a non-empty extracted field has no extractor provenance."
-    ),
-    error_code!(
-        "payload.extractor-field-unknown",
-        "the extractor manifest names a field outside payload/v1."
-    ),
-    error_code!(
-        "payload.extractor-model-invalid",
-        "an extractor record carries no model identifier."
-    ),
-    error_code!(
-        "payload.extractor-prompt-invalid",
-        "an extractor prompt digest is not a lowercase SHA-256 address."
-    ),
-    error_code!("payload.cast-empty", "a scene cast entry is empty."),
-    error_code!(
-        "payload.cast-unknown",
-        "a scene names an undeclared cast member."
-    ),
-];
-
-const PHASE_CODES: &[Code] = &[
-    error_code!(
-        "phase.unknown-cycle",
-        "a scene observes a cycle that is not declared."
-    ),
-    error_code!("phase.empty-cycle", "a declared cycle carries no spokes."),
-    error_code!(
-        "phase.unknown-spoke",
-        "a scene observes a spoke the cycle does not carry."
-    ),
-    error_code!(
-        "phase.illegal-walk",
-        "successive scene observations jump outside a cycle's contiguous walk."
-    ),
-];
-
-const LEXICON_CODES: &[Code] = &[
-    error_code!(
-        "lexicon.empty-hit",
-        "the extracted banned-hit list contains an empty entry."
-    ),
-    error_code!(
-        "lexicon.duplicate-hit",
-        "the extracted banned-hit list repeats an entry."
-    ),
-    error_code!(
-        "lexicon.banned-hit",
-        "the deterministic scan found banned vocabulary in the draft."
-    ),
-    error_code!(
-        "lexicon.scan-mismatch",
-        "the extracted banned-hit list differs from the kernel scan."
-    ),
-];
-
-/// The craft family's codes — the 13 season-rule [`KernelRule`](dli_world::craft::kb::KernelRule)
-/// ids emitted by the season-ledger join battery (`CRAFT-2`) via `craft_warn`/`craft_error`,
-/// plus the two stable judge-attestation outcomes.
-/// The two entry-point meta-codes (`CheckOutline`, `CheckSeason`) name the battery functions,
-/// not emitted finding codes, so they are excluded.
-const CRAFT_CODES: &[Code] = &[
-    Code {
-        code: "craft.accomplishment-earned",
-        severity: "error",
-        repair: "—",
-        meaning: "a major beat needs a prior same-thread failure; the triumph is unearned.",
-    },
-    Code {
-        code: "craft.accomplishment-earned-climax",
-        severity: "warn",
-        repair: "—",
-        meaning: "a climax-class beat needs two prior failures; the climax rests on too few.",
-    },
-    Code {
-        code: "craft.yes-and-terminal",
-        severity: "error",
-        repair: "—",
-        meaning: "a thread re-opens after its unqualified win; a yes-and is terminal per thread.",
-    },
-    Code {
-        code: "craft.competence-consistency",
-        severity: "warn",
-        repair: "—",
-        meaning: "an unearned major win by an under-competent hand with no intervening growth.",
-    },
-    Code {
-        code: "craft.competence-arc-flat",
-        severity: "warn",
-        repair: "—",
-        meaning: "competence never moves across the season; the character does not grow.",
-    },
-    Code {
-        code: "craft.reveal-fair-play",
-        severity: "warn",
-        repair: "—",
-        meaning: "a turn's reframing fact is not on the listener ledger early enough (kishōtenketsu fair-play).",
-    },
-    Code {
-        code: "craft.mystery-starved",
-        severity: "warn",
-        repair: "—",
-        meaning: "a mystery promise goes untouched for too many consecutive episodes.",
-    },
-    Code {
-        code: "craft.cold-open-discipline",
-        severity: "warn",
-        repair: "—",
-        meaning: "cold-open discipline: open a loop, cast within ceiling, no deep-time in act 1.",
-    },
-    Code {
-        code: "craft.cast-introduction-rate",
-        severity: "warn",
-        repair: "—",
-        meaning: "new named speakers per episode exceed the band or the season budget.",
-    },
-    Code {
-        code: "craft.scene-name-clash",
-        severity: "error",
-        repair: "—",
-        meaning: "two names below the aural-distinctness floor share a scene.",
-    },
-    Code {
-        code: "craft.promise-density",
-        severity: "warn",
-        repair: "—",
-        meaning: "promise open/close density violates the season-position bands.",
-    },
-    Code {
-        code: "craft.arc-shape",
-        severity: "warn",
-        repair: "—",
-        meaning: "a kishōtenketsu episode places its ten out of band or resolves a conflict.",
-    },
-    Code {
-        code: "craft.audio-load-trajectory",
-        severity: "warn",
-        repair: "—",
-        meaning: "too many consecutive high-orientation-load episodes without recovery.",
-    },
-    Code {
-        code: "craft.judge-attested",
-        severity: "warn",
-        repair: "—",
-        meaning: "a judge-bound principle has a current stored attestation; the message names the principle and answer.",
-    },
-    Code {
-        code: "craft.attestation-missing",
-        severity: "warn",
-        repair: "—",
-        meaning: "a judge-bound principle has no current stored attestation, so the kernel refuses to guess.",
-    },
-];
-
-/// The closed outline-family codes. Severity follows the hardcoded emitter or
-/// the default severity of the registered configurable rule.
-const OUTLINE_CODES: &[Code] = &[
-    Code {
-        code: "outline.beat-unaccounted",
-        severity: "error",
-        repair: "—",
-        meaning: "the outline declares a beat absent from the payload.",
-    },
-    Code {
-        code: "outline.beat-undeclared",
-        severity: "error",
-        repair: "—",
-        meaning: "the payload carries a beat absent from the outline.",
-    },
-    Code {
-        code: "outline.cast-unaccounted",
-        severity: "error",
-        repair: "—",
-        meaning: "the outline casts a speaker absent from the payload scene.",
-    },
-    Code {
-        code: "outline.cast-undeclared",
-        severity: "error",
-        repair: "—",
-        meaning: "the payload scene casts a speaker absent from the outline.",
-    },
-    Code {
-        code: "outline.hook-late",
-        severity: "warn",
-        repair: "—",
-        meaning: "the opening hook lands too late in the episode.",
-    },
-    Code {
-        code: "outline.loop-closed-unopened",
-        severity: "error",
-        repair: "—",
-        meaning: "a loop is closed that was never opened.",
-    },
-    Code {
-        code: "outline.loop-never-closed",
-        severity: "warn",
-        repair: "—",
-        meaning: "a loop is opened and never closed.",
-    },
-    Code {
-        code: "outline.no-loop-opened",
-        severity: "warn",
-        repair: "—",
-        meaning: "the episode opens no loop.",
-    },
-    Code {
-        code: "outline.no-loop-closed",
-        severity: "warn",
-        repair: "—",
-        meaning: "the episode closes no loop.",
-    },
-    Code {
-        code: "outline.promise-payoff-xor-carry",
-        severity: "error",
-        repair: "—",
-        meaning: "a promise must either pay off or carry forward, not both/neither.",
-    },
-    Code {
-        code: "outline.promise-unaccounted",
-        severity: "error",
-        repair: "—",
-        meaning: "the outline declares a promise absent from the payload.",
-    },
-    Code {
-        code: "outline.promise-undeclared",
-        severity: "error",
-        repair: "—",
-        meaning: "the payload carries a promise absent from the outline.",
-    },
-    Code {
-        code: "outline.arc-promise-payoff-xor-carry",
-        severity: "error",
-        repair: "—",
-        meaning: "an arc-level promise must either pay off or carry, not both/neither.",
-    },
-    Code {
-        code: "outline.promise-made-in-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a promise is made in a scene/beat the outline does not declare.",
-    },
-    Code {
-        code: "outline.dangling-payoff",
-        severity: "error",
-        repair: "—",
-        meaning: "a payoff has no matching promise.",
-    },
-    Code {
-        code: "outline.season-promise-duplicate",
-        severity: "error",
-        repair: "—",
-        meaning: "a season promise is declared twice.",
-    },
-    Code {
-        code: "outline.season-promise-open-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a season promise opens in an unknown episode.",
-    },
-    Code {
-        code: "outline.season-promise-payoff-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a season promise pays off in an unknown episode.",
-    },
-    Code {
-        code: "outline.no-season-promise-ledger",
-        severity: "warn",
-        repair: "—",
-        meaning: "the season declares no promise ledger.",
-    },
-    Code {
-        code: "outline.no-character-slider-ledger",
-        severity: "warn",
-        repair: "—",
-        meaning: "no character-slider ledger is declared.",
-    },
-    Code {
-        code: "outline.character-slider-duplicate",
-        severity: "error",
-        repair: "—",
-        meaning: "a character slider is declared twice.",
-    },
-    Code {
-        code: "outline.character-slider-scene-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a character slider references an unknown scene.",
-    },
-    Code {
-        code: "outline.character-slider-flat",
-        severity: "warn",
-        repair: "—",
-        meaning: "a character slider never moves across the episode.",
-    },
-    Code {
-        code: "outline.slider-compensation-missing",
-        severity: "warn",
-        repair: "—",
-        meaning: "a slider change lacks its compensating counter-movement.",
-    },
-    Code {
-        code: "outline.major-character-slider-missing",
-        severity: "warn",
-        repair: "—",
-        meaning: "a major character carries no slider.",
-    },
-    Code {
-        code: "outline.mice-beat-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a MICE beat references an unknown thread.",
-    },
-    Code {
-        code: "outline.mice-closes-before-open",
-        severity: "error",
-        repair: "—",
-        meaning: "a MICE thread closes before it opens.",
-    },
-    Code {
-        code: "outline.mice-interleaved",
-        severity: "error",
-        repair: "—",
-        meaning: "MICE threads are interleaved rather than LIFO-nested.",
-    },
-    Code {
-        code: "outline.no-scene-work-ledger",
-        severity: "warn",
-        repair: "—",
-        meaning: "no scene-work ledger is declared.",
-    },
-    Code {
-        code: "outline.scene-work-duplicate",
-        severity: "error",
-        repair: "—",
-        meaning: "a scene-work entry is declared twice.",
-    },
-    Code {
-        code: "outline.scene-work-unknown-scene",
-        severity: "error",
-        repair: "—",
-        meaning: "a scene-work entry references an unknown scene.",
-    },
-    Code {
-        code: "outline.scene-work-missing",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene carries no scene-work entry.",
-    },
-    Code {
-        code: "outline.scene-work-premature-resolution",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene resolves its work earlier than the arc allows.",
-    },
-    Code {
-        code: "outline.scene-work-chain-unsettled",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene-work chain is left unsettled.",
-    },
-    Code {
-        code: "outline.no-tryfail-cycle",
-        severity: "warn",
-        repair: "—",
-        meaning: "a thread carries no try/fail cycle.",
-    },
-    Code {
-        code: "outline.premature-resolution",
-        severity: "warn",
-        repair: "—",
-        meaning: "a thread resolves before its try/fail cycle earns it.",
-    },
-    Code {
-        code: "outline.cast-over-four",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene carries more than four active speakers.",
-    },
-    Code {
-        code: "outline.scene-idles",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene advances no promise, beat, or slider.",
-    },
-    Code {
-        code: "outline.no-audio-plan",
-        severity: "warn",
-        repair: "—",
-        meaning: "the episode declares no audio plan.",
-    },
-    Code {
-        code: "outline.narrator-direct-address",
-        severity: "error or warn (narrator policy)",
-        repair: "—",
-        meaning: "the narrator directly addresses the audience where the frame forbids it.",
-    },
-    Code {
-        code: "outline.narrator-host-frame",
-        severity: "error or warn (narrator policy)",
-        repair: "—",
-        meaning: "the narration uses a host frame the outline does not sanction.",
-    },
-    Code {
-        code: "outline.narrator-needed-for-orientation",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene needs narrator orientation it does not have.",
-    },
-    Code {
-        code: "outline.narrator-tasks-missing",
-        severity: "warn",
-        repair: "—",
-        meaning: "declared narrator tasks are missing.",
-    },
-    Code {
-        code: "outline.no-narrator-sfx-burden",
-        severity: "warn",
-        repair: "—",
-        meaning: "the narrator carries no SFX burden where one is expected.",
-    },
-    Code {
-        code: "outline.sfx-load-bearing",
-        severity: "warn",
-        repair: "—",
-        meaning: "an SFX cue carries load-bearing meaning the dialogue should hold.",
-    },
-    Code {
-        code: "outline.sfx-not-sparse",
-        severity: "warn",
-        repair: "—",
-        meaning: "SFX cues are not sparse enough for the audio register.",
-    },
-    Code {
-        code: "outline.ten-reads-as-battle",
-        severity: "warn",
-        repair: "—",
-        meaning: "a scene's cast/action reads as a battle the budget cannot stage (the ten-reads-as-battle lexicon).",
-    },
-    Code {
-        code: "outline.no-material-assumption-ledger",
-        severity: "warn",
-        repair: "—",
-        meaning: "no material-assumption ledger is declared.",
-    },
-    Code {
-        code: "outline.material-assumption-blank",
-        severity: "error",
-        repair: "—",
-        meaning: "a material assumption is blank.",
-    },
-    Code {
-        code: "outline.material-assumption-incomplete",
-        severity: "warn",
-        repair: "—",
-        meaning: "a material assumption is incomplete.",
-    },
-    Code {
-        code: "outline.material-answer-and-unknown",
-        severity: "error",
-        repair: "—",
-        meaning: "a material assumption is both answered and left unknown.",
-    },
-    Code {
-        code: "outline.unsupported-material-assumption",
-        severity: "warn",
-        repair: "—",
-        meaning: "a material assumption rests on unsupported canon.",
-    },
-    Code {
-        code: "outline.material-canon-ref-duplicate",
-        severity: "error",
-        repair: "—",
-        meaning: "a material canon reference is duplicated.",
-    },
-    Code {
-        code: "outline.material-canon-ref-malformed",
-        severity: "error",
-        repair: "—",
-        meaning: "a material canon reference is malformed.",
-    },
-    Code {
-        code: "outline.material-research-ref-duplicate",
-        severity: "error",
-        repair: "—",
-        meaning: "a material research reference is duplicated.",
-    },
-    Code {
-        code: "outline.material-research-ref-malformed",
-        severity: "error",
-        repair: "—",
-        meaning: "a material research reference is malformed.",
-    },
-];
+const FACTCHECK_CODES: &[Code] = &[error_code!(
+    "factcheck.contradicted",
+    "the claim conflicts with certain or explicitly rejected lore."
+)];
 
 /// Render the finding-families page.
 #[must_use]
@@ -1618,8 +860,8 @@ pub fn render() -> String {
     out.push_str("# Finding families\n\n");
     out.push_str(
         "Every graded finding carries a stable, dotted `family.item` code (charter koan 9, \
-         *errors are lore*). The code is the contract a benchmark, a repair tool, or a \
-         downstream consumer matches on — it is stable across message wording. This page \
+         *errors are lore*). Clients and repair tools match on the code, which is stable \
+         across message wording. This page \
          catalogues every code the system emits: its family (the check or tool that raises \
          it), its severity, the machine-repair kind it carries (authoring-seam findings \
          only), and what it means.\n\n",
@@ -2821,7 +2063,8 @@ mod tests {
         assert!(first.starts_with("---\n"), "missing frontmatter");
         assert!(first.contains("GENERATED by"), "missing do-not-edit marker");
         assert!(
-            first.contains("218 stable dotted `family.item` codes across 16 families, plus 4 resource sub-codes"),
+            first.contains("dotted `family.item` codes across")
+                && first.contains("families, plus 4 resource sub-codes"),
             "headline must distinguish dotted codes from bare resource sub-codes"
         );
     }

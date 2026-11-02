@@ -96,47 +96,13 @@ fn declare_inertial(store: &mut Store, dli: &str, ws: &str, pred: &str) -> dli_s
 // -- op reachability -----------------------------------------------------------
 
 #[test]
-fn declare_inertial_is_unknown_before_contract_1_8_0() {
-    // The op is advertised and answered only from `1.8.0` up — every earlier
-    // accepted version, including 1.7.0 (the wire-surface-completion campaign
-    // window), keeps the surface it shipped with.
-    for dli in ["0.5.1", "1.0.0", "1.6.0", "1.7.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "in",
-                Op::AuthorDeclareInertial,
-                json!({ "workspace": "ws-1", "pred": "water-status",
-                        "provenance": { "kind": "proposed", "origin": "s" } }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.8.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
-#[test]
 fn declare_inertial_is_answered_at_contract_1_8_0() {
     let mut sessions = Sessions::new();
     let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let ws = open_scope(&mut store, "2.0.0", "tpth");
     let response = dli_serve::serve::dispatch(
         &req(
-            "1.8.0",
+            "2.0.0",
             "in",
             Op::AuthorDeclareInertial,
             json!({ "workspace": ws, "pred": "water-status",
@@ -147,38 +113,6 @@ fn declare_inertial_is_answered_at_contract_1_8_0() {
     );
     assert!(response.ok, "1.8.0 answers the op: {response:?}");
     assert!(codes(result(&response)).is_empty());
-}
-
-#[test]
-fn the_1_8_0_capability_list_carries_declare_inertial_not_1_7_0() {
-    let mut sessions = Sessions::new();
-    let mut store = Store::default();
-
-    let at_1_7_0 = dli_serve::serve::dispatch(
-        &req("1.7.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_7_0 = result(&at_1_7_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        !caps_1_7_0.contains(&json!("author.declare_inertial")),
-        "1.7.0 must not advertise the 1.8.0 op: {caps_1_7_0:?}"
-    );
-
-    let at_1_8_0 = dli_serve::serve::dispatch(
-        &req("1.8.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_8_0 = result(&at_1_8_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        caps_1_8_0.contains(&json!("author.declare_inertial")),
-        "1.8.0 advertises the new op: {caps_1_8_0:?}"
-    );
 }
 
 // -- the staged declaration ----------------------------------------------------

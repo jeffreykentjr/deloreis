@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.entity_candidates params omit the required limit.",
   "send": {
-    "dli": "1.10.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.entity_candidates",
     "params": {

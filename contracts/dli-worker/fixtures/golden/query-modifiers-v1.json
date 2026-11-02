@@ -1,28 +1,49 @@
 {
   "fixture": "golden/query-modifiers-v1",
-  "version": 1,
   "note": "dli.query with the layer + why modifiers (H9). layer=certain filters the proposed (shadow) row out, so kept-at(excalibur, camelot) has empty (false) support; why is accepted and routed but the frozen QueryResult carries no antichain field, so it does not change the result.",
   "steps": [
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "rows": [],
+          "valuation": [
+            {
+              "atom": "D-0001",
+              "value": true
+            },
+            {
+              "atom": "D-0002",
+              "value": true
+            }
+          ]
+        }
+      },
       "send": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.query",
         "params": {
           "document": "camelot",
-          "goal": "kept-at(excalibur, camelot)",
+          "goal_atom": {
+            "args": [
+              {
+                "Sym": "excalibur"
+              },
+              {
+                "Sym": "camelot"
+              }
+            ],
+            "pred": "kept-at"
+          },
           "layer": "certain",
           "why": true
         }
-      },
-      "expect": {
-        "dli": "0.5.1",
-        "id": "1",
-        "ok": true,
-        "result": {
-          "rows": []
-        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

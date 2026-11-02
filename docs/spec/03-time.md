@@ -369,10 +369,8 @@ rule uthers-time-held-back over order   decided d-0009
 ```
 
 An episode binds a production `order` and a story-time `at` anchor separately, and
-a scene may carry its own anchor to cross into story-time — a flashback. The
-episode schema is defined normatively in `06-craft-and-payloads.md`; the
-anchoring it adds is shown here for the two-dimension picture (the anchoring
-keywords sit in the episode block, not among the top-level chronology keywords):
+a scene may carry its own anchor to cross into story-time — a flashback. The following illustrative sketch shows that two-dimension picture; it is
+not a supported `.dli` episode syntax:
 
 ```text
 episode e12 "The Last Battle" order 12 {

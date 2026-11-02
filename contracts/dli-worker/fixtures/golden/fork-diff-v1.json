@@ -1,39 +1,27 @@
 {
   "fixture": "golden/fork-diff-v1",
-  "version": 1,
   "steps": [
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "fork": "fork-1"
+        }
+      },
       "send": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
           "document": "camelot"
         }
-      },
-      "expect": {
-        "dli": "0.5.1",
-        "id": "1",
-        "ok": true,
-        "result": {
-          "fork": "fork-1"
-        }
       }
     },
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "2",
-        "op": "dli.fork.suppose",
-        "params": {
-          "fork": "fork-1",
-          "assume": [
-            "h.camelot#0"
-          ]
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -62,48 +50,60 @@
           "newly_dead": [],
           "newly_possible": []
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.fork.suppose",
+        "params": {
+          "assume": [
+            "h.camelot#0"
+          ],
+          "fork": "fork-1"
+        }
       }
     },
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "3",
+        "ok": true,
+        "result": {
+          "conflicts": [],
+          "grade_changed": [],
+          "newly_certain": [
+            {
+              "after": {
+                "grade": "asserted",
+                "status": "certain"
+              },
+              "atom": {
+                "args": [
+                  "excalibur",
+                  "camelot"
+                ],
+                "pred": "kept-at"
+              },
+              "before": {
+                "grade": "asserted",
+                "status": "possible"
+              },
+              "rendered": "kept-at(excalibur, camelot): possible → certain"
+            }
+          ],
+          "newly_dead": [],
+          "newly_possible": []
+        }
+      },
       "send": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "3",
         "op": "dli.fork.diff",
         "params": {
           "fork": "fork-1"
         }
-      },
-      "expect": {
-        "dli": "0.5.1",
-        "id": "3",
-        "ok": true,
-        "result": {
-          "conflicts": [],
-          "grade_changed": [],
-          "newly_certain": [
-            {
-              "after": {
-                "grade": "asserted",
-                "status": "certain"
-              },
-              "atom": {
-                "args": [
-                  "excalibur",
-                  "camelot"
-                ],
-                "pred": "kept-at"
-              },
-              "before": {
-                "grade": "asserted",
-                "status": "possible"
-              },
-              "rendered": "kept-at(excalibur, camelot): possible → certain"
-            }
-          ],
-          "newly_dead": [],
-          "newly_possible": []
-        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

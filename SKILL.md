@@ -39,15 +39,9 @@ everything below, and they never bend:
    If a finding disagrees with anything written here, the finding is right and
    this file is stale.
 
-> **A version note, because the rule above reversed one.** Rules 2 and 3 hold
-> from **contract 1.3.0** (DL-0058). Before it, the engine refused every `cited`
-> provenance outright with the legacy cited-provenance refusal and staged nothing — it had
-> encoded "only a human mints citations" as a wire refusal, which never
-> distinguished a human's decision from an agent's and taught agents to route
-> human rulings *around* the provenance system instead of through it. Every wire
-> below 1.3.0 still serves that refusal, byte for byte, permanently. If you get
-> the legacy cited-provenance refusal, you are speaking an older contract: negotiate
-> 1.3.0 or above, or resubmit as `proposed`.
+> **Contract:** The server accepts contract `2.0.0` only. Retired versions
+> and operations are refused with their successor. Cited provenance requires
+> a caller-supplied `state` of `provisional` or `ratified`.
 
 You never need to read Rust or write `.dli` to author or self-check a world. The
 tools and their responses tell you everything: what you staged, what is wrong,
@@ -90,8 +84,7 @@ in its params.
 - **`rendered`** — the **opt-in** `.dli` rendering of the result, a convenience
   view for a human reviewer. The canonical result is the structured JSON above
   (findings plus the staged fact objects / rows and the digest); `rendered` is
-  returned only when asked (`rendered: true`, from contract 0.6.0 / DL-0046;
-  the served contract is 1.6.0) and is **empty on a build with no formatter
+  returned only when asked (`rendered: true`) and is **empty on a build with no formatter
   linked** — the default build links none
   (LS-7). It is never the authoring surface: you propose through the typed tool
   params, not by writing these lines.
@@ -171,7 +164,7 @@ compatibility mode.
 | `author.add_state` | **1.3.0.** Assert a time-varying fluent `{id, value?, time?}` — a state that holds over an interval, not forever. `id` may be dotted (`lancelot.oath-status`), and the subject before the dot must be a known entity. `time` is `{kind: after\|during\|since\|until, point}`. Provenance required. |
 | `author.add_attest` | **1.3.0.** Request an attestation `{question}` against a question already open in this workspace. Provenance required. |
 | `author.set_standing` | **1.5.0.** Promote a provisional stored claim `{claim_id, decision}` to ratified, by citing a decision that is declared and occurs in every support path. |
-| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. From **1.13.0**, a newly negotiated defeat is a conditional attack: defeating its attacker restores the target; older wires retain one-way defeat. |
+| `author.defeat` | **1.5.0.** Defeat a stored claim `{claim_id, decision, defeated_decision}` with a new decision, while preserving the claim's history and object. A defeat is a conditional attack: defeating its attacker restores the target. |
 | `author.declare_functional` | **1.6.0.** Declare a predicate `{pred}` single-valued: two distinct certain values for one subject become a `continuity.fd-violation`, even for a first-seen predicate canon has no precedent for. Provenance required. |
 | `author.assert_same_as` | **1.7.0.** Assert `{left, right}` name the same bearer: the world merges them symmetric-transitively, gated on this claim's own standing — defeating its citing decision un-merges every derived consequence. Refused over a declared era or event (`identity.temporal-unsupported`). Provenance required. |
 | `author.assert_predicate_same_as` | **1.12.0.** Assert `{left, right}` name the same property: the world closes the claim symmetrically and transitively, carries it into FD/fluent/rule/query consequences, and un-merges those consequences when its support is defeated. Declaration only; no name or value similarity infers identity, and no new `.dli` form is added. Provenance required. |

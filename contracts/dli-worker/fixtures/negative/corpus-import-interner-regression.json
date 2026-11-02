@@ -4,7 +4,7 @@
   "note": "An append whose interner is not an extension of the store's is refused as a caller-facing schema violation. The store enforces the same discipline one layer down, but as an `internal` error; caught here it names the cause and the way forward.",
   "project": true,
   "send": {
-    "dli": "1.2.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "dli.corpus.import",
     "params": {

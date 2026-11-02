@@ -1,4 +1,0 @@
-# A synthetic precedence tier so the example's pillar row is well-formed.
-name = "pillar"
-wins_over = "all-other-families"
-standing_rule = "In the example world, the pillar tier wins any conflict with generic craft advice."

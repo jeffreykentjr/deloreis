@@ -1,11 +1,9 @@
 {
   "fixture": "golden/author-standing-v1",
-  "version": 1,
   "note": "Contract 1.5 durable standing flow: author a cited provisional fact, promote it with its declared supporting decision, then defeat that support with a new decision while preserving the stored object.",
-  "project": true,
   "precondition": [
     {
-      "dli": "1.5.0",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,47 +11,38 @@
       }
     },
     {
-      "dli": "1.5.0",
+      "dli": "2.0.0",
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "workspace": "ws-1",
-        "kind": "person",
         "id": "mara",
+        "kind": "person",
         "name": "Mara",
         "provenance": {
-          "kind": "cited",
           "decisions": [
             "d-1"
           ],
+          "kind": "cited",
           "state": "provisional"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.5.0",
+      "dli": "2.0.0",
       "id": "pre-3",
       "op": "author.materialize",
       "params": {
-        "workspace": "ws-1",
-        "rendered": false
+        "rendered": false,
+        "workspace": "ws-1"
       }
     }
   ],
+  "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "1.5.0",
-        "id": "1",
-        "op": "author.set_standing",
-        "params": {
-          "workspace": "ws-1",
-          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
-          "decision": "d-1"
-        }
-      },
       "expect": {
-        "dli": "1.5.0",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -62,31 +51,42 @@
           "root_hash": "sha256:be9638d5c5f333c9fd03b4569da0299552928c8ccbacf3ebf87f6cebb9f74d65",
           "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.set_standing",
+        "params": {
+          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "decision": "d-1",
+          "workspace": "ws-1"
+        }
       }
     },
     {
-      "send": {
-        "dli": "1.5.0",
-        "id": "2",
-        "op": "author.defeat",
-        "params": {
-          "workspace": "ws-1",
-          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
-          "decision": "d-2",
-          "defeated_decision": "d-1"
-        }
-      },
       "expect": {
-        "dli": "1.5.0",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:144f14dc7c89395f8568ddec8416ef8efaffe37d3779681d9a63ec84df5bebdd",
+          "root_hash": "sha256:5b4875d377378f797c0cd4237e99a8e2ff89bc9dd04eb722d87676ef37cc95ba",
           "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "author.defeat",
+        "params": {
+          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "decision": "d-2",
+          "defeated_decision": "d-1",
+          "workspace": "ws-1"
         }
       }
     }
-  ]
+  ],
+  "version": 1
 }

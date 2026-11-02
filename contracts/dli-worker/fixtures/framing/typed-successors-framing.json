@@ -7,12 +7,11 @@
     {
       "op": "dli.query",
       "control": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.query",
         "params": {
           "document": "saltmarket",
-          "goal": "marker(baseline)",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -31,12 +30,11 @@
         }
       },
       "attack": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.query",
         "params": {
           "document": "saltmarket",
-          "goal": "marker(baseline)",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -70,7 +68,7 @@
       "op": "author.query",
       "precondition": [
         {
-          "dli": "0.6.3",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -79,12 +77,11 @@
         }
       ],
       "control": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.query",
         "params": {
           "workspace": "ws-1",
-          "goal": "marker(baseline)",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -103,12 +100,11 @@
         }
       },
       "attack": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.query",
         "params": {
           "workspace": "ws-1",
-          "goal": "marker(baseline)",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -142,7 +138,7 @@
       "op": "dli.fork.add",
       "precondition": [
         {
-          "dli": "0.6.3",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
@@ -151,12 +147,11 @@
         }
       ],
       "control": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.add",
         "params": {
           "fork": "fork-1",
-          "declarations": [],
           "additions": [
             {
               "pred": "note",
@@ -168,12 +163,11 @@
         }
       },
       "attack": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.add",
         "params": {
           "fork": "fork-1",
-          "declarations": [],
           "additions": [
             {
               "pred": "note",
@@ -194,7 +188,7 @@
         "/result"
       ],
       "probe": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "dli.fork.list",
         "params": {

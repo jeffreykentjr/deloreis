@@ -7,7 +7,7 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 
 # CLI commands
 
-`deloreis` exposes **17** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
+`deloreis` exposes **13** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
 
 | Command | Description |
 |---|---|
@@ -33,18 +33,12 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 | `deloreis timeline episodes` | Fold the season and check its production-order layout and open loops |
 | `deloreis timeline phases` | The cyclic phases an episode pins |
 | `deloreis timeline help` | Print this message or the help of the given subcommand(s) |
-| `deloreis craft` | Explain the craft principles behind findings |
-| `deloreis craft why` | Explain the principles that govern a craft or outline finding |
-| `deloreis craft help` | Print this message or the help of the given subcommand(s) |
 | `deloreis check-proof` | Check a diegetic proof block against a practice |
-| `deloreis check-draft` | Run the merged battery over a fat draft payload |
-| `deloreis simulate` | Simulate a practice or game |
 | `deloreis name` | Vet a name — the kernel, world-true half |
 | `deloreis name check` | Vet a candidate name against the settled name-space |
 | `deloreis name help` | Print this message or the help of the given subcommand(s) |
 | `deloreis export` | Export under a profile |
 | `deloreis report` | Render the findings report |
-| `deloreis validate-repo` | Validate a Markdown canon repository against the eleven contract checks |
 | `deloreis serve` | Run JSON-over-stdio with `--project <path>` or explicit `--demo` |
 | `deloreis mcp` | Run MCP over stdio with `--project <path>` or explicit `--demo` |
 | `deloreis help` | Print this message or the help of the given subcommand(s) |

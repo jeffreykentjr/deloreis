@@ -8,7 +8,7 @@
       "op": "author.assert_same_as",
       "precondition": [
         {
-          "dli": "1.7.0",
+          "dli": "2.0.0",
           "id": "pre-1",
           "op": "author.open",
           "params": {
@@ -16,7 +16,7 @@
           }
         },
         {
-          "dli": "1.7.0",
+          "dli": "2.0.0",
           "id": "pre-2",
           "op": "author.add_entity",
           "params": {
@@ -32,7 +32,7 @@
           }
         },
         {
-          "dli": "1.7.0",
+          "dli": "2.0.0",
           "id": "pre-3",
           "op": "author.add_entity",
           "params": {
@@ -49,7 +49,7 @@
         }
       ],
       "control": {
-        "dli": "1.7.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.assert_same_as",
         "params": {
@@ -63,7 +63,7 @@
         }
       },
       "attack": {
-        "dli": "1.7.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.assert_same_as",
         "params": {
@@ -88,7 +88,7 @@
         "/result/facts"
       ],
       "probe": {
-        "dli": "1.7.0",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {

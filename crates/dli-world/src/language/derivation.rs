@@ -199,7 +199,7 @@ pub enum LangFinding {
 
 impl LangFinding {
     /// A stable, machine-readable class for this finding (charter koan 9). Tools
-    /// and benchmarks match on this; it never changes for a variant.
+    /// and clients match on this; it never changes for a variant.
     #[must_use]
     pub fn code(&self) -> &'static str {
         match self {

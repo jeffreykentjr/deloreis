@@ -35,16 +35,6 @@
           "const": "context-pack"
         },
         {
-          "description": "Printable reference cards.",
-          "type": "string",
-          "const": "cards"
-        },
-        {
-          "description": "Ludii Game Description Language for the simulator.",
-          "type": "string",
-          "const": "ludii-gdl"
-        },
-        {
           "description": "Articy-shaped video-game JSON.",
           "type": "string",
           "const": "articy"

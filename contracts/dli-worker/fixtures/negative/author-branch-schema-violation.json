@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.branch params omit the required `workspace` and `action`, violating the op schema.",
   "send": {
-    "dli": "0.6.1",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.branch",
     "params": {}

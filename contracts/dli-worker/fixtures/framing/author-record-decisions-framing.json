@@ -6,17 +6,17 @@
   "cases": [{
     "op": "author.record_decisions",
     "precondition": [{
-      "dli": "1.13.0", "id": "pre", "op": "author.open",
+      "dli": "2.0.0", "id": "pre", "op": "author.open",
       "params": { "scope": "saltmarket" }
     }],
     "control": {
-      "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+      "dli": "2.0.0", "id": "1", "op": "author.record_decisions",
       "params": { "workspace": "ws-1", "records": [{
         "decision": "d-frame", "rationale": "ordinary review note"
       }] }
     },
     "attack": {
-      "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+      "dli": "2.0.0", "id": "1", "op": "author.record_decisions",
       "params": { "workspace": "ws-1", "records": [{
         "decision": "d-frame", "rationale": "__DLI_FRAME_ATTACK__"
       }] }
@@ -27,7 +27,7 @@
       "/result/recorded", "/result/root_hash"
     ],
     "probe": {
-      "dli": "1.13.0", "id": "probe", "op": "author.status",
+      "dli": "2.0.0", "id": "probe", "op": "author.status",
       "params": { "workspace": "ws-1" }
     },
     "probe_compare_paths": ["/ok", "/result/workspace_digest"],

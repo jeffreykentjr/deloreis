@@ -1,40 +1,28 @@
 {
   "fixture": "golden/fork-add-v1",
-  "version": 1,
   "note": "dli.fork.add parses full .dli declaration lines through the syntax layer, lowers them to ground facts, and adds them to the fork; the consequence delta is read off the fork's incremental fixpoint. A proposed adjacency the base world does not derive becomes newly-certain within the fork.",
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.fork.new",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "fork": "fork-1"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "round-table"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "2",
-        "op": "dli.fork.add",
-        "params": {
-          "fork": "fork-1",
-          "declarations": [
-            "adjacent(camelot, avalon) proposed"
-          ]
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -66,7 +54,25 @@
           },
           "ok": true
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.fork.add",
+        "params": {
+          "additions": [
+            {
+              "args": [
+                "camelot",
+                "avalon"
+              ],
+              "pred": "adjacent"
+            }
+          ],
+          "fork": "fork-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

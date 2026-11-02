@@ -1,19 +1,10 @@
 {
   "fixture": "golden/timeline-episodes-v1",
-  "version": 1,
   "note": "dli.timeline.episodes folds the season in production order and reports each slot's story anchor plus the open-loop ledger. The neutral round-table season opens `who-holds-excalibur` in the premiere and closes it in the finale, so it folds with zero loops left open.",
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.timeline.episodes",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -92,7 +83,16 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.timeline.episodes",
+        "params": {
+          "document": "round-table"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

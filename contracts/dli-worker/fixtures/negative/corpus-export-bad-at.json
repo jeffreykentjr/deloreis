@@ -4,7 +4,7 @@
   "note": "`at` names a store commit; anything that is not a `sha256:<hex>` hash is refused before the store is touched.",
   "project": true,
   "send": {
-    "dli": "1.2.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "dli.corpus.export",
     "params": {

@@ -1,36 +1,27 @@
 {
   "fixture": "golden/fork-list-v1",
-  "version": 1,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.fork.new",
-        "params": {
-          "document": "camelot"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "fork": "fork-1"
         }
-      }
-    },
-    {
+      },
       "send": {
-        "dli": "0.5.1",
-        "id": "2",
-        "op": "dli.fork.list",
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.fork.new",
         "params": {
           "document": "camelot"
         }
-      },
+      }
+    },
+    {
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -43,7 +34,16 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.fork.list",
+        "params": {
+          "document": "camelot"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

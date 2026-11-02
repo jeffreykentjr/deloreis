@@ -7,7 +7,7 @@
     {
       "op": "dli.corpus.import",
       "control": {
-        "dli": "1.2.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.corpus.import",
         "params": {
@@ -18,7 +18,7 @@
         }
       },
       "attack": {
-        "dli": "1.2.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.corpus.import",
         "params": {
@@ -42,7 +42,7 @@
     {
       "op": "dli.corpus.export",
       "control": {
-        "dli": "1.2.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.corpus.export",
         "params": {
@@ -50,7 +50,7 @@
         }
       },
       "attack": {
-        "dli": "1.2.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.corpus.export",
         "params": {

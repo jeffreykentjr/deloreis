@@ -15,14 +15,12 @@ publish = false
 dli-ast = { path = "crates/dli-ast" }
 dli-core = { path = "crates/dli-core" }
 dli-syntax = { path = "crates/dli-syntax" }
-dli-sim = { path = "crates/dli-sim" }
 dli-time = { path = "crates/dli-time" }
 dli-eval = { path = "crates/dli-eval" }
 dli-ledger = { path = "crates/dli-ledger" }
 dli-world = { path = "crates/dli-world" }
 dli-lorestore = { path = "crates/dli-lorestore" }
 dli-export = { path = "crates/dli-export" }
-dli-game = { path = "crates/dli-game" }
 dli-serve = { path = "crates/dli-serve" }
 deloreis = { path = "crates/deloreis" }
 

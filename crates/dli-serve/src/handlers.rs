@@ -39,20 +39,16 @@ use dli_ast::term::AtomExpr;
 
 use dli_time::chronology::{TemporalVerdict, TimePoint};
 
+use dli_export::ExportOpts;
 use dli_export::profile::ExportTarget;
-use dli_export::{ExportOpts, ExportProfile};
-use dli_game::model::{Verdict, VerdictRule};
-use dli_game::{DealBattery, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_ledger::ledger_check::check_proof;
 use dli_ledger::practice::{PracticeDef, compile_practices};
-use dli_sim::{Battery, GenBounds, Invariant, InvariantSpec, Metric, Observable};
 
 use dli_world::check;
-use dli_world::check::{Severity as PayloadSeverity, Severity as WorldSeverity, WorldFinding};
+use dli_world::check::{Severity as WorldSeverity, WorldFinding};
 use dli_world::episode::{Episode, fold, knower_universe};
 use dli_world::episode_order::{order_integrity, season_slack};
 use dli_world::language::{LangFinding, LanguageModel, vet_candidate_in_dialect, view};
-use dli_world::payload::{BatteryContext, check_payload};
 use dli_world::scene_projection::project_scene;
 
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
@@ -81,20 +77,14 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
         Op::ForkRestrict => handle_fork_restrict(request, sessions),
         Op::ForkPreflight => handle_fork_preflight(request, sessions),
         Op::ForkPromote => handle_fork_promote(request, sessions),
-        Op::CheckDraft => handle_check_draft(request, sessions),
-        Op::PayloadSubmit => handle_payload_submit(request, sessions),
         Op::CorpusImport => handle_corpus_import(request, sessions),
         Op::CorpusExport => handle_corpus_export(request, sessions),
         Op::NameCheck => handle_name_check(request, sessions),
         Op::AttestMissing => handle_attest_missing(request, sessions),
-        Op::AttestationSweep => handle_attestation_sweep(request, sessions),
         // check-proof replays the document's proof block against its practice and
         // the certain-layer scene projection, returning the rich `ProofReport`.
         Op::CheckProof => handle_check_proof(request, sessions),
         Op::ExportRun => handle_export_run(request, sessions),
-        Op::SimulateStart => handle_simulate_start(request, sessions),
-        Op::SimulateStatus => handle_simulate_status(request, sessions),
-        Op::SimulateCancel => handle_simulate_cancel(request, sessions),
         // fork.add parses full `.dli` declaration lines through the syntax layer
         // and adds the lowered facts to the fork; the timeline reads project the
         // resolved world's chronology and the episode fold. Params are validated
@@ -160,9 +150,6 @@ pub fn handle(request: &Request, sessions: &mut Sessions) -> Response {
 
 fn handle_version(request: &Request) -> Result<Response, Fault> {
     let _: VersionParams = params(request)?;
-    // Dual-mode: the handshake reports the version THIS conversation is
-    // speaking — a `0.5.1` caller keeps its byte-identical `0.5.1` handshake
-    // until it opts into 0.6.0 (DL-0045 ruling 4).
     Ok(ok_response(
         request,
         &VersionResult {
@@ -177,7 +164,6 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
 fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckParams = params(request)?;
     let project = sessions.project_handle();
-    let pack = sessions.pack(&p.document);
     let scope = resolve(sessions, &p.document)?;
     let world_findings = check::run(&scope.world);
     let mut procedure_grades = vec![Grade::Checked];
@@ -187,51 +173,6 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         .map(|finding| CheckFinding::World(world_finding(finding, &request.dli)))
         .collect::<Vec<_>>();
     if let Some(project) = project {
-        let pack = pack.ok_or_else(|| {
-            (
-                ErrorCode::UnknownDoc,
-                format!("no document named '{}' is loaded", p.document),
-            )
-        })?;
-        let document = project.document(&p.document).ok_or_else(|| {
-            (
-                ErrorCode::UnknownDoc,
-                format!("no document named '{}' is loaded", p.document),
-            )
-        })?;
-        let records = evidence::load_payloads(&project, &p.document)
-            .map_err(|error| evidence_fault(&error))?;
-        for loaded in records {
-            let record = loaded.record;
-            let mut context = BatteryContext::new(&record.source).with_documents(&pack.documents);
-            if let Some(outlines) = &document.outlines {
-                context = context.with_outlines(&outlines.episodes);
-            }
-            if let Some(season) = &document.craft_ledger {
-                context = context.with_season(season);
-            }
-            if let Some(principles) = &document.craft_principles {
-                context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
-            }
-            if let Some(thresholds) = document.craft_thresholds {
-                context = context.with_thresholds(thresholds);
-            }
-            if let Some(policy) = &document.craft_policy {
-                context = context.with_episode_policy(policy.clone());
-            }
-            let payload_findings = check_payload(&scope.world, &record.payload, &context);
-            procedure_grades.extend(payload_findings.iter().map(|finding| finding.grade));
-            let episode = record.payload.meta.episode.clone();
-            let source_file = record.payload.meta.source.file.clone();
-            findings.extend(payload_findings.into_iter().map(|finding| {
-                CheckFinding::Payload(PayloadCheckFinding {
-                    payload_digest: loaded.digest.clone(),
-                    episode: episode.clone(),
-                    source_file: source_file.clone(),
-                    finding,
-                })
-            }));
-        }
         let checked = evidence::check_attestations(&project, &p.document, &scope.world.model)
             .map_err(|error| evidence_fault(&error))?;
         for attestation in checked {
@@ -260,7 +201,6 @@ fn complete_check_grade(grades: impl IntoIterator<Item = Grade>) -> Grade {
 fn check_finding_passes(finding: &CheckFinding) -> bool {
     match finding {
         CheckFinding::World(finding) => finding.severity != Severity::Error,
-        CheckFinding::Payload(finding) => finding.finding.severity != PayloadSeverity::Error,
         CheckFinding::Attestation(finding) => finding.passes(),
     }
 }
@@ -268,7 +208,6 @@ fn check_finding_passes(finding: &CheckFinding) -> bool {
 fn check_finding_key(finding: &CheckFinding) -> (u8, &str, &str) {
     match finding {
         CheckFinding::World(finding) => (0, &finding.code, &finding.message),
-        CheckFinding::Payload(finding) => (1, &finding.finding.code, &finding.finding.message),
         CheckFinding::Attestation(finding) => (2, finding.code(), finding.message()),
     }
 }
@@ -625,98 +564,6 @@ fn additions_from_declarations(_declarations: &[String]) -> Result<Vec<Addition>
     ))
 }
 
-fn handle_check_draft(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: CheckDraftParams = params(request)?;
-    let project = sessions.project_handle();
-    let pack = sessions.pack(&p.document).ok_or_else(|| {
-        (
-            ErrorCode::UnknownDoc,
-            format!("no document named '{}' is loaded", p.document),
-        )
-    })?;
-    let scope = resolve(sessions, &p.document)?;
-    let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
-    if let Some(continuity) = &p.continuity {
-        context = context.with_runtime_continuity(continuity);
-    }
-    if let Some(document) = project
-        .as_ref()
-        .and_then(|project| project.document(&p.document))
-    {
-        if let Some(outlines) = &document.outlines {
-            context = context.with_outlines(&outlines.episodes);
-        }
-        if let Some(season) = &document.craft_ledger {
-            context = context.with_season(season);
-        }
-        if let Some(principles) = &document.craft_principles {
-            context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
-        }
-        if let Some(thresholds) = document.craft_thresholds {
-            context = context.with_thresholds(thresholds);
-        }
-        if let Some(policy) = &document.craft_policy {
-            context = context.with_episode_policy(policy.clone());
-        }
-    }
-    Ok(ok_response(
-        request,
-        &CheckDraftResult {
-            findings: check_payload(&scope.world, &p.payload, &context),
-        },
-    ))
-}
-
-fn handle_payload_submit(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: PayloadSubmitParams = params(request)?;
-    let project = require_project(sessions)?;
-    let pack = sessions.pack(&p.document).ok_or_else(|| {
-        (
-            ErrorCode::UnknownDoc,
-            format!("no document named '{}' is loaded", p.document),
-        )
-    })?;
-    let scope = resolve(sessions, &p.document)?;
-    let mut context = BatteryContext::new(&p.source).with_documents(&pack.documents);
-    if let Some(document) = project.document(&p.document) {
-        if let Some(outlines) = &document.outlines {
-            context = context.with_outlines(&outlines.episodes);
-        }
-        if let Some(season) = &document.craft_ledger {
-            context = context.with_season(season);
-        }
-        if let Some(principles) = &document.craft_principles {
-            context = context.with_kb(dli_world::craft::Kb::new(principles.principles()));
-        }
-        if let Some(thresholds) = document.craft_thresholds {
-            context = context.with_thresholds(thresholds);
-        }
-        if let Some(policy) = &document.craft_policy {
-            context = context.with_episode_policy(policy.clone());
-        }
-    }
-    let findings = check_payload(&scope.world, &p.payload, &context);
-    let accepted = findings
-        .iter()
-        .all(|finding| finding.severity != PayloadSeverity::Error);
-    let payload_digest = if accepted {
-        Some(
-            evidence::submit_payload(&project, &p.document, &p.payload, &p.source)
-                .map_err(|error| evidence_fault(&error))?,
-        )
-    } else {
-        None
-    };
-    Ok(ok_response(
-        request,
-        &PayloadSubmitResult {
-            accepted,
-            findings,
-            payload_digest,
-        },
-    ))
-}
-
 fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckProofParams = params(request)?;
     // The document's source declarations carry both the proof block and the
@@ -818,18 +665,10 @@ fn handle_export_run(request: &Request, sessions: &mut Sessions) -> Result<Respo
     let source_commit = sessions.export_source(&p.document).ok_or_else(|| {
         (
             ErrorCode::UnknownDoc,
-            format!("no document or game named '{}' is loaded", p.document),
+            format!("no document named '{}' is loaded", p.document),
         )
     })?;
-    match p.profile {
-        ExportProfile::ContextPack
-        | ExportProfile::Articy
-        | ExportProfile::Csv
-        | ExportProfile::StaticWiki => export_lore(request, sessions, &p, source_commit),
-        ExportProfile::Cards | ExportProfile::LudiiGdl => {
-            export_game(request, sessions, &p, source_commit)
-        }
-    }
+    export_lore(request, sessions, &p, source_commit)
 }
 
 fn export_lore(
@@ -839,20 +678,10 @@ fn export_lore(
     source_commit: String,
 ) -> Result<Response, Fault> {
     let registry = sessions.export_registry(&params.document).ok_or_else(|| {
-        if sessions.ruleset(&params.document).is_some() {
-            (
-                ErrorCode::SchemaViolation,
-                format!(
-                    "the requested profile renders a lore document; '{}' names a card game",
-                    params.document
-                ),
-            )
-        } else {
-            (
-                ErrorCode::UnknownDoc,
-                format!("no document or game named '{}' is loaded", params.document),
-            )
-        }
+        (
+            ErrorCode::UnknownDoc,
+            format!("no document named '{}' is loaded", params.document),
+        )
     })?;
     let scope = resolve(sessions, &params.document)?;
     let outcome = dli_export::export_with(
@@ -884,253 +713,6 @@ fn export_lore(
             manifest: outcome.manifest,
         },
     ))
-}
-
-fn export_game(
-    request: &Request,
-    sessions: &Sessions,
-    params: &ExportRunParams,
-    source_commit: String,
-) -> Result<Response, Fault> {
-    let (ruleset, registry) = sessions.ruleset(&params.document).ok_or_else(|| {
-        if sessions.pack(&params.document).is_some() {
-            (
-                ErrorCode::SchemaViolation,
-                format!(
-                    "the requested profile renders a card ruleset; document '{}' names no \
-                     card game (a lore corpus carries no ruleset)",
-                    params.document
-                ),
-            )
-        } else {
-            (
-                ErrorCode::UnknownDoc,
-                format!("no document or game named '{}' is loaded", params.document),
-            )
-        }
-    })?;
-    let target = if matches!(params.profile, ExportProfile::Cards) {
-        ExportTarget::Cards
-    } else {
-        ExportTarget::LudiiGdl
-    };
-    let export = dli_game::export::run(
-        &registry,
-        target,
-        &ruleset,
-        &ExportOpts {
-            source_commit,
-            profile_name: params.profile_name.clone(),
-            ..ExportOpts::default()
-        },
-    )
-    .map_err(|err| {
-        (
-            ErrorCode::SchemaViolation,
-            format!("the export profile was refused: {err}"),
-        )
-    })?;
-    let emission = match export.artifact {
-        dli_game::export::GameArtifact::Cards(deck) => ExportEmission::Cards(deck),
-        dli_game::export::GameArtifact::LudiiGdl(gdl) => ExportEmission::LudiiGdl(gdl),
-    };
-    Ok(ok_response(
-        request,
-        &ExportRunResult {
-            emission,
-            manifest: export.manifest,
-        },
-    ))
-}
-
-fn handle_simulate_start(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: SimulateStartParams = params(request)?;
-    if p.checkpoint_every == 0 {
-        return Err((
-            ErrorCode::SchemaViolation,
-            "`checkpoint_every` must be at least 1".to_owned(),
-        ));
-    }
-    let project = require_project(sessions)?;
-    let battery = if let Some(pack) = sessions.pack(&p.document) {
-        let practice = pack
-            .documents
-            .iter()
-            .flat_map(compile_practices)
-            .next()
-            .ok_or_else(|| {
-                (
-                    ErrorCode::SchemaViolation,
-                    format!("document '{}' declares no practice to simulate", p.document),
-                )
-            })?;
-        crate::simulation::JobBattery::Practice(Battery {
-            practice,
-            bounds: GenBounds {
-                max_steps: SIM_MAX_STEPS,
-                max_magnitude: SIM_MAX_MAGNITUDE,
-            },
-            seed: p.seed,
-            trials: p.trials,
-            metrics: default_metrics(&pack),
-            invariants: default_invariants(&pack),
-            affine_caps: std::collections::BTreeMap::new(),
-        })
-    } else if let Some((ruleset, _)) = sessions.ruleset(&p.document) {
-        if let VerdictRule::Registered { name } = &ruleset.verdict {
-            return Err((
-                ErrorCode::SchemaViolation,
-                format!(
-                    "game '{}' needs registered verdict predicate '{name}', which a standalone \
-                     project cannot supply; use a data-defined completed verdict",
-                    p.document
-                ),
-            ));
-        }
-        let layout = ruleset
-            .available_layouts()
-            .first()
-            .map(|layout| layout.name.clone())
-            .ok_or_else(|| {
-                (
-                    ErrorCode::SchemaViolation,
-                    format!("game '{}' has no dealable layout to simulate", p.document),
-                )
-            })?;
-        crate::simulation::JobBattery::Game(DealBattery {
-            ruleset,
-            layout,
-            seed: p.seed,
-            trials: p.trials,
-            metrics: vec![ReadingMetric {
-                name: "completed-rate".to_owned(),
-                observable: ReadingObservable::VerdictIs {
-                    verdict_id: Verdict::COMPLETED.to_owned(),
-                },
-            }],
-            invariants: vec![
-                ReadingInvariant::DeckConserved,
-                ReadingInvariant::OnlyLegalPlays,
-            ],
-        })
-    } else {
-        return Err((
-            ErrorCode::UnknownDoc,
-            format!("no document or game named '{}' is loaded", p.document),
-        ));
-    };
-    let job = crate::simulation::start_job(&project, &p.document, battery, p.checkpoint_every)
-        .map_err(|error| evidence_fault(&error))?;
-    if matches!(
-        job.status,
-        SimulateJobStatus::Pending | SimulateJobStatus::Running
-    ) {
-        sessions.queue_simulation_worker(job.job_id.clone());
-    }
-    Ok(ok_response(
-        request,
-        &SimulateStartResult {
-            job_id: job.job_id,
-            status: job.status,
-        },
-    ))
-}
-
-fn handle_simulate_status(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: SimulateStatusParams = params(request)?;
-    let project = require_project(sessions)?;
-    let job = crate::simulation::status_job(&project, &p.job_id)
-        .map_err(|error| evidence_fault(&error))?;
-    if matches!(
-        job.status,
-        SimulateJobStatus::Pending | SimulateJobStatus::Running
-    ) {
-        sessions.queue_simulation_worker(job.job_id.clone());
-    }
-    Ok(ok_response(
-        request,
-        &SimulateStatusResult {
-            job_id: job.job_id,
-            status: job.status,
-            trials_done: job.trials_done,
-            trials_total: job.trials_total,
-            manifest: job.manifest,
-            manifest_digest: job.manifest_digest,
-        },
-    ))
-}
-
-fn handle_simulate_cancel(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: SimulateCancelParams = params(request)?;
-    let project = require_project(sessions)?;
-    let job = crate::simulation::cancel_job(&project, &p.job_id)
-        .map_err(|error| evidence_fault(&error))?;
-    Ok(ok_response(
-        request,
-        &SimulateCancelResult {
-            job_id: job.job_id,
-            status: job.status,
-        },
-    ))
-}
-
-/// The generator bound on deltas drawn per resource per trial for the default
-/// `simulate.start` battery.
-const SIM_MAX_STEPS: u32 = 6;
-/// The generator bound on a single delta's magnitude for the default battery.
-const SIM_MAX_MAGNITUDE: u32 = 3;
-
-/// The synthesized default metrics for a `simulate.start` battery: an
-/// `any-violation` rate plus a per-resource `<res>-violated` rate.
-fn default_metrics(pack: &dli_world::Pack) -> Vec<Metric> {
-    let mut metrics = vec![Metric {
-        name: "any-violation".to_owned(),
-        observable: Observable::AnyViolation,
-    }];
-    for name in practice_resource_names(pack) {
-        metrics.push(Metric {
-            name: format!("{name}-violated"),
-            observable: Observable::Violated {
-                resource: name.clone(),
-            },
-        });
-    }
-    metrics
-}
-
-/// The synthesized default invariants for a `simulate.start` battery: an
-/// `all-laws-hold` sweep plus a per-resource `<res>-never-violated` sweep.
-fn default_invariants(pack: &dli_world::Pack) -> Vec<InvariantSpec> {
-    let mut invariants = vec![InvariantSpec {
-        name: "all-laws-hold".to_owned(),
-        predicate: Invariant::AllLawsHold,
-    }];
-    for name in practice_resource_names(pack) {
-        invariants.push(InvariantSpec {
-            name: format!("{name}-never-violated"),
-            predicate: Invariant::NeverViolated {
-                resource: name.clone(),
-            },
-        });
-    }
-    invariants
-}
-
-/// The declared resource names of the document's first practice, in declaration
-/// order — the axis the default metrics and invariants range over.
-fn practice_resource_names(pack: &dli_world::Pack) -> Vec<String> {
-    pack.documents
-        .iter()
-        .flat_map(compile_practices)
-        .next()
-        .map(|practice| {
-            practice
-                .resources
-                .iter()
-                .map(|resource| resource.name.text.clone())
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 fn handle_name_check(request: &Request, sessions: &Sessions) -> Result<Response, Fault> {
@@ -1171,27 +753,6 @@ fn handle_attest_missing(request: &Request, sessions: &mut Sessions) -> Result<R
         })
         .collect();
     Ok(ok_response(request, &AttestMissingResult { questions }))
-}
-
-fn handle_attestation_sweep(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
-    let p: AttestationSweepParams = params(request)?;
-    let project = require_project(sessions)?;
-    let scope = resolve(sessions, &p.document)?;
-    let records = p
-        .records
-        .into_iter()
-        .map(AttestationRecord::into_stored)
-        .collect::<Vec<_>>();
-    let appended =
-        evidence::append_attestations(&project, &p.document, &records, &scope.world.model)
-            .map_err(|error| evidence_fault(&error))?;
-    Ok(ok_response(
-        request,
-        &AttestationSweepResult {
-            accepted: appended.accepted,
-            batch_digest: appended.batch_digest,
-        },
-    ))
 }
 
 // -- dli.timeline.* ----------------------------------------------------------
@@ -1973,54 +1534,9 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
 /// what lets a newer version inherit every earlier tier instead of resetting the
 /// list to whatever the build happens to be.
 ///
-/// Each gate is a **floor** ([`crate::has_corpus_ops`] and friends), not an
-/// equality against the newest version. The distinction is load-bearing rather
-/// than stylistic: this function previously read `matches!(dli, "1.2.0")` for
-/// the corpus tier, which was correct only while `1.2.0` *was* the newest, and
-/// would have silently dropped both corpus ops from a `1.3.0` caller's list the
-/// moment DM-4 extended the accepted set.
-fn capabilities(dli: &str) -> Vec<String> {
-    let branch_merge = crate::has_branch_merge(dli);
-    let corpus = crate::has_corpus_ops(dli);
-    let expert_authoring = crate::has_expert_authoring(dli);
-    let standing_tools = crate::has_standing_tools(dli);
-    let functional_decls = crate::has_functional_decls(dli);
-    let identity_assertions = crate::has_identity_assertions(dli);
-    let rule_authoring = crate::has_rule_authoring(dli);
-    let inertia = crate::has_inertia(dli);
-    let as_of = crate::has_as_of_read(dli);
-    let decisions = crate::has_decisions(dli);
-    let incremental_canon = crate::has_incremental_canon(dli);
-    let predicate_identity =
-        crate::has_predicate_identity(dli) && crate::predicate_identity_wired();
-    let bulk_decisions = crate::has_bulk_decisions(dli);
-    Op::ALL
-        .iter()
-        .copied()
-        .filter(|op| branch_merge || !op.added_in_0_6_1())
-        .filter(|op| corpus || !op.added_in_1_2_0())
-        .filter(|op| expert_authoring || !op.added_in_1_3_0())
-        .filter(|op| standing_tools || !op.added_in_1_5_0())
-        .filter(|op| functional_decls || !op.added_in_1_6_0())
-        // Every 1.7.0 op gates on its OWN floor predicate (WS-2's three-floor
-        // design), not one blanket flag, so a later divergent floor moves only
-        // that op's row in a caller's capability list.
-        .filter(|op| match op {
-            Op::AuthorAddRule => rule_authoring,
-            other => identity_assertions || !other.added_in_1_7_0(),
-        })
-        .filter(|op| inertia || !op.added_in_1_8_0())
-        // Every 1.9.0 op gates on its OWN floor predicate (per-op-floor
-        // discipline), so a later divergent floor moves only that op's row.
-        .filter(|op| match op {
-            Op::AuthorRecordDecision => decisions,
-            other => as_of || !other.added_in_1_9_0(),
-        })
-        .filter(|op| incremental_canon || !op.added_in_1_10_0())
-        .filter(|op| predicate_identity || !op.added_in_1_12_0())
-        .filter(|op| bulk_decisions || !op.added_in_1_13_0())
-        .map(wire_name)
-        .collect()
+/// The current contract advertises the complete supported operation set.
+fn capabilities(_dli: &str) -> Vec<String> {
+    Op::ALL.iter().copied().map(wire_name).collect()
 }
 
 /// The op's wire identifier (its serde encoding).
@@ -3426,7 +2942,6 @@ fn canon_killed_tokens(
 mod tests {
     use dli_ast::span::Span;
     use dli_world::language::LangFinding;
-    use dli_world::payload::PayloadFinding;
 
     use super::*;
 
@@ -3441,23 +2956,7 @@ mod tests {
             citations: Vec::new(),
             data: None,
         });
-        let payload_warn = CheckFinding::Payload(PayloadCheckFinding {
-            payload_digest: format!("sha256:{}", "0".repeat(64)),
-            episode: "e01".to_owned(),
-            source_file: "draft.md".to_owned(),
-            finding: PayloadFinding {
-                code: "fact.contradiction".to_owned(),
-                severity: PayloadSeverity::Warn,
-                grade: Grade::Checked,
-                message: "advisory".to_owned(),
-                line: None,
-                quote: None,
-                principle: None,
-                citations: Vec::new(),
-            },
-        });
         assert!(check_finding_passes(&world_warn));
-        assert!(check_finding_passes(&payload_warn));
 
         let world_error = CheckFinding::World(Finding {
             severity: Severity::Error,

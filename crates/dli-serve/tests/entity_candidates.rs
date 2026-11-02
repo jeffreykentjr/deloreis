@@ -13,10 +13,9 @@ use serde_json::{Value, json};
 
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
-use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 
-const V11: &str = "1.11.0";
+const V11: &str = "2.0.0";
 
 // -- harness -----------------------------------------------------------------
 
@@ -100,32 +99,6 @@ fn distances(result: &Value) -> Vec<u64> {
 }
 
 // -- op reachability ---------------------------------------------------------
-
-#[test]
-fn entity_candidates_is_unknown_before_contract_1_10_0() {
-    for dli in ["0.5.1", "1.0.0", "1.8.0", "1.9.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "ec",
-                Op::AuthorEntityCandidates,
-                json!({ "workspace": "ws-1", "surface": "mara", "limit": 5 }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(error.code, dli_serve::ErrorCode::UnknownOp);
-        assert!(
-            error.message.contains("1.10.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
 
 // -- ranking -----------------------------------------------------------------
 

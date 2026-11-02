@@ -58,18 +58,6 @@ pub enum Op {
     /// Check a diegetic proof block in a practice.
     #[serde(rename = "dli.check-proof")]
     CheckProof,
-    /// Fact-check a draft.
-    #[serde(rename = "dli.check-draft")]
-    CheckDraft,
-    /// Start a simulation battery.
-    #[serde(rename = "dli.simulate.start")]
-    SimulateStart,
-    /// Poll a simulation battery.
-    #[serde(rename = "dli.simulate.status")]
-    SimulateStatus,
-    /// Cancel a simulation battery.
-    #[serde(rename = "dli.simulate.cancel")]
-    SimulateCancel,
     /// Show the timeline at a position.
     #[serde(rename = "dli.timeline.show")]
     TimelineShow,
@@ -94,12 +82,6 @@ pub enum Op {
     /// List questions missing attestations.
     #[serde(rename = "dli.attest.missing")]
     AttestMissing,
-    /// Recompute attestation staleness.
-    #[serde(rename = "dli.attestation-sweep")]
-    AttestationSweep,
-    /// Submit a draft payload.
-    #[serde(rename = "dli.payload-submit")]
-    PayloadSubmit,
     /// Import a corpus into a document's lorestore (DM-3, contract 1.2.0).
     #[serde(rename = "dli.corpus.import")]
     CorpusImport,
@@ -249,7 +231,7 @@ impl Op {
     /// capability list and move released handshake bytes (audit C4). New ops go
     /// on the end, where the version filter can remove them without disturbing
     /// what came before.
-    pub const ALL: [Op; 69] = [
+    pub const ALL: [Op; 63] = [
         Op::Version,
         Op::Check,
         Op::Query,
@@ -263,10 +245,6 @@ impl Op {
         Op::ForkPreflight,
         Op::ForkPromote,
         Op::CheckProof,
-        Op::CheckDraft,
-        Op::SimulateStart,
-        Op::SimulateStatus,
-        Op::SimulateCancel,
         Op::TimelineShow,
         Op::TimelineOrder,
         Op::TimelineKnows,
@@ -275,8 +253,6 @@ impl Op {
         Op::ExportRun,
         Op::NameCheck,
         Op::AttestMissing,
-        Op::AttestationSweep,
-        Op::PayloadSubmit,
         Op::CorpusImport,
         Op::CorpusExport,
         Op::AuthorOpen,
@@ -553,12 +529,6 @@ impl Op {
                 "Emit a ruling-request draft from a fork — the machine proposes, it never rules."
             }
             Op::CheckProof => "Check a diegetic proof block declared in a practice.",
-            Op::CheckDraft => {
-                "Fact-check a draft's claims against canon: supported / contradicted / unsupported."
-            }
-            Op::SimulateStart => "Start a simulation battery over a document or game.",
-            Op::SimulateStatus => "Poll a running simulation battery for its trace and manifest.",
-            Op::SimulateCancel => "Cancel a running simulation battery.",
             Op::TimelineShow => "Show the timeline at a position.",
             Op::TimelineOrder => "Report the partial order over the timeline.",
             Op::TimelineKnows => "Who-knows-what matrix at a timeline position.",
@@ -567,8 +537,6 @@ impl Op {
             Op::ExportRun => "Run an export target under a profile.",
             Op::NameCheck => "Vet a proposed name through the naming oracle before it enters lore.",
             Op::AttestMissing => "List questions that lack a current attestation.",
-            Op::AttestationSweep => "Validate and append an immutable attestation batch.",
-            Op::PayloadSubmit => "Check and persist an accepted fat draft payload.",
             Op::CorpusImport => {
                 "Import a corpus into a document's store — fact objects on any build, .dli documents on a syntax build."
             }
@@ -672,13 +640,13 @@ impl Op {
                 "Record a baseline ratified decision on the workspace branch so facts that cite it read certain — the wire way to reach certainty and make contradiction checks (fd-violation, fluent, inertia) fire, replacing the fixture-authority hack; defeasible by author.defeat."
             }
             Op::AuthorPredicates => {
-                "List the distinct predicates present in the staged world, each with its arity and whether you declared it functional or inertial — the predicate census to reuse an existing name before minting a new one."
+                "List properties used in the staged world, with their arity and whether they are single-valued or inertial, so you can reuse an existing property name."
             }
             Op::AuthorEntityCandidates => {
-                "Find entity candidates whose id is closest to a surface form (bounded by a caller limit) — the coreference candidates to consider merging into before minting a new entity id. Contract 1.11.0 and later restrict the universe to declared entities."
+                "Find declared characters, places, or other entities with ids close to a name, so you can reuse an existing id."
             }
             Op::AuthorAssertPredicateSameAs => {
-                "Assert two predicate names denote the same property; the evaluator records a defeasible symmetric-transitive identity claim and exposes its consequences through checks, queries, derivations, and the durable store."
+                "Record that two property names refer to the same property in your fictional world; the claim can be defeated by a later ruling."
             }
             Op::AuthorRecordDecisions => {
                 "Atomically record many baseline supporting decisions on one workspace branch, validating the complete batch before one commit and one ref update."

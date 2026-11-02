@@ -1,8 +1,7 @@
 //! Deloreis Lore Interchange export profiles.
 //!
 //! A compiled world can be rendered under an [`ExportProfile`] as a context
-//! pack, articy-shaped JSON, CSV, or a static wiki; game rulesets use the same
-//! profile vocabulary for cards and Ludii GDL. Every export carries an
+//! pack, articy-shaped JSON, CSV, or a static wiki. Every export carries an
 //! [`ExportManifest`] pinning the commit, model layer, valuation, profile, and
 //! artifact-shaping options.
 //!
@@ -19,8 +18,7 @@
 //!    sorts and relations a target consumes and how each renders. Adding a
 //!    mapping for an existing target is data; a new emission format requires a
 //!    renderer and contract migration.
-//! 3. **Emission.** Target-shaped data ([`ExportArtifact`]): a context pack, a
-//!    card set, GDL. Exports carry **knowledge** — entities, facts, relations,
+//! 3. **Emission.** Target-shaped data ([`ExportArtifact`]): a context pack, Articy JSON, CSV, or a wiki. Exports carry **knowledge** — entities, facts, relations,
 //!    who-may-know scopes, variant deltas — **never behavior**.
 //! 4. **Manifest.** [`ExportManifest`] pins source commit, layer, valuation
 //!    fingerprint, and profile hash, so a wrong artifact is a *diagnosis*, never a
@@ -64,10 +62,6 @@ pub use static_wiki::{StaticWikiExport, WikiPage};
 pub enum ExportProfile {
     /// A context pack for downstream generation.
     ContextPack,
-    /// Printable reference cards.
-    Cards,
-    /// Ludii Game Description Language for the simulator.
-    LudiiGdl,
     /// Articy-shaped video-game JSON.
     Articy,
     /// Producer-facing flat CSV.

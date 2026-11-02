@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 
 /// The window this whole file negotiates at — every branch-write field is
 /// gated ≥ 1.7.0.
-const V: &str = "1.7.0";
+const V: &str = "2.0.0";
 /// A pre-1.7.0 accepted version, for the "new params are refused below the
 /// floor" cases.
 const V_OLD: &str = "1.6.0";
@@ -894,7 +894,7 @@ fn merge_maps_corrupt_ref_valuation_to_evidence_corrupt() {
 // ── 12. every new param is a schema violation below 1.7.0 ───────────────────
 
 #[test]
-fn new_params_below_1_7_0_are_schema_violations() {
+fn retired_contract_refuses_branch_operations() {
     let (_t, mut sessions, mut store) = functional_store();
     let seed_ws = open_workspace("canon", &mut sessions, &mut store);
     create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
@@ -905,10 +905,7 @@ fn new_params_below_1_7_0_are_schema_violations() {
         &mut sessions,
         &mut store,
     );
-    assert_eq!(
-        open_branch["error"]["code"], "schema-violation",
-        "{open_branch}"
-    );
+    assert_eq!(open_branch["error"]["code"], "killed-form", "{open_branch}");
 
     let merge_dry = drive(
         &json!({ "dli": V_OLD, "id": "2", "op": "author.merge",
@@ -916,10 +913,7 @@ fn new_params_below_1_7_0_are_schema_violations() {
         &mut sessions,
         &mut store,
     );
-    assert_eq!(
-        merge_dry["error"]["code"], "schema-violation",
-        "{merge_dry}"
-    );
+    assert_eq!(merge_dry["error"]["code"], "killed-form", "{merge_dry}");
 
     let merge_ref = drive(
         &json!({ "dli": V_OLD, "id": "3", "op": "author.merge",
@@ -927,10 +921,7 @@ fn new_params_below_1_7_0_are_schema_violations() {
         &mut sessions,
         &mut store,
     );
-    assert_eq!(
-        merge_ref["error"]["code"], "schema-violation",
-        "{merge_ref}"
-    );
+    assert_eq!(merge_ref["error"]["code"], "killed-form", "{merge_ref}");
 
     let branch_ref_param = drive(
         &json!({ "dli": V_OLD, "id": "4", "op": "author.branch",
@@ -939,7 +930,7 @@ fn new_params_below_1_7_0_are_schema_violations() {
         &mut store,
     );
     assert_eq!(
-        branch_ref_param["error"]["code"], "schema-violation",
+        branch_ref_param["error"]["code"], "killed-form",
         "{branch_ref_param}"
     );
 
@@ -950,7 +941,7 @@ fn new_params_below_1_7_0_are_schema_violations() {
         &mut store,
     );
     assert_eq!(
-        branch_delete["error"]["code"], "schema-violation",
+        branch_delete["error"]["code"], "killed-form",
         "{branch_delete}"
     );
 }
@@ -1294,7 +1285,7 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
 // ── record_decision (DL-0083, 1.9.0) is branch-local ────────────────────────
 
 /// The contract window `author.record_decision` negotiates at (≥ 1.9.0).
-const V9: &str = "1.9.0";
+const V9: &str = "2.0.0";
 
 /// The finding codes on an `author.add_relation` response (ok-with-findings, not
 /// a refused frame — a bad citation is a finding, DL-0058).
@@ -1395,7 +1386,7 @@ fn recorded_decision_is_branch_local() {
 // ── inertia (DL-0081, 1.8.0) is branch-local ────────────────────────────────
 
 /// The contract window the inertia op negotiates at (≥ 1.8.0).
-const V8: &str = "1.8.0";
+const V8: &str = "2.0.0";
 
 /// A base whose two open `status` values clash WITHOUT an inertial declaration
 /// (`commons since dawn`, `enclosed since noon`, dawn before noon): on `main`
@@ -1515,7 +1506,7 @@ fn inertial_declaration_is_branch_local() {
 //    branch-scoped: they draw from base(as-of-open) ∪ staged ONLY ───────────
 
 /// The contract window the two new read ops negotiate at (≥ 1.10.0).
-const V10: &str = "1.10.0";
+const V10: &str = "2.0.0";
 
 /// Stage (do NOT materialize) a place entity on `ws` — the "workspace's own
 /// staged" half of the isolation union.

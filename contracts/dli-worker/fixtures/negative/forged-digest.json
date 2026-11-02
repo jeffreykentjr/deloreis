@@ -3,7 +3,7 @@
   "version": 1,
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   ],
   "note": "A fabricated workspace digest that was never issued fails the fence check exactly as a stale one does; the server never trusts a caller-supplied fence it did not mint.",
   "send": {
-    "dli": "0.5.1",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.add_entity",
     "params": {

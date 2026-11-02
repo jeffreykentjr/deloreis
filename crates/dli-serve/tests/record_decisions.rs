@@ -9,7 +9,7 @@ use dli_world::pack::Pack;
 use serde_json::{Value, json};
 use std::time::Instant;
 
-const DLI: &str = "1.13.0";
+const DLI: &str = "2.0.0";
 
 fn req(id: &str, op: Op, params: Value) -> Request {
     Request {
@@ -476,7 +476,7 @@ fn singleton_and_bulk_missing_state_share_the_live_contract_refusal() {
             "provenance":{"kind":"cited", "decisions":["d-parent"]}
         }),
     );
-    single_request.dli = "1.9.0".to_owned();
+    single_request.dli = "2.0.0".to_owned();
     let bulk_request = req(
         "bulk-missing-state",
         Op::AuthorRecordDecisions,

@@ -187,80 +187,6 @@
         "args"
       ]
     },
-    "AttrValue": {
-      "description": "A world fact attached to an axis value, a decoration, or a rendered card.\n\nSerialised untagged, so JSON carries the natural scalar (`true`, `5`,\n`\"text\"`) with no wrapper. Deserialization tries `Flag`, then `Number`, then\n`Text`, so a bool never lands as text and an integer never lands as a flag.",
-      "anyOf": [
-        {
-          "description": "A boolean fact (e.g. a `hard` marker).",
-          "type": "boolean"
-        },
-        {
-          "description": "An integer fact (e.g. an ordinal or a count).",
-          "type": "integer",
-          "format": "int64"
-        },
-        {
-          "description": "A text fact (e.g. a partner id or a display label).",
-          "type": "string"
-        }
-      ]
-    },
-    "CardDeck": {
-      "description": "A compiled card deck — a straight structural render of a ruleset under a\nprofile.",
-      "type": "object",
-      "properties": {
-        "card_count": {
-          "description": "The declared card count.",
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "cards": {
-          "description": "The rendered cards, ordered by (layer declaration, id).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/RenderedCard"
-          }
-        },
-        "cited": {
-          "description": "The ruleset's cited provenance, when the profile carries it (dev-metadata);\n`None` when stripped.",
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "deck": {
-          "description": "The game id.",
-          "type": "string"
-        },
-        "layer": {
-          "description": "The layer exported (`certain` / `fork`).",
-          "type": "string"
-        },
-        "layouts": {
-          "description": "The layouts that compile — a layout survives iff its required cards are\npresent.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "profile": {
-          "description": "The profile identity that produced it.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "deck",
-        "layer",
-        "profile",
-        "card_count",
-        "cards",
-        "layouts"
-      ]
-    },
     "ContextPack": {
       "description": "The assembled context pack plus its inclusion/exclusion manifest — the shape\n`pack.py`'s `ContextPack` emits.",
       "type": "object",
@@ -332,49 +258,6 @@
         "content"
       ]
     },
-    "DifferentialStatus": {
-      "description": "Whether the Ludii trace-agreement battery has been run.",
-      "oneOf": [
-        {
-          "description": "The battery has not run: the Ludii runtime is a rented baseline in a\nnon-gating lane, not provisioned in the offline kernel.",
-          "type": "object",
-          "properties": {
-            "blocker": {
-              "description": "Why the differential could not run.",
-              "type": "string"
-            },
-            "status": {
-              "type": "string",
-              "const": "pending"
-            }
-          },
-          "required": [
-            "status",
-            "blocker"
-          ]
-        },
-        {
-          "description": "The engine render and the Ludii runtime agreed over the battery.",
-          "type": "object",
-          "properties": {
-            "positions": {
-              "description": "How many seeded positions agreed.",
-              "type": "integer",
-              "format": "uint32",
-              "minimum": 0
-            },
-            "status": {
-              "type": "string",
-              "const": "agreed"
-            }
-          },
-          "required": [
-            "status",
-            "positions"
-          ]
-        }
-      ]
-    },
     "ExportEmission": {
       "description": "The target-shaped artifacts available through this worker contract.",
       "oneOf": [
@@ -388,40 +271,6 @@
             "profile": {
               "type": "string",
               "const": "context-pack"
-            }
-          },
-          "required": [
-            "profile",
-            "artifact"
-          ]
-        },
-        {
-          "description": "A rendered card deck.",
-          "type": "object",
-          "properties": {
-            "artifact": {
-              "$ref": "#/$defs/CardDeck"
-            },
-            "profile": {
-              "type": "string",
-              "const": "cards"
-            }
-          },
-          "required": [
-            "profile",
-            "artifact"
-          ]
-        },
-        {
-          "description": "A Ludii program and differential status.",
-          "type": "object",
-          "properties": {
-            "artifact": {
-              "$ref": "#/$defs/LudiiExport"
-            },
-            "profile": {
-              "type": "string",
-              "const": "ludii-gdl"
             }
           },
           "required": [
@@ -510,34 +359,6 @@
         "profile_hash"
       ]
     },
-    "LudiiExport": {
-      "description": "A compiled Ludii `L-GDL` export: a straight structural render of the ruleset,\nplus whether the trace-agreement differential ran.",
-      "type": "object",
-      "properties": {
-        "differential": {
-          "description": "The trace-agreement status.",
-          "$ref": "#/$defs/DifferentialStatus"
-        },
-        "layer": {
-          "description": "The layer exported.",
-          "type": "string"
-        },
-        "profile": {
-          "description": "The profile identity that produced it.",
-          "type": "string"
-        },
-        "program": {
-          "description": "The rendered `L-GDL` program.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "program",
-        "differential",
-        "profile",
-        "layer"
-      ]
-    },
     "PackedUnit": {
       "description": "One unit's placement in (or exclusion from) the pack — the analogue of\n`pack.py`'s `PackedFile`.",
       "type": "object",
@@ -561,32 +382,6 @@
         "unit",
         "layer",
         "est_tokens"
-      ]
-    },
-    "RenderedCard": {
-      "description": "One rendered card: the export id (from the render rule), its layer, and the\nkept fields.",
-      "type": "object",
-      "properties": {
-        "id": {
-          "description": "The rendered card id.",
-          "type": "string"
-        },
-        "kept": {
-          "description": "The fields kept per the render rule's keep-list.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/AttrValue"
-          }
-        },
-        "layer": {
-          "description": "The layer this card belongs to.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "layer",
-        "kept"
       ]
     },
     "StaticWikiExport": {

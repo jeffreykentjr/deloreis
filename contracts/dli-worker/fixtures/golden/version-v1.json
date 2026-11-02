@@ -1,16 +1,9 @@
 {
   "fixture": "golden/version-v1",
-  "version": 1,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.version",
-        "params": {}
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -27,12 +20,8 @@
             "dli.fork.restrict",
             "dli.fork.preflight",
             "dli.fork.promote",
-        "dli.check-proof",
-        "dli.check-draft",
-        "dli.simulate.start",
-        "dli.simulate.status",
-        "dli.simulate.cancel",
-        "dli.timeline.show",
+            "dli.check-proof",
+            "dli.timeline.show",
             "dli.timeline.order",
             "dli.timeline.knows",
             "dli.timeline.episodes",
@@ -40,8 +29,8 @@
             "dli.export.run",
             "dli.name.check",
             "dli.attest.missing",
-            "dli.attestation-sweep",
-            "dli.payload-submit",
+            "dli.corpus.import",
+            "dli.corpus.export",
             "author.open",
             "author.status",
             "author.diff",
@@ -60,13 +49,41 @@
             "author.check",
             "author.why",
             "author.findings",
-            "author.list_workspaces"
+            "author.list_workspaces",
+            "author.branch",
+            "author.merge",
+            "author.add_dialect",
+            "author.add_name_part",
+            "author.add_name",
+            "author.add_term",
+            "author.add_banned",
+            "author.add_state",
+            "author.add_attest",
+            "author.set_standing",
+            "author.defeat",
+            "author.declare_functional",
+            "author.assert_same_as",
+            "author.add_rule",
+            "author.declare_inertial",
+            "author.as_of",
+            "author.record_decision",
+            "author.predicates",
+            "author.entity_candidates",
+            "author.assert_predicate_same_as",
+            "author.record_decisions"
           ],
           "contract": "dli-worker",
-          "contract_version": "0.5.1",
+          "contract_version": "2.0.0",
           "server": "deloreis 0.1.0"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.version",
+        "params": {}
       }
     }
-  ]
+  ],
+  "version": 1
 }

@@ -14,10 +14,10 @@ supervises by rendering the structured diff for its reviewers. This is **the
 tool surface**, ruled in `DL-0014` and seated in the charter as koan 11 ("one
 way in").
 
-This document is the semantic specification of the tool surface. The wire inventory —
-which schemas and fixtures back each tool — is `docs/integration/fantasy-contract.md`;
-where the two describe the same tool, the shapes agree, and this document defines
-the meaning the wire carries.
+This document specifies the semantics of the authoring tools. Contract
+`2.0.0` is the only served version; historical version notes below describe
+when features were introduced, not additional supported contracts. The wire
+schemas and replay fixtures are in `contracts/dli-worker/`.
 
 ## 1. The interface
 
@@ -202,7 +202,7 @@ request is:
 
 ```json
 {
-  "dli": "1.6.0",
+  "dli": "2.0.0",
   "id": "rq-7",
   "op": "author.<name>",
   "expected_digest": "wd-01",
@@ -834,7 +834,7 @@ produce), and **framing** (an adversarial-string request and the benign-identica
 behavior it must show). The rule is flat: **a tool without fixtures does not
 exist** — it cannot be listed here, served, or benchmarked.
 
-The implemented `1.13.0` surface enforces that rule for all 69 operations. Paired cases declare
+The implemented `2.0.0` surface enforces that rule for all 63 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.

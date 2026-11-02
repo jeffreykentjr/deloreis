@@ -1,10 +1,9 @@
 {
   "fixture": "golden/author-why-v1",
-  "version": 1,
   "note": "author.why explains a staged atom's standing — the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,20 +13,14 @@
   ],
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "author.why",
-        "params": {
-          "workspace": "ws-1",
-          "atom": "adjacent(saltmarket, the-shallows)"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
+          "active_supporting_decision_paths": [],
+          "blocked_supports": [],
+          "blocking_defeats": [],
           "why_not": {
             "atom": "adjacent(saltmarket, the-shallows)",
             "blocking": [],
@@ -40,7 +33,17 @@
             "status": "dead"
           }
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.why",
+        "params": {
+          "atom": "adjacent(saltmarket, the-shallows)",
+          "workspace": "ws-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

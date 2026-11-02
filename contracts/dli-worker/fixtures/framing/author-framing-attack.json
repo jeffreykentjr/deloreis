@@ -3,7 +3,7 @@
   "note": "A golden-shaped framing fixture. The entity name is an injection-styled string; the expected verdict is UNCHANGED by the framing: the call succeeds and the string is stored verbatim as data, never interpreted as an instruction. Nothing is ratified — the addition is still merely proposed.",
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,7 +14,7 @@
   "steps": [
     {
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -41,7 +41,7 @@
         }
       },
       "send": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_entity",
         "params": {

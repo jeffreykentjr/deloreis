@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 
 use dli_world::attest::{Attestation, AttestationStore, ContentHash, Question, QuestionKey};
 use dli_world::model::WorldModel;
-use dli_world::payload::Payload;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use thiserror::Error;
@@ -21,7 +20,6 @@ use thiserror::Error;
 use crate::project::Project;
 
 const BATCH_VERSION: u32 = 1;
-const PAYLOAD_RECORD_VERSION: u32 = 1;
 
 /// A durable-evidence read or write failed.
 #[derive(Debug, Error)]
@@ -56,27 +54,6 @@ struct AttestationBatch {
     document: String,
     parent: Option<String>,
     records: Vec<Attestation>,
-}
-
-/// One accepted payload plus the draft source required to replay its battery.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CommittedPayload {
-    version: u32,
-    document: String,
-    /// The accepted structured shadow.
-    pub payload: Payload,
-    /// The exact draft prose used for anchoring and staleness checks.
-    pub source: String,
-}
-
-/// One verified content-addressed payload record.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LoadedPayload {
-    /// SHA-256 address of the committed JCS record.
-    pub digest: String,
-    /// The verified durable record.
-    pub record: CommittedPayload,
 }
 
 /// A configured question that currently needs an answer.
@@ -175,73 +152,6 @@ pub fn canonical_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, EvidenceError
 /// A `sha256:<hex>` digest over JCS bytes.
 pub fn digest_value<T: Serialize>(value: &T) -> Result<String, EvidenceError> {
     Ok(digest_bytes(&canonical_bytes(value)?))
-}
-
-/// Persist a checked fat payload idempotently.
-pub fn submit_payload(
-    project: &Project,
-    document: &str,
-    payload: &Payload,
-    source: &str,
-) -> Result<String, EvidenceError> {
-    require_document(project, document)?;
-    let record = CommittedPayload {
-        version: PAYLOAD_RECORD_VERSION,
-        document: document.to_owned(),
-        payload: payload.clone(),
-        source: source.to_owned(),
-    };
-    let bytes = canonical_bytes(&record)?;
-    let digest = digest_bytes(&bytes);
-    let hex = digest
-        .strip_prefix("sha256:")
-        .expect("digest_bytes always prefixes sha256");
-    let _lock = EvidenceLock::acquire(project)?;
-    validate_payloads(project, document)?;
-    let directory = evidence_directory(project, &["payloads", document])?;
-    publish_immutable(&directory.join(format!("{hex}.json")), &bytes)?;
-    Ok(digest)
-}
-
-/// Load and verify every committed payload for one document in digest order.
-pub fn load_payloads(
-    project: &Project,
-    document: &str,
-) -> Result<Vec<LoadedPayload>, EvidenceError> {
-    require_document(project, document)?;
-    let directory = evidence_directory(project, &["payloads", document])?;
-    let mut paths = fs::read_dir(&directory)
-        .map_err(|source| io_error(&directory, source))?
-        .map(|entry| {
-            entry
-                .map(|entry| entry.path())
-                .map_err(|source| io_error(&directory, source))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    paths.sort();
-
-    let mut records = Vec::with_capacity(paths.len());
-    for path in paths {
-        require_regular_json(&path, "payload")?;
-        let bytes = fs::read(&path).map_err(|source| io_error(&path, source))?;
-        let record: CommittedPayload = serde_json::from_slice(&bytes).map_err(|error| {
-            EvidenceError::Corrupt(format!("{} is malformed: {error}", path.display()))
-        })?;
-        validate_content_address(&path, &bytes, &record)?;
-        if record.version != PAYLOAD_RECORD_VERSION || record.document != document {
-            return Err(EvidenceError::Corrupt(format!(
-                "{} belongs to version {} document `{}`",
-                path.display(),
-                record.version,
-                record.document
-            )));
-        }
-        records.push(LoadedPayload {
-            digest: digest_bytes(&bytes),
-            record,
-        });
-    }
-    Ok(records)
 }
 
 /// Return configured questions whose durable answer is absent or stale.
@@ -413,11 +323,6 @@ pub fn append_attestations(
 #[must_use]
 pub fn current_fingerprint(model: &WorldModel, question: &Question) -> ContentHash {
     model.subject_fingerprint(&question.subject)
-}
-
-fn validate_payloads(project: &Project, document: &str) -> Result<(), EvidenceError> {
-    load_payloads(project, document)?;
-    Ok(())
 }
 
 fn load_attestations(

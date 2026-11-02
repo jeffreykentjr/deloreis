@@ -107,38 +107,6 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
             schema_for!(CheckProofResult),
         ),
         (
-            "dli.check-draft.request".to_owned(),
-            schema_for!(CheckDraftParams),
-        ),
-        (
-            "dli.check-draft.response".to_owned(),
-            schema_for!(CheckDraftResult),
-        ),
-        (
-            "dli.simulate.start.request".to_owned(),
-            schema_for!(SimulateStartParams),
-        ),
-        (
-            "dli.simulate.start.response".to_owned(),
-            schema_for!(SimulateStartResult),
-        ),
-        (
-            "dli.simulate.status.request".to_owned(),
-            schema_for!(SimulateStatusParams),
-        ),
-        (
-            "dli.simulate.status.response".to_owned(),
-            schema_for!(SimulateStatusResult),
-        ),
-        (
-            "dli.simulate.cancel.request".to_owned(),
-            schema_for!(SimulateCancelParams),
-        ),
-        (
-            "dli.simulate.cancel.response".to_owned(),
-            schema_for!(SimulateCancelResult),
-        ),
-        (
             "dli.timeline.show.request".to_owned(),
             schema_for!(TimelineShowParams),
         ),
@@ -201,22 +169,6 @@ pub fn contract_schemas() -> Vec<(String, Schema)> {
         (
             "dli.attest.missing.response".to_owned(),
             schema_for!(AttestMissingResult),
-        ),
-        (
-            "dli.attestation-sweep.request".to_owned(),
-            schema_for!(AttestationSweepParams),
-        ),
-        (
-            "dli.attestation-sweep.response".to_owned(),
-            schema_for!(AttestationSweepResult),
-        ),
-        (
-            "dli.payload-submit.request".to_owned(),
-            schema_for!(PayloadSubmitParams),
-        ),
-        (
-            "dli.payload-submit.response".to_owned(),
-            schema_for!(PayloadSubmitResult),
         ),
         (
             "dli.corpus.import.request".to_owned(),

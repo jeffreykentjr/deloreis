@@ -8,14 +8,14 @@
       "op": "author.assert_predicate_same_as",
       "precondition": [
         {
-          "dli": "1.12.0",
+          "dli": "2.0.0",
           "id": "pre-1",
           "op": "author.open",
           "params": {"scope": "saltmarket"}
         }
       ],
       "control": {
-        "dli": "1.12.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.assert_predicate_same_as",
         "params": {
@@ -26,7 +26,7 @@
         }
       },
       "attack": {
-        "dli": "1.12.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.assert_predicate_same_as",
         "params": {
@@ -40,7 +40,7 @@
       "compare_paths": ["/ok", "/result/findings"],
       "allow_taint_paths": ["/result/workspace_digest", "/result/diff_rows", "/result/staged"],
       "probe": {
-        "dli": "1.12.0",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
         "params": {"workspace": "ws-1"}

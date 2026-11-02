@@ -172,20 +172,8 @@ fn paired_framing_ops(dir: &Path) -> Result<BTreeSet<String>> {
         for (index, case) in cases.iter().enumerate() {
             let op = validate_framing_case(case)
                 .with_context(|| format!("{} case {index}", path.display()))?;
-            // Dual-mode: one paired case per (op, wire version) — the 0.6.0
-            // response surface gets its own taint-confinement proof alongside
-            // the frozen 0.5.1 one.
-            let version = case
-                .pointer("/control/dli")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or_default()
-                .to_owned();
-            if !ops.insert(format!("{op}@{version}")) {
-                bail!(
-                    "framing: operation '{op}' has more than one paired case for wire version {version}"
-                );
-            }
-            ops.insert(op.clone());
+            // Multiple independent attacks can exercise the same operation.
+            ops.insert(op);
         }
     }
     Ok(ops)

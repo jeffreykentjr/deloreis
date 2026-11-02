@@ -1,11 +1,9 @@
 {
   "fixture": "golden/author-record-decision-v1",
-  "version": 1,
   "note": "Contract 1.9 author.record_decision: record a baseline ratified (supporting) decision on the workspace branch. Writes a `ratify` carriage for `d-record-1` and grows the commit's known-decision list, so a later fact citing it reads certain — the wire way to reach certainty, no `.dli ratify` and no `fixture-authority` flip (DL-0083). Recording a fresh decision is clean and advances the branch to a new commit.",
-  "project": true,
   "precondition": [
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,19 +11,11 @@
       }
     }
   ],
+  "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "1.9.0",
-        "id": "1",
-        "op": "author.record_decision",
-        "params": {
-          "workspace": "ws-1",
-          "decision": "d-record-1"
-        }
-      },
       "expect": {
-        "dli": "1.9.0",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -34,7 +24,17 @@
           "root_hash": "sha256:0036218dd1452ef3d8cf4ff8ee9a038e067bc1126005e70137a6d9a7a1f9c658",
           "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.record_decision",
+        "params": {
+          "decision": "d-record-1",
+          "workspace": "ws-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

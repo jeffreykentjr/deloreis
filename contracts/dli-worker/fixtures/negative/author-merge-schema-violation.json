@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.merge params omit the required `source`, violating the op schema.",
   "send": {
-    "dli": "0.6.1",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.merge",
     "params": {

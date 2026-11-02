@@ -13,7 +13,6 @@ use serde_json::{Value, json};
 
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
-use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 
 // -- harness -----------------------------------------------------------------
@@ -91,71 +90,6 @@ fn entry<'a>(result: &'a Value, pred: &str) -> Option<&'a Value> {
 }
 
 // -- op reachability ---------------------------------------------------------
-
-#[test]
-fn predicates_is_unknown_before_contract_1_10_0() {
-    // Advertised and answered only from `1.10.0` up — every earlier accepted
-    // version, including `1.8.0` (the inertia window), keeps the surface it
-    // shipped with.
-    for dli in ["0.5.1", "1.0.0", "1.8.0", "1.9.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "pr",
-                Op::AuthorPredicates,
-                json!({ "workspace": "ws-1" }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.10.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
-#[test]
-fn the_1_10_0_capability_list_carries_predicates_not_1_8_0() {
-    let mut sessions = Sessions::new();
-    let mut store = Store::default();
-
-    let at_1_8_0 = dli_serve::serve::dispatch(
-        &req("1.8.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_8_0 = result(&at_1_8_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        !caps_1_8_0.contains(&json!("author.predicates")),
-        "1.8.0 must not advertise the 1.10.0 op: {caps_1_8_0:?}"
-    );
-
-    let at_1_10_0 = dli_serve::serve::dispatch(
-        &req("1.10.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_10_0 = result(&at_1_10_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        caps_1_10_0.contains(&json!("author.predicates")),
-        "1.10.0 advertises the new op: {caps_1_10_0:?}"
-    );
-}
 
 // -- the census --------------------------------------------------------------
 

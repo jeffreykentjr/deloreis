@@ -1,10 +1,9 @@
 {
   "fixture": "golden/author-list-workspaces-v1",
-  "version": 1,
   "note": "author.list_workspaces returns every open authoring workspace and its digest (base, mode, staged count).",
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,14 +13,8 @@
   ],
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "author.list_workspaces",
-        "params": {}
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -35,7 +28,14 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.list_workspaces",
+        "params": {}
       }
     }
-  ]
+  ],
+  "version": 1
 }

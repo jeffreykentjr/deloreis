@@ -349,8 +349,7 @@ linear type theory bolted onto the surface language.
 
 Because a proof ledger produces a derived atom with real support, everything
 downstream inherits it: a ruling that weakens a cited premise flips every
-ledger that rested on it, at the next `deloreis check`, as a finding
-([06](06-craft-and-payloads.md) §7 — the payload battery consumes exactly this).
+ledger that rested on it, at the next proof check, as a finding.
 
 ## 6. Practice well-formedness
 

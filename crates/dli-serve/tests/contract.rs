@@ -19,10 +19,6 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::ForkPreflight, "dli.fork.preflight"),
     (Op::ForkPromote, "dli.fork.promote"),
     (Op::CheckProof, "dli.check-proof"),
-    (Op::CheckDraft, "dli.check-draft"),
-    (Op::SimulateStart, "dli.simulate.start"),
-    (Op::SimulateStatus, "dli.simulate.status"),
-    (Op::SimulateCancel, "dli.simulate.cancel"),
     (Op::TimelineShow, "dli.timeline.show"),
     (Op::TimelineOrder, "dli.timeline.order"),
     (Op::TimelineKnows, "dli.timeline.knows"),
@@ -31,8 +27,6 @@ const EXPECTED: &[(Op, &str)] = &[
     (Op::ExportRun, "dli.export.run"),
     (Op::NameCheck, "dli.name.check"),
     (Op::AttestMissing, "dli.attest.missing"),
-    (Op::AttestationSweep, "dli.attestation-sweep"),
-    (Op::PayloadSubmit, "dli.payload-submit"),
     (Op::AuthorOpen, "author.open"),
     (Op::AuthorStatus, "author.status"),
     (Op::AuthorDiff, "author.diff"),
@@ -134,47 +128,15 @@ fn request_schemas_close_every_declared_object() {
 }
 
 #[test]
-fn attestation_schema_matches_runtime_cardinality_rules() {
-    let schema = contract_schemas()
-        .into_iter()
-        .find(|(name, _)| name == "dli.attestation-sweep.request")
-        .expect("attestation request schema")
-        .1;
-    let value = schema.as_value();
-    assert_eq!(
-        value.pointer("/properties/records/minItems"),
-        Some(&1.into())
-    );
-    assert_eq!(
-        value.pointer("/$defs/Sampling/properties/max_tokens/minimum"),
-        Some(&1.into())
-    );
-    assert_eq!(
-        value.pointer("/$defs/Sampling/properties/samples/minimum"),
-        Some(&1.into())
-    );
-    let answers = value
-        .pointer("/$defs/AttestationAnswer/oneOf")
-        .and_then(serde_json::Value::as_array)
-        .expect("closed answer variants")
-        .iter()
-        .map(|variant| variant["const"].as_str().expect("string answer"))
-        .collect::<Vec<_>>();
-    assert_eq!(answers, ["yes", "no"]);
-}
-
-#[test]
 #[allow(clippy::too_many_lines)]
-fn check_finding_domains_round_trip_without_losing_payload_fields() {
+fn check_finding_domains_round_trip() {
     use dli_core::Grade;
     use dli_serve::contract::{
         AttestationCheckFinding, AttestationPassCode, AttestationPassFinding,
-        AttestedProcedureGrade, CheckFinding, CheckResult, PayloadCheckFinding,
+        AttestedProcedureGrade, CheckFinding, CheckResult,
     };
     use dli_serve::{Finding, Severity};
     use dli_world::attest::{ContentHash, Question};
-    use dli_world::check::Severity as PayloadSeverity;
-    use dli_world::payload::PayloadFinding;
 
     let result = CheckResult {
         ok: false,
@@ -188,21 +150,6 @@ fn check_finding_domains_round_trip_without_losing_payload_fields() {
                 repair: None,
                 citations: Vec::new(),
                 data: None,
-            }),
-            CheckFinding::Payload(PayloadCheckFinding {
-                payload_digest: format!("sha256:{}", "b".repeat(64)),
-                episode: "e01".to_owned(),
-                source_file: "draft.md".to_owned(),
-                finding: PayloadFinding {
-                    code: "factcheck.unsupported".to_owned(),
-                    severity: PayloadSeverity::Error,
-                    grade: Grade::Checked,
-                    message: "unsupported".to_owned(),
-                    line: Some(7),
-                    quote: Some("verbatim".to_owned()),
-                    principle: Some("principle-id".to_owned()),
-                    citations: vec!["d-1".to_owned()],
-                },
             }),
             CheckFinding::Attestation(AttestationCheckFinding::Pass(Box::new(
                 AttestationPassFinding {
@@ -225,22 +172,13 @@ fn check_finding_domains_round_trip_without_losing_payload_fields() {
     };
     let value = serde_json::to_value(&result).unwrap();
     assert_eq!(value["findings"][0]["domain"], "world");
-    assert_eq!(value["findings"][1]["domain"], "payload");
+    assert_eq!(value["findings"][1]["domain"], "attestation");
     assert_eq!(
-        value["findings"][1]["payload_digest"],
-        format!("sha256:{}", "b".repeat(64))
-    );
-    assert_eq!(value["findings"][1]["episode"], "e01");
-    assert_eq!(value["findings"][1]["source_file"], "draft.md");
-    assert_eq!(value["findings"][1]["line"], 7);
-    assert_eq!(value["findings"][1]["quote"], "verbatim");
-    assert_eq!(value["findings"][2]["domain"], "attestation");
-    assert_eq!(
-        value["findings"][2]["record_id"],
+        value["findings"][1]["record_id"],
         format!("sha256:{}", "a".repeat(64))
     );
     assert_eq!(
-        value["findings"][2]["current_fingerprint"],
+        value["findings"][1]["current_fingerprint"],
         "fnv1a64:1111111111111111"
     );
     let schema = contract_schemas()
@@ -252,15 +190,15 @@ fn check_finding_domains_round_trip_without_losing_payload_fields() {
     assert!(validator.is_valid(&value));
 
     let mut contradictory = value.clone();
-    contradictory["findings"][2]["code"] = "attest.fail".into();
-    contradictory["findings"][2]["grade"] = "checked".into();
-    contradictory["findings"][2]["severity"] = "error".into();
+    contradictory["findings"][1]["code"] = "attest.fail".into();
+    contradictory["findings"][1]["grade"] = "checked".into();
+    contradictory["findings"][1]["severity"] = "error".into();
     assert!(
         !validator.is_valid(&contradictory),
         "a pass cannot claim fail/error/checked fields"
     );
     let mut extra = value.clone();
-    extra["findings"][2]["severity"] = "error".into();
+    extra["findings"][1]["severity"] = "error".into();
     assert!(
         !validator.is_valid(&extra),
         "the schema must reject a field serde rejects on the pass branch"
@@ -302,7 +240,7 @@ fn golden_dispatch_matches() {
 #[test]
 fn export_golden_covers_every_closed_emission_branch() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../contracts/dli-worker/fixtures/golden/export-ludii-v1.json");
+        .join("../../contracts/dli-worker/fixtures/golden/export-lore-v1.json");
     let fixture: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let profiles = fixture["steps"]
@@ -314,14 +252,7 @@ fn export_golden_covers_every_closed_emission_branch() {
 
     assert_eq!(
         profiles,
-        std::collections::BTreeSet::from([
-            "articy",
-            "cards",
-            "context-pack",
-            "csv",
-            "ludii-gdl",
-            "static-wiki",
-        ])
+        std::collections::BTreeSet::from(["articy", "context-pack", "csv", "static-wiki",])
     );
 }
 

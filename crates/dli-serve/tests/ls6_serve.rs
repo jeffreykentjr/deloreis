@@ -23,7 +23,7 @@ use dli_serve::session::Sessions;
 use dli_world::{KilledTokens, Pack};
 use serde_json::{Value, json};
 
-const V: &str = "0.6.1";
+const V: &str = "2.0.0";
 
 // ── a project store with a lorestore, mirroring serve.rs / the fixture harness ──
 
@@ -282,38 +282,3 @@ fn proposed_contradiction_is_still_blocked_upstream() {
 }
 
 // ── version negotiation: branch/merge are 0.6.1+ capabilities ───────────────
-
-#[test]
-fn branch_merge_capabilities_are_gated_by_version() {
-    let (_t, mut sessions, mut store) = fixture_project_store();
-    for (version, expect_present) in [
-        ("0.5.1", false),
-        ("0.6.0", false),
-        ("0.6.1", true),
-        ("0.6.2", true),
-        ("0.6.3", true),
-        ("0.6.4", true),
-        // LS-8: the 1.0 handshake gets the whole surface. The capability list
-        // is gated on the negotiated version, never on "is this the newest
-        // build", so a new major inherits every op rather than resetting it.
-        ("1.0.0", true),
-    ] {
-        let resp = drive(
-            &json!({ "dli": version, "id": "v", "op": "dli.version", "params": {} }),
-            &mut sessions,
-            &mut store,
-        );
-        let caps = resp["result"]["capabilities"].as_array().unwrap();
-        let has_branch = caps.iter().any(|c| c == "author.branch");
-        let has_merge = caps.iter().any(|c| c == "author.merge");
-        assert_eq!(
-            has_branch, expect_present,
-            "author.branch capability at {version}"
-        );
-        assert_eq!(
-            has_merge, expect_present,
-            "author.merge capability at {version}"
-        );
-        assert_eq!(resp["result"]["contract_version"], version);
-    }
-}

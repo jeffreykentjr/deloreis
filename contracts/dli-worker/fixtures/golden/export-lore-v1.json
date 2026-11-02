@@ -1,0 +1,212 @@
+{
+  "fixture": "golden/export-lore-v1",
+  "steps": [
+    {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "context-pack",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "est_tokens": 43,
+              "included": [
+                {
+                  "est_tokens": 43,
+                  "layer": "certain",
+                  "unit": "camelot"
+                }
+              ],
+              "skipped": [],
+              "text": "<!-- canon: camelot (certain) -->\nadjacent(camelot, the-lake)  ; cited D-0001\nplace(camelot)  ; cited D-0001\nplace(the-lake)  ; cited D-0001\nthing(excalibur)  ; cited D-0002"
+            },
+            "profile": "context-pack"
+          },
+          "manifest": {
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
+            "layer": "certain",
+            "profile_hash": "sha256:e2aa6d155d0d0f69d8010e220d7b26ed21f51f3077d52830f75987b328b56fcd",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "context-pack",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "context-pack"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "articy",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "entities": [
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "facts": [
+                    "adjacent(camelot, the-lake)"
+                  ],
+                  "id": "camelot",
+                  "sort": "place"
+                },
+                {
+                  "cited": [
+                    "D-0002"
+                  ],
+                  "id": "excalibur",
+                  "sort": "thing"
+                },
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "facts": [
+                    "adjacent(camelot, the-lake)"
+                  ],
+                  "id": "the-lake",
+                  "sort": "place"
+                }
+              ],
+              "facts": [
+                {
+                  "cited": [
+                    "D-0001"
+                  ],
+                  "claim": "adjacent(camelot, the-lake)",
+                  "who_may_know": []
+                }
+              ],
+              "layer": "certain",
+              "pending": false,
+              "profile": "video/articy@1",
+              "quests": [],
+              "relations": [
+                {
+                  "args": [
+                    "camelot",
+                    "the-lake"
+                  ],
+                  "kind": "adjacent"
+                }
+              ]
+            },
+            "profile": "articy"
+          },
+          "manifest": {
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
+            "layer": "certain",
+            "profile_hash": "sha256:d83643695117f205c62911252edf31f4d8646a2780f1c24fe56de1adfc66af7b",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "articy",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "articy"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "csv",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "content": "id,kind,predicate,arguments,claim,cited\r\n\"adjacent(camelot, the-lake)\",relation,adjacent,\"{\"\"arg0\"\":\"\"camelot\"\",\"\"arg1\"\":\"\"the-lake\"\"}\",\"adjacent(camelot, the-lake)\",\"[\"\"D-0001\"\"]\"\r\nplace(camelot),relation,place,\"{\"\"arg0\"\":\"\"camelot\"\"}\",place(camelot),\"[\"\"D-0001\"\"]\"\r\nplace(the-lake),relation,place,\"{\"\"arg0\"\":\"\"the-lake\"\"}\",place(the-lake),\"[\"\"D-0001\"\"]\"\r\nthing(excalibur),relation,thing,\"{\"\"arg0\"\":\"\"excalibur\"\"}\",thing(excalibur),\"[\"\"D-0002\"\"]\"\r\n",
+              "content_type": "text/csv; charset=utf-8",
+              "layer": "certain",
+              "profile": "tabular/csv@1",
+              "row_count": 4
+            },
+            "profile": "csv"
+          },
+          "manifest": {
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
+            "layer": "certain",
+            "profile_hash": "sha256:c765c6128f73e25caea80eabadea649af97a99f6a90111e54133a922088f04e2",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "csv",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "csv"
+        }
+      }
+    },
+    {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "wiki",
+        "ok": true,
+        "result": {
+          "emission": {
+            "artifact": {
+              "layer": "certain",
+              "pages": [
+                {
+                  "content": "# Lore index\n\n- [adjacent](predicate-adjacent.md)\n- [place](predicate-place.md)\n- [thing](predicate-thing.md)\n",
+                  "path": "index.md",
+                  "title": "Lore index"
+                },
+                {
+                  "content": "# adjacent\n\n- **adjacent(camelot, the-lake)**: `adjacent(camelot, the-lake)` (arg0=camelot, arg1=the-lake) [cited: D-0001]\n",
+                  "path": "predicate-adjacent.md",
+                  "title": "adjacent"
+                },
+                {
+                  "content": "# place\n\n- **place(camelot)**: `place(camelot)` (arg0=camelot) [cited: D-0001]\n- **place(the-lake)**: `place(the-lake)` (arg0=the-lake) [cited: D-0001]\n",
+                  "path": "predicate-place.md",
+                  "title": "place"
+                },
+                {
+                  "content": "# thing\n\n- **thing(excalibur)**: `thing(excalibur)` (arg0=excalibur) [cited: D-0002]\n",
+                  "path": "predicate-thing.md",
+                  "title": "thing"
+                }
+              ],
+              "profile": "wiki/static@1"
+            },
+            "profile": "static-wiki"
+          },
+          "manifest": {
+            "commit": "content-sha256:cc77f88124c0eddf9cc809f3d5e7500bb6486d4b51f542ad79153932f5ae2c41",
+            "layer": "certain",
+            "profile_hash": "sha256:108a7697d8e0934a29430e72e90a931c3301b0da8dfd3ede5c9af6a56215de5d",
+            "valuation": "sha256:c7b7647564a01981be9652cc9381ca998bcb06df8a23e68b214a1e46f0f1d5a0"
+          }
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "wiki",
+        "op": "dli.export.run",
+        "params": {
+          "document": "camelot",
+          "profile": "static-wiki"
+        }
+      }
+    }
+  ],
+  "version": 1
+}

@@ -7,8 +7,6 @@ use serde_json::{Value, json};
 
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
-use dli_serve::serve::respond;
-use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
 
@@ -318,58 +316,4 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
         &mut store,
     );
     assert!(!result(&source)["rows"].as_array().unwrap().is_empty());
-}
-
-#[test]
-fn operation_is_unknown_before_1_12_and_advertised_at_the_floor() {
-    let mut sessions = Sessions::new();
-    let mut store = base();
-    let request = |dli: &str| {
-        serde_json::to_string(&json!({
-            "dli": dli,
-            "id": "version",
-            "op": "dli.version",
-            "params": {}
-        }))
-        .expect("version request")
-    };
-    let old = serde_json::to_value(
-        respond(&request("1.11.0"), &mut sessions, &mut store).expect("response"),
-    )
-    .expect("old response");
-    let new = serde_json::to_value(
-        respond(&request("1.12.0"), &mut sessions, &mut store).expect("response"),
-    )
-    .expect("new response");
-    assert!(
-        !old["result"]["capabilities"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|op| op == "author.assert_predicate_same_as")
-    );
-    assert!(
-        new["result"]["capabilities"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|op| op == "author.assert_predicate_same_as")
-    );
-
-    let old_op = respond(
-        &serde_json::to_string(&json!({
-            "dli": "1.11.0",
-            "id": "old-op",
-            "op": "author.assert_predicate_same_as",
-            "params": {"workspace": "ws-1", "left": "a", "right": "b", "provenance": proposed("x")}
-        }))
-        .unwrap(),
-        &mut sessions,
-        &mut store,
-    )
-    .expect("old operation response");
-    assert_eq!(
-        old_op.error.expect("unknown operation").code,
-        dli_serve::ErrorCode::UnknownOp
-    );
 }

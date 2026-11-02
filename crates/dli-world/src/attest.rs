@@ -339,7 +339,7 @@ pub enum AttestFinding {
 }
 
 impl AttestFinding {
-    /// A stable, machine-readable class for this finding. Benchmarks and tools
+    /// A stable, machine-readable class for this finding. Clients and tools
     /// match on this; it never changes for a given variant. The serving layer
     /// surfaces the missing case through its `dli.attest.missing` op.
     #[must_use]

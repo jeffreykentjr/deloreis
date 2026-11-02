@@ -22,9 +22,7 @@ use dli_eval::world::GroundAtom;
 use dli_export::{
     ArticyExport, ContextPack, CsvExport, ExportManifest, ExportProfile, StaticWikiExport,
 };
-use dli_game::export::{CardDeck, LudiiExport};
 use dli_ledger::ProofReport;
-use dli_sim::RunManifest;
 use dli_time::cycle::CyclePos;
 use dli_time::fluent::{Projection, TemporalCover};
 use dli_time::slack::EpisodeSlack;
@@ -33,7 +31,6 @@ use dli_world::attest::{
 };
 use dli_world::episode::{EpisodeAnchor, Knower, OpenLoopLedger, Placement};
 use dli_world::episode_order::OrderIntegrityFinding;
-use dli_world::payload::{Payload, PayloadFinding, RuntimeContinuity};
 
 use crate::finding::{Finding, Provenance};
 
@@ -137,7 +134,7 @@ pub struct CheckResult {
     pub ok: bool,
     /// The weakest procedure grade used by the complete check.
     pub grade: Grade,
-    /// World, payload, and attestation findings, if any.
+    /// World and attestation findings, if any.
     pub findings: Vec<CheckFinding>,
 }
 
@@ -147,25 +144,8 @@ pub struct CheckResult {
 pub enum CheckFinding {
     /// A world/compiler finding.
     World(Finding),
-    /// A replayed payload finding with durable payload and source identity.
-    Payload(PayloadCheckFinding),
     /// A durable attestation dependency and its pass/fail state.
     Attestation(AttestationCheckFinding),
-}
-
-/// A replayed payload finding tied to one committed evidence record.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PayloadCheckFinding {
-    /// SHA-256 address of the committed payload record.
-    pub payload_digest: String,
-    /// Episode identifier carried by the payload.
-    pub episode: String,
-    /// Source filename carried by the payload.
-    pub source_file: String,
-    /// Domain-specific finding with line, quote, principle, and citations.
-    #[serde(flatten)]
-    pub finding: PayloadFinding,
 }
 
 /// The outcome-specific attestation evidence consumed by `dli.check`.
@@ -699,119 +679,6 @@ pub struct CheckProofResult {
     pub report: ProofReport,
 }
 
-// -- dli.check-draft ---------------------------------------------------------
-
-/// `dli.check-draft` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct CheckDraftParams {
-    /// The project document the draft belongs to.
-    pub document: String,
-    /// The complete structured shadow to check.
-    pub payload: Payload,
-    /// Caller-owned current/prior episode state for cross-episode continuity.
-    /// This context is checked but never committed as part of `payload/v1`.
-    #[serde(default)]
-    pub continuity: Option<RuntimeContinuity>,
-    /// The draft prose the payload quotes and hashes.
-    pub source: String,
-}
-
-/// `dli.check-draft` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct CheckDraftResult {
-    /// The merged, deterministically ordered payload battery.
-    pub findings: Vec<PayloadFinding>,
-}
-
-// -- dli.simulate.start ------------------------------------------------------
-
-/// `dli.simulate.start` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SimulateStartParams {
-    /// The logical document or game id.
-    pub document: String,
-    /// The RNG seed.
-    pub seed: u64,
-    /// The number of trials to simulate.
-    pub trials: u64,
-    /// Trials folded between durable checkpoints.
-    #[schemars(range(min = 1))]
-    pub checkpoint_every: u64,
-}
-
-/// `dli.simulate.start` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct SimulateStartResult {
-    /// The job id to poll.
-    pub job_id: String,
-    /// The initial job status.
-    pub status: SimulateJobStatus,
-}
-
-/// A durable simulation job's lifecycle state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum SimulateJobStatus {
-    /// Reserved and ready to advance.
-    Pending,
-    /// At least one checkpoint has been committed.
-    Running,
-    /// A final manifest has been committed.
-    Complete,
-    /// Cancellation was committed before completion.
-    Cancelled,
-}
-
-// -- dli.simulate.status -----------------------------------------------------
-
-/// `dli.simulate.status` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SimulateStatusParams {
-    /// The job id.
-    pub job_id: String,
-}
-
-/// `dli.simulate.status` result.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct SimulateStatusResult {
-    /// The content-addressed job id.
-    pub job_id: String,
-    /// The job status.
-    pub status: SimulateJobStatus,
-    /// Trials durably folded so far.
-    pub trials_done: u64,
-    /// Total trials requested.
-    pub trials_total: u64,
-    /// The final manifest, present once the job is complete.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub manifest: Option<RunManifest>,
-    /// JCS SHA-256 of the final manifest.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub manifest_digest: Option<String>,
-}
-
-// -- dli.simulate.cancel -----------------------------------------------------
-
-/// `dli.simulate.cancel` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SimulateCancelParams {
-    /// The job id.
-    pub job_id: String,
-}
-
-/// `dli.simulate.cancel` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct SimulateCancelResult {
-    /// The content-addressed job id.
-    pub job_id: String,
-    /// The job status after cancellation.
-    pub status: SimulateJobStatus,
-}
-
 // -- dli.timeline.* ----------------------------------------------------------
 
 /// `dli.timeline.show` params.
@@ -1026,10 +893,6 @@ pub struct ExportRunResult {
 pub enum ExportEmission {
     /// A context pack.
     ContextPack(ContextPack),
-    /// A rendered card deck.
-    Cards(CardDeck),
-    /// A Ludii program and differential status.
-    LudiiGdl(LudiiExport),
     /// Articy-shaped video-game JSON.
     Articy(ArticyExport),
     /// Producer-facing CSV.
@@ -1039,17 +902,6 @@ pub enum ExportEmission {
 }
 
 // -- dli.attestation-sweep ---------------------------------------------------
-
-/// `dli.attestation-sweep` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct AttestationSweepParams {
-    /// The project document whose demand these answers satisfy.
-    pub document: String,
-    /// New records to append transactionally.
-    #[schemars(length(min = 1))]
-    pub records: Vec<AttestationRecord>,
-}
 
 impl AttestationAnswer {
     /// The canonical wire and storage token.
@@ -1128,41 +980,6 @@ impl AttestationRecord {
             fingerprint: self.fingerprint,
         }
     }
-}
-
-/// `dli.attestation-sweep` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct AttestationSweepResult {
-    /// Number of records accepted.
-    pub accepted: usize,
-    /// SHA-256 address of the immutable append batch.
-    pub batch_digest: String,
-}
-
-// -- dli.payload-submit ------------------------------------------------------
-
-/// `dli.payload-submit` params.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PayloadSubmitParams {
-    /// The project document the draft belongs to.
-    pub document: String,
-    /// The complete structured shadow to validate and store.
-    pub payload: Payload,
-    /// The draft prose the payload quotes and hashes.
-    pub source: String,
-}
-
-/// `dli.payload-submit` result.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct PayloadSubmitResult {
-    /// Whether the payload was accepted.
-    pub accepted: bool,
-    /// Findings raised during acceptance.
-    pub findings: Vec<PayloadFinding>,
-    /// SHA-256 address of the immutable payload, when accepted.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub payload_digest: Option<String>,
 }
 
 // -- dli.version -------------------------------------------------------------

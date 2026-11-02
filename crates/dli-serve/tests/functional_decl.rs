@@ -263,48 +263,15 @@ fn the_declaration_stages_a_functional_decl() {
 // -- the version gate --------------------------------------------------------
 
 #[test]
-fn declare_functional_is_unknown_before_contract_1_6_0() {
-    // The op is advertised and answered only from `1.6.0` up — every earlier
-    // accepted version keeps the surface it shipped with.
-    for dli in ["0.5.1", "1.0.0", "1.3.0", "1.5.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "fn",
-                Op::AuthorDeclareFunctional,
-                json!({ "workspace": "ws-1", "pred": "rank",
-                        "provenance": { "kind": "proposed", "origin": "s" } }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.6.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
-#[test]
 fn declare_functional_is_answered_at_contract_1_6_0() {
     // The same frame at `1.6.0` routes to the tool: no `unknown-op`, a real
     // workspace answer.
     let mut sessions = Sessions::new();
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "2.0.0", "tpth");
     let response = dli_serve::serve::dispatch(
         &req(
-            "1.6.0",
+            "2.0.0",
             "fn",
             Op::AuthorDeclareFunctional,
             json!({ "workspace": ws, "pred": "rank",

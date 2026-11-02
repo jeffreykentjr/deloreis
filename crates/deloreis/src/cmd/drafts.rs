@@ -1,16 +1,4 @@
-//! The payload, proof, simulation, and export ops — all wired to their real engine
-//! crates (`DL-0021`).
-//!
-//! `check-draft` runs the merged eight-family battery (`dli_world::payload::check_payload`)
-//! over a `payload/v1` document. `check-proof` compiles the corpus, projects the
-//! certain-layer scene, and replays a diegetic proof block against its practice
-//! (PRAC-2), returning the rich per-step `ProofReport`. `simulate` runs a bounded
-//! seeded battery over a declared practice — or a card ruleset with `--game` — and
-//! renders its honest run manifest (SIM-1). `export` renders a compiled world
-//! (context pack, articy JSON, CSV, static wiki) or a card ruleset (cards, Ludii
-//! GDL) under a profile, emitting the complete artifact plus its provenance
-//! manifest (EXP-1). Each returns a rendered result and a verdict-reflecting exit
-//! code — never a `todo!` panic or a guessed answer.
+//! Proof checking and exports over a compiled lore corpus.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -19,244 +7,12 @@ use clap::{Args, ValueEnum};
 use dli_ast::decl::{Decl, ProofDecl};
 use dli_export::profile::{ExportTarget, Registry};
 use dli_export::{ExportOpts, export_with, source_fingerprint};
-use dli_game::model::{Ruleset, Verdict};
-use dli_game::{DealBattery, GameBindings, ReadingInvariant, ReadingMetric, ReadingObservable};
 use dli_ledger::ledger_check::{ProofReport, ProofVerdict, check_proof};
 use dli_ledger::practice::{PracticeDef, compile_practices};
-use dli_sim::{
-    Battery, GenBounds, Invariant, InvariantOutcome, InvariantSpec, Metric, Observable, RunManifest,
-};
 use dli_syntax::{ladder, parse_document};
-use dli_world::craft::{CraftLedger, Kb, SeasonOutline};
-use dli_world::payload::{BatteryContext, check_payload};
 use dli_world::scene_projection::project_scene;
-use dli_world::{KilledTokens, Payload};
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
-
-/// The default trial count when `--games` is not supplied.
-const SIM_DEFAULT_TRIALS: u64 = 256;
-/// The default generator bound on deltas drawn per resource per trial.
-const SIM_DEFAULT_MAX_STEPS: u32 = 6;
-/// The default generator bound on a single delta's magnitude.
-const SIM_DEFAULT_MAX_MAGNITUDE: u32 = 3;
-
-/// Arguments for `deloreis check-draft`.
-#[derive(Debug, Args)]
-pub(crate) struct CheckDraftArgs {
-    /// The fat `payload/v1` draft document (YAML) to check.
-    #[arg(value_name = "PAYLOAD")]
-    pub(crate) payload: PathBuf,
-    /// The `.dli` corpus (files or directories) to check the draft against.
-    #[arg(short = 'c', long = "corpus", value_name = "PATH", required = true)]
-    pub(crate) corpus: Vec<PathBuf>,
-    /// Path to the killed-token registry (YAML). When provided, drafts reviving
-    /// a killed token are flagged as rejected lore.
-    #[arg(long = "killed", value_name = "PATH")]
-    pub(crate) killed: Option<PathBuf>,
-    /// Draft prose shadowed by the payload. Defaults to `meta.source.file`
-    /// relative to the payload file.
-    #[arg(long, value_name = "PATH")]
-    pub(crate) source: Option<PathBuf>,
-    /// Reviewed season outline YAML enabling the two-sided conformance battery.
-    #[arg(long, value_name = "PATH")]
-    pub(crate) outlines: Option<PathBuf>,
-    /// Prior season craft-ledger YAML merged into the payload battery.
-    #[arg(long = "craft-ledger", value_name = "PATH")]
-    pub(crate) craft_ledger: Option<PathBuf>,
-    /// Caller-owned craft configuration directory.
-    #[arg(long = "craft-config", value_name = "DIR")]
-    pub(crate) craft_config: Option<PathBuf>,
-}
-
-/// Run the merged payload battery against the compiled world and caller context.
-pub(crate) fn run_check_draft(args: &CheckDraftArgs) -> CmdResult {
-    let files = cmd::load_corpus(&args.corpus)?;
-    let world = cmd::compile_corpus(&files, "check-draft")?;
-
-    // Attach killed-token guardrails when a registry is supplied.
-    let world = if let Some(killed_path) = &args.killed {
-        let killed = load_killed_tokens(killed_path)?;
-        world.with_killed_tokens(killed)
-    } else {
-        world
-    };
-
-    let text = fs::read_to_string(&args.payload)
-        .map_err(|err| format!("cannot read {}: {err}", args.payload.display()))?;
-    let payload: Payload = serde_yaml_ng::from_str(&text).map_err(|err| {
-        format!(
-            "the draft payload {} is malformed: {err}",
-            args.payload.display()
-        )
-    })?;
-    let source_path = args.source.clone().unwrap_or_else(|| {
-        args.payload
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join(&payload.meta.source.file)
-    });
-    let source = fs::read_to_string(&source_path)
-        .map_err(|err| format!("cannot read draft source {}: {err}", source_path.display()))?;
-    let documents = cmd::documents(&files);
-    let outlines: Option<SeasonOutline> =
-        load_yaml_option(args.outlines.as_deref(), "season outlines")?;
-    let craft_ledger: Option<CraftLedger> =
-        load_yaml_option(args.craft_ledger.as_deref(), "craft ledger")?;
-    let (principles, thresholds, episode_policy) = if let Some(path) = &args.craft_config {
-        let (principles, thresholds, policy) = cmd::load_craft_config(path)?;
-        (Some(principles), thresholds, Some(policy))
-    } else {
-        (None, None, None)
-    };
-
-    let mut context = BatteryContext::new(&source).with_documents(&documents);
-    if let Some(outlines) = &outlines {
-        context = context.with_outlines(&outlines.episodes);
-    }
-    if let Some(craft_ledger) = &craft_ledger {
-        context = context.with_season(craft_ledger);
-    }
-    if let Some(principles) = &principles {
-        context = context.with_kb(Kb::new(principles.principles()));
-    }
-    if let Some(thresholds) = thresholds {
-        context = context.with_thresholds(thresholds);
-    }
-    if let Some(policy) = episode_policy {
-        context = context.with_episode_policy(policy);
-    }
-
-    let findings = check_payload(&world, &payload, &context);
-    for finding in &findings {
-        outln!(
-            "{severity}  {code} — {message} ({grade})",
-            severity = cmd::severity_word(finding.severity),
-            code = finding.code,
-            message = finding.message,
-            grade = finding.grade,
-        );
-        if let Some(line) = finding.line {
-            outln!("  at draft line {line}");
-        }
-        if let Some(quote) = &finding.quote {
-            outln!("  quote: {quote}");
-        }
-        if let Some(principle) = &finding.principle {
-            outln!("  principle: {principle}");
-        }
-        if !finding.citations.is_empty() {
-            outln!("  citations: {}", finding.citations.join(", "));
-        }
-    }
-
-    if findings.is_empty() {
-        outln!("draft clean: payload battery passed");
-        Ok(EXIT_CLEAN)
-    } else {
-        outln!("draft: {} defect(s)", findings.len());
-        Ok(EXIT_FINDINGS)
-    }
-}
-
-fn load_yaml_option<T: serde::de::DeserializeOwned>(
-    path: Option<&Path>,
-    label: &str,
-) -> Result<Option<T>, String> {
-    path.map(|path| {
-        let text = fs::read_to_string(path)
-            .map_err(|err| format!("cannot read {label} {}: {err}", path.display()))?;
-        serde_yaml_ng::from_str(&text)
-            .map_err(|err| format!("the {label} {} is malformed: {err}", path.display()))
-    })
-    .transpose()
-}
-
-/// Load a killed-token registry from a YAML file.
-///
-/// The format mirrors the vendored `killed_tokens.yaml`:
-///
-/// ```yaml
-/// killed:
-///   - {token: doom-wight, match: phrase, decision: D-0097, scope: "…"}
-/// rejected_claims:
-///   - {predicate: role, subject: hero, value: auditor, decision: D-0009}
-/// ```
-pub(crate) fn load_killed_tokens(path: &Path) -> Result<KilledTokens, String> {
-    use dli_world::{KilledToken, MatchMode, RejectedClaim};
-
-    #[derive(serde::Deserialize)]
-    struct KilledDoc {
-        #[serde(default)]
-        killed: Vec<KilledRow>,
-        #[serde(default)]
-        rejected_claims: Vec<RejectedClaimRow>,
-    }
-    #[derive(serde::Deserialize)]
-    struct KilledRow {
-        token: String,
-        #[serde(rename = "match", default)]
-        mode: String,
-        decision: String,
-        #[serde(default)]
-        scope: String,
-    }
-    #[derive(serde::Deserialize)]
-    struct RejectedClaimRow {
-        predicate: String,
-        subject: String,
-        value: String,
-        #[serde(rename = "match", default)]
-        mode: String,
-        decision: String,
-        #[serde(default)]
-        scope: String,
-    }
-
-    let text = fs::read_to_string(path).map_err(|err| {
-        format!(
-            "cannot read killed-token registry {}: {err}",
-            path.display()
-        )
-    })?;
-    let doc: KilledDoc = serde_yaml_ng::from_str(&text).map_err(|err| {
-        format!(
-            "the killed-token registry {} is malformed: {err}",
-            path.display()
-        )
-    })?;
-    let tokens = doc
-        .killed
-        .into_iter()
-        .map(|row| KilledToken {
-            token: row.token,
-            mode: match row.mode.as_str() {
-                "phrase" => MatchMode::Phrase,
-                "substring" | "regex" => MatchMode::Substring,
-                _ => MatchMode::Word,
-            },
-            decision: row.decision,
-            scope: row.scope,
-        })
-        .collect();
-    let rejected_claims = doc
-        .rejected_claims
-        .into_iter()
-        .map(|row| RejectedClaim {
-            predicate: row.predicate,
-            subject: row.subject,
-            value: row.value,
-            mode: match row.mode.as_str() {
-                "phrase" => MatchMode::Phrase,
-                "substring" | "regex" => MatchMode::Substring,
-                _ => MatchMode::Word,
-            },
-            decision: row.decision,
-            scope: row.scope,
-        })
-        .collect();
-    Ok(KilledTokens::new(tokens).with_rejected_claims(rejected_claims))
-}
 
 /// Arguments for `deloreis check-proof`.
 #[derive(Debug, Args)]
@@ -439,291 +195,11 @@ fn describe_verdict(verdict: &ProofVerdict) -> String {
     }
 }
 
-/// Arguments for `deloreis simulate`.
-#[derive(Debug, Args)]
-pub(crate) struct SimulateArgs {
-    /// The target to simulate: a corpus practice name (the default path), or a
-    /// dealable layout name when `--game` names a card ruleset.
-    #[arg(value_name = "TARGET")]
-    pub(crate) target: String,
-    /// The `.dli` corpus the practice is declared in (required for a practice
-    /// simulation; unused for a `--game` deal battery).
-    #[arg(short = 'c', long = "corpus", value_name = "PATH")]
-    pub(crate) corpus: Vec<PathBuf>,
-    /// Simulate a card ruleset instead of a practice: a directory holding
-    /// `rules.json` (and optional `profiles.json`), or a direct `rules.json` path.
-    /// `TARGET` then names the layout to deal.
-    #[arg(long = "game", value_name = "PATH")]
-    pub(crate) game: Option<PathBuf>,
-    /// The number of trials to run (`--games` → `trials`). Default 256.
-    #[arg(long, value_name = "N")]
-    pub(crate) games: Option<u64>,
-    /// The master seed. Default 0.
-    #[arg(long, value_name = "SEED")]
-    pub(crate) seed: Option<u64>,
-    /// Bind a symbolic affine cap so its law is ENFORCED (not deferred), e.g.
-    /// `--cap megin=5`. Repeatable; keyed by resource name. An unbound symbolic
-    /// cap stays honestly `deferred`.
-    #[arg(long = "cap", value_name = "RESOURCE=N")]
-    pub(crate) caps: Vec<String>,
-}
-
-/// Parse repeated `--cap <resource>=<n>` flags into the battery's `affine_caps`
-/// (resource name → integer bound). An `affine bounded <symbolic-cap>` law is
-/// enforced only when its resource is bound here.
-fn parse_caps(specs: &[String]) -> Result<std::collections::BTreeMap<String, i64>, String> {
-    let mut caps = std::collections::BTreeMap::new();
-    for spec in specs {
-        let (res, n) = spec
-            .split_once('=')
-            .ok_or_else(|| format!("--cap expects <resource>=<n>, got '{spec}'"))?;
-        let res = res.trim();
-        if res.is_empty() {
-            return Err(format!("--cap '{spec}': empty resource name"));
-        }
-        let bound: i64 = n
-            .trim()
-            .parse()
-            .map_err(|_| format!("--cap '{spec}': '{}' is not an integer bound", n.trim()))?;
-        if bound < 0 {
-            return Err(format!(
-                "--cap '{spec}': a cap must be >= 0 (a negative bound would silently enforce 0)"
-            ));
-        }
-        caps.insert(res.to_owned(), bound);
-    }
-    Ok(caps)
-}
-
-/// Run a seeded battery over a declared practice (or a card ruleset with
-/// `--game`) and render its honest run manifest (SIM-1).
-pub(crate) fn run_simulate(args: &SimulateArgs) -> CmdResult {
-    match &args.game {
-        Some(game) => run_simulate_game(args, game),
-        None => run_simulate_practice(args),
-    }
-}
-
-/// Simulate a declared practice: a bounded seeded generator over its resources,
-/// graded by a synthesized default battery.
-///
-/// **Synthesized defaults** (documented, overridable by args): the generator draws
-/// up to [`SIM_DEFAULT_MAX_STEPS`] deltas of magnitude ≤ [`SIM_DEFAULT_MAX_MAGNITUDE`]
-/// per resource per trial; `trials` = `--games` or [`SIM_DEFAULT_TRIALS`]; `seed` =
-/// `--seed` or 0. The metrics are an `any-violation` rate plus a per-resource
-/// `<res>-violated` rate; the invariants are `all-laws-hold` plus a per-resource
-/// `<res>-never-violated` sweep. Affine caps bind from `--cap <resource>=<n>`; an
-/// unbound symbolic cap defers its check honestly, never guesses.
-fn run_simulate_practice(args: &SimulateArgs) -> CmdResult {
-    if args.corpus.is_empty() {
-        return Err(
-            "a practice simulation needs a corpus: pass -c/--corpus (or --game for a card ruleset)"
-                .to_owned(),
-        );
-    }
-    let files = cmd::load_corpus(&args.corpus)?;
-    let practice = files
-        .iter()
-        .flat_map(|file| compile_practices(&file.document))
-        .find(|practice| practice.name.text == args.target)
-        .ok_or_else(|| {
-            format!(
-                "the corpus declares no practice named '{}' — name a practice or use --game",
-                args.target
-            )
-        })?;
-
-    let bounds = GenBounds {
-        max_steps: SIM_DEFAULT_MAX_STEPS,
-        max_magnitude: SIM_DEFAULT_MAX_MAGNITUDE,
-    };
-    let (metrics, invariants) = default_practice_grading(&practice);
-    let affine_caps = parse_caps(&args.caps)?;
-    let battery = Battery {
-        practice,
-        bounds,
-        seed: args.seed.unwrap_or(0),
-        trials: args.games.unwrap_or(SIM_DEFAULT_TRIALS),
-        metrics,
-        invariants,
-        affine_caps,
-    };
-    for finding in battery.validate() {
-        outln!("config  {finding}");
-    }
-    let manifest = battery.run();
-    outln!(
-        "simulate practice '{}' (default battery: max_steps {}, max_magnitude {})",
-        args.target,
-        bounds.max_steps,
-        bounds.max_magnitude,
-    );
-    Ok(render_manifest(&manifest))
-}
-
-/// The synthesized default metrics and invariants for a practice battery: an
-/// `any-violation` rate and `all-laws-hold` sweep, plus one per declared resource.
-fn default_practice_grading(practice: &PracticeDef) -> (Vec<Metric>, Vec<InvariantSpec>) {
-    let mut metrics = vec![Metric {
-        name: "any-violation".to_owned(),
-        observable: Observable::AnyViolation,
-    }];
-    let mut invariants = vec![InvariantSpec {
-        name: "all-laws-hold".to_owned(),
-        predicate: Invariant::AllLawsHold,
-    }];
-    for resource in &practice.resources {
-        let name = resource.name.text.clone();
-        metrics.push(Metric {
-            name: format!("{name}-violated"),
-            observable: Observable::Violated {
-                resource: name.clone(),
-            },
-        });
-        invariants.push(InvariantSpec {
-            name: format!("{name}-never-violated"),
-            predicate: Invariant::NeverViolated {
-                resource: name.clone(),
-            },
-        });
-    }
-    (metrics, invariants)
-}
-
-/// Simulate a card ruleset: deal `TARGET` layout from a seeded stream and grade a
-/// completed-rate metric plus the deck-conservation and legal-play sweeps.
-fn run_simulate_game(args: &SimulateArgs, game: &Path) -> CmdResult {
-    let ruleset = load_ruleset(game)?.ruleset;
-    let layout = args.target.clone();
-    if ruleset
-        .available_layouts()
-        .iter()
-        .all(|dealable| dealable.name != layout)
-    {
-        let names: Vec<&str> = ruleset
-            .available_layouts()
-            .iter()
-            .map(|dealable| dealable.name.as_str())
-            .collect();
-        return Err(format!(
-            "the deck has no dealable layout named '{layout}' — available: {}",
-            names.join(", ")
-        ));
-    }
-    let battery = DealBattery {
-        ruleset,
-        layout: layout.clone(),
-        seed: args.seed.unwrap_or(0),
-        trials: args.games.unwrap_or(SIM_DEFAULT_TRIALS),
-        metrics: vec![ReadingMetric {
-            name: "completed-rate".to_owned(),
-            observable: ReadingObservable::VerdictIs {
-                verdict_id: Verdict::COMPLETED.to_owned(),
-            },
-        }],
-        invariants: vec![
-            ReadingInvariant::DeckConserved,
-            ReadingInvariant::OnlyLegalPlays,
-        ],
-    };
-    let manifest = battery.run(&GameBindings::new());
-    outln!(
-        "simulate deck '{}' layout '{layout}'",
-        battery.ruleset.game_id
-    );
-    Ok(render_manifest(&manifest))
-}
-
-struct LoadedRuleset {
-    ruleset: Ruleset,
-    source: String,
-}
-
-/// Load a card [`Ruleset`] and retain the exact text parsed for source anchoring.
-fn load_ruleset(path: &Path) -> Result<LoadedRuleset, String> {
-    let rules_path = if path.is_dir() {
-        path.join("rules.json")
-    } else {
-        path.to_path_buf()
-    };
-    let text = fs::read_to_string(&rules_path)
-        .map_err(|err| format!("cannot read {}: {err}", rules_path.display()))?;
-    let ruleset = Ruleset::from_rules(&text).map_err(|err| {
-        format!(
-            "the game rules {} are malformed: {err}",
-            rules_path.display()
-        )
-    })?;
-    Ok(LoadedRuleset {
-        ruleset,
-        source: text,
-    })
-}
-
-/// Render an honest run manifest — metrics (`tested`), invariant verdicts
-/// (`checked`), and the honesty line — returning the verdict exit code
-/// ([`EXIT_FINDINGS`] if any invariant was breached, else [`EXIT_CLEAN`]).
-fn render_manifest(manifest: &RunManifest) -> i32 {
-    outln!("run: {} trial(s), seed {}", manifest.trials, manifest.seed);
-    for metric in &manifest.metrics {
-        outln!(
-            "metric  {}: mean {:.4} ±{:.4} (n={}, sum={}) [{}]",
-            metric.metric,
-            metric.mean,
-            metric.half_width,
-            metric.trials,
-            metric.sum,
-            metric.grade(),
-        );
-    }
-    let mut breached = false;
-    for verdict in &manifest.invariants {
-        match &verdict.outcome {
-            InvariantOutcome::Held => {
-                outln!(
-                    "invariant  {}: held [{}]",
-                    verdict.invariant,
-                    verdict.grade()
-                );
-            }
-            InvariantOutcome::Violated { trial, detail } => {
-                breached = true;
-                outln!(
-                    "invariant  {}: violated at trial {trial} — {detail} [{}]",
-                    verdict.invariant,
-                    verdict.grade(),
-                );
-            }
-            // An unenforced law (an unresolved affine cap) never swept anything, so
-            // it is honestly deferred — never "held [checked]", which would read as
-            // a verified pass. Not a breach: it does not fail the run.
-            InvariantOutcome::Deferred { reason } => {
-                outln!(
-                    "invariant  {}: deferred — {reason} (law not enforced, not checked)",
-                    verdict.invariant,
-                );
-            }
-        }
-    }
-    let honesty = if manifest.grades_are_honest() {
-        "grades are honest (metrics tested, invariants checked)"
-    } else {
-        "DISHONEST — a grade was forged"
-    };
-    outln!("honesty: {honesty}");
-    outln!("battery {}", manifest.digest());
-    if breached { EXIT_FINDINGS } else { EXIT_CLEAN }
-}
-
 /// An export target, as a CLI value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub(crate) enum ProfileArg {
     /// A context pack for downstream generation.
     ContextPack,
-    /// Printable reference cards.
-    Cards,
-    /// Ludii Game Description Language for the simulator.
-    LudiiGdl,
     /// Articy-shaped video-game JSON (typed entities, who-may-know facts, quests).
     Articy,
     /// Producer-facing flat CSV.
@@ -741,19 +217,13 @@ pub(crate) struct ExportArgs {
     /// The `.dli` corpus to export (required for the `context-pack` profile).
     #[arg(short = 'c', long = "corpus", value_name = "PATH")]
     pub(crate) corpus: Vec<PathBuf>,
-    /// The card ruleset to export (required for the `cards` / `ludii-gdl`
-    /// profiles): a directory holding `rules.json` (and optional `profiles.json`),
-    /// or a direct `rules.json` path.
-    #[arg(long = "game", value_name = "PATH")]
-    pub(crate) game: Option<PathBuf>,
     /// The source commit to pin in the manifest, tracing the artifact to an exact
     /// revision. Optional — when omitted, a content fingerprint of the loaded source
     /// is derived instead, so two different corpora never share a manifest even when
     /// their decision set (valuation) and profile match.
     #[arg(long = "commit", value_name = "SHA")]
     pub(crate) commit: Option<String>,
-    /// Optional JSON profile catalog for a lore corpus. Game directories load
-    /// their sibling `profiles.json` automatically; this catalog is merged last.
+    /// Optional JSON profile catalog for a lore corpus.
     #[arg(long = "profiles", value_name = "PATH")]
     pub(crate) profiles: Option<PathBuf>,
     /// Optional profile name or qualified `name@version`; otherwise the target's
@@ -762,8 +232,7 @@ pub(crate) struct ExportArgs {
     pub(crate) profile_name: Option<String>,
 }
 
-/// Render a compiled world (context pack) or a card ruleset (cards / Ludii GDL)
-/// under the requested profile, printing its provenance manifest (EXP-1/EXP-3).
+/// Render a compiled world under the requested profile and print its manifest.
 pub(crate) fn run_export(args: &ExportArgs) -> CmdResult {
     match args.profile {
         ProfileArg::ContextPack => {
@@ -772,18 +241,11 @@ pub(crate) fn run_export(args: &ExportArgs) -> CmdResult {
         ProfileArg::Articy => run_export_world(args, ExportTarget::Articy, "articy"),
         ProfileArg::Csv => run_export_world(args, ExportTarget::Csv, "csv"),
         ProfileArg::StaticWiki => run_export_world(args, ExportTarget::StaticWiki, "static-wiki"),
-        ProfileArg::Cards => run_export_game(args, ExportTarget::Cards, "cards"),
-        ProfileArg::LudiiGdl => run_export_game(args, ExportTarget::LudiiGdl, "ludii-gdl"),
     }
 }
 
 /// Export the certain layer of a compiled lore world.
 fn run_export_world(args: &ExportArgs, target: ExportTarget, label: &str) -> CmdResult {
-    if args.game.is_some() {
-        return Err(format!(
-            "the {label} export reads a lore corpus, not --game"
-        ));
-    }
     if args.corpus.is_empty() {
         return Err(format!(
             "the {label} export needs a corpus: pass -c/--corpus one or more .dli files"
@@ -813,60 +275,6 @@ fn load_export_registry(path: Option<&Path>) -> Result<Registry, String> {
     let loaded = Registry::from_path(path)
         .map_err(|err| format!("cannot load export profiles {}: {err}", path.display()))?;
     Ok(Registry::builtin().merge(loaded))
-}
-
-/// Export a card ruleset as printable cards or Ludii GDL (EXP-3), sourcing its
-/// profile registry from the built-in catalog merged with the game's own
-/// `profiles.json` when present.
-fn run_export_game(args: &ExportArgs, target: ExportTarget, label: &str) -> CmdResult {
-    if !args.corpus.is_empty() {
-        return Err(format!(
-            "the {label} export reads --game, not a lore corpus"
-        ));
-    }
-    let game = args.game.as_deref().ok_or_else(|| {
-        format!(
-            "the {label} export needs a card ruleset: pass --game <dir-or-rules.json> \
-             (a lore corpus carries no ruleset)"
-        )
-    })?;
-    let loaded = load_ruleset(game)?;
-    let mut registry = game_registry(game)?;
-    if let Some(path) = args.profiles.as_deref() {
-        let loaded = Registry::from_path(path)
-            .map_err(|err| format!("cannot load export profiles {}: {err}", path.display()))?;
-        registry = registry.merge(loaded);
-    }
-    let opts = ExportOpts {
-        source_commit: export_commit(args.commit.as_ref(), [loaded.source.as_bytes()]),
-        profile_name: args.profile_name.clone(),
-        ..ExportOpts::default()
-    };
-    let export = dli_game::export::run(&registry, target, &loaded.ruleset, &opts)
-        .map_err(|err| format!("the {label} export failed: {err}"))?;
-    render_export_json(&export)?;
-    Ok(EXIT_CLEAN)
-}
-
-/// The profile registry for a `--game` export: the built-in catalog, merged with
-/// the game's own `profiles.json` when it ships one.
-fn game_registry(game: &Path) -> Result<Registry, String> {
-    let profiles_path = if game.is_dir() {
-        game.join("profiles.json")
-    } else {
-        game.with_file_name("profiles.json")
-    };
-    if profiles_path.exists() {
-        let world = Registry::from_path(&profiles_path).map_err(|err| {
-            format!(
-                "cannot load export profiles {}: {err}",
-                profiles_path.display()
-            )
-        })?;
-        Ok(Registry::builtin().merge(world))
-    } else {
-        Ok(Registry::builtin())
-    }
 }
 
 /// The manifest `commit` for an export: the `--commit` value when supplied

@@ -965,8 +965,7 @@ fn merge_base_criss_cross_returns_the_smallest_hash() {
     );
 }
 
-/// The GH #75 regression: on a deep, incrementally grown history — the shape the
-/// `SubtleMemory` identity pilot produces — a dry-run merge of a freshly forked
+/// The GH #75 regression: on a deep, incrementally grown history, a dry-run merge of a freshly forked
 /// identity branch must still answer. The stall was in `merge_base`, whose cost
 /// grew with the *shared history* (|common|), so the guard grows that history
 /// deep with cheap linear commits and threads in real identity branch-merges so

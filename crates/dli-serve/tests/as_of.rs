@@ -145,48 +145,15 @@ fn as_of(
 // -- op reachability -----------------------------------------------------------
 
 #[test]
-fn as_of_is_unknown_before_contract_1_9_0() {
-    // The op is advertised and answered only from `1.9.0` up — every earlier
-    // accepted version, including 1.8.0 (the inertia declaration itself),
-    // keeps the surface it shipped with.
-    for dli in ["0.5.1", "1.0.0", "1.7.0", "1.8.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "in",
-                Op::AuthorAsOf,
-                json!({ "workspace": "ws-1", "pred": "status", "subject": "gwern", "at": "dawn" }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.9.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
-#[test]
 fn as_of_is_answered_at_contract_1_9_0() {
     let mut sessions = Sessions::new();
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
-    declare_pred_inertial(&mut store, "1.9.0", &ws, "status");
-    add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
+    let ws = open_scope(&mut store, "2.0.0", "tpth");
+    declare_pred_inertial(&mut store, "2.0.0", &ws, "status");
+    add_status(&mut store, "2.0.0", &ws, "commons", "dawn", "d-1");
     let response = dli_serve::serve::dispatch(
         &req(
-            "1.9.0",
+            "2.0.0",
             "a",
             Op::AuthorAsOf,
             json!({ "workspace": ws, "pred": "status", "subject": "gwern", "at": "dawn" }),
@@ -196,38 +163,6 @@ fn as_of_is_answered_at_contract_1_9_0() {
     );
     assert!(response.ok, "1.9.0 answers the op: {response:?}");
     assert_eq!(result(&response)["holdings"][0]["value"], "commons");
-}
-
-#[test]
-fn the_1_9_0_capability_list_carries_as_of_not_1_8_0() {
-    let mut sessions = Sessions::new();
-    let mut store = Store::default();
-
-    let at_1_8_0 = dli_serve::serve::dispatch(
-        &req("1.8.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_8_0 = result(&at_1_8_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        !caps_1_8_0.contains(&json!("author.as_of")),
-        "1.8.0 must not advertise the 1.9.0 op: {caps_1_8_0:?}"
-    );
-
-    let at_1_9_0 = dli_serve::serve::dispatch(
-        &req("1.9.0", "v", Op::Version, json!({})),
-        &mut sessions,
-        &mut store,
-    );
-    let caps_1_9_0 = result(&at_1_9_0)["capabilities"]
-        .as_array()
-        .expect("capabilities");
-    assert!(
-        caps_1_9_0.contains(&json!("author.as_of")),
-        "1.9.0 advertises the new op: {caps_1_9_0:?}"
-    );
 }
 
 // -- the three as-of cases ------------------------------------------------------

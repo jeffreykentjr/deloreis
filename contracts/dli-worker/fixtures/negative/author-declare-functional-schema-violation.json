@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.declare_functional params omit the required pred.",
   "send": {
-    "dli": "1.6.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.declare_functional",
     "params": {

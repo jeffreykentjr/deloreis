@@ -3,7 +3,7 @@
   "version": 1,
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,7 +13,7 @@
   ],
   "note": "A mutating call whose expected_digest no longer matches the workspace fence is refused so a stale caller never clobbers a moved fence.",
   "send": {
-    "dli": "0.5.1",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.add_fact",
     "params": {

@@ -1,19 +1,10 @@
 {
   "fixture": "golden/timeline-knows-v1",
-  "version": 1,
   "note": "dli.timeline.knows is the knowledge-fluent projection: what the listener knows once production has reached a slot (knowledge is inertial). Absent `at`, the whole season has played; `at` names an earlier production slot. Read over the neutral round-table season.",
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.timeline.knows",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -37,20 +28,19 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.timeline.knows",
+        "params": {
+          "document": "round-table"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "2",
-        "op": "dli.timeline.knows",
-        "params": {
-          "document": "round-table",
-          "at": "2"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -73,7 +63,17 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.timeline.knows",
+        "params": {
+          "at": "2",
+          "document": "round-table"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

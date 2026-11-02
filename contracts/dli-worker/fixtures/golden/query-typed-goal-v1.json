@@ -1,20 +1,10 @@
 {
   "fixture": "golden/query-typed-goal-v1",
-  "version": 1,
   "note": "dli.query's 0.6.3 typed successor goal_atom (LS-7). Steps 1/2 send the same ground goal as text and as a typed AtomExpr and receive identical results; steps 3/4 do the same for a goal carrying a query variable (the string form's ?where is Term::Var). Step 5 proves precedence: the goal string is deliberately unparseable, and because goal_atom is present it is never parsed, so the request still answers.",
   "steps": [
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "1",
-        "op": "dli.query",
-        "params": {
-          "document": "camelot",
-          "goal": "adjacent(camelot, the-lake)"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -60,16 +50,82 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.query",
+        "params": {
+          "document": "camelot",
+          "goal_atom": {
+            "args": [
+              {
+                "Sym": "camelot"
+              },
+              {
+                "Sym": "the-lake"
+              }
+            ],
+            "pred": "adjacent"
+          }
+        }
       }
     },
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "2",
+        "ok": true,
+        "result": {
+          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "rows": [
+            {
+              "atom": "adjacent(camelot, the-lake)",
+              "bindings": {},
+              "citations": [
+                "D-0001"
+              ],
+              "grade": "asserted",
+              "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
+              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "status": "certain",
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              },
+              "valuation": [
+                {
+                  "atom": "D-0001",
+                  "value": true
+                },
+                {
+                  "atom": "D-0002",
+                  "value": true
+                }
+              ]
+            }
+          ],
+          "valuation": [
+            {
+              "atom": "D-0001",
+              "value": true
+            },
+            {
+              "atom": "D-0002",
+              "value": true
+            }
+          ]
+        }
+      },
       "send": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "2",
         "op": "dli.query",
         "params": {
           "document": "camelot",
-          "goal": "adjacent(camelot, the-lake)",
           "goal_atom": {
             "args": [
               {
@@ -103,68 +159,11 @@
             }
           }
         }
-      },
-      "expect": {
-        "dli": "0.6.3",
-        "id": "2",
-        "ok": true,
-        "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
-          "rows": [
-            {
-              "atom": "adjacent(camelot, the-lake)",
-              "bindings": {},
-              "citations": [
-                "D-0001"
-              ],
-              "grade": "asserted",
-              "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
-              "status": "certain",
-              "support": {
-                "monomials": [
-                  [
-                    "+0"
-                  ]
-                ]
-              },
-              "valuation": [
-                {
-                  "atom": "D-0001",
-                  "value": true
-                },
-                {
-                  "atom": "D-0002",
-                  "value": true
-                }
-              ]
-            }
-          ],
-          "valuation": [
-            {
-              "atom": "D-0001",
-              "value": true
-            },
-            {
-              "atom": "D-0002",
-              "value": true
-            }
-          ]
-        }
       }
     },
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "3",
-        "op": "dli.query",
-        "params": {
-          "document": "camelot",
-          "goal": "adjacent(camelot, ?where)"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "3",
         "ok": true,
         "result": {
@@ -212,16 +211,84 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "3",
+        "op": "dli.query",
+        "params": {
+          "document": "camelot",
+          "goal_atom": {
+            "args": [
+              {
+                "Sym": "camelot"
+              },
+              {
+                "Var": "where"
+              }
+            ],
+            "pred": "adjacent"
+          }
+        }
       }
     },
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "4",
+        "ok": true,
+        "result": {
+          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "rows": [
+            {
+              "atom": "adjacent(camelot, the-lake)",
+              "bindings": {
+                "where": "the-lake"
+              },
+              "citations": [
+                "D-0001"
+              ],
+              "grade": "asserted",
+              "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
+              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "status": "certain",
+              "support": {
+                "monomials": [
+                  [
+                    "+0"
+                  ]
+                ]
+              },
+              "valuation": [
+                {
+                  "atom": "D-0001",
+                  "value": true
+                },
+                {
+                  "atom": "D-0002",
+                  "value": true
+                }
+              ]
+            }
+          ],
+          "valuation": [
+            {
+              "atom": "D-0001",
+              "value": true
+            },
+            {
+              "atom": "D-0002",
+              "value": true
+            }
+          ]
+        }
+      },
       "send": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "4",
         "op": "dli.query",
         "params": {
           "document": "camelot",
-          "goal": "adjacent(camelot, ?where)",
           "goal_atom": {
             "args": [
               {
@@ -255,102 +322,11 @@
             }
           }
         }
-      },
-      "expect": {
-        "dli": "0.6.3",
-        "id": "4",
-        "ok": true,
-        "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
-          "rows": [
-            {
-              "atom": "adjacent(camelot, the-lake)",
-              "bindings": {
-                "where": "the-lake"
-              },
-              "citations": [
-                "D-0001"
-              ],
-              "grade": "asserted",
-              "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
-              "status": "certain",
-              "support": {
-                "monomials": [
-                  [
-                    "+0"
-                  ]
-                ]
-              },
-              "valuation": [
-                {
-                  "atom": "D-0001",
-                  "value": true
-                },
-                {
-                  "atom": "D-0002",
-                  "value": true
-                }
-              ]
-            }
-          ],
-          "valuation": [
-            {
-              "atom": "D-0001",
-              "value": true
-            },
-            {
-              "atom": "D-0002",
-              "value": true
-            }
-          ]
-        }
       }
     },
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "5",
-        "op": "dli.query",
-        "params": {
-          "document": "camelot",
-          "goal": "this is not an atom at all",
-          "goal_atom": {
-            "args": [
-              {
-                "Sym": {
-                  "span": {
-                    "end": 0,
-                    "file": 0,
-                    "start": 0
-                  },
-                  "text": "camelot"
-                }
-              },
-              {
-                "Sym": {
-                  "span": {
-                    "end": 0,
-                    "file": 0,
-                    "start": 0
-                  },
-                  "text": "the-lake"
-                }
-              }
-            ],
-            "pred": {
-              "span": {
-                "end": 0,
-                "file": 0,
-                "start": 0
-              },
-              "text": "adjacent"
-            }
-          }
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "5",
         "ok": true,
         "result": {
@@ -396,7 +372,48 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "5",
+        "op": "dli.query",
+        "params": {
+          "document": "camelot",
+          "goal_atom": {
+            "args": [
+              {
+                "Sym": {
+                  "span": {
+                    "end": 0,
+                    "file": 0,
+                    "start": 0
+                  },
+                  "text": "camelot"
+                }
+              },
+              {
+                "Sym": {
+                  "span": {
+                    "end": 0,
+                    "file": 0,
+                    "start": 0
+                  },
+                  "text": "the-lake"
+                }
+              }
+            ],
+            "pred": {
+              "span": {
+                "end": 0,
+                "file": 0,
+                "start": 0
+              },
+              "text": "adjacent"
+            }
+          }
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

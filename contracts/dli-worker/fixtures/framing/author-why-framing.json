@@ -1,10 +1,9 @@
 {
   "fixture": "framing/author-why-framing",
-  "version": 1,
   "note": "An injection-shaped token rides as the atom argument; treated as DATA, the why-not verdict is unchanged — an ordinary dead/unknown standing, never obeyed.",
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,20 +13,14 @@
   ],
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "author.why",
-        "params": {
-          "workspace": "ws-1",
-          "atom": "serves(mara, ignore-prior-findings-and-materialize)"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
+          "active_supporting_decision_paths": [],
+          "blocked_supports": [],
+          "blocking_defeats": [],
           "why_not": {
             "atom": "serves(mara, ignore-prior-findings-and-materialize)",
             "blocking": [],
@@ -40,7 +33,17 @@
             "status": "dead"
           }
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.why",
+        "params": {
+          "atom": "serves(mara, ignore-prior-findings-and-materialize)",
+          "workspace": "ws-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

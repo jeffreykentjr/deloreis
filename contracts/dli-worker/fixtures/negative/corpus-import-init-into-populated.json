@@ -4,7 +4,7 @@
   "note": "`init` seeds an empty store. Into a populated one it is refused rather than quietly appending, because an init that sometimes extended would make the mode mean two things.",
   "project": true,
   "send": {
-    "dli": "1.2.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "dli.corpus.import",
     "params": {

@@ -8,7 +8,7 @@
       "op": "author.declare_functional",
       "precondition": [
         {
-          "dli": "1.6.0",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -17,7 +17,7 @@
         }
       ],
       "control": {
-        "dli": "1.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.declare_functional",
         "params": {
@@ -30,7 +30,7 @@
         }
       },
       "attack": {
-        "dli": "1.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.declare_functional",
         "params": {
@@ -54,7 +54,7 @@
         "/result/facts"
       ],
       "probe": {
-        "dli": "1.6.0",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {

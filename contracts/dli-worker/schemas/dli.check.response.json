@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "findings": {
-      "description": "World, payload, and attestation findings, if any.",
+      "description": "World and attestation findings, if any.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/CheckFinding"
@@ -116,85 +116,6 @@
           "$ref": "#/$defs/Finding",
           "required": [
             "domain"
-          ]
-        },
-        {
-          "description": "A replayed payload finding with durable payload and source identity.",
-          "type": "object",
-          "properties": {
-            "citations": {
-              "description": "Ledger citations backing the finding (`d-nnnn`), when it turns on a ruling.",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "code": {
-              "description": "The stable dotted class code (`family.item`), e.g. `anchor.quote-missing`.",
-              "type": "string"
-            },
-            "domain": {
-              "type": "string",
-              "const": "payload"
-            },
-            "episode": {
-              "description": "Episode identifier carried by the payload.",
-              "type": "string"
-            },
-            "grade": {
-              "description": "The verification grade of the check that produced it. Every deterministic\nkernel check re-derives exactly, so `PAY-1`'s findings carry\n[`Grade::Checked`].",
-              "$ref": "#/$defs/Grade"
-            },
-            "line": {
-              "description": "The draft line the finding turns on, when it anchors to one.",
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint32",
-              "minimum": 0
-            },
-            "message": {
-              "description": "A domain-spoken description of the finding.",
-              "type": "string"
-            },
-            "payload_digest": {
-              "description": "SHA-256 address of the committed payload record.",
-              "type": "string"
-            },
-            "principle": {
-              "description": "The craft principle this finding cites, when the check is a craft rule.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "quote": {
-              "description": "The verbatim quote from the draft the finding renders, when it has one.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "severity": {
-              "description": "How much the finding must be attended to.",
-              "$ref": "#/$defs/Severity2"
-            },
-            "source_file": {
-              "description": "Source filename carried by the payload.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "domain",
-            "payload_digest",
-            "episode",
-            "source_file",
-            "code",
-            "severity",
-            "grade",
-            "message"
           ]
         },
         {
@@ -581,21 +502,6 @@
         },
         {
           "description": "Advisory; does not block materialization.",
-          "type": "string",
-          "const": "warn"
-        }
-      ]
-    },
-    "Severity2": {
-      "description": "How much a [`WorldFinding`] must be attended to.",
-      "oneOf": [
-        {
-          "description": "A violation: the world (or a draft) contradicts canon or asserts what it\nmay not.",
-          "type": "string",
-          "const": "error"
-        },
-        {
-          "description": "A defect worth a look that does not, on its own, break canon.",
           "type": "string",
           "const": "warn"
         }

@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.assert_same_as params omit the required right and provenance.",
   "send": {
-    "dli": "1.7.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.assert_same_as",
     "params": {
