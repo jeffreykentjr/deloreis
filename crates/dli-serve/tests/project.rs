@@ -445,7 +445,7 @@ fn loads_optional_project_assets_without_demo_resolution() {
     )
     .unwrap();
     fs::copy(
-        repo.join("worlds/tpth/episodes/saltmarket-episodes.yaml"),
+        repo.join("crates/dli-world/tests/data/episodes.yaml"),
         root.join("episodes.yaml"),
     )
     .unwrap();

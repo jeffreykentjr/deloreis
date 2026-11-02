@@ -4,8 +4,6 @@
 //!
 //! The corpus-bridge section mirrors `crates/dli-world/tests/check.rs:corpus_pack`.
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
@@ -44,12 +42,7 @@ pub fn test_fact(
     )
 }
 
-// ── vendored corpus bridge ───────────────────────────────────────────────
-
-/// The root directory of the vendored corpus used by oracle tests.
-pub fn vendor_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../worlds/tpth/vendor/fantasy-099e04cd")
-}
+// ── test corpus bridge ───────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct FactsDoc {
@@ -167,7 +160,7 @@ fn fact_decl(pred: &str, args: &[&str], prov: Option<Annotation>) -> Decl {
     })
 }
 
-/// Bridge the vendored `facts.yaml` into a `Pack`.
+/// Bridge the test corpus into a `Pack`.
 pub fn corpus_pack(facts: &FactsDoc) -> Pack {
     use std::collections::BTreeSet;
     let mut decls: Vec<Decl> = Vec::new();
@@ -223,11 +216,20 @@ pub fn corpus_pack(facts: &FactsDoc) -> Pack {
     }
 }
 
-/// Load the vendored corpus `facts.yaml` into a `FactsDoc`.
+/// A small original corpus covering asserted, proposed, and ruled lore.
 pub fn load_corpus() -> FactsDoc {
-    let path = vendor_root().join("canon/data/facts.yaml");
-    let text = std::fs::read_to_string(&path).expect("read facts.yaml");
-    serde_yaml_ng::from_str(&text).expect("parse facts.yaml")
+    let source = r"
+entities:
+  - {id: wren, kind: person, status: ratified, decisions: [D-1]}
+  - {id: thornfield, kind: place, status: ratified, decisions: [D-1]}
+  - {id: ashby, kind: place, status: proposed}
+facts:
+  - {entity: wren, key: home, value: thornfield, status: ratified, decisions: [D-1]}
+  - {entity: wren, key: trade, value: courier, status: proposed}
+relations:
+  - {subject: thornfield, kind: borders, object: ashby, status: provisional, decisions: [D-2]}
+";
+    serde_yaml_ng::from_str(source).expect("the original test corpus parses")
 }
 
 // ── comparison helpers ─────────────────────────────────────────────────

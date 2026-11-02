@@ -1,5 +1,5 @@
 //! The committed episodes example must deserialize through the real types
-//! and fold correctly — pinning `worlds/tpth/episodes/saltmarket-episodes.yaml`
+//! and fold correctly — pinning the original episode fixture
 //! against type drift. Episodes ride as payload data until their surface form
 //! lands (TIME-3); this test is that payload's contract.
 
@@ -8,11 +8,7 @@
 use dli_world::episode::{Episode, fold};
 
 fn example_yaml() -> String {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../worlds/tpth/episodes/saltmarket-episodes.yaml"
-    );
-    std::fs::read_to_string(path).expect("worlds/tpth/episodes/saltmarket-episodes.yaml exists")
+    include_str!("data/episodes.yaml").to_owned()
 }
 
 #[test]

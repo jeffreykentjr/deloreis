@@ -6,8 +6,6 @@
 //! fixtures compile and check well-formed; the negatives prove the checker
 //! actually catches each malformation rather than passing everything.
 
-use std::path::PathBuf;
-
 use dli_ledger::practice::{PracticeDef, PracticeFinding, check_practice, compile_practices};
 use dli_ledger::resource::ResourceKind;
 use dli_syntax::parse_document;
@@ -21,15 +19,11 @@ enum ResourceKindTag {
     Graded,
 }
 
-fn fixture(name: &str) -> String {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../../worlds/tpth/packs");
-    path.push(name);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
-}
+const MEMORY: &str = "scope lighthouse\npractice remembering proposed {\n  resource memory : graded monotone clear > faded > lost\n  error forgotten refines L2 where premise-outdated\n  cost epistemic\n}\n";
+const BEACON: &str = "scope lighthouse\ncycle night(5) proposed\npractice beacon proposed {\n  use chronology.cycles\n  kind signal = red | gold | white | blue | green\n  resource light : affine bounded lamp-cap\n  rule flash(signal) requires phase(night) = signal\n  error wrong-hour refines L3 side-condition [timing] over cycle night\n  cost material\n}\n";
 
 fn compile_one(name: &str, practice: &str) -> PracticeDef {
-    let (doc, diags) = parse_document(&fixture(name));
+    let (doc, diags) = parse_document(name);
     assert!(
         diags.is_empty(),
         "{name} parsed with diagnostics: {diags:?}"
@@ -41,14 +35,14 @@ fn compile_one(name: &str, practice: &str) -> PracticeDef {
         .unwrap_or_else(|| panic!("{name} declares no practice '{practice}'"))
 }
 
-/// The acceptance test: the true-naming fixture hosts with zero findings.
+/// The acceptance test: the remembering fixture hosts with zero findings.
 #[test]
-fn true_naming_hosts_with_zero_findings() {
-    let def = compile_one("true-naming.dli", "true-naming");
+fn memory_practice_hosts_with_zero_findings() {
+    let def = compile_one(MEMORY, "remembering");
     let findings = check_practice(&def);
     assert!(
         findings.is_empty(),
-        "true-naming should host cleanly, got: {:?}",
+        "remembering should host cleanly, got: {:?}",
         findings
             .iter()
             .map(PracticeFinding::message)
@@ -60,36 +54,36 @@ fn true_naming_hosts_with_zero_findings() {
     assert_eq!(
         def.resources[0].kind,
         Some(ResourceKind::GradedMonotone),
-        "true-naming's resource is graded-monotone decay"
+        "remembering's resource is graded-monotone decay"
     );
     // Its failures refine L2/L3/L4 — no resource-violation, no chain error.
     assert!(!def.errors.is_empty());
     assert!(def.errors.iter().all(|e| e.class.is_some()));
 }
 
-/// The second arbitrariness proof: the-turning hosts, disjoint on every axis,
+/// The second arbitrariness proof: beacon hosts, disjoint on every axis,
 /// with zero kernel-code change.
 #[test]
-fn the_turning_hosts_with_zero_findings() {
-    let def = compile_one("second-practice.dli", "the-turning");
+fn beacon_practice_hosts_with_zero_findings() {
+    let def = compile_one(BEACON, "beacon");
     let findings = check_practice(&def);
     assert!(
         findings.is_empty(),
-        "the-turning should host cleanly, got: {:?}",
+        "beacon should host cleanly, got: {:?}",
         findings
             .iter()
             .map(PracticeFinding::message)
             .collect::<Vec<_>>()
     );
     // Its resource is affine-bounded — neither the conserved debt of proof-magic
-    // nor the graded decay of true-naming.
+    // nor the graded decay of remembering.
     assert_eq!(
         def.resources[0].kind,
         Some(ResourceKind::AffineBounded),
-        "the-turning's resource is affine-bounded"
+        "beacon's resource is affine-bounded"
     );
     // It seats a timing failure on the document-declared cycle, which resolves.
-    assert!(def.cycles_in_scope.contains("turning-leaf"));
+    assert!(def.cycles_in_scope.contains("night"));
     // A declared finite sort with five figures.
     assert_eq!(def.sorts.len(), 1);
     assert_eq!(def.sorts[0].variants.len(), 5);
@@ -99,25 +93,25 @@ fn the_turning_hosts_with_zero_findings() {
 /// resource-algebra member, yet both host generically.
 #[test]
 fn the_two_fixtures_are_structurally_disjoint() {
-    let naming = compile_one("true-naming.dli", "true-naming");
-    let turning = compile_one("second-practice.dli", "the-turning");
+    let naming = compile_one(MEMORY, "remembering");
+    let beacon = compile_one(BEACON, "beacon");
     let naming_kinds: Vec<ResourceKindTag> = naming
         .resources
         .iter()
         .filter_map(|r| r.kind.as_ref().map(tag))
         .collect();
-    let turning_kinds: Vec<ResourceKindTag> = turning
+    let beacon_kinds: Vec<ResourceKindTag> = beacon
         .resources
         .iter()
         .filter_map(|r| r.kind.as_ref().map(tag))
         .collect();
     assert!(
-        naming_kinds.iter().all(|k| !turning_kinds.contains(k)),
-        "the fixtures must share no resource-algebra member: {naming_kinds:?} vs {turning_kinds:?}"
+        naming_kinds.iter().all(|k| !beacon_kinds.contains(k)),
+        "the fixtures must share no resource-algebra member: {naming_kinds:?} vs {beacon_kinds:?}"
     );
     // Both nevertheless host on the one generic checker.
     assert!(check_practice(&naming).is_empty());
-    assert!(check_practice(&turning).is_empty());
+    assert!(check_practice(&beacon).is_empty());
 }
 
 /// A coarse tag distinguishing the algebra members for the disjointness test.

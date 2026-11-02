@@ -1,11 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! The PRAC-2 acceptance oracle (`docs/spec/04-practices.md` §3, §5): the
-//! spoken-proof worked scene checks clean; wrong-phase is an L3 timing error;
+//! lantern-ward worked scene checks clean; wrong-phase is an L3 timing error;
 //! fizzle is L2-absent; overload is the L6 affine bound; a flawed argument that
 //! accidentally validates is a caught bug; and a premise's grade rolls up
 //! weakest-link over the procedure chain.
-
-use std::path::PathBuf;
 
 use dli_ast::decl::Decl;
 use dli_core::grade::Grade;
@@ -15,28 +13,16 @@ use dli_ledger::practice::{StructuralClass, compile_practices};
 use dli_ledger::premise::SceneProjection;
 use dli_syntax::parse_document;
 
-/// Load a committed `TPtH` practice pack from `worlds/tpth/practices/`, mirroring
-/// the acceptance suite's `fixture` helper. The spoken-proof practice (the
-/// Concordance) is DATA, not an inline const: every scene below is checked
-/// against the very `.dli` pack the gate ships.
-fn fixture(name: &str) -> String {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../../worlds/tpth/practices");
-    path.push(name);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
-}
+/// A small original practice used by the proof and failure cases below.
+const PRACTICE: &str = "scope lighthouse\n\nuse chronology\ncycle night(4) = dusk | still | storm | dark proposed\npractice lantern-ward proposed {\n  kind ground = door | field | ore\n  resource debt : linear conserved\n  resource strain : affine bounded body-limit\n  rule ward-form(ground, fibre)\n  rule give-and-take\n  error fizzle refines L2 premise-not-available where absent\n  error rebound refines L2 premise-not-available where contradicted signals bodily-hit\n  error wrong-hour refines L3 side-condition [timing] over cycle night\n  error overload refines L6 resource-violation on strain signals collapse\n  cost bodily | material\n}\n";
 
-/// Compile the spoken-proof practice with `proof_block` appended and check the
-/// proof against `scene`. The practice — its `scope`, the `tide` cycle its
-/// timing seats on, and the practice block — is loaded from the committed
-/// `worlds/tpth/practices/spoken-proof.dli` pack, then the scene's proof is
-/// parsed in the same document so it resolves against it.
+/// Check a proof against the lighthouse practice and a scene.
 fn check(proof_block: &str, scene: &SceneProjection) -> ProofReport {
     check_impl(proof_block, scene, false)
 }
 
 fn check_impl(proof_block: &str, scene: &SceneProjection, allow_parse_errors: bool) -> ProofReport {
-    let practice_src = fixture("spoken-proof.dli");
+    let practice_src = PRACTICE;
     let src = format!("{practice_src}\n{proof_block}\n");
     let (doc, diags) = parse_document(&src);
     if !allow_parse_errors {
@@ -45,8 +31,8 @@ fn check_impl(proof_block: &str, scene: &SceneProjection, allow_parse_errors: bo
     let practices = compile_practices(&doc);
     let practice = practices
         .iter()
-        .find(|p| p.name.text == "spoken-proof")
-        .expect("the spoken-proof practice compiles");
+        .find(|p| p.name.text == "lantern-ward")
+        .expect("the lantern-ward practice compiles");
     let proof = doc
         .decls
         .iter()
@@ -60,24 +46,24 @@ fn check_impl(proof_block: &str, scene: &SceneProjection, allow_parse_errors: bo
 
 /// The seated consent premise, shared by the scenes that rest on it.
 fn seat_consent(scene: SceneProjection) -> SceneProjection {
-    scene.seat("holds(enfys, consent(household, door))")
+    scene.seat("holds(keeper, consent(household, door))")
 }
 
 /// The worked scene of `docs/spec/04` §5 checks clean: seated premises, a
 /// conserved-debt spend that balances, and a close that follows.
 #[test]
-fn worked_spoken_proof_checks_clean() {
+fn worked_lantern_ward_checks_clean() {
     let proof = "\
-proof e01-s04 speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) cited D-0113 cue \"line 112\"
-  premise p2 phase(tide, slack) from-scene cue \"line 118\"
+proof e01-s04 speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) cited D-1 cue \"line 112\"
+  premise p2 phase(night, still) from-scene cue \"line 118\"
   premise p3 debt(1) drawn-against p1
   step s1 instantiate ward-form with ground = door, fibre = withy
   step s2 chain from p1, s1 by give-and-take conclusion bound(ward, door)
   spend p3
   close bound(ward, door) expect holds
 }";
-    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "slack");
+    let scene = seat_consent(SceneProjection::new()).at_phase("night", "still");
     let report = check(proof, &scene);
     assert!(
         report.checks,
@@ -91,20 +77,20 @@ proof e01-s04 speaker protagonist in spoken-proof {
     assert_eq!(report.speaker.as_deref(), Some("protagonist"));
 }
 
-/// Wrong-phase: the same ward, spoken in a flood-bound scene, fails at L3 timing —
+/// Wrong-phase: the same ward, spoken in a storm-bound scene, fails at L3 timing —
 /// the series-opening beat. The declared `fails-at wrong-hour` (the practice's own
 /// diegetic error name) is confirmed against the `proof.wrong-phase` kernel code.
 #[test]
 fn wrong_phase_is_an_l3_timing_error() {
     let proof = "\
-proof e01-flood speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) cited D-0113
-  premise p2 phase(tide, slack) from-scene
+proof e01-storm speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) cited D-1
+  premise p2 phase(night, still) from-scene
   step s1 instantiate ward-form with ground = door, fibre = withy
   close bound(ward, door) expect fails-at wrong-hour
 }";
-    // The scene is at flood tide; the ward wants slack.
-    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "flood");
+    // The scene is at storm night; the ward wants still.
+    let scene = seat_consent(SceneProjection::new()).at_phase("night", "storm");
     let report = check(proof, &scene);
     assert!(
         report.checks,
@@ -132,9 +118,9 @@ proof e01-flood speaker protagonist in spoken-proof {
             _ => None,
         })
         .expect("a wrong-hour finding");
-    assert_eq!(wrong.0, "tide");
-    assert_eq!(wrong.1, "slack");
-    assert_eq!(wrong.2, Some("flood".to_owned()));
+    assert_eq!(wrong.0, "night");
+    assert_eq!(wrong.1, "still");
+    assert_eq!(wrong.2, Some("storm".to_owned()));
     assert_eq!(
         report
             .findings
@@ -148,11 +134,11 @@ proof e01-flood speaker protagonist in spoken-proof {
 #[test]
 fn phase_comparison_surface_uses_timing_semantics() {
     let proof = "\
-proof e01-comparison speaker protagonist in spoken-proof {
-  premise p1 phase(tide) = slack from-scene
+proof e01-comparison speaker protagonist in lantern-ward {
+  premise p1 phase(night) = still from-scene
   close x expect fails-at wrong-hour
 }";
-    let scene = SceneProjection::new().at_phase("tide", "flood");
+    let scene = SceneProjection::new().at_phase("night", "storm");
     let report = check(proof, &scene);
     assert!(has(&report, "proof.wrong-phase"), "{:?}", messages(&report));
     assert!(
@@ -167,8 +153,8 @@ proof e01-comparison speaker protagonist in spoken-proof {
 #[test]
 fn absent_premise_fizzles_at_l2() {
     let proof = "\
-proof e01-fizzle speaker protagonist in spoken-proof {
-  premise p1 holds(unwritten-consent) cited D-0999
+proof e01-fizzle speaker protagonist in lantern-ward {
+  premise p1 holds(unwritten-consent) cited D-9
   close ward(door) expect fails-at fizzle
 }";
     // The scene establishes nothing — p1 is not in the pool.
@@ -199,15 +185,15 @@ proof e01-fizzle speaker protagonist in spoken-proof {
 #[test]
 fn accidental_validation_is_a_caught_bug() {
     let proof = "\
-proof e01-drama speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) cited D-0113
-  premise p2 phase(tide, slack) from-scene
+proof e01-drama speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) cited D-1
+  premise p2 phase(night, still) from-scene
   step s1 instantiate ward-form with ground = door, fibre = withy
   step s2 chain from p1, s1 by give-and-take conclusion bound(ward, door)
   close bound(ward, door) expect fails-at wrong-hour
 }";
-    // Spoken at slack — the hour the ward wants — so it does NOT fail.
-    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "slack");
+    // Spoken at still — the hour the ward wants — so it does NOT fail.
+    let scene = seat_consent(SceneProjection::new()).at_phase("night", "still");
     let report = check(proof, &scene);
     assert!(
         !report.checks,
@@ -231,8 +217,8 @@ proof e01-drama speaker protagonist in spoken-proof {
 #[test]
 fn overload_breaks_the_affine_bound_at_l6() {
     let proof = "\
-proof e01-overreach speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) from-scene
+proof e01-overreach speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) from-scene
   premise p2 strain(3) drawn-against p1
   close warded(door) expect fails-at overload
 }";
@@ -267,16 +253,16 @@ proof e01-overreach speaker protagonist in spoken-proof {
 #[test]
 fn an_attested_premise_grades_the_chain_attested() {
     let proof = "\
-proof e01-graded speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) attested cue \"a witness recalled it\"
-  premise p2 phase(tide, slack) from-scene
+proof e01-graded speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) attested cue \"a witness recalled it\"
+  premise p2 phase(night, still) from-scene
   premise p3 debt(1) drawn-against p1
   step s1 instantiate ward-form with ground = door, fibre = withy
   step s2 chain from p1, s1 by give-and-take conclusion bound(ward, door)
   spend p3
   close bound(ward, door) expect holds
 }";
-    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "slack");
+    let scene = seat_consent(SceneProjection::new()).at_phase("night", "still");
     let report = check(proof, &scene);
     assert!(
         report.checks,
@@ -306,13 +292,13 @@ fn has(report: &ProofReport, code: &str) -> bool {
 #[test]
 fn the_proof_report_is_a_serde_and_schema_wire_seam() {
     let proof = "\
-proof e01-flood speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) cited D-0113
-  premise p2 phase(tide, slack) from-scene
+proof e01-storm speaker protagonist in lantern-ward {
+  premise p1 holds(keeper, consent(household, door)) cited D-1
+  premise p2 phase(night, still) from-scene
   step s1 instantiate ward-form with ground = door, fibre = withy
   close bound(ward, door) expect fails-at wrong-hour
 }";
-    let scene = seat_consent(SceneProjection::new()).at_phase("tide", "flood");
+    let scene = seat_consent(SceneProjection::new()).at_phase("night", "storm");
     let report = check(proof, &scene);
 
     // Serialize, then round-trip back to an equal value.
@@ -346,7 +332,7 @@ proof e01-flood speaker protagonist in spoken-proof {
 #[test]
 fn a_breach_binds_only_its_own_declared_error() {
     let proof = "\
-proof e01-h6 speaker protagonist in spoken-proof {
+proof e01-h6 speaker protagonist in lantern-ward {
   premise p1 debt(1) from-scene
   close discharged(debt) expect fails-at overload
 }";
@@ -378,13 +364,13 @@ proof e01-h6 speaker protagonist in spoken-proof {
 #[test]
 fn release_returns_a_unit_spend_draws_one() {
     let spent = "\
-proof e01-spend speaker protagonist in spoken-proof {
+proof e01-spend speaker protagonist in lantern-ward {
   premise p1 debt(2) from-scene
   spend p1
   close done(debt) expect holds
 }";
     let released = "\
-proof e01-release speaker protagonist in spoken-proof {
+proof e01-release speaker protagonist in lantern-ward {
   premise p1 debt(2) from-scene
   release p1
   close done(debt) expect holds
@@ -407,13 +393,13 @@ proof e01-release speaker protagonist in spoken-proof {
 #[test]
 fn spend_of_a_non_resource_is_refused() {
     let non_resource = "\
-proof e01-badspend speaker protagonist in spoken-proof {
+proof e01-badspend speaker protagonist in lantern-ward {
   premise p1 holds(a-fact) from-scene
   spend p1
   close x expect blocked
 }";
     let undefined = "\
-proof e01-nospend speaker protagonist in spoken-proof {
+proof e01-nospend speaker protagonist in lantern-ward {
   spend p99
   close x expect blocked
 }";
@@ -428,12 +414,12 @@ proof e01-nospend speaker protagonist in spoken-proof {
 #[test]
 fn custom_steps_must_name_a_declared_practice_rule() {
     let declared = "\
-proof custom-step speaker protagonist in spoken-proof {
+proof custom-step speaker protagonist in lantern-ward {
   step s1 ward-form door, withy
   close x expect holds
 }";
     let typo = "\
-proof custom-step-typo speaker protagonist in spoken-proof {
+proof custom-step-typo speaker protagonist in lantern-ward {
   step s1 wrad-form door
   close x expect holds
 }";
@@ -461,7 +447,7 @@ proof custom-step-typo speaker protagonist in spoken-proof {
 #[test]
 fn assumptions_are_always_asserted() {
     let proof = "\
-proof assumed speaker protagonist in spoken-proof {
+proof assumed speaker protagonist in lantern-ward {
   assume p1 holds(a)
   close holds(a) expect holds
 }";
@@ -474,10 +460,10 @@ proof assumed speaker protagonist in spoken-proof {
 #[test]
 fn nested_claims_share_one_premise_chain_and_close_grammar() {
     let proof = "\
-proof nested speaker protagonist in spoken-proof {
-  assume p1 holds(enfys, consent(household, door))
-  step s1 chain from p1 by give-and-take conclusion holds(enfys, consent(household, door))
-  close holds(enfys, consent(household, door)) expect holds
+proof nested speaker protagonist in lantern-ward {
+  assume p1 holds(keeper, consent(household, door))
+  step s1 chain from p1 by give-and-take conclusion holds(keeper, consent(household, door))
+  close holds(keeper, consent(household, door)) expect holds
 }";
     let report = check(proof, &SceneProjection::new());
     assert!(report.checks, "{:?}", messages(&report));
@@ -488,7 +474,7 @@ proof nested speaker protagonist in spoken-proof {
 #[test]
 fn close_expectation_separator_ignores_quoted_atom_text() {
     let proof = "\
-proof quoted-close speaker protagonist in spoken-proof {
+proof quoted-close speaker protagonist in lantern-ward {
   assume p1 says(witness, \"we expect victory\")
   close says(witness, \"we expect victory\") expect holds
 }";
@@ -519,7 +505,7 @@ fn instantiation_requires_each_parameter_exactly_once() {
     ];
     for (name, step) in cases {
         let proof = format!(
-            "proof bad-{name} speaker protagonist in spoken-proof {{\n  {step}\n  close x expect holds\n}}"
+            "proof bad-{name} speaker protagonist in lantern-ward {{\n  {step}\n  close x expect holds\n}}"
         );
         let report = check(&proof, &SceneProjection::new());
         assert!(
@@ -531,7 +517,7 @@ fn instantiation_requires_each_parameter_exactly_once() {
     }
 
     let valid = "\
-proof valid-bindings speaker protagonist in spoken-proof {
+proof valid-bindings speaker protagonist in lantern-ward {
   step s1 instantiate ward-form with ground = field, fibre = caller-defined
   close x expect blocked
 }";
@@ -543,7 +529,7 @@ proof valid-bindings speaker protagonist in spoken-proof {
     );
 
     let quoted_comma = "\
-proof quoted-binding speaker protagonist in spoken-proof {
+proof quoted-binding speaker protagonist in lantern-ward {
   step s1 instantiate ward-form with ground = field, fibre = \"withy, twisted\"
   close x expect blocked
 }";
@@ -559,7 +545,7 @@ proof quoted-binding speaker protagonist in spoken-proof {
 fn custom_steps_validate_declared_arity_and_finite_kinds() {
     for step in ["ward-form door", "ward-form no-such-ground, withy"] {
         let proof = format!(
-            "proof bad-custom speaker protagonist in spoken-proof {{\n  step s1 {step}\n  close x expect holds\n}}"
+            "proof bad-custom speaker protagonist in lantern-ward {{\n  step s1 {step}\n  close x expect holds\n}}"
         );
         let report = check(&proof, &SceneProjection::new());
         assert!(
@@ -571,7 +557,7 @@ fn custom_steps_validate_declared_arity_and_finite_kinds() {
     }
 
     let quoted_comma = "\
-proof quoted-custom speaker protagonist in spoken-proof {
+proof quoted-custom speaker protagonist in lantern-ward {
   step s1 ward-form door, \"withy, twisted\"
   close x expect blocked
 }";
@@ -588,7 +574,7 @@ fn neutral_resource_operations_require_a_resource_premise() {
     for operation in ["reveal", "redistribute"] {
         for label in ["no-such-resource", "p1"] {
             let proof = format!(
-                "proof bad-{operation}-{label} speaker protagonist in spoken-proof {{\n  \
+                "proof bad-{operation}-{label} speaker protagonist in lantern-ward {{\n  \
                  premise p1 holds(a) from-scene\n  {operation} {label}\n  close x expect \
                  blocked\n}}"
             );
@@ -602,7 +588,7 @@ fn neutral_resource_operations_require_a_resource_premise() {
     }
 
     let valid = "\
-proof valid-reveal speaker protagonist in spoken-proof {
+proof valid-reveal speaker protagonist in lantern-ward {
   premise p1 debt(0) from-scene
   reveal p1
   redistribute p1
@@ -622,14 +608,14 @@ proof valid-reveal speaker protagonist in spoken-proof {
 #[test]
 fn an_undeclared_spoke_is_a_bad_instantiation() {
     let proof = "\
-proof e01-spoke speaker protagonist in spoken-proof {
-  premise p1 phase(tide, purple) from-scene
+proof e01-spoke speaker protagonist in lantern-ward {
+  premise p1 phase(night, purple) from-scene
   close x expect fails-at wrong-hour
 }";
-    // The scene knows tide's four spokes; `purple` is not among them.
+    // The scene knows night's four spokes; `purple` is not among them.
     let scene = SceneProjection::new()
-        .spokes("tide", &["ebb", "slack", "flood", "high"])
-        .at_phase("tide", "flood");
+        .spokes("night", &["dusk", "still", "storm", "dark"])
+        .at_phase("night", "storm");
     let report = check(proof, &scene);
     assert!(
         has(&report, "proof.unknown-spoke"),
@@ -649,13 +635,13 @@ proof e01-spoke speaker protagonist in spoken-proof {
     ));
     // Without pinned spokes, validation is deferred (a valid spoke still checks).
     let valid = "\
-proof e01-spoke-ok speaker protagonist in spoken-proof {
-  premise p1 phase(tide, slack) from-scene
+proof e01-spoke-ok speaker protagonist in lantern-ward {
+  premise p1 phase(night, still) from-scene
   close x expect fails-at wrong-hour
 }";
     let ok_scene = SceneProjection::new()
-        .spokes("tide", &["ebb", "slack", "flood", "high"])
-        .at_phase("tide", "flood");
+        .spokes("night", &["dusk", "still", "storm", "dark"])
+        .at_phase("night", "storm");
     assert!(!has(&check(valid, &ok_scene), "proof.unknown-spoke"));
 }
 
@@ -664,7 +650,7 @@ proof e01-spoke-ok speaker protagonist in spoken-proof {
 #[test]
 fn an_unknown_expectation_token_is_refused() {
     let proof = "\
-proof e01-typo speaker protagonist in spoken-proof {
+proof e01-typo speaker protagonist in lantern-ward {
   premise p1 holds(a-fact) from-scene
   close holds(a-fact) expect banana
 }";
@@ -679,7 +665,7 @@ proof e01-typo speaker protagonist in spoken-proof {
 /// proof with no close is refused — neither silently checks at `checked`.
 #[test]
 fn an_empty_or_closeless_proof_does_not_silently_check() {
-    let empty = "proof e01-empty speaker protagonist in spoken-proof {\n}";
+    let empty = "proof e01-empty speaker protagonist in lantern-ward {\n}";
     let report = check_impl(empty, &SceneProjection::new(), true);
     assert_eq!(report.grade, Grade::Asserted, "no procedure = asserted");
     assert!(has(&report, "proof.missing-close"));
@@ -687,7 +673,7 @@ fn an_empty_or_closeless_proof_does_not_silently_check() {
     assert!(!report.checks);
 
     let no_close = "\
-proof e01-noclose speaker protagonist in spoken-proof {
+proof e01-noclose speaker protagonist in lantern-ward {
   premise p1 holds(a-fact) from-scene
 }";
     let report = check_impl(
@@ -705,7 +691,7 @@ proof e01-noclose speaker protagonist in spoken-proof {
 #[test]
 fn duplicate_or_nonfinal_closes_never_check_for_direct_ast_callers() {
     let duplicate = "\
-proof duplicate speaker protagonist in spoken-proof {
+proof duplicate speaker protagonist in lantern-ward {
   close first expect blocked
   close second expect blocked
 }";
@@ -714,7 +700,7 @@ proof duplicate speaker protagonist in spoken-proof {
     assert!(!report.checks);
 
     let nonfinal = "\
-proof nonfinal speaker protagonist in spoken-proof {
+proof nonfinal speaker protagonist in lantern-ward {
   close first expect blocked
   assume p1 later
 }";
@@ -726,7 +712,7 @@ proof nonfinal speaker protagonist in spoken-proof {
 #[test]
 fn proof_header_roles_must_be_generic_or_declared_by_the_practice() {
     let proof = "\
-proof bad-role invented-role protagonist in spoken-proof {
+proof bad-role invented-role protagonist in lantern-ward {
   close x expect blocked
 }";
     let report = check(proof, &SceneProjection::new());
@@ -743,8 +729,8 @@ proof bad-role invented-role protagonist in spoken-proof {
 fn malformed_direct_ast_headers_never_check() {
     for proof in [
         "proof empty {\n  close x expect blocked\n}",
-        "proof surplus speaker protagonist in spoken-proof trailing {\n  close x expect blocked\n}",
-        "proof reordered in spoken-proof speaker protagonist {\n  close x expect blocked\n}",
+        "proof surplus speaker protagonist in lantern-ward trailing {\n  close x expect blocked\n}",
+        "proof reordered in lantern-ward speaker protagonist {\n  close x expect blocked\n}",
     ] {
         let report = check_impl(proof, &SceneProjection::new(), true);
         assert!(
@@ -770,7 +756,7 @@ fn malformed_direct_ast_bodies_never_check() {
         "unknown proof child",
     ] {
         let proof = format!(
-            "proof malformed-body speaker protagonist in spoken-proof {{\n  {child}\n  close x expect blocked\n}}"
+            "proof malformed-body speaker protagonist in lantern-ward {{\n  {child}\n  close x expect blocked\n}}"
         );
         let report = check_impl(&proof, &SceneProjection::new(), true);
         assert!(
@@ -785,7 +771,7 @@ fn malformed_direct_ast_bodies_never_check() {
 #[test]
 fn malformed_shape_does_not_rewrite_expectation_outcome() {
     let proof = "\
-proof malformed-body speaker protagonist in spoken-proof {
+proof malformed-body speaker protagonist in lantern-ward {
   assume p1 holds(a)
   unknown proof child
   close holds(a) expect holds
@@ -801,7 +787,7 @@ proof malformed-body speaker protagonist in spoken-proof {
 #[test]
 fn quoted_claim_values_are_not_collapsed_or_split_as_modifiers() {
     let distinct = r#"
-proof distinct speaker protagonist in spoken-proof {
+proof distinct speaker protagonist in lantern-ward {
   assume p1 says(the-seeress, "a b")
   close says(the-seeress, "ab") expect holds
 }"#;
@@ -814,7 +800,7 @@ proof distinct speaker protagonist in spoken-proof {
     );
 
     let balanced = r#"
-proof balanced speaker protagonist in spoken-proof {
+proof balanced speaker protagonist in lantern-ward {
   assume p1 says(the-seeress, "a ) cited marker")
   close says(the-seeress, "a ) cited marker") expect holds
 }"#;
@@ -827,7 +813,7 @@ proof balanced speaker protagonist in spoken-proof {
 #[test]
 fn every_unmet_expectation_raises_a_finding() {
     let held_but_blocked = "\
-proof e01-blocked speaker protagonist in spoken-proof {
+proof e01-blocked speaker protagonist in lantern-ward {
   premise p1 holds(a-fact) from-scene
   close holds(a-fact) expect blocked
 }";
@@ -843,8 +829,8 @@ proof e01-blocked speaker protagonist in spoken-proof {
     );
 
     let failed_but_holds = "\
-proof e01-heldfail speaker protagonist in spoken-proof {
-  premise p1 holds(unwritten) cited D-0999
+proof e01-heldfail speaker protagonist in lantern-ward {
+  premise p1 holds(unwritten) cited D-9
   close x expect holds
 }";
     let report = check(failed_but_holds, &SceneProjection::new());
