@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -25,14 +25,14 @@
           "created": "feature",
           "heads": [
             {
-              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "commit": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
               "name": "main",
-              "ref_digest": "sha256:b8838392795226786fa794db667390902698927dc8281a7ea545d9460b94ea87"
+              "ref_digest": "sha256:8afb87b2c26eea66d146173ada0024424ff63368df09145dbcc6205d031db8c6"
             },
             {
-              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "commit": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
               "name": "feature",
-              "ref_digest": "sha256:d21e910b0f13d09adada019ccec9b2e8f531909f9d7b158254192c0e35dca7e3"
+              "ref_digest": "sha256:b8e5a044e473dadbf7294ee808d0888bd93f50e15b0b8c9fc9fa2b65550ca7c9"
             }
           ]
         }
@@ -60,14 +60,14 @@
           ],
           "heads": [
             {
-              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "commit": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
               "name": "main",
-              "ref_digest": "sha256:b8838392795226786fa794db667390902698927dc8281a7ea545d9460b94ea87"
+              "ref_digest": "sha256:8afb87b2c26eea66d146173ada0024424ff63368df09145dbcc6205d031db8c6"
             },
             {
-              "commit": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+              "commit": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
               "name": "feature",
-              "ref_digest": "sha256:d21e910b0f13d09adada019ccec9b2e8f531909f9d7b158254192c0e35dca7e3"
+              "ref_digest": "sha256:b8e5a044e473dadbf7294ee808d0888bd93f50e15b0b8c9fc9fa2b65550ca7c9"
             }
           ]
         }

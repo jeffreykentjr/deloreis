@@ -33,7 +33,7 @@ application, not DLI, decides who may authorize that declaration.
 *Historical note.* `DL-0004` originally defined two doors — a manual-text path (humans
 writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
 surface to an opt-in rendering; `DL-0043` retired the door semantic entirely.
-`.dli` text survives as a rendering and as the measured fallback below.
+DL-0101 restores `.dli` as a supported authoring and reading surface.
 
 The interface speaks over two transports carrying the same tools: **JSON over
 stdio** (`deloreis serve --project <path>` — one JSON request per line, one JSON
@@ -96,7 +96,7 @@ commit continues opening from that pinned snapshot, and a commit on another
 branch does not advance the main base.
 
 ```json
-{ "op": "author.open", "params": { "scope": "tpth" } }
+{ "op": "author.open", "params": { "scope": "storybook" } }
 ```
 
 ```json
@@ -124,9 +124,8 @@ The workspace supports:
   `rendered: true` opt-in (§4; `decisions.md` DL-0046). It is a mutation, and it
   records the accept/reject of the staged DLI mutation — `author.discard` is the
   reject. The server never writes the consuming repository; what crosses the
-  boundary is JSON, which the caller takes through its own review. A `0.5.1`
-  caller instead receives the pre-`0.6.0` return, the rendered lines as data.
-  From contract `1.9.0` an optional `decision` accepts the committed **facts**
+  boundary is JSON, which the caller takes through its own review. An optional
+  `decision` accepts the committed **facts**
   under a named, recorded, defeasible decision so they read `certain`. The
   conferral is **facts-only**: carriage claims — rules, `same-as` links, and
   inertial declarations — are never stamped and stay `possible`; their standing
@@ -162,17 +161,13 @@ workspace discard, the worker retains compact tombstones for the 1,024 most
 recently discarded workspaces; an older retry is refused as `unknown-doc` and
 can never recreate or mutate the discarded workspace.
 
-`author.materialize` follows this mutation law from contract `0.6.0`, the
-version that made it the durable accept decision (DL-0046). A fresh stale
-digest refuses before commit; an exact keyed retry returns the first result
-without another commit; the same key with different materialize params is a
-conflict. Contract `0.5.1` retains its earlier read classification and refuses
-both fields. `author.branch` and `author.merge` join the same envelope law from
-`1.7.0`.
+`author.materialize`, `author.branch`, and `author.merge` follow this mutation
+law. A stale digest refuses before commit; an exact keyed retry returns the first
+result without another commit; the same key with different params conflicts.
 
 `expected_digest` and `idempotency_key` are declared envelope fields (request
 level, defined for mutating `author.*` calls); the normative wire shape is
-`docs/integration/fantasy-contract.md` §2, and "unknown fields are errors"
+`contracts/dli-worker`, and "unknown fields are errors"
 stands because these are known fields. Workspace digests are RFC 8785 JCS digests
 (contract §4); the short forms shown here are illustrative.
 
@@ -463,11 +458,10 @@ Contract `1.5.0` adds two durable operations over stored claims:
   unchanged.
 - `author.defeat {workspace, claim_id, decision, defeated_decision}` records
   the new defeating decision, verifies that `defeated_decision` supports every
-  path, and changes its effective standing. Through contract `1.12.0`, this is
-  the released one-way false assignment. At `1.13.0`, it appends a conditional
+  path, and changes its effective standing. It appends a conditional
   attack: the target is out while any attacker is in, restores when every
   attacker is out, and remains undecided under self, mutual, or odd cycles. The
-  object remains reachable in either regime.
+  object remains reachable.
 
 `author.record_decision {workspace, decision, rationale?, provenance?}` records
 one baseline decision. Contract `1.13.0` adds
@@ -779,7 +773,7 @@ accepted wire it demonstrates:
 {
   "ok": true,
   "workspace_digest": "wd-12",
-  "rendered": ["scope tpth", "person mireth \"Mireth\"     proposed  session-7c9"],
+  "rendered": ["scope storybook", "person mireth \"Mireth\"     proposed  session-7c9"],
   "findings": []
 }
 ```
@@ -832,47 +826,23 @@ in the closed registry: **golden** (a canonical request and its exact response),
 **negative** (a malformed or invalid request and the typed error it must
 produce), and **framing** (an adversarial-string request and the benign-identical
 behavior it must show). The rule is flat: **a tool without fixtures does not
-exist** — it cannot be listed here, served, or benchmarked.
+exist** — it cannot be listed here or served.
 
 The implemented `2.0.0` surface enforces that rule for all 63 operations. Paired cases declare
 the exact changed request paths and stable safety projection; mutating cases
 probe post-state, and materialized tainted labels must still reparse as
 canonical `.dli`.
 
-Versioning rides the worker-protocol contract: **v0** now, with `N`/`N-1`
-compatibility introduced at the first breaking cutover. `deloreis` owns the
-`contracts/dli-worker` contract and the fantasy repo vendors it pinned and
-digest-checked (`DL-0010`); the contract document, `docs/integration/fantasy-contract.md`,
-is the wire inventory this semantic spec elaborates. Where a tool's `author.*`
-row appears in both, the parameter and result shapes agree; a divergence is a
-contract bug, resolved on the `deloreis` side.
+The worker serves contract **2.0.0**. Earlier versions and removed operations
+are refused through the killed-form registry. The schemas in
+`contracts/dli-worker` define the wire shapes this semantic spec elaborates;
+a divergence is a contract bug.
 
-## 7. The measurement plan
+## 7. Verification
 
-*Retired with the door semantic (DL-0041, DL-0043): with the text surface an
-opt-in rendering, a door decision has nothing left to decide. Preserved for
-the arms' definitions.* The
-benchmark (PLAN nodes `BENCH-1`, `BENCH-2`) arms four conditions over the same
-authoring tasks:
-
-- **the tool surface tools** — the primary path, this document's surface.
-- **Text-surface authoring by an agent** — the measured fallback.
-- **Grammar-constrained local emission** — a benchmark condition, not an interface.
-- **Raw AST-document emission** — the demoted arm, an internal mechanism scored
-  only as a baseline.
-
-Each arm is scored on four axes: **task success** (did the intended world result),
-**finding-resolution rate** (of findings raised, how many the arm cleared before
-materialize), **review burden at the rendered-diff level** (what the human must
-read to sign off), and **canon-safety violations** (any path by which unratified
-claims acquire authority, or a claim materializes past an error-severity finding).
-
-The benchmark's verdicts are a **double-sided promotion trigger**: they may
-promote the tool surface's superiority from hypothesis to measured fact, and they may
-**close** a demoted or fallback path that proves it costs more than it saves.
-Until the benchmark reports, the working hypothesis stands on the sibling receipts
-(`docs/design-notes/sibling-lessons.md`), where path count predicted failure
-surface better than path quality — evidence, not a measured verdict here.
+Authoring examples, contract fixtures, and replay tests exercise the supported
+interface and report its actual guarantees. The retired evaluation program is
+not part of the release.
 
 ## 8. Worked fiction scenario
 

@@ -7,7 +7,7 @@
       "id": "pre",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -21,9 +21,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "term hedgeway proposed session-fx01"
+            "term hedgerow proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:78b6fde344556ce686ead9daac9ec41d6b6e0043356587cdbe8aff0445ef1ed7"
+          "workspace_digest": "jcs:sha256:d8cb8929d93de377683024e541c1bf5deec3641645f52dd0e1d38499644f56cd"
         }
       },
       "send": {
@@ -31,7 +31,7 @@
         "id": "1",
         "op": "author.add_term",
         "params": {
-          "id": "hedgeway",
+          "id": "hedgerow",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -50,7 +50,7 @@
           "rendered": [
             "term ford proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:448e601493bbff8b825ca50f079e3ec1a2975a1ec6ddd78a18dac6d9a0da4359"
+          "workspace_digest": "jcs:sha256:402fa283e297a5163f6fbee800c4cffd4a3b3c447f3a31db580499a67fde2583"
         }
       },
       "send": {
@@ -76,15 +76,15 @@
           "diff_rows": [],
           "findings": [],
           "rendered": [
-            "term hedgeway proposed session-fx01",
+            "term hedgerow proposed session-fx01",
             "term ford proposed session-fx01"
           ],
-          "root_hash": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+          "root_hash": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
           "staged": [
             {
-              "key": "jcs:sha256:cdbd778e035e2c12b5875875daca2d5c30ec911ad57d1452c5fb6fd114ba195c",
+              "key": "jcs:sha256:4c56d1392a556fc40580400490fa038c8dc1f6f7a7364f7657b4ddbfc26c835c",
               "kind": "term",
-              "rendered": "term hedgeway proposed session-fx01"
+              "rendered": "term hedgerow proposed session-fx01"
             },
             {
               "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
@@ -92,7 +92,7 @@
               "rendered": "term ford proposed session-fx01"
             }
           ],
-          "workspace_digest": "jcs:sha256:448e601493bbff8b825ca50f079e3ec1a2975a1ec6ddd78a18dac6d9a0da4359"
+          "workspace_digest": "jcs:sha256:402fa283e297a5163f6fbee800c4cffd4a3b3c447f3a31db580499a67fde2583"
         }
       },
       "send": {
@@ -111,7 +111,7 @@
         "ok": true,
         "result": {
           "discarded": true,
-          "workspace_digest": "jcs:sha256:cc8afbb397710036b4a414693bb876c042a3716be109a39ca7d5461c3b6091ae"
+          "workspace_digest": "jcs:sha256:07c22a14888f2430085cebf737ed1eae2b12b8254aa4ad6e099674ddba8af3ab"
         }
       },
       "send": {
@@ -119,7 +119,7 @@
         "id": "4",
         "op": "author.discard",
         "params": {
-          "decl": "jcs:sha256:cdbd778e035e2c12b5875875daca2d5c30ec911ad57d1452c5fb6fd114ba195c",
+          "decl": "jcs:sha256:4c56d1392a556fc40580400490fa038c8dc1f6f7a7364f7657b4ddbfc26c835c",
           "workspace": "ws-1"
         }
       }
@@ -135,7 +135,7 @@
           "rendered": [
             "term ford proposed session-fx01"
           ],
-          "root_hash": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+          "root_hash": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
           "staged": [
             {
               "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
@@ -143,7 +143,7 @@
               "rendered": "term ford proposed session-fx01"
             }
           ],
-          "workspace_digest": "jcs:sha256:cc8afbb397710036b4a414693bb876c042a3716be109a39ca7d5461c3b6091ae"
+          "workspace_digest": "jcs:sha256:07c22a14888f2430085cebf737ed1eae2b12b8254aa4ad6e099674ddba8af3ab"
         }
       },
       "send": {

@@ -345,7 +345,7 @@ loosely, save canonical), the graded error ladder speaking the domain (§4), the
 gentle subset, and the reference cards. Everything, whatever path produced it, is
 **reviewed as surface** — the author reads one form of the language, always. A
 nicer keyboard is not a new door: a click-to-edit form over lore entities in a
-factory UI serves the human population with a different keyboard,
+authoring interface serves the human population with a different keyboard,
 its output surface text reviewed as surface.
 
 **the tool surface — agents author through semantic tools (DL-0014).** Agents do not write

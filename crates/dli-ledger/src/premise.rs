@@ -154,10 +154,10 @@ impl SceneProjection {
     /// use dli_ledger::premise::{PremiseStatus, SceneProjection};
     ///
     /// let scene = SceneProjection::new()
-    ///     .seat("holds(enfys, consent(household, door))")
+    ///     .seat("holds(linet, consent(household, door))")
     ///     .deny("hour(spring-tide)");
     /// assert_eq!(
-    ///     scene.availability("holds(enfys, consent(household, door))"),
+    ///     scene.availability("holds(linet, consent(household, door))"),
     ///     PremiseStatus::Available
     /// );
     /// assert_eq!(scene.availability("hour(spring-tide)"), PremiseStatus::Contradicted);

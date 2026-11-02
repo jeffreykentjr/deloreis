@@ -1,8 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Export coverage: the frozen wire types, the export core, the shared keep-stamp
-//! visibility filter, and the generic context-pack and articy backends. The
-//! world-specific card/Ludii render (the Turning) is exercised in the `tpth` crate;
-//! everything here is world-agnostic engine mechanism, tested on neutral profiles.
+//! visibility filter, and the generic context-pack and articy backends, tested
+//! with neutral profiles.
 
 use std::collections::BTreeMap;
 
@@ -342,7 +341,7 @@ fn articy_v1_maps_entities_scopes_and_quests() {
         loaded_fact("person", &["the-reeve"]),
         loaded_fact("place", &["the-mill"]),
         loaded_relation("owes", &["the-reeve", "the-mill"]),
-        loaded_relation("knows", &["lowlands", "owes(the-reeve, the-mill)"]),
+        loaded_relation("knows", &["moorlands", "owes(the-reeve, the-mill)"]),
         loaded_relation("promise", &["mend-the-weir"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
@@ -380,13 +379,13 @@ fn articy_v1_maps_entities_scopes_and_quests() {
     assert_eq!(quest.state, "hook");
     assert_eq!(quest.flow, vec!["hook".to_owned()]);
 
-    // The `knows` atom licenses the lowlands scope to know the owes fact.
+    // The `knows` atom licenses the moorlands scope to know the owes fact.
     let owes = export
         .facts
         .iter()
         .find(|fact| fact.claim == "owes(the-reeve, the-mill)")
         .expect("the owes fact");
-    assert_eq!(owes.who_may_know, vec!["lowlands".to_owned()]);
+    assert_eq!(owes.who_may_know, vec!["moorlands".to_owned()]);
 }
 
 #[test]
@@ -982,7 +981,7 @@ fn loaded_atom(pred: &str, args: Vec<Term>) -> LoadedAtom {
         ann: Ann::unconditional(),
         kind: Provenance::Ratified,
         citations: Vec::new(),
-        pack: "turning".to_owned(),
+        pack: "moon-cycle".to_owned(),
         span: Span::synthetic(),
     }
 }

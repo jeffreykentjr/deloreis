@@ -30,7 +30,7 @@
 //! `registers.yaml`, not a redesign — one linguistic-zone profile becomes one
 //! scope (05 §1). The composition *weights* the legacy generator sampled do
 //! **not** migrate: they are proposal policy, not world fact, and stay
-//! factory-side.
+//! application-side.
 
 use dli_ast::annot::{Annotation, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{Decl, DialectDecl, Document, NamePartDecl, RatifyDecl};
@@ -165,7 +165,7 @@ pub struct NameKind {
 /// A compiled register — a claim about a linguistic zone of the world (05 §1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DialectDef {
-    /// The register name (e.g. `cymric-fringe`).
+    /// The register name (e.g. `elder-tongue-fringe`).
     pub name: String,
     /// The display label, if written.
     pub label: Option<String>,
@@ -241,7 +241,7 @@ pub struct BanDef {
 /// (05 §5).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Hypothesis {
-    /// The hypothesis name (e.g. `h-cymric-loans`).
+    /// The hypothesis name (e.g. `h-elder-tongue-loans`).
     pub name: String,
     /// The statement text, if written.
     pub statement: Option<String>,
@@ -677,7 +677,7 @@ mod tests {
     fn register_phonotactics_and_name_kinds_compile() {
         let m = model(
             "scope language\n\
-             dialect cymric \"fringe\" ratified D-1 {\n\
+             dialect elder-tongue \"fringe\" ratified D-1 {\n\
              vowels a e i o u w y\n\
              endings -ys -wen\n\
              foreign qu x z\n\
@@ -687,7 +687,7 @@ mod tests {
              name-part en \"spirit\" role given-proto ratified D-1\n\
              }\n",
         );
-        let reg = m.register("cymric").expect("compiled");
+        let reg = m.register("elder-tongue").expect("compiled");
         assert_eq!(reg.phonotactics.vowels, ["a", "e", "i", "o", "u", "w", "y"]);
         assert_eq!(reg.phonotactics.endings, ["ys", "wen"]);
         assert_eq!(reg.phonotactics.foreign, ["qu", "x", "z"]);

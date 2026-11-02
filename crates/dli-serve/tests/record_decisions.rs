@@ -27,9 +27,9 @@ fn result(response: dli_serve::Response) -> Value {
     response.result.expect("successful request has a result")
 }
 
-fn mara_pack() -> Pack {
+fn nara_pack() -> Pack {
     let (document, diagnostics) =
-        dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+        dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
     assert!(
         diagnostics
             .iter()
@@ -41,14 +41,14 @@ fn mara_pack() -> Pack {
     }
 }
 
-fn store_with_mara() -> (tempfile::TempDir, Store) {
+fn store_with_nara() -> (tempfile::TempDir, Store) {
     let root = tempfile::tempdir().expect("temporary store root");
     std::fs::write(
         root.path().join("deloreis.toml"),
         "version = 1\nname = \"record-decisions\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
     )
     .expect("write project manifest");
-    let mut store = Store::with_pack(mara_pack()).expect("base compiles");
+    let mut store = Store::with_pack(nara_pack()).expect("base compiles");
     store
         .attach_lorestore(root.path().join("lorestore"))
         .expect("attach lorestore");
@@ -104,7 +104,7 @@ fn head(store: &Store, ws: &str) -> dli_lorestore::ContentHash {
 
 #[test]
 fn forward_and_cyclic_same_batch_citations_are_validated_as_a_whole() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     let value = bulk(
         &mut store,
@@ -130,7 +130,7 @@ fn forward_and_cyclic_same_batch_citations_are_validated_as_a_whole() {
 
 #[test]
 fn duplicate_and_unknown_citation_findings_are_atomic_and_identify_records() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     let before = head(&store, &ws);
     let value = bulk(
@@ -162,7 +162,7 @@ fn duplicate_and_unknown_citation_findings_are_atomic_and_identify_records() {
 
 #[test]
 fn mixed_known_and_new_records_preserve_order_and_all_known_is_zero_write() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     bulk(&mut store, &ws, &json!([{"decision":"known"}]));
     let value = bulk(
@@ -203,7 +203,7 @@ fn mixed_known_and_new_records_preserve_order_and_all_known_is_zero_write() {
 
 #[test]
 fn one_thousand_twenty_four_records_use_one_commit_and_one_prepared_compile() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     let before = head(&store, &ws);
     let before_depth = store
@@ -233,8 +233,8 @@ fn one_thousand_twenty_four_records_use_one_commit_and_one_prepared_compile() {
 
 #[test]
 fn one_record_has_the_same_semantics_as_record_decision() {
-    let (_single_root, mut single) = store_with_mara();
-    let (_bulk_root, mut batched) = store_with_mara();
+    let (_single_root, mut single) = store_with_nara();
+    let (_bulk_root, mut batched) = store_with_nara();
     let single_ws = open(&mut single);
     let bulk_ws = open(&mut batched);
 
@@ -258,7 +258,7 @@ fn one_record_has_the_same_semantics_as_record_decision() {
                 Op::AuthorAddFact,
                 json!({
                     "workspace":workspace,
-                    "entity":"mara", "key":"rank", "value":"captain",
+                    "entity":"nara", "key":"rank", "value":"captain",
                     "provenance":cited("d-one")
                 }),
             ),
@@ -298,7 +298,7 @@ fn one_record_has_the_same_semantics_as_record_decision() {
             &req(
                 "why",
                 Op::AuthorWhy,
-                json!({"workspace":workspace, "goal_atom":atom("rank", &["mara", "captain"])}),
+                json!({"workspace":workspace, "goal_atom":atom("rank", &["nara", "captain"])}),
             ),
             store,
         ))
@@ -315,7 +315,7 @@ fn one_record_has_the_same_semantics_as_record_decision() {
 
 #[test]
 fn bulk_decisions_drive_fact_rule_why_and_defeat() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     bulk(
         &mut store,
@@ -331,7 +331,7 @@ fn bulk_decisions_drive_fact_rule_why_and_defeat() {
             "fact",
             Op::AuthorAddFact,
             json!({
-                "workspace":ws, "entity":"mara", "key":"rank", "value":"captain",
+                "workspace":ws, "entity":"nara", "key":"rank", "value":"captain",
                 "provenance":cited("d-fact")
             }),
         ),
@@ -355,7 +355,7 @@ fn bulk_decisions_drive_fact_rule_why_and_defeat() {
         &req(
             "why-before",
             Op::AuthorWhy,
-            json!({"workspace":ws, "goal_atom":atom("honored", &["mara"])}),
+            json!({"workspace":ws, "goal_atom":atom("honored", &["nara"])}),
         ),
         &mut store,
     ));
@@ -402,7 +402,7 @@ fn bulk_decisions_drive_fact_rule_why_and_defeat() {
             Op::AuthorQuery,
             json!({
                 "workspace":ws,
-                "goal_atom":atom("honored", &["mara"]),
+                "goal_atom":atom("honored", &["nara"]),
                 "layer":"all"
             }),
         ),
@@ -417,7 +417,7 @@ fn bulk_decisions_drive_fact_rule_why_and_defeat() {
 
 #[test]
 fn stale_workspace_digest_refuses_the_complete_batch() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let opened = result(dispatch(
         &req("open-stale", Op::AuthorOpen, json!({"scope":"demo"})),
         &mut store,
@@ -432,7 +432,7 @@ fn stale_workspace_digest_refuses_the_complete_batch() {
             "move-digest",
             Op::AuthorAddFact,
             json!({
-                "workspace":ws, "entity":"mara", "key":"color", "value":"red",
+                "workspace":ws, "entity":"nara", "key":"color", "value":"red",
                 "provenance":{"kind":"proposed", "origin":"stale-test"}
             }),
         ),
@@ -461,8 +461,8 @@ fn stale_workspace_digest_refuses_the_complete_batch() {
 
 #[test]
 fn singleton_and_bulk_missing_state_share_the_live_contract_refusal() {
-    let (_single_root, mut single) = store_with_mara();
-    let (_bulk_root, mut batched) = store_with_mara();
+    let (_single_root, mut single) = store_with_nara();
+    let (_bulk_root, mut batched) = store_with_nara();
     let single_ws = open(&mut single);
     let bulk_ws = open(&mut batched);
     let single_before = head(&single, &single_ws);
@@ -514,8 +514,8 @@ fn singleton_and_bulk_missing_state_share_the_live_contract_refusal() {
 
 #[test]
 fn singleton_and_bulk_preserve_the_legacy_cited_refusal_without_writes() {
-    let (_single_root, mut single) = store_with_mara();
-    let (_bulk_root, mut batched) = store_with_mara();
+    let (_single_root, mut single) = store_with_nara();
+    let (_bulk_root, mut batched) = store_with_nara();
     let single_ws = open(&mut single);
     let bulk_ws = open(&mut batched);
     let single_before = head(&single, &single_ws);
@@ -566,7 +566,7 @@ fn singleton_and_bulk_preserve_the_legacy_cited_refusal_without_writes() {
 
 #[test]
 fn older_contract_rejects_bulk_without_moving_the_single_operation() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let ws = open(&mut store);
     let mut request = req(
         "old",
@@ -597,7 +597,7 @@ fn older_contract_rejects_bulk_without_moving_the_single_operation() {
 
 #[test]
 fn branch_routing_and_idempotent_retry_preserve_isolation() {
-    let (_root, mut store) = store_with_mara();
+    let (_root, mut store) = store_with_nara();
     let main_before = store
         .lorestore_for("demo")
         .expect("demo lorestore")
@@ -668,7 +668,7 @@ fn branch_routing_and_idempotent_retry_preserve_isolation() {
 fn release_scale_harness_reports_phase_timings_and_counters() {
     for count in [1_024_usize, 4_096, 16_384, 65_536] {
         let setup_started = Instant::now();
-        let (_root, mut store) = store_with_mara();
+        let (_root, mut store) = store_with_nara();
         let ws = open(&mut store);
         let before = head(&store, &ws);
         let setup_elapsed = setup_started.elapsed();

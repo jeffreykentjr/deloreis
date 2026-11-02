@@ -142,7 +142,7 @@ fn skewed_canon_store() -> tempfile::TempDir {
             decision: id("D-control"),
             body: RatifyBody::default(),
         }),
-        entity("mara", "D-dead"),
+        entity("nara", "D-dead"),
         entity("moira", "D-control"),
     ];
     let mut interner = dli_core::Interner::from_names(vec![
@@ -201,8 +201,8 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             json!({
                 "workspace": workspace,
                 "kind": "person",
-                "id": "mara",
-                "name": "Mara",
+                "id": "nara",
+                "name": "Nara",
                 "provenance": {
                     "kind": "cited",
                     "decisions": ["D-1"],
@@ -242,7 +242,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
         .expect("materialize returns the stored claim id")
         .to_owned();
     assert_eq!(
-        claim_id, "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+        claim_id, "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
         "the fixture claim identity is part of the deterministic contract"
     );
     assert_eq!(
@@ -262,7 +262,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             .as_array()
             .expect("person rows")
             .iter()
-            .any(|row| row["id"] == "mara" && row["status"] == "provisional"),
+            .any(|row| row["id"] == "nara" && row["status"] == "provisional"),
         "1.5 cited provisional authoring must reach canon: {provisional_canon}"
     );
 
@@ -359,7 +359,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal": "person(mara)",
+                "goal": "person(nara)",
                 "layer": "all"
             }),
         ),
@@ -428,7 +428,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             .as_array()
             .expect("person rows")
             .iter()
-            .all(|row| row["id"] != "mara"),
+            .all(|row| row["id"] != "nara"),
         "canon excludes the dead claim while the object remains stored: {defeated_canon}"
     );
 }
@@ -461,7 +461,7 @@ fn canon_applies_a_post_compile_durable_overlay_by_exact_name() {
         .as_array()
         .expect("canon person rows");
     assert!(
-        people.iter().all(|row| row["id"] != "mara"),
+        people.iter().all(|row| row["id"] != "nara"),
         "the exact-name false ruling removes only its supported claim: {exported}"
     );
     assert!(

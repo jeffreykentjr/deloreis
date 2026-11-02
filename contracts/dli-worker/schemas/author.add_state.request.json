@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "id": {
-      "description": "The state name; may be dotted, e.g. `gwern.water-status`.",
+      "description": "The state name; may be dotted, e.g. `joren.water-status`.",
       "type": "string"
     },
     "provenance": {

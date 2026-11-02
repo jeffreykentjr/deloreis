@@ -13,7 +13,7 @@
 //!
 //! Only the **world-true** half lives here. The world-safe screens — AI-tics,
 //! pop-culture collisions, English homophones, anachronism, portent clichés,
-//! tarot-figure knowledge — stay factory-side: they are facts about *our* world,
+//! tarot-figure knowledge — stay application-side: they are facts about *our* world,
 //! change on research's schedule, and must never gate assertability (05 §3). A
 //! [`LangFinding`] is therefore always a claim about the story's world.
 //!
@@ -53,7 +53,7 @@ const DEFAULT_SAYABILITY_CAP: usize = 6;
 /// A naming verdict about the story's world (05 §3, in-kernel half).
 ///
 /// Every variant is world-true: it is a fact about the tongue, the name-space, or
-/// a ruling — never a factory-side screen. Each carries a stable machine-readable
+/// a ruling — never a application-side screen. Each carries a stable machine-readable
 /// [`code`](LangFinding::code) and a domain-spoken [`message`](LangFinding::message).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "finding", rename_all = "kebab-case")]
@@ -398,7 +398,7 @@ pub fn check_language(model: &LanguageModel) -> Vec<LangFinding> {
 /// use dli_syntax::parse_document;
 ///
 /// let src = "scope language\n\
-///            dialect cymric-fringe \"the fringe tongue\" ratified D-1 {\n\
+///            dialect elder-tongue-fringe \"the fringe tongue\" ratified D-1 {\n\
 ///            vowels a e i o u\n\
 ///            foreign z\n\
 ///            cluster-max 2\n\
@@ -406,9 +406,9 @@ pub fn check_language(model: &LanguageModel) -> Vec<LangFinding> {
 /// let (doc, _d) = parse_document(src);
 /// let model = LanguageModel::from_documents(&[doc]).model;
 /// // A pile-up of register-foreign consonants fails the frame.
-/// assert!(!vet_candidate_in_dialect(&model, "Zzgrbl", "cymric-fringe").is_empty());
+/// assert!(!vet_candidate_in_dialect(&model, "Zzgrbl", "elder-tongue-fringe").is_empty());
 /// // A register-shaped candidate clears it.
-/// assert!(vet_candidate_in_dialect(&model, "Aelin", "cymric-fringe").is_empty());
+/// assert!(vet_candidate_in_dialect(&model, "Aelin", "elder-tongue-fringe").is_empty());
 /// // An unknown register is a register-fit failure.
 /// assert!(vet_candidate_in_dialect(&model, "Aelin", "no-such").is_empty() == false);
 /// ```
@@ -668,7 +668,7 @@ fn display_key(name: &super::name::NameDef) -> String {
 /// ```
 /// use dli_world::language::phonetic_key;
 /// assert_eq!(phonetic_key("Trefpenn"), phonetic_key("Trefpen"));
-/// assert_ne!(phonetic_key("Gwern"), phonetic_key("Swartby"));
+/// assert_ne!(phonetic_key("Joren"), phonetic_key("Swartby"));
 /// ```
 #[must_use]
 pub fn phonetic_key(name: &str) -> String {
@@ -922,8 +922,8 @@ mod tests {
     fn phonetic_key_folds_doubles_and_classes() {
         assert_eq!(phonetic_key("Trefpenn"), phonetic_key("Trefpen"));
         assert_eq!(phonetic_key("Whitecombe"), "witekombe");
-        assert!(aural_clash("Gwern", "Gwerne").is_some());
-        assert!(aural_clash("Gwern", "Swartby").is_none());
+        assert!(aural_clash("Joren", "Jorene").is_some());
+        assert!(aural_clash("Joren", "Swartby").is_none());
     }
 
     #[test]
@@ -936,8 +936,8 @@ mod tests {
     #[test]
     fn syllables_count_vowel_groups() {
         assert_eq!(syllable_count("halspetra"), 3);
-        assert_eq!(syllable_count("gwern"), 1);
-        assert_eq!(syllable_count("enfys"), 2);
+        assert_eq!(syllable_count("jorn"), 1);
+        assert_eq!(syllable_count("linet"), 2);
     }
 
     #[test]

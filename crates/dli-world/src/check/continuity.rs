@@ -1,7 +1,6 @@
 //! The six continuity classes over the compiled world (`CHECK-1`).
 //!
-//! Ported faithfully from the legacy continuity checker (the consuming repo's
-//! `fantasy.world.continuity`), whose six violation classes are:
+//! The continuity checker recognizes these six violation classes:
 //!
 //! | legacy code | dli-world code | where it fires |
 //! |---|---|---|

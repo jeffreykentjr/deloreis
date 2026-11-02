@@ -86,16 +86,16 @@ fn document(decls: Vec<Decl>) -> Document {
 fn decls(with_functional: bool) -> Vec<Decl> {
     let mut decls = vec![
         ratify_decl("D-1"),
-        fact("rank", &["gwern", "high"], Some(ratified("D-1"))),
+        fact("rank", &["joren", "high"], Some(ratified("D-1"))),
     ];
     if with_functional {
         decls.push(functional("rank", Some(ratified("D-1"))));
     }
-    decls.push(fact("linked", &["gwern", "enclosure"], Some(proposed())));
+    decls.push(fact("linked", &["joren", "enclosure"], Some(proposed())));
     if with_functional {
         decls.push(functional("mood", Some(proposed())));
     }
-    decls.push(fact("omen", &["gwern", "storm"], Some(proposed())));
+    decls.push(fact("omen", &["joren", "storm"], Some(proposed())));
     decls
 }
 
@@ -186,9 +186,9 @@ fn eval_functional_decl_leaves_neighbouring_standings_intact() {
         .fixpoint()
         .expect("saturates");
     for (pred, args, expected) in [
-        ("rank", ["gwern", "high"], Status::Certain),
-        ("linked", ["gwern", "enclosure"], Status::Possible),
-        ("omen", ["gwern", "storm"], Status::Possible),
+        ("rank", ["joren", "high"], Status::Certain),
+        ("linked", ["joren", "enclosure"], Status::Possible),
+        ("omen", ["joren", "storm"], Status::Possible),
     ] {
         let answer = world
             .query(&Query {

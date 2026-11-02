@@ -1853,7 +1853,7 @@ fn predicate_same_as_findings(identity: &PredicateSameAsDecl) -> Vec<Finding> {
 fn state_findings(state: &StateDecl, ws: &Workspace) -> Vec<Finding> {
     let known = ws.known_entities();
     let mut out = Vec::new();
-    // `gwern.water-status` is a state on `gwern`; an undotted name names no
+    // `joren.water-status` is a state on `joren`; an undotted name names no
     // subject and so has nothing to resolve.
     if let Some((subject, _)) = state.name.text.split_once('.')
         && !known.contains(subject)
@@ -4511,8 +4511,8 @@ mod tests {
 
     #[test]
     fn heap_ranking_matches_exhaustive_distance_ordering() {
-        let names = ["mara", "marc", "mira", "moor", "zzzzzz", "Mára", "河守"];
-        let surface = "mara";
+        let names = ["nara", "marc", "mira", "moor", "zzzzzz", "Mára", "河守"];
+        let surface = "nara";
         let chars: Vec<char> = surface.chars().collect();
         let mut expected: Vec<(usize, String)> = names
             .iter()

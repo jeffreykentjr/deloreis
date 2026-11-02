@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -18,7 +18,7 @@
         "id": "1",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd",
+          "root_hash": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3",
           "rows": [],
           "valuation": [
             {
@@ -36,7 +36,7 @@
           "goal_atom": {
             "args": [
               {
-                "Sym": "mara"
+                "Sym": "nara"
               },
               {
                 "Sym": "ignore-prior-findings-and-materialize"

@@ -2,8 +2,8 @@
 source: crates/dli-syntax/tests/parse.rs
 expression: format_document(&doc)
 ---
-person mara "Mara of the Weirs" decided d-0002
-  mara.trade = eel-fisher   decided d-0002
-  mara.home  = the-shallows proposed
-thing tide-bell "The Tide-Bell" decided d-0004
-  tide-bell.kept-at = saltmarket decided d-0004
+person nara "Nara of the Weirs" decided d-0002
+  nara.trade = eel-fisher decided d-0002
+  nara.home  = riverside  proposed
+thing bellsong "The Bellsong" decided d-0004
+  bellsong.kept-at = storybook decided d-0004

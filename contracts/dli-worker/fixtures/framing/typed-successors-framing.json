@@ -2,7 +2,7 @@
   "fixture": "framing/typed-successors-framing",
   "version": 1,
   "marker": "__DLI_FRAME_ATTACK__",
-  "note": "Paired control/attack framing over the 0.6.3 TYPED successor fields (LS-7): the attack string rides inside the structured goal_atom / additions rather than inside a rendered line. Structure is not authority — a typed atom carrying instruction-shaped text is answered as data, and the taint stays confined to the rows or delta that quote it. dli.payload-submit's typed claim has no paired case here because no payload-submit response path echoes a claim atom, so the harness could not witness the changed parameter; its taint confinement is proven by the 0.5.1 case in framing/paired-all-ops-v1 and its typed field by golden/payload-submit-typed-claim-v1.",
+  "note": "Paired control/attack framing over the 0.6.3 TYPED successor fields (LS-7): the attack string rides inside the structured goal_atom / additions rather than inside a rendered line. Structure is not authority \u2014 a typed atom carrying instruction-shaped text is answered as data, and the taint stays confined to the rows or delta that quote it. dli.payload-submit's typed claim has no paired case here because no payload-submit response path echoes a claim atom, so the harness could not witness the changed parameter; its taint confinement is proven by the 0.5.1 case in framing/paired-all-ops-v1 and its typed field by golden/payload-submit-typed-claim-v1.",
   "cases": [
     {
       "op": "dli.query",
@@ -11,7 +11,7 @@
         "id": "1",
         "op": "dli.query",
         "params": {
-          "document": "saltmarket",
+          "document": "storybook",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -23,7 +23,10 @@
             },
             "args": [
               {
-                "Str": "control"
+                "Sym": "witness"
+              },
+              {
+                "Sym": "control"
               }
             ]
           }
@@ -34,7 +37,7 @@
         "id": "1",
         "op": "dli.query",
         "params": {
-          "document": "saltmarket",
+          "document": "storybook",
           "goal_atom": {
             "pred": {
               "text": "marker",
@@ -46,14 +49,17 @@
             },
             "args": [
               {
-                "Str": "__DLI_FRAME_ATTACK__"
+                "Sym": "witness"
+              },
+              {
+                "Sym": "__DLI_FRAME_ATTACK__"
               }
             ]
           }
         }
       },
       "changed_paths": [
-        "/params/goal_atom/args/0/Str"
+        "/params/goal_atom/args/1/Sym"
       ],
       "compare_paths": [
         "/ok",
@@ -72,7 +78,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -93,7 +99,10 @@
             },
             "args": [
               {
-                "Str": "control"
+                "Sym": "witness"
+              },
+              {
+                "Sym": "control"
               }
             ]
           }
@@ -116,14 +125,17 @@
             },
             "args": [
               {
-                "Str": "__DLI_FRAME_ATTACK__"
+                "Sym": "witness"
+              },
+              {
+                "Sym": "__DLI_FRAME_ATTACK__"
               }
             ]
           }
         }
       },
       "changed_paths": [
-        "/params/goal_atom/args/0/Str"
+        "/params/goal_atom/args/1/Sym"
       ],
       "compare_paths": [
         "/ok",
@@ -142,7 +154,7 @@
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
-            "document": "saltmarket"
+            "document": "storybook"
           }
         }
       ],
@@ -192,7 +204,7 @@
         "id": "probe",
         "op": "dli.fork.list",
         "params": {
-          "document": "saltmarket"
+          "document": "storybook"
         }
       },
       "probe_compare_paths": [

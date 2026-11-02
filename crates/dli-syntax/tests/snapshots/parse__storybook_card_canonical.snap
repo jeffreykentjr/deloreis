@@ -1,0 +1,12 @@
+---
+source: crates/dli-syntax/tests/parse.rs
+expression: format_document(&doc)
+---
+scope storybook
+
+era founding "The Landing"    decided d-0001
+era now      "The Ninth Year" after founding
+place storybook "Storybook" decided d-0001
+place riverside "Riverside" decided d-0003
+place jetty     "The Jetty" proposed
+adjacent(storybook, riverside) decided d-0003

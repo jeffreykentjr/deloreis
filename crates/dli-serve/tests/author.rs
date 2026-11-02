@@ -78,14 +78,15 @@ fn open_fork(store: &mut Store, fork: &str) -> String {
 /// on a pre-existing entity. The decision `D-0001` is declared (`ratify`) so the
 /// citation reads certain rather than fail-closed as an unknown decision.
 fn base_with_place(place: &str) -> Store {
-    let source = format!("scope tpth\nratify D-0001\nplace {place} \"{place}\"  ratified D-0001\n");
+    let source =
+        format!("scope storybook\nratify D-0001\nplace {place} \"{place}\"  ratified D-0001\n");
     let (document, diagnostics) = dli_syntax::parse_document(&source);
     assert!(
         diagnostics.is_empty(),
         "base source parses: {diagnostics:?}"
     );
     let pack = dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     };
     let world = dli_world::compile(&pack).expect("base compiles");
@@ -97,22 +98,22 @@ fn base_with_place(place: &str) -> Store {
 #[test]
 fn golden_session_flows_end_to_end() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
 
     // Two entities, then a fact relating them — all clean but for the naming nudge.
-    let mara = send(
+    let nara = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
-    assert_eq!(codes(result(&mara)), vec!["name.unvetted"]);
+    assert_eq!(codes(result(&nara)), vec!["name.unvetted"]);
     assert_eq!(
-        result(&mara)["rendered"],
-        json!(["person mara \"Mara\" proposed session-fx01"])
+        result(&nara)["rendered"],
+        json!(["person nara \"Nara\" proposed session-fx01"])
     );
 
     let shallows = send(
@@ -120,7 +121,7 @@ fn golden_session_flows_end_to_end() {
         &req(
             "3",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "place", "id": "the-shallows", "name": "The Shallows",
+            json!({ "workspace": ws, "kind": "place", "id": "riverside", "name": "Riverside",
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
@@ -131,7 +132,7 @@ fn golden_session_flows_end_to_end() {
         &req(
             "4",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "mara", "key": "home", "value": "the-shallows",
+            json!({ "workspace": ws, "entity": "nara", "key": "home", "value": "riverside",
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
@@ -139,7 +140,7 @@ fn golden_session_flows_end_to_end() {
     assert!(codes(result(&fact)).is_empty());
     assert_eq!(
         result(&fact)["rendered"],
-        json!(["mara.home = the-shallows proposed session-fx01"])
+        json!(["nara.home = riverside proposed session-fx01"])
     );
 
     let diff = send(
@@ -149,9 +150,9 @@ fn golden_session_flows_end_to_end() {
     assert_eq!(
         result(&diff)["rendered"],
         json!([
-            "person mara \"Mara\" proposed session-fx01",
-            "place the-shallows \"The Shallows\" proposed session-fx01",
-            "mara.home = the-shallows proposed session-fx01"
+            "person nara \"Nara\" proposed session-fx01",
+            "place riverside \"Riverside\" proposed session-fx01",
+            "nara.home = riverside proposed session-fx01"
         ])
     );
     assert!(
@@ -174,11 +175,11 @@ fn golden_session_flows_end_to_end() {
     assert_eq!(
         result(&materialized)["rendered"],
         json!([
-            "scope saltmarket",
+            "scope storybook",
             "",
-            "person mara \"Mara\" proposed session-fx01",
-            "place the-shallows \"The Shallows\" proposed session-fx01",
-            "mara.home = the-shallows proposed session-fx01"
+            "person nara \"Nara\" proposed session-fx01",
+            "place riverside \"Riverside\" proposed session-fx01",
+            "nara.home = riverside proposed session-fx01"
         ])
     );
     assert!(codes(result(&materialized)).is_empty());
@@ -188,15 +189,16 @@ fn golden_session_flows_end_to_end() {
 fn add_state_then_query_surfaces_the_fluent() {
     // Issue 47: `author.add_state` must produce a queryable fact, not a claim
     // that vanishes. The state answers a query for its predicate end-to-end.
-    let (document, diagnostics) =
-        dli_syntax::parse_document("scope tpth\nratify d-1\nperson gwern \"Gwern\" decided d-1\n");
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope storybook\nratify d-1\nperson joren \"Joren\" decided d-1\n",
+    );
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     let mut store = Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles");
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let added = send(
         &mut store,
         &req(
@@ -204,7 +206,7 @@ fn add_state_then_query_surfaces_the_fluent() {
             Op::AuthorAddState,
             json!({
                 "workspace": ws,
-                "id": "gwern.water-status",
+                "id": "joren.water-status",
                 "value": "commons",
                 "provenance": {"kind": "proposed", "origin": "session-7c9"}
             }),
@@ -217,7 +219,7 @@ fn add_state_then_query_surfaces_the_fluent() {
         &req(
             "query",
             Op::AuthorQuery,
-            json!({"workspace": ws, "goal": "water-status(gwern, ?value)"}),
+            json!({"workspace": ws, "goal": "water-status(joren, ?value)"}),
         ),
     );
     let query_result = result(&queried);
@@ -229,15 +231,16 @@ fn add_state_then_query_surfaces_the_fluent() {
 
 #[test]
 fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
-    let (document, diagnostics) =
-        dli_syntax::parse_document("scope tpth\nratify d-1\nplace mara \"Mara\" decided d-1\n");
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope storybook\nratify d-1\nplace nara \"Nara\" decided d-1\n",
+    );
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     let mut store = Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles");
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let added = send(
         &mut store,
         &req(
@@ -245,7 +248,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
             Op::AuthorAddFact,
             json!({
                 "workspace": ws,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "role",
                 "value": "river warden",
                 "provenance": {"kind": "proposed", "origin": "session-7c9"}
@@ -254,7 +257,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
     );
     assert_eq!(
         result(&added)["rendered"],
-        json!(["mara.role = \"river warden\" proposed session-7c9"])
+        json!(["nara.role = \"river warden\" proposed session-7c9"])
     );
 
     let queried = send(
@@ -262,7 +265,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
         &req(
             "query",
             Op::AuthorQuery,
-            json!({"workspace": ws, "goal": "role(mara, ?value)"}),
+            json!({"workspace": ws, "goal": "role(nara, ?value)"}),
         ),
     );
     let query_result = result(&queried);
@@ -307,7 +310,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
 fn framing_string_leaves_the_verdict_unchanged() {
     let benign = {
         let mut store = Store::default();
-        let ws = open_scope(&mut store, "saltmarket");
+        let ws = open_scope(&mut store, "storybook");
         let response = send(
             &mut store,
             &req(
@@ -321,7 +324,7 @@ fn framing_string_leaves_the_verdict_unchanged() {
     };
 
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let attack = send(
         &mut store,
         &req(
@@ -350,21 +353,21 @@ fn framing_string_leaves_the_verdict_unchanged() {
 #[test]
 fn stale_fence_refuses_a_moved_workspace() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     // Stage one entity so the digest has moved off its open value.
     send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
     let mut stale = req(
         "3",
         Op::AuthorAddFact,
-        json!({ "workspace": ws, "entity": "mara", "key": "home", "value": "x",
+        json!({ "workspace": ws, "entity": "nara", "key": "home", "value": "x",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     stale.expected_digest = Some("jcs:sha256:deadbeef".to_owned());
@@ -379,11 +382,11 @@ fn stale_fence_refuses_a_moved_workspace() {
 #[test]
 fn idempotent_retry_replays_and_stages_nothing() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let mut call = req(
         "2",
         Op::AuthorAddEntity,
-        json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+        json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     call.idempotency_key = Some("idem-1".to_owned());
@@ -407,7 +410,7 @@ fn idempotent_retry_replays_and_stages_nothing() {
 #[test]
 fn whole_workspace_discard_replays_without_resurrecting_the_workspace() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let mut discard = req("2", Op::AuthorDiscard, json!({ "workspace": ws }));
     discard.idempotency_key = Some("discard-1".to_owned());
 
@@ -455,14 +458,14 @@ fn unknown_workspace_is_unknown_doc() {
 #[test]
 fn materialize_refuses_on_error_findings_then_succeeds_when_resolved() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     // A relation to an entity not in scope: staged, but an error finding.
     let relation = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddRelation,
-            json!({ "workspace": ws, "relation": "serves", "from": "mara", "to": "the-warden",
+            json!({ "workspace": ws, "relation": "serves", "from": "nara", "to": "the-warden",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -479,7 +482,7 @@ fn materialize_refuses_on_error_findings_then_succeeds_when_resolved() {
     assert_eq!(blocking["blocking"], json!(["entity.unknown"]));
 
     // Resolve by adding the referenced entities; the full re-check clears the block.
-    for (id, name) in [("mara", "Mara"), ("the-warden", "The Warden")] {
+    for (id, name) in [("nara", "Nara"), ("the-warden", "The Warden")] {
         send(
             &mut store,
             &req(
@@ -502,18 +505,18 @@ fn materialize_refuses_on_error_findings_then_succeeds_when_resolved() {
 #[test]
 fn add_relation_unknown_entity_carries_candidates() {
     let mut store = base_with_place("the-warden");
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         &req(
             "1",
             Op::AuthorAddRelation,
-            json!({ "workspace": ws, "relation": "serves", "from": "mara", "to": "the-wardn",
+            json!({ "workspace": ws, "relation": "serves", "from": "nara", "to": "the-wardn",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
     let findings = result(&response)["findings"].as_array().expect("findings");
-    // `mara` is unknown; `the-wardn` is a near-miss for the base's `the-warden`.
+    // `nara` is unknown; `the-wardn` is a near-miss for the base's `the-warden`.
     let unknown: Vec<&Value> = findings
         .iter()
         .filter(|f| f["code"] == json!("entity.unknown"))
@@ -537,23 +540,23 @@ fn add_relation_unknown_entity_carries_candidates() {
 
 #[test]
 fn add_fact_contradicting_a_certain_base_value_is_an_error() {
-    // Base fixes gwern.water-status = tidal as certain.
-    let source = "scope tpth\nratify D-0001\nplace gwern \"Gwern\"  ratified D-0001\ngwern.water-status = tidal  ratified D-0001\n";
+    // Base fixes joren.water-status = tidal as certain.
+    let source = "scope storybook\nratify D-0001\nplace joren \"Joren\"  ratified D-0001\njoren.water-status = tidal  ratified D-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
     let pack = dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     };
     let world = dli_world::compile(&pack).expect("compiles");
     let mut store = Store::with_base(world);
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         &req(
             "1",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "gwern", "key": "water-status", "value": "dry",
+            json!({ "workspace": ws, "entity": "joren", "key": "water-status", "value": "dry",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -599,25 +602,26 @@ fn add_before_that_closes_a_cycle_is_an_error() {
 
 #[test]
 fn add_event_carries_no_naming_nudge() {
-    let source = "scope tpth\nratify D-0001\nera first-tides \"First Tides\" ratified D-0001\n";
+    let source =
+        "scope storybook\nratify D-0001\nera first-tides \"First Tides\" ratified D-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.is_empty(),
         "base source parses: {diagnostics:?}"
     );
     let world = dli_world::compile(&dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles");
     let mut store = Store::with_base(world);
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         &req(
             "1",
             Op::AuthorAddEvent,
-            json!({ "workspace": ws, "id": "the-drowning", "name": "The Drowning",
+            json!({ "workspace": ws, "id": "the-crossing", "name": "The Crossing",
                     "era": "first-tides",
                     "provenance": { "kind": "proposed", "origin": "s7" } }),
         ),
@@ -626,7 +630,7 @@ fn add_event_carries_no_naming_nudge() {
     assert!(codes(result(&response)).is_empty());
     assert_eq!(
         result(&response)["rendered"],
-        json!(["event the-drowning \"The Drowning\" during first-tides proposed s7"])
+        json!(["event the-crossing \"The Crossing\" during first-tides proposed s7"])
     );
 }
 
@@ -678,7 +682,7 @@ place first-city decided d-1
 fn hypothesis_is_fork_only_and_bundle_limited() {
     // In a scope workspace, a hypothesis is not-in-fork.
     let mut scoped = Store::default();
-    let ws = open_scope(&mut scoped, "tpth");
+    let ws = open_scope(&mut scoped, "storybook");
     let in_scope = send(
         &mut scoped,
         &req(
@@ -748,7 +752,7 @@ fn suppose_reports_a_consequence_and_rejects_unknown_hyps() {
 #[test]
 fn open_question_then_add_option_and_a_missing_question() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     send(
         &mut store,
         &req(
@@ -784,54 +788,54 @@ fn open_question_then_add_option_and_a_missing_question() {
     assert!(codes(result(&missing)).contains(&"question.unknown".to_owned()));
 }
 
-// -- the worked Tegwen scenario (migration.md §10, over the example world) ----
+// -- the worked Thalia scenario (migration.md §10, over the example world) ----
 
 #[test]
-fn tegwen_scenario_replays_migration_section_10() {
-    let mut store = base_with_place("gwern");
-    let ws = open_fork(&mut store, "ep9-cast");
+fn thalia_scenario_replays_migration_section_10() {
+    let mut store = base_with_place("joren");
+    let ws = open_fork(&mut store, "crossroads-cast");
 
-    let tegwen = send(
+    let thalia = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "tegwen", "name": "Tegwen",
-                    "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+            json!({ "workspace": ws, "kind": "person", "id": "thalia", "name": "Thalia",
+                    "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
         ),
     );
     // The name is unvetted; the repair points at the naming oracle.
-    let findings = result(&tegwen)["findings"].as_array().expect("findings");
+    let findings = result(&thalia)["findings"].as_array().expect("findings");
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0]["code"], json!("name.unvetted"));
     assert_eq!(findings[0]["repair"]["op"], json!("dli.name.check"));
-    assert_eq!(findings[0]["repair"]["params"]["name"], json!("tegwen"));
+    assert_eq!(findings[0]["repair"]["params"]["name"], json!("thalia"));
 
     let trade = send(
         &mut store,
         &req(
             "3",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "tegwen", "key": "trade", "value": "net-mender",
-                    "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+            json!({ "workspace": ws, "entity": "thalia", "key": "trade", "value": "net-mender",
+                    "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
         ),
     );
     assert!(codes(result(&trade)).is_empty());
 
-    // gwern is a real place in the base, so the relation is clean.
+    // joren is a real place in the base, so the relation is clean.
     let located = send(
         &mut store,
         &req(
             "4",
             Op::AuthorAddRelation,
-            json!({ "workspace": ws, "relation": "located_in", "from": "tegwen", "to": "gwern",
-                    "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+            json!({ "workspace": ws, "relation": "located_in", "from": "thalia", "to": "joren",
+                    "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
         ),
     );
     assert!(codes(result(&located)).is_empty());
     assert_eq!(
         result(&located)["rendered"],
-        json!(["located_in(tegwen, gwern) proposed agent:factory/ep9-cast"])
+        json!(["located_in(thalia, joren) proposed agent:author/crossroads-cast"])
     );
 
     let materialized = send(
@@ -840,7 +844,7 @@ fn tegwen_scenario_replays_migration_section_10() {
     );
     assert!(codes(result(&materialized)).is_empty());
     let lines = result(&materialized)["rendered"].as_array().expect("lines");
-    assert_eq!(lines[0], json!("scope ep9-cast"));
+    assert_eq!(lines[0], json!("scope crossroads-cast"));
 }
 
 // -- R3 hardening ------------------------------------------------------------
@@ -851,14 +855,14 @@ fn tegwen_scenario_replays_migration_section_10() {
 #[test]
 fn control_char_in_origin_cannot_forge_and_bars_materialize() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let forged = "s\nperson forged \"Forged\" decided d-9999";
     let add = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                     "provenance": { "kind": "proposed", "origin": forged } }),
         ),
     );
@@ -968,7 +972,7 @@ fn control_char_in_finding_message_cannot_forge_a_line() {
 #[test]
 fn discard_scopes_to_one_declaration() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let alpha = send(
         &mut store,
         &req(
@@ -1057,7 +1061,7 @@ fn discard_scopes_to_one_declaration() {
 #[test]
 fn idempotency_key_reuse_with_a_different_payload_conflicts() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let mut alpha = req(
         "2",
         Op::AuthorAddEntity,
@@ -1103,7 +1107,7 @@ fn idempotency_key_reuse_with_a_different_payload_conflicts() {
 #[test]
 fn malformed_params_are_schema_violations() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let bad = send(
         &mut store,
         &req(
@@ -1127,7 +1131,7 @@ fn malformed_params_are_schema_violations() {
 #[test]
 fn cited_provenance_is_refused_and_never_mints_authority() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let cited = send(
         &mut store,
         &req(
@@ -1180,13 +1184,13 @@ fn cited_provenance_is_refused_and_never_mints_authority() {
 #[test]
 fn bidi_and_zero_width_chars_are_caught_and_escaped() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let rlo = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara\u{202e}9999d",
+            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara\u{202e}9999d",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -1213,13 +1217,13 @@ fn bidi_and_zero_width_chars_are_caught_and_escaped() {
 #[test]
 fn materialize_output_is_canonical_dli() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -1233,7 +1237,7 @@ fn materialize_output_is_canonical_dli() {
         .iter()
         .map(|v| v.as_str().unwrap_or_default().to_owned())
         .collect();
-    assert_eq!(lines[0], "scope saltmarket");
+    assert_eq!(lines[0], "scope storybook");
     assert_eq!(
         lines[1], "",
         "canonical scope block has a blank line after the header"
@@ -1255,33 +1259,33 @@ fn materialize_output_is_canonical_dli() {
 #[test]
 fn discard_invalidates_idempotency_replay() {
     let mut store = Store::default();
-    let ws = open_scope(&mut store, "saltmarket");
+    let ws = open_scope(&mut store, "storybook");
     let mut add = req(
         "2",
         Op::AuthorAddEntity,
-        json!({ "workspace": ws, "kind": "person", "id": "mara", "name": "Mara",
+        json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     add.idempotency_key = Some("K1".to_owned());
     let first = send(&mut store, &add);
-    let mara_line = result(&first)["rendered"][0]
+    let nara_line = result(&first)["rendered"][0]
         .as_str()
-        .expect("mara line")
+        .expect("nara line")
         .to_owned();
 
-    // Discard mara, then replay the same add under K1.
+    // Discard nara, then replay the same add under K1.
     send(
         &mut store,
         &req(
             "3",
             Op::AuthorDiscard,
-            json!({ "workspace": ws, "decl": mara_line }),
+            json!({ "workspace": ws, "decl": nara_line }),
         ),
     );
     let replay = send(&mut store, &add);
     assert!(replay.ok);
 
-    // The replay re-executed (mara is back), and its digest matches the live
+    // The replay re-executed (nara is back), and its digest matches the live
     // workspace — not the stale pre-discard result.
     let diff = send(
         &mut store,
@@ -1289,7 +1293,7 @@ fn discard_invalidates_idempotency_replay() {
     );
     let lines = result(&diff)["rendered"].as_array().expect("rendered");
     assert_eq!(lines.len(), 1);
-    assert!(lines[0].as_str().unwrap_or_default().contains("mara"));
+    assert!(lines[0].as_str().unwrap_or_default().contains("nara"));
     let status = send(
         &mut store,
         &req("5", Op::AuthorStatus, json!({ "workspace": ws })),
@@ -1353,23 +1357,23 @@ fn author_fixtures() -> Vec<(String, Value)> {
         None,
         Store::default(),
         &[
-            req("1", Op::AuthorOpen, json!({ "scope": "saltmarket" })),
+            req("1", Op::AuthorOpen, json!({ "scope": "storybook" })),
             req(
                 "2",
                 Op::AuthorAddEntity,
-                json!({ "workspace": "ws-1", "kind": "person", "id": "mara", "name": "Mara",
+                json!({ "workspace": "ws-1", "kind": "person", "id": "nara", "name": "Nara",
                         "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
             ),
             req(
                 "3",
                 Op::AuthorAddEntity,
-                json!({ "workspace": "ws-1", "kind": "place", "id": "the-shallows", "name": "The Shallows",
+                json!({ "workspace": "ws-1", "kind": "place", "id": "riverside", "name": "Riverside",
                         "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
             ),
             req(
                 "4",
                 Op::AuthorAddFact,
-                json!({ "workspace": "ws-1", "entity": "mara", "key": "home", "value": "the-shallows",
+                json!({ "workspace": "ws-1", "entity": "nara", "key": "home", "value": "riverside",
                         "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
             ),
             req("5", Op::AuthorDiff, json!({ "workspace": "ws-1" })),
@@ -1377,42 +1381,42 @@ fn author_fixtures() -> Vec<(String, Value)> {
         ],
     );
 
-    let tegwen = fixture(
-        "golden/author-tegwen-v1",
+    let thalia = fixture(
+        "golden/author-thalia-v1",
         Some(
             "The worked migration.md §10 scenario, self-contained over the EMPTY base so it is \
              cold-replayable through respond() with no server-provided base (R3/H5): the location \
-             gwern is staged in-fork rather than assumed from canon, then a proposed character with \
-             a naming nudge, a fact, and a clean relation to gwern, the diff, and the materialized \
+             joren is staged in-fork rather than assumed from canon, then a proposed character with \
+             a naming nudge, a fact, and a clean relation to joren, the diff, and the materialized \
              .dli lines as data. Nothing is ratified. (AUTH-2 replays §10 over the pinned corpus \
-             where gwern is a real base place.)",
+             where joren is a real base place.)",
         ),
         Store::default(),
         &[
-            req("1", Op::AuthorOpen, json!({ "fork": "ep9-cast" })),
+            req("1", Op::AuthorOpen, json!({ "fork": "crossroads-cast" })),
             req(
                 "2",
                 Op::AuthorAddEntity,
-                json!({ "workspace": "ws-1", "kind": "place", "id": "gwern", "name": "Gwern",
-                        "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+                json!({ "workspace": "ws-1", "kind": "place", "id": "joren", "name": "Joren",
+                        "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
             ),
             req(
                 "3",
                 Op::AuthorAddEntity,
-                json!({ "workspace": "ws-1", "kind": "person", "id": "tegwen", "name": "Tegwen",
-                        "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+                json!({ "workspace": "ws-1", "kind": "person", "id": "thalia", "name": "Thalia",
+                        "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
             ),
             req(
                 "4",
                 Op::AuthorAddFact,
-                json!({ "workspace": "ws-1", "entity": "tegwen", "key": "trade", "value": "net-mender",
-                        "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+                json!({ "workspace": "ws-1", "entity": "thalia", "key": "trade", "value": "net-mender",
+                        "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
             ),
             req(
                 "5",
                 Op::AuthorAddRelation,
-                json!({ "workspace": "ws-1", "relation": "located_in", "from": "tegwen", "to": "gwern",
-                        "provenance": { "kind": "proposed", "origin": "agent:factory/ep9-cast" } }),
+                json!({ "workspace": "ws-1", "relation": "located_in", "from": "thalia", "to": "joren",
+                        "provenance": { "kind": "proposed", "origin": "agent:author/crossroads-cast" } }),
             ),
             req("6", Op::AuthorDiff, json!({ "workspace": "ws-1" })),
             req("7", Op::AuthorMaterialize, json!({ "workspace": "ws-1" })),
@@ -1421,7 +1425,7 @@ fn author_fixtures() -> Vec<(String, Value)> {
 
     vec![
         ("golden/author-session-v1.json".to_owned(), session),
-        ("golden/author-tegwen-v1.json".to_owned(), tegwen),
+        ("golden/author-thalia-v1.json".to_owned(), thalia),
     ]
 }
 

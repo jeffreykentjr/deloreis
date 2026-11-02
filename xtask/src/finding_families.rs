@@ -458,7 +458,7 @@ const FAMILIES: &[Family] = &[
         title: "proof — the diegetic proof checker",
         emitter: "the proof/ledger checker, run by `deloreis check-proof` / `dli.check-proof`",
         owner: "dli-ledger :: ledger_check.rs (ProofFinding)",
-        severity_note: "Error: a proof finding means the spoken proof is invalid; the L-class in \
+        severity_note: "Error: a proof finding means the diegetic proof is invalid; the L-class in \
             the message (L1–L7) names which structural obligation broke.",
         sources: &["../crates/dli-ledger/src/ledger_check.rs"],
         scrape: Scrape::Prefixed("proof"),

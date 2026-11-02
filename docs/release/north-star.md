@@ -90,7 +90,7 @@ Every item below was exercised live over MCP on the default build at
   HANDOVER T13 adds a warning.
 - The contradiction check fires only on slots you declared single-valued.
 
-## The example world (to build; replaces every TPtH example)
+## The example world (to build; replaces every former private consumer example)
 
 The world is original, small, and public-domain-safe. Its working name is
 **The Hollow**: a courier named Wren, the villages of Thornfield and Ashby,

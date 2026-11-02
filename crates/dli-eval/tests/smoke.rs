@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Smoke coverage for the evaluator: a hand-built saltmarket world, lowered,
+//! Smoke coverage for the evaluator: a hand-built storybook world, lowered,
 //! saturated, and queried. No parser is involved — the AST is built directly.
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
@@ -84,22 +84,22 @@ fn option(name: &str, pred: &str, args: Vec<Term>) -> OptionClause {
     }
 }
 
-/// The saltmarket document: two adjacency facts and one open question whose
+/// The storybook document: two adjacency facts and one open question whose
 /// options each imply who keeps the ledger.
-fn saltmarket_document() -> Document {
+fn storybook_document() -> Document {
     Document {
         scope: None,
         decls: vec![
-            ratify("d-saltmarket-map"),
+            ratify("d-storybook-map"),
             decided_fact(
                 "adjacent",
-                vec![sym("saltmarket"), sym("the-shallows")],
-                "d-saltmarket-map",
+                vec![sym("storybook"), sym("riverside")],
+                "d-storybook-map",
             ),
             decided_fact(
                 "adjacent",
-                vec![sym("the-shallows"), sym("the-weir")],
-                "d-saltmarket-map",
+                vec![sym("riverside"), sym("the-weir")],
+                "d-storybook-map",
             ),
             Decl::Question(QuestionDecl {
                 name: Ident::synthetic("who-keeps-the-ledger"),
@@ -110,7 +110,7 @@ fn saltmarket_document() -> Document {
                         "keeps",
                         vec![sym("old-fen"), sym("the-salt-ledger")],
                     ),
-                    option("mara", "keeps", vec![sym("mara"), sym("the-salt-ledger")]),
+                    option("nara", "keeps", vec![sym("nara"), sym("the-salt-ledger")]),
                 ],
                 provenance: Some(Annotation {
                     marker: ProvenanceMarker::Proposed,
@@ -125,8 +125,8 @@ fn saltmarket_document() -> Document {
 }
 
 /// Lower the document, add the transitive-closure rules, and saturate.
-fn saltmarket_world() -> World {
-    let mut world = World::lower(&saltmarket_document()).unwrap();
+fn storybook_world() -> World {
+    let mut world = World::lower(&storybook_document()).unwrap();
     // reachable(X, Z) :- adjacent(X, Z)
     world
         .define_rule(
@@ -174,7 +174,7 @@ fn slot_attributes_lower_to_evaluable_facts() {
     let document = Document {
         scope: None,
         decls: vec![Decl::Attr(AttrDecl {
-            subject: Ident::synthetic("mara"),
+            subject: Ident::synthetic("nara"),
             attr: Ident::synthetic("role"),
             value: Term::Str("river warden".to_owned()),
             provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
@@ -182,7 +182,7 @@ fn slot_attributes_lower_to_evaluable_facts() {
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
     let answer = world
-        .query(&query(atom("role", vec![sym("mara"), var("description")])))
+        .query(&query(atom("role", vec![sym("nara"), var("description")])))
         .unwrap();
 
     assert_eq!(answer.rows.len(), 1);
@@ -192,7 +192,7 @@ fn slot_attributes_lower_to_evaluable_facts() {
 
 #[test]
 fn lower_realizes_state_as_fact() {
-    // `ratified gwern.water-status = commons cited d-water` — a dotted state
+    // `ratified joren.water-status = commons cited d-water` — a dotted state
     // lowers to the same atom the attribute form would, so it is queryable
     // (issues 47/48); before this it fell through lowering and no query saw it.
     let document = Document {
@@ -200,7 +200,7 @@ fn lower_realizes_state_as_fact() {
         decls: vec![
             ratify("d-water"),
             Decl::State(StateDecl {
-                name: Ident::synthetic("gwern.water-status"),
+                name: Ident::synthetic("joren.water-status"),
                 value: Some(sym("commons")),
                 time: None,
                 provenance: Some(provenance(ProvenanceMarker::Ratified, &["d-water"])),
@@ -209,7 +209,7 @@ fn lower_realizes_state_as_fact() {
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
     let answer = world
-        .query(&query(atom("water-status", vec![sym("gwern"), var("v")])))
+        .query(&query(atom("water-status", vec![sym("joren"), var("v")])))
         .unwrap();
 
     assert_eq!(answer.rows.len(), 1);
@@ -220,10 +220,10 @@ fn lower_realizes_state_as_fact() {
 
 #[test]
 fn t2_transitive_closure_reaches_the_weir() {
-    let world = saltmarket_world();
-    // reachable(saltmarket, ?Z) closes over adjacency: the-shallows and the-weir.
+    let world = storybook_world();
+    // reachable(storybook, ?Z) closes over adjacency: riverside and the-weir.
     let answer = world
-        .query(&query(atom("reachable", vec![sym("saltmarket"), var("Z")])))
+        .query(&query(atom("reachable", vec![sym("storybook"), var("Z")])))
         .unwrap();
     let mut reached: Vec<String> = answer
         .rows
@@ -231,18 +231,18 @@ fn t2_transitive_closure_reaches_the_weir() {
         .map(|row| row.bindings["Z"].clone())
         .collect();
     reached.sort();
-    assert_eq!(reached, vec!["the-shallows", "the-weir"]);
+    assert_eq!(reached, vec!["riverside", "the-weir"]);
     // Every hop rests on the ruled map decision, so the closure is certain.
     assert!(answer.rows.iter().all(|row| row.status == Status::Certain));
 }
 
 #[test]
 fn t2_support_rests_on_the_map_decision() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     let answer = world
         .query(&query(atom(
             "reachable",
-            vec![sym("saltmarket"), sym("the-weir")],
+            vec![sym("storybook"), sym("the-weir")],
         )))
         .unwrap();
     assert_eq!(answer.rows.len(), 1);
@@ -256,7 +256,7 @@ fn t2_support_rests_on_the_map_decision() {
 
 #[test]
 fn t1_open_option_is_a_shadow_then_ruled_certain() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     let goal = atom("keeps", vec![var("who"), sym("the-salt-ledger")]);
     // Both keepers are merely possible while the question is open.
     let open = world.query(&query(goal.clone())).unwrap();
@@ -264,7 +264,7 @@ fn t1_open_option_is_a_shadow_then_ruled_certain() {
     assert!(open.rows.iter().all(|row| row.status == Status::Possible));
 
     // Suppose the question rules for old-fen: old-fen becomes certain, and the
-    // excluded option (mara) goes dead — dropped from the answer.
+    // excluded option (nara) goes dead — dropped from the answer.
     let ruled = world
         .fork_eval(&query(goal), &[Ident::synthetic("old-fen")])
         .unwrap();
@@ -275,14 +275,14 @@ fn t1_open_option_is_a_shadow_then_ruled_certain() {
 
 #[test]
 fn unknown_goal_predicate_is_an_error() {
-    let world = saltmarket_world();
-    let result = world.query(&query(atom("floats", vec![sym("saltmarket")])));
+    let world = storybook_world();
+    let result = world.query(&query(atom("floats", vec![sym("storybook")])));
     assert!(result.is_err());
 }
 
 #[test]
 fn support_index_inverts_the_option_variable() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     // The old-fen option variable indexes the keeps(old-fen, …) atom.
     let old_fen = world.interner.names().iter().position(|n| n == "old-fen");
     assert!(old_fen.is_some());
@@ -293,7 +293,7 @@ fn support_index_inverts_the_option_variable() {
 
 #[test]
 fn support_index_answers_why_and_defeater() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     let index = SupportIndex::build(&world);
     let keeps = atom("keeps", vec![sym("old-fen"), sym("the-salt-ledger")]);
 
@@ -321,9 +321,9 @@ fn support_index_answers_why_and_defeater() {
         .interner
         .names()
         .iter()
-        .position(|n| n == "d-saltmarket-map")
+        .position(|n| n == "d-storybook-map")
         .unwrap();
-    let reachable = atom("reachable", vec![sym("saltmarket"), sym("the-weir")]);
+    let reachable = atom("reachable", vec![sym("storybook"), sym("the-weir")]);
     assert_eq!(
         index.why(&reachable),
         vec![vec![ClaimId(u32::try_from(map).unwrap())]]

@@ -1,6 +1,6 @@
 ---
 status: accepted
-verdict: "Lorestore is deloreis's embedded, deterministic storage engine. The embedded core has shipped; DL-0062 adds a deferred peer/service archive destination without changing lorestore's immutable fact model."
+verdict: "Lorestore is deloreis's embedded, deterministic storage engine; distribution research is parked."
 ---
 
 # Lorestore: deloreis's deterministic storage layer
@@ -13,8 +13,8 @@ verdict: "Lorestore is deloreis's embedded, deterministic storage engine. The em
 > where they differ.
 
 > **Embedded core shipped; distribution is deferred.** Lorestore's local
-> content-addressed core is live. The fantasy cutover remains consumer-owned;
-> `../spec/12-scale-and-distribution.md` records the later peer/service
+> content-addressed core is live. The former consumer cutover is retired;
+> `scale-and-distribution.md` records the later peer/service
 > destination and does not alter the current offline worker.
 
 ## Vision
@@ -28,8 +28,8 @@ immutable, content-addressed fact store with git-like merge semantics, embedded
 directly as deloreis's storage engine (like SQLite is an application's storage
 engine, not a separate deployment).
 
-The consuming application (e.g. fantasy) embeds deloreis, which embeds
-lorestore. Fantasy provides **where** lorestore stores data (a path, a cloud
+The consuming application embeds deloreis, which embeds
+lorestore. The application provides **where** lorestore stores data (a path, a cloud
 bucket, an IPFS repo); lorestore owns **how** the data is structured, merged,
 and indexed.
 
@@ -59,7 +59,7 @@ and indexed.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Consuming Application (e.g. fantasy)                   │
+│  Consuming Application                                  │
 │  Provides: storage path / cloud bucket / IPFS           │
 └────────────┬────────────────────────────────────────────┘
              │ embeds
@@ -211,7 +211,7 @@ that deloreis links to, providing the deterministic persistence layer.
 ## Phased realization
 
 **Phase 1 (Current — v1)** — Git + `.dli` text + `.dli-evidence/`. Sufficient
-for the fantasy migration. No changes needed.
+for the former migration. This phase is historical.
 
 **Phase 2 (Post-cutover)** — Introduce lorestore as an alternative backend.
 deloreis can run with either the git+text backend (for existing projects) or

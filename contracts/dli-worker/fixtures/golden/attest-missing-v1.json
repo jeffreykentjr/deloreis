@@ -10,7 +10,7 @@
         "result": {
           "questions": [
             {
-              "fingerprint": "fnv1a64:0188e5c00ba334ce",
+              "fingerprint": "fnv1a64:ddb605012b1359a9",
               "question": {
                 "atom": "marker-basis(baseline)",
                 "kind": "marker-basis",
@@ -26,7 +26,7 @@
         "id": "1",
         "op": "dli.attest.missing",
         "params": {
-          "document": "saltmarket"
+          "document": "storybook"
         }
       }
     }

@@ -84,13 +84,13 @@ impl Line {
 /// use dli_syntax::lexer::{lex, TokenKind};
 /// use dli_ast::span::FileId;
 ///
-/// let tokens = lex("place saltmarket \"Saltmarket\"\n", FileId(0));
+/// let tokens = lex("place storybook \"Storybook\"\n", FileId(0));
 /// let kinds: Vec<_> = tokens.iter().map(|t| t.kind).collect();
 /// assert_eq!(
 ///     kinds,
 ///     vec![TokenKind::Word, TokenKind::Word, TokenKind::Str, TokenKind::Newline],
 /// );
-/// assert_eq!(tokens[2].text, "Saltmarket");
+/// assert_eq!(tokens[2].text, "Storybook");
 /// ```
 #[must_use]
 pub fn lex(source: &str, file: FileId) -> Vec<Token> {

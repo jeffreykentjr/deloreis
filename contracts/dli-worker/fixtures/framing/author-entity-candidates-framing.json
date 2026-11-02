@@ -12,7 +12,7 @@
         "op": "author.entity_candidates",
         "params": {
           "workspace": "missing-control",
-          "surface": "mara",
+          "surface": "nara",
           "limit": 5
         }
       },
@@ -22,7 +22,7 @@
         "op": "author.entity_candidates",
         "params": {
           "workspace": "__DLI_FRAME_ATTACK__",
-          "surface": "mara",
+          "surface": "nara",
           "limit": 5
         }
       },

@@ -32,7 +32,7 @@ pub enum EvidenceKind {
     Payload,
     /// A simulation run manifest (`SimulateStartResult` / `AttestationSweepResult`).
     Simulation,
-    /// A spoken-proof transcript (a `ProofReport`'s derivation).
+    /// A spoken-oath transcript (a `ProofReport`'s derivation).
     Proof,
     /// Free-form evidence: anything else committed to the store with a digest.
     Other,

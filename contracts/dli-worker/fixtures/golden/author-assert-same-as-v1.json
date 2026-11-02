@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "mara",
+        "id": "nara",
         "kind": "person",
-        "name": "Mara",
+        "name": "Nara",
         "provenance": {
           "decisions": [
             "d-1"
@@ -56,9 +56,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "same-as mara = moira proposed session-identity"
+            "same-as nara = moira proposed session-identity"
           ],
-          "workspace_digest": "jcs:sha256:b96f51f1f50c5c76d084a2920adf023761775e14389abe6f4e0d3356babb1c13"
+          "workspace_digest": "jcs:sha256:bc9b46765621e19ac6b9ffafded23fe96aaeb3181d2d074561ac6b18af3a0246"
         }
       },
       "send": {
@@ -66,7 +66,7 @@
         "id": "1",
         "op": "author.assert_same_as",
         "params": {
-          "left": "mara",
+          "left": "nara",
           "provenance": {
             "kind": "proposed",
             "origin": "session-identity"

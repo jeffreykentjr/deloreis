@@ -56,16 +56,16 @@ fn attestation(atom: &str, subject: &str, fingerprint: ContentHash) -> Attestati
 #[test]
 fn superseding_appends_and_retains_the_chain() {
     let mut store = AttestationStore::new();
-    let key = QuestionKey("register-real-basis::name-basis(enfys, welsh)".to_owned());
+    let key = QuestionKey("register-real-basis::name-basis(linet, welsh)".to_owned());
 
     let first = attestation(
-        "name-basis(enfys, welsh)",
-        "enfys",
+        "name-basis(linet, welsh)",
+        "linet",
         ContentHash("a".to_owned()),
     );
     let mut second = attestation(
-        "name-basis(enfys, welsh)",
-        "enfys",
+        "name-basis(linet, welsh)",
+        "linet",
         ContentHash("b".to_owned()),
     );
     second.answer = "no".to_owned();
@@ -95,7 +95,7 @@ fn superseding_appends_and_retains_the_chain() {
 #[test]
 fn is_stale_flips_when_the_fingerprint_changes() {
     let taken = ContentHash("fnv1a64:aaaaaaaaaaaaaaaa".to_owned());
-    let record = attestation("name-basis(enfys, welsh)", "enfys", taken.clone());
+    let record = attestation("name-basis(linet, welsh)", "linet", taken.clone());
 
     assert!(!record.is_stale(&taken), "unchanged content is fresh");
     assert!(
@@ -170,7 +170,7 @@ fn store_with_fresh_and_stale(model: &dli_world::WorldModel, fresh: Attestation)
 #[test]
 fn require_attestation_reports_missing_never_guesses() {
     let mut store = AttestationStore::new();
-    let key = QuestionKey("register-real-basis::name-basis(enfys, welsh)".to_owned());
+    let key = QuestionKey("register-real-basis::name-basis(linet, welsh)".to_owned());
 
     let finding = require_attestation(&store, &key).expect_err("absent must be a finding");
     assert_eq!(finding.code(), "attest.missing");
@@ -178,8 +178,8 @@ fn require_attestation_reports_missing_never_guesses() {
 
     // Once a sweep has committed the record, the same lookup resolves.
     store.append(attestation(
-        "name-basis(enfys, welsh)",
-        "enfys",
+        "name-basis(linet, welsh)",
+        "linet",
         ContentHash("a".to_owned()),
     ));
     assert!(require_attestation(&store, &key).is_ok());
@@ -221,16 +221,16 @@ fn checked_step_chained_with_an_attestation_rolls_up_attested() {
 #[test]
 fn ratification_exit_grades_checked_and_retains_the_chain() {
     let mut store = AttestationStore::new();
-    let key = QuestionKey("register-real-basis::name-basis(enfys, welsh)".to_owned());
+    let key = QuestionKey("register-real-basis::name-basis(linet, welsh)".to_owned());
 
     let first = attestation(
-        "name-basis(enfys, welsh)",
-        "enfys",
+        "name-basis(linet, welsh)",
+        "linet",
         ContentHash("a".to_owned()),
     );
     let mut second = attestation(
-        "name-basis(enfys, welsh)",
-        "enfys",
+        "name-basis(linet, welsh)",
+        "linet",
         ContentHash("b".to_owned()),
     );
     second.rationale_hash = "sha256:re-attested".to_owned();

@@ -1316,7 +1316,7 @@ pub struct AuthorAddEntityParams {
 // -- author.add_fact ---------------------------------------------------------
 
 /// `author.add_fact` params: an attribute-intent fact that renders
-/// `entity.key = value` (e.g. `mara.home = the-shallows`).
+/// `entity.key = value` (e.g. `nara.home = riverside`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorAddFactParams {
@@ -1514,7 +1514,7 @@ pub struct AuthorAddNameParams {
     /// The rendered label (data, never an instruction).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub label: Option<String>,
-    /// The remaining header tokens, e.g. `["person.given", "in", "cymric-fringe"]`.
+    /// The remaining header tokens, e.g. `["person.given", "in", "elder-tongue-fringe"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub head: Vec<String>,
     /// The composition steps: each a slot role filled by a named morpheme.
@@ -1675,7 +1675,7 @@ pub struct AuthorAddRuleParams {
 pub struct AuthorAddStateParams {
     /// The workspace id.
     pub workspace: String,
-    /// The state name; may be dotted, e.g. `gwern.water-status`.
+    /// The state name; may be dotted, e.g. `joren.water-status`.
     pub id: String,
     /// The value the state takes.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -1835,7 +1835,7 @@ pub struct AuthorDefeatParams {
 // -- author.query (read) -----------------------------------------------------
 
 /// `author.query` params: query the **staged** world (base + staged
-/// declarations). The agent asks "what holds about `mara` now?" over its
+/// declarations). The agent asks "what holds about `nara` now?" over its
 /// in-progress work.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1843,7 +1843,7 @@ pub struct AuthorQueryParams {
     /// The workspace id.
     pub workspace: String,
     /// The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`
-    /// is a query variable that enumerates matches (`serves(mara, ?who)`); a bare
+    /// is a query variable that enumerates matches (`serves(nara, ?who)`); a bare
     /// symbol is a ground constant. The 0.6.3 typed successor is
     /// [`Self::goal_atom`]; this string form is a registered field-level killed
     /// form, refused from contract 1.0 and still accepted — and still

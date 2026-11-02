@@ -47,7 +47,7 @@ fn committed_examples_parse_clean() {
 const PRACTICE: &str = "\
 scope magic
 
-practice spoken-proof  ratified D-0146 D-0148 {
+practice spoken-oath  ratified D-0146 D-0148 {
   kind ground = water | field | ore | tide | hearth | boundary
   role witness : entity    requires standing(witness), consent(witness)
   resource debt   : linear conserved
@@ -70,31 +70,31 @@ before breaking-of-the-stones -> tithe-of-minds-sweeps     provisional D-0072
 cycle tide(4) = ebb | slack | flood | high        ratified D-0146
 cycle moon(29)                                     ratified D-0148
 
-state gwern.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
+state joren.water-status = commons  until enclosure-of-the-parish-water  ratified D-0114
 ";
 
 const LANGUAGE: &str = "\
 scope language
 
-dialect cymric-fringe  \"the fringe tongue\"  provisional D-0181 {
+dialect elder-tongue-fringe  \"the fringe tongue\"  provisional D-0181 {
   vowels a e i o u w y
   name-part en   \"spirit\"        role given-proto     ratified D-0134
   }
 
-name enfys \"Enfys\"  person.given in cymric-fringe
+name linet \"Linet\"  person.given in elder-tongue-fringe
   = given-proto en + given-deutero fys
   bearer protagonist   ratified D-0134
 
-term hedgeway \"the hedgeway\"  ratified D-0143
+term hedgerow \"the hedgerow\"  ratified D-0143
 banned machine   D-0056  \"the allegory is structural, never lexical\"
 
-hypothesis h-cymric \"the western fringe speaks a Brythonic-shaped tongue\"
+hypothesis h-elder-tongue \"the western fringe speaks a Brythonic-shaped tongue\"
 
-dialect speculative  proposed agent:factory/naming-run-0712  assumes h-cymric {
+dialect speculative  proposed agent:author/naming-run-0712  assumes h-elder-tongue {
   inventory placeholder
   }
 
-ratify D-0195 { h-cymric := true }
+ratify D-0195 { h-elder-tongue := true }
 ";
 
 const CRAFT: &str = "\
@@ -115,8 +115,8 @@ rule full-team-floor  over order  ratified D-0162
 const PROOF: &str = "\
 scope magic
 
-proof e01-s04  speaker protagonist  in spoken-proof {
-  premise p1  holds(enfys, consent(household, door))  cited D-0113  cue \"line 112\"
+proof e01-s04  speaker protagonist  in spoken-oath {
+  premise p1  holds(linet, consent(household, door))  cited D-0113  cue \"line 112\"
   step   s1  instantiate ward-form  with ground = door, fibre = withy
   spend  p3
   close  holds(ward(door))  expect holds
@@ -146,7 +146,7 @@ fn practice_block_captures_its_body() {
     let dli_ast::decl::Decl::Practice(practice) = &doc.decls[0] else {
         panic!("expected a practice");
     };
-    assert_eq!(practice.name.text, "spoken-proof");
+    assert_eq!(practice.name.text, "spoken-oath");
     // Every non-blank interior line is captured as a clause.
     assert_eq!(practice.body.clauses.len(), 7);
 }
@@ -159,7 +159,7 @@ fn practice_body_is_structured_by_the_front_end() {
     let source = "\
 scope magic
 cycle tide(4) proposed
-practice spoken-proof proposed {
+practice spoken-oath proposed {
   kind ground = door | field | ore
   resource debt : linear conserved
   resource strain : affine bounded body-limit
@@ -177,7 +177,7 @@ practice spoken-proof proposed {
     };
 
     let def = &practice.body.def;
-    assert_eq!(def.name.text, "spoken-proof");
+    assert_eq!(def.name.text, "spoken-oath");
     assert_eq!(def.marker, Some(dli_ast::annot::ProvenanceMarker::Proposed));
     assert_eq!(def.sorts.len(), 1);
     assert_eq!(def.sorts[0].variants.len(), 3);

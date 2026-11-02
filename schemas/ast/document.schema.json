@@ -378,7 +378,7 @@
       ]
     },
     "ConditionDef": {
-      "description": "A side condition: `condition seated-reading requires phase(turning-leaf) within declared-span`.",
+      "description": "A side condition: `condition seated-reading requires phase(moon-phase) within declared-span`.",
       "type": "object",
       "properties": {
         "name": {
@@ -1255,7 +1255,7 @@
       ]
     },
     "ErrorClassDef": {
-      "description": "A declared diegetic failure, refining a structural class:\n`error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf`.",
+      "description": "A declared diegetic failure, refining a structural class:\n`error wrong-phase refines L3 side-condition [timing] over cycle moon-phase`.",
       "type": "object",
       "properties": {
         "class": {
@@ -1639,7 +1639,7 @@
           "$ref": "#/$defs/NameBody"
         },
         "head": {
-          "description": "Remaining header tokens (`person.given in cymric-fringe`).",
+          "description": "Remaining header tokens (`person.given in elder-tongue-fringe`).",
           "type": "array",
           "items": {
             "type": "string"
@@ -2204,7 +2204,7 @@
           "$ref": "#/$defs/ProofBody"
         },
         "head": {
-          "description": "Remaining header tokens (`speaker protagonist in spoken-proof`).",
+          "description": "Remaining header tokens (`speaker protagonist in spoken-oath`).",
           "type": "array",
           "items": {
             "type": "string"
@@ -2608,7 +2608,7 @@
       "type": "object",
       "properties": {
         "body": {
-          "description": "The typed interior: the `h-cymric := true` valuation lines and the\ndecision ids the body cites, structured at parse time (LS-9), so the\nlanguage compiler and the citation gate read typed AST instead of\nre-lexing clause text.",
+          "description": "The typed interior: the `h-elder-tongue := true` valuation lines and the\ndecision ids the body cites, structured at parse time (LS-9), so the\nlanguage compiler and the citation gate read typed AST instead of\nre-lexing clause text.",
           "$ref": "#/$defs/RatifyBody"
         },
         "decision": {
@@ -2873,7 +2873,7 @@
       ]
     },
     "RuleDef": {
-      "description": "A law of the practice: `rule lay(figure, leaf) requires phase(turning-leaf) = leaf`.",
+      "description": "A law of the practice: `rule lay(figure, leaf) requires phase(moon-phase) = leaf`.",
       "type": "object",
       "properties": {
         "args": {
@@ -3032,7 +3032,7 @@
       "type": "object",
       "properties": {
         "name": {
-          "description": "The state name (may be dotted, e.g. `gwern.water-status`).",
+          "description": "The state name (may be dotted, e.g. `joren.water-status`).",
           "$ref": "#/$defs/Ident"
         },
         "provenance": {
@@ -3349,7 +3349,7 @@
           }
         },
         "path": {
-          "description": "The variant path (`turning/keep-stamped`).",
+          "description": "The variant path (`moon-cycle/winter`).",
           "$ref": "#/$defs/Ident"
         },
         "provenance": {

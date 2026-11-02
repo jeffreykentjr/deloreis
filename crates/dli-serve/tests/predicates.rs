@@ -43,7 +43,7 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -53,12 +53,12 @@ fn base(source: &str) -> Store {
 /// the census has arity-2, FD-eligible predicates to annotate.
 fn two_predicate_base() -> Store {
     base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
-        "current-role(mara, keeper) decided D-0001\n",
-        "hair-color(mara, keeper) decided D-0001\n",
+        "current-role(nara, keeper) decided D-0001\n",
+        "hair-color(nara, keeper) decided D-0001\n",
     ))
 }
 
@@ -96,7 +96,7 @@ fn entry<'a>(result: &'a Value, pred: &str) -> Option<&'a Value> {
 #[test]
 fn the_census_lists_present_predicates_with_arity() {
     let mut store = two_predicate_base();
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let ws = open_scope(&mut store, "1.10.0", "storybook");
     let response = predicates(&mut store, "1.10.0", &ws);
     let out = result(&response);
     let role = entry(out, "current-role").expect("current-role is present");
@@ -113,7 +113,7 @@ fn the_census_lists_present_predicates_with_arity() {
 #[test]
 fn functional_is_annotated_from_the_declared_set_only() {
     let mut store = two_predicate_base();
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let ws = open_scope(&mut store, "1.10.0", "storybook");
 
     // Before declaring: nothing is functional, even though current-role has a
     // single value that canon-precedent inference alone might treat as one.
@@ -162,7 +162,7 @@ fn functional_is_annotated_from_the_declared_set_only() {
 #[test]
 fn the_read_stages_nothing() {
     let mut store = two_predicate_base();
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let ws = open_scope(&mut store, "1.10.0", "storybook");
 
     // Stage one declaration so "unchanged" means "neither added nor dropped".
     let declared = dispatch(

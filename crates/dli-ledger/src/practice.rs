@@ -131,7 +131,7 @@ pub enum PracticeFinding {
     UnresolvedCycle {
         /// The unresolved cycle name.
         cycle: String,
-        /// Where it was cited (`error wrong-turning`, `rule lay`, …).
+        /// Where it was cited (`error wrong-phase`, `rule lay`, …).
         cited_by: String,
         /// Source span.
         span: Span,
@@ -264,13 +264,13 @@ pub fn compile_practice(decl: &PracticeDecl, env: &PracticeEnv) -> PracticeDef {
 ///
 /// let src = "\
 /// scope magic
-/// cycle turning-leaf(29) proposed
-/// practice the-turning proposed {
+/// cycle moon-phase(29) proposed
+/// practice tide-cycle proposed {
 ///   kind figure = the-weir | the-drowned
 ///   role reader : entity requires standing(reader)
 ///   resource spread : affine bounded nine-leaves
 ///   error overspread refines L6 resource-violation on spread signals scatter
-///   error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf
+///   error wrong-phase refines L3 side-condition [timing] over cycle moon-phase
 ///   cost epistemic | social
 /// }
 /// ";

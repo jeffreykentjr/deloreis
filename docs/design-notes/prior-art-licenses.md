@@ -8,8 +8,7 @@ verdict: "each cited line of published work licenses specific named decisions �
 
 The surface of De Lore Is stands on published work, not on taste. This note
 records what each cited line of prior art licenses — and, as carefully, what it
-does not. It is `status: reference`. The provenance detail behind it is in the
-fantasy repo, `docs/research/RR-018-lore-language-fifth-pass.md` §8.1 and §17.
+does not. It is `status: reference`. Earlier private research is preserved in git history.
 The discipline of this note is the discipline the charter demands: a claim that
 its surface is approachable is a hypothesis until measured, and the citations
 below set the *direction* of the surface without validating it.
@@ -135,11 +134,5 @@ articy:draft X (articy.com); CastleDB (castledb.org); Font, Mahlmann, Manrique &
 Togelius, "A Card Game Description Language" (EvoApplications, 2013); Ludii
 (ludii.games); GDL (Stanford GGP, ggp.stanford.edu).
 
-**In-repo and sibling evidence.** The fantasy naming stack
-(`src/fantasy/naming/{vet,phonetics,compose}.py`, `data/registers.yaml`,
-`data/ratified_names.yaml`); the craft stack
-(`src/fantasy/craft/{outline,check,config}.py`, `data/craft_kb.yaml`);
-`docs/proposals/DP-002-hard-magic-dramatic-function.md`;
-`canon/world/{magic-system,the-turning}.md`; the SyntaxBudget probe (demoted); the
-Chelis agent-authorship record and FlukeBall bust rates (see
-`sibling-lessons.md`).
+**Sibling evidence.** The Chelis agent-authorship record and FlukeBall bust
+rates are discussed in `sibling-lessons.md`.

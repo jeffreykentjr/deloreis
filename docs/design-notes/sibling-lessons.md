@@ -9,9 +9,7 @@ verdict: "laws in the charter and AGENTS.md were paid for elsewhere; here are th
 Several laws in `charter.md`, `decisions.md`, and `AGENTS.md` were not reasoned
 from first principles here — they were paid for in the author's other projects.
 This note is the receipt for each, condensed. It is `status: reference`: the
-lessons are settled, not up for re-argument. Fuller provenance is in the fantasy
-repo, `docs/research/RR-018-lore-language-fifth-pass.md` §8 and
-`docs/research/RR-016-lore-language-annotated-core.md` §6.
+lessons are settled, not up for re-argument. The earlier private research is preserved in git history.
 
 ## The path-count lesson → koan 11, DL-0004
 

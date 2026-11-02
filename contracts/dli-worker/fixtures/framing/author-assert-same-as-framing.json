@@ -12,7 +12,7 @@
           "id": "pre-1",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -22,11 +22,13 @@
           "params": {
             "workspace": "ws-1",
             "kind": "person",
-            "id": "mara",
-            "name": "Mara",
+            "id": "nara",
+            "name": "Nara",
             "provenance": {
               "kind": "cited",
-              "decisions": ["d-1"],
+              "decisions": [
+                "d-1"
+              ],
               "state": "ratified"
             }
           }
@@ -42,7 +44,9 @@
             "name": "Moira",
             "provenance": {
               "kind": "cited",
-              "decisions": ["d-1"],
+              "decisions": [
+                "d-1"
+              ],
               "state": "ratified"
             }
           }
@@ -54,7 +58,7 @@
         "op": "author.assert_same_as",
         "params": {
           "workspace": "ws-1",
-          "left": "mara",
+          "left": "nara",
           "right": "moira",
           "provenance": {
             "kind": "proposed",
@@ -68,7 +72,7 @@
         "op": "author.assert_same_as",
         "params": {
           "workspace": "ws-1",
-          "left": "mara",
+          "left": "nara",
           "right": "moira",
           "provenance": {
             "kind": "proposed",

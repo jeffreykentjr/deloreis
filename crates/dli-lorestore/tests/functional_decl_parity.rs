@@ -130,21 +130,21 @@ fn gauntlet(with_functional: bool) -> Pack {
         // the functional decl below interned its provenance, `D-2` would appear
         // in the interner table and the walk would diverge from the loader.
         ratify_decl("D-2"),
-        entity(EntityKind::Place, "gwern", "D-1"),
+        entity(EntityKind::Place, "joren", "D-1"),
         entity(EntityKind::Event, "enclosure", "D-1"),
-        attr("gwern", "rank", "high", Some(ratified("D-1"))),
+        attr("joren", "rank", "high", Some(ratified("D-1"))),
     ];
     if with_functional {
         decls.push(functional("rank", Some(ratified("D-2"))));
     }
     // h.weir#0
-    decls.push(fact("linked", &["gwern", "enclosure"], Some(proposed())));
+    decls.push(fact("linked", &["joren", "enclosure"], Some(proposed())));
     if with_functional {
         decls.push(functional("mood", Some(proposed())));
     }
     // h.weir#1 — #2 if the functional above burned an index
-    decls.push(fact("omen", &["gwern", "storm"], Some(proposed())));
-    decls.push(fact("secret", &["gwern", "hidden"], None));
+    decls.push(fact("omen", &["joren", "storm"], Some(proposed())));
+    decls.push(fact("secret", &["joren", "hidden"], None));
     pack("weir", decls)
 }
 
@@ -424,10 +424,10 @@ fn functional_decl_keeps_the_two_lowerings_at_zero_divergence() {
         .expect("saturates");
 
     for (pred, args, expected) in [
-        ("rank", ["gwern", "high"], Status::Certain),
-        ("linked", ["gwern", "enclosure"], Status::Possible),
-        ("omen", ["gwern", "storm"], Status::Possible),
-        ("secret", ["gwern", "hidden"], Status::Dead),
+        ("rank", ["joren", "high"], Status::Certain),
+        ("linked", ["joren", "enclosure"], Status::Possible),
+        ("omen", ["joren", "storm"], Status::Possible),
+        ("secret", ["joren", "hidden"], Status::Dead),
     ] {
         let rendered: Vec<String> = args.iter().map(|a| (*a).to_owned()).collect();
         let loaded = compiled

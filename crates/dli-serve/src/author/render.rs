@@ -90,15 +90,15 @@ pub const fn renders_dli() -> bool {
 /// use dli_serve::author::render::render_decls;
 /// let decl = Decl::Entity(EntityDecl {
 ///     kind: EntityKind::Person,
-///     name: Ident::synthetic("mara"),
-///     label: Some("Mara".to_owned()),
+///     name: Ident::synthetic("nara"),
+///     label: Some("Nara".to_owned()),
 ///     time: None,
 ///     slots: Vec::new(),
 ///     provenance: None,
 /// });
 /// let lines = render_decls(&[decl]);
 /// # #[cfg(feature = "syntax")]
-/// assert_eq!(lines, vec!["person mara \"Mara\""]);
+/// assert_eq!(lines, vec!["person nara \"Nara\""]);
 /// # #[cfg(not(feature = "syntax"))]
 /// assert!(lines.is_empty());
 /// ```
@@ -125,9 +125,9 @@ pub fn render_decls(decls: &[Decl]) -> Vec<String> {
 ///
 /// ```
 /// use dli_serve::author::render::render_scoped;
-/// let lines = render_scoped("tpth", &[]);
+/// let lines = render_scoped("storybook", &[]);
 /// # #[cfg(feature = "syntax")]
-/// assert_eq!(lines, vec!["scope tpth"]);
+/// assert_eq!(lines, vec!["scope storybook"]);
 /// # #[cfg(not(feature = "syntax"))]
 /// assert!(lines.is_empty());
 /// ```
@@ -194,10 +194,10 @@ pub fn render_option(question: &str, option: &str, label: &str) -> Vec<String> {
 ///
 /// ```
 /// use dli_serve::author::render::escape_controls;
-/// assert_eq!(escape_controls("mara"), "mara");
+/// assert_eq!(escape_controls("nara"), "nara");
 /// assert_eq!(escape_controls("s\nperson forged"), "s\\nperson forged");
 /// // U+202E RIGHT-TO-LEFT OVERRIDE cannot silently reverse the visible line.
-/// assert_eq!(escape_controls("Mara\u{202e}x"), "Mara\\u{202e}x");
+/// assert_eq!(escape_controls("Nara\u{202e}x"), "Nara\\u{202e}x");
 /// ```
 #[must_use]
 pub fn escape_controls(text: &str) -> String {

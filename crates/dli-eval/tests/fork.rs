@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Fork-manager coverage (`ENG-2`): O(1) creation, suppose/suppress/add/restrict,
 //! the derived-consequence diff, the ratification pre-flight, and generative
-//! promotion. The base world is a hand-built saltmarket ledger — no parser is
+//! promotion. The base world is a hand-built storybook ledger — no parser is
 //! involved.
 
 use std::collections::BTreeSet;
@@ -94,7 +94,7 @@ fn base_world() -> World {
                         "keeps",
                         vec![sym("old-fen"), sym("the-salt-ledger")],
                     ),
-                    option("mara", "keeps", vec![sym("mara"), sym("the-salt-ledger")]),
+                    option("nara", "keeps", vec![sym("nara"), sym("the-salt-ledger")]),
                 ],
                 provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
             }),
@@ -158,7 +158,7 @@ fn suppose_rules_exclusivity_siblings_dead() {
     assert_eq!(delta.newly_dead.len(), 1);
     assert_eq!(
         delta.newly_dead[0].atom.render(),
-        "keeps(mara, the-salt-ledger)"
+        "keeps(nara, the-salt-ledger)"
     );
 }
 
@@ -166,7 +166,7 @@ fn suppose_rules_exclusivity_siblings_dead() {
 fn diff_catches_newly_certain_newly_dead_and_grade_changed() {
     let mut store = ForkStore::new(base_world());
     let fork = store.fork();
-    // Suppose old-fen: keeps(old-fen) newly certain, keeps(mara) newly dead.
+    // Suppose old-fen: keeps(old-fen) newly certain, keeps(nara) newly dead.
     store.suppose(fork, "old-fen", true).unwrap();
     // Add a checked re-derivation of the already-certain (asserted) weathered
     // fact: same status, stronger grade — a grade change.
@@ -192,7 +192,7 @@ fn diff_catches_newly_certain_newly_dead_and_grade_changed() {
     assert_eq!(delta.newly_dead.len(), 1);
     assert_eq!(
         delta.newly_dead[0].atom.render(),
-        "keeps(mara, the-salt-ledger)"
+        "keeps(nara, the-salt-ledger)"
     );
 
     assert_eq!(delta.grade_changed.len(), 1);
@@ -210,7 +210,7 @@ fn add_of_a_new_atom_is_newly_certain() {
         .add(
             fork,
             [Addition::asserted(
-                ground("raised-by", &["tide-bell", "guild"]),
+                ground("raised-by", &["bellsong", "guild"]),
                 Ann::unconditional(),
             )],
         )
@@ -221,22 +221,22 @@ fn add_of_a_new_atom_is_newly_certain() {
         delta
             .newly_certain
             .iter()
-            .any(|c| c.atom.render() == "raised-by(tide-bell, guild)")
+            .any(|c| c.atom.render() == "raised-by(bellsong, guild)")
     );
 }
 
 #[test]
 fn preflight_surfaces_an_option_contradicted_by_a_certain_fact() {
-    // A certain fact has already closed the `mara` option (its variable is ruled
+    // A certain fact has already closed the `nara` option (its variable is ruled
     // false in the base ledger).
     let mut world = base_world();
-    let mara = atom_of(&world, "mara");
-    world.valuation.set(mara, false);
+    let nara = atom_of(&world, "nara");
+    world.valuation.set(nara, false);
 
     let mut store = ForkStore::new(world);
     let fork = store.fork();
     // Supposing the ruled-out option true contradicts the ledger.
-    store.suppose(fork, "mara", true).unwrap();
+    store.suppose(fork, "nara", true).unwrap();
 
     let pre = store.preflight(fork).unwrap();
     assert!(
@@ -255,7 +255,7 @@ fn preflight_surfaces_two_supposed_siblings_as_exclusivity() {
     let mut store = ForkStore::new(base_world());
     let fork = store.fork();
     store.suppose(fork, "old-fen", true).unwrap();
-    store.suppose(fork, "mara", true).unwrap();
+    store.suppose(fork, "nara", true).unwrap();
 
     let pre = store.preflight(fork).unwrap();
     assert!(
@@ -341,9 +341,9 @@ fn merge_reports_exclusivity_and_valuation_conflicts() {
     // Two forks each supposing a different exclusive option: they jointly break Θ.
     let picks_fen = store.fork();
     store.suppose(picks_fen, "old-fen", true).unwrap();
-    let picks_mara = store.fork();
-    store.suppose(picks_mara, "mara", true).unwrap();
-    let exclusivity = store.merge(picks_fen, picks_mara).unwrap();
+    let picks_nara = store.fork();
+    store.suppose(picks_nara, "nara", true).unwrap();
+    let exclusivity = store.merge(picks_fen, picks_nara).unwrap();
     assert!(
         exclusivity
             .iter()
@@ -366,7 +366,7 @@ fn merge_reports_exclusivity_and_valuation_conflicts() {
         .add(
             adds,
             [Addition::asserted(
-                ground("raised-by", &["tide-bell", "guild"]),
+                ground("raised-by", &["bellsong", "guild"]),
                 Ann::unconditional(),
             )],
         )
@@ -390,7 +390,7 @@ fn merge_reports_certain_layer_functional_dependency() {
         .add(
             a,
             [Addition::asserted(
-                ground("home", &["mara", "shallows"]),
+                ground("home", &["nara", "shallows"]),
                 Ann::unconditional(),
             )],
         )
@@ -400,7 +400,7 @@ fn merge_reports_certain_layer_functional_dependency() {
         .add(
             b,
             [Addition::asserted(
-                ground("home", &["mara", "highlands"]),
+                ground("home", &["nara", "highlands"]),
                 Ann::unconditional(),
             )],
         )
@@ -417,7 +417,7 @@ fn merge_reports_certain_layer_functional_dependency() {
         "one certain-layer FD conflict: {conflicts:?}"
     );
     assert!(
-        certain[0].rendered.contains("home") && certain[0].rendered.contains("mara"),
+        certain[0].rendered.contains("home") && certain[0].rendered.contains("nara"),
         "names the predicate and subject: {}",
         certain[0].rendered
     );
@@ -462,7 +462,7 @@ fn merge_folds_cosmetic_value_drift_to_one_value() {
         .add(
             a,
             [Addition::asserted(
-                ground("home", &["mara", "shallows"]),
+                ground("home", &["nara", "shallows"]),
                 Ann::unconditional(),
             )],
         )
@@ -472,7 +472,7 @@ fn merge_folds_cosmetic_value_drift_to_one_value() {
         .add(
             b,
             [Addition::asserted(
-                ground("home", &["mara", "Shallows"]),
+                ground("home", &["nara", "Shallows"]),
                 Ann::unconditional(),
             )],
         )
@@ -507,7 +507,7 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
         .add(
             a,
             [Addition::asserted(
-                ground("rank", &["mara", "gold"]),
+                ground("rank", &["nara", "gold"]),
                 Ann::unconditional(),
             )],
         )
@@ -517,7 +517,7 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
         .add(
             b,
             [Addition::asserted(
-                ground("rank", &["mara", "silver"]),
+                ground("rank", &["nara", "silver"]),
                 Ann::unconditional(),
             )],
         )
@@ -534,7 +534,7 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
         "the declared dependency is honored on the merge: {conflicts:?}"
     );
     assert!(
-        certain[0].rendered.contains("rank") && certain[0].rendered.contains("mara"),
+        certain[0].rendered.contains("rank") && certain[0].rendered.contains("nara"),
         "names the predicate and subject: {}",
         certain[0].rendered
     );
@@ -560,7 +560,7 @@ fn merge_declared_functional_still_folds_cosmetic_drift() {
         .add(
             a,
             [Addition::asserted(
-                ground("rank", &["mara", "gold"]),
+                ground("rank", &["nara", "gold"]),
                 Ann::unconditional(),
             )],
         )
@@ -570,7 +570,7 @@ fn merge_declared_functional_still_folds_cosmetic_drift() {
         .add(
             b,
             [Addition::asserted(
-                ground("rank", &["mara", "Gold"]),
+                ground("rank", &["nara", "Gold"]),
                 Ann::unconditional(),
             )],
         )
@@ -645,12 +645,12 @@ fn merge_keeps_a_signed_value_distinct() {
 /// re-blamed on every merge.
 #[test]
 fn merge_does_not_reblame_a_base_inherited_break() {
-    // A base that already breaks `rank` two ways for `mara` (a canon defect the
+    // A base that already breaks `rank` two ways for `nara` (a canon defect the
     // load check reports on its own), with `rank` declared functional.
     let mut world = World::new();
     world.functional_predicates.insert("rank".to_owned());
-    world.assert_fact(ground("rank", &["mara", "gold"]), Ann::unconditional());
-    world.assert_fact(ground("rank", &["mara", "silver"]), Ann::unconditional());
+    world.assert_fact(ground("rank", &["nara", "gold"]), Ann::unconditional());
+    world.assert_fact(ground("rank", &["nara", "silver"]), Ann::unconditional());
     let world = world.fixpoint().unwrap();
     let mut store = ForkStore::new(world);
 
@@ -727,17 +727,17 @@ fn exposed_valuation_bakes_exclusivity_and_drives_eval_under() {
     store.suppose(fork, "old-fen", true).unwrap();
 
     let old_fen = atom_of(store.base(), "old-fen");
-    let mara = atom_of(store.base(), "mara");
+    let nara = atom_of(store.base(), "nara");
 
     let nu = store.valuation(fork).unwrap();
-    // Supposing old-fen true rules the sibling mara false inside the valuation.
+    // Supposing old-fen true rules the sibling nara false inside the valuation.
     assert_eq!(nu.get(old_fen), Some(true));
-    assert_eq!(nu.get(mara), Some(false));
+    assert_eq!(nu.get(nara), Some(false));
     // It is exactly the pre-flight candidate.
     assert_eq!(nu, store.preflight(fork).unwrap().candidate);
 
     // Driving eval_under with it directly (no re-lowering, no theory re-pass)
-    // reproduces the fork's certain layer: old-fen certain, mara gone dead.
+    // reproduces the fork's certain layer: old-fen certain, nara gone dead.
     let goal = Query {
         goal: atom_expr("keeps", vec![sym("old-fen"), sym("the-salt-ledger")]),
     };

@@ -5,8 +5,7 @@
 //! `stale-fence` refusal (spec 11 §2). The digest is a content hash over the
 //! staged state, so it moves iff the staged state moves.
 //!
-//! The contract names **RFC 8785 JCS** as the digest domain (fantasy-contract
-//! §3.2/§4). Every whole-value digest therefore uses a real JCS serializer:
+//! The contract names **RFC 8785 JCS** as the digest domain. Every whole-value digest therefore uses a real JCS serializer:
 //! object keys sort by UTF-16 code units, strings and numbers use the RFC's
 //! canonical form, and insignificant whitespace is absent. Independent callers
 //! can reproduce the exact bytes rather than trusting an engine-private field

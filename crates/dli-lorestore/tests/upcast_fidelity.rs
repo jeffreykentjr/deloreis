@@ -141,7 +141,7 @@ fn v1_rule_carriage_upcasts_to_the_exact_v2_object() {
 fn practice_pack() -> Pack {
     let src = "scope magic\n\
                cycle tide(4) proposed\n\
-               practice spoken-proof proposed {\n\
+               practice spoken-oath proposed {\n\
                \x20 kind ground = door | field\n\
                \x20 resource debt : linear conserved\n\
                \x20 error fizzle refines L2 premise-not-available where absent\n\

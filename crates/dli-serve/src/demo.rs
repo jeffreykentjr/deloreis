@@ -88,8 +88,7 @@ const WARDING_VOWS_SOURCE: &str = include_str!("../demos/warding-vows.source.dli
 /// a `before`-fact and a deliberately UNORDERED pair) plus a language dialect —
 /// so the `timeline.show`/`timeline.order` and dialect-scoped `name.check` reads
 /// have a resolvable, engine-owned world to run against. It is the neutral
-/// counterpart to any one production world; the worker embeds no production canon
-/// (the dli/TPtH separation invariant).
+/// counterpart to a caller's own world; the worker embeds no production canon.
 const ROUND_TABLE_SOURCE: &str = include_str!("../../../examples/camelot.dli");
 
 const CAMELOT_FACTS: &str = include_str!("../demos/camelot.facts.json");
@@ -252,10 +251,10 @@ mod tests {
 
     #[test]
     fn an_unknown_id_resolves_to_nothing() {
-        assert!(pack("saltmarket").is_none());
-        assert!(!is_demo_document("saltmarket"));
-        assert!(source_bytes("saltmarket").is_none());
-        assert!(scope_name("saltmarket").is_none());
+        assert!(pack("storybook").is_none());
+        assert!(!is_demo_document("storybook"));
+        assert!(source_bytes("storybook").is_none());
+        assert!(scope_name("storybook").is_none());
     }
 
     #[test]

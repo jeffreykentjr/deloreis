@@ -1107,7 +1107,7 @@ pub fn reconstruct_pack(
     // carries one `ratify` (an `author.record_decision`/`defeat` carriage) over
     // a base whose earlier decisions were only ever in the commit's `decisions`
     // list. Under the old all-or-nothing rule the first carriage suppressed the
-    // whole prelude, silently un-declaring every list-only decision and turning
+    // whole prelude, silently un-declaring every list-only decision and making
     // every fact resting on one uncertain (DL-0083, the synthetic-prelude /
     // carriage byte-identity risk). Covering exactly the uncarried decisions
     // keeps all of them declared, byte-identically, whether by the list or by

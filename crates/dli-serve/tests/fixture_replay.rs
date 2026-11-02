@@ -202,8 +202,19 @@ fn assert_materialized_reparses(response: &Value, name: &str) {
 }
 
 fn replay_framing_case(case: &Value, name: &str) {
-    let (_control_root, mut control_sessions, mut control_store) = fixture_stores();
-    let (_attack_root, mut attack_sessions, mut attack_store) = fixture_stores();
+    let include_norse = [
+        "precondition",
+        "control_precondition",
+        "attack_precondition",
+    ]
+    .into_iter()
+    .filter_map(|field| case.get(field).and_then(Value::as_array))
+    .flatten()
+    .any(|frame| frame["params"]["fork"] == "what-does-wisdom-cost");
+    let (_control_root, mut control_sessions, mut control_store) =
+        fixture_stores_with_norse(include_norse);
+    let (_attack_root, mut attack_sessions, mut attack_store) =
+        fixture_stores_with_norse(include_norse);
     run_precondition(case, &mut control_sessions, &mut control_store, name);
     run_precondition(case, &mut attack_sessions, &mut attack_store, name);
     run_precondition_field(
@@ -267,12 +278,22 @@ fn replay_framing_case(case: &Value, name: &str) {
 }
 
 fn fixture_stores() -> (tempfile::TempDir, Sessions, Store) {
+    fixture_stores_with_norse(false)
+}
+
+fn fixture_stores_with_norse(include_norse: bool) -> (tempfile::TempDir, Sessions, Store) {
     let source = fixtures_dir()
         .parent()
         .expect("contract directory")
         .join("fixture-project");
     let temp = tempfile::tempdir().expect("create isolated fixture project");
     copy_tree(&source, temp.path());
+    if include_norse {
+        let manifest = temp.path().join("deloreis.toml");
+        let mut text = fs::read_to_string(&manifest).expect("read fixture manifest");
+        text.push_str("\n[documents.nine-realms]\nsources = [\"nine-realms.dli\"]\n");
+        fs::write(manifest, text).expect("include public-domain fork fixture");
+    }
     seed_corpus_store(temp.path());
     let project = Arc::new(Project::load(temp.path()).expect("the copied fixture project loads"));
     let packs = project.documents().map(|(id, document)| {
@@ -347,12 +368,12 @@ fn copy_tree(source: &Path, destination: &Path) {
 
 fn legacy_fixture_author_store() -> Store {
     let source = "\
-scope saltmarket
+scope storybook
 ratify d-1
 era first-tides decided d-1
 fork exploration
   option baseline
-fork ep9-cast
+fork crossroads-cast
   option baseline
 ";
     let (document, diagnostics) = dli_syntax::parse_document(source);
@@ -362,9 +383,9 @@ fork ep9-cast
             .all(|diagnostic| !diagnostic.class.is_error())
     );
     Store::with_packs([(
-        "saltmarket".to_owned(),
+        "storybook".to_owned(),
         Pack {
-            name: "saltmarket".to_owned(),
+            name: "storybook".to_owned(),
             documents: vec![document],
         },
         KilledTokens::default(),

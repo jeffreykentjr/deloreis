@@ -1,13 +1,13 @@
 {
   "fixture": "golden/author-entity-candidates-declared-v1",
-  "note": "Contract 1.11 coreference candidates: author.entity_candidates filters the staged world to declared entities before ranking. Over the saltmarket scope, surface 'baseline' has no declared-entity match; the era first-tides is returned at distance 8. limit bounds the count; the engine caps it.",
+  "note": "Contract 1.11 coreference candidates: author.entity_candidates filters the staged world to declared entities before ranking. Over the storybook scope, surface 'baseline' has no declared-entity match; the era first-tides is returned at distance 8. limit bounds the count; the engine caps it.",
   "precondition": [
     {
       "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -24,9 +24,14 @@
               "distance": 8,
               "name": "first-tides",
               "sort": "era"
+            },
+            {
+              "distance": 8,
+              "name": "witness",
+              "sort": "thing"
             }
           ],
-          "root_hash": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
+          "root_hash": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3"
         }
       },
       "send": {

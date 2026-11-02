@@ -7,7 +7,7 @@
     "id": "1",
     "op": "dli.check",
     "params": {
-      "documnet": "saltmarket"
+      "documnet": "storybook"
     }
   },
   "expect_error": {

@@ -11,6 +11,14 @@ use anyhow::{Context, Result, bail};
 const LEDGER: &str = "docs/decisions.md";
 const PLAN: &str = "docs/PLAN.md";
 const STATES: [&str; 4] = ["done", "open", "deferred", "external-blocked"];
+// DL-0101 authorizes exactly one reset. Pin both sides so this exception
+// cannot authorize a different rewrite of the historical ledger.
+const PRE_RESET_LEDGER_SHA256: &str =
+    "fbc8d01e442736d75d5f47d0ed89e2c4ed9a8b1d9041c0e564ea8b352f9f27df";
+const RESET_LEDGER_SHA256: &str =
+    "3e225064bce94ccde21479cdc788824a2c1a70f49fcabe40a3299a6c3ac18ebb";
+const RESET_HEADING: &str =
+    "## DL-0104 — Standing rulings carried forward from `pre-fiction-reset`";
 
 /// Validate the authority documents and, when Git history is available, the
 /// append-only ledger invariant.
@@ -56,7 +64,12 @@ fn validate_ledger(ledger: &str) -> Result<()> {
     }
     let corrected_dates = corrected_dates(ledger, &entries, &active)?;
 
-    for (expected, (id, start)) in (1_u32..).zip(entries.iter().copied()) {
+    let first = if entries[0].0 == 104 && ledger.lines().any(|line| line == RESET_HEADING) {
+        104
+    } else {
+        1
+    };
+    for (expected, (id, start)) in (first..).zip(entries.iter().copied()) {
         if id != expected {
             bail!("{LEDGER} has DL-{id:04} where DL-{expected:04} is required");
         }
@@ -239,12 +252,17 @@ fn validate_append_only(root: &Path, current: &[u8]) -> Result<()> {
     let base_ref = baseline_ref(env::var("GITHUB_BASE_REF").ok());
     let merge_base = git_merge_base(root, &base_ref)?;
     let baseline = git_file(root, &merge_base, LEDGER)?;
-    if !current.starts_with(&baseline) {
+    if !current.starts_with(&baseline) && !authorized_reset(&baseline, current) {
         bail!(
             "{LEDGER} is not append-only: bytes already present in the comparison revision changed"
         );
     }
     Ok(())
+}
+
+fn authorized_reset(baseline: &[u8], current: &[u8]) -> bool {
+    crate::util::sha256_hex(baseline) == PRE_RESET_LEDGER_SHA256
+        && crate::util::sha256_hex(current) == RESET_LEDGER_SHA256
 }
 
 fn baseline_ref(github_base_ref: Option<String>) -> String {
@@ -351,7 +369,7 @@ fn section<'a>(text: &'a str, start: &str, end: &str) -> Result<&'a str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{baseline_ref, valid_date_line, validate_ledger, validate_plan};
+    use super::{authorized_reset, baseline_ref, valid_date_line, validate_ledger, validate_plan};
 
     #[test]
     fn baseline_ref_defaults_when_github_base_ref_is_unset() {
@@ -426,6 +444,14 @@ mod tests {
 **Ruling.** yes
 ";
         validate_ledger(later_correction).expect("later entry may correct an earlier date");
+    }
+
+    #[test]
+    fn reset_sequence_is_explicit_and_other_rewrites_are_refused() {
+        let reset = "## DL-0104 — Standing rulings carried forward from `pre-fiction-reset`\n\n*Date: 2026-11-02*\n\n**Ruling.** carry the surviving laws\n\n## DL-0105 — next\n\n*Date: 2026-11-02*\n\n**Ruling.** yes\n";
+        validate_ledger(reset).expect("the reset starts the new sequence");
+        assert!(validate_ledger(&reset.replace("Standing rulings", "Different rulings")).is_err());
+        assert!(!authorized_reset(b"old", b"new"));
     }
 
     #[test]

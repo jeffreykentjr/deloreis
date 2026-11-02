@@ -39,7 +39,7 @@ use dli_world::Pack;
 const PROOF_SRC: &str = "\
 scope magic
 cycle tide(4) = ebb | slack | flood | high  proposed
-practice spoken-proof proposed {
+practice spoken-oath proposed {
   kind ground = door | field | ore
   resource debt : linear conserved
   rule ward-form(ground, fibre)
@@ -48,8 +48,8 @@ practice spoken-proof proposed {
   error wrong-hour refines L3 side-condition [timing] over cycle tide
   cost material
 }
-proof e01-s04 speaker protagonist in spoken-proof {
-  premise p1 holds(enfys, consent(household, door)) cited D-0113 cue \"line 112\"
+proof e01-s04 speaker protagonist in spoken-oath {
+  premise p1 holds(linet, consent(household, door)) cited D-0113 cue \"line 112\"
   premise p2 phase(tide, slack) from-scene cue \"line 118\"
   premise p3 debt(1) drawn-against p1
   step s1 instantiate ward-form with ground = door, fibre = withy
@@ -81,7 +81,7 @@ fn is_proof_carriage(fo: &FactObject) -> bool {
 /// tide at slack, so `e01-s04` reaches a clean hold.
 fn scene() -> SceneProjection {
     SceneProjection::new()
-        .seat("holds(enfys, consent(household, door))")
+        .seat("holds(linet, consent(household, door))")
         .at_phase("tide", "slack")
 }
 
@@ -186,8 +186,8 @@ fn a_v1_proof_carriage_checks_identically_after_upcast() {
     let practices = compile_practices(document);
     let practice = practices
         .iter()
-        .find(|p| p.name.text == "spoken-proof")
-        .expect("the spoken-proof practice compiles");
+        .find(|p| p.name.text == "spoken-oath")
+        .expect("the spoken-oath practice compiles");
     let direct = document
         .decls
         .iter()

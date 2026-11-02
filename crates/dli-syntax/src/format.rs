@@ -87,7 +87,7 @@ pub fn format_document(document: &Document) -> String {
 ///
 /// assert!(format_source("place weir \"The Weir\" proposed\n").is_ok());
 /// // A malformed line would be dropped on a blind re-render, so fmt refuses.
-/// assert!(format_source("fact mara lives-in\n").is_err());
+/// assert!(format_source("fact nara lives-in\n").is_err());
 /// ```
 pub fn format_source(source: &str) -> Result<String, Vec<crate::diag::Diagnostic>> {
     let (document, diagnostics) = crate::parser::parse_document(source);

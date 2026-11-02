@@ -185,9 +185,8 @@ pub(crate) fn ledger_valuation(
 ///
 /// **Not gated:** a `term`/`dialect`/`word`/`name-part`'s `decided <d-id>` is
 /// *language-layer provenance* — a bibliographic pointer that may name a decision
-/// recorded OUTSIDE this corpus. The vendored `TPtH` packs legitimately cite external
-/// canon ids (e.g. `D-0181`) this way; gating them would break a partial/vendored
-/// corpus that points at its home ledger. Provenance is not assertability authority.
+/// recorded outside this corpus. Gating them would break a partial corpus that
+/// points at its home ledger. Provenance is not assertability authority.
 ///
 /// Each gated id is routed through [`gate_citations`] exactly as an atom's would
 /// be, so a declared id rules its variable and an undeclared one raises
@@ -374,7 +373,7 @@ fn gate_citations(
 /// A pure read over the store and the world: for each question's head record,
 /// recompute the current fingerprint of the world's facts about its subject and
 /// return the record iff it no longer matches what was fingerprinted when the
-/// attestation was taken. The kernel calls no model here; a sweep in the factory
+/// attestation was taken. The kernel calls no model here; a caller-side sweep
 /// sense answers this queue by re-posing the questions and committing records.
 pub fn sweep(store: &AttestationStore, model: &WorldModel) -> Vec<Attestation> {
     store

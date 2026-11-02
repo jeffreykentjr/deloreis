@@ -41,7 +41,7 @@ valuation only a ruling can make. The same answer holds for claims an LLM
 extracts from old drafts.
 
 **Why here.** Provenance drift is the repo pathology, and accumulated
-consequence is what the world's Wyrd already is; the language believes what the
+consequences accumulate in the story; the language believes what the
 canon believes.
 
 ### 2. Nothing changes but a ruling.
@@ -151,12 +151,11 @@ type system honors that: a wheel sort carries succ, pred, across, and distance,
 but no `<`, no sort order, and no maximum.
 
 **It settles.** The single `wheel` sort shared by cyclic time (tide, moon,
-season) and the Turning's twenty-nine leaves; asking for the "greatest" season
-or sorting the moon's nights is a type error, not a silent tie-break.
+season); asking for the "greatest" season or sorting the moon's nights is a
+type error, not a silent tie-break.
 
-**Why here.** The world has wheels — the same turning that seats a ward runs the
-Turning's leaves — and a language that faked a linear order over them would be
-lying about the world it models.
+**Why here.** Stories can have cycles, and a language that faked a linear order over them
+would misrepresent the world it models.
 
 ### 9. Errors are lore.
 
@@ -188,19 +187,13 @@ satellite knowledge systems; integration is by declaration, not by API. If a
 thing is knowledge in the corpus, it is declarations in the fabric; if it is
 not, it consumes exports.
 
-**It settles.** The Turning engine is in-kernel because its rules are ratified
-lore whose invariants are checked claims, while a video game is outside because a
-runtime is not knowledge — one line, drawn once, by principle instead of
-per-case argument; the timeline is a module of the fabric, not a service; the
-naming oracle's ratified-names view becomes generated output of the compiled
-world, not a hand-maintained sibling authority.
+**It settles.** The timeline is a module of the fabric, not a separate authority;
+the naming view is generated from the compiled world rather than maintained as
+a sibling source. Exports render claims but do not introduce new canon.
 
-**A novel decision it makes — the export variant.** When a card export earns
-users, someone will want variants maintained in the profile — "just add the
-festival deck in the JSON." Refused, with the correct path attached: variants
-are lore (`variant` declarations with status and citations); profiles only
-render. The moment a profile defines content there are two fabrics, and one of
-them is unratified.
+**A novel decision it makes — the export variant.** A new fictional variant
+belongs in the world as a declaration with standing and provenance. An export
+profile can render that variant, but cannot silently define it.
 
 **Why here.** The repo has lived the alternative — hand-maintained mirrors that
 drift, prose shadowing data, an apparatus built to chase divergence. One fabric
@@ -219,7 +212,7 @@ an opt-in rendering, not a second way in (DL-0041); textual editing is a
 measured fallback, not an interface; and **raw AST emission is a mechanism
 inside the tools, not an interface**.
 
-**A novel decision it makes — the form-editor question.** The factory UI will
+**A novel decision it makes — the form-editor question.** An authoring interface will
 someday want click-to-edit forms over lore entities. A new interface? No: any
 UI is a *client* of the tool surface — its output is tool calls entering as
 `proposed`, reviewed like everything else; it may not emit past review as a
@@ -295,7 +288,7 @@ The charter names its costs; a charter that names none has not been used.
 - **One fabric versus a small system.** One fabric pulls all knowledge into one
   runtime; the budget pushes everything out. Resolved by scope: one fabric
   governs *semantics* — all knowledge, one meaning, one store — not code shape.
-  The kernel, the timeline module, the Turning engine, and any future searcher
+  The kernel, the timeline module, and any future searcher
   are separate small parts sharing the judgment boundary (koan 12). A monolith is
   not what one fabric means; satellite *semantics* is not what small parts means.
 - **One way in versus nothing silently dropped.** Bounding the interface must

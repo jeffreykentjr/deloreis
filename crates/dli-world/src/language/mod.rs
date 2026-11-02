@@ -17,10 +17,10 @@
 //!    aural distinctness, sayability, gender, banned-in-name).
 //! 3. [`vet_candidate`] is the kernel half of the oracle's two-layer verdict — it
 //!    vets a bare candidate against the settled name-space, leaving the
-//!    world-safe screens to the consuming repo's factory.
+//!    world-safe screens to the consuming application.
 //!
 //! The **vet split** governs what re-homes here: a check enters the kernel iff
-//! its ground truth is a fact about the *story's* world, and stays factory-side
+//! its ground truth is a fact about the *story's* world, and stays application-side
 //! iff it is a fact about *ours* (05 §3). Every [`LangFinding`] is a claim about
 //! the story's world.
 

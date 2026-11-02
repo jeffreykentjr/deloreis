@@ -38,7 +38,7 @@ fn fixture() -> (tempfile::TempDir, Store, std::path::PathBuf) {
     )
     .unwrap();
     let (document, diagnostics) = dli_syntax::parse_document(
-        "scope demo\nratify d1\nperson mara \"Mara\" ratified d1\nfact mara rank gold ratified d1\n",
+        "scope demo\nratify d1\nperson nara \"Nara\" ratified d1\nfact nara rank gold ratified d1\n",
     );
     assert!(
         diagnostics
@@ -72,30 +72,30 @@ fn propagation_fixture(
     let mut source = "scope demo\nratify d1\nratify d10\nratify d11\n".to_owned();
     for decision in decision_order {
         writeln!(&mut source, "ratify {decision}").unwrap();
-        writeln!(&mut source, "declared-{decision}(mara) ratified {decision}").unwrap();
+        writeln!(&mut source, "declared-{decision}(nara) ratified {decision}").unwrap();
     }
     for level in 1..derivation_depth {
         writeln!(&mut source, "ratify d{}", 20 + level).unwrap();
     }
     source.push_str("ratify d19\n");
     source.push_str(concat!(
-        "person mara \"Mara\" ratified d11\n",
-        "p(mara) ratified d1\n",
-        "independent-seed(mara) ratified d11\n",
-        "redundant-seed(mara) ratified d11\n",
+        "person nara \"Nara\" ratified d11\n",
+        "p(nara) ratified d1\n",
+        "independent-seed(nara) ratified d11\n",
+        "redundant-seed(nara) ratified d11\n",
         "rule independent-rule ratified d10\n",
-        "  independent(mara) :- independent-seed(mara)\n",
+        "  independent(nara) :- independent-seed(nara)\n",
         "rule redundant-from-p ratified d10\n",
-        "  redundant(mara) :- p(mara)\n",
+        "  redundant(nara) :- p(nara)\n",
         "rule redundant-live ratified d10\n",
-        "  redundant(mara) :- redundant-seed(mara)\n",
+        "  redundant(nara) :- redundant-seed(nara)\n",
     ));
     let mut predecessor = "p".to_owned();
     for level in 1..derivation_depth {
         let step = format!("step-{level}");
         writeln!(
             &mut source,
-            "rule chain-{level} ratified d{}\n  {step}(mara) :- {predecessor}(mara)",
+            "rule chain-{level} ratified d{}\n  {step}(nara) :- {predecessor}(nara)",
             20 + level
         )
         .unwrap();
@@ -104,7 +104,7 @@ fn propagation_fixture(
     for conclusion in 1..=conclusion_count {
         writeln!(
             &mut source,
-            "rule conclusion-{conclusion} ratified d19\n  q-{conclusion}(mara) :- {predecessor}(mara)"
+            "rule conclusion-{conclusion} ratified d19\n  q-{conclusion}(nara) :- {predecessor}(nara)"
         )
         .unwrap();
     }
@@ -187,7 +187,7 @@ fn query_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": predicate, "args": [{"Sym": "mara"}]},
+                "goal_atom": {"pred": predicate, "args": [{"Sym": "nara"}]},
                 "layer": "all"
             }),
         ),
@@ -203,7 +203,7 @@ fn why_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str) 
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": predicate, "args": [{"Sym": "mara"}]}
+                "goal_atom": {"pred": predicate, "args": [{"Sym": "nara"}]}
             }),
         ),
         store,
@@ -243,7 +243,7 @@ fn author_query(store: &mut Store, workspace: &str, id: &str) -> Value {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]},
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]},
                 "layer": "all"
             }),
         ),
@@ -259,7 +259,7 @@ fn author_why(store: &mut Store, workspace: &str, id: &str) -> Value {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         store,
@@ -296,7 +296,7 @@ fn defeat(
 fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     let (root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path.clone()).unwrap();
-    let d1_claim = claim_id(&lorestore, None, "mara");
+    let d1_claim = claim_id(&lorestore, None, "nara");
     let workspace = result(dispatch(
         &request("2.0.0", "open", Op::AuthorOpen, json!({"scope": "demo"})),
         &mut store,
@@ -339,7 +339,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -367,7 +367,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -406,7 +406,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -480,7 +480,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         "op": "dli.query",
         "params": {
             "document": "demo",
-            "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]},
+            "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]},
             "layer": "all"
         }
     });
@@ -508,7 +508,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             Op::AuthorWhy,
             json!({
                 "workspace": reopened_workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut author,
@@ -529,7 +529,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             Op::AuthorWhy,
             json!({
                 "workspace": reopened_workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut author,
@@ -545,7 +545,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
 fn stale_sibling_bulk_installs_the_current_attack_valuation() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-    let target_claim = claim_id(&lorestore, None, "mara");
+    let target_claim = claim_id(&lorestore, None, "nara");
 
     let first = result(dispatch(
         &request("2.0.0", "open-a", Op::AuthorOpen, json!({"scope": "demo"})),
@@ -635,14 +635,14 @@ fn duplicate_projected_blocked_paths_still_report_the_global_blocker() {
         "ratify d1\n",
         "ratify d2\n",
         "ratify d10\n",
-        "person mara \"Mara\" proposed seed-person\n",
-        "p(mara) ratified d1\n",
-        "left(mara) proposed seed-left\n",
-        "right(mara) proposed seed-right\n",
+        "person nara \"Nara\" proposed seed-person\n",
+        "p(nara) ratified d1\n",
+        "left(nara) proposed seed-left\n",
+        "right(nara) proposed seed-right\n",
         "rule left-path ratified d10\n",
-        "  q(mara) :- p(mara), left(mara)\n",
+        "  q(nara) :- p(nara), left(nara)\n",
         "rule right-path ratified d10\n",
-        "  q(mara) :- p(mara), right(mara)\n",
+        "  q(nara) :- p(nara), right(nara)\n",
     ));
     assert!(
         diagnostics
@@ -717,7 +717,7 @@ fn duplicate_projected_blocked_paths_still_report_the_global_blocker() {
 fn author_why_is_pinned_to_each_branch_workspace_root() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-    let claim = claim_id(&lorestore, None, "mara");
+    let claim = claim_id(&lorestore, None, "nara");
     let main_workspace = result(dispatch(
         &request(
             "2.0.0",
@@ -772,7 +772,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
             Op::AuthorWhy,
             json!({
                 "workspace": rival_workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -800,7 +800,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
             Op::AuthorWhy,
             json!({
                 "workspace": main_workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -827,7 +827,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
 fn contract_1_12_defeat_keeps_the_frozen_one_way_ref_semantics() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-    let claim = claim_id(&lorestore, None, "mara");
+    let claim = claim_id(&lorestore, None, "nara");
     let workspace = result(dispatch(
         &request("1.12.0", "open", Op::AuthorOpen, json!({"scope": "demo"})),
         &mut store,
@@ -870,7 +870,7 @@ fn contract_1_12_defeat_keeps_the_frozen_one_way_ref_semantics() {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         &mut store,
@@ -887,7 +887,7 @@ fn contract_1_12_defeat_keeps_the_frozen_one_way_ref_semantics() {
     }
     assert_eq!(
         serde_json::to_string(&legacy_why).unwrap(),
-        r#"{"supporting_decisions":["d1"],"why":{"antichain":[[0]],"rendered":["d1"]},"why_not":{"atom":"rank(mara, gold)","blocking":[],"closest":[],"defeater":null,"known":true,"rendered":["dead — no admissible support"],"status":"dead"}}"#,
+        r#"{"supporting_decisions":["d1"],"why":{"antichain":[[0]],"rendered":["d1"]},"why_not":{"atom":"rank(nara, gold)","blocking":[],"closest":[],"defeater":null,"known":true,"rendered":["dead — no admissible support"],"status":"dead"}}"#,
         "the released 1.12 result bytes remain frozen"
     );
 }
@@ -937,7 +937,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
             .to_owned();
         for (attacker, target) in edges {
             let carrier = if target == "d1" {
-                claim_id(&lorestore, None, "mara")
+                claim_id(&lorestore, None, "nara")
             } else {
                 claim_id(&lorestore, Some("ratify"), target)
             };
@@ -959,7 +959,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
         let mut author = Store::default();
         let frame = json!({
             "dli": "2.0.0", "id": format!("reopen-{name}"), "op": "dli.query",
-            "params": {"document": "demo", "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}, "layer": "all"}
+            "params": {"document": "demo", "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}, "layer": "all"}
         });
         let reopened = respond(&frame.to_string(), &mut sessions, &mut author).unwrap();
         assert_eq!(
@@ -1038,7 +1038,7 @@ fn depths_one_two_four_and_eight_alternate_deterministically() {
             .unwrap()
             .to_owned();
         let mut target = "d1".to_owned();
-        let mut carrier = claim_id(&lorestore, None, "mara");
+        let mut carrier = claim_id(&lorestore, None, "nara");
         for step in 2..=(depth + 1) {
             let attacker = format!("d{step}");
             defeat(
@@ -1068,7 +1068,7 @@ fn depths_one_two_four_and_eight_alternate_deterministically() {
 fn defeat_idempotency_replay_does_not_advance_the_ref() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-    let claim = claim_id(&lorestore, None, "mara");
+    let claim = claim_id(&lorestore, None, "nara");
     let workspace = result(dispatch(
         &request(
             "2.0.0",
@@ -1116,7 +1116,7 @@ fn multiple_attackers_are_order_independent_end_to_end() {
     for order in [["d2", "d3"], ["d3", "d2"]] {
         let (_root, mut store, path) = fixture();
         let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-        let claim = claim_id(&lorestore, None, "mara");
+        let claim = claim_id(&lorestore, None, "nara");
         let workspace = result(dispatch(
             &request(
                 "2.0.0",
@@ -1463,13 +1463,13 @@ fn possible_alternative_prevents_a_blocked_path_from_becoming_a_global_blocker()
         "ratify d1\n",
         "ratify d2\n",
         "ratify d10\n",
-        "person mara \"Mara\" proposed seed-person\n",
-        "p(mara) ratified d1\n",
-        "open-seed(mara) proposed seed-open\n",
+        "person nara \"Nara\" proposed seed-person\n",
+        "p(nara) ratified d1\n",
+        "open-seed(nara) proposed seed-open\n",
         "rule from-p ratified d10\n",
-        "  mixed(mara) :- p(mara)\n",
+        "  mixed(nara) :- p(nara)\n",
         "rule from-open ratified d10\n",
-        "  mixed(mara) :- open-seed(mara)\n",
+        "  mixed(nara) :- open-seed(nara)\n",
     ));
     assert!(
         diagnostics
@@ -1623,7 +1623,7 @@ fn skew_fixture() -> (tempfile::TempDir, Store, std::path::PathBuf) {
     )
     .unwrap();
     let (document, diagnostics) =
-        dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+        dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
     assert!(
         diagnostics
             .iter()
@@ -1657,7 +1657,7 @@ fn ingest_accepted_fact(
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": key,
                 "value": value,
                 "provenance": {"kind": "proposed", "origin": format!("batch-{id}")}
@@ -1704,7 +1704,7 @@ fn stage_cited_fact(
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": key,
                 "value": value,
                 "provenance": {
@@ -1761,7 +1761,7 @@ fn why_attribute(store: &mut Store, workspace: &str, id: &str, key: &str, value:
                 "workspace": workspace,
                 "goal_atom": {
                     "pred": key,
-                    "args": [{"Sym": "mara"}, {"Sym": value}]
+                    "args": [{"Sym": "nara"}, {"Sym": value}]
                 }
             }),
         ),
@@ -1981,7 +1981,7 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
 fn fresh_workspace_observes_defeat_without_changing_existing_snapshot() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
-    let target = claim_id(&lorestore, None, "mara");
+    let target = claim_id(&lorestore, None, "nara");
     let open = |store: &mut Store, id: &str| {
         result(dispatch(
             &request("2.0.0", id, Op::AuthorOpen, json!({"scope": "demo"})),

@@ -89,9 +89,9 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .attach_lorestore(lorestore_root.clone())
         .expect("attach imports the base packs");
 
-    // --- open a 0.6.0 workspace over the saltmarket scope ---
+    // --- open a 0.6.0 workspace over the storybook scope ---
     let open = send(
-        &json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"saltmarket"}}),
+        &json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -105,13 +105,13 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         (
             "e1",
             "author.add_entity",
-            json!({"workspace": ws, "kind":"person","id":"mara","name":"Mara",
+            json!({"workspace": ws, "kind":"person","id":"nara","name":"Nara",
                    "provenance": {"kind":"proposed","origin":"ls5-review"}}),
         ),
         (
             "f1",
             "author.add_fact",
-            json!({"workspace": ws, "entity":"mara","key":"home","value":"the-shallows",
+            json!({"workspace": ws, "entity":"nara","key":"home","value":"riverside",
                    "provenance": {"kind":"proposed","origin":"ls5-review"}}),
         ),
     ] {
@@ -187,7 +187,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
     let fenced = send(
         &json!({"dli":"2.0.0","id":"f2","op":"author.add_fact",
                 "expected_digest": workspace_digest,
-                "params":{"workspace": ws, "entity":"mara","key":"trade","value":"salt",
+                "params":{"workspace": ws, "entity":"nara","key":"trade","value":"salt",
                           "provenance": {"kind":"proposed","origin":"ls5-review"}}}),
         &mut sessions,
         &mut store,
@@ -221,7 +221,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
     // --- query (0.6.0): the replay triple ---
     let query = send(
         &json!({"dli":"2.0.0","id":"q1","op":"author.query",
-                "params":{"workspace": ws, "goal_atom":{"pred":"home","args":[{"Sym":"mara"},{"Var":"where"}]}}}),
+                "params":{"workspace": ws, "goal_atom":{"pred":"home","args":[{"Sym":"nara"},{"Var":"where"}]}}}),
         &mut sessions,
         &mut store,
     );
@@ -244,7 +244,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- REPLAY: load the store the materialize root_hash names, recompile,
     //     and re-derive both halves byte-identically ---
-    let ls = dli_lorestore::Lorestore::open(lorestore_root.join("saltmarket"))
+    let ls = dli_lorestore::Lorestore::open(lorestore_root.join("storybook"))
         .expect("open the per-base store");
     assert_eq!(
         ls.root_hash().expect("head ok").expect("head").to_string(),
@@ -302,7 +302,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
     // --- REJECT: a second workspace discards a staged claim per-decl; the
     //     rejected claim never reaches the store ---
     let open2 = send(
-        &json!({"dli":"2.0.0","id":"open2","op":"author.open","params":{"scope":"saltmarket"}}),
+        &json!({"dli":"2.0.0","id":"open2","op":"author.open","params":{"scope":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -312,7 +312,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .to_owned();
     let rejected = send(
         &json!({"dli":"2.0.0","id":"r1","op":"author.add_fact",
-                "params":{"workspace": ws2, "entity":"mara","key":"rank","value":"reckless",
+                "params":{"workspace": ws2, "entity":"nara","key":"rank","value":"reckless",
                           "provenance": {"kind":"proposed","origin":"ls5-review"}}}),
         &mut sessions,
         &mut store,
@@ -350,14 +350,14 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
     );
 }
 
-/// The replay goal `home(mara, ?where)` — constructed exactly as the wire's
+/// The replay goal `home(nara, ?where)` — constructed exactly as the wire's
 /// goal parser lowers it (a `?name` argument is a query variable named
 /// without its marker), so the replayed query is the SAME query.
 fn parse_goal() -> dli_ast::term::AtomExpr {
     dli_ast::term::AtomExpr {
         pred: dli_ast::ident::Ident::synthetic("home"),
         args: vec![
-            dli_ast::term::Term::Sym(dli_ast::ident::Ident::synthetic("mara")),
+            dli_ast::term::Term::Sym(dli_ast::ident::Ident::synthetic("nara")),
             dli_ast::term::Term::Var(dli_ast::ident::Ident::synthetic("where")),
         ],
     }

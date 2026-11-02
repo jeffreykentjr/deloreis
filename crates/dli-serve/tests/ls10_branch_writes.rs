@@ -73,11 +73,11 @@ fn copy_tree(source: &Path, destination: &Path) {
 }
 
 /// A store over a bespoke functional-predicate base, with a lorestore
-/// attached — mirrors `ls6_serve.rs`'s `functional_store`: `mara`'s `home` is
+/// attached — mirrors `ls6_serve.rs`'s `functional_store`: `nara`'s `home` is
 /// DECIDED (certain) under `d-1`, so it is exactly the shape the certain-
 /// conflict and functional-dependency tests need.
 fn functional_store() -> (tempfile::TempDir, Sessions, Store) {
-    let source = "scope canon\n\nratify d-1\n\nhome(mara, shallows) decided d-1\n";
+    let source = "scope canon\n\nratify d-1\n\nhome(nara, shallows) decided d-1\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.iter().all(|d| !d.class.is_error()),
@@ -178,7 +178,7 @@ fn status(ws: &str, sessions: &mut Sessions, store: &mut Store) -> Value {
 /// Add and materialize a place entity on `ws` — call this on the seed/main
 /// workspace BEFORE branching, so every branch created `from: "main"`
 /// inherits it as known, avoiding `entity.unknown` on the new relations these
-/// tests go on to stage (the base only declares `mara` via its one `home`
+/// tests go on to stage (the base only declares `nara` via its one `home`
 /// fact; nothing these tests newly reference is known otherwise).
 fn seed_place(ws: &str, id: &str, sessions: &mut Sessions, store: &mut Store) {
     let added = drive(
@@ -312,7 +312,7 @@ fn branch_workspace_reads_see_branch_head_not_main() {
     add_proposed_relation(
         &branch_ws,
         "likes",
-        "mara",
+        "nara",
         "highlands",
         &mut sessions,
         &mut store,
@@ -361,7 +361,7 @@ fn writes_to_branch_invisible_to_base_and_siblings() {
     add_proposed_relation(
         &branch_ws,
         "likes",
-        "mara",
+        "nara",
         "highlands",
         &mut sessions,
         &mut store,
@@ -407,7 +407,7 @@ fn conflicting_values_evaluate_correctly_in_their_own_branches() {
     let (_t, mut sessions, mut store) = functional_store();
     let seed_ws = open_workspace("canon", &mut sessions, &mut store);
     seed_place(&seed_ws, "highlands", &mut sessions, &mut store);
-    seed_place(&seed_ws, "lowlands", &mut sessions, &mut store);
+    seed_place(&seed_ws, "moorlands", &mut sessions, &mut store);
     create_branch(&seed_ws, "branch-a", "main", &mut sessions, &mut store);
     create_branch(&seed_ws, "branch-b", "main", &mut sessions, &mut store);
 
@@ -415,15 +415,15 @@ fn conflicting_values_evaluate_correctly_in_their_own_branches() {
     // each branch's own proposed ruling for it is uncontradicted locally,
     // however much the two branches' rulings would disagree if ever brought
     // together.
-    for (branch, dest) in [("branch-a", "highlands"), ("branch-b", "lowlands")] {
+    for (branch, dest) in [("branch-a", "highlands"), ("branch-b", "moorlands")] {
         let opened = open_branch_workspace("canon", branch, &mut sessions, &mut store);
         let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
-        let added = add_proposed_relation(&ws, "likes", "mara", dest, &mut sessions, &mut store);
+        let added = add_proposed_relation(&ws, "likes", "nara", dest, &mut sessions, &mut store);
         assert!(added["ok"].as_bool().unwrap(), "{branch}: {added}");
         let mat = materialize(&ws, &mut sessions, &mut store);
         assert!(
             mat["ok"].as_bool().unwrap(),
-            "{branch} materializes its own ruling for kes cleanly: {mat}"
+            "{branch} materializes its own ruling for perin cleanly: {mat}"
         );
     }
 
@@ -463,7 +463,7 @@ fn conflicting_values_evaluate_correctly_in_their_own_branches() {
 /// colliding positional atoms — DL-0041 §LS-6, an unrelated, real hazard);
 /// reusing the SAME name sidesteps that while keeping the two branches'
 /// certain values genuinely independent (each cites `d-2` for a DIFFERENT
-/// object — `mara`'s home — so `d-2` being shared is not itself a conflict,
+/// object — `nara`'s home — so `d-2` being shared is not itself a conflict,
 /// it is what lets both rulings default true together once merged). Merging
 /// them DIRECTLY with each other (not via `main`) keeps the merge base the
 /// ORIGINAL single-value commit — the shape the merge's functional-dependency
@@ -477,7 +477,7 @@ fn certain_conflict_constructible_wire_only() {
     let (_t, mut sessions, mut store) = functional_store();
     let seed_ws = open_workspace("canon", &mut sessions, &mut store);
     seed_place(&seed_ws, "highlands", &mut sessions, &mut store);
-    seed_place(&seed_ws, "lowlands", &mut sessions, &mut store);
+    seed_place(&seed_ws, "moorlands", &mut sessions, &mut store);
     create_branch(&seed_ws, "rival", "main", &mut sessions, &mut store);
     create_branch(&seed_ws, "counter", "main", &mut sessions, &mut store);
 
@@ -489,7 +489,7 @@ fn certain_conflict_constructible_wire_only() {
             .root_hash()
             .expect("root hash")
             .expect("head present");
-        claim_id_for(lorestore, &head, "home", &["mara", "shallows"])
+        claim_id_for(lorestore, &head, "home", &["nara", "shallows"])
     };
 
     // Each branch defeats d-1 (citing the SAME new decision name, "d-2") and
@@ -513,7 +513,7 @@ fn certain_conflict_constructible_wire_only() {
         // resolution index must immediately see d-1=false, before any reopen.
         let after_reload = drive(
             &json!({ "dli": V, "id": "add-after-reload", "op": "author.add_fact",
-                         "params": { "workspace": ws_1, "entity": "mara", "key": "home", "value": dest,
+                         "params": { "workspace": ws_1, "entity": "nara", "key": "home", "value": dest,
                                      "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
             sessions,
             store,
@@ -537,7 +537,7 @@ fn certain_conflict_constructible_wire_only() {
         let ws_2 = opened_2["result"]["workspace"].as_str().unwrap().to_owned();
         let added = drive(
             &json!({ "dli": V, "id": "add", "op": "author.add_fact",
-                         "params": { "workspace": ws_2, "entity": "mara", "key": "home", "value": dest,
+                         "params": { "workspace": ws_2, "entity": "nara", "key": "home", "value": dest,
                                      "provenance": { "kind": "cited", "decisions": ["d-2"], "state": "ratified" } } }),
             sessions,
             store,
@@ -563,7 +563,7 @@ fn certain_conflict_constructible_wire_only() {
     };
 
     apply_defeat_and_rival_value("rival", "highlands", &mut sessions, &mut store);
-    apply_defeat_and_rival_value("counter", "lowlands", &mut sessions, &mut store);
+    apply_defeat_and_rival_value("counter", "moorlands", &mut sessions, &mut store);
 
     // Merge "counter" directly into "rival" — NOT through "main" — so the
     // merge base stays the ORIGINAL, single-value commit.
@@ -604,7 +604,7 @@ fn materialize_on_branch_fenced_by_ref_digest() {
 
     let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
     let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
-    add_proposed_relation(&ws, "likes", "mara", "highlands", &mut sessions, &mut store);
+    add_proposed_relation(&ws, "likes", "nara", "highlands", &mut sessions, &mut store);
 
     // Externally advance "rival" behind the workspace's back — a no-op
     // content-wise (same interner/decisions/pack), just to move the ref.
@@ -655,7 +655,7 @@ fn set_standing_and_defeat_route_to_workspace_branch() {
             .root_hash()
             .expect("root hash")
             .expect("head present");
-        claim_id_for(lorestore, &head, "home", &["mara", "shallows"])
+        claim_id_for(lorestore, &head, "home", &["nara", "shallows"])
     };
 
     let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
@@ -772,7 +772,7 @@ fn merge_dry_run_commits_nothing_and_matches_the_later_real_merge() {
 
     let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
     let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
-    add_proposed_relation(&ws, "likes", "mara", "highlands", &mut sessions, &mut store);
+    add_proposed_relation(&ws, "likes", "nara", "highlands", &mut sessions, &mut store);
     let mat = materialize(&ws, &mut sessions, &mut store);
     assert!(mat["ok"].as_bool().unwrap(), "{mat}");
 
@@ -1041,7 +1041,7 @@ fn discard_clears_branch_base_cache() {
 
     let opened = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
     let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
-    add_proposed_relation(&ws, "likes", "mara", "highlands", &mut sessions, &mut store);
+    add_proposed_relation(&ws, "likes", "nara", "highlands", &mut sessions, &mut store);
     let mat = materialize(&ws, &mut sessions, &mut store);
     assert!(mat["ok"].as_bool().unwrap(), "{mat}");
     let advanced_head = mat["result"]["root_hash"].clone();
@@ -1115,7 +1115,7 @@ fn defeat_and_set_standing_see_a_branch_authored_claim_main_never_had() {
     let ratified = add_cited_relation(
         &ws,
         "likes",
-        "mara",
+        "nara",
         "festivals",
         "d-1",
         "ratified",
@@ -1126,7 +1126,7 @@ fn defeat_and_set_standing_see_a_branch_authored_claim_main_never_had() {
     let provisional = add_cited_relation(
         &ws,
         "likes",
-        "mara",
+        "nara",
         "spring",
         "d-1",
         "provisional",
@@ -1145,8 +1145,8 @@ fn defeat_and_set_standing_see_a_branch_authored_claim_main_never_had() {
             .expect("ref present")
             .commit;
         (
-            claim_id_for(lorestore, &branch_head, "likes", &["mara", "festivals"]),
-            claim_id_for(lorestore, &branch_head, "likes", &["mara", "spring"]),
+            claim_id_for(lorestore, &branch_head, "likes", &["nara", "festivals"]),
+            claim_id_for(lorestore, &branch_head, "likes", &["nara", "spring"]),
         )
     };
 
@@ -1220,7 +1220,7 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
             .root_hash()
             .expect("root hash")
             .expect("head present");
-        claim_id_for(lorestore, &head, "home", &["mara", "shallows"])
+        claim_id_for(lorestore, &head, "home", &["nara", "shallows"])
     };
 
     let opened_1 = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
@@ -1242,7 +1242,7 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
     let added = add_cited_relation(
         &ws_2,
         "likes",
-        "mara",
+        "nara",
         "autumn",
         "d-2",
         "provisional",
@@ -1265,7 +1265,7 @@ fn set_standing_can_cite_a_decision_that_only_exists_on_the_branch() {
             .expect("read ref")
             .expect("ref present")
             .commit;
-        claim_id_for(lorestore, &branch_head, "likes", &["mara", "autumn"])
+        claim_id_for(lorestore, &branch_head, "likes", &["nara", "autumn"])
     };
 
     let opened_3 = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
@@ -1335,7 +1335,7 @@ fn recorded_decision_is_branch_local() {
     let on_rival = add_cited_relation(
         &rival_ws2,
         "likes",
-        "mara",
+        "nara",
         "highlands",
         "d-branch",
         "ratified",
@@ -1353,7 +1353,7 @@ fn recorded_decision_is_branch_local() {
     let on_sibling = add_cited_relation(
         &sibling_ws,
         "likes",
-        "mara",
+        "nara",
         "highlands",
         "d-branch",
         "ratified",
@@ -1370,7 +1370,7 @@ fn recorded_decision_is_branch_local() {
     let on_main = add_cited_relation(
         &main_ws,
         "likes",
-        "mara",
+        "nara",
         "highlands",
         "d-branch",
         "ratified",
@@ -1588,7 +1588,7 @@ fn predicates_and_candidates_are_branch_scoped_reads() {
     create_branch(&seed_ws, "sib", "main", &mut sessions, &mut store);
 
     // Open X against `rival`. Its base is now pinned at the branch head
-    // (mara/shallows/home + baseplace); everything below happens AFTER.
+    // (nara/shallows/home + baseplace); everything below happens AFTER.
     let opened_x = open_branch_workspace("canon", "rival", &mut sessions, &mut store);
     let x = opened_x["result"]["workspace"].as_str().unwrap().to_owned();
 
@@ -1600,7 +1600,7 @@ fn predicates_and_candidates_are_branch_scoped_reads() {
         "stage xanadu: {staged_ent}"
     );
     let staged_rel =
-        add_proposed_relation(&x, "guards", "mara", "baseplace", &mut sessions, &mut store);
+        add_proposed_relation(&x, "guards", "nara", "baseplace", &mut sessions, &mut store);
     assert!(
         staged_rel["ok"].as_bool().unwrap(),
         "stage guards: {staged_rel}"
@@ -1608,7 +1608,7 @@ fn predicates_and_candidates_are_branch_scoped_reads() {
 
     // ── AFTER X is open, advance `main`'s durable head with a NEW entity and a
     // NEW predicate. The relation's endpoints must be entities the STATIC base
-    // already knows (`mara`/`shallows`, from the fixture's `home` fact), because
+    // already knows (`nara`/`shallows`, from the fixture's `home` fact), because
     // a scope-mode workspace validates against the in-memory base, not the
     // durable head. `mainplace` lands via `seed_place` (a self-contained
     // add-entity + materialize).
@@ -1618,7 +1618,7 @@ fn predicates_and_candidates_are_branch_scoped_reads() {
     let betrays = add_proposed_relation(
         &main3,
         "betrays",
-        "mara",
+        "nara",
         "shallows",
         &mut sessions,
         &mut store,
@@ -1641,7 +1641,7 @@ fn predicates_and_candidates_are_branch_scoped_reads() {
         sib_ent["ok"].as_bool().unwrap(),
         "stage sibplace: {sib_ent}"
     );
-    let envies = add_proposed_relation(&y, "envies", "mara", "sibplace", &mut sessions, &mut store);
+    let envies = add_proposed_relation(&y, "envies", "nara", "sibplace", &mut sessions, &mut store);
     assert!(
         envies["ok"].as_bool().unwrap(),
         "stage envies on sib: {envies}"

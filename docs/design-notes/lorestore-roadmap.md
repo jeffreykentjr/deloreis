@@ -1,6 +1,6 @@
 ---
 status: accepted
-verdict: "The canonical staged roadmap for the lorestore cutover: facts become content-addressed JSON objects in an embedded deterministic store; .dli is demoted from canonical surface to optional rendering. Consolidates lorestore-vision, dli-deprecation-plan, lorestore-indexing-strategy, and multi-authority-knowledge-evolution into one dependency-ordered plan with oracles, a theory appendix, and a risk register. Ratified by DL-0041; this note is the worked plan behind it. Implementation state lives in the PLAN store lane; the LS-1..LS-5 quality record is design-notes/lorestore-implementation-audit.md (DL-0045)."
+verdict: "The canonical staged roadmap for the lorestore cutover: facts become content-addressed JSON objects in an embedded deterministic store; .dli is demoted from canonical surface to optional rendering. Consolidates lorestore-vision, dli-deprecation-plan, lorestore-indexing-strategy, and multi-authority-knowledge-evolution into one dependency-ordered plan with oracles, a theory appendix, and a risk register. Ratified by DL-0041; this note is the worked plan behind it. Implementation state lives in the PLAN store lane."
 ---
 
 # The lorestore roadmap
@@ -13,7 +13,7 @@ remain the reasoning; this note is the sequence. Where they disagree with each
 other or with this note, this note wins; where this note disagrees with the
 ledger, the ledger wins (DL-0041 is the ratifying entry). The later peer/service
 distribution boundary is ruled by DL-0062 and specified in
-`../spec/12-scale-and-distribution.md`; it extends this store plan rather than
+`scale-and-distribution.md`; it extends this store plan rather than
 reopening the completed lorestore cutover.
 
 Stages are written in the `PLAN.md` idiom: a deliverable, its needs, what it
@@ -65,12 +65,8 @@ What dies is the claim that `.dli` text is the canonical form of any of that:
    flows through the killed-form registry with a named successor, exactly as a
    retired keyword always has — the successor is now a tool call or a JSON
    shape rather than a replacement keyword.
-2. **The fantasy cutover is frozen on v1.** MIG-3/MIG-4 and EXT-F3/EXT-F4 are
-   consumer-owned and still run against `.dli` + contract 0.5.1. Until EXT-F4
-   acknowledges the tool-surface handshake, every lorestore change is **additive**:
-   dual-mode, digest-vendored, nothing removed. The contract discipline of
-   DL-0031..DL-0037 (version bumps, golden + negative + framing fixtures per
-   op) is the template.
+2. **The former cutover is retired.** Contract 2.0.0 is the only served wire; deleted versions and operations are
+   registered as killed forms. Golden, negative, and framing fixtures remain required.
 3. **The local frontier is empty** (DL-0038 closed the standalone release's
    local scope). Lorestore is therefore the natural next local programme and
    can begin immediately as a leaf crate with zero blast radius.
@@ -499,7 +495,7 @@ adopters to lose. Park it behind a flip condition (§6).
 ### LS-8 — Contract 1.0 and consumer cutover
 
 *Deliverable:* the post-pivot contract major version: JSON-first tool
-surface, lorestore-backed, `.dli` rendering opt-in; the fantasy consumer's
+surface, lorestore-backed, `.dli` rendering opt-in; the former consumer's
 migration from vendored 0.5.1.
 *Needs:* LS-4..LS-7 internally; **EXT-F4 externally** — the v1 handshake
 completes on v1 terms before v1 is retired.
@@ -592,10 +588,7 @@ neither.
 1. **Ledger collision handled out of order.** If any stage lands before
    DL-0041, the tree contradicts the ledger. LS-0 gates everything;
    discipline is the mitigation.
-2. **The fantasy freeze.** A breaking contract change before EXT-F4 strands
-   the consumer mid-cutover. Mitigation: additive-only until the handshake;
-   dual-backend and dual-mode keep v1 alive indefinitely if fantasy stalls —
-   the roadmap has no step that *requires* v1's death on a schedule.
+2. **The former cutover.** The private consumer pins the pre-reset tag; contract 2.0.0 serves the fiction release.
 3. **Hash-identity mistakes are forever.** `parent` inside the fact, float
    serialization, unsorted monomials — each silently poisons content
    addressing, and repair after real facts exist means rewriting history.
@@ -604,8 +597,7 @@ neither.
 4. **Review-surface coupling.** The deprecation note's review story rests on
    a web UI that does not exist. Mitigation: it was never deloreis's to
    build — deloreis is an MCP-addressable engine, and LS-5's deliverable is
-   the review JSON contract; consumers own rendering, exactly as the fantasy
-   worker owns its side of the wire.
+   the review JSON contract; consumers own rendering, on their own side of the wire.
 5. **Docs and cards churn.** The teaching surface (`docs/cards/`) teaches a
    syntax that is being demoted. Mitigation: the docs-oracle law is never
    suspended — the oracle is *re-aimed* (LS-7), and cards are rewritten in

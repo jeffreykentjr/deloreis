@@ -45,7 +45,7 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -105,17 +105,17 @@ fn distances(result: &Value) -> Vec<u64> {
 #[test]
 fn candidates_are_nearest_first_with_distances() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, V11, "tpth");
-    let out = candidates(&mut store, V11, &ws, "mara", 5);
+    let ws = open_scope(&mut store, V11, "storybook");
+    let out = candidates(&mut store, V11, &ws, "nara", 5);
     let out = result(&out);
     let names = names(out);
-    assert_eq!(names.first().map(String::as_str), Some("mara"), "{names:?}");
+    assert_eq!(names.first().map(String::as_str), Some("nara"), "{names:?}");
     assert!(
         names.contains(&"mira".to_owned()),
         "near match present: {names:?}"
@@ -134,12 +134,12 @@ fn candidates_are_nearest_first_with_distances() {
 #[test]
 fn candidates_exclude_fact_only_symbols_before_applying_the_limit() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
         "thing alice-123 \"Alice\"  ratified D-0001\n",
         "alice-123.color = blue  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, V11, "tpth");
+    let ws = open_scope(&mut store, V11, "storybook");
     let out = candidates(&mut store, V11, &ws, "blue", 1);
     let result = result(&out);
     let rows = result["candidates"].as_array().expect("candidates");
@@ -153,12 +153,12 @@ fn candidates_exclude_fact_only_symbols_before_applying_the_limit() {
 #[test]
 fn contract_1_10_retains_the_released_symbol_result() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
         "thing alice-123 \"Alice\"  ratified D-0001\n",
         "alice-123.color = blue  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, "1.10.0", "tpth");
+    let ws = open_scope(&mut store, "1.10.0", "storybook");
     let out = candidates(&mut store, "1.10.0", &ws, "blue", 1);
     let rows = result(&out)["candidates"].as_array().expect("candidates");
 
@@ -171,26 +171,26 @@ fn contract_1_10_retains_the_released_symbol_result() {
 /// The canonical-representative fold: an aliased class collapses to one
 /// candidate, so the surfaced name keys the way `continuity.fd-violation` would
 /// and the `limit` budget is never spent twice on one class. `same-as` merges
-/// `mira` into `mara` (lexicographic-min representative), so only `mara`
+/// `sira` into `nara` (lexicographic-min representative), so only `nara`
 /// surfaces.
 #[test]
 fn an_aliased_class_collapses_to_one_representative() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
-        "place mira \"Mira\"  ratified D-0001\n",
-        "same-as mara = mira decided D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
+        "place sira \"Sira\"  ratified D-0001\n",
+        "same-as nara = sira decided D-0001\n",
     ));
-    let ws = open_scope(&mut store, V11, "tpth");
-    let out = candidates(&mut store, V11, &ws, "mira", 5);
+    let ws = open_scope(&mut store, V11, "storybook");
+    let out = candidates(&mut store, V11, &ws, "sira", 5);
     let names = names(result(&out));
     assert!(
-        names.contains(&"mara".to_owned()),
+        names.contains(&"nara".to_owned()),
         "the canonical representative surfaces: {names:?}"
     );
     assert!(
-        !names.contains(&"mira".to_owned()),
+        !names.contains(&"sira".to_owned()),
         "the aliased member does not surface separately: {names:?}"
     );
 }
@@ -202,12 +202,12 @@ fn an_aliased_class_collapses_to_one_representative() {
 #[test]
 fn an_over_large_limit_is_clamped_to_the_ceiling() {
     use std::fmt::Write as _;
-    let mut source = String::from("scope tpth\nratify D-0001\n");
+    let mut source = String::from("scope storybook\nratify D-0001\n");
     for i in 0..110 {
         let _ = writeln!(source, "place e{i:03} \"E{i:03}\"  ratified D-0001");
     }
     let mut store = base(&source);
-    let ws = open_scope(&mut store, V11, "tpth");
+    let ws = open_scope(&mut store, V11, "storybook");
     let out = candidates(&mut store, V11, &ws, "e000", u64::MAX);
     let count = result(&out)["candidates"]
         .as_array()
@@ -224,11 +224,11 @@ fn an_over_large_limit_is_clamped_to_the_ceiling() {
 #[test]
 fn the_read_stages_nothing() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
     ));
-    let ws = open_scope(&mut store, V11, "tpth");
+    let ws = open_scope(&mut store, V11, "storybook");
     let declared = dispatch(
         &req(
             V11,
@@ -242,7 +242,7 @@ fn the_read_stages_nothing() {
     assert!(declared.ok, "stage a baseline decl: {declared:?}");
     let staged_before = store.get(&ws).expect("workspace open").decls.len();
 
-    let read = candidates(&mut store, V11, &ws, "mara", 5);
+    let read = candidates(&mut store, V11, &ws, "nara", 5);
     assert!(read.ok, "the read answers: {read:?}");
 
     let staged_after = store.get(&ws).expect("workspace open").decls.len();

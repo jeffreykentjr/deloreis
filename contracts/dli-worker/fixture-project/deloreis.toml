@@ -5,8 +5,8 @@ name = "dli-worker-fixture"
 evidence = ".dli-evidence"
 cache = ".dli-cache"
 
-[documents.saltmarket]
-sources = ["saltmarket.dli"]
+[documents.storybook]
+sources = ["storybook.dli"]
 attestation_questions = "attestation-questions.json"
 
 [documents.simulation]

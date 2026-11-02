@@ -199,7 +199,7 @@ pub struct ResourceDecl {
     pub span: Span,
 }
 
-/// A law of the practice: `rule lay(figure, leaf) requires phase(turning-leaf) = leaf`.
+/// A law of the practice: `rule lay(figure, leaf) requires phase(moon-phase) = leaf`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RuleDef {
     /// The form the rule concludes (the head predicate).
@@ -212,7 +212,7 @@ pub struct RuleDef {
     pub span: Span,
 }
 
-/// A side condition: `condition seated-reading requires phase(turning-leaf) within declared-span`.
+/// A side condition: `condition seated-reading requires phase(moon-phase) within declared-span`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ConditionDef {
     /// The condition name.
@@ -224,7 +224,7 @@ pub struct ConditionDef {
 }
 
 /// A declared diegetic failure, refining a structural class:
-/// `error wrong-turning refines L3 side-condition [timing] over cycle turning-leaf`.
+/// `error wrong-phase refines L3 side-condition [timing] over cycle moon-phase`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ErrorClassDef {
     /// The failure name (the drama the scene voices).

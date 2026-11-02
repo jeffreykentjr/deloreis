@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -30,8 +30,8 @@
         "result": {
           "conflicts": [],
           "findings": [],
-          "merge_base": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
-          "merge_commit": "sha256:b11d49c61a4752841eef527815063292b917f5b9b9436192fc86343687eaa17f",
+          "merge_base": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
+          "merge_commit": "sha256:705ee6bde76adcf0e5f496e77c1dd219ea6ac08ef25484b8383191a615003507",
           "standing_changes": [],
           "stratifies": true
         }

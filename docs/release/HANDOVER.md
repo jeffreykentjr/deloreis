@@ -18,11 +18,11 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 2. **Cut what we don't use.** Delete it; don't archive it piece by piece. Git
    keeps the history at the tag `pre-fiction-reset`. CI must pay nothing for
    abandoned features. Keep code that still fits, and tidy it.
-3. **TPtH leaves this repo completely.** Code, worlds, fixtures, docs and
-   lints all go. If a mechanism is generic but its tests use TPtH data, keep
+3. **former private consumer leaves this repo completely.** Code, worlds, fixtures, docs and
+   lints all go. If a mechanism is generic but its tests use former private consumer data, keep
    the mechanism and re-author the data on Camelot, Norse, or the new world.
-   If TPtH or the fantasy factory is its only consumer, delete it. The fantasy
-   repo pins `pre-fiction-reset`; never edit the fantasy repo from here.
+   If the former private consumer or its pipeline is the only user, delete it.
+   The former consumer repository pins `pre-fiction-reset`; never edit it here.
 4. **`.dli` is revived** as a first-class, hardened authoring and reading
    surface. The lorestore stays canonical. #84 is cancelled.
 5. **Contract 2.0.0** is the only served contract after the scrub. Earlier
@@ -76,7 +76,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   crates use serde_yaml_ng (`git grep serde_yaml`).
 - **Steps:** Prefer replacing serde_yaml_ng with a maintained YAML crate
   that doesn't pull unsafe-libyaml, or drop YAML entirely if its only users
-  are TPtH or craft (check first; T4 may delete them). Failing both, add a
+  are former private consumer or craft (check first; T4 may delete them). Failing both, add a
   justified `[advisories] ignore = ["RUSTSEC-2024-0449"]` with a comment and
   a removal trigger.
 - **Acceptance:** `cargo deny check` is clean locally and the CI `deny` job
@@ -86,21 +86,21 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 
 ### T2: Baseline gate run and tag
 - **Goal:** record engine test health before cutting anything, and tag the
-  last TPtH-bearing commit.
+  last former-consumer-bearing commit.
 - **Steps:** On green main, run the gate once with the short target dir and
   note the pass/fail counts in the T2 issue. Then
-  `git tag -a pre-fiction-reset -m "last commit with TPtH, multi-version contract"`
+  `git tag -a pre-fiction-reset -m "last commit with former private consumer, multi-version contract"`
   and push the tag.
 - **Acceptance:** the gate result is posted to the issue and the tag exists
   on the remote.
 
 ## WS1: Cut
 
-### T3: TPtH inventory (one comment, no code)
+### T3: former private consumer inventory (one comment, no code)
 - **Goal:** a complete removal list before deleting anything.
 - **Steps:**
   - Run `git grep -liE` over the world tokens in
-    `xtask/src/boundary.rs` `WORLD_TOKENS`, plus `tpth`, `fantasy`, `D-0`,
+    `xtask/src/boundary.rs` `WORLD_TOKENS`, plus the retired identifier, former consumer references, `D-0`,
     `craft`, `factory`, `payload-submit`, `check-draft`, `attestation`,
     `simulate`.
   - Group the hits by path and give each a disposition: **delete**,
@@ -114,27 +114,27 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 - **Acceptance:** the inventory is posted as a comment on the T3 issue.
   Anything ambiguous is flagged for the owner rather than guessed.
 
-### T4: Execute the TPtH scrub
-- **Goal:** no TPtH in the tree.
+### T4: Execute the former private consumer scrub
+- **Goal:** no former private consumer in the tree.
 - **Steps:**
-  - Cut in 2–3 PRs: (a) code and crates: `crates/tpth`, the craft port,
+  - Cut in 2–3 PRs: (a) code and crates: the former consumer crate, the craft port,
     `dli-sim`, `dli-game`, the Ludii export, the pipeline ops, and the
     workspace members in `Cargo.toml`; (b) worlds, fixtures and examples:
     `worlds/`, `examples/games`, re-authoring test data that generic
     mechanisms need on Camelot or Norse, and renaming character-named
-    fixtures; (c) docs: `docs/worlds/tpth`, `docs/integration/`,
+    fixtures; (c) docs: the former private world documentation, `docs/integration/`,
     `book/src/worldbook-*` and `integration-*`, the craft half of spec 06,
-    the TPtH-only design notes, the spec footers that cross-link worlds,
+    the former-consumer-only design notes, the spec footers that cross-link worlds,
     and the AGENTS §6 integration section.
   - Turn `xtask/src/docs_tokens.rs` and `boundary.rs` into one **repo-wide
-    guard**: no world token or TPtH or fantasy reference in any tracked file
+    guard**: no world token or former private consumer or former consumer reference in any tracked file
     except the guard's own token list. Drop the allowlists.
   - Remove the CI steps and xtask subcommands that existed only for the
     deleted crates and ops.
-- **Acceptance:** `git grep -inE` over `tpth` and every `WORLD_TOKENS` entry returns nothing outside
-  the guard, and a review of `git grep -in fantasy` finds no hits that refer
-  to the fantasy repo or consumer (the genre word is fine). This includes the
-  `docs/release/` files themselves: reword their TPtH mentions to "the
+- **Acceptance:** a tracked-file search for the retired identifier and every `WORLD_TOKENS` entry returns nothing outside
+  the guard, and a review of a search for former consumer references finds no hits that refer
+  to the former consumer repository or consumer (the genre word is fine). This includes the
+  `docs/release/` files themselves: reword their former private consumer mentions to "the
   former private consumer", or remove them. The guard runs inside `cargo xtask gate`. The gate is
   green, and CI wall-time drops (note before and after in the PR).
 - **Verify:** the gate; the git grep above.
@@ -179,7 +179,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   - Delete these design notes: `benchmark-program`, `bench-deferral`,
     `baselines-why-not`, `differential-harness`, the `audit-*` notes,
     `standalone-audit-2026-07`, `followups-2026-07`, the cutover notes, and
-    anything T3 marked TPtH-only.
+    anything T3 marked former-consumer-only.
   - Keep the notes that describe live mechanisms (inertia, lorestore
     vision/roadmap/indexing, decision recording, multi-authority, conceptual
     comparison). Reword their benchmark motivation to a single line.
@@ -195,7 +195,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   benchmarks or general agent memory.
 
 ### T8: Ledger reset (high judgment; one red-team)
-- **Goal:** a ledger a newcomer can read, with no TPtH in it.
+- **Goal:** a ledger a newcomer can read, with no former private consumer in it.
 - **Steps:**
   - Write a new `docs/decisions.md`. It opens with the discipline header and
     one entry, numbered from the current next ID, titled "Standing rulings
@@ -203,7 +203,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   - That entry is a terse list. Each still-binding *engine* ruling gets its
     old ID, a one-line statement, and the pointer
     `git show pre-fiction-reset:docs/decisions.md`.
-  - Drop every entry that only governs TPtH, fantasy, the benchmarks, the
+  - Drop every entry that only governs the former consumer, the benchmarks, the
     cutover campaign, or the retired contract versions.
   - Update `xtask/src/authority.rs` only if the sequence check needs a start
     offset, and keep its tests.
@@ -298,7 +298,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
     the transcript to `examples/hollow/transcript.md`.
   - The test fails if the transcript would change, so update it with an
     explicit bless env var.
-  - Everything is original and uses no TPtH names.
+  - Everything is original and uses no former private consumer names.
 - **Acceptance:** the driver runs in the gate, and the transcript shows the
   fd-violation, materialize-blocked, contested `possible` rows, the retcon
   and its restoration, the what-if diff, and a replay after restart.
@@ -315,7 +315,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   - `SKILL.md`, rewritten for 2.0.0 with core tools first, fiction examples
     and no DL IDs;
   - `CHANGELOG.md`, absorbing AGENTS §7's version history;
-  - AGENTS.md and the charter with TPtH removed (AGENTS §7 cut to about 10
+  - AGENTS.md and the charter with former private consumer removed (AGENTS §7 cut to about 10
     lines);
   - the mdBook restructured users-first, with frontmatter stripped from
     rendered pages.
@@ -332,4 +332,4 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 - Put the mdBook on Pages.
 - Write the launch post in the mesite repo from `north-star.md`.
 - Archive the dli-benchmarks repo.
-- Pin the fantasy repo to `pre-fiction-reset`.
+- Pin the former consumer repository to `pre-fiction-reset`.

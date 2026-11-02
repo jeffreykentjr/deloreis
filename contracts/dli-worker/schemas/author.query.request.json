@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorQueryParams",
-  "description": "`author.query` params: query the **staged** world (base + staged\ndeclarations). The agent asks \"what holds about `mara` now?\" over its\nin-progress work.",
+  "description": "`author.query` params: query the **staged** world (base + staged\ndeclarations). The agent asks \"what holds about `nara` now?\" over its\nin-progress work.",
   "type": "object",
   "properties": {
     "goal": {
-      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(mara, ?who)`); a bare\nsymbol is a ground constant. The 0.6.3 typed successor is\n[`Self::goal_atom`]; this string form is a registered field-level killed\nform, refused from contract 1.0 and still accepted — and still\n**required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::goal_atom`] alone; the\npre-1.0 requirement is restored verbatim by\n`serve::required_retired_field`.",
+      "description": "The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`\nis a query variable that enumerates matches (`serves(nara, ?who)`); a bare\nsymbol is a ground constant. The 0.6.3 typed successor is\n[`Self::goal_atom`]; this string form is a registered field-level killed\nform, refused from contract 1.0 and still accepted — and still\n**required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::goal_atom`] alone; the\npre-1.0 requirement is restored verbatim by\n`serve::required_retired_field`.",
       "type": "string",
       "default": ""
     },

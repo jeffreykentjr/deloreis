@@ -105,7 +105,7 @@ arithmetic theory solving · **CHECK** proof checking, linear in proof length ·
 | T1 | Assertability / status derivation | per-atom evaluation; ptime | EVAL | yes | no |
 | T2 | Transitive closures (geography, `happens-before`) | recursive datalog, finite domain | EVAL | yes — the irreducible center | no; this row *is* the engine |
 | T3 | Continuity checking (six classes) | non-recursive queries + FD checks over fold state | EVAL | yes | no |
-| T4 | Factcheck verdicts | point lookups + FD + constraint scan (model extraction stays factory-side, never above `tested`) | EVAL | yes | no |
+| T4 | Factcheck verdicts | point lookups + FD + constraint scan (model extraction stays caller-side, never above `tested`) | EVAL | yes | no |
 | T5 | Outline-vs-world soundness (check direction) | T3/T4 lifted to outline claims + promise bookkeeping | EVAL/CHECK | yes | no |
 | T6 | Abduction of minimal fixes | single claim: read the support's minimal monomials — precomputed; cross-claim repair: hitting set, trivial at instance sizes | ENUM | yes | ASP power tool iff repair spaces reach hundreds of interacting hypotheses |
 | T7 | Ratification pre-flight | one candidate-valuation evaluation + conflict scan | EVAL | yes | no |
@@ -325,5 +325,5 @@ typed goal, and valuation, peer evaluation over a valid returned cluster must
 produce the same bindings, standing, and provenance as whole-corpus evaluation.
 An incomplete or unbounded cluster is a failure, not an approximate answer.
 The loopback-first peer/service work is deferred in `PLAN.md` as DIST-1 through
-DIST-4; [scale and distribution](12-scale-and-distribution.md) defines the
+DIST-4; [scale and distribution](../design-notes/scale-and-distribution.md) defines the
 boundary.

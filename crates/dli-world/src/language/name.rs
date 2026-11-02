@@ -52,9 +52,9 @@ pub struct Composition {
 /// [`super::check`] produces, not notes a reviewer writes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct NameDef {
-    /// The name identifier (e.g. `enfys`).
+    /// The name identifier (e.g. `linet`).
     pub name: String,
-    /// The rendered label (e.g. `Enfys`), if written.
+    /// The rendered label (e.g. `Linet`), if written.
     pub label: Option<String>,
     /// The name kind (e.g. `person.given`, `place`).
     pub kind: String,
@@ -130,7 +130,7 @@ impl NameDef {
 
 /// A coined lexeme with its composition and status (05 §4).
 ///
-/// The lexeme is the loan-word layer the spoken-proof practice's `binder` sort
+/// The lexeme is the loan-word layer the spoken-oath practice's `binder` sort
 /// draws from; one fabric means the binder layer *is* the loan-word layer.
 ///
 /// Note: the v0 surface parser captures only the lexeme's name and provenance;
@@ -249,7 +249,7 @@ pub(crate) fn compile_lexeme(compiler: &mut Compiler, decl: &WordDecl, pack: &st
     }
 }
 
-/// The header token immediately after `key` (`in cymric-fringe` → `cymric-fringe`).
+/// The header token immediately after `key` (`in elder-tongue-fringe` → `elder-tongue-fringe`).
 fn value_after(head: &[String], key: &str) -> Option<String> {
     head.iter()
         .position(|t| t == key)

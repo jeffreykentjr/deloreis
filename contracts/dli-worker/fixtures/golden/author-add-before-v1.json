@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -15,8 +15,8 @@
       "op": "author.add_event",
       "params": {
         "era": "first-tides",
-        "id": "the-drowning",
-        "name": "The Drowning",
+        "id": "the-crossing",
+        "name": "The Crossing",
         "provenance": {
           "kind": "proposed",
           "origin": "session-fx01"
@@ -49,9 +49,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "before the-drowning -> the-reclaiming proposed session-fx01"
+            "before the-crossing -> the-reclaiming proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:3988b2feefe8747b8ca1125631028ebdd574f3ad45b348695b9b6fd614f73bc5"
+          "workspace_digest": "jcs:sha256:fc7810586e8abf63b7f07b7e305a9067e8bbb0eecbc747d55aa4306b8fc1cc1a"
         }
       },
       "send": {
@@ -59,7 +59,7 @@
         "id": "1",
         "op": "author.add_before",
         "params": {
-          "earlier": "the-drowning",
+          "earlier": "the-crossing",
           "later": "the-reclaiming",
           "provenance": {
             "kind": "proposed",

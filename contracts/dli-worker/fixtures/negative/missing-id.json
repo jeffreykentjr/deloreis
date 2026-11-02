@@ -6,7 +6,7 @@
     "dli": "2.0.0",
     "op": "dli.check",
     "params": {
-      "document": "saltmarket"
+      "document": "storybook"
     }
   },
   "expect_error": {

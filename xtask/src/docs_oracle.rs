@@ -455,7 +455,7 @@ mod tests {
       "schema_version": 2,
       "authority": null,
       "claim_id": "sha256:4fcac73d",
-      "atom": { "pred": "located_in", "args": ["tegwen", "gwern"] },
+      "atom": { "pred": "located_in", "args": ["thalia", "joren"] },
       "support": { "monomials": [["+0"]] },
       "defeaters": { "monomials": [] },
       "grade": "asserted"

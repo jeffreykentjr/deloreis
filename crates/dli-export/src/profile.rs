@@ -164,7 +164,7 @@ impl Registry {
     /// This is the engine's neutral catalog. Each generic world target names no
     /// sorts, relations, or world, so its empty selection means all certain
     /// predicates. Concrete,
-    /// world-specific catalogs (the Turning card deck, the Ludii ruleset export,
+    /// world-specific catalogs (for example, story-specific exports,
     /// a world's `video/articy` profile) are **data**, not kernel code (spec 09 §2 clause 2):
     /// they live under `worlds/<world>/export/profiles.json` and are loaded with
     /// [`Registry::from_path`] and merged in with [`Registry::merge`]. A profile

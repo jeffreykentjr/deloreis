@@ -12,7 +12,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -25,7 +25,9 @@
           "decision": "d-frame",
           "provenance": {
             "kind": "cited",
-            "decisions": ["benign-control"],
+            "decisions": [
+              "benign-control"
+            ],
             "state": "ratified"
           }
         }
@@ -39,7 +41,9 @@
           "decision": "d-frame",
           "provenance": {
             "kind": "cited",
-            "decisions": ["__DLI_FRAME_ATTACK__"],
+            "decisions": [
+              "__DLI_FRAME_ATTACK__"
+            ],
             "state": "ratified"
           }
         }

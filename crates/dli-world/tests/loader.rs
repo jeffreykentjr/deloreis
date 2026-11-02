@@ -126,16 +126,16 @@ fn golden_hand_built_world_loads_with_zero_findings() {
 #[test]
 fn string_attributes_are_evaluable_facts() {
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![Decl::Attr(AttrDecl {
-            subject: ident("mara"),
+            subject: ident("nara"),
             attr: ident("role"),
             value: Term::Str("river warden".to_owned()),
             provenance: Some(ann(ProvenanceMarker::Proposed, &[])),
         })],
     )];
     let compiled = dli_world::compile(&Pack {
-        name: "saltmarket".to_owned(),
+        name: "storybook".to_owned(),
         documents: docs,
     })
     .expect("attribute world compiles");
@@ -145,7 +145,7 @@ fn string_attributes_are_evaluable_facts() {
         .query(&Query {
             goal: AtomExpr {
                 pred: ident("role"),
-                args: vec![Term::Sym(ident("mara")), Term::Var(ident("value"))],
+                args: vec![Term::Sym(ident("nara")), Term::Var(ident("value"))],
             },
         })
         .expect("attribute predicate is evaluable");
@@ -160,12 +160,12 @@ fn string_attributes_are_evaluable_facts() {
 #[test]
 fn state_declarations_are_evaluable_facts() {
     // Issue 47: a `state` lowers to a queryable ground fact, exactly as an
-    // attribute does — `state gwern.water-status = commons` answers a query for
-    // `water-status(gwern, ?)`.
+    // attribute does — `state joren.water-status = commons` answers a query for
+    // `water-status(joren, ?)`.
     let docs = vec![doc(
         "weir",
         vec![state_decl(
-            "gwern.water-status",
+            "joren.water-status",
             Some(Term::Sym(ident("commons"))),
             None,
             Some(ann(ProvenanceMarker::Proposed, &[])),
@@ -182,7 +182,7 @@ fn state_declarations_are_evaluable_facts() {
         .query(&Query {
             goal: AtomExpr {
                 pred: ident("water-status"),
-                args: vec![Term::Sym(ident("gwern")), Term::Var(ident("value"))],
+                args: vec![Term::Sym(ident("joren")), Term::Var(ident("value"))],
             },
         })
         .expect("the state predicate is evaluable");
@@ -199,7 +199,7 @@ fn missing_provenance_state_is_a_finding_and_fail_closed() {
     let docs = vec![doc(
         "weir",
         vec![state_decl(
-            "gwern.water-status",
+            "joren.water-status",
             Some(Term::Sym(ident("commons"))),
             None,
             None,
@@ -234,8 +234,8 @@ fn an_inert_state_declaration_surfaces_a_finding() {
 #[test]
 fn missing_provenance_is_a_finding_and_fail_closed() {
     let docs = vec![doc(
-        "saltmarket",
-        vec![fact("lives-in", &["mara", "saltmarket"], true, None)],
+        "storybook",
+        vec![fact("lives-in", &["nara", "storybook"], true, None)],
     )];
     let out = Loader::load(&docs);
     assert!(has_code(&out, "load.missing-provenance"));
@@ -249,7 +249,7 @@ fn malformed_annotation_is_fail_closed() {
     // The fail-closed theorem (spec 02 §3): a ledger marker with no ruling to
     // cite cannot compile, so the claim loads with P⁺ = FALSE and a finding.
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![fact(
             "adjacent",
             &["a", "b"],
@@ -265,10 +265,10 @@ fn malformed_annotation_is_fail_closed() {
 #[test]
 fn empty_hypothesis_condition_is_fail_closed() {
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![fact(
             "rings",
-            &["tide-bell", "saltmarket"],
+            &["bellsong", "storybook"],
             true,
             Some(ann_cond(
                 ProvenanceMarker::Proposed,
@@ -285,10 +285,10 @@ fn empty_hypothesis_condition_is_fail_closed() {
 #[test]
 fn proposed_lore_is_structurally_unassertable() {
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![fact(
             "rings",
-            &["tide-bell", "saltmarket"],
+            &["bellsong", "storybook"],
             true,
             Some(ann(ProvenanceMarker::Proposed, &[])),
         )],
@@ -308,10 +308,10 @@ fn proposed_lore_is_structurally_unassertable() {
 #[test]
 fn decided_lore_becomes_certain_when_its_decision_is_ruled() {
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![fact(
             "adjacent",
-            &["saltmarket", "the-shallows"],
+            &["storybook", "riverside"],
             false,
             Some(ann(ProvenanceMarker::Decided, &["D-0002"])),
         )],
@@ -335,7 +335,7 @@ fn decided_lore_becomes_certain_when_its_decision_is_ruled() {
 #[test]
 fn duplicate_declaration_within_a_pack_is_a_finding() {
     let docs = vec![doc(
-        "saltmarket",
+        "storybook",
         vec![
             sort("place", Some(ann(ProvenanceMarker::Ratified, &["D-0001"]))),
             sort("place", Some(ann(ProvenanceMarker::Ratified, &["D-0001"]))),
@@ -432,7 +432,7 @@ fn a_well_formed_rule_loads_totally_and_clean() {
         body: rule_body(&["adjacent(A, B) :- adjacent(B, A)"]),
         provenance: Some(ann(ProvenanceMarker::Ratified, &["D-0003"])),
     });
-    let docs = vec![doc("saltmarket", vec![rule])];
+    let docs = vec![doc("storybook", vec![rule])];
     let out = Loader::load(&docs);
     assert!(out.findings.is_empty(), "unexpected: {:?}", out.findings);
     assert_eq!(out.world.rule_count(), 1);
@@ -548,7 +548,7 @@ fn a_rule_without_provenance_is_a_finding() {
         body: dli_ast::rule::RuleBody::default(),
         provenance: None,
     });
-    let docs = vec![doc("saltmarket", vec![rule])];
+    let docs = vec![doc("storybook", vec![rule])];
     let out = Loader::load(&docs);
     assert!(has_code(&out, "load.missing-provenance"));
 }

@@ -140,21 +140,25 @@ fn people(project: &Project, doc: &str) -> Vec<String> {
 #[test]
 fn a_store_backed_project_loads_and_compiles() {
     let root = temp("store-backed-loads");
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let project = Project::load(&root).expect("a store-backed project loads");
-    assert_eq!(people(&project, "tpth"), vec!["bedivere".to_owned()]);
+    assert_eq!(people(&project, "storybook"), vec!["bedivere".to_owned()]);
 }
 
 #[test]
 fn the_fingerprint_is_the_store_head_not_a_workspace_digest() {
     let root = temp("store-backed-fingerprint");
-    let dir = seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let project = Project::load(&root).expect("loads");
-    let document = project.documents().find(|(id, _)| *id == "tpth").unwrap().1;
+    let document = project
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1;
 
     assert_eq!(
         document.source_digest,
@@ -171,30 +175,34 @@ fn the_fingerprint_is_the_store_head_not_a_workspace_digest() {
 #[test]
 fn a_pinned_head_serves_that_commit_and_does_not_follow_the_branch() {
     let root = temp("store-backed-pinned");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let pinned = head_of(&dir);
 
     // Advance the branch past the pin.
     let store = Lorestore::open(dir.clone()).expect("open store");
     store
-        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
         .expect("second import advances the branch");
     assert_ne!(head_of(&dir), pinned, "the branch moved");
 
     write_manifest(
         &root,
-        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+        &format!("[documents.storybook]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
     );
     let project = Project::load(&root).expect("a pinned project loads");
 
-    let document = project.documents().find(|(id, _)| *id == "tpth").unwrap().1;
+    let document = project
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1;
     assert_eq!(
         document.source_digest, pinned,
         "a pinned document serves the commit the manifest names, not the tip"
     );
     assert!(document.store_pinned, "the document reports itself pinned");
     assert_eq!(
-        people(&project, "tpth"),
+        people(&project, "storybook"),
         vec!["bedivere".to_owned()],
         "the world is the pinned commit's, without the later import"
     );
@@ -208,15 +216,15 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     use std::sync::Arc;
 
     let root = temp("store-backed-pinned-authors");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let pinned = head_of(&dir);
     let lorestore = Lorestore::open(dir).expect("open store");
     lorestore
-        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
         .expect("advance origin branch");
     write_manifest(
         &root,
-        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+        &format!("[documents.storybook]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
     );
 
     let project = Arc::new(Project::load(&root).expect("pinned project loads"));
@@ -224,7 +232,7 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     let mut author = author_store_for(&project);
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -253,7 +261,7 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     );
     let reopened = send(
         &serde_json::json!({"dli":"2.0.0","id":"reopen","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -272,11 +280,11 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
     use std::sync::Arc;
 
     let root = temp("store-backed-pinned-bulk-decisions");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let pinned = head_of(&dir);
     let lorestore = Lorestore::open(dir.clone()).expect("open store");
     lorestore
-        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
         .expect("advance origin branch");
     let live_before = lorestore
         .branch_head(dli_lorestore::MAIN_REF)
@@ -284,7 +292,7 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
         .expect("live head exists");
     write_manifest(
         &root,
-        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+        &format!("[documents.storybook]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
     );
 
     let project = Arc::new(Project::load(&root).expect("pinned project loads"));
@@ -292,7 +300,7 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
     let mut author = author_store_for(&project);
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -324,7 +332,7 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
     assert_eq!(
         project
             .documents()
-            .find(|(id, _)| *id == "tpth")
+            .find(|(id, _)| *id == "storybook")
             .expect("pinned document")
             .1
             .source_digest,
@@ -342,15 +350,15 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
     use std::sync::Arc;
 
     let root = temp("store-backed-pinned-write-fence");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let pinned = head_of(&dir);
     let lorestore = Lorestore::open(dir).expect("open store");
     lorestore
-        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
         .expect("advance origin before the pinned workspace opens");
     write_manifest(
         &root,
-        &format!("[documents.tpth]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+        &format!("[documents.storybook]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
     );
 
     let project = Arc::new(Project::load(&root).expect("pinned project loads"));
@@ -358,7 +366,7 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
     let mut author = author_store_for(&project);
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -412,14 +420,14 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
 #[test]
 fn branch_mode_follows_the_tip_across_a_reload() {
     let root = temp("store-backed-branch-tip");
-    let dir = seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let before = Project::load(&root).expect("loads");
-    assert_eq!(people(&before, "tpth"), vec!["bedivere".to_owned()]);
+    assert_eq!(people(&before, "storybook"), vec!["bedivere".to_owned()]);
     let first_head = before
         .documents()
-        .find(|(id, _)| *id == "tpth")
+        .find(|(id, _)| *id == "storybook")
         .unwrap()
         .1
         .source_digest
@@ -428,7 +436,7 @@ fn branch_mode_follows_the_tip_across_a_reload() {
     // A write lands on the branch — the shape a materialize leaves behind.
     let store = Lorestore::open(dir.clone()).expect("open store");
     store
-        .import_pack(&pack_with("tpth", &["bedivere", "kes"]))
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
         .expect("second import advances the branch");
     drop(store);
 
@@ -436,7 +444,7 @@ fn branch_mode_follows_the_tip_across_a_reload() {
     let after = Project::load(&root).expect("reloads");
     let second_head = after
         .documents()
-        .find(|(id, _)| *id == "tpth")
+        .find(|(id, _)| *id == "storybook")
         .unwrap()
         .1
         .source_digest
@@ -448,7 +456,7 @@ fn branch_mode_follows_the_tip_across_a_reload() {
     );
     assert_eq!(second_head, head_of(&dir));
     assert!(
-        people(&after, "tpth").contains(&"kes".to_owned()),
+        people(&after, "storybook").contains(&"perin".to_owned()),
         "the reloaded world contains the newly committed work"
     );
 }
@@ -459,15 +467,15 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
     use std::sync::Arc;
 
     let root = temp("store-backed-bulk-reopen-canon");
-    let dir = seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let project = Arc::new(Project::load(&root).expect("project loads"));
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -525,14 +533,14 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
         let canon = send(
             &serde_json::json!({"dli":"2.0.0","id":format!("canon-{suffix}"),
                                 "op":"dli.corpus.export",
-                                "params":{"document":"tpth","format":"canon"}}),
+                                "params":{"document":"storybook","format":"canon"}}),
             &mut sessions,
             &mut author,
         );
         assert_eq!(canon["ok"], true, "canon export succeeds: {canon}");
         let opened = send(
             &serde_json::json!({"dli":"2.0.0","id":format!("open-{suffix}"),
-                                "op":"author.open","params":{"scope":"tpth"}}),
+                                "op":"author.open","params":{"scope":"storybook"}}),
             &mut sessions,
             &mut author,
         );
@@ -583,11 +591,15 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
 #[test]
 fn a_store_backed_document_reports_its_origin_for_attach() {
     let root = temp("store-backed-origin");
-    let dir = seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let project = Project::load(&root).expect("loads");
-    let document = project.documents().find(|(id, _)| *id == "tpth").unwrap().1;
+    let document = project
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1;
 
     assert_eq!(
         document.store_origin.as_deref(),
@@ -600,11 +612,11 @@ fn a_store_backed_document_reports_its_origin_for_attach() {
 #[test]
 fn declaring_both_sources_and_store_is_refused() {
     let root = temp("store-and-sources");
-    seed_store(&root, "tpth", "bedivere");
-    fs::write(root.join("tpth.dli"), "scope tpth\n").unwrap();
+    seed_store(&root, "storybook", "bedivere");
+    fs::write(root.join("storybook.dli"), "scope storybook\n").unwrap();
     write_manifest(
         &root,
-        "[documents.tpth]\nsources = [\"tpth.dli\"]\nstore = \"store\"\n",
+        "[documents.storybook]\nsources = [\"storybook.dli\"]\nstore = \"store\"\n",
     );
 
     let error = Project::load(&root).expect_err("both source forms is ambiguous");
@@ -618,7 +630,7 @@ fn declaring_both_sources_and_store_is_refused() {
 #[test]
 fn declaring_neither_sources_nor_store_is_refused() {
     let root = temp("store-neither-form");
-    write_manifest(&root, "[documents.tpth]\n");
+    write_manifest(&root, "[documents.storybook]\n");
 
     let error = Project::load(&root).expect_err("a document needs a source form");
     let message = error.to_string();
@@ -631,10 +643,10 @@ fn declaring_neither_sources_nor_store_is_refused() {
 #[test]
 fn a_head_without_a_store_is_refused() {
     let root = temp("store-head-without-store");
-    fs::write(root.join("tpth.dli"), "scope tpth\n").unwrap();
+    fs::write(root.join("storybook.dli"), "scope storybook\n").unwrap();
     write_manifest(
         &root,
-        "[documents.tpth]\nsources = [\"tpth.dli\"]\nhead = \"sha256:00\"\n",
+        "[documents.storybook]\nsources = [\"storybook.dli\"]\nhead = \"sha256:00\"\n",
     );
 
     let error = Project::load(&root).expect_err("a pin without a store means nothing");
@@ -647,10 +659,10 @@ fn a_head_without_a_store_is_refused() {
 #[test]
 fn a_malformed_head_is_refused_by_name() {
     let root = temp("store-bad-head");
-    seed_store(&root, "tpth", "bedivere");
+    seed_store(&root, "storybook", "bedivere");
     write_manifest(
         &root,
-        "[documents.tpth]\nstore = \"store\"\nhead = \"not-a-hash\"\n",
+        "[documents.storybook]\nstore = \"store\"\nhead = \"not-a-hash\"\n",
     );
 
     let error = Project::load(&root).expect_err("a head must be a store commit hash");
@@ -663,8 +675,8 @@ fn a_malformed_head_is_refused_by_name() {
 #[test]
 fn a_store_outside_the_project_root_is_refused() {
     let root = temp("store-escape");
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"../elsewhere\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"../elsewhere\"\n");
 
     let error = Project::load(&root).expect_err("a store path may not escape the project");
     let message = error.to_string();
@@ -676,7 +688,7 @@ fn a_store_outside_the_project_root_is_refused() {
 
 // ── the consumer's five read ops, over a store-backed project ───────────────
 
-/// The five operations the fantasy factory reads lore through. A store-backed
+/// Five core operations for reading lore. A store-backed
 /// project must answer all of them on the **default build**, because that is
 /// the whole capability the corpus pivot depends on: serve a corpus that was
 /// never `.dli` text, from a build that cannot parse `.dli` text.
@@ -694,8 +706,8 @@ fn a_store_backed_project_answers_core_read_ops() {
     use dli_serve::session::Sessions;
 
     let root = temp("store-five-read-ops");
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     let project = Project::load(&root).expect("a store-backed project loads");
     let mut sessions = Sessions::from_project(Arc::new(project));
@@ -710,7 +722,7 @@ fn a_store_backed_project_answers_core_read_ops() {
     // 1. dli.check — compile and check the document the store reconstructed.
     let checked = send(
         serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.check",
-                           "params":{"document":"tpth"}}),
+                           "params":{"document":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -720,7 +732,7 @@ fn a_store_backed_project_answers_core_read_ops() {
     //    field at major >= 1, so the 1.1.0 caller sends the typed form.
     let queried = send(
         serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.query",
-                           "params":{"document":"tpth",
+                           "params":{"document":"storybook",
                                      "goal_atom":{"pred":"sworn",
                                                   "args":[{"Sym":"bedivere"}]}}}),
         &mut sessions,
@@ -740,7 +752,7 @@ fn a_store_backed_project_answers_core_read_ops() {
     // 4. dli.export.run — the context-pack profile off the built-in registry.
     let exported = send(
         serde_json::json!({"dli":"2.0.0","id":"4","op":"dli.export.run",
-                           "params":{"document":"tpth","profile":"context-pack"}}),
+                           "params":{"document":"storybook","profile":"context-pack"}}),
         &mut sessions,
         &mut store,
     );
@@ -763,8 +775,8 @@ fn corpus_server(
     use std::sync::Arc;
 
     let root = temp(name);
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a store-backed project loads");
     (
         root,
@@ -831,7 +843,7 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
 
     let rendered = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
-                            "params":{"document":"tpth","format":"rendered"}}),
+                            "params":{"document":"storybook","format":"rendered"}}),
         &mut sessions,
         &mut store,
     );
@@ -856,7 +868,7 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
     // The default is JSON-first on both builds, and stays a success.
     let objects = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
-                            "params":{"document":"tpth"}}),
+                            "params":{"document":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -883,7 +895,7 @@ fn canon_export_is_available_on_contract_two() {
 
     let old = send(
         &serde_json::json!({"dli":"1.3.0","id":"1","op":"dli.corpus.export",
-                            "params":{"document":"tpth","format":"canon"}}),
+                            "params":{"document":"storybook","format":"canon"}}),
         &mut sessions,
         &mut store,
     );
@@ -902,7 +914,7 @@ fn canon_export_is_available_on_contract_two() {
 
     let current = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
-                            "params":{"document":"tpth","format":"canon"}}),
+                            "params":{"document":"storybook","format":"canon"}}),
         &mut sessions,
         &mut store,
     );
@@ -925,7 +937,7 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-roundtrip-source");
     let exported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
-                            "params":{"document":"tpth"}}),
+                            "params":{"document":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -940,7 +952,7 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
     let (_root2, mut sessions2, mut store2) = corpus_server("corpus-roundtrip-target");
     let imported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
-                            "params":{"document":"tpth","mode":"append",
+                            "params":{"document":"storybook","mode":"append",
                                       "objects":result["objects"],
                                       "interner":result["interner"],
                                       "decisions":result["decisions"]}}),
@@ -951,7 +963,7 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
 
     let reexported = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
-                            "params":{"document":"tpth"}}),
+                            "params":{"document":"storybook"}}),
         &mut sessions2,
         &mut store2,
     );
@@ -981,13 +993,13 @@ fn an_objects_import_without_its_interner_is_refused() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-import-no-interner");
     let exported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
-                            "params":{"document":"tpth"}}),
+                            "params":{"document":"storybook"}}),
         &mut sessions,
         &mut store,
     );
     let refused = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.import",
-                            "params":{"document":"tpth","mode":"append",
+                            "params":{"document":"storybook","mode":"append",
                                       "objects":exported["result"]["objects"]}}),
         &mut sessions,
         &mut store,
@@ -1012,7 +1024,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
     use dli_ast::language::DialectBody;
 
     let root = temp("corpus-pivot-rehearsal");
-    let mut pack = pack_with("tpth", &["bedivere"]);
+    let mut pack = pack_with("storybook", &["bedivere"]);
     let decls = &mut pack.documents[0].decls;
     // A ratified decision, so the commit carries a decision set and an
     // interner entry — the two tables the exchange has to carry.
@@ -1024,7 +1036,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
         }),
     );
     decls.push(Decl::Dialect(dli_ast::decl::DialectDecl {
-        name: id("hedgeway"),
+        name: id("hedgerow"),
         label: None,
         body: DialectBody::default(),
         provenance: Some(proposed()),
@@ -1034,7 +1046,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
     decls.push(Decl::Fact(FactDecl {
         atom: AtomExpr {
             pred: id("keeps"),
-            args: vec![Term::Sym(id("bedivere")), Term::Sym(id("hedgeway"))],
+            args: vec![Term::Sym(id("bedivere")), Term::Sym(id("hedgerow"))],
         },
         triple: false,
         provenance: Some(Annotation {
@@ -1081,7 +1093,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
             Vec::new(),
             Vec::new(),
             decisions.clone(),
-            "tpth".to_owned(),
+            "storybook".to_owned(),
         )
         .expect("import the corpus");
 
@@ -1111,7 +1123,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            "tpth".to_owned(),
+            "storybook".to_owned(),
         )
         .expect("commit without the decisions");
     assert_ne!(
@@ -1130,7 +1142,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
 #[test]
 fn an_append_that_drops_the_decision_set_is_refused() {
     let root = temp("corpus-append-drops-decisions");
-    let mut pack = pack_with("tpth", &["bedivere"]);
+    let mut pack = pack_with("storybook", &["bedivere"]);
     pack.documents[0].decls.insert(
         0,
         Decl::Ratify(dli_ast::decl::RatifyDecl {
@@ -1165,7 +1177,7 @@ fn an_append_that_drops_the_decision_set_is_refused() {
     );
     let before = store.reconstruct_at(&head).expect("reconstruct");
 
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a store-backed project loads");
     let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
     let mut author = dli_serve::author::store::Store::default();
@@ -1173,7 +1185,7 @@ fn an_append_that_drops_the_decision_set_is_refused() {
     // An empty append that carries the interner but omits `decisions`.
     let response = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
-                            "params":{"document":"tpth","mode":"append",
+                            "params":{"document":"storybook","mode":"append",
                                       "objects":[],"interner":interner}}),
         &mut sessions,
         &mut author,
@@ -1208,8 +1220,8 @@ fn an_append_that_drops_the_decision_set_is_refused() {
 #[test]
 fn a_dli_append_that_regresses_the_name_table_is_a_schema_violation() {
     let root = temp("corpus-dli-append-regression");
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a store-backed project loads");
     let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
     let mut author = dli_serve::author::store::Store::default();
@@ -1218,9 +1230,9 @@ fn a_dli_append_that_regresses_the_name_table_is_a_schema_violation() {
     // starts from empty and so cannot extend the store's.
     let response = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
-            "params":{"document":"tpth","mode":"append","interner":[],
+            "params":{"document":"storybook","mode":"append","interner":[],
                       "dli_documents":[{"id":"extra",
-                          "text":"scope tpth\nratify d-2\nperson kes ratified d-2\n"}]}}),
+                          "text":"scope storybook\nratify d-2\nperson perin ratified d-2\n"}]}}),
         &mut sessions,
         &mut author,
     );
@@ -1298,7 +1310,7 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
 }
 
 /// A document id is a wire identifier, deliberately decoupled from lore scope —
-/// a store committed as `tpth` may legitimately be served as document `beta`.
+/// a store committed as `storybook` may legitimately be served as document `beta`.
 /// So an append under a differing document id must PRESERVE the committed
 /// scope, not rewrite the chain to match the wire.
 ///
@@ -1310,7 +1322,7 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
 #[test]
 fn an_append_under_a_different_document_id_preserves_the_committed_scope() {
     let root = temp("corpus-append-preserves-scope");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let store = Lorestore::open(dir.clone()).expect("open store");
     let head = store
         .branch_head(dli_lorestore::MAIN_REF)
@@ -1351,7 +1363,7 @@ fn an_append_under_a_different_document_id_preserves_the_committed_scope() {
     assert_ne!(after, head, "the append did commit");
     assert_eq!(
         store.head_pack_name().expect("read pack name"),
-        Some("tpth".to_owned()),
+        Some("storybook".to_owned()),
         "the append kept the committed scope rather than taking the wire id"
     );
     assert_eq!(
@@ -1368,16 +1380,16 @@ fn an_append_under_a_different_document_id_preserves_the_committed_scope() {
 #[test]
 fn a_dli_append_declaring_a_different_scope_is_refused() {
     let root = temp("corpus-dli-append-foreign-scope");
-    seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a store-backed project loads");
     let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
     let mut author = dli_serve::author::store::Store::default();
 
     let response = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
-            "params":{"document":"tpth","mode":"append",
-                      "dli_documents":[{"id":"other","text":"scope beta\nperson kes\n"}]}}),
+            "params":{"document":"storybook","mode":"append",
+                      "dli_documents":[{"id":"other","text":"scope beta\nperson perin\n"}]}}),
         &mut sessions,
         &mut author,
     );
@@ -1387,7 +1399,7 @@ fn a_dli_append_declaring_a_different_scope_is_refused() {
     );
     let message = response["error"]["message"].as_str().unwrap();
     assert!(
-        message.contains("tpth") && message.contains("beta"),
+        message.contains("storybook") && message.contains("beta"),
         "the refusal names both scopes, got: {message}"
     );
 }
@@ -1404,14 +1416,14 @@ fn a_dli_append_declaring_a_different_scope_is_refused() {
 #[test]
 fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     let root = temp("materialize-preserves-scope");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let store = Lorestore::open(dir.clone()).expect("open store");
     let head = store
         .branch_head(dli_lorestore::MAIN_REF)
         .expect("read head")
         .expect("seeded head");
 
-    // Served under `beta`, committed as `tpth`.
+    // Served under `beta`, committed as `storybook`.
     write_manifest(&root, "[documents.beta]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a renamed document loads");
 
@@ -1431,8 +1443,8 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
 
     let staged = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"author.add_entity",
-            "params":{"workspace":workspace,"kind":"person","id":"kes",
-                      "name":"Kes","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
+            "params":{"workspace":workspace,"kind":"person","id":"perin",
+                      "name":"Perin","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
         &mut sessions,
         &mut author,
     );
@@ -1478,12 +1490,12 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     assert_ne!(after, head, "materialize advanced the store it loaded from");
     assert_eq!(
         store.head_pack_name().expect("read pack name"),
-        Some("tpth".to_owned()),
+        Some("storybook".to_owned()),
         "the commit kept the committed scope rather than the session's document id"
     );
     let world = store.reconstruct_at(&after).expect("reconstruct");
     assert_eq!(
-        world.name, "tpth",
+        world.name, "storybook",
         "the reconstructed pack carries the committed scope"
     );
 }
@@ -1501,8 +1513,8 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     use dli_lorestore::{Ref, branch_ref_name};
 
     let root = temp("store-ref-valuation-reload");
-    let dir = seed_store(&root, "tpth", "bedivere");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
 
     // The first worker materializes one proposal under a named authority gate.
     let initial = Project::load(&root).expect("initial project loads");
@@ -1515,7 +1527,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     );
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -1569,7 +1581,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
             commit
                 .interner
                 .iter()
-                .position(|name| name == "h.tpth#0")
+                .position(|name| name == "h.storybook#0")
                 .expect("seeded proposal gate is interned"),
         )
         .expect("interner index fits an Atom"),
@@ -1593,7 +1605,11 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     // A new worker loads the ref once. Advance the live branch afterwards to
     // prove opening a workspace cannot splice that later head into the snapshot.
     let reloaded = Project::load(&root).expect("reloaded project loads");
-    let selected_commit = reloaded.document("tpth").unwrap().source_digest.clone();
+    let selected_commit = reloaded
+        .document("storybook")
+        .unwrap()
+        .source_digest
+        .clone();
     lorestore
         .commit(
             commit.interner.clone(),
@@ -1615,7 +1631,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     let mut author = author_store_for(&project);
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"restart-open","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -1655,7 +1671,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
                 .as_array()
                 .expect("valuation array")
                 .iter()
-                .any(|entry| entry["atom"] == "h.tpth#0" && entry["value"] == false),
+                .any(|entry| entry["atom"] == "h.storybook#0" && entry["value"] == false),
         "the complete persisted overlay, including false, is returned: {author_query}"
     );
 
@@ -1684,7 +1700,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
 
     let batch_query = send(
         &serde_json::json!({"dli":"2.0.0","id":"batch-query","op":"dli.query",
-                            "params":{"document":"tpth","goal_atom":goal,"layer":"all"}}),
+                            "params":{"document":"storybook","goal_atom":goal,"layer":"all"}}),
         &mut sessions,
         &mut author,
     );
@@ -1717,9 +1733,9 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
 #[test]
 fn the_expert_tools_reach_the_language_model_through_the_store() {
     let root = temp("expert-tools-language-model");
-    let dir = seed_store(&root, "tpth", "bedivere");
+    let dir = seed_store(&root, "storybook", "bedivere");
     let before = head_of(&dir);
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a store-backed project loads");
 
     let mut author =
@@ -1753,7 +1769,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
 
     let opened = send(
         &serde_json::json!({"dli":"2.0.0","id":"0","op":"author.open",
-                            "params":{"scope":"tpth"}}),
+                            "params":{"scope":"storybook"}}),
         &mut sessions,
         &mut author,
     );
@@ -1766,7 +1782,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
     for (id, frame) in [
         (
             "1",
-            serde_json::json!({"workspace":ws,"id":"cymric-fringe","label":"Cymric fringe",
+            serde_json::json!({"workspace":ws,"id":"elder-tongue-fringe","label":"Elder-tongue fringe",
                 "body":[{"Vowels":["a","e","y"]},{"Endings":["wyn"]},
                         {"NameKind":{"kind":"person.given","patterns":[["given-proto"]]}}],
                 "provenance":provenance}),
@@ -1779,7 +1795,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
         (
             "3",
             serde_json::json!({"workspace":ws,"id":"gwenwyn","label":"Gwenwyn",
-                "head":["person.given","in","cymric-fringe"],
+                "head":["person.given","in","elder-tongue-fringe"],
                 "composition":[{"role":"given-proto","morpheme":"wyn"}],
                 "provenance":provenance}),
         ),
@@ -1833,13 +1849,13 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
     let reloaded = Project::load(&root).expect("the advanced store reloads");
     let document = reloaded
         .documents()
-        .find(|(id, _)| *id == "tpth")
+        .find(|(id, _)| *id == "storybook")
         .expect("the document is still served")
         .1;
     let world = dli_world::compile(&document.pack).expect("the reloaded pack compiles");
     let language = &world.model.language;
 
-    let register = language.register("cymric-fringe").unwrap_or_else(|| {
+    let register = language.register("elder-tongue-fringe").unwrap_or_else(|| {
         panic!(
             "the register survived the round trip: {:?}",
             language.registers
@@ -1858,7 +1874,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
     );
     assert!(
         language
-            .resolve_morpheme("cymric-fringe", "wyn", "given-proto")
+            .resolve_morpheme("elder-tongue-fringe", "wyn", "given-proto")
             .is_some(),
         "the morpheme resolves for the register: {:?}",
         language.morphemes
@@ -1892,7 +1908,7 @@ fn empty_corpus_server(
     let root = temp(name);
     // `Lorestore::open` writes the genesis commit; nothing is imported.
     dli_lorestore::Lorestore::open(root.join("store")).expect("open an empty store");
-    write_manifest(&root, "[documents.tpth]\nstore = \"store\"\n");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Project::load(&root).expect("a genesis-only store-backed project loads");
     (
         root,
@@ -1920,8 +1936,8 @@ fn a_scope_less_dli_corpus_imports() {
     let (_root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less");
     let imported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
-            "document":"tpth","mode":"append",
-            "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}}),
+            "document":"storybook","mode":"append",
+            "dli_documents":[{"id":"storybook","text":"person joren \"Joren\" proposed\n"}]}}),
         &mut sessions,
         &mut store,
     );
@@ -1947,11 +1963,11 @@ fn a_scope_less_dli_corpus_imports() {
 #[test]
 fn a_scope_less_corpus_round_trips_through_export() {
     let (root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less-roundtrip");
-    let text = "person gwern \"Gwern\" proposed\nperson mara \"Mara\" proposed\n";
+    let text = "person joren \"Joren\" proposed\nperson nara \"Nara\" proposed\n";
     let imported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
-            "document":"tpth","mode":"append",
-            "dli_documents":[{"id":"tpth","text":text}]}}),
+            "document":"storybook","mode":"append",
+            "dli_documents":[{"id":"storybook","text":text}]}}),
         &mut sessions,
         &mut store,
     );
@@ -1959,7 +1975,7 @@ fn a_scope_less_corpus_round_trips_through_export() {
 
     let exported = send(
         &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
-                            "params":{"document":"tpth"}}),
+                            "params":{"document":"storybook"}}),
         &mut sessions,
         &mut store,
     );
@@ -1986,7 +2002,7 @@ fn a_scope_less_corpus_round_trips_through_export() {
     let reloaded = Project::load(&root).expect("the imported store reloads");
     let document = reloaded
         .documents()
-        .find(|(id, _)| *id == "tpth")
+        .find(|(id, _)| *id == "storybook")
         .expect("served")
         .1;
     let world = dli_world::compile(&document.pack).expect("the reconstructed pack compiles");
@@ -2049,8 +2065,8 @@ fn init_seeds_a_genesis_only_store_and_still_refuses_a_seeded_one() {
     let (_root, mut sessions, mut store) = empty_corpus_server("corpus-init-genesis");
     let frame = |id: &str| {
         serde_json::json!({"dli":"2.0.0","id":id,"op":"dli.corpus.import","params":{
-            "document":"tpth","mode":"init",
-            "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}})
+            "document":"storybook","mode":"init",
+            "dli_documents":[{"id":"storybook","text":"person joren \"Joren\" proposed\n"}]}})
     };
 
     let seeded = send(&frame("1"), &mut sessions, &mut store);
@@ -2112,40 +2128,48 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
     let cases: &[(&str, &str, &str)] = &[
         // Bare declarations: `carriage_kind` is `None`, so these reconstruct
         // from the support polynomial — the path that fabricated the tag.
-        ("bare fact", "tpth", "keeps(the-lake, excalibur) proposed\n"),
-        ("bare attr", "tpth", "home(gwern, the-shallows) proposed\n"),
+        (
+            "bare fact",
+            "storybook",
+            "keeps(the-lake, excalibur) proposed\n",
+        ),
+        (
+            "bare attr",
+            "storybook",
+            "home(joren, riverside) proposed\n",
+        ),
         // A carried declaration, kept as the control: it replays from carriage
         // and so must be unaffected either way.
         (
             "carried entity",
-            "tpth",
-            "person gwern \"Gwern\" proposed\n",
+            "storybook",
+            "person joren \"Joren\" proposed\n",
         ),
         // Scoped, and scoped under a document id that differs from the scope —
         // a configuration DM-3 explicitly supports, and the shape that proved
         // the defect was never really about scope-less-ness.
         (
             "scoped, id == scope",
-            "tpth",
-            "scope tpth\n\nkeeps(the-lake, excalibur) proposed\n",
+            "storybook",
+            "scope storybook\n\nkeeps(the-lake, excalibur) proposed\n",
         ),
         (
             "scoped, id != scope",
             "beta",
-            "scope tpth\n\nkeeps(the-lake, excalibur) proposed\n",
+            "scope storybook\n\nkeeps(the-lake, excalibur) proposed\n",
         ),
         // Several proposals: one bundle would not catch a counter that failed
         // to advance, or two bundles collapsing onto one gate.
         (
             "two bare proposals",
-            "tpth",
+            "storybook",
             "keeps(the-lake, excalibur) proposed\nkeeps(the-king, camelot) proposed\n",
         ),
         // A named origin tag is a real tag — it must survive as one, which is
         // the negative control for the invented-tag bug.
         (
             "explicit origin tag",
-            "tpth",
+            "storybook",
             "keeps(the-lake, excalibur) proposed session-7\n",
         ),
     ];

@@ -288,7 +288,7 @@ fn proposed_provenance_is_identical_across_the_gate() {
 // -- the two legs, on standing rather than on findings ------------------------
 //
 // These need a corpus that actually ratifies something, so they run against the
-// fixture project (whose `saltmarket` document declares `ratify d-1`) and are
+// fixture project (whose `storybook` document declares `ratify d-1`) and are
 // therefore syntax-lane. `author-scrub-cited-recorded-v1` replays the same pair
 // cold; this states the property by name, so a failure says which leg broke
 // instead of printing a byte diff.
@@ -340,7 +340,7 @@ mod standing {
         let (_temp, mut sessions, mut store) = fixture_project();
         let opened = drive(
             &json!({"dli":"2.0.0","id":"o","op":"author.open",
-                    "params":{"scope":"saltmarket"}}),
+                    "params":{"scope":"storybook"}}),
             &mut sessions,
             &mut store,
         );
@@ -449,7 +449,7 @@ fn a_newline_in_a_time_anchor_cannot_forge_a_second_rendered_line() {
             "entity/during",
             Decl::Entity(EntityDecl {
                 kind: EntityKind::Thing,
-                name: Ident::synthetic("the-drowning"),
+                name: Ident::synthetic("the-crossing"),
                 label: None,
                 time: Some(TimeClause::During(Ident::synthetic(forged))),
                 slots: Vec::new(),
@@ -607,7 +607,7 @@ fn no_free_text_field_of_any_staged_declaration_can_forge_a_line() {
         ),
         (
             Op::AuthorAddDialect,
-            json!({"id":"cymric-fringe","label":"Cymric fringe","provenance":provenance,
+            json!({"id":"elder-tongue-fringe","label":"Elder-tongue fringe","provenance":provenance,
                    "body":[{"Basis":{"attested":true,"text":"a real tongue"}},
                            {"Vowels":["a","e"]},{"Endings":["wyn"]},{"Foreign":["zh"]},
                            {"Stress":"initial"},
@@ -620,13 +620,13 @@ fn no_free_text_field_of_any_staged_declaration_can_forge_a_line() {
         ),
         (
             Op::AuthorAddName,
-            json!({"id":"gwenwyn","label":"Gwenwyn","head":["person.given","in","cymric-fringe"],
+            json!({"id":"gwenwyn","label":"Gwenwyn","head":["person.given","in","elder-tongue-fringe"],
                    "composition":[{"role":"given-proto","morpheme":"wyn"}],
                    "bearer":"elaine","provenance":provenance}),
         ),
         (
             Op::AuthorAddTerm,
-            json!({"id":"hedgeway","label":"the boundary road","provenance":provenance}),
+            json!({"id":"hedgerow","label":"the boundary road","provenance":provenance}),
         ),
         (
             Op::AuthorAddBanned,

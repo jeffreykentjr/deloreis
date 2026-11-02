@@ -19,7 +19,7 @@
       }
     },
     "head": {
-      "description": "The remaining header tokens, e.g. `[\"person.given\", \"in\", \"cymric-fringe\"]`.",
+      "description": "The remaining header tokens, e.g. `[\"person.given\", \"in\", \"elder-tongue-fringe\"]`.",
       "type": "array",
       "items": {
         "type": "string"

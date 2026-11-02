@@ -135,17 +135,17 @@ The **fork pre-flight** is a free query: before valuating an option, it scans fo
 
 **Fork creation is O(1).** A fork is a valuation overlay + local additions, not a copy of the world. The base world is saturated once; every fork evaluates over that single symbolic fixpoint with a valuation passed as a parameter.
 
-Concurrency: the server runs at most 4 simulation workers concurrently (hard limit), with an advisory lock on evidence writes. Forks and queries are **pure functions** over `(World, Valuation, Query)` — the evaluator has no stateful `Compiler` struct (DL-0009). The compiled world is behind `Arc` in the session layer, so it's shareable across threads. Fork evaluation is embarrassingly parallel.
+Forks and queries evaluate against a compiled world and valuation without a stateful compiler (DL-0009).
 
 This contrasts with a graphdb: Neo4j is single-writer, multi-reader. Queries run against maintained indices but re-traverse per query. There's no concept of "fork" in a graphdb — you'd model a what-if as a separate database instance (expensive) or application-level versioning.
 
-The lorestore itself (the storage backend) is **offline and deterministic** — no network, ever, in a gating lane (DL-0013). The gate is `cargo xtask gate`: 17 steps (rustfmt, clippy, nextest, doc build, doctests, build, dli-fmt, schema --check, docgen --check, fixtures, docs-oracle, authority, boundary, docs-tokens, cargo-deny). All 17 run in the deterministic offline lane and block merges.
+The lorestore is offline and deterministic; `cargo xtask gate` runs the deterministic checks (DL-0013).
 
 ---
 
 ## The export architecture (One Fabric vs. Satellite Semantics)
 
-Koan 10 ("one fabric") is the defining architectural constraint: **all world knowledge — geography, magic, names, story-time, games — lives in one runtime under one semantics.** Exports are **one-way compiles to targets** (context-pack, card set, Ludii GDL, Articy JSON, CSV, static wiki). Every export reads the **certain layer** and fails closed on proposed lore.
+Koan 10 ("one fabric") is the defining architectural constraint: **all world knowledge — geography, magic, names, story-time, games — lives in one runtime under one semantics.** Exports are **one-way compiles to targets** (context-pack, Articy JSON, CSV, static wiki). Every export reads the **certain layer** and fails closed on proposed lore.
 
 ---
 

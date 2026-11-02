@@ -120,7 +120,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 - **Emitted by:** the proof/ledger checker, run by `deloreis check-proof` / `dli.check-proof`
 - **Owner:** `dli-ledger :: ledger_check.rs (ProofFinding)`
-- **Severity:** Error: a proof finding means the spoken proof is invalid; the L-class in the message (L1–L7) names which structural obligation broke.
+- **Severity:** Error: a proof finding means the diegetic proof is invalid; the L-class in the message (L1–L7) names which structural obligation broke.
 
 | Code | Severity | Repair | Meaning |
 |---|---|---|---|

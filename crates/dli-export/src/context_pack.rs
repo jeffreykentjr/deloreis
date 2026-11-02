@@ -1,33 +1,8 @@
-//! Export backend: the context-pack profile (`EXP-2`).
+//! Context-pack export over the certain layer (`EXP-2`).
 //!
-//! The audio-script context pack is **export backend number one, already in
-//! production** (spec 09 §3): the pack builder's certain-layer default and
-//! fail-closed behavior, recognised as what they are and generalised. This module
-//! reproduces the shape today's fantasy context-pack builder emits.
-//!
-//! # Parity with the fantasy `pack.py` builder
-//!
-//! The oracle is `src/fantasy/canon/pack.py` (pinned SHA `998ce598`). Its builder
-//! is: keep only in-scope content → sort deterministically by `(status rank,
-//! path)` → concatenate `<!-- canon: {path} ({status}) -->`-headed blocks → drop
-//! whole blocks from the tail when the token budget is exceeded → estimate tokens
-//! as `len(text) // 4`. This module reproduces **that algorithm exactly**:
-//!
-//! | fantasy `pack.py`            | here                                    |
-//! |-----------------------------|-----------------------------------------|
-//! | canon file (`relpath`)      | a source **pack** (the atom's `pack`)   |
-//! | file-level `status` filter  | the **certain-layer** filter (upstream) |
-//! | `PackedFile{relpath,status}`| [`PackedUnit`] `{unit, layer}`          |
-//! | `estimate_tokens = len//4`  | [`estimate_tokens`]                      |
-//! | tail-drop over budget       | identical                               |
-//! | `<!-- canon: … -->` header  | identical                               |
-//!
-//! **Byte-parity of `text` is not the parity claim** and cannot be: the fantasy
-//! corpus is status-marked markdown, this one is the certain atoms of a compiled
-//! world. The parity is *structural* — the same builder, so a consumer that ate
-//! the fantasy pack eats this one. The fail-closed status filter is not repeated
-//! here; it already happened in [`certain_atoms`](crate::profile::certain_atoms),
-//! so a proposed atom can never reach this builder.
+//! Source packs become deterministically ordered, headed blocks. The builder
+//! drops whole trailing blocks to meet the token budget and estimates tokens as
+//! characters divided by four. Upstream filtering excludes proposed facts.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -37,10 +12,10 @@ use dli_world::model::LoadedAtom;
 
 use crate::profile::{ProfileSpec, ProvenanceMode};
 
-/// The default token budget, matching `pack.py`'s `DEFAULT_BUDGET_TOKENS`.
+/// The default token budget, for the context-pack export.
 pub const DEFAULT_BUDGET_TOKENS: usize = 30_000;
 
-/// The cheap deterministic token estimate `pack.py` uses: characters // 4.
+/// The cheap deterministic token estimate used by the export: characters // 4.
 #[must_use]
 pub fn estimate_tokens(text: &str) -> usize {
     text.len() / 4

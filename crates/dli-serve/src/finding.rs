@@ -162,7 +162,7 @@ mod tests {
         let finding = Finding {
             severity: Severity::Warn,
             code: "name.unvetted".to_owned(),
-            message: "The name \"mara\" has not passed the naming oracle.".to_owned(),
+            message: "The name \"nara\" has not passed the naming oracle.".to_owned(),
             grade: Grade::Asserted,
             repair: None,
             citations: Vec::new(),
@@ -171,7 +171,7 @@ mod tests {
         let wire = serde_json::to_value(&finding).expect("a finding serializes");
         assert_eq!(
             wire["message"],
-            serde_json::json!("The name \"mara\" has not passed the naming oracle.")
+            serde_json::json!("The name \"nara\" has not passed the naming oracle.")
         );
     }
 

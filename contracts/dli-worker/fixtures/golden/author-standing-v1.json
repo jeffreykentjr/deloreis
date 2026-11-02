@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "mara",
+        "id": "nara",
         "kind": "person",
-        "name": "Mara",
+        "name": "Nara",
         "provenance": {
           "decisions": [
             "d-1"
@@ -48,8 +48,8 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:be9638d5c5f333c9fd03b4569da0299552928c8ccbacf3ebf87f6cebb9f74d65",
-          "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
+          "root_hash": "sha256:96cefb84eeeed04c4f5cd936bf0378db090d797bfc3b9a7cc4b211f1c8b03b42",
+          "workspace_digest": "jcs:sha256:a7af57b7bfbcc19a60de0d4b00ed23c08cf940c4dc6c3acb8f480f5094d96277"
         }
       },
       "send": {
@@ -57,7 +57,7 @@
         "id": "1",
         "op": "author.set_standing",
         "params": {
-          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "claim_id": "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
           "decision": "d-1",
           "workspace": "ws-1"
         }
@@ -71,8 +71,8 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:5b4875d377378f797c0cd4237e99a8e2ff89bc9dd04eb722d87676ef37cc95ba",
-          "workspace_digest": "jcs:sha256:4df598961d43a4e9c890f6af6a7b53f109c44eb24d873be04f8f68965d09659b"
+          "root_hash": "sha256:da733b92bdcebf918045947f740169154a4d284451bb5ab50ec3c9cc0d4ce1c6",
+          "workspace_digest": "jcs:sha256:a7af57b7bfbcc19a60de0d4b00ed23c08cf940c4dc6c3acb8f480f5094d96277"
         }
       },
       "send": {
@@ -80,7 +80,7 @@
         "id": "2",
         "op": "author.defeat",
         "params": {
-          "claim_id": "sha256:5d572986b5ab96893c9a1a4c6543b9731f8a72d8198c13d52e394521a5f39c68",
+          "claim_id": "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
           "decision": "d-2",
           "defeated_decision": "d-1",
           "workspace": "ws-1"

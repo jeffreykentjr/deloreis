@@ -8,7 +8,7 @@
     "id": "1",
     "op": "dli.query",
     "params": {
-      "document": "saltmarket",
+      "document": "storybook",
       "goal": "marker(baseline)"
     }
   },

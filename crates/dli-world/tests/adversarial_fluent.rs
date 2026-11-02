@@ -155,13 +155,13 @@ fn two_since_converging_at_downstream_event_clashes() {
             before("e2", "e3", "D-1"),
             // e1 and e2 are deliberately unordered w.r.t. each other.
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("e1"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("e2"))),
                 Some(ratified("D-1")),
@@ -191,13 +191,13 @@ fn two_until_spans_over_common_past_clash() {
             event("flood", "D-1"),
             before("dawn", "flood", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Until(id("flood"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Until(id("flood"))),
                 Some(ratified("D-1")),
@@ -223,13 +223,13 @@ fn disjoint_until_since_zero() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Until(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -257,13 +257,13 @@ fn until_e2_and_since_e1_overlap_on_the_interval() {
             event("e2", "D-1"),
             before("e1", "e2", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Until(id("e2"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("e1"))),
                 Some(ratified("D-1")),
@@ -285,9 +285,9 @@ fn fully_open_two_values_one() {
         "weir",
         vec![
             ratify_decl("D-1"),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 None,
                 Some(ratified("D-1")),
@@ -308,8 +308,8 @@ fn fully_open_same_value_zero() {
         "weir",
         vec![
             ratify_decl("D-1"),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
         ],
     ))
     .expect("compiles");
@@ -328,13 +328,13 @@ fn overlap_same_value_since_zero() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -358,13 +358,13 @@ fn proposed_overlap_zero() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(marker(ProvenanceMarker::Proposed, &[])),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(marker(ProvenanceMarker::Proposed, &[])),
@@ -387,13 +387,13 @@ fn mixed_certain_proposed_overlap_zero() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(marker(ProvenanceMarker::Proposed, &[])),
@@ -415,13 +415,13 @@ fn partial_order_unordered_since_no_false_positive() {
             event("e1", "D-1"),
             event("e2", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("e1"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("e2"))),
                 Some(ratified("D-1")),
@@ -449,13 +449,13 @@ fn order_gap_warns_on_settleable_indeterminacy() {
             event("e1", "D-1"),
             event("e2", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("e1"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("e2"))),
                 Some(ratified("D-1")),
@@ -498,13 +498,13 @@ fn disjoint_spans_do_not_warn() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Until(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -532,13 +532,13 @@ fn same_value_indeterminate_spans_do_not_warn() {
             event("e1", "D-1"),
             event("e2", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("e1"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("e2"))),
                 Some(ratified("D-1")),
@@ -576,13 +576,13 @@ fn sev_b_shared_anchor_transition_is_silent_even_with_an_unrelated_unordered_poi
             event("x", "D-1"),
             event("other", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Until(id("x"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("x"))),
                 Some(ratified("D-1")),
@@ -669,13 +669,13 @@ fn during_era_overlap_one() {
             ratify_decl("D-1"),
             era("oldtime", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::During(id("oldtime"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::During(id("oldtime"))),
                 Some(ratified("D-1")),
@@ -703,9 +703,9 @@ fn open_and_until_over_common_past_clash() {
             event("dawn", "D-1"),
             event("flood", "D-1"),
             before("dawn", "flood", "D-1"),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Until(id("flood"))),
                 Some(ratified("D-1")),
@@ -736,8 +736,8 @@ fn attr_and_state_on_one_slot_is_a_documented_boundary() {
         "weir",
         vec![
             ratify_decl("D-1"),
-            attr("gwern", "color", "blue", Some(ratified("D-1"))),
-            state("gwern.color", Some("red"), None, Some(ratified("D-1"))),
+            attr("joren", "color", "blue", Some(ratified("D-1"))),
+            state("joren.color", Some("red"), None, Some(ratified("D-1"))),
         ],
     ))
     .expect("compiles");
@@ -752,7 +752,7 @@ fn attr_and_state_on_one_slot_is_a_documented_boundary() {
         &world,
         &[AtomExpr {
             pred: id("color"),
-            args: vec![Term::Sym(id("gwern")), Term::Sym(id("green"))],
+            args: vec![Term::Sym(id("joren")), Term::Sym(id("green"))],
         }],
     );
     assert_ne!(
@@ -764,7 +764,7 @@ fn attr_and_state_on_one_slot_is_a_documented_boundary() {
 
 #[test]
 fn timeless_double_assertion_on_a_fluent_slot_is_not_a_contradiction() {
-    // Canon has a single ratified state, so slot (status, gwern) is a fluent. A
+    // Canon has a single ratified state, so slot (status, joren) is a fluent. A
     // draft asserting TWO distinct values with NO time context is *not* treated
     // as a contradiction: on a time-varying slot two bare values can be a
     // legitimate transition (commons THEN enclosed), and there is no span to
@@ -776,7 +776,7 @@ fn timeless_double_assertion_on_a_fluent_slot_is_not_a_contradiction() {
         "weir",
         vec![
             ratify_decl("D-1"),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
         ],
     ))
     .expect("compiles");
@@ -785,11 +785,11 @@ fn timeless_double_assertion_on_a_fluent_slot_is_not_a_contradiction() {
         &[
             AtomExpr {
                 pred: id("status"),
-                args: vec![Term::Sym(id("gwern")), Term::Sym(id("a"))],
+                args: vec![Term::Sym(id("joren")), Term::Sym(id("a"))],
             },
             AtomExpr {
                 pred: id("status"),
-                args: vec![Term::Sym(id("gwern")), Term::Sym(id("b"))],
+                args: vec![Term::Sym(id("joren")), Term::Sym(id("b"))],
             },
         ],
     );
@@ -834,13 +834,13 @@ fn inertial_ordered_transition_is_silent() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
@@ -872,13 +872,13 @@ fn non_inertial_open_transition_still_clashes() {
             event("noon", "D-1"),
             before("dawn", "noon", "D-1"),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("commons"),
                 Some(TimeClause::Since(id("dawn"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.status",
+                "joren.status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("noon"))),
                 Some(ratified("D-1")),
@@ -904,13 +904,13 @@ fn inertial_unordered_transition_is_contested() {
         event("e1", "D-1"),
         event("e2", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("e1"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("e2"))),
             Some(ratified("D-1")),
@@ -958,13 +958,13 @@ fn inertial_same_point_distinct_values_clash() {
     decls.extend([
         event("e", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("e"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("e"))),
             Some(ratified("D-1")),
@@ -1005,19 +1005,19 @@ fn inertial_returning_value_chain_is_silent() {
         before("dawn", "noon", "D-1"),
         before("noon", "dusk", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dusk"))),
             Some(ratified("D-1")),
@@ -1043,19 +1043,19 @@ fn inertial_finding_data_reports_derived_until() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("mist"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
@@ -1090,13 +1090,13 @@ fn inertial_authored_until_overrides() {
     decls.extend([
         event("enclosure", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Until(id("enclosure"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("enclosure"))),
             Some(ratified("D-1")),
@@ -1118,7 +1118,7 @@ fn inertial_authored_until_overrides() {
 fn inertial_unanchored_value_warns() {
     let mut decls = inertial_status_decls();
     decls.push(state(
-        "gwern.status",
+        "joren.status",
         Some("commons"),
         None,
         Some(ratified("D-1")),
@@ -1137,7 +1137,7 @@ fn inertial_unanchored_value_warns() {
         "weir",
         vec![
             ratify_decl("D-1"),
-            state("gwern.status", Some("commons"), None, Some(ratified("D-1"))),
+            state("joren.status", Some("commons"), None, Some(ratified("D-1"))),
         ],
     ))
     .expect("compiles");
@@ -1165,13 +1165,13 @@ fn defeating_the_inertia_declaration_reverts_to_plain_projection() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
@@ -1284,13 +1284,13 @@ fn slot_state_at_reports_derived_until_and_defeater_identity() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
@@ -1300,9 +1300,9 @@ fn slot_state_at_reports_derived_until_and_defeater_identity() {
     let dawn = point(&world, "dawn");
     let noon = point(&world, "noon");
 
-    let at_dawn = check::slot_state_at(&world, "status", "gwern", dawn);
+    let at_dawn = check::slot_state_at(&world, "status", "joren", dawn);
     assert_eq!(at_dawn.pred, "status");
-    assert_eq!(at_dawn.subject, "gwern");
+    assert_eq!(at_dawn.subject, "joren");
     assert!(at_dawn.inertial, "{at_dawn:?}");
     assert!(at_dawn.capping, "{at_dawn:?}");
     assert!(!at_dawn.contested, "{at_dawn:?}");
@@ -1322,7 +1322,7 @@ fn slot_state_at_reports_derived_until_and_defeater_identity() {
     assert_eq!(defeater.value, "enclosed");
     assert_eq!(defeater.since, Some(noon));
 
-    let at_noon = check::slot_state_at(&world, "status", "gwern", noon);
+    let at_noon = check::slot_state_at(&world, "status", "joren", noon);
     assert_eq!(at_noon.holdings.len(), 1, "{:?}", at_noon.holdings);
     let holding = &at_noon.holdings[0];
     assert_eq!(holding.value, "enclosed");
@@ -1342,13 +1342,13 @@ fn slot_state_at_is_byte_identical_to_state_at_when_not_inertial() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-1")),
@@ -1357,11 +1357,11 @@ fn slot_state_at_is_byte_identical_to_state_at_when_not_inertial() {
     let world = compile(&pack("weir", decls)).expect("compiles");
     let noon = point(&world, "noon");
 
-    let projected = check::slot_state_at(&world, "status", "gwern", noon);
+    let projected = check::slot_state_at(&world, "status", "joren", noon);
     assert!(!projected.inertial, "{projected:?}");
     assert!(!projected.capping, "{projected:?}");
 
-    let timeline = &world.model.fluents[&("status".to_owned(), "gwern".to_owned())];
+    let timeline = &world.model.fluents[&("status".to_owned(), "joren".to_owned())];
     let expected = timeline.state_at(
         &world.model.world.chronology,
         &world.model.world.valuation,
@@ -1391,10 +1391,10 @@ fn slot_state_at_is_byte_identical_to_state_at_when_not_inertial() {
 fn slot_state_at_of_a_non_fluent_slot_is_empty() {
     let decls = vec![
         ratify_decl("D-1"),
-        attr("gwern", "rank", "gold", Some(ratified("D-1"))),
+        attr("joren", "rank", "gold", Some(ratified("D-1"))),
     ];
     let world = compile(&pack("weir", decls)).expect("compiles");
-    let projected = check::slot_state_at(&world, "rank", "gwern", TimePoint(0));
+    let projected = check::slot_state_at(&world, "rank", "joren", TimePoint(0));
     assert!(!projected.inertial);
     assert!(!projected.capping);
     assert!(!projected.contested);
@@ -1418,13 +1418,13 @@ fn slot_state_at_reflects_defeat_without_recompile() {
         event("noon", "D-1"),
         before("dawn", "noon", "D-1"),
         state(
-            "gwern.status",
+            "joren.status",
             Some("commons"),
             Some(TimeClause::Since(id("dawn"))),
             Some(ratified("D-1")),
         ),
         state(
-            "gwern.status",
+            "joren.status",
             Some("enclosed"),
             Some(TimeClause::Since(id("noon"))),
             Some(ratified("D-2")),
@@ -1433,7 +1433,7 @@ fn slot_state_at_reflects_defeat_without_recompile() {
     let mut world = compile(&pack("weir", decls)).expect("compiles");
     let noon = point(&world, "noon");
 
-    let before_defeat = check::slot_state_at(&world, "status", "gwern", noon);
+    let before_defeat = check::slot_state_at(&world, "status", "joren", noon);
     assert_eq!(
         before_defeat.holdings.len(),
         1,
@@ -1445,7 +1445,7 @@ fn slot_state_at_reflects_defeat_without_recompile() {
     let var = world.model.var_atom("D-2").expect("D-2 interned");
     world.model.world.valuation.set(var, false);
 
-    let after_defeat = check::slot_state_at(&world, "status", "gwern", noon);
+    let after_defeat = check::slot_state_at(&world, "status", "joren", noon);
     assert_eq!(
         after_defeat.holdings.len(),
         1,

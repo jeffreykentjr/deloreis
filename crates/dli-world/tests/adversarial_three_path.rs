@@ -114,11 +114,11 @@ fn str_value_agrees() {
     let (l, e) = both_paths(
         vec![
             ratify_decl("D-1"),
-            state("gwern.title", Some(Term::Str("The Weir".to_owned())), None),
+            state("joren.title", Some(Term::Str("The Weir".to_owned())), None),
         ],
         AtomExpr {
             pred: id("title"),
-            args: vec![Term::Sym(id("gwern")), Term::Var(id("x"))],
+            args: vec![Term::Sym(id("joren")), Term::Var(id("x"))],
         },
         "x",
     );
@@ -131,11 +131,11 @@ fn int_value_agrees() {
     let (l, e) = both_paths(
         vec![
             ratify_decl("D-1"),
-            state("gwern.depth", Some(Term::Int(7)), None),
+            state("joren.depth", Some(Term::Int(7)), None),
         ],
         AtomExpr {
             pred: id("depth"),
-            args: vec![Term::Sym(id("gwern")), Term::Var(id("x"))],
+            args: vec![Term::Sym(id("joren")), Term::Var(id("x"))],
         },
         "x",
     );
@@ -145,9 +145,9 @@ fn int_value_agrees() {
 
 #[test]
 fn dotted_valueless_agrees() {
-    // gwern.alive -> alive(gwern), unary holding.
+    // joren.alive -> alive(joren), unary holding.
     let (l, e) = both_paths(
-        vec![ratify_decl("D-1"), state("gwern.alive", None, None)],
+        vec![ratify_decl("D-1"), state("joren.alive", None, None)],
         AtomExpr {
             pred: id("alive"),
             args: vec![Term::Var(id("s"))],
@@ -155,7 +155,7 @@ fn dotted_valueless_agrees() {
         "s",
     );
     assert_eq!(l, e, "dotted-valueless loader vs eval");
-    assert_eq!(l, vec!["s=Some(\"gwern\")|Certain".to_owned()], "{l:?}");
+    assert_eq!(l, vec!["s=Some(\"joren\")|Certain".to_owned()], "{l:?}");
 }
 
 #[test]

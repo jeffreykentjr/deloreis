@@ -56,16 +56,16 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
 }
 
-/// A base declaring the decision `D-0001` and the place `gwern`, so a staged
+/// A base declaring the decision `D-0001` and the place `joren`, so a staged
 /// declaration citing `D-0001` reads certain.
-fn gwern_base() -> Store {
-    base("scope tpth\nratify D-0001\nplace gwern \"Gwern\"  ratified D-0001\n")
+fn joren_base() -> Store {
+    base("scope storybook\nratify D-0001\nplace joren \"Joren\"  ratified D-0001\n")
 }
 
 fn open_scope(store: &mut Store, dli: &str, scope: &str) -> String {
@@ -98,8 +98,8 @@ fn declare_inertial(store: &mut Store, dli: &str, ws: &str, pred: &str) -> dli_s
 #[test]
 fn declare_inertial_is_answered_at_contract_1_8_0() {
     let mut sessions = Sessions::new();
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "2.0.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "2.0.0", "storybook");
     let response = dli_serve::serve::dispatch(
         &req(
             "2.0.0",
@@ -119,12 +119,12 @@ fn declare_inertial_is_answered_at_contract_1_8_0() {
 
 #[test]
 fn the_declaration_stages_an_inertial_decl() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_inertial(&mut store, "1.8.0", &ws, "water-status");
     let workspace = store.get(&ws).expect("workspace is open");
     assert_eq!(workspace.mode, Mode::Scope);
-    assert_eq!(workspace.base_name, "tpth");
+    assert_eq!(workspace.base_name, "storybook");
     assert_eq!(
         workspace.decls.len(),
         1,
@@ -140,8 +140,8 @@ fn the_declaration_stages_an_inertial_decl() {
 
 #[test]
 fn declaring_inertial_alone_raises_no_findings() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     let declared = declare_inertial(&mut store, "1.8.0", &ws, "water-status");
     assert!(
         codes(result(&declared)).is_empty(),
@@ -173,8 +173,8 @@ fn declaring_inertial_alone_raises_no_findings() {
 /// `author.status`'s structural rows.
 #[test]
 fn the_staged_decl_reports_kind_inertial() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_inertial(&mut store, "1.8.0", &ws, "water-status");
     let status = dispatch(
         &req("1.8.0", "st", Op::AuthorStatus, json!({ "workspace": ws })),
@@ -197,8 +197,8 @@ fn the_staged_decl_reports_kind_inertial() {
 /// in the review diff.
 #[test]
 fn a_control_char_in_pred_is_refused() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     let response = declare_inertial(&mut store, "1.8.0", &ws, "water\nstatus");
     assert!(
         codes(result(&response)).contains(&"field.control-char".to_owned()),
@@ -213,8 +213,8 @@ fn a_control_char_in_pred_is_refused() {
 /// integrity check every other declaration is held to.
 #[test]
 fn a_cited_unknown_decision_raises_a_finding() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     let response = dispatch(
         &req(
             "1.8.0",
@@ -239,8 +239,8 @@ fn a_cited_unknown_decision_raises_a_finding() {
 /// line in the review diff (`author.diff`, the supervision surface).
 #[test]
 fn a_tainted_decl_is_scrubbed_on_render() {
-    let mut store = gwern_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let mut store = joren_base();
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     let added = declare_inertial(&mut store, "1.8.0", &ws, "water\nstatus");
     let added = result(&added);
     let rendered = added["rendered"].as_array().expect("rendered");
@@ -269,9 +269,9 @@ fn a_tainted_decl_is_scrubbed_on_render() {
 /// a staged state citing `d-1` reads certain and its `since` anchor resolves.
 fn weir_base() -> Store {
     base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify d-1\n",
-        "person gwern \"Gwern\" decided d-1\n",
+        "person joren \"Joren\" decided d-1\n",
         "event dawn decided d-1\n",
         "event noon decided d-1\n",
         "before dawn -> noon decided d-1\n",
@@ -287,7 +287,7 @@ fn add_status(store: &mut Store, ws: &str, value: &str, point: &str) -> dli_serv
             Op::AuthorAddState,
             json!({
                 "workspace": ws,
-                "id": "gwern.status",
+                "id": "joren.status",
                 "value": value,
                 "time": { "kind": "since", "point": point },
                 "provenance": { "kind": "cited", "decisions": ["d-1"], "state": "ratified" }
@@ -328,7 +328,7 @@ fn check_codes(store: &mut Store, ws: &str) -> Vec<String> {
 #[test]
 fn wire_inertial_ordered_transition_is_silent_and_materializes() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_status_inertial(&mut store, &ws);
     add_status(&mut store, &ws, "commons", "dawn");
     add_status(&mut store, &ws, "enclosed", "noon");
@@ -358,7 +358,7 @@ fn wire_inertial_ordered_transition_is_silent_and_materializes() {
 #[test]
 fn wire_inertial_same_point_clash_blocks_materialize() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_status_inertial(&mut store, &ws);
     add_status(&mut store, &ws, "commons", "dawn");
     add_status(&mut store, &ws, "enclosed", "dawn");
@@ -388,13 +388,13 @@ fn wire_inertial_same_point_clash_blocks_materialize() {
 fn wire_inertial_unordered_transition_warns_but_materializes() {
     // A base whose two events are unordered (no `before`).
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify d-1\n",
-        "person gwern \"Gwern\" decided d-1\n",
+        "person joren \"Joren\" decided d-1\n",
         "event dawn decided d-1\n",
         "event noon decided d-1\n",
     ));
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_status_inertial(&mut store, &ws);
     add_status(&mut store, &ws, "commons", "dawn");
     add_status(&mut store, &ws, "enclosed", "noon");
@@ -428,7 +428,7 @@ fn wire_inertial_unordered_transition_warns_but_materializes() {
 #[test]
 fn wire_inertial_query_returns_extensional_values() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.8.0", "tpth");
+    let ws = open_scope(&mut store, "1.8.0", "storybook");
     declare_status_inertial(&mut store, &ws);
     add_status(&mut store, &ws, "commons", "dawn");
     add_status(&mut store, &ws, "enclosed", "noon");
@@ -437,7 +437,7 @@ fn wire_inertial_query_returns_extensional_values() {
             "1.8.0",
             "q",
             Op::AuthorQuery,
-            json!({ "workspace": ws, "goal": "status(gwern, ?value)" }),
+            json!({ "workspace": ws, "goal": "status(joren, ?value)" }),
         ),
         &mut store,
     );

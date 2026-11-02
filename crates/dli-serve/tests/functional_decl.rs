@@ -62,16 +62,16 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
 }
 
-/// A base declaring the decision `D-0001` and the officer `mara`, so a staged
+/// A base declaring the decision `D-0001` and the officer `nara`, so a staged
 /// fact citing `D-0001` reads certain and its subject is known.
 fn officer_base() -> Store {
-    base("scope tpth\nratify D-0001\nperson mara \"Mara\"  ratified D-0001\n")
+    base("scope storybook\nratify D-0001\nperson nara \"Nara\"  ratified D-0001\n")
 }
 
 fn open_scope(store: &mut Store, dli: &str, scope: &str) -> String {
@@ -137,7 +137,7 @@ fn declared_functional_predicate_makes_two_staged_facts_a_violation() {
     // add-time guard is silent on both. The conflict is between the *siblings*,
     // and only the declaration makes a first-seen predicate judgeable.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
 
     let declared = declare_functional(&mut store, "1.6.0", &ws, "rank");
     assert!(
@@ -146,13 +146,13 @@ fn declared_functional_predicate_makes_two_staged_facts_a_violation() {
         codes(result(&declared))
     );
 
-    let first = add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "captain");
+    let first = add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
     assert!(
         codes(result(&first)).is_empty(),
         "the first rank contradicts nothing: {:?}",
         codes(result(&first))
     );
-    let second = add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "admiral");
+    let second = add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
     assert!(
         !codes(result(&second)).contains(&"fact.contradiction".to_owned()),
         "add-time sees no base conflict — the sibling clash is the check's job: {:?}",
@@ -171,10 +171,10 @@ fn the_violation_blocks_materialize() {
     // And it is an *error*, so the accept decision is refused rather than
     // committing canon that already breaks its own dependency.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     declare_functional(&mut store, "1.6.0", &ws, "rank");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "admiral");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
 
     let blocked = dispatch(
         &req(
@@ -199,9 +199,9 @@ fn without_the_declaration_the_same_two_staged_facts_pass() {
     // declaration the session is clean and materialize succeeds — the declaration
     // is what carries the judgment.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "admiral");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
 
     assert!(
         !check_codes(&mut store, "1.6.0", &ws).contains(&"continuity.fd-violation".to_owned()),
@@ -225,10 +225,10 @@ fn cosmetic_drift_on_a_declared_predicate_is_not_a_violation() {
     // Sub-claim 1 through the wire: `captain` and `Captain` normalize alike, so a
     // restatement is not a second value even under the strictest declaration.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     declare_functional(&mut store, "1.6.0", &ws, "rank");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "mara", "rank", "Captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "Captain");
 
     assert!(
         !check_codes(&mut store, "1.6.0", &ws).contains(&"continuity.fd-violation".to_owned()),
@@ -242,11 +242,11 @@ fn the_declaration_stages_a_functional_decl() {
     // The staged declaration is a `functional` decl — not silently dropped, and
     // not smuggled in as some other kind.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     declare_functional(&mut store, "1.6.0", &ws, "rank");
     let workspace = store.get(&ws).expect("workspace is open");
     assert_eq!(workspace.mode, Mode::Scope);
-    assert_eq!(workspace.base_name, "tpth");
+    assert_eq!(workspace.base_name, "storybook");
     assert_eq!(
         workspace.decls.len(),
         1,
@@ -268,7 +268,7 @@ fn declare_functional_is_answered_at_contract_1_6_0() {
     // workspace answer.
     let mut sessions = Sessions::new();
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "2.0.0", "tpth");
+    let ws = open_scope(&mut store, "2.0.0", "storybook");
     let response = dli_serve::serve::dispatch(
         &req(
             "2.0.0",
@@ -292,15 +292,15 @@ fn a_str_value_contradicting_canon_is_flagged() {
     // which the author tools render as a `Term::Str` — slipped past the base
     // contradiction check entirely.
     let mut store = base(
-        "scope tpth\nratify D-0001\nplace gwern \"Gwern\"  ratified D-0001\ngwern.water-status = tidal  ratified D-0001\n",
+        "scope storybook\nratify D-0001\nplace joren \"Joren\"  ratified D-0001\njoren.water-status = tidal  ratified D-0001\n",
     );
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     let response = dispatch(
         &req(
             "1.6.0",
             "add",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "gwern", "key": "water-status", "value": "gone dry",
+            json!({ "workspace": ws, "entity": "joren", "key": "water-status", "value": "gone dry",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
         &mut store,
@@ -317,15 +317,15 @@ fn a_cosmetically_drifted_value_does_not_contradict_canon() {
     // …and the same comparison is on the normalized key, so restating canon's own
     // value in another casing is a restatement, not a contradiction.
     let mut store = base(
-        "scope tpth\nratify D-0001\nplace gwern \"Gwern\"  ratified D-0001\ngwern.water-status = tidal  ratified D-0001\n",
+        "scope storybook\nratify D-0001\nplace joren \"Joren\"  ratified D-0001\njoren.water-status = tidal  ratified D-0001\n",
     );
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     let response = dispatch(
         &req(
             "1.6.0",
             "add",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "gwern", "key": "water-status", "value": "Tidal",
+            json!({ "workspace": ws, "entity": "joren", "key": "water-status", "value": "Tidal",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
         &mut store,
@@ -344,7 +344,7 @@ fn a_cosmetically_drifted_value_does_not_contradict_canon() {
 #[test]
 fn declare_functional_with_an_unknown_citation_is_a_finding() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     let response = dispatch(
         &req(
             "1.6.0",
@@ -368,7 +368,7 @@ fn declare_functional_with_an_unknown_citation_is_a_finding() {
 #[test]
 fn declare_functional_control_char_in_pred_is_refused() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.6.0", "tpth");
+    let ws = open_scope(&mut store, "1.6.0", "storybook");
     let response = dispatch(
         &req(
             "1.6.0",
