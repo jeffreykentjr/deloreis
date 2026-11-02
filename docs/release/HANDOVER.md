@@ -39,7 +39,11 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
   `cli.md` needs `cargo xtask docgen` with `--features syntax` *before* `--`.
 - **Stage by explicit filename.** Never use `git add -A`, `git add .` or
   `commit -a`. No AI co-author trailers; the `.githooks/commit-msg` hook
-  rejects them.
+  rejects them. The CI `no-ai-authorship` lane
+  (`scripts/no-ai-authorship.sh:34`) also fails any commit message that
+  contains a standalone `ai` or `llm`, or a tool name such as `claude`,
+  `codex` or `gpt-4`. Write "benchmark-era", not "LLM benchmark", and keep
+  squash-merge bodies clean too.
 - **main requires a PR**: squash-merge on green CI. Keep PRs few and large:
   WS1 is 2–3 PRs, not one per file. Each non-trivial PR gets one
   clean-context red-team review of the *committed* diff.
