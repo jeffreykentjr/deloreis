@@ -1242,46 +1242,23 @@ pub fn slot_state_at(
         .map(|ann| ann_citations(ann, citation_interner))
         .unwrap_or_default();
 
-    // The exact dispatch `fluent_clash` uses: `state_at_inertial` when the
-    // predicate carries a declaration (it reverts to plain `state_at`
-    // internally when that declaration is not certain), `state_at` when it
-    // never does. Never `query_with`, never the derived layer.
-    let state = match inertial {
-        Some(decl_ann) => scratch.state_at_inertial(chronology, valuation, theory, at, decl_ann),
-        None => scratch.state_at(chronology, valuation, theory, at),
+    // Keep source indices through projection so equal values in disjoint
+    // spans cannot inherit the wrong dates or rulings.
+    let indexed = match inertial {
+        Some(decl_ann) => {
+            scratch.state_at_inertial_indexed(chronology, valuation, theory, at, decl_ann)
+        }
+        None => scratch.state_at_indexed(chronology, valuation, theory, at),
+    };
+    let state = dli_time::fluent::FluentState {
+        holdings: indexed.iter().map(|(_, holding)| holding.clone()).collect(),
     };
     let contested = state.has_contradiction();
-
-    // Pair each surviving holding back to the span that produced it — greedy,
-    // by value and support standing, consuming each span at most once. The
-    // inertia declaration exists precisely to keep at most one live certain
-    // value per point, so this is unambiguous on every corpus the eight
-    // `as_of.rs` cases exercise; a contrived corpus with two identically
-    // valued/supported spans both covering the same point consumes the first
-    // in declaration order, deterministically, rather than panicking.
-    let mut used = vec![false; scratch.spans.len()];
-    let holdings = state
-        .holdings
+    let holdings = indexed
         .iter()
-        .map(|holding| {
-            let origin = scratch.spans.iter().enumerate().find(|(index, span)| {
-                !used[*index]
-                    && span.value == holding.value
-                    && span.ann.status(valuation, theory) == holding.support
-            });
-            let Some((index, span)) = origin else {
-                return SlotHolding {
-                    value: holding.value.clone(),
-                    projection: holding.projection(),
-                    temporal: holding.temporal,
-                    support: holding.support,
-                    since: None,
-                    until: None,
-                    citations: Vec::new(),
-                    defeater: None,
-                };
-            };
-            used[index] = true;
+        .map(|(index, holding)| {
+            let index = *index;
+            let span = &scratch.spans[index];
             let citations = ann_citations(&span.ann, citation_interner);
             // The reported `until` and defeater come STRICTLY from
             // `inertial_derived_until` — never recomputed independently — so
@@ -1333,6 +1310,267 @@ pub fn slot_state_at(
         inertial_citations,
         holdings,
     }
+}
+
+/// Build an evaluable world for a point in story time. Temporal state facts
+/// are projected with the same kernel as `slot_state_at`; independent timeless
+/// facts stay intact and derived conclusions are recomputed from the projection.
+///
+/// Indeterminate temporal bounds are represented by correlated open order
+/// variables. Certain precedence adds the constraints needed to keep a single
+/// cutoff consistent across all states.
+///
+/// # Errors
+/// Returns an error if temporal source indices are inconsistent or the
+/// projected program cannot be saturated.
+#[derive(Debug)]
+pub enum TemporalQueryError {
+    /// The requested projection requires temporal information the engine cannot yet resolve.
+    Indeterminate(String),
+    /// The compiled world or evaluator failed unexpectedly.
+    Internal(String),
+}
+
+impl std::fmt::Display for TemporalQueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Indeterminate(message) | Self::Internal(message) => f.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for TemporalQueryError {}
+
+impl From<String> for TemporalQueryError {
+    fn from(message: String) -> Self {
+        Self::Internal(message)
+    }
+}
+
+/// Answer an independent predicate even when an unrelated temporal projection is unresolved.
+///
+/// # Errors
+/// Returns an error when the relevant projection cannot be computed.
+pub fn query_world_at_for_goal(
+    world: &CompiledWorld,
+    at: TimePoint,
+    goal: &str,
+) -> Result<dli_eval::world::World, TemporalQueryError> {
+    match query_world_at(world, at) {
+        Err(TemporalQueryError::Indeterminate(_))
+            if world
+                .model
+                .chronology_with_era_membership()
+                .find_cycle(&[])
+                .is_none()
+                && temporal_independent(world, goal) =>
+        {
+            let mut projected = world.model.world.clone();
+            projected.chronology = world.model.chronology_with_era_membership();
+            projected.fixpoint().map_err(|error| {
+                TemporalQueryError::Internal(format!("temporal query projection failed: {error}"))
+            })
+        }
+        other => other,
+    }
+}
+
+fn temporal_independent(world: &CompiledWorld, goal: &str) -> bool {
+    let model = &world.model;
+    if !model.world.predicate_same_as_links.is_empty() {
+        return false;
+    }
+    let mut dependencies = BTreeSet::from([goal.to_owned()]);
+    loop {
+        let before = dependencies.len();
+        for rule in &model.world.rules {
+            if dependencies.contains(&rule.head.pred.text) {
+                dependencies.extend(
+                    rule.body
+                        .iter()
+                        .map(|literal| literal.atom.pred.text.clone()),
+                );
+            }
+        }
+        if dependencies.len() == before {
+            break;
+        }
+    }
+    !model
+        .fluents
+        .keys()
+        .any(|(pred, _)| dependencies.contains(pred))
+        && !model.standalone_temporal_facts.iter().any(|(index, _)| {
+            model
+                .world
+                .facts
+                .get(*index)
+                .is_none_or(|fact| dependencies.contains(&fact.atom.pred))
+        })
+}
+
+/// Project fluent facts at `at` and re-evaluate their consequences.
+///
+/// # Errors
+/// Returns an error when the temporal projection is indeterminate or invalid.
+#[allow(clippy::too_many_lines)]
+pub fn query_world_at(
+    world: &CompiledWorld,
+    at: TimePoint,
+) -> Result<dli_eval::world::World, TemporalQueryError> {
+    use dli_time::chronology::TemporalVerdict;
+    use dli_time::fluent::TemporalCover;
+    type CoverDecision = Option<(TemporalCover, Option<TimePoint>, Option<TimePoint>)>;
+    let canon = identity_canon(world);
+    let mut decisions: BTreeMap<usize, CoverDecision> = BTreeMap::new();
+    let mut unknown_anchors = BTreeSet::new();
+    let mut groups = BTreeSet::new();
+    for slot in world.model.fluents.keys() {
+        groups.insert(canon_slot(world, &canon, slot));
+    }
+    let chronology = world.model.chronology_with_era_membership();
+    if chronology.find_cycle(&[]).is_some() {
+        return Err(TemporalQueryError::Indeterminate(
+            "cannot project temporal bounds over a cyclic chronology".to_owned(),
+        ));
+    }
+    let valuation = &world.model.world.valuation;
+    let theory = &world.model.world.theory;
+    let inertial_predicates = effective_inertial_predicates(world);
+    for (index, span) in &world.model.standalone_temporal_facts {
+        if *index >= world.model.world.facts.len() || decisions.contains_key(index) {
+            return Err(format!("invalid temporal fact index {index}").into());
+        }
+        let cover = if span.ann.status(valuation, theory) == Status::Dead {
+            None
+        } else {
+            span.cover(&chronology, at)
+        };
+        if cover == Some(TemporalCover::OrderIndeterminate) {
+            for anchor in [span.since, span.until].into_iter().flatten() {
+                if anchor != at && chronology.precedes(anchor, at) == TemporalVerdict::Unordered {
+                    unknown_anchors.insert(anchor.0);
+                }
+            }
+        }
+        decisions.insert(*index, cover.map(|cover| (cover, span.since, span.until)));
+    }
+    for slot in groups {
+        let mut scratch: FluentTimeline<String> = FluentTimeline::new();
+        let mut sources = Vec::new();
+        for (raw, timeline) in &world.model.fluents {
+            if canon_slot(world, &canon, raw) != slot {
+                continue;
+            }
+            let indices = world
+                .model
+                .fluent_fact_indices
+                .get(raw)
+                .ok_or_else(|| format!("missing temporal fact indices for {raw:?}"))?;
+            if indices.len() != timeline.spans.len() {
+                return Err(format!("inconsistent temporal fact indices for {raw:?}").into());
+            }
+            for (span, &index) in timeline.spans.iter().zip(indices) {
+                if index >= world.model.world.facts.len() || decisions.insert(index, None).is_some()
+                {
+                    return Err(format!("invalid temporal fact index {index}").into());
+                }
+                scratch.push(span.clone());
+                sources.push(index);
+            }
+        }
+        let indexed = match inertial_predicates.get(&slot.0) {
+            Some(decl_ann) => {
+                scratch.state_at_inertial_indexed(&chronology, valuation, theory, at, decl_ann)
+            }
+            None => scratch.state_at_indexed(&chronology, valuation, theory, at),
+        };
+        for (span_index, holding) in indexed {
+            let index = sources
+                .get(span_index)
+                .ok_or_else(|| format!("invalid projected span index {span_index}"))?;
+            let span = &scratch.spans[span_index];
+            if holding.temporal == TemporalCover::OrderIndeterminate {
+                if inertial_predicates
+                    .get(&slot.0)
+                    .is_some_and(|ann| ann.status(valuation, theory) == Status::Certain)
+                {
+                    return Err(TemporalQueryError::Indeterminate(format!(
+                        "cannot project an inertial state with unresolved temporal order for {slot:?}"
+                    )));
+                }
+                for anchor in [span.since, span.until].into_iter().flatten() {
+                    if anchor != at && chronology.precedes(anchor, at) == TemporalVerdict::Unordered
+                    {
+                        unknown_anchors.insert(anchor.0);
+                    }
+                }
+            }
+            decisions.insert(*index, Some((holding.temporal, span.since, span.until)));
+        }
+    }
+    if !unknown_anchors.is_empty() {
+        let unresolved_order = world
+            .model
+            .chronology_anns
+            .iter()
+            .chain(world.model.era_memberships.iter().map(|member| &member.ann))
+            .any(|ann| ann.status(valuation, theory) == Status::Possible);
+        if unresolved_order {
+            return Err(TemporalQueryError::Indeterminate(
+                "cannot project uncertain temporal bounds while chronology rulings are unresolved"
+                    .to_owned(),
+            ));
+        }
+    }
+    let mut projected = world.model.world.clone();
+    projected.chronology = chronology.clone();
+    let mut gates = BTreeMap::new();
+    for anchor in unknown_anchors {
+        let mut before = format!("order-before-{anchor}-cut-{}", at.0);
+        while projected.interner.lookup(&before).is_some() {
+            before.push('-');
+        }
+        let before = projected.interner.intern(&before);
+        let mut after = format!("order-after-{anchor}-cut-{}", at.0);
+        while projected.interner.lookup(&after).is_some() {
+            after.push('-');
+        }
+        let after = projected.interner.intern(&after);
+        projected.theory.add_exclusive([before, after]);
+        gates.insert(anchor, (before, after));
+    }
+    for (&a, &(_, after_a)) in &gates {
+        for (&b, &(before_b, _)) in &gates {
+            if chronology.precedes(TimePoint(a), TimePoint(b)) == TemporalVerdict::Before {
+                projected.theory.add_exclusive([after_a, before_b]);
+            }
+        }
+    }
+    let facts = std::mem::take(&mut projected.facts);
+    for (index, mut fact) in facts.into_iter().enumerate() {
+        match decisions.get(&index) {
+            // Retain the declaration as a false fact so the predicate remains
+            // known even when no temporal value holds at this point.
+            Some(None) => fact.ann = Ann::supported(dli_core::posbool::PosBool::FALSE),
+            Some(Some((TemporalCover::OrderIndeterminate, since, until))) => {
+                for (anchor, before_cut) in [(*since, true), (*until, false)] {
+                    if let Some(anchor) = anchor
+                        && let Some(&(before, after)) = gates.get(&anchor.0)
+                    {
+                        let gate = if before_cut { before } else { after };
+                        let open = Ann::supported(dli_core::posbool::PosBool::pos(gate));
+                        fact.ann = dli_eval::world::conjoin_annotations(&fact.ann, &open);
+                    }
+                }
+            }
+            _ => {}
+        }
+        projected.facts.push(fact);
+    }
+    projected.fixpoint().map_err(|error| {
+        TemporalQueryError::Internal(format!("temporal query projection failed: {error}"))
+    })
 }
 
 /// [`slot_state_at`]'s result: the point-in-time projection of one `(pred,

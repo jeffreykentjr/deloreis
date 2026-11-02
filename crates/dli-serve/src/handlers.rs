@@ -220,6 +220,7 @@ fn check_finding_key(finding: &CheckFinding) -> (u8, &str, &str) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: QueryParams = params(request)?;
     let goal = goal_atom(p.goal_atom.as_ref(), &p.goal)?;
@@ -236,13 +237,57 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         why: p.why,
     };
     let scope = resolve(sessions, &p.document)?;
-    let answer = scope
-        .world
-        .model
-        .world
-        .query_with(&Query { goal }, &opts)
-        .map_err(eval_fault)?;
-    let interner = scope.world.model.interner();
+    let query = Query { goal };
+    let mut query_interner = scope.world.model.interner().clone();
+    let mut temporal_digest = None;
+    let answer = if let Some(as_of) = p.as_of.as_deref() {
+        let mut compiled = scope.world.clone();
+        let point = compiled
+            .model
+            .world
+            .time_points
+            .lookup(as_of)
+            .map(|atom| dli_time::chronology::TimePoint(atom.0))
+            .ok_or_else(|| {
+                (
+                    ErrorCode::SchemaViolation,
+                    format!("unknown era or event '{as_of}'"),
+                )
+            })?;
+        if let Some(overlay) = &opts.fork {
+            for (atom, value) in &overlay.0 {
+                compiled.model.world.valuation.set(*atom, *value);
+            }
+        }
+        let projected = dli_world::check::continuity::query_world_at_for_goal(
+            &compiled,
+            point,
+            &query.goal.pred.text,
+        )
+        .map_err(|error| {
+            use dli_world::check::continuity::TemporalQueryError;
+            let code = match &error {
+                TemporalQueryError::Indeterminate(_) => ErrorCode::TemporalIndeterminate,
+                TemporalQueryError::Internal(_) => ErrorCode::Internal,
+            };
+            (code, error.to_string())
+        })?;
+        query_interner = projected.interner.clone();
+        temporal_digest = Some(temporal_query_digest(&projected, as_of)?);
+        let mut projected_opts = opts.clone();
+        projected_opts.fork = None;
+        projected
+            .query_with(&query, &projected_opts)
+            .map_err(eval_fault)?
+    } else {
+        scope
+            .world
+            .model
+            .world
+            .query_with(&query, &opts)
+            .map_err(eval_fault)?
+    };
+    let interner = &query_interner;
     // 0.6.0 replay context: bind the compiled world (facts, derived set,
     // interner) together with the EFFECTIVE valuation — the ambient rulings
     // with any fork overlay folded in — and the as-of cut. The digest is
@@ -257,7 +302,8 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
             }
         }
         let entries = crate::author::reads::valuation_entries(&effective, interner);
-        let digest = world_binding_digest(&scope.world, &effective, p.as_of.as_deref());
+        let digest = temporal_digest
+            .unwrap_or_else(|| world_binding_digest(&scope.world, &effective, p.as_of.as_deref()));
         Some((digest, entries))
     } else {
         None
@@ -292,6 +338,34 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         rows,
     };
     Ok(ok_response(request, &result))
+}
+
+/// Bind an as-of answer to the actual projected evaluator state. The source
+/// fact list alone cannot distinguish different temporal bounds or rule effects.
+fn temporal_query_digest(world: &dli_eval::world::World, as_of: &str) -> Result<String, Fault> {
+    use sha2::{Digest, Sha256};
+    let valuation: Vec<_> = world
+        .valuation
+        .0
+        .iter()
+        .map(|(atom, value)| (atom.0, *value))
+        .collect();
+    let bytes = serde_json::to_vec(&(
+        world.interner.names(),
+        &world.theory,
+        &world.derived,
+        world.time_points.names(),
+        &world.chronology,
+        valuation,
+        as_of,
+    ))
+    .map_err(|error| {
+        (
+            ErrorCode::Internal,
+            format!("binding temporal query context: {error}"),
+        )
+    })?;
+    Ok(format!("world:sha256:{:x}", Sha256::digest(bytes)))
 }
 
 /// The `world:sha256:` binding of a compiled world under an effective

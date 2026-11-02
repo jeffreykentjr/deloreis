@@ -439,6 +439,14 @@ pub struct WorldModel {
     /// field round-trips.
     #[serde(default)]
     pub fluents: BTreeMap<(String, String), FluentTimeline<String>>,
+    /// Evaluable fact indices corresponding to each slot's fluent spans, in
+    /// the same order. This identifies temporal facts without conflating a
+    /// separate timeless assertion of the same atom.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fluent_fact_indices: BTreeMap<(String, String), Vec<usize>>,
+    /// Temporal state facts that do not have a binary subject/value slot.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub standalone_temporal_facts: Vec<(usize, dli_time::fluent::Span<String>)>,
     /// Predicates an author has declared single-valued via `functional <pred>`.
     /// The FD/contradiction check treats a slot on one of these as a functional
     /// dependency even when canon bears no prior fact for it — so a *first-seen*

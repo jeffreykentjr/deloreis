@@ -238,7 +238,7 @@ fn save_store(workspace: &Path, store: &StoredStore) -> Result<(), String> {
 }
 
 /// Compile the store's base world from its recorded corpus.
-fn compile_base(store: &StoredStore) -> Result<World, String> {
+fn compile_base(store: &StoredStore) -> Result<dli_world::CompiledWorld, String> {
     if store.corpus.is_empty() {
         return Err(
             "this workspace has no fork store — run `deloreis fork new --corpus …` first"
@@ -247,14 +247,20 @@ fn compile_base(store: &StoredStore) -> Result<World, String> {
     }
     let paths: Vec<PathBuf> = store.corpus.iter().map(PathBuf::from).collect();
     let files = cmd::load_corpus(&paths)?;
-    let compiled = cmd::compile_corpus(&files, "fork")?;
-    Ok(compiled.model.world)
+    cmd::compile_corpus(&files, "fork")
 }
 
 /// Rebuild a live [`ForkStore`] by replaying every recorded fork's intent, and
 /// return the map from stored id to the live [`ForkId`].
 fn build(store: &StoredStore) -> Result<(ForkStore, BTreeMap<u64, ForkId>), String> {
     let base = compile_base(store)?;
+    build_from_base(store, base.model.world)
+}
+
+fn build_from_base(
+    store: &StoredStore,
+    base: World,
+) -> Result<(ForkStore, BTreeMap<u64, ForkId>), String> {
     let mut live = ForkStore::new(base);
     let mut ids: BTreeMap<u64, ForkId> = BTreeMap::new();
     for stored in &store.forks {
@@ -351,12 +357,16 @@ fn label(fork: &StoredFork) -> String {
 
 /// Resolve a fork reference against a workspace store into its base world and
 /// effective valuation — the seam `query --fork` consumes.
-pub(crate) fn resolve(workspace: &Path, fork_ref: &str) -> Result<(World, Valuation), String> {
+pub(crate) fn resolve(
+    workspace: &Path,
+    fork_ref: &str,
+) -> Result<(dli_world::CompiledWorld, Valuation), String> {
     let store = load_store(workspace)?;
-    let (live, ids) = build(&store)?;
+    let base = compile_base(&store)?;
+    let (live, ids) = build_from_base(&store, base.model.world.clone())?;
     let id = live_id(&store, &ids, fork_ref)?;
     let valuation = live.valuation(id).map_err(|err| format!("{err}"))?;
-    Ok((live.base().clone(), valuation))
+    Ok((base, valuation))
 }
 
 /// Run a `deloreis fork` subcommand.

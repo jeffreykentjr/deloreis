@@ -11,7 +11,6 @@ use std::path::PathBuf;
 
 use clap::{Args, ValueEnum};
 use dli_eval::query::{Layer, Query, QueryOpts};
-use dli_eval::world::World;
 use dli_world::language::ratified_names;
 
 use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
@@ -60,7 +59,7 @@ pub(crate) struct QueryArgs {
     /// The standing floor for the returned rows.
     #[arg(long, value_enum, default_value_t = LayerArg::All)]
     pub(crate) layer: LayerArg,
-    /// Drop rows anchored strictly after this era or event.
+    /// Project fluents at this era or event and omit rows anchored later.
     #[arg(long = "as-of", value_name = "POINT")]
     pub(crate) as_of: Option<String>,
     /// Evaluate under a stored fork's valuation overlay (read from `--workspace`).
@@ -90,7 +89,7 @@ pub(crate) fn run(args: &QueryArgs) -> CmdResult {
     let goal = cmd::parse_goal(&args.goal)?;
     let query = Query { goal };
 
-    let (world, fork_valuation): (World, Option<_>) = if let Some(fork_ref) = &args.fork {
+    let (mut compiled, fork_valuation) = if let Some(fork_ref) = &args.fork {
         let (world, valuation) = cmd::fork::resolve(&args.workspace, fork_ref)?;
         (world, Some(valuation))
     } else {
@@ -100,24 +99,34 @@ pub(crate) fn run(args: &QueryArgs) -> CmdResult {
             );
         }
         let files = cmd::load_corpus(&args.corpus)?;
-        let compiled = cmd::compile_corpus(&files, "query")?;
-        (compiled.model.world, None)
+        (cmd::compile_corpus(&files, "query")?, None)
     };
 
-    // A dangling `--as-of` would silently filter nothing; reject it like the
-    // sibling unknown-predicate / unknown-dialect paths rather than lie.
-    if let Some(as_of) = &args.as_of
-        && !world.time_points.names().iter().any(|name| name == as_of)
-    {
-        return Err(format!(
-            "unknown era or event '{as_of}' — --as-of must name a point on the chronology"
-        ));
-    }
-
+    let point = args.as_of.as_ref().map(|as_of| {
+        compiled.model.world.time_points.lookup(as_of)
+            .map(|atom| dli_time::chronology::TimePoint(atom.0))
+            .ok_or_else(|| format!("unknown era or event '{as_of}' — --as-of must name a point on the chronology"))
+    }).transpose()?;
+    let mut overlay = fork_valuation;
+    let world = if let Some(point) = point {
+        if let Some(valuation) = overlay.take() {
+            for (atom, value) in valuation.0 {
+                compiled.model.world.valuation.set(atom, value);
+            }
+        }
+        dli_world::check::continuity::query_world_at_for_goal(
+            &compiled,
+            point,
+            &query.goal.pred.text,
+        )
+        .map_err(|error| error.to_string())?
+    } else {
+        compiled.model.world
+    };
     let opts = QueryOpts {
         layer: args.layer.layer(),
         as_of: args.as_of.clone(),
-        fork: fork_valuation,
+        fork: overlay,
         why: args.why,
     };
 
