@@ -3635,9 +3635,33 @@ fn durable_standing_change(
                 .read_object(hash)
                 .map_err(|error| store_fault(&error))?
                 .ok_or_else(|| schema_error(format!("store object {hash} is missing")))?;
-            if object.claim_id.0 == claim_id {
+            if object.claim_id.0 != claim_id {
+                continue;
+            }
+            // A claim can have multiple stored support objects. Select the one
+            // that actually carries the requested decision; taking the first
+            // object can mistake an earlier proposal for the later ruling.
+            let matches = match defeated_decision {
+                Some(defeated) => {
+                    let ratify_carrier = conditional
+                        && object.expert_body.as_ref().is_some_and(|body| {
+                            body.kind == dli_lorestore::ExpertDeclKind::Ratify
+                                && body.name == defeated
+                        });
+                    ratify_carrier || support_cites_decision(&object, &interner, defeated)
+                }
+                None => {
+                    object.provenance.as_ref().and_then(|p| p.marker)
+                        == Some(ProvenanceMarker::Provisional)
+                        && support_cites_decision(&object, &interner, decision)
+                }
+            };
+            if matches {
                 target = Some((hash.clone(), object));
                 break;
+            }
+            if target.is_none() {
+                target = Some((hash.clone(), object));
             }
         }
         (head, head_ref, pack_name, interner, decisions, target)
@@ -3852,7 +3876,10 @@ fn durable_standing_change(
         .digest()
         .map_err(|error| schema_error(error.to_string()))?
         .to_string();
-    let effective_valuation = if conditional {
+    // A standing promotion can follow a conditional defeat. Recompute the
+    // attack overlay for promotions too, or the open workspace would briefly
+    // resurrect a defeated decision until it is reopened.
+    let effective_valuation = if conditional || !defeating {
         store
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above")

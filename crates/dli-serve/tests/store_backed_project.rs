@@ -2531,3 +2531,271 @@ fn conflicting_proposals_warn_and_survive_materialization_and_restart() {
             .any(|f| f.code == "continuity.pending-conflict")
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
+    use std::sync::Arc;
+    let root = temp("claim-with-multiple-supports");
+    seed_store(&root, "storybook", "nara");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
+        "params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    let proposed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"propose","op":"author.add_fact",
+        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+            "provenance":{"kind":"proposed","origin":"witness"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(proposed["ok"], true, "{proposed}");
+    let first = send(
+        &serde_json::json!({"dli":"2.0.0","id":"first","op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(first["ok"], true, "{first}");
+    let recorded = send(
+        &serde_json::json!({"dli":"2.0.0","id":"record","op":"author.record_decision",
+        "params":{"workspace":ws,"decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(recorded["ok"], true, "{recorded}");
+    let ruled = send(
+        &serde_json::json!({"dli":"2.0.0","id":"rule","op":"author.add_fact",
+        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+            "provenance":{"kind":"cited","decisions":["d-0001"],"state":"provisional"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(ruled["ok"], true, "{ruled}");
+    let second = send(
+        &serde_json::json!({"dli":"2.0.0","id":"second","op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(second["ok"], true, "{second}");
+    let claim = second["result"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["atom"]["pred"] == "rank")
+        .unwrap()["claim_id"]
+        .as_str()
+        .unwrap();
+    let promoted = send(
+        &serde_json::json!({"dli":"2.0.0","id":"promote","op":"author.set_standing",
+        "params":{"workspace":ws,"claim_id":claim,"decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(promoted["ok"], true, "{promoted}");
+    let persisted = Lorestore::open(root.join("store")).unwrap();
+    let head = persisted.root_hash().unwrap().unwrap();
+    assert!(
+        persisted
+            .fact_hashes_from(&head)
+            .unwrap()
+            .iter()
+            .any(|hash| {
+                let fact: dli_lorestore::FactObject = persisted.read_object(hash).unwrap().unwrap();
+                fact.claim_id.0 == claim
+                    && fact.provenance.as_ref().and_then(|p| p.marker)
+                        == Some(ProvenanceMarker::Ratified)
+            }),
+        "the matching provisional support was promoted"
+    );
+    let defeated = send(
+        &serde_json::json!({"dli":"2.0.0","id":"defeat","op":"author.defeat",
+        "params":{"workspace":ws,"claim_id":claim,"decision":"d-0002","defeated_decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(defeated["ok"], true, "{defeated}");
+    let why = send(
+        &serde_json::json!({"dli":"2.0.0","id":"why","op":"author.why",
+        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"nara"},{"Sym":"captain"}]}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(why["result"]["why_not"]["status"], "possible", "{why}");
+    assert!(
+        why["result"]["why"]["rendered"]
+            .to_string()
+            .contains("witness"),
+        "{why}"
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn promotion_after_defeat_preserves_attack_history_and_reopens() {
+    use std::sync::Arc;
+    let root = temp("claim-defeat-before-promotion");
+    seed_store(&root, "storybook", "nara");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
+        "params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    let proposed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"propose","op":"author.add_fact",
+        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+            "provenance":{"kind":"proposed","origin":"witness"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(proposed["ok"], true, "{proposed}");
+    let first = send(
+        &serde_json::json!({"dli":"2.0.0","id":"first","op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(first["ok"], true, "{first}");
+    let recorded = send(
+        &serde_json::json!({"dli":"2.0.0","id":"record","op":"author.record_decision",
+        "params":{"workspace":ws,"decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(recorded["ok"], true, "{recorded}");
+    let ruled = send(
+        &serde_json::json!({"dli":"2.0.0","id":"rule","op":"author.add_fact",
+        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+            "provenance":{"kind":"cited","decisions":["d-0001"],"state":"provisional"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(ruled["ok"], true, "{ruled}");
+    let second = send(
+        &serde_json::json!({"dli":"2.0.0","id":"second","op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(second["ok"], true, "{second}");
+    let claim = second["result"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["atom"]["pred"] == "rank")
+        .unwrap()["claim_id"]
+        .as_str()
+        .unwrap();
+    let defeated = send(
+        &serde_json::json!({"dli":"2.0.0","id":"defeat","op":"author.defeat",
+        "params":{"workspace":ws,"claim_id":claim,"decision":"d-0002","defeated_decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(defeated["ok"], true, "{defeated}");
+    let promoted = send(
+        &serde_json::json!({"dli":"2.0.0","id":"promote","op":"author.set_standing",
+        "params":{"workspace":ws,"claim_id":claim,"decision":"d-0001"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(promoted["ok"], true, "{promoted}");
+    let persisted = Lorestore::open(root.join("store")).unwrap();
+    let head = persisted.root_hash().unwrap().unwrap();
+    assert!(
+        persisted
+            .fact_hashes_from(&head)
+            .unwrap()
+            .iter()
+            .any(|hash| {
+                let fact: dli_lorestore::FactObject = persisted.read_object(hash).unwrap().unwrap();
+                fact.claim_id.0 == claim
+                    && fact.provenance.as_ref().and_then(|p| p.marker)
+                        == Some(ProvenanceMarker::Ratified)
+            }),
+        "the matching provisional support was promoted"
+    );
+
+    let why = send(
+        &serde_json::json!({"dli":"2.0.0","id":"why","op":"author.why",
+        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"nara"},{"Sym":"captain"}]}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(why["result"]["why_not"]["status"], "possible", "{why}");
+    assert!(
+        why["result"]["why"]["rendered"]
+            .to_string()
+            .contains("witness"),
+        "{why}"
+    );
+    let exported = send(
+        &serde_json::json!({"dli":"2.0.0","id":"export","op":"dli.corpus.export",
+        "params":{"document":"storybook","format":"objects","at":promoted["result"]["root_hash"]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(exported["ok"], true, "{exported}");
+    let imported_dir = tempfile::tempdir().unwrap();
+    let imported = Lorestore::open(imported_dir.path().to_path_buf()).unwrap();
+    let object_hashes: Vec<_> = exported["result"]["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| {
+            let object: dli_lorestore::FactObject = serde_json::from_value(value.clone()).unwrap();
+            imported.write_object(&object).unwrap()
+        })
+        .collect();
+    let attack_hashes: Vec<_> = exported["result"]["attacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| {
+            let attack: dli_lorestore::DecisionAttack =
+                serde_json::from_value(value.clone()).unwrap();
+            imported.write_object(&attack).unwrap()
+        })
+        .collect();
+    let names: Vec<String> =
+        serde_json::from_value(exported["result"]["interner"].clone()).unwrap();
+    let decisions: Vec<String> =
+        serde_json::from_value(exported["result"]["decisions"].clone()).unwrap();
+    let imported_head = imported
+        .commit_with_attacks(
+            names,
+            object_hashes,
+            Vec::new(),
+            Vec::new(),
+            attack_hashes,
+            decisions,
+            "storybook".to_owned(),
+        )
+        .unwrap();
+    assert_eq!(
+        imported
+            .decision_attacks_from(&imported_head)
+            .unwrap()
+            .len(),
+        1
+    );
+    drop(author);
+    drop(sessions);
+    drop(project);
+    let reopened = Project::load(&root).expect("attack history survives reopening");
+    assert!(reopened.document("storybook").is_some());
+}

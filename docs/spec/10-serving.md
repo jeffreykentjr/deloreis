@@ -89,4 +89,9 @@ checks the proposed result and commits accepted fact objects to the lorestore.
 A named branch or pinned commit supplies its own snapshot. Content-addressed
 objects, committed decisions, and conditional attacks preserve history so
 that the same committed inputs can reproduce a verdict and its explanation.
+Corpus export includes any superseded fact objects needed as attack carriers
+before the current folded objects. Import replays those objects and attacks into
+a new commit; this preserves the resulting judgments, but the flat exchange
+does not authenticate the source commit chronology.
+
 Authorization and review policy belong to the consuming application.
