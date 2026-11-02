@@ -1,8 +1,8 @@
 //! The MCP adapter (`SERVE-1`): the same worker surface, reached over MCP.
 //!
 //! The MCP transport is a **thin wrapper, not a second protocol** (DL-0014;
-//! `docs/spec/10-serving.md` §1). It speaks JSON-RPC 2.0 over stdio, registers
-//! every `dli.*` and `author.*` op as an MCP tool (`tools/list`), and forwards a
+//! `docs/spec/10-serving.md` §1). It speaks JSON-RPC 2.0 over stdio, advertises
+//! a selectable set of operations as MCP tools (`tools/list`), and forwards a
 //! `tools/call` payload through the very same [`crate::serve::respond`] path the
 //! stdio worker uses. An MCP client and a stdio client therefore exercise
 //! identical kernel paths and identical fixtures: a `tools/call` builds the
@@ -21,16 +21,36 @@ use crate::session::Sessions;
 /// Run the MCP JSON-RPC loop over stdio: one JSON-RPC message per line in, one
 /// reply per line out (notifications get no reply). The session cache and the
 /// authoring seam's store live for the life of the loop, exactly as the native worker's do.
-pub fn run_mcp_demo() -> std::io::Result<()> {
-    run_mcp_with(None)
+pub fn run_mcp_demo_with_profile(profile: ToolProfile) -> std::io::Result<()> {
+    run_mcp_with(None, profile)
 }
 
 /// Run MCP over an explicitly loaded caller project.
-pub fn run_mcp_project(project: Project) -> std::io::Result<()> {
-    run_mcp_with(Some(Arc::new(project)))
+pub fn run_mcp_project_with_profile(project: Project, profile: ToolProfile) -> std::io::Result<()> {
+    run_mcp_with(Some(Arc::new(project)), profile)
 }
 
-fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
+/// Run the MCP loop with the default tool profile in demo mode.
+pub fn run_mcp_demo() -> std::io::Result<()> {
+    run_mcp_demo_with_profile(ToolProfile::Core)
+}
+
+/// Run the MCP loop with the default tool profile for a project.
+pub fn run_mcp_project(project: Project) -> std::io::Result<()> {
+    run_mcp_project_with_profile(project, ToolProfile::Core)
+}
+
+/// Which operations to advertise to MCP clients. All operations remain callable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ToolProfile {
+    /// Common fiction-authoring operations.
+    #[default]
+    Core,
+    /// The complete worker operation set.
+    All,
+}
+
+fn run_mcp_with(project: Option<Arc<Project>>, profile: ToolProfile) -> std::io::Result<()> {
     use std::io::{BufRead, Write};
 
     let stdin = std::io::stdin();
@@ -55,7 +75,7 @@ fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
             break; // EOF
         }
         let line = String::from_utf8_lossy(&buf);
-        if let Some(reply) = handle_rpc(&line, &mut sessions, &mut author) {
+        if let Some(reply) = handle_rpc_with_profile(&line, &mut sessions, &mut author, profile) {
             writeln!(out, "{reply}")?;
             out.flush()?;
         }
@@ -68,6 +88,17 @@ fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
 /// is the per-message seam the MCP tests drive.
 #[must_use]
 pub fn handle_rpc(line: &str, sessions: &mut Sessions, author: &mut Store) -> Option<String> {
+    handle_rpc_with_profile(line, sessions, author, ToolProfile::Core)
+}
+
+/// Handle a JSON-RPC message using the selected discovery profile.
+#[must_use]
+pub fn handle_rpc_with_profile(
+    line: &str,
+    sessions: &mut Sessions,
+    author: &mut Store,
+    profile: ToolProfile,
+) -> Option<String> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
         return None;
@@ -93,7 +124,7 @@ pub fn handle_rpc(line: &str, sessions: &mut Sessions, author: &mut Store) -> Op
 
     let outcome = match method {
         "initialize" => Ok(initialize_result()),
-        "tools/list" => Ok(json!({ "tools": tool_descriptors() })),
+        "tools/list" => Ok(json!({ "tools": tool_descriptors(profile) })),
         "tools/call" => tools_call(&params, sessions, author),
         "ping" => Ok(json!({})),
         other => Err((-32601, format!("method '{other}' is not supported"))),
@@ -117,13 +148,44 @@ fn initialize_result() -> Value {
 
 /// Every op as an MCP tool descriptor: its wire name, a one-line description, and
 /// its request JSON Schema (the same schema the contract fixtures validate).
-fn tool_descriptors() -> Vec<Value> {
+fn tool_descriptors(profile: ToolProfile) -> Vec<Value> {
+    const CORE: &[Op] = &[
+        Op::Check,
+        Op::AuthorOpen,
+        Op::AuthorStatus,
+        Op::AuthorAddEntity,
+        Op::AuthorAddFact,
+        Op::AuthorAddRelation,
+        Op::AuthorAddState,
+        Op::AuthorAddEvent,
+        Op::AuthorAddBefore,
+        Op::AuthorDeclareFunctional,
+        Op::AuthorDeclareInertial,
+        Op::AuthorRecordDecision,
+        Op::AuthorOpenQuestion,
+        Op::AuthorAddOption,
+        Op::AuthorCheck,
+        Op::AuthorFindings,
+        Op::AuthorPredicates,
+        Op::AuthorQuery,
+        Op::AuthorWhy,
+        Op::AuthorAsOf,
+        Op::AuthorDefeat,
+        Op::AuthorSetStanding,
+        Op::AuthorAddHypothesis,
+        Op::AuthorSuppose,
+        Op::AuthorDiff,
+        Op::AuthorMaterialize,
+        Op::AuthorDiscard,
+        Op::AuthorEntityCandidates,
+    ];
     let schemas: std::collections::BTreeMap<String, Value> = contract_schemas()
         .into_iter()
         .filter_map(|(key, schema)| serde_json::to_value(schema).ok().map(|value| (key, value)))
         .collect();
     Op::ALL
         .iter()
+        .filter(|op| profile == ToolProfile::All || CORE.contains(op))
         .map(|op| {
             let wire = wire_name(*op);
             let mut input_schema = schemas

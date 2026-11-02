@@ -7,8 +7,9 @@ verdict: "The JSON and MCP server for fictional worlds; contract 2.0.0 is the on
 # Serving
 
 `deloreis serve --project <path>` serves newline-delimited JSON over standard
-input and output. `deloreis mcp --project <path>` exposes the same operations
-as MCP tools. The project path names a `deloreis.toml` manifest or its
+input and output. `deloreis mcp --project <path>` advertises the core fiction
+tools; `--tools all` advertises every operation. Both profiles accept calls to
+the same operations as the worker. The project path names a `deloreis.toml` manifest or its
 containing directory. The server performs deterministic local evaluation; it
 calls no model or network service.
 
