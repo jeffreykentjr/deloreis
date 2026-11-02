@@ -46,6 +46,8 @@ elsewhere in this suite:
   provenance, never stored as a field (see `02-semantics.md`). A bare `ratified`
   with no origin therefore has nowhere to go and *cannot parse* — koan 1
   (*claims come from somewhere*) enforced at the grammar rather than by a lint.
+  This also applies to provenance nested in `name` and `dialect` bodies;
+  missing citations there produce the same error on the enclosing source line.
 - **Agent tools lower to fact objects.** A client may request rendering, but
   structured diff rows and fact objects are the review and storage surface.
 - **The reference card and the schema are the same object at two altitudes.**

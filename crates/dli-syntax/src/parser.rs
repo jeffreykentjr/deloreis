@@ -579,7 +579,7 @@ fn structure_name_item(clause: &Clause) -> NameItem {
     } else if first.text == "bearer" {
         NameItem::Bearer {
             entity: toks.get(1).map(|t| t.text.clone()),
-            provenance: provenance_tail(&clause.text).and_then(|t| reparse_provenance(&t)),
+            provenance: bearer_provenance_tail(&clause.text).and_then(|t| reparse_provenance(&t)),
         }
     } else if is_marker(&first.text) {
         match reparse_provenance(&clause.text) {
@@ -718,6 +718,22 @@ fn provenance_tail(text: &str) -> Option<String> {
     Some(words[idx..].join(" "))
 }
 
+fn bearer_provenance_tail(text: &str) -> Option<String> {
+    let tokens = lex_clause_tokens(text, FileId(0));
+    let index = tokens
+        .iter()
+        .skip(2)
+        .position(|token| token.kind == TokenKind::Word && is_marker(&token.text))?
+        + 2;
+    Some(
+        tokens[index..]
+            .iter()
+            .map(token_to_string)
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
+}
+
 /// Re-lift a `name-part …` interior clause through the parser, so its gloss,
 /// role/gender header, and provenance are typed exactly as a top-level
 /// `name-part` line. This front-end self-call is what LS-9 removed from
@@ -740,6 +756,22 @@ fn reparse_provenance(tail: &str) -> Option<Annotation> {
         Decl::Term(t) => t.provenance,
         _ => None,
     })
+}
+
+// Nested declarations are reparsed to build typed bodies. Preserve error-class
+// diagnostics from those reparses, locating them at the original clause since
+// its normalized text cannot provide exact source offsets.
+fn report_nested_errors(source: &str, span: Span, diags: &mut Vec<Diagnostic>) {
+    let (_, nested) = parse_document(source);
+    diags.extend(
+        nested
+            .into_iter()
+            .filter(|d| d.class.is_error())
+            .map(|mut d| {
+                d.span = span;
+                d
+            }),
+    );
 }
 
 /// Harvest the decision ids a `ratify` body cites: the token after each
@@ -1504,6 +1536,11 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             if let Some((name, label, _head, body, provenance)) =
                 parse_named_block(&mut cur, record, diags, span, "dialect")
             {
+                for clause in &body {
+                    if clause.text.split_whitespace().next() == Some("name-part") {
+                        report_nested_errors(&clause.text, clause.span, diags);
+                    }
+                }
                 items.push(Item::Decl(Decl::Dialect(DialectDecl {
                     name,
                     label,
@@ -1600,6 +1637,17 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
             Some(name) => {
                 let label = cur.eat_string();
                 let (head, provenance) = split_head_prov(&mut cur, diags);
+                for clause in &record.body {
+                    let first = clause.text.split_whitespace().next();
+                    let tail = match first {
+                        Some("bearer") => bearer_provenance_tail(&clause.text),
+                        Some(word) if is_marker(word) => provenance_tail(&clause.text),
+                        _ => None,
+                    };
+                    if let Some(tail) = tail {
+                        report_nested_errors(&format!("term __probe__ {tail}"), clause.span, diags);
+                    }
+                }
                 items.push(Item::Decl(Decl::Name(NameDecl {
                     name,
                     label,

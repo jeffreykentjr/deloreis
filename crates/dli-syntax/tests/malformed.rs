@@ -412,3 +412,41 @@ fn proof_headers_and_close_layout_are_closed() {
         "a caller-declared role remains valid"
     );
 }
+#[test]
+fn bearer_named_like_a_marker_keeps_its_actual_provenance() {
+    let source = "scope storybook\nperson decided \"Decided\" proposed\nname bay-name \"Bay\" place in harbor\n  bearer decided proposed\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let name = document
+        .decls
+        .iter()
+        .find_map(|decl| match decl {
+            dli_ast::decl::Decl::Name(name) => Some(name),
+            _ => None,
+        })
+        .unwrap();
+    assert!(name.body.clauses.iter().any(|clause| matches!(&clause.item, dli_ast::language::NameItem::Bearer { entity: Some(entity), provenance: Some(annotation) } if entity == "decided" && annotation.marker == dli_ast::annot::ProvenanceMarker::Proposed)));
+    let (quoted, diagnostics) = dli_syntax::parse_document(
+        "scope storybook\nname bay \"Bay\" place in harbor\n  bearer \"decided person\" proposed\n",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let name = quoted
+        .decls
+        .iter()
+        .find_map(|decl| match decl {
+            dli_ast::decl::Decl::Name(name) => Some(name),
+            _ => None,
+        })
+        .unwrap();
+    assert!(name.body.clauses.iter().any(|clause| matches!(&clause.item, dli_ast::language::NameItem::Bearer { entity: Some(entity), provenance: Some(annotation) } if entity == "decided person" && annotation.marker == dli_ast::annot::ProvenanceMarker::Proposed)));
+}

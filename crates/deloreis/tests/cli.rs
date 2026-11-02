@@ -1670,3 +1670,46 @@ fn historical_export_keeps_independent_timeless_claim() {
     assert!(rendered.contains("home(wren, new)"), "{rendered}");
     assert_eq!(rendered.matches("home(wren, old)").count(), 1, "{rendered}");
 }
+
+#[test]
+fn naming_errors_include_their_source_and_repair() {
+    let dir = tmp("semantic-naming-location");
+    fs::write(dir.join("a.dli"), "scope storybook\n").unwrap();
+    let second = dir.join("b.dli");
+    fs::write(&second, "scope storybook\nname starlight \"Starlight\" person.given in missing\n  = given-proto star\n  bearer wren proposed\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    assert!(
+        text.contains("name.register-fit"),
+        "{text} {}",
+        stderr(&output)
+    );
+    assert!(text.contains(&format!("{}:2:", second.display())), "{text}");
+    assert!(
+        text.contains("help: declare the dialect and name kind, or correct their names"),
+        "{text}"
+    );
+}
+
+#[test]
+fn malformed_nested_naming_provenance_is_not_silent() {
+    let dir = tmp("nested-naming-provenance");
+    for (name, source) in [
+        (
+            "name.dli",
+            "scope storybook\nname bay-name \"Bay\" place in harbor\n  decided\n",
+        ),
+        (
+            "dialect.dli",
+            "scope storybook\ndialect harbor \"Harbor\" proposed\n  name-part bay role place-generic decided\n",
+        ),
+    ] {
+        let corpus = dir.join(name);
+        fs::write(&corpus, source).unwrap();
+        let output = bin().arg("check").arg(&corpus).output().unwrap();
+        let text = stdout(&output);
+        assert_eq!(output.status.code(), Some(1), "{text} {}", stderr(&output));
+        assert!(text.contains("dli::syntax::origin-required"), "{text}");
+        assert!(text.contains("line 3:3"), "{text}");
+    }
+}
