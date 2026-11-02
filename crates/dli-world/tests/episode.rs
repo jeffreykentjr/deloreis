@@ -37,19 +37,19 @@ fn fold_runs_in_production_order() {
     let e3 = episode(
         "e3",
         3,
-        "the-beleaguered-present",
+        "present-day",
         vec![reveal_scene("s3", "third-fact", None)],
     );
     let e1 = episode(
         "e1",
         1,
-        "the-beleaguered-present",
+        "present-day",
         vec![reveal_scene("s1", "first-fact", None)],
     );
     let e2 = episode(
         "e2",
         2,
-        "the-beleaguered-present",
+        "present-day",
         vec![reveal_scene("s2", "second-fact", None)],
     );
 
@@ -86,7 +86,7 @@ fn flashback_scene_carries_own_anchor() {
     let e1 = episode(
         "e1",
         1,
-        "the-beleaguered-present",
+        "present-day",
         vec![reveal_scene("s1", "the-well-runs-dry", None)],
     );
 
@@ -100,7 +100,7 @@ fn flashback_scene_carries_own_anchor() {
     let e5 = Episode {
         id: "e5".to_owned(),
         production_order: 5,
-        story_anchor: EpisodeAnchor::era("the-beleaguered-present"),
+        story_anchor: EpisodeAnchor::era("present-day"),
         scenes: vec![flashback],
     };
 
@@ -151,22 +151,22 @@ fn knowledge_at_distinguishes_listener_from_cast() {
     };
     let s2 = Scene {
         id: "s2".to_owned(),
-        knowledge_deltas: vec![KnowledgeDelta::cast_learns("enfys", "the-ward-is-false")],
+        knowledge_deltas: vec![KnowledgeDelta::cast_learns("wren", "the-ward-is-false")],
         ..Scene::default()
     };
-    let e1 = episode("e1", 1, "the-beleaguered-present", vec![s1]);
-    let e2 = episode("e2", 2, "the-beleaguered-present", vec![s2]);
+    let e1 = episode("e1", 1, "present-day", vec![s1]);
+    let e2 = episode("e2", 2, "present-day", vec![s2]);
 
     let world = fold(&[e1, e2]);
     let fact = FactRef("the-ward-is-false".to_owned());
-    let enfys = Knower::cast("enfys");
+    let wren = Knower::cast("wren");
 
     // Dramatic irony at slot 1: listener knows, character does not.
     assert!(world.knowledge_at(1, &Knower::Listener).contains(&fact));
-    assert!(!world.knowledge_at(1, &enfys).contains(&fact));
+    assert!(!world.knowledge_at(1, &wren).contains(&fact));
 
     // The character catches up at slot 2.
-    assert!(world.knowledge_at(2, &enfys).contains(&fact));
+    assert!(world.knowledge_at(2, &wren).contains(&fact));
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn open_loop_ledger_tracks_introduced_vs_resolved() {
     let e1 = Episode {
         id: "e1".to_owned(),
         production_order: 1,
-        story_anchor: EpisodeAnchor::era("the-beleaguered-present"),
+        story_anchor: EpisodeAnchor::era("present-day"),
         scenes: vec![Scene {
             id: "s1".to_owned(),
             opens: vec![QuestionRef("who-drowned-the-field".to_owned())],
@@ -213,7 +213,7 @@ fn open_loop_ledger_tracks_introduced_vs_resolved() {
     let e3 = Episode {
         id: "e3".to_owned(),
         production_order: 3,
-        story_anchor: EpisodeAnchor::era("the-beleaguered-present"),
+        story_anchor: EpisodeAnchor::era("present-day"),
         scenes: vec![Scene {
             id: "s3".to_owned(),
             closes: vec![QuestionRef("who-drowned-the-field".to_owned())],
@@ -245,12 +245,12 @@ fn presence_records_on_and_off_mic() {
     let scene = Scene {
         id: "s1".to_owned(),
         presence: vec![
-            Presence::OnMic(dli_world::episode::EntityRef("enfys".to_owned())),
+            Presence::OnMic(dli_world::episode::EntityRef("wren".to_owned())),
             Presence::OffMic(dli_world::episode::EntityRef("anchor".to_owned())),
         ],
         ..Scene::default()
     };
-    assert_eq!(scene.presence[0].entity().0, "enfys");
+    assert_eq!(scene.presence[0].entity().0, "wren");
     assert_eq!(scene.presence[1].entity().0, "anchor");
 }
 
@@ -259,7 +259,7 @@ fn episode_round_trips_through_json() {
     let ep = Episode {
         id: "e14".to_owned(),
         production_order: 14,
-        story_anchor: EpisodeAnchor::era("the-beleaguered-present")
+        story_anchor: EpisodeAnchor::era("present-day")
             .after_event("e13")
             .with_phase(CyclePos {
                 cycle: "tide".to_owned(),

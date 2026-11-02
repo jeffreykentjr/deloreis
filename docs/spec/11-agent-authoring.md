@@ -874,20 +874,9 @@ Until the benchmark reports, the working hypothesis stands on the sibling receip
 (`docs/design-notes/sibling-lessons.md`), where path count predicted failure
 surface better than path quality — evidence, not a measured verdict here.
 
-## 8. The worked consumer scenario
+## 8. Worked fiction scenario
 
-The end-to-end flow an agent runs — `author.open` a scope, `author.add_entity` the
-cast, `author.add_fact` their traits, `author.add_relation` their bonds,
-`author.diff` to see the staged change and its consequences,
-`author.materialize` to commit it and get the fact objects back, then
-consumer-side review and ruling — is worked in full in
-`docs/integration/migration.md` §10. The agent-facing playbook — the same flow as
-a call-by-call sequence of **engine-true** requests and responses, captured from
-the running worker — is `docs/cards/authoring-loop.md`; the loop and its error
-surface were validated live in `docs/design-notes/agent-authoring-validation.md`.
-Two PLAN nodes carry it: **AUTH-1** delivers the tool surface, the workspace
-engine, and the per-tool fixtures; **AUTH-2** replays the scenario against a
-pinned consumer corpus and asserts the rendered-diff output a human would review.
-Its world-owned fixture path is recorded in the PLAN evidence and checked by
-`cargo test -p dli-serve --test auth2`; the consumer's matching transcript is
-separate EXT-F4 evidence.
+An original worked scenario and replayable transcript are planned for the
+fiction release. It will demonstrate authoring, contradiction detection,
+contested claims, retcon and restoration, a what-if, and replay after restart.
+The previous consumer-specific fixture has been retired under DL-0101.

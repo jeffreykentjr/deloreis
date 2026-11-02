@@ -244,13 +244,10 @@ term: **zero foreign reasoning processes** required to build, gate, or serve.
 One — clingo — is optionally present lab-side as a baseline, never in
 CI-required jobs, never in the serving path.
 
-**Small parts, linked.** The kernel, the timeline module, the Turning engine,
-and the searcher and enumerator when they earn existence are separate small
-owned components composing at the **replayable-judgment boundary**: serialized
-inputs and outputs, re-runnable, diffable. Composition by data, not by
-embedding — which is also how one fabric (koan 10) stays small: one semantics,
-several small parts
-(see [the TPtH world · Turning](../worlds/tpth/turning-export.md)).
+**Small parts, linked.** The kernel and timeline module compose at the
+**replayable-judgment boundary**: serialized inputs and outputs are rerunnable
+and diffable. Components share one semantics while remaining independently
+testable.
 
 ## 6. Flip conditions, two-stage and falsifiable
 

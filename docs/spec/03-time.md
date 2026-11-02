@@ -69,15 +69,10 @@ sorts**, orthogonal to the linear spine: `cycle tide(4)`, `cycle moon(29)`, the
 festival cycle. A cycle carries **succ, pred, across, distance** and refuses
 **`<`, sort, and max** — asking for the "greatest" season or sorting the moon's
 nights is a **type error**, not a silent tie-break (koan 8, *the wheel refuses
-rank*). The **cycle type lives once in the kernel**, shared by the game engine
-(the Turning's `leaf(29)`, one leaf for each night of the moon) and by the timing
-checker — canon itself says the same turning that seats a ward runs the Turning's
-leaves. Crucially there is **no epoch**: phase coordinates are *local*
-declarations, and consistency is checked only as **legal walks along declared
-contiguity** — within an episode, or an explicitly declared contiguous span —
-never as absolute positions joined across unrelated scenes, which would be a
-calendar through the back door
-(see [the TPtH world · Turning](../worlds/tpth/turning-export.md) for the worked cycle).
+rank*). The **cycle type lives once in the kernel** and is shared by chronology
+consumers. There is **no epoch**: phase coordinates are local declarations,
+and consistency is checked only along declared contiguous walks, not by
+joining unrelated scenes into an absolute calendar.
 
 The four edge operations are pinned (ruling M6), so the cycle's laws are stated
 rather than accidental:
@@ -417,10 +412,3 @@ The model is deliberately narrow. Each exclusion answers a specific temptation.
 - **Narration-time dynamics.** The ticking narrator's clock is rejected, and the
   model makes that rejection **structural**: one inert vantage, a knowledge
   asymmetry, and nothing else, ever.
-
----
-
-**Worldbook.** The worked TPtH chronology — the elder-cycles→the-narrators-era
-spine, the water/enclosure fluent (D-0114), the inert narration frame (D-0104),
-and the Turning's leaf(29) — lives in
-[the TPtH worldbook · Time](../worlds/tpth/time.md).

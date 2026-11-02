@@ -1,4 +1,0 @@
-# The D-0128 precedence tier: the pillar family wins a conflict.
-name = "pillar"
-wins_over = "all-other-families"
-standing_rule = "Where any outside craft authority conflicts with a pillar or with canon, the pillar wins. The conflict is recorded as a tension with an explicit mission-side resolution; generic advice is adapted to the mission, never allowed to override it."

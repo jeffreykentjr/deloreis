@@ -224,20 +224,11 @@ status-gating every proposed entity gets. A merely-possible name is visible to
 shadow queries and structurally excluded from every context pack and every
 assertion.
 
-## 6. The mirror dies
+## 6. Name views
 
-The consuming repo's `ratified_names.yaml` is a hand-synced mirror of world
-knowledge — the very drift class this fabric exists to kill. It is **deleted as a
-source**. The compiled world *is* the name-space; anything a legacy consumer
-still needs comes from a query — `deloreis query name --layer certain --json` —
-which is a generated view of the compiled world, never a second writable copy of
-it.
-
-Calling this "one fewer propagation step" understates it: it is the removal of a
-standing context-poison vector that had a filename. The deletion is executed
-under the migration protocol ([integration/migration.md](../integration/migration.md)),
-at the naming-mirror checkpoint, after the shadow-read has proven the kernel
-reproduces the legacy vet's world-half verdicts.
+The compiled world is the name-space. A caller can derive the certain name
+view with `deloreis query name --layer certain --json`; the view is generated
+from the compiled world rather than maintained as a separate writable copy.
 
 ## 7. The attestation seam
 
@@ -262,10 +253,3 @@ machinery that enforces them:
 This is the seam that keeps the language layer honest about which world each of
 its claims is about — the same distinction §3 draws for the vet, applied to the
 dialect's own provenance.
-
----
-
-**Worldbook.** The TPtH language layer — the cymric-fringe dialect, the name
-Enfys, the hedgeway/the-plenty lexicon and the banned machine/algorithm rationale,
-the cymric agent-init bundle, and the "is Enfys Welsh?" attestation seam — lives
-in [the TPtH worldbook · Language](../worlds/tpth/language.md).

@@ -25,7 +25,7 @@ you are starting cold: read this file, then `docs/charter.md`, then
 | `docs/charter.md` | The twelve koans, tiebreak, budget, tensions, trials. |
 | `docs/PLAN.md` | The build as a dependency graph (no durations). |
 | `docs/spec/` | The specification: `00-overview.md` plus per-lane specs. |
-| `docs/integration/` | The fantasy contract, migration, and the STATUS board. |
+| `docs/release/` | Fiction-release direction, assessment, and handover. |
 | `docs/design-notes/` | Reasoned notes behind decisions; evidence, not authority. |
 
 Discipline (`decisions.md` DL-0011):
@@ -100,23 +100,10 @@ Discipline (`decisions.md` DL-0011):
 - **Plain commit messages. No AI `Co-Authored-By` trailers** — hook-enforced via
   `.githooks/`.
 
-## 6. Integration
+## 6. Repositories
 
-- **Two ledgers, two prefixes.** `DL-nnnn` is this repo's decision ledger
-  (`docs/decisions.md`); `D-nnnn` is the consuming fantasy repo's ledger — the
-  authority lore citations point at. TPtH = *To Pleach the Hedgeway*, the
-  consuming audio-drama project.
-- `docs/integration/STATUS.md` is **single-writer, deloreis side**. Write only
-  your own file; the fantasy mirror is theirs. The pair is the handshake.
-- **No single commit or PR spans repos.** A commit touches exactly one repo's
-  tree — a deloreis commit never writes the fantasy tree, and vice versa. The
-  same agent may open *separate* PRs to deloreis and to a consuming repo
-  (fantasy) in one task; what is barred is one commit reaching
-  across trees.
-- **Three artifacts cross the boundary**, each with one owner: the contract
-  (deloreis owns; fantasy vendors, digest-checked — DL-0010), the vendored corpus
-  snapshots (fantasy owns the source; deloreis owns the pinned snapshot), and the
-  worked-scenario fixture (deloreis owns; fantasy owns the matching transcript).
+A commit touches exactly one repository. Changes to a consuming project belong
+in a separate change set.
 
 ## 7. The agent-interface law
 

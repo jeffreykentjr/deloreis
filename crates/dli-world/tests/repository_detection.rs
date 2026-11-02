@@ -2,9 +2,8 @@
 //! VAL-1 — the repository validator's detection corpus.
 //!
 //! `dli_world::validate_repository` emits eleven codes: V1–V8 and V10–V12.
-//! There is deliberately no V9; it closed by absorption, and its native
-//! successors are a theorem in `dli-core` and the MIG-1 replay legs, not a
-//! mutation of this corpus (`docs/design-notes/native-repository-validator.md`).
+//! There is deliberately no V9 in this validator. The consumer-specific row
+//! replay previously used as supporting evidence was retired under DL-0101.
 //!
 //! # Why a corpus and not more unit tests
 //!
@@ -221,8 +220,7 @@ fn every_emitted_code_has_an_operator() {
     );
     assert!(
         !covered.contains("V9"),
-        "V9 closed by absorption; its coverage is the derivation theorem plus mig1_replay, never \
-         a corpus mutation"
+        "V9 is not emitted by this validator"
     );
 }
 

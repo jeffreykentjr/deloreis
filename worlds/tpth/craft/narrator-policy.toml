@@ -1,6 +1,0 @@
-# Narrator framing: host + direct-address are errors (D-0176).
-direct_address = "error"
-
-[[mode_rules]]
-mode = "host"
-disposition = "error"

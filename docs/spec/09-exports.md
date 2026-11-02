@@ -197,10 +197,8 @@ renderer: quotes, backslashes, line separators, tabs, and control characters
 cannot terminate a component, move endpoint, game id, or layout name and inject
 a ludeme.
 
-This is koan 12 working **in reverse** — the GDL runtime is a rented baseline
-validating the owned engine — and it is the cheapest external audit of the claim
-that the Turning's rules-as-lore are really rules
-(see [the TPtH world · Turning](../worlds/tpth/turning-export.md)):
+This is koan 12 working **in reverse**: the GDL runtime is a rented baseline
+validating the owned engine and its rules-as-lore:
 
 - If the export is **not trivial**, the rules were entangled with the kernel.
 - If it is **not sound**, the simulator was wrong.
@@ -312,10 +310,3 @@ a canon state, never a mystery.
 - **Generality is a compiler surface, not an essay.** Every future generality
   claim is a claim about a profile, testable per target. Export targets earn
   maintained profiles only from demonstrated consumers (DL-0002).
-
----
-
-**Worldbook.** The worked Turning card export — the deck anatomy (D-0148), the
-cards/lowlands profile, the honest / salt-fringe / keep-stamped recompiles,
-`the-debt-square` falling out of the variant delta, and the Ludii differential —
-lives in [the TPtH worldbook · The Turning export](../worlds/tpth/turning-export.md).

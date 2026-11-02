@@ -1,6 +1,6 @@
 ---
 status: reference
-verdict: "VAL-1's written-up mapping: the legacy Python V-slices against their native successors (eleven codes, V1–V8 and V10–V12), V9's closure by absorption with its three honest grades, the detection corpus's per-code coverage, and the normative finding-shape compatibility promise — including the one line-numbering deviation that remains after DL-0060 corrected V8 to file-absolute lines — that the consuming project's shadow-validate harness compares against."
+verdict: "Historical VAL-1 mapping and validator coverage. The consumer-specific V9 row replay was retired under DL-0101; it is no longer current test evidence."
 ---
 
 # The native repository validator
@@ -29,7 +29,7 @@ Eleven codes. There is no V9; §2 is why.
 | V6 | The structured data files: `data/timeline.yaml` (eras a list; events mappings with unique `id`, a declared `era`, a valid `status`) and `data/characters.yaml` (a list of mappings with unique `id`, string `name`/`role`, valid `status`). A file that will not parse is a finding | `check_structured_data`, `check_timeline`, `check_characters`, `read_yaml` | `tested` |
 | V7 | The character registry and the character files name each other, both directions | `check_characters_sync` | `tested` |
 | V8 | The banned-vocabulary scan over document bodies, honouring per-entry `scope` (`diegetic` vs `all`), `match` (`stem` vs `exact`), and per-file `lexicon_exceptions` | `check_lexicon` | `tested` |
-| ~~V9~~ | *Absorbed — see §2* | `dli_core::derivation::Derivation::support_of`; `mig1_replay` | mixed; see §2 |
+| ~~V9~~ | *Absorbed — see §2* | `dli_core::derivation::Derivation::support_of`; former row replay retired | historical; see §2 |
 | V10 | Questions live in the file their status names: everything in `open-questions.md` is `open`, everything in `resolved-questions.md` is `resolved` | `check_question_placement` | `tested` |
 | V11 | Section-granular provenance: a `ratified` or `provisional` section citing a **known** decision must be named by that decision's `- affects:` line, either whole-file (`[[doc]]`) or section-scoped (`[[doc#Heading]]`) | `check_affects_provenance` | `tested` |
 | V12 | The in-world text corpus under `texts/`: each section declares a `> kind:` from the closed register list; every register except `note` carries at least one `*"…"*` passage; passages are non-empty and under 1200 characters; work ids (slugged titles) are unique across the corpus | `check_texts_corpus` | `tested` |
@@ -67,14 +67,10 @@ merely possible (the legacy validator's V9) becomes a theorem". This is the
 strongest grade in the ladder and it is the right one: the violation is
 unrepresentable, not detected.
 
-**The row-discipline half is `tested`.** The data-layer version of V9 — a stored
-row whose recorded `status:` disagrees with the standing its own `decisions:`
-support, which is how a status leak appears in a corpus rather than in a
-derivation — is `crates/dli-world/tests/mig1_replay.rs`. Its pristine census
-finds zero disagreements across the vendored corpus, and because a harness that
-only ever reports agreement is a null oracle, three seeded legs prove it can
-still see one: `detects_flip_proposed_to_ratified`,
-`detects_forged_promotion_strip_decisions`, and `detects_break_status_marker`.
+**The row-discipline replay is historical.** The consumer-specific stored-row
+replay and its source corpus were retired under DL-0101. Its earlier result is
+available at `pre-fiction-reset`; it is not current evidence of row-discipline
+coverage. The retained derivation property remains separate.
 
 **Legacy equivalence is `attested`, and the caveat is the point.** The claim
 "the native successors cover what V9 covered" rests on `02-semantics.md`'s

@@ -335,12 +335,10 @@ BENCH-*, SURF-4 and TPtH-bound nodes.
   *Needs:* CON-1, ENG-2, FRONT-1. *Produces:* the tool surface. *Oracle:* the author-session
   golden fixture passes end to end; the framing-attack fixture leaves verdicts
   unchanged.
-- **AUTH-2** — The worked TPtH (*To Pleach the Hedgeway*, the consuming
-  audio-drama project) scenario against the pinned fantasy corpus.
-  *Needs:* AUTH-1, CHECK-1, EXT-F2. *Produces:* the CP-10 handshake fixture — a
-  golden fixture encoding the `migration.md` §10 scenario against the vendored
-  corpus. *Oracle:* that fixture replays green (the seed `author-session`
-  fixture covers the tool flow only, over the example world).
+- **AUTH-2** — An original worked fiction scenario over the authoring tools.
+  *Needs:* AUTH-1, CHECK-1. *Produces:* a replayable example and transcript.
+  *Oracle:* the Hollow scenario exercises contradiction, contested claims,
+  retcon and restoration, a what-if, and replay after restart.
 - **EXT-F3** — *(external — fantasy.)* The fantasy worker adapts to call `deloreis
   serve` (class-declared LLM calls, quote anchors, job wrapping, the digest
   check).
@@ -414,8 +412,8 @@ BENCH-*, SURF-4 and TPtH-bound nodes.
   detection corpus: eleven codes — V1–V8, V10–V12 — a governance home, and a
   finding-shape promise the consuming project's shadow-validate harness compares
   against. There is no V9 (DL-0057): it closed by absorption, its status-leak
-  half a theorem in `dli-core` derivation support and its row-discipline half the
-  MIG-1 replay legs.
+  half a theorem in `dli-core` derivation support. The former consumer-specific
+  row replay was retired under DL-0101.
   *Needs:* INFRA-1. *Produces:* the deloreis half of the shadow-validate
   handshake — the detection corpus, the legacy↔native mapping table, and the
   stable finding shape. *Oracle:* a committed baseline canon repository
@@ -766,24 +764,24 @@ author or consumer artifact that this repository does not own.
 | SERVE-1 | done | `cargo test -p dli-serve --test simulation --test fixture_replay` covers practice/game jobs, durable start/status/cancel, restart, terminal rollback refusal, checkpoint-chain corruption, and capability replay |
 | CLI-1 | done | The built Clap graph generates the command reference; `cargo test -p deloreis --test cli --test serve_project` covers every command/help path, positive and negative workflows, and project-backed transport |
 | AUTH-1 | done | `cargo test -p dli-serve --test author --test author_read --test fixture_replay` |
-| AUTH-2 | done | `cargo test -p dli-serve --test auth2` replays `worlds/tpth/auth2/author-tegwen-v1.json` against the pinned-corpus-backed TPtH project |
+| AUTH-2 | open | The former consumer fixture is retired; the original Hollow scenario and transcript remain to be built. |
 | EXT-F3 | external-blocked | Fantasy worker adaptation is consumer-owned |
 | EXT-F4 | external-blocked | Fantasy transcript is consumer-owned |
 | EXP-1 | done | `cargo test -p dli-export` |
 | EXP-2 | done | `cargo test -p dli-export` context-pack suites |
-| EXP-3 | done | `cargo test -p dli-game -p tpth` covers three deck materializations, exact profile selection, L-GDL structure, and hostile-string containment |
+| EXP-3 | deferred | The former consumer card export is retired by DL-0101. |
 | DEF-5 | deferred | Live Ludii trace differential is non-gating and not provisioned |
 | EXP-4 | done | `cargo test -p dli-export` plus the multi-target `dli.export.run` golden fixture cover Articy, CSV, and static-wiki emission and provenance stripping |
-| PROOF-1 | done | mutation harness in `cargo xtask gate` |
-| PROOF-2 | done | pinned differential harness and detection tests |
-| MIG-1 | done | world loader replay suites |
-| MIG-2 | done | vendored snapshots and mutation detection corpus |
+| PROOF-1 | open | DL-0101 retired the consumer-specific corpus; the replacement gate covers core mutations and an explicit strict expected miss, but coverage of every check is not yet established. |
+| PROOF-2 | deferred | The former consumer differential harness is retired by DL-0101. |
+| MIG-1 | deferred | The former consumer migration replay is retired by DL-0101. |
+| MIG-2 | deferred | The former consumer shadow-read harness is retired by DL-0101. |
 | VAL-1 | done | DL-0057; `design-notes/native-repository-validator.md`; `cargo test -p dli-world --test repository_detection` — a clean baseline canon tree plus 26 operators covering all eleven emitted codes (V1–V8, V10–V12) with exact finding sets, no `xfail`. The consumer-side DP-008 X6/X8 items are consumer-owned and claimed by no node here |
 | MIG-3 | external-blocked | Consumer source deletion and cutover are consumer-owned |
 | MIG-4 | external-blocked | Consumer batch ruling and chronology cutover are not in this release |
-| EXT-F1 | done | `worlds/tpth/vendor/fantasy-099e04cd/MANIFEST.txt` |
-| EXT-F2 | done | vendored corpus manifests under `worlds/tpth/vendor/` |
-| EXT-F5 | done | mutation corpus under `worlds/tpth/mutation/` |
+| EXT-F1 | deferred | The former consumer oracle snapshot is retired by DL-0101. |
+| EXT-F2 | deferred | The former consumer corpus snapshot is retired by DL-0101. |
+| EXT-F5 | deferred | The former consumer mutation corpus is retired by DL-0101. |
 | LS-0 | done | DL-0041; `design-notes/lorestore-roadmap.md`; the law updates in `AGENTS.md` |
 | LS-1 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-1 |
 | LS-2 | done | tracked work — `design-notes/lorestore-roadmap.md` LS-2; shipped — `src/storage.rs`, `src/lorestore.rs`, `tests/cross_platform_determinism.rs`, `tests/state_fold_invariant.rs`, `tests/crash_injection.rs` |
