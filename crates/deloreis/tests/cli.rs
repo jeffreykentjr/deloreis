@@ -1523,3 +1523,29 @@ fn timeline_orders_certain_events_in_ordered_eras() {
         "{cursor}"
     );
 }
+
+#[test]
+fn as_of_queries_project_fluents_and_recompute_rules() {
+    let dir = tmp("temporal-query-projection");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\nrule copy-home ratified d-0001\n  resides($who, $where) :- home($who, $where)\n").unwrap();
+    for (point, expected, absent) in [("first", "old", "new"), ("second", "new", "old")] {
+        for pred in ["home", "resides"] {
+            let output = bin()
+                .arg("query")
+                .arg(format!("{pred}(wren, $where)"))
+                .arg("--corpus")
+                .arg(&corpus)
+                .args(["--as-of", point, "--layer", "certain"])
+                .output()
+                .unwrap();
+            let text = stdout(&output);
+            assert_eq!(output.status.code(), Some(0), "{text} {}", stderr(&output));
+            assert!(
+                text.contains(&format!("{pred}(wren, {expected})")),
+                "{text}"
+            );
+            assert!(!text.contains(&format!("{pred}(wren, {absent})")), "{text}");
+        }
+    }
+}

@@ -264,8 +264,29 @@ impl<V> FluentTimeline<V> {
     where
         V: Clone,
     {
+        FluentState {
+            holdings: self
+                .state_at_indexed(chronology, valuation, theory, at)
+                .into_iter()
+                .map(|(_, holding)| holding)
+                .collect(),
+        }
+    }
+
+    /// Project spans and retain each holding's original span index.
+    #[must_use]
+    pub fn state_at_indexed(
+        &self,
+        chronology: &Chronology,
+        valuation: &Valuation,
+        theory: &Theory,
+        at: TimePoint,
+    ) -> Vec<(usize, Holding<V>)>
+    where
+        V: Clone,
+    {
         let mut holdings = Vec::new();
-        for span in &self.spans {
+        for (index, span) in self.spans.iter().enumerate() {
             let Some(temporal) = span.cover(chronology, at) else {
                 continue;
             };
@@ -273,13 +294,16 @@ impl<V> FluentTimeline<V> {
             if support == Status::Dead {
                 continue;
             }
-            holdings.push(Holding {
-                value: span.value.clone(),
-                temporal,
-                support,
-            });
+            holdings.push((
+                index,
+                Holding {
+                    value: span.value.clone(),
+                    temporal,
+                    support,
+                },
+            ));
         }
-        FluentState { holdings }
+        holdings
     }
 
     /// The fluent's state at a query point on a predicate the author declared
@@ -328,11 +352,30 @@ impl<V> FluentTimeline<V> {
     where
         V: Clone + PartialEq,
     {
-        // The declaration is a defeasible claim like any other: capping only
-        // applies while it is certain. Anything weaker reverts to the plain
-        // projection, byte-for-byte.
+        FluentState {
+            holdings: self
+                .state_at_inertial_indexed(chronology, valuation, theory, at, decl_ann)
+                .into_iter()
+                .map(|(_, holding)| holding)
+                .collect(),
+        }
+    }
+
+    /// Project inertial spans and retain each holding's original span index.
+    #[must_use]
+    pub fn state_at_inertial_indexed(
+        &self,
+        chronology: &Chronology,
+        valuation: &Valuation,
+        theory: &Theory,
+        at: TimePoint,
+        decl_ann: &Ann,
+    ) -> Vec<(usize, Holding<V>)>
+    where
+        V: Clone + PartialEq,
+    {
         if decl_ann.status(valuation, theory) != Status::Certain {
-            return self.state_at(chronology, valuation, theory, at);
+            return self.state_at_indexed(chronology, valuation, theory, at);
         }
         let mut holdings = Vec::new();
         for (index, span) in self.spans.iter().enumerate() {
@@ -340,24 +383,23 @@ impl<V> FluentTimeline<V> {
             if support == Status::Dead {
                 continue;
             }
-            // Only an open (no authored `until`), anchored (`since`) span has a
-            // derived boundary; everything else keeps its plain cover.
             let temporal = match (span.since, span.until) {
                 (Some(_), None) => {
                     self.inertial_cover(chronology, valuation, theory, index, span, at)
                 }
                 _ => span.cover(chronology, at),
             };
-            let Some(temporal) = temporal else {
-                continue;
-            };
-            holdings.push(Holding {
-                value: span.value.clone(),
-                temporal,
-                support,
-            });
+            let Some(temporal) = temporal else { continue };
+            holdings.push((
+                index,
+                Holding {
+                    value: span.value.clone(),
+                    temporal,
+                    support,
+                },
+            ));
         }
-        FluentState { holdings }
+        holdings
     }
 
     /// The derived cover of one open inertial span `vᵢ` (`since = tᵢ`, no
@@ -401,6 +443,18 @@ impl<V> FluentTimeline<V> {
                 continue;
             };
             if !at_or_before(chronology, other_since, at) {
+                // An unordered successor may already have taken effect at the
+                // cutoff. Do not report the older value as certainly current.
+                if chronology.precedes(other_since, at) == TemporalVerdict::Unordered
+                    && other_since != at
+                    && other_since != since
+                    && matches!(
+                        chronology.precedes(since, other_since),
+                        TemporalVerdict::Before | TemporalVerdict::Unordered
+                    )
+                {
+                    indeterminate = true;
+                }
                 continue;
             }
             match chronology.precedes(since, other_since) {

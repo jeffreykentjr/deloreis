@@ -97,6 +97,8 @@ pub enum ErrorCode {
     EvidenceCorrupt,
     /// A referenced durable simulation job does not exist.
     UnknownJob,
+    /// A point-in-time query needs chronology that is not yet resolved.
+    TemporalIndeterminate,
     /// An unexpected internal error.
     Internal,
 }
@@ -104,7 +106,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Every error code, in declaration order. The single source of truth for
     /// the closed code set (consumers derive their lists from this).
-    pub const ALL: [ErrorCode; 16] = [
+    pub const ALL: [ErrorCode; 17] = [
         ErrorCode::BadFrame,
         ErrorCode::UnknownOp,
         ErrorCode::SchemaViolation,
@@ -120,6 +122,7 @@ impl ErrorCode {
         ErrorCode::ProjectRequired,
         ErrorCode::EvidenceCorrupt,
         ErrorCode::UnknownJob,
+        ErrorCode::TemporalIndeterminate,
         ErrorCode::Internal,
     ];
 
@@ -142,6 +145,7 @@ impl ErrorCode {
             ErrorCode::ProjectRequired => "project-required",
             ErrorCode::EvidenceCorrupt => "evidence-corrupt",
             ErrorCode::UnknownJob => "unknown-job",
+            ErrorCode::TemporalIndeterminate => "temporal-indeterminate",
             ErrorCode::Internal => "internal",
         }
     }

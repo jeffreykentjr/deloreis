@@ -231,6 +231,11 @@ const ERROR_ROWS: &[(ErrorCode, &str, &str)] = &[
         "schema",
         "a durable simulation job id that does not exist",
     ),
+    (
+        ErrorCode::TemporalIndeterminate,
+        "refused",
+        "the requested temporal projection needs unresolved ordering",
+    ),
     (ErrorCode::Internal, "internal", "a server defect"),
 ];
 

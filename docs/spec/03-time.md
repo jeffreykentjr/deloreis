@@ -200,6 +200,21 @@ one overlap sweep; an overlap is the existing
 support. Defeating the identity restores the separate timelines and removes
 only the derived persistence and contradiction that depended on it.
 
+Point-in-time `dli.query` and CLI `query --as-of` project fluent facts with
+the same slot semantics as `author.as_of`, then recompute derived facts. A
+timeless assertion remains independent of a temporal assertion of the same
+atom. Unordered plain bounds remain possible and share consistent ordering
+assumptions across the query. If unresolved inertial ordering, a possible
+chronology ruling, or a cycle prevents a faithful projection of the query, it is
+refused with `temporal-indeterminate` rather than returning a guessed answer.
+Without predicate-identity links, an unrelated unresolved fluent does not block
+a query whose predicate and rule dependencies have no temporal state. When
+predicate identities exist, the fallback is conservative and refuses; a cycle
+also blocks the query.
+The current evaluator may leave a value possible when multiple alternative
+spans jointly cover every ordering; it does not promote their disjunction to
+certain solely for that reason.
+
 ---
 
 ## 3. Composition with the annotation algebra

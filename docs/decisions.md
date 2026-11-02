@@ -193,3 +193,22 @@ timeline responses; all other fixture changes retain the version fence.
 
 **Rationale.** Story-time order must not turn a draft or defeated placement
 into certain chronology, hide a conflict, or lose its evidence after replay.
+
+## DL-0111 — Project fluent facts in point-in-time queries
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** CLI `query --as-of` and `dli.query` with `as_of` project state
+facts through the fluent timeline before recomputing rules. Independent timeless
+support remains available. Temporal uncertainty shares compatible ordering
+assumptions across facts; an unresolved inertial projection or unsupported
+uncertain chronology is refused with `temporal-indeterminate`. A later
+competitor unordered with the cutoff prevents an earlier inertial value from
+reading certainly current. The point-in-time query digest binds the projected
+world. This amends the earlier restriction of inertial projection to
+`author.as_of`; `author.query` remains an unprojected workspace read.
+
+**Rationale.** A historical query must not assert a state before it starts or
+retain a superseded value, and derived answers must follow the same evidence.

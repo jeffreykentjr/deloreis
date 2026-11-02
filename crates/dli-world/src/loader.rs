@@ -568,6 +568,7 @@ impl LoadCtx {
         self.record_state_time(state, &label, pack);
         // The evaluable core carries the gated fact — a state is queryable like
         // any slot (issue 47).
+        let fact_index = self.wm.world.facts.len();
         self.wm.world.facts.push(Fact {
             atom: ground_atom(&atom),
             ann: compiled.ann.clone(),
@@ -579,7 +580,18 @@ impl LoadCtx {
             let slot = (atom.pred.text.clone(), subject.text.clone());
             let (since, until) = self.state_bounds(state.time.as_ref());
             let span = FluentSpan::new(render_term(value), since, until, compiled.ann.clone());
+            self.wm
+                .fluent_fact_indices
+                .entry(slot.clone())
+                .or_default()
+                .push(fact_index);
             self.wm.fluents.entry(slot).or_default().push(span);
+        } else {
+            let (since, until) = self.state_bounds(state.time.as_ref());
+            self.wm.standalone_temporal_facts.push((
+                fact_index,
+                FluentSpan::new(atom.pred.text.clone(), since, until, compiled.ann.clone()),
+            ));
         }
         self.push_atom(atom, compiled, pack, state.name.span);
     }
