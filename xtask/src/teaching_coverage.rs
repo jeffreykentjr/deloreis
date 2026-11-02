@@ -76,7 +76,7 @@ pub fn run_teaching_coverage(root: &Path) -> Result<()> {
     }
 
     println!(
-        "teaching-coverage: OK — every op is taught, stated counts agree with Op::ALL, \
+        "teaching-coverage: OK — every op is taught, the core profile and stated count agree, \
          fenced dli versions are accepted"
     );
     Ok(())
@@ -176,40 +176,16 @@ fn mentions_token(haystack: &str, token: &str) -> bool {
     false
 }
 
-/// Check (b): the exact, labeled count-bearing lines this PR wrote into
-/// `SKILL.md` and spec §11 must agree with `Op::ALL`'s actual counts. Each
-/// assertion is an exact-substring match against a specific sentence, not a
-/// scan for any number in prose — a wording change that keeps the numeral
-/// still passes, and a doc that changes the numeral without the underlying
-/// reality changing fails loudly.
+/// Check the default MCP profile is taught and the specification's stated
+/// operation count agrees with `Op::ALL`.
 fn check_stated_tool_counts(root: &Path) -> Result<Vec<String>> {
-    let author_op_count = Op::ALL
-        .iter()
-        .filter(|op| wire_name(**op).starts_with("author."))
-        .count();
-    // `author.branch` / `author.merge` manage durable branches rather than
-    // stage lore, so SKILL.md's "tools you author with" heading counts every
-    // author op minus those two (`Op::added_in_0_6_1` is exactly that pair).
-    let branch_or_merge_count = Op::ALL.iter().filter(|op| op.added_in_0_6_1()).count();
-    let authoring_loop_count = author_op_count - branch_or_merge_count;
     let total_op_count = Op::ALL.len();
 
     let mut problems = Vec::new();
 
     let skill_path = root.join("SKILL.md");
     let skill = std::fs::read_to_string(&skill_path)?;
-    check_line(
-        &mut problems,
-        "SKILL.md",
-        &skill,
-        &format!("## 2. The tool surface (the {authoring_loop_count} tools you author with)"),
-    );
-    check_line(
-        &mut problems,
-        "SKILL.md",
-        &skill,
-        &format!("The contract's §3.2 table lists {author_op_count}"),
-    );
+    problems.extend(check_core_profile(&skill)?);
 
     let spec_path = root.join("docs/spec/11-agent-authoring.md");
     let spec = std::fs::read_to_string(&spec_path)?;
@@ -222,6 +198,76 @@ fn check_stated_tool_counts(root: &Path) -> Result<Vec<String>> {
         ),
     );
 
+    Ok(problems)
+}
+
+/// Compare the manual with the actual default MCP advertisement, not a
+/// hard-coded count or wording in the prose.
+fn check_core_profile(skill: &str) -> Result<Vec<String>> {
+    let mut sessions = dli_serve::session::Sessions::new();
+    let mut author = dli_serve::author::store::Store::default();
+    let reply = dli_serve::mcp::handle_rpc(
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+        &mut sessions,
+        &mut author,
+    )
+    .ok_or_else(|| anyhow::anyhow!("core MCP profile did not respond"))?;
+    let response: serde_json::Value = serde_json::from_str(&reply)?;
+    let tools = response["result"]["tools"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("core MCP profile has no tool list"))?;
+    if tools.is_empty() {
+        anyhow::bail!("core MCP profile is empty");
+    }
+    let mut advertised = std::collections::BTreeSet::new();
+    for tool in tools {
+        let name = tool["name"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("core MCP tool lacks a name"))?;
+        if !advertised.insert(name.to_owned()) {
+            anyhow::bail!("duplicate core MCP tool `{name}`");
+        }
+    }
+    let section = skill
+        .split_once("## Core tools\n")
+        .ok_or_else(|| anyhow::anyhow!("SKILL.md lacks the core tool classification"))?
+        .1;
+    let mut listing = String::new();
+    let mut started = false;
+    let mut list_started = false;
+    for line in section.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if line.starts_with("- ") {
+            list_started = true;
+        } else if (list_started && !line.starts_with("  "))
+            || (started && !list_started && line.starts_with("## "))
+        {
+            break;
+        }
+        started = true;
+        listing.push_str(line);
+        listing.push('\n');
+    }
+    let documented: std::collections::BTreeSet<String> = listing
+        .split('`')
+        .skip(1)
+        .step_by(2)
+        .filter(|name| name.starts_with("author.") || name.starts_with("dli."))
+        .map(str::to_owned)
+        .collect();
+    let mut problems = Vec::new();
+    for missing in advertised.difference(&documented) {
+        problems.push(format!(
+            "SKILL.md: default MCP tool `{missing}` is missing from the core list"
+        ));
+    }
+    for extra in documented.difference(&advertised) {
+        problems.push(format!(
+            "SKILL.md: `{extra}` is listed as core but is not advertised"
+        ));
+    }
     Ok(problems)
 }
 
@@ -427,6 +473,33 @@ mod tests {
     /// The same helper must still recognize a genuine standalone mention,
     /// including one immediately followed by punctuation rather than
     /// whitespace (backtick, parenthesis, end of string).
+    #[test]
+    fn core_profile_requires_exact_classification() {
+        let skill = include_str!("../../SKILL.md");
+        let without = skill.replacen("inspection: `author.open`,", "inspection:", 1);
+        assert!(
+            without.contains("`author.open`"),
+            "the loop still mentions it"
+        );
+        let missing = check_core_profile(&without).expect("core profile is available");
+        assert!(
+            missing
+                .iter()
+                .any(|problem| problem.contains("author.open"))
+        );
+        let extra = skill.replacen(
+            "- Acceptance:",
+            "- Extra: `author.branch`.\n- Acceptance:",
+            1,
+        );
+        let extra = check_core_profile(&extra).expect("core profile is available");
+        assert!(
+            extra
+                .iter()
+                .any(|problem| problem.contains("author.branch"))
+        );
+    }
+
     #[test]
     fn mentions_token_still_matches_a_real_standalone_mention() {
         assert!(mentions_token(

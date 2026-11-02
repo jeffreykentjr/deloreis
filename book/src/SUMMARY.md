@@ -2,11 +2,12 @@
 
 [Introduction](introduction.md)
 
-# Foundations
+# Getting started
 
-- [Charter](charter.md)
-- [The plan](plan.md)
-- [Decision ledger](decisions.md)
+- [Quickstart](quickstart.md)
+- [Concepts](concepts.md)
+- [Agent authoring](skill.md)
+- [The Hollow transcript](hollow.md)
 
 # Specification
 
@@ -29,3 +30,9 @@
 - [Grammar keywords](reference-grammar-keywords.md)
 - [CLI commands](reference-cli.md)
 - [Finding families](reference-finding-families.md)
+
+# Governance
+
+- [Charter](charter.md)
+- [The plan](plan.md)
+- [Decision ledger](decisions.md)

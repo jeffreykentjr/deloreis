@@ -79,8 +79,7 @@ Discipline (`decisions.md` DL-0011):
 
 - The language gate is **deterministic offline lanes only** (DL-0013). These are
   what block a merge.
-- Models, the Ludii baseline, and benchmarks run in **non-gating** lanes. Nothing
-  flaky or live is ever in the verdict.
+- Live services and nondeterministic experiments never participate in the verdict.
 
 ## 5. Infra and committing
 
@@ -107,25 +106,10 @@ in a separate change set.
 
 ## 7. The agent-interface law
 
-**Agents author lore through the one interface — the `author.*` MCP tools
-against the `deloreis` server — never by editing `.dli` text** (DL-0014 as
-restated by DL-0043: entry doors are retired and the tool surface is the single
-way in. Attribution and decision state are caller-supplied data; policy about
-who may authorize them belongs to the consuming application, DL-0054). Every
-mutating tool call returns graded findings with repair data, the structured
-result, and the workspace digest; read them, do not guess.
-`author.materialize` is a mutation and the accept decision: it commits the
-staged fact objects to the lorestore and returns them as JSON by default, with
-`.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
-the reject decision; tools write fact objects to the store per-add (DL-0045).
-The server serves **contract 2.0.0** only (DL-0101, DL-0103); retired
-versions and operations are refused with their successor. `SKILL.md` governs
-the authoring session. Review structured diffs with their before/after
-standing; callers own presentation and approval policy.
-
-Callers supply attribution and decision state. A cited decision must resolve;
-unknown citations produce an error finding and cannot make a claim certain.
-Stored standing distinguishes asserted, proposed, provisional, and ratified
-claims. Conditional decision attacks preserve earlier claims and can restore a
-claim when its attacker is defeated. Attack cycles remain possible rather than
-being forced true or false. The lorestore keeps committed history replayable.
+Agents author lore through `author.*` MCP tools, not by editing `.dli` text.
+Read returned findings and repairs before committing. `author.materialize`
+checks and commits the staged objects; `author.discard` rejects staged work.
+Mutating tools may also write to the store directly. The server serves contract
+2.0.0 only. `SKILL.md` describes the current session workflow. Caller-supplied
+attribution and decision state are data; authorization and review policy belong
+to the consuming application. Review structured diffs and their standing.
