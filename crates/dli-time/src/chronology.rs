@@ -171,9 +171,7 @@ impl Chronology {
 
         let mut unique_edges: BTreeSet<(u32, u32)> = BTreeSet::new();
         for (from, to) in &self.edges {
-            if from.0 != to.0 {
-                unique_edges.insert((from.0, to.0));
-            }
+            unique_edges.insert((from.0, to.0));
         }
 
         let mut indegree: BTreeMap<u32, usize> = nodes.iter().map(|&node| (node, 0)).collect();

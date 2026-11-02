@@ -9,6 +9,7 @@ pub mod check;
 pub mod draft;
 pub mod episode;
 pub mod episode_order;
+mod era_order;
 pub mod incremental;
 pub mod language;
 pub mod loader;

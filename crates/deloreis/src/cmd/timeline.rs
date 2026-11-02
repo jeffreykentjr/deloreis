@@ -127,7 +127,10 @@ fn universe(world: &World) -> Vec<TimePoint> {
 
 fn run_show(args: &ShowArgs) -> CmdResult {
     let files = cmd::load_corpus(&args.corpus)?;
-    let world = cmd::compile_corpus(&files, "timeline")?.model.world;
+    let compiled = cmd::compile_corpus(&files, "timeline")?;
+    let chronology = compiled.model.chronology_with_era_membership();
+    let mut world = compiled.model.world;
+    world.chronology = chronology;
     let points = universe(&world);
     let cursor = args
         .at
@@ -192,7 +195,10 @@ fn run_show(args: &ShowArgs) -> CmdResult {
 
 fn run_order(args: &CorpusArgs) -> CmdResult {
     let files = cmd::load_corpus(&args.corpus)?;
-    let world = cmd::compile_corpus(&files, "timeline")?.model.world;
+    let compiled = cmd::compile_corpus(&files, "timeline")?;
+    let chronology = compiled.model.chronology_with_era_membership();
+    let mut world = compiled.model.world;
+    world.chronology = chronology;
 
     if let Some(blame) = world.chronology.find_cycle(&[]) {
         outln!(

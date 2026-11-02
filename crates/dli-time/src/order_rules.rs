@@ -52,7 +52,7 @@
 //! graph reachability); this wrapper is the one to use when a checker must not
 //! let an unratified edge harden a schedule.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -668,8 +668,8 @@ pub enum StandingOrder {
 /// [`Chronology::find_cycle`](crate::chronology::Chronology::find_cycle)). An
 /// edge with no entry in `anns` is treated as certain (a declared, unconditional
 /// order); a `Dead` edge is dropped from both readings. Precedence is computed
-/// twice — once over the certain edges alone, once over every live edge — and
-/// the strongest true reading wins.
+/// first over the certain edges. The possible reading joins support across each
+/// complete path, so mutually exclusive edges cannot invent a possible order.
 ///
 /// ```
 /// use dli_core::ann::{Ann, Theory};
@@ -715,14 +715,63 @@ pub fn precedes_with_standing(
         TemporalVerdict::After => return StandingOrder::CertainlyAfter,
         TemporalVerdict::Unordered => {}
     }
-    let live = filter_edges(chronology, anns, valuation, theory, |status| {
-        status != Status::Dead
-    });
-    match live.precedes(earlier, later) {
-        TemporalVerdict::Before => StandingOrder::PossiblyBefore,
-        TemporalVerdict::After => StandingOrder::PossiblyAfter,
-        TemporalVerdict::Unordered => StandingOrder::Unordered,
+    if possible_path(chronology, anns, valuation, theory, earlier, later) {
+        StandingOrder::PossiblyBefore
+    } else if possible_path(chronology, anns, valuation, theory, later, earlier) {
+        StandingOrder::PossiblyAfter
+    } else {
+        StandingOrder::Unordered
     }
+}
+
+/// Reachability whose entire path has a jointly possible support monomial.
+/// Keep an antichain at each point: a weaker support dominates every stronger
+/// support there, and the finite literal set makes cycles terminate.
+fn possible_path(
+    chronology: &Chronology,
+    anns: &[Ann],
+    valuation: &Valuation,
+    theory: &Theory,
+    start: TimePoint,
+    goal: TimePoint,
+) -> bool {
+    use dli_core::posbool::Monomial;
+    let mut adjacency: BTreeMap<u32, Vec<(usize, TimePoint)>> = BTreeMap::new();
+    for (index, &(from, to)) in chronology.edges.iter().enumerate() {
+        adjacency.entry(from.0).or_default().push((index, to));
+    }
+    let mut seen: BTreeMap<u32, Vec<Monomial>> = BTreeMap::new();
+    seen.insert(start.0, vec![Monomial::top()]);
+    let mut pending = VecDeque::from([(start, Monomial::top())]);
+    let unconditional = Ann::unconditional();
+    while let Some((point, prefix)) = pending.pop_front() {
+        for &(index, to) in adjacency.get(&point.0).into_iter().flatten() {
+            let ann = anns.get(index).unwrap_or(&unconditional);
+            if ann.status(valuation, theory) == Status::Dead {
+                continue;
+            }
+            for support in ann.support.monomials() {
+                let combined = Monomial::from_lits(prefix.lits().chain(support.lits()));
+                if combined.is_contradictory()
+                    || !combined.is_live_under(valuation)
+                    || !theory.respects(&combined)
+                {
+                    continue;
+                }
+                if to == goal {
+                    return true;
+                }
+                let prior = seen.entry(to.0).or_default();
+                if prior.iter().any(|known| known.subsumes(&combined)) {
+                    continue;
+                }
+                prior.retain(|known| !combined.subsumes(known));
+                prior.push(combined.clone());
+                pending.push_back((to, combined));
+            }
+        }
+    }
+    false
 }
 
 /// A sub-chronology of the edges whose declaring ruling's standing satisfies

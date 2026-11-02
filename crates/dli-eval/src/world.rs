@@ -403,6 +403,12 @@ impl World {
                     world.chronology.edges.push((earlier, later));
                 }
                 Decl::Entity(entity) => {
+                    if entity.kind == dli_ast::decl::EntityKind::Event
+                        && let Some(TimeClause::During(era)) = &entity.time
+                    {
+                        world.time_point(&entity.name.text);
+                        world.time_point(&era.text);
+                    }
                     for slot in &entity.slots {
                         world.lower_attr(
                             slot,
@@ -2106,6 +2112,20 @@ fn join_body(
         }
     }
     out
+}
+
+/// Conjoin two annotations using the same conditioned-support algebra as rule evaluation.
+#[must_use]
+pub fn conjoin_annotations(left: &Ann, right: &Ann) -> Ann {
+    let joined = CondSupport::of_ann(left).and_(&CondSupport::of_ann(right));
+    Ann::conditioned(joined.support, joined.conditions)
+}
+
+/// Disjoin alternative annotations using the same conditioned-support algebra as rule evaluation.
+#[must_use]
+pub fn disjoin_annotations(left: &Ann, right: &Ann) -> Ann {
+    let joined = CondSupport::of_ann(left).or_(&CondSupport::of_ann(right));
+    Ann::conditioned(joined.support, joined.conditions)
 }
 
 /// Merge a conditioned derivation into the relation. Grade and defeater

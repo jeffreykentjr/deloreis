@@ -111,5 +111,6 @@ pub(crate) fn seal(
         None => (model.world.saturate_with(&strata)?, ReuseReport::fallback()),
     };
     model.world = saturated;
+    model.inferred_era_edges = crate::era_order::infer(&model);
     Ok((model, report))
 }
