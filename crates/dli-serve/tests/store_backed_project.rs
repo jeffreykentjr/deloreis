@@ -2288,3 +2288,70 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
         "{old_result}"
     );
 }
+
+#[test]
+fn conflicting_proposals_warn_and_survive_materialization_and_restart() {
+    use std::sync::Arc;
+    let root = temp("pending-conflict-persistence");
+    seed_store(&root, "storybook", "nara");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0", "id":"open", "op":"author.open",
+        "params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap();
+    let declared = send(
+        &serde_json::json!({"dli":"2.0.0", "id":"functional", "op":"author.declare_functional",
+        "params":{"workspace":ws,"pred":"rank","provenance":{"kind":"proposed","origin":"test"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(declared["ok"], true, "{declared}");
+    for value in ["captain", "admiral"] {
+        let staged = send(
+            &serde_json::json!({"dli":"2.0.0", "id":"add", "op":"author.add_fact",
+            "params":{"workspace":ws,"entity":"nara","key":"rank","value":value,
+            "provenance":{"kind":"proposed","origin":"test"}}}),
+            &mut sessions,
+            &mut author,
+        );
+        assert_eq!(staged["ok"], true, "{staged}");
+    }
+    let checked = send(
+        &serde_json::json!({"dli":"2.0.0", "id":"check", "op":"author.check",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert!(
+        checked["result"]["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "continuity.pending-conflict" && f["severity"] == "warn"),
+        "{checked}"
+    );
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0", "id":"commit", "op":"author.materialize",
+        "params":{"workspace":ws}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    drop(author);
+    drop(sessions);
+    drop(project);
+    let reopened = Project::load(&root).unwrap();
+    let doc = reopened.document("storybook").unwrap();
+    let world = dli_world::compile(&doc.pack).unwrap();
+    assert!(
+        dli_world::check::run(&world)
+            .iter()
+            .any(|f| f.code == "continuity.pending-conflict")
+    );
+}

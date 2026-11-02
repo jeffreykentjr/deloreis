@@ -86,8 +86,8 @@ Every item below was exercised live over MCP on the default build at
 
 - "Who knew what when" works in production order, not story order. Don't
   promise modelling of unreliable narrators.
-- Two conflicting claims that are both drafts stay silent until one is ruled.
-  HANDOVER T13 adds a warning.
+- Conflicting proposed values on a declared-functional slot raise a warning;
+  the author still decides which account, if any, becomes canon.
 - The contradiction check fires only on slots you declared single-valued.
 
 ## The example world (to build; replaces every former private consumer example)

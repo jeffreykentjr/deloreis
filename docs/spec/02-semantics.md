@@ -239,9 +239,11 @@ poisoning the support monomial — and `ward-holds` would evaluate as
 only its standing degrades.
 
 **Slots are functional dependencies.** A slot (`entity.key`) admits one value;
-the continuity checker already treats them so. A certain value `v` together with
-a possible claim `v′ ≠ v` raises a **pending-conflict** for the author — nothing
-is dropped, nothing is auto-resolved.
+the continuity checker already treats them so. Two distinct live values on a declared-functional non-fluent slot, at least one
+an authored proposal that is still possible, raise a warn-level
+`continuity.pending-conflict` unless the slot already has a certain authored functional
+violation. The warning does not decide either account or block materialization.
+Dead claims are excluded; fluents are checked against their time intervals separately.
 
 **Which predicates are functional, and what a break is called.** A predicate is
 functional when the author declared it so (`functional <pred>`, spec/01 §3). For

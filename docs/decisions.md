@@ -107,3 +107,19 @@ world without overwriting an existing world. A deliberate
 
 **Rationale.** Fiction authors need a working text entry point and a direct path
 from an example document to the persistent authoring server.
+
+## DL-0106 — Surface conflicts involving proposed values
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** A declared-functional, non-fluent slot with distinct live values,
+at least one an authored proposal that is still possible, raises
+`continuity.pending-conflict` at warning severity unless the slot already has a
+certain authored functional-dependency violation. The warning does not assign standing,
+resolve the accounts, or block materialization. Dead claims do not participate;
+fluent slots remain subject to interval-sensitive checks.
+
+**Rationale.** Authors need to see potential continuity debt while preserving
+rival accounts and leaving decisions to the caller.
