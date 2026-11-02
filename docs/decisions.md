@@ -5680,3 +5680,59 @@ stale-sibling exact-candidate rejection, branch isolation, whole-ref CAS-race
 refusal, and zero fallible reads after successful CAS. Schema, fixture,
 docs-oracle, authority, both strict Clippy lanes, and the full deterministic gate
 remain release-blocking.
+
+## DL-0101 — Fiction-release reset: fiction-only scope, TPtH out, `.dli` revived
+
+*Date: 2026-11-02*
+
+**Attribution:** human. The repository owner ruled this in a 2026-11-02 session
+and the agent recorded it. In the owner's words: "we made this project for
+fiction lore use cases. then we spent a bunch of time trying to apply it to
+general llm benchmark type use cases, none of which worked out. were abandoning
+that approach"; "tpth will need to be fully scrubbed out. dont care about the
+history but nothing about tpth in this repo"; "maybe we bring back the .dli
+syntax and make it robust for wider consumption"; "just hack off the bits we
+arent using ... git will still have the history ... ci should not pay any cost
+for abandoned features."
+
+**Ruling.** This entry has six parts.
+
+1. **Scope.** De Lore Is is a continuity engine for fictional worlds. Authors,
+   and the agents that write with them, author canon into it. Calling it
+   agent-ready for authors and agents generating fiction is in scope. Calling
+   it general agent memory or "epistemic infrastructure" is not. This
+   supersedes DL-0062 §1 and its rationale. The dli-benchmarks evidence
+   program is retired, and no doc may cite it as a priority or as evidence.
+   DL-0062 §2–§3 (the peer/service archive destination, spec 12, DIST-*) are
+   parked with no trigger. The DL-0054/DL-0058 authority scrub stands.
+2. **TPtH leaves the repository.** All TPtH code, worlds, vendored corpora,
+   fixtures, docs and lints are deleted, along with every op, crate, schema
+   and test whose only consumer is TPtH or the fantasy factory. A generic
+   mechanism whose tests use TPtH data survives with its data re-authored on
+   original or public-domain worlds. The commit before the scrub is tagged
+   `pre-fiction-reset`, and the former consumer pins that tag. The world-token
+   lints become a repo-wide guard against reintroduction.
+3. **Contract 2.0.0.** After the scrub, the server serves one contract,
+   `2.0.0`. Every earlier accepted version, and every op deleted under part
+   2, is registered in the killed-form registry with "contract 2.0.0" as its
+   successor and is refused by name. This performs the DM-6 retirement that
+   EXT-F4 licensed.
+4. **`.dli` is a first-class surface.** The `.dli` text language is revived
+   as a supported authoring and reading surface, hardened for outside users
+   and shipped in the default build. The lorestore fact objects remain the
+   canonical form, and DL-0041's schema-first law stands. This amends
+   DL-0041's characterization of `.dli` as an opt-in rendering and cancels the
+   full-removal phase (GH #84). Agents may still prefer the `author.*` tools.
+5. **Cut, don't archive.** Unused infrastructure, docs and code are deleted
+   rather than preserved; git history is the archive. CI carries no cost for
+   abandoned features.
+6. **Execution.** The plan is `docs/release/HANDOVER.md`. The north star is
+   `docs/release/north-star.md`.
+
+**Rationale.** The benchmark direction produced no positive result, and its
+framing now misdescribes the product. The private consumer made the public
+tree unreadable and kept a multi-version wire layer alive for one caller. The
+readable text form is the best way to show and teach a world.
+
+**Revisit trigger.** A new consumer outside fiction with a measured positive
+result, or the owner reopening the archive destination.

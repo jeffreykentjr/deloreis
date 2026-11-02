@@ -8,6 +8,9 @@ you are starting cold: read this file, then `docs/charter.md`, then
 ## 1. Cold-start read order
 
 1. This file — how the repo works.
+   **Current work:** the fiction-release reset (DL-0101). Read
+   `docs/release/north-star.md` and `docs/release/HANDOVER.md` before anything
+   else; where they conflict with older text in this file, DL-0101 wins.
 2. `docs/charter.md` — the twelve koans; the constitution.
 3. `docs/spec/00-overview.md` — what the language is; the seven programs.
 4. `docs/PLAN.md` — the dependency DAG; the frontier tells you what is runnable.
@@ -108,7 +111,7 @@ Discipline (`decisions.md` DL-0011):
 - **No single commit or PR spans repos.** A commit touches exactly one repo's
   tree — a deloreis commit never writes the fantasy tree, and vice versa. The
   same agent may open *separate* PRs to deloreis and to a consuming repo
-  (fantasy, dli-benchmarks) in one task; what is barred is one commit reaching
+  (fantasy) in one task; what is barred is one commit reaching
   across trees.
 - **Three artifacts cross the boundary**, each with one owner: the contract
   (deloreis owns; fantasy vendors, digest-checked — DL-0010), the vendored corpus
