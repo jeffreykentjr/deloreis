@@ -4,6 +4,13 @@
   "description": "`dli.export.run` params.",
   "type": "object",
   "properties": {
+    "as_of": {
+      "description": "Optional era or event at which to project temporal states.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "document": {
       "description": "The document id.",
       "type": "string"

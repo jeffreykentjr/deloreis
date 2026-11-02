@@ -230,6 +230,9 @@ pub(crate) struct ExportArgs {
     /// last registered profile is used.
     #[arg(long = "profile-name", value_name = "NAME")]
     pub(crate) profile_name: Option<String>,
+    /// Project temporal states at this era or event.
+    #[arg(long = "as-of", value_name = "POINT")]
+    pub(crate) as_of: Option<String>,
 }
 
 /// Render a compiled world under the requested profile and print its manifest.
@@ -260,6 +263,7 @@ fn run_export_world(args: &ExportArgs, target: ExportTarget, label: &str) -> Cmd
             files.iter().map(|file| file.source.as_bytes()),
         ),
         profile_name: args.profile_name.clone(),
+        as_of: args.as_of.clone(),
         ..ExportOpts::default()
     };
     let outcome = export_with(&registry, target, &world, &opts)

@@ -462,6 +462,9 @@ pub struct ExportOpts {
     /// The source commit to pin in the manifest. The kernel is offline and reads
     /// no git; the caller supplies the commit its canon was compiled from.
     pub source_commit: String,
+    /// Project temporal state at this era or event before exporting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<String>,
     /// An explicit fork valuation to export under, applied over the ambient ledger
     /// (the overlay wins). `None` reads the certain layer under the ambient ledger
     /// — the fail-closed default (spec 09 §2 clause 1, `--fork`).
@@ -526,6 +529,15 @@ pub enum ExportError {
     /// The caller did not identify the source state used for the export.
     #[error("an export requires a non-empty source commit or content fingerprint")]
     MissingSourceAnchor,
+    /// The requested era or event is unknown.
+    #[error("unknown era or event '{0}'")]
+    UnknownTimePoint(String),
+    /// The historical projection needs unresolved chronology.
+    #[error("historical export: {0}")]
+    TemporalIndeterminate(String),
+    /// The historical projection failed internally.
+    #[error("historical export: {0}")]
+    TemporalInternal(String),
     /// A materialized source is still proposed and therefore cannot be exported
     /// as certain-layer knowledge.
     #[error("target {target} cannot export a proposed source as certain-layer knowledge")]
@@ -707,6 +719,12 @@ pub fn export_with(
     let spec = registry.resolve_for(target, opts.profile_name.as_deref())?;
 
     let (layer, valuation) = layer_valuation(world, opts);
+    let temporal_world = opts
+        .as_of
+        .as_deref()
+        .map(|at| project_export_world(world, &valuation, at))
+        .transpose()?;
+    let world = temporal_world.as_ref().unwrap_or(world);
     let certain = certain_atoms_under(world, &valuation);
     let visible = apply_keep_stamps(certain, &opts.keep_stamps);
     let selected = select_atoms(spec, visible.clone());
@@ -745,9 +763,86 @@ pub fn export_with(
         commit: opts.source_commit.clone(),
         layer,
         valuation: digest_of(&valuation),
-        profile_hash: digest_of(&(spec, &opts.keep_stamps)),
+        profile_hash: if opts.as_of.is_some() {
+            digest_of(&(spec, &opts.keep_stamps, &opts.as_of))
+        } else {
+            digest_of(&(spec, &opts.keep_stamps))
+        },
+        as_of: opts.as_of.clone(),
     };
     Ok(ExportOutcome { artifact, manifest })
+}
+
+fn project_export_world(
+    world: &CompiledWorld,
+    valuation: &Valuation,
+    at: &str,
+) -> Result<CompiledWorld, ExportError> {
+    if !world.model.temporal_sources_complete {
+        return Err(ExportError::TemporalInternal(
+            "temporal source mapping is unavailable; recompile the world".to_owned(),
+        ));
+    }
+    let mut temporal_world = world.clone();
+    temporal_world.model.world.valuation = valuation.clone();
+    let point = temporal_world
+        .model
+        .world
+        .time_points
+        .lookup(at)
+        .ok_or_else(|| ExportError::UnknownTimePoint(at.to_owned()))?;
+    let projected = dli_world::check::continuity::query_world_at(
+        &temporal_world,
+        dli_time::chronology::TimePoint(point.0),
+    )
+    .map_err(|error| match error {
+        dli_world::check::continuity::TemporalQueryError::Indeterminate(message) => {
+            ExportError::TemporalIndeterminate(message)
+        }
+        dli_world::check::continuity::TemporalQueryError::Internal(message) => {
+            ExportError::TemporalInternal(message)
+        }
+    })?;
+    let expected: std::collections::BTreeSet<_> = temporal_world
+        .model
+        .fluent_fact_indices
+        .values()
+        .flatten()
+        .copied()
+        .chain(
+            temporal_world
+                .model
+                .standalone_temporal_facts
+                .iter()
+                .map(|(index, _)| *index),
+        )
+        .collect();
+    let mapped: std::collections::BTreeSet<_> = temporal_world
+        .model
+        .temporal_atom_facts
+        .values()
+        .copied()
+        .collect();
+    if expected != mapped || mapped.len() != temporal_world.model.temporal_atom_facts.len() {
+        return Err(ExportError::TemporalInternal(
+            "inconsistent temporal source indices".to_owned(),
+        ));
+    }
+    for (&atom_index, &fact_index) in &temporal_world.model.temporal_atom_facts {
+        let fact = projected.facts.get(fact_index).ok_or_else(|| {
+            ExportError::TemporalInternal("invalid temporal fact index".to_owned())
+        })?;
+        let atom = temporal_world
+            .model
+            .atoms
+            .get_mut(atom_index)
+            .ok_or_else(|| {
+                ExportError::TemporalInternal("invalid temporal source index".to_owned())
+            })?;
+        atom.ann = fact.ann.clone();
+    }
+    temporal_world.model.world = projected;
+    Ok(temporal_world)
 }
 
 fn select_atoms<'a>(spec: &ProfileSpec, atoms: Vec<&'a LoadedAtom>) -> Vec<&'a LoadedAtom> {

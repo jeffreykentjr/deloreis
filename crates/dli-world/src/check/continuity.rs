@@ -1421,6 +1421,11 @@ pub fn query_world_at(
     use dli_time::chronology::TemporalVerdict;
     use dli_time::fluent::TemporalCover;
     type CoverDecision = Option<(TemporalCover, Option<TimePoint>, Option<TimePoint>)>;
+    if !world.model.temporal_sources_complete {
+        return Err(TemporalQueryError::Internal(
+            "temporal source mapping is unavailable; recompile the world".to_owned(),
+        ));
+    }
     let canon = identity_canon(world);
     let mut decisions: BTreeMap<usize, CoverDecision> = BTreeMap::new();
     let mut unknown_anchors = BTreeSet::new();

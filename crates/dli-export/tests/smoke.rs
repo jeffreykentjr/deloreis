@@ -62,6 +62,7 @@ fn neutral_registry() -> Registry {
 #[test]
 fn manifest_round_trips() {
     let manifest = ExportManifest {
+        as_of: None,
         commit: "deadbeef".to_owned(),
         layer: "ratified".to_owned(),
         valuation: "sha256:0000".to_owned(),
